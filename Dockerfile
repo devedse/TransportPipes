@@ -25,7 +25,9 @@ RUN dotnet restore "TransportPipes.Server/TransportPipes.Server.csproj"
 COPY . .
 ARG BUILD_VERSION
 ARG VER=${BUILD_VERSION:-1.0.0}
-RUN dotnet publish "TransportPipes.Server/TransportPipes.Server.csproj" -c Release --no-restore -o /app/publish /p:Version=$VER /p:UseAppHost=false
+# The git commit, shown next to the version in the game (.git is not part of the build context)
+ARG BUILD_COMMIT
+RUN dotnet publish "TransportPipes.Server/TransportPipes.Server.csproj" -c Release --no-restore -o /app/publish /p:Version=$VER /p:SourceRevisionId=$BUILD_COMMIT /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app

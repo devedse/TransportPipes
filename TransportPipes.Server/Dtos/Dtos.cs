@@ -39,6 +39,10 @@ public record ChunkData(int ChunkX, int ChunkY, int[][] Terrain, string[][] Game
 
 public record GoldInfo(string UserName, double CurrentGold, double GoldPerSecond);
 
+/// <param name="Version">e.g. 1.0.5 (master) or 1.0.5-beta (other branches)</param>
+/// <param name="Commit">The git commit the server was built from, if known</param>
+public record VersionInfo(string Version, string? Commit);
+
 /// <param name="Level">info, warning or error</param>
 /// <param name="DurationMs">How long to show the notification, null means until the user dismisses it</param>
 public record Notification(string Message, string Level, int? DurationMs)

@@ -3,6 +3,7 @@ import { gameClient } from "../app/instance";
 import type { ConnectionStatus } from "../api/transportConnection";
 import { formatGold, formatGoldPerSecond, goldAt } from "../state/gold";
 import { useAppStore } from "../state/store";
+import { VersionBadge } from "./VersionBadge";
 
 const STATUS_LABELS: Record<ConnectionStatus, string> = {
   connecting: "Connecting",
@@ -73,6 +74,7 @@ export function Hud() {
           Tile {hoveredTile.x}, {hoveredTile.y}
         </div>
       )}
+      <VersionBadge />
     </>
   );
 }

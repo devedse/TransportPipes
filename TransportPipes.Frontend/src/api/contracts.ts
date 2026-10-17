@@ -2,6 +2,9 @@
 
 export const HUB_URL = "/hubs/transport";
 
+/** Plain HTTP endpoint (not part of the hub) with the version of the running server. */
+export const VERSION_URL = "/api/version";
+
 export const GameObjectType = {
   None: 0,
   FactorySmall: 1,
@@ -66,6 +69,14 @@ export interface ServerNotification {
   level: NotificationLevel;
   /** null = sticky until dismissed. */
   durationMs: number | null;
+}
+
+/** GET /api/version */
+export interface VersionInfo {
+  /** e.g. "1.0.5" (master) or "1.0.5-beta" (other branches). */
+  version: string;
+  /** The git commit the server was built from, if known. */
+  commit: string | null;
 }
 
 /** Methods on the hub that the client invokes, with their return types. */

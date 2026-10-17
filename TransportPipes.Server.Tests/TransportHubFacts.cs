@@ -1,7 +1,9 @@
 using System.Net;
+using System.Net.Http.Json;
 using Microsoft.AspNetCore.SignalR.Client;
 using TransportPipes.Common.Enums;
 using TransportPipes.Server.Dtos;
+using TransportPipes.Server.Services;
 
 namespace TransportPipes.Server.Tests;
 
@@ -18,6 +20,19 @@ public class TransportHubFacts
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         Assert.AreEqual("Healthy", await response.Content.ReadAsStringAsync());
+    }
+
+    [TestMethod]
+    public async Task VersionEndpointReturnsTheVersion()
+    {
+        await using var factory = new TransportPipesServerFixture();
+        using var httpClient = factory.CreateClient();
+
+        var version = await httpClient.GetFromJsonAsync<VersionInfo>("/api/version");
+
+        Assert.IsNotNull(version);
+        Assert.AreEqual(AppVersion.Current, version);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(version.Version));
     }
 
     [TestMethod]

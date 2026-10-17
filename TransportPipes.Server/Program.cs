@@ -34,6 +34,7 @@ app.UseStaticFiles();
 
 app.MapHub<TransportHub>(TransportHub.Path);
 app.MapHealthChecks("/health");
+app.MapGet("/api/version", () => AppVersion.Current);
 app.MapFallbackToFile("index.html");
 
 app.Run();

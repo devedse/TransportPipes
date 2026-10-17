@@ -154,6 +154,7 @@ jobs:
         annotations: ${{ steps.meta.outputs.annotations }}
         build-args: |
           BUILD_VERSION=${{ needs.generate_version_number.outputs.version }}
+          BUILD_COMMIT=${{ github.sha }}
         github-token: ${{ secrets.GITHUB_TOKEN }}
         provenance: false
         sbom: false
