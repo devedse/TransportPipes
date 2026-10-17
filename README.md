@@ -3,6 +3,9 @@
 An online isometric game: build wind mills, solar panels, mines, factories, storages and trading buildings, connect them
 with pipes and earn gold by trading the resources with other players and the market.
 
+The design for the full game (estates, districts, trading, Eras, the late game) is in
+[docs/GameDesign.md](docs/GameDesign.md).
+
 This is the modernized version of the original game (ASP.NET WebForms + SignalR 2 + TypeScript 1.8, imported from TFS in
 commit `b2188c0`, where the old sources can still be found).
 
