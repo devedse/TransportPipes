@@ -1,9 +1,7 @@
 # Transport Pipes: one file to run the game and its database.
-# 1. The image is private (like the repo): log in once with a GitHub token that has read:packages:
-#      echo <token> | docker login ghcr.io -u devedse --password-stdin
-#    (or build the image yourself with: docker compose up -d --build)
-# 2. Change POSTGRES_PASSWORD (e.g. in a .env file next to this file).
-# 3. docker compose up -d, then open http://<this-host>:8080
+# 1. Change POSTGRES_PASSWORD (e.g. in a .env file next to this file).
+# 2. docker compose up -d, then open http://<this-host>:8080 and create an account.
+#    (In a clone of the repository you can also build the image yourself: docker compose up -d --build)
 services:
   transportpipes:
     image: ghcr.io/devedse/transportpipes:latest

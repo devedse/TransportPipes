@@ -11,9 +11,6 @@ commit `b2188c0`, where the old sources can still be found).
 The game is one Docker image (`ghcr.io/devedse/transportpipes`) plus a PostgreSQL database, see [compose.yaml](compose.yaml):
 
 ```bash
-# The image is private (like the repo), log in once with a GitHub token that has read:packages
-echo <token> | docker login ghcr.io -u devedse --password-stdin
-
 docker compose up -d
 ```
 
