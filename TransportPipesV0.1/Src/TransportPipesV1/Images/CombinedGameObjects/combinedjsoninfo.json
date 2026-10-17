@@ -1,0 +1,49 @@
+{
+  "imageinfos": {
+    "factorysmall": {
+      "count": 7
+    },
+    "windmoily": {
+      "count": 7
+    },
+    "greypipedl": {
+      "count": 1
+    },
+    "greypiperd": {
+      "count": 1
+    },
+    "greypiperdl": {
+      "count": 1
+    },
+    "greypiperl": {
+      "count": 1
+    },
+    "greypipeud": {
+      "count": 1
+    },
+    "greypipeudl": {
+      "count": 1
+    },
+    "greypipeul": {
+      "count": 1
+    },
+    "greypipeur": {
+      "count": 1
+    },
+    "greypipeurd": {
+      "count": 1
+    },
+    "greypipeurdl": {
+      "count": 1
+    },
+    "greypipeurl": {
+      "count": 1
+    },
+    "solarpanels": {
+      "count": 1
+    }
+  },
+  "meta": {
+    "OtherJsonFile": "combinedjson.json"
+  }
+}

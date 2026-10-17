@@ -1,0 +1,26 @@
+﻿body {
+}
+
+.animatable {
+    -webkit-transition: all 0.7s ease;
+    -moz-transition: all 0.7s ease;
+    -o-transition: all 0.7s ease;
+    transition: all 0.7s ease;
+}
+
+.animatableFast {
+    -webkit-transition: all 0.3s ease;
+    -moz-transition: all 0.3s ease;
+    -o-transition: all 0.3s ease;
+    transition: all 0.3s ease;
+}
+
+.delayed {
+    animation-delay: 0.7s;
+    -webkit-animation-delay: 0.7s
+}
+
+.delayedFast {
+    animation-delay: 0.3s;
+    -webkit-animation-delay: 0.3s
+}

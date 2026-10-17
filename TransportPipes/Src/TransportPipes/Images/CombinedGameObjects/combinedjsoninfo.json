@@ -1,0 +1,61 @@
+{
+  "imageinfos": {
+    "FactorySmall": {
+      "count": 7
+    },
+    "TradingBuilding": {
+      "count": 8
+    },
+    "UnderConstruction": {
+      "count": 28
+    },
+    "WindMoily": {
+      "count": 7
+    },
+    "GreyPipedl": {
+      "count": 1
+    },
+    "GreyPiperd": {
+      "count": 1
+    },
+    "GreyPiperdl": {
+      "count": 1
+    },
+    "GreyPiperl": {
+      "count": 1
+    },
+    "GreyPipeud": {
+      "count": 1
+    },
+    "GreyPipeudl": {
+      "count": 1
+    },
+    "GreyPipeul": {
+      "count": 1
+    },
+    "GreyPipeur": {
+      "count": 1
+    },
+    "GreyPipeurd": {
+      "count": 1
+    },
+    "GreyPipeurdl": {
+      "count": 1
+    },
+    "GreyPipeurl": {
+      "count": 1
+    },
+    "IronMine": {
+      "count": 1
+    },
+    "SolarPanel": {
+      "count": 1
+    },
+    "Storage": {
+      "count": 1
+    }
+  },
+  "meta": {
+    "OtherJsonFile": "combinedjson.json"
+  }
+}

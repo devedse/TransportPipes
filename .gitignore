@@ -1,0 +1,23 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+TestResults/
+
+# NuGet packages (restored from packages.config)
+packages/
+*.nupkg
+
+# Visual Studio user-specific files
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# TFS source control metadata
+*.vssscc
+*.vspscc
+
+# Compiled TypeScript output (generated next to the .ts files)
+**/TypeScripts/**/*.js
+**/TypeScripts/**/*.js.map

@@ -1,0 +1,50 @@
+﻿<%@ Master Language="C#" AutoEventWireup="true" CodeBehind="SuperMaster.master.cs" Inherits="TransportPipes.SuperMaster" %>
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head runat="server">
+    <title>Transport Pipes</title>
+    <meta name="viewport" content="initial-scale=1 maximum-scale=1 user-scalable=0" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #EEFFFF;
+        }
+    </style>
+    <asp:ContentPlaceHolder ID="head" runat="server">
+    </asp:ContentPlaceHolder>
+</head>
+<body>
+    <script src="Scripts/jquery-3.1.0.js"></script>
+    <script src="Scripts/pixi.js"></script>
+    <script src="Scripts/jquery.signalR-2.2.1.js"></script>
+    <script src="signalr/hubs"></script>
+    <script src="Scripts/knockout-3.4.0.js"></script>
+    <script src="Scripts/knockout-animate.js"></script>
+
+    <script src="Scripts/notify.js"></script>
+
+    <script src="Scripts/keydrown.js"></script>
+
+    <script src="Scripts/TypeScripts/GameClasses/Helpers/DiagonalHelper.js"></script>
+    <script src="Scripts/TypeScripts/GameClasses/Helpers/GeneralHelper.js"></script>
+
+    <script src="Scripts/TypeScripts/SignalR/SignalRHandler.js"></script>
+
+    <link href="Css/Default.css" rel="stylesheet" />
+    <link href="Css/PopyWindow.css" rel="stylesheet" />
+
+    <%--<link href="Content/normalize.css" rel="stylesheet" />--%>
+    <link href="Content/animate.css" rel="stylesheet" />
+    <script src="Scripts/sha512.js"></script>
+
+    <form id="form1" runat="server">
+        <div>
+            <asp:ContentPlaceHolder ID="ContentPlaceHolder1" runat="server">
+            </asp:ContentPlaceHolder>
+        </div>
+    </form>
+</body>
+</html>
