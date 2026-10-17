@@ -15,7 +15,7 @@ services:
     environment:
       ConnectionStrings__TransportPipes: "Host=transportpipes-db;Database=transportpipes;Username=transportpipes;Password=${POSTGRES_PASSWORD:-transportpipes}"
       # The gold a new player starts with
-      TransportPipes__StartingGold: "500"
+      TransportPipes__StartingGold: "2000"
       # Creates the users admin and Devedse (password: a) when there are no users yet, only for testing
       # TransportPipes__SeedTestUsers: "true"
     depends_on:

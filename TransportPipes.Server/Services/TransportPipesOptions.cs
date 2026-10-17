@@ -12,7 +12,7 @@ public class TransportPipesOptions
     /// <summary>
     /// The gold a newly registered player starts with
     /// </summary>
-    public double StartingGold { get; set; } = 500;
+    public double StartingGold { get; set; } = 2000;
 
     /// <summary>
     /// Creates the users "admin" and "Devedse" (with <see cref="TestUserPassword"/>) when there are no users yet.

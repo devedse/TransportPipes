@@ -23,7 +23,7 @@ follows every push. Use `latest` (or a version like `1.0.2`) to only run builds 
 | Environment variable | Default | |
 | --- | --- | --- |
 | `ConnectionStrings__TransportPipes` | | The PostgreSQL connection string (required) |
-| `TransportPipes__StartingGold` | `500` | The gold a new player starts with |
+| `TransportPipes__StartingGold` | `2000` | The gold a new player starts with |
 | `TransportPipes__SeedTestUsers` | `false` | Creates the users `admin` and `Devedse` when there are no users yet |
 | `TransportPipes__TestUserPassword` | `a` | The password of those test users |
 | `TransportPipes__ActionizerIntervalSeconds` | `1` | How often the queued actions (building, deleting) are executed |

@@ -54,7 +54,7 @@ public class DatabaseInitializer
     {
         foreach (var (userName, email) in new[] { ("admin", "admin@test.com"), ("Devedse", "devedse@test.com") })
         {
-            var user = new DbUser { UserName = userName, Email = email, Gold = 500 };
+            var user = new DbUser { UserName = userName, Email = email, Gold = _options.StartingGold };
             user.PasswordHash = _passwordHasher.HashPassword(user, _options.TestUserPassword);
             transportDatabase.AddUser(user);
         }
