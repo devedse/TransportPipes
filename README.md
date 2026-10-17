@@ -14,7 +14,11 @@ The game is one Docker image (`ghcr.io/devedse/transportpipes`) plus a PostgreSQ
 docker compose up -d
 ```
 
-Then open http://localhost:8080 and create an account. To build the image yourself instead: `docker compose up -d --build`.
+Then open http://localhost:8080 and create an account. The database is stored in `./data/postgres` next to the compose
+file. To build the image yourself instead: `docker compose up -d --build`.
+
+compose.yaml runs `beta_nightly`, the newest build of any branch (master included), so a test server with Watchtower
+follows every push. Use `latest` (or a version like `1.0.2`) to only run builds of master.
 
 | Environment variable | Default | |
 | --- | --- | --- |
@@ -94,4 +98,4 @@ dotnet run --project TransportPipes.ImageCombiner -- <input directory> Transport
 [GitHub Actions](.github/workflows/githubactionsbuilds.yml) builds and tests everything on every push, publishes the
 multi-architecture (amd64 + arm64) Docker image to GHCR and creates a release for every build of `master`
 (`ghcr.io/devedse/transportpipes:latest` and `:1.0.<build number>`). Other branches get the `beta` and `beta_<branch>`
-tags.
+tags, and every build (except Dependabot's) also gets `beta_nightly`.

@@ -4,7 +4,9 @@
 #    (In a clone of the repository you can also build the image yourself: docker compose up -d --build)
 services:
   transportpipes:
-    image: ghcr.io/devedse/transportpipes:latest
+    # beta_nightly is the newest build of any branch (master included), so a test server follows every push.
+    # Use latest (or a version like 1.0.2) to only run builds of master.
+    image: ghcr.io/devedse/transportpipes:beta_nightly
     build: .
     container_name: transportpipes
     restart: unless-stopped
@@ -29,13 +31,11 @@ services:
       POSTGRES_USER: transportpipes
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-transportpipes}
     volumes:
-      # PostgreSQL 18 keeps its data in /var/lib/postgresql/18/docker, so mount the parent. Back this up.
-      - transportpipes-db:/var/lib/postgresql
+      # The database is stored next to this file in ./data/postgres. Back this up.
+      # (PostgreSQL 18 keeps its files in /var/lib/postgresql/18/docker, so mount the parent.)
+      - ./data/postgres:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U transportpipes -d transportpipes"]
       interval: 5s
       timeout: 5s
       retries: 12
-
-volumes:
-  transportpipes-db:

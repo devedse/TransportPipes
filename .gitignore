@@ -16,3 +16,6 @@ node_modules/
 
 # Local environment (e.g. POSTGRES_PASSWORD for compose)
 .env
+
+# Data of compose.yaml (the database)
+data/
