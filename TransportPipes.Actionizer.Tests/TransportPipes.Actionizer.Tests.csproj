@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+    <EnableMSTestRunner>true</EnableMSTestRunner>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+    <Using Include="Microsoft.EntityFrameworkCore" />
+    <Using Include="TransportPipes.TestsCommon.Database" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TransportPipes.Actionizer\TransportPipes.Actionizer.csproj" />
+    <ProjectReference Include="..\TransportPipes.TestsCommon\TransportPipes.TestsCommon.csproj" />
+  </ItemGroup>
+
+</Project>

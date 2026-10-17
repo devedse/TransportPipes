@@ -1,0 +1,35 @@
+# Transport Pipes: the ASP.NET Core server (SignalR hub + Actionizer) that also serves the React/PixiJS frontend.
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
+WORKDIR /app
+EXPOSE 8080
+
+# The frontend is platform independent, so build it once on the build machine for every target platform.
+FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend
+WORKDIR /src/TransportPipes.Frontend
+COPY ["TransportPipes.Frontend/package.json", "TransportPipes.Frontend/package-lock.json", "./"]
+RUN npm ci
+COPY TransportPipes.Frontend/ ./
+RUN npm run build
+
+# The app is platform independent, so build once on the build machine for every target platform.
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+COPY ["global.json", "Directory.Build.props", "Directory.Packages.props", "./"]
+COPY ["TransportPipes.Common/TransportPipes.Common.csproj", "TransportPipes.Common/"]
+COPY ["TransportPipes.Database/TransportPipes.Database.csproj", "TransportPipes.Database/"]
+COPY ["TransportPipes.Calculators/TransportPipes.Calculators.csproj", "TransportPipes.Calculators/"]
+COPY ["TransportPipes.Actionizer/TransportPipes.Actionizer.csproj", "TransportPipes.Actionizer/"]
+COPY ["TransportPipes.Server/TransportPipes.Server.csproj", "TransportPipes.Server/"]
+RUN dotnet restore "TransportPipes.Server/TransportPipes.Server.csproj"
+COPY . .
+ARG BUILD_VERSION
+ARG VER=${BUILD_VERSION:-1.0.0}
+RUN dotnet publish "TransportPipes.Server/TransportPipes.Server.csproj" -c Release --no-restore -o /app/publish /p:Version=$VER /p:UseAppHost=false
+
+FROM base AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+COPY --from=frontend /src/TransportPipes.Frontend/dist ./wwwroot
+USER app
+ENTRYPOINT ["dotnet", "TransportPipes.Server.dll"]

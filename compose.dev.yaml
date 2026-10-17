@@ -1,0 +1,17 @@
+# Only the database, for development: docker compose -f compose.dev.yaml up -d
+# Then run the server (dotnet run --project TransportPipes.Server) and the frontend (npm run dev in TransportPipes.Frontend).
+services:
+  transportpipes-db:
+    image: postgres:18-alpine
+    container_name: transportpipes-dev-db
+    environment:
+      POSTGRES_DB: transportpipes
+      POSTGRES_USER: transportpipes
+      POSTGRES_PASSWORD: transportpipes
+    ports:
+      - "5432:5432"
+    volumes:
+      - transportpipes-dev-db:/var/lib/postgresql
+
+volumes:
+  transportpipes-dev-db:

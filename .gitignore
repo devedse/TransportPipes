@@ -3,21 +3,16 @@
 [Oo]bj/
 TestResults/
 
-# NuGet packages (restored from packages.config)
-packages/
-*.nupkg
-
-# Visual Studio user-specific files
+# Visual Studio / Rider / VS Code user-specific files
 .vs/
+.idea/
 *.suo
 *.user
 *.userosscache
 *.sln.docstates
 
-# TFS source control metadata
-*.vssscc
-*.vspscc
+# Node (the frontend has its own .gitignore as well)
+node_modules/
 
-# Compiled TypeScript output (generated next to the .ts files)
-**/TypeScripts/**/*.js
-**/TypeScripts/**/*.js.map
+# Local environment (e.g. POSTGRES_PASSWORD for compose)
+.env

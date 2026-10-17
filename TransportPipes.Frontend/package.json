@@ -1,0 +1,42 @@
+{
+  "name": "transportpipes-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Transport Pipes browser client: React UI on top of a PixiJS isometric map, talking to the ASP.NET Core SignalR hub.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@microsoft/signalr": "10.0.11",
+    "pixi.js": "8.22.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "eslint": "10.13.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "8.71.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.5"
+  }
+}

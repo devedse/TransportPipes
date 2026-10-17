@@ -1,0 +1,179 @@
+# Purpose: build, test, package and publish TransportPipes on every push.
+# The server (ASP.NET Core + SignalR + the Actionizer) and the frontend (React + PixiJS) ship as one Docker image on GHCR.
+name: GitHubActionsBuilds
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: 'Runner to use'
+        required: false
+        default: 'github-hosted'
+        type: choice
+        options:
+          - github-hosted
+          - self-hosted
+
+jobs:
+  generate_version_number:
+    permissions:
+      contents: write
+    runs-on: ${{ inputs.runner == 'self-hosted' && fromJSON('["self-hosted", "proxmox", "medium"]') || 'ubuntu-latest' }}
+    outputs:
+      build_number: ${{ steps.buildnumber.outputs.build_number }}
+      # One counter for every branch (the build-number-N tag): master 1.0.<N>, other branches 1.0.<N>-beta.
+      version: ${{ github.ref == 'refs/heads/master' && format('1.0.{0}', steps.buildnumber.outputs.build_number) || format('1.0.{0}-beta', steps.buildnumber.outputs.build_number) }}
+    steps:
+    - name: Generate build number
+      id: buildnumber
+      uses: onyxmueller/build-tag-number@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+  build_linux:
+    needs: generate_version_number
+    runs-on: ${{ inputs.runner == 'self-hosted' && fromJSON('["self-hosted", "proxmox", "medium"]') || 'ubuntu-latest' }}
+    steps:
+    - uses: actions/checkout@v7
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0.x
+    - name: dotnet restore
+      run: dotnet restore TransportPipes.slnx
+    - name: dotnet build
+      run: dotnet build TransportPipes.slnx -c Release --no-restore /p:Version=${{ needs.generate_version_number.outputs.version }}
+    - name: dotnet test
+      # The database tests start PostgreSQL with Testcontainers, so the runner needs Docker.
+      run: dotnet test --solution TransportPipes.slnx -c Release --no-build --verbosity normal
+
+  build_linux_with_codecov:
+    needs: generate_version_number
+    runs-on: ${{ inputs.runner == 'self-hosted' && fromJSON('["self-hosted", "proxmox", "medium"]') || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+    - uses: actions/checkout@v7
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0.x
+    - name: Install tools
+      run: dotnet tool install --global dotnet-coverage
+    - name: dotnet restore
+      run: dotnet restore TransportPipes.slnx
+    - name: dotnet build
+      run: dotnet build TransportPipes.slnx -c Release --no-restore /p:Version=${{ needs.generate_version_number.outputs.version }}
+    - name: dotnet test with coverage
+      run: dotnet-coverage collect 'dotnet test --solution TransportPipes.slnx -c Release --no-build' -f xml -o './TestResults/coverage.xml'
+    - name: Run CodeCov
+      uses: codecov/codecov-action@v7
+      with:
+        files: ./TestResults/coverage.xml
+        fail_ci_if_error: true
+        use_oidc: true
+        verbose: true
+
+  build_frontend:
+    needs: generate_version_number
+    runs-on: ${{ inputs.runner == 'self-hosted' && fromJSON('["self-hosted", "proxmox", "medium"]') || 'ubuntu-latest' }}
+    defaults:
+      run:
+        working-directory: TransportPipes.Frontend
+    steps:
+    - uses: actions/checkout@v7
+    - name: Setup Node
+      uses: actions/setup-node@v7
+      with:
+        node-version-file: TransportPipes.Frontend/.nvmrc
+        cache: npm
+        cache-dependency-path: TransportPipes.Frontend/package-lock.json
+    - name: npm ci
+      run: npm ci
+    - name: Lint
+      run: npm run lint
+    - name: Check formatting
+      run: npm run format:check
+    - name: Typecheck
+      run: npm run typecheck
+    - name: Test
+      run: npm test
+    - name: Build
+      run: npm run build
+
+  build_docker:
+    needs: [generate_version_number, build_linux, build_frontend]
+    runs-on: ${{ inputs.runner == 'self-hosted' && fromJSON('["self-hosted", "proxmox", "xlarge"]') || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+    - uses: actions/checkout@v7
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v4
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v4
+      with:
+        image: tonistiigi/binfmt:latest
+        platforms: all
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v4
+    - name: Extract Docker metadata
+      id: meta
+      uses: docker/metadata-action@v6
+      with:
+        images: ghcr.io/devedse/transportpipes
+        # master: its version and latest (what compose.yaml runs). Other branches never touch those: they get
+        # "beta" (the newest branch build) and "beta_<branch>" (sanitized, so any branch name is a valid tag).
+        tags: |
+          type=raw,value=1.0.${{ needs.generate_version_number.outputs.build_number }},enable=${{ github.ref == 'refs/heads/master' }}
+          type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+          type=raw,value=beta_nightly,enable=${{ github.actor != 'dependabot[bot]' }}
+          type=raw,value=beta,enable=${{ github.ref != 'refs/heads/master' }}
+          type=ref,event=branch,prefix=beta_,enable=${{ github.ref != 'refs/heads/master' }}
+        labels: |
+          maintainer=${{ github.actor }}
+          org.opencontainers.image.description=Transport Pipes - an online isometric game about building pipes, factories and trading resources
+      env:
+        DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        file: Dockerfile
+        platforms: linux/amd64,linux/arm64
+        push: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        annotations: ${{ steps.meta.outputs.annotations }}
+        build-args: |
+          BUILD_VERSION=${{ needs.generate_version_number.outputs.version }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        provenance: false
+        sbom: false
+
+  release_github:
+    permissions:
+      contents: write
+    needs: [generate_version_number, build_linux, build_linux_with_codecov, build_frontend, build_docker]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    steps:
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v3
+      with:
+        tag_name: 1.0.${{ needs.generate_version_number.outputs.build_number }}
+        name: 1.0.${{ needs.generate_version_number.outputs.build_number }}
+        body: |
+          ${{ github.event.head_commit.message }}
+
+          Docker image: `ghcr.io/devedse/transportpipes:1.0.${{ needs.generate_version_number.outputs.build_number }}`
+        make_latest: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

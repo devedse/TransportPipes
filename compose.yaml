@@ -1,0 +1,43 @@
+# Transport Pipes: one file to run the game and its database.
+# 1. The image is private (like the repo): log in once with a GitHub token that has read:packages:
+#      echo <token> | docker login ghcr.io -u devedse --password-stdin
+#    (or build the image yourself with: docker compose up -d --build)
+# 2. Change POSTGRES_PASSWORD (e.g. in a .env file next to this file).
+# 3. docker compose up -d, then open http://<this-host>:8080
+services:
+  transportpipes:
+    image: ghcr.io/devedse/transportpipes:latest
+    build: .
+    container_name: transportpipes
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ConnectionStrings__TransportPipes: "Host=transportpipes-db;Database=transportpipes;Username=transportpipes;Password=${POSTGRES_PASSWORD:-transportpipes}"
+      # The gold a new player starts with
+      TransportPipes__StartingGold: "500"
+      # Creates the users admin and Devedse (password: a) when there are no users yet, only for testing
+      # TransportPipes__SeedTestUsers: "true"
+    depends_on:
+      transportpipes-db:
+        condition: service_healthy
+
+  transportpipes-db:
+    image: postgres:18-alpine
+    container_name: transportpipes-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: transportpipes
+      POSTGRES_USER: transportpipes
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-transportpipes}
+    volumes:
+      # PostgreSQL 18 keeps its data in /var/lib/postgresql/18/docker, so mount the parent. Back this up.
+      - transportpipes-db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U transportpipes -d transportpipes"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  transportpipes-db:
