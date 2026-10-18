@@ -66,6 +66,16 @@ export function HoverTip() {
   } else if (tool.kind === "move") {
     text = placement?.ok === false ? placement.reason : "Click where it should go";
     tone = placement?.ok === false ? "bad" : "";
+  } else if (tool.kind === "terraform") {
+    const names: Record<string, string> = {
+      drain: "Drain",
+      lake: "Dig a lake",
+      raise: "Raise a hill",
+      flatten: "Flatten",
+      forest: "Plant a forest",
+      seedDeposit: `Seed ${tool.resource !== undefined ? content.resourceName(tool.resource).toLowerCase() : "a deposit"}`,
+    };
+    text = `${names[tool.action] ?? tool.action}: click tiles of your estate (Esc to stop)`;
   }
 
   if (text === null && info !== null) {

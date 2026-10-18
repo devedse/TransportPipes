@@ -11,6 +11,7 @@ const KINDS: Array<{ id: LeaderboardKind; name: string; unit: string }> = [
   { id: "level", name: "Level", unit: "" },
   { id: "partners", name: "Partners", unit: "trading partners" },
   { id: "likes", name: "Likes", unit: "likes" },
+  { id: "efficiency", name: "Efficiency", unit: "gold per tile per hour" },
 ];
 
 function Row({ entry, kind }: { entry: LeaderboardEntryDto; kind: LeaderboardKind }) {

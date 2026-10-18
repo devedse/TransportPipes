@@ -205,7 +205,8 @@ public record BuildingDetailsDto(
     IReadOnlyList<string> Issues,
     double Setting,
     double TollIncome,
-    double? RepairCost);
+    double? RepairCost,
+    int ComplexMembers);
 
 public record ToastDto(string Kind, string Text, long? Building);
 

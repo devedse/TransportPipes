@@ -142,12 +142,26 @@ public sealed partial class GameWorld
         {
             info = info with { Deposit = discovery.Resource, Richness = 5 };
         }
-        return _terrainOverrides.TryGetValue(pos, out var terrain) ? info with { Terrain = terrain } : info;
+        if (_seeds.TryGetValue(pos, out var seed))
+        {
+            info = info with { Deposit = seed.Deposit, Richness = seed.Richness };
+        }
+        if (_terrainOverrides.TryGetValue(pos, out var terrain))
+        {
+            // Raised hills catch more wind, flattened ones less
+            var wind = terrain == TerrainType.Hills && info.Terrain != TerrainType.Hills ? info.Wind * 1.2
+                : terrain != TerrainType.Hills && info.Terrain == TerrainType.Hills ? info.Wind / 1.2
+                : info.Wind;
+            info = info with { Terrain = terrain, Wind = wind };
+        }
+        return info;
     }
 
     /// <summary>Deposits that differ from the generated terrain (discoveries), for the clients</summary>
     public (string Deposit, int Richness)? DepositOverride(TilePos pos) =>
-        _discoveries.Count != 0 && Generator.Tile(pos).IsBuildableTerrain && DiscoveryAt(pos) is { } discovery ? (discovery.Resource, 5) : null;
+        _seeds.TryGetValue(pos, out var seed) ? seed
+        : _discoveries.Count != 0 && Generator.Tile(pos).IsBuildableTerrain && DiscoveryAt(pos) is { } discovery ? (discovery.Resource, 5)
+        : null;
 
     public bool IsOccupied(TilePos pos) => _buildingAt.ContainsKey(pos) || _conductors.ContainsKey(pos);
 
@@ -633,7 +647,7 @@ public sealed partial class GameWorld
         }
 
         RemoveBuilding(building);
-        company.Gold += Math.Round(definition.Cost.Gold * 0.5);
+        company.Gold += Math.Round(definition.Cost.Gold * 0.5 * ComplexMembers(building));
         company.Touch();
         Changes.Companies.Add(company.Id);
         return CommandResult.Ok;
@@ -661,6 +675,10 @@ public sealed partial class GameWorld
         if (definition.Kind is BuildingKind.Gate)
         {
             return CommandResult.Fail("Gates can't be moved.");
+        }
+        if (ComplexMembers(building) > 1)
+        {
+            return CommandResult.Fail("A complex can't be moved.");
         }
         var placement = CanPlace(company, definition, pos, building.Id);
         if (!placement.Success)
@@ -702,8 +720,8 @@ public sealed partial class GameWorld
         {
             total += Content.Progression.UpgradeCost(definition, level);
         }
-        // Foreman Rick
-        return Math.Round(total * ManagerUpgradeFactor(Company(building.Owner)), 2);
+        // A complex upgrades all its members; Foreman Rick
+        return Math.Round(total * ComplexMembers(building) * ManagerUpgradeFactor(Company(building.Owner)), 2);
     }
 
     /// <summary>How many levels the company can afford right now (for the Max button)</summary>

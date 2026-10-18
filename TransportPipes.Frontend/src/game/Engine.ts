@@ -36,7 +36,10 @@ export type Tool =
   | { kind: "build"; type: string; crate?: number }
   | { kind: "pipe"; tier: number }
   | { kind: "bulldoze" }
-  | { kind: "move"; building: number };
+  | { kind: "move"; building: number }
+  | { kind: "terraform"; action: TerraformAction; resource?: string };
+
+export type TerraformAction = "drain" | "lake" | "raise" | "flatten" | "forest" | "seedDeposit";
 
 export type Overlay = "none" | "owners" | "wind" | "sun" | "deposits";
 
@@ -128,6 +131,8 @@ interface ObjectView {
   effects: BuildingEffects | null;
   building: BuildingDto | null;
   machine: AnimatedSprite | null;
+  /** The other animated members of a complex */
+  machines?: AnimatedSprite[];
   idle: Text | null;
   progress: Graphics | null;
 }
@@ -1160,17 +1165,56 @@ export class Engine {
       this.drawConstruction(view, size);
     } else {
       const art = this.textures.building(building.type, definition?.size ?? size);
-      if (art.frames.length > 1) {
-        const animated = new AnimatedSprite(art.frames);
-        animated.anchor.set(0, 1);
-        animated.animationSpeed = 0.2;
-        animated.play();
-        container.addChild(animated);
-        view.machine = animated;
-      } else {
-        const sprite = new Sprite(art.frames[0]);
-        sprite.anchor.set(0, 1);
-        container.addChild(sprite);
+      // A complex: its members side by side on one footprint (back to front), with a plaque
+      const cells = definition !== undefined && definition.size === 1 && size > 1 ? size : 1;
+      if (cells > 1) {
+        const pad = new Graphics();
+        pad
+          .moveTo(0, (-TILE_HEIGHT / 2) * size)
+          .lineTo(TILE_WIDTH * size, -TILE_HEIGHT * size)
+          .lineTo(TILE_WIDTH * 2 * size, (-TILE_HEIGHT / 2) * size)
+          .lineTo(TILE_WIDTH * size, 0)
+          .closePath();
+        pad.fill({ color: 0xc9a227, alpha: 0.35 });
+        pad.stroke({ color: 0xf6c744, width: 6 });
+        container.addChild(pad);
+      }
+      for (let depth = 0; depth <= 2 * (cells - 1); depth++) {
+        for (let i = 0; i < cells; i++) {
+          const j = depth - i;
+          if (j < 0 || j >= cells) {
+            continue;
+          }
+          const cell = footprintAnchor(building.x + i, building.y + j, 1);
+          const sprite = art.frames.length > 1 ? new AnimatedSprite(art.frames) : new Sprite(art.frames[0]);
+          sprite.anchor.set(0, 1);
+          sprite.position.set(cell.x - anchor.x, cell.y - anchor.y);
+          container.addChild(sprite);
+          if (sprite instanceof AnimatedSprite) {
+            sprite.animationSpeed = 0.2;
+            sprite.play();
+            if (view.machine === null) {
+              view.machine = sprite;
+            } else {
+              (view.machines ??= []).push(sprite);
+            }
+          }
+        }
+      }
+      if (cells > 1) {
+        const plaque = new Text({
+          text: `COMPLEX ×${cells === 2 ? 5 : 12}`,
+          style: {
+            fontFamily: "system-ui",
+            fontSize: 26,
+            fontWeight: "900",
+            fill: "#f6c744",
+            stroke: { color: "#17181c", width: 6 },
+          },
+        });
+        plaque.anchor.set(0.5, 0);
+        plaque.position.set(TILE_WIDTH * size, -TILE_HEIGHT / 2);
+        container.addChild(plaque);
       }
       if (art.attachments.length > 0) {
         view.effects = new BuildingEffects(art.attachments, owner?.ownerColor ?? "#e74c3c");
@@ -1279,11 +1323,14 @@ export class Engine {
     const rate = this.world.rate(building);
     const running = rate !== null && rate > 0.005;
     view.effects?.setRunning(running);
-    if (view.machine !== null) {
-      if (running && !view.machine.playing) {
-        view.machine.play();
-      } else if (!running && view.machine.playing) {
-        view.machine.gotoAndStop(0);
+    for (const machine of [view.machine, ...(view.machines ?? [])]) {
+      if (machine === null) {
+        continue;
+      }
+      if (running && !machine.playing) {
+        machine.play();
+      } else if (!running && machine.playing) {
+        machine.gotoAndStop(0);
       }
     }
     if (view.idle !== null) {
@@ -1726,7 +1773,7 @@ export class Engine {
       traceFootprint(g, x, y, 8);
       g.stroke({ color: ok ? 0x2ec4a6 : 0xef6f6c, width: 6 });
     }
-    if (this.hovered !== null && state.tool.kind === "select") {
+    if (this.hovered !== null && (state.tool.kind === "select" || state.tool.kind === "terraform")) {
       const building = this.world.buildingAt(this.hovered.x, this.hovered.y);
       if (building !== undefined) {
         traceFootprint(g, building.x, building.y, building.size);

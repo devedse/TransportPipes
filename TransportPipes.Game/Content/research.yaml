@@ -150,6 +150,15 @@
   requires: [bigFactory]
   description: Unlocks the Steel Mill.
 
+- id: complexes
+  name: Complexes
+  branch: industry
+  era: 2
+  cost: 3000
+  minutes: 90
+  requires: [bigFactory]
+  description: Four identical 1×1 buildings in a square merge into a 2×2 complex with the output of five.
+
 - id: wireDrawing
   name: Wire Drawing
   branch: industry
@@ -236,6 +245,15 @@
   requires: [refining]
   effects: [{ output: { targets: ["building:refinery"], amount: 0.25 } }]
   description: Better catalysts. +25% Refinery output.
+
+- id: megaComplexes
+  name: Mega Complexes
+  branch: industry
+  era: 3
+  cost: 15000
+  minutes: 240
+  requires: [complexes]
+  description: Nine identical 1×1 buildings in a square merge into a 3×3 mega complex with the output of twelve.
 
 - id: pipelinePressure
   name: Pipeline Pressure

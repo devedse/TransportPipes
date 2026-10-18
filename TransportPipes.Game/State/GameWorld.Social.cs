@@ -11,6 +11,7 @@ public enum LeaderboardKind
     Level,
     Partners,
     Likes,
+    Efficiency,
 }
 
 public sealed record LeaderboardEntry(long Company, string Name, string Color, double Value, int Rank);
@@ -167,6 +168,7 @@ public sealed partial class GameWorld
             LeaderboardKind.WeeklyEarnings => company.LifetimeEarnings - company.WeekStartEarnings,
             LeaderboardKind.Level => company.Xp,
             LeaderboardKind.Partners => partners!.GetValueOrDefault(company.Id),
+            LeaderboardKind.Efficiency => TileEfficiency(company, income ??= GoldPerMinute()),
             _ => company.Likes,
         };
         return _companies.Values

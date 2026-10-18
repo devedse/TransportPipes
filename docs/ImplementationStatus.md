@@ -68,7 +68,7 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 ### M7 · Late game
 
-- ⬜ Complexes, blueprints, terraforming
+- 🚧 Complexes (2×2 ×5 from Era 2, 3×3 ×12 from Era 3, one shared level) ✅, tile efficiency with a leaderboard ✅, terraforming (drain, lakes, hills with more wind, forests, seeding deposits) ✅, blueprints ⬜
 - ⬜ The Deep Level
 - ⬜ Expeditions, branch estates, teleporters
 - ⬜ Bank (investing, insurance, bonds), District Steward elections
@@ -118,4 +118,6 @@ Changes to [GameDesign.md](GameDesign.md) that came up while building; the desig
 | 2026-10-18 | A move costs 1,000 × Company Level gold (free moves after waking up or from a quiet district); a sleeping estate's public pipes become toll-free hub pipes; waking up gives 1,000 × level gold, 500 × level research points and a free move | Coming back feels like a gift; nobody is stuck next to an empty estate |
 | 2026-10-18 | Quiet districts are not folded into the wilderness (estates stay for tenants and newcomers); their active players get the free move with a parcel | Same effect for players, no risk of breaking the map |
 | 2026-10-18 | Moderators are users with IsAdmin; moderation is checked against the database on every call, so a ban or a lost role works right away | Simple and safe; a full moderator role system can come later |
+| 2026-10-18 | Complexes form by themselves when the research is there and four (nine) finished identical 1×1 producers stand in a square; the complex takes the lowest level of its members and can't be moved (demolish refunds all members) | Clear and automatic: a complex is always better than its members |
+| 2026-10-18 | Terraforming is done tile by tile with costs per action; seeding a deposit takes 20,000 gold and 50 steel and adds one star (up to five) | A big, visible gold sink, as the design intends |
 | 2026-10-18 | Shortage orders are a fourth, urgent order (twice the size, three times the reward per unit) that disappears when the shortage ends; festivals fall on fixed holidays | They add to the daily rhythm without replacing it |

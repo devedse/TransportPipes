@@ -123,6 +123,7 @@ public sealed partial class GameWorld
         {
             company.Report.BuildingsCompleted++;
             AddStat(company, "buildings", 1);
+            TryMergeComplex(building);
             company.Touch();
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ConstructionFinished, $"{Content.Building(building.Type).Name} is ready", building.Id));
         }

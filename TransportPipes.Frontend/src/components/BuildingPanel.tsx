@@ -4,6 +4,7 @@ import { formatAmount, formatDuration } from "../app/format";
 import { useNow } from "../app/useNow";
 import type { BuildingDetailsDto } from "../api/contracts";
 import type { Content } from "../game/content";
+import type { TerraformAction } from "../game/Engine";
 import { currentGold, useAppStore } from "../state/store";
 
 const KIND_LABELS: Record<string, string> = {
@@ -120,6 +121,15 @@ export function BuildingPanel() {
             <li key={issue}>{issue}</li>
           ))}
         </ul>
+      )}
+      {details.complexMembers > 1 && (
+        <p className="status">
+          🏗 A {details.complexMembers === 9 ? "mega complex" : "complex"} of {details.complexMembers}: the
+          output of {details.complexMembers === 9 ? 12 : 5}, upgraded together
+        </p>
+      )}
+      {mine && definition.kind === "terraformer" && building.constructionEndsAt === null && (
+        <TerraformTools />
       )}
       {mine && details.repairCost !== null && (
         <button
@@ -374,5 +384,52 @@ function Meter({
         <div className="meter-fill" style={{ width: `${fraction * 100}%`, background: color }} />
       </div>
     </div>
+  );
+}
+
+const TERRAFORM: Array<{ action: TerraformAction; name: string; text: string; cost: number }> = [
+  { action: "drain", name: "Drain", text: "Water becomes grass", cost: 2000 },
+  { action: "lake", name: "Dig a lake", text: "Grass becomes water (for shore buildings)", cost: 1000 },
+  { action: "raise", name: "Raise a hill", text: "Hills catch 20% more wind", cost: 3000 },
+  { action: "flatten", name: "Flatten", text: "Hills become grass", cost: 1500 },
+  { action: "forest", name: "Plant a forest", text: "Grass becomes forest", cost: 500 },
+];
+
+/** The Terraformer (GDD §11.1): pick an action, then click the tiles of your estate */
+function TerraformTools() {
+  const content = useAppStore((s) => s.content)!;
+  const [resource, setResource] = useState("ironOre");
+  return (
+    <section>
+      <h4>Terraform · pick an action, then click tiles</h4>
+      <div className="terraform-grid">
+        {TERRAFORM.map((t) => (
+          <button
+            key={t.action}
+            title={t.text}
+            onClick={() => gameClient.setTool({ kind: "terraform", action: t.action })}
+          >
+            {t.name} · {formatAmount(t.cost)} g
+          </button>
+        ))}
+      </div>
+      <div className="seed-row">
+        <select value={resource} onChange={(e) => setResource(e.target.value)}>
+          {content.resources
+            .filter((r) => r.tier === 1 && r.id !== "energy" && r.id !== "water")
+            .map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+        </select>
+        <button
+          title="A new deposit (one star), or one more star on a deposit of that resource"
+          onClick={() => gameClient.setTool({ kind: "terraform", action: "seedDeposit", resource })}
+        >
+          Seed a deposit · 20k g + 50 steel
+        </button>
+      </div>
+    </section>
   );
 }

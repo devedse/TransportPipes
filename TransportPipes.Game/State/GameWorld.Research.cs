@@ -122,6 +122,10 @@ public sealed partial class GameWorld
             }
         }
         MarkCompanyNetworksDirty(company.Id);
+        if (techId is "complexes" or "megaComplexes")
+        {
+            MergeAllComplexes(company);
+        }
         PlanNextResearch(company);
     }
 

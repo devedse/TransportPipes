@@ -698,6 +698,9 @@ public sealed class GameHub : Hub<IGameClient>
                 case "era":
                     world.AdvanceEra();
                     break;
+                case "alltech":
+                    world.GrantAllResearch(company);
+                    break;
                 case "district":
                     world.OpenNextDistrict();
                     break;
@@ -794,6 +797,9 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<CommandResultDto> Upgrade(long building, int levels) =>
         Command((world, company) => world.Upgrade(company, building, Math.Clamp(levels, 1, 100)));
+
+    public Task<CommandResultDto> Terraform(int x, int y, TerraformAction action, string? resource) =>
+        Command((world, company) => world.Terraform(company, new TilePos(x, y), action, resource));
 
     public Task<CommandResultDto> Repair(long building) =>
         Command((world, company) => world.Repair(company, building));

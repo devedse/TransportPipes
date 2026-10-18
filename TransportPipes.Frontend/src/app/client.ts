@@ -592,6 +592,13 @@ export class GameClient {
 
   private clickTile(tile: TilePosition, building: BuildingDto | undefined) {
     const state = appStore.getState();
+    if (state.tool.kind === "terraform") {
+      // Keeps reshaping until the player picks another tool
+      void this.command(
+        this.connection.terraform(tile.x, tile.y, state.tool.action, state.tool.resource ?? null),
+      );
+      return;
+    }
     if (building !== undefined) {
       this.select(building.id);
       return;

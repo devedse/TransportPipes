@@ -617,17 +617,19 @@ public sealed partial class GameWorld
             return null;
         }
         var location = LocationMultiplier(building, definition) * EventOutputFactor(building, definition) * WonderOutputFactor(building);
+        // A complex works like five (twelve) buildings
+        var complex = ComplexFactor(ComplexMembers(building));
         var owner = Company(building.Owner);
         return new FlowNode
         {
             Id = building.Id,
             Owner = building.Owner,
             Kind = FlowNodeKind.Building,
-            In = definition.In.Where(t => t.Key != GameContent.ResearchPoints).ToDictionary(t => t.Key, t => t.Value * level),
+            In = definition.In.Where(t => t.Key != GameContent.ResearchPoints).ToDictionary(t => t.Key, t => t.Value * level * complex),
             Out = BaseOutputs(building, definition)
                 .Where(t => t.Key != GameContent.ResearchPoints)
-                .ToDictionary(t => t.Key, t => t.Value * level * location * (1 + OutputBonus(owner, definition, t.Key))),
-            ResearchPerMinute = definition.ResearchPerMinute * level * WonderResearchFactor(building),
+                .ToDictionary(t => t.Key, t => t.Value * level * complex * location * (1 + OutputBonus(owner, definition, t.Key))),
+            ResearchPerMinute = definition.ResearchPerMinute * level * complex * WonderResearchFactor(building),
         };
     }
 

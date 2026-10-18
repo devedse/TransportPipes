@@ -2585,6 +2585,20 @@ button.liked {
   margin: 0;
 }
 
+/* ---------- Terraforming ---------- */
+
+.terraform-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.seed-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
 /* ---------- Small screens ---------- */
 
 @media (max-width: 720px) {

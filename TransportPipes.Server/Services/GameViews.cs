@@ -218,6 +218,10 @@ public static class GameViews
                 }
             }
         }
+        foreach (var (pos, seed) in world.Seeds.Where(t => t.Key.X >= x0 && t.Key.X < x0 + WorldLayout.ChunkSize && t.Key.Y >= y0 && t.Key.Y < y0 + WorldLayout.ChunkSize))
+        {
+            deposits.Add(new DepositOverrideDto(pos.X, pos.Y, seed.Deposit, seed.Richness));
+        }
         return new ChunkObjectsDto(cx, cy, buildings, conductors, overrides, outposts, deposits);
     }
 
@@ -503,6 +507,7 @@ public static class GameViews
                 new StatDto("Techs researched", company.Researched.Count),
                 new StatDto("Delivered to Wonders (g)", world.StatValue(company, "wonder")),
                 new StatDto("Likes", company.Likes),
+                new StatDto("Gold per tile per hour", world.TileEfficiency(company)),
             ],
             company.Stats.Where(t => t.Key.StartsWith("produced:")).OrderByDescending(t => t.Value).Take(8)
                 .Select(t => new StatDto(t.Key["produced:".Length..], t.Value)).ToList());
@@ -672,7 +677,8 @@ public static class GameViews
             Issues(world, building, node, network),
             building.Setting,
             world.TollIncome(building.Id),
-            building.Damaged ? world.RepairCost(building) : null);
+            building.Damaged ? world.RepairCost(building) : null,
+            world.ComplexMembers(building));
     }
 
     /// <summary>Why a building can't run (fully): missing suppliers or buyers on its pipes</summary>

@@ -40,7 +40,7 @@ achievements:
   # Research
   - { id: curious,       name: Curious,         stat: researched, amount: 5,  xp: 200, description: "Research 5 techs." }
   - { id: scholar,       name: Scholar,         stat: researched, amount: 20, xp: 1500, title: Scholar, description: "Research 20 techs." }
-  - { id: knowItAll,     name: Know-it-all,     stat: researched, amount: 45, xp: 6000, title: Professor, description: "Research every tech." }
+  - { id: knowItAll,     name: Know-it-all,     stat: researched, amount: 47, xp: 6000, title: Professor, description: "Research every tech." }
   # Society
   - { id: prettyEstate,  name: Pretty Estate,   stat: likes,     amount: 10,  xp: 200, description: "Get 10 likes." }
   - { id: landmark,      name: Landmark,        stat: likes,     amount: 100, xp: 2000, title: Landmark, description: "Get 100 likes." }

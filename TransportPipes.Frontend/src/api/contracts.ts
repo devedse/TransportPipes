@@ -452,6 +452,8 @@ export interface BuildingDetailsDto {
   setting: number;
   tollIncome: number;
   repairCost: number | null;
+  /** A complex: how many buildings it merged (1 for an ordinary building) */
+  complexMembers: number;
 }
 
 /** The kinds of WorldEventKind on the server */
@@ -801,7 +803,8 @@ export interface CorporationsDto {
   canJoinAt: string | null;
 }
 
-export type LeaderboardKind = "netWorth" | "income" | "weeklyEarnings" | "level" | "partners" | "likes";
+export type LeaderboardKind =
+  "netWorth" | "income" | "weeklyEarnings" | "level" | "partners" | "likes" | "efficiency";
 
 export interface LeaderboardEntryDto {
   company: number;
