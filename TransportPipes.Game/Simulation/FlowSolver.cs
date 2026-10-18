@@ -19,6 +19,9 @@ public sealed class FlowSolver
     private const double Epsilon = 1e-9;
     private const double Unlimited = double.MaxValue / 4;
 
+    /// <summary>Rates below this are zero (0.001% of the building's speed)</summary>
+    private const double MinRate = 1e-5;
+
     private readonly Dictionary<long, FlowNode> _nodes;
     private readonly List<FlowNode> _buildings;
     private readonly FlowMarket _market;
@@ -34,12 +37,23 @@ public sealed class FlowSolver
         {
             _neighbours[node.Id] = new List<(long, FlowLink)>();
         }
+        // One link per pair of nodes: the one with the least loss
+        var best = new Dictionary<(long, long), FlowLink>();
         foreach (var link in links)
         {
             if (link.A == link.B || !_nodes.ContainsKey(link.A) || !_nodes.ContainsKey(link.B))
             {
                 continue;
             }
+            var key = (Math.Min(link.A, link.B), Math.Max(link.A, link.B));
+            if (!best.TryGetValue(key, out var existing) || link.Efficiency > existing.Efficiency
+                || (link.Efficiency == existing.Efficiency && link.Capacity > existing.Capacity))
+            {
+                best[key] = link;
+            }
+        }
+        foreach (var link in best.Values.OrderBy(t => Math.Min(t.A, t.B)).ThenBy(t => Math.Max(t.A, t.B)))
+        {
             _neighbours[link.A].Add((link.B, link));
             _neighbours[link.B].Add((link.A, link));
         }
@@ -56,7 +70,7 @@ public sealed class FlowSolver
         var outFraction = _buildings.ToDictionary(t => t.Id, _ => 1.0);
         var rates = _buildings.ToDictionary(t => t.Id, t => t.MaxRate);
 
-        for (var iteration = 0; iteration < 40; iteration++)
+        for (var iteration = 0; iteration < 100; iteration++)
         {
             var offers = new Dictionary<(long, string), double>();
             var demands = new Dictionary<(long, string), double>();
@@ -76,7 +90,8 @@ public sealed class FlowSolver
 
             var allocation = Allocate(offers, demands);
 
-            var damping = iteration < 15 ? 1.0 : 0.5;
+            // Fractions can swing between two buildings that share a scarce input; damping makes them settle
+            var damping = iteration < 10 ? 1.0 : 0.5;
             double maxChange = 0;
             foreach (var building in _buildings)
             {
@@ -103,7 +118,9 @@ public sealed class FlowSolver
                         }
                         fraction = Math.Min(1, potential / (amount * building.MaxRate));
                     }
-                    inFraction[building.Id][resource] = damping * fraction + (1 - damping) * inFraction[building.Id][resource];
+                    var updated = damping * fraction + (1 - damping) * inFraction[building.Id][resource];
+                    maxChange = Math.Max(maxChange, Math.Abs(updated - inFraction[building.Id][resource]));
+                    inFraction[building.Id][resource] = updated;
                 }
 
                 // Outputs: what could be placed = what went to buildings + what reachable buyers still miss (or everything with a sink)
@@ -127,7 +144,9 @@ public sealed class FlowSolver
                         }
                         fraction = Math.Min(fraction, Math.Min(1, potential / (amount * building.MaxRate)));
                     }
-                    outFraction[building.Id] = damping * fraction + (1 - damping) * outFraction[building.Id];
+                    var updated = damping * fraction + (1 - damping) * outFraction[building.Id];
+                    maxChange = Math.Max(maxChange, Math.Abs(updated - outFraction[building.Id]));
+                    outFraction[building.Id] = updated;
                 }
 
                 var rate = building.MaxRate * Math.Min(1, Math.Min(outFraction[building.Id], MinOrOne(inFraction[building.Id].Values)));
@@ -143,23 +162,10 @@ public sealed class FlowSolver
 
         // ------------------------------------------------ Consistency phase: rates only go down
         Allocation final = null!;
-        for (var iteration = 0; iteration < 200; iteration++)
+        var converged = false;
+        for (var iteration = 0; iteration < 500; iteration++)
         {
-            var offers = new Dictionary<(long, string), double>();
-            var demands = new Dictionary<(long, string), double>();
-            foreach (var building in _buildings)
-            {
-                foreach (var (resource, amount) in building.Out)
-                {
-                    offers[(building.Id, resource)] = amount * rates[building.Id];
-                }
-                foreach (var (resource, amount) in building.In)
-                {
-                    demands[(building.Id, resource)] = amount * rates[building.Id];
-                }
-            }
-
-            final = Allocate(offers, demands);
+            final = AllocateAtRates(rates);
 
             var changed = false;
             foreach (var building in _buildings)
@@ -183,19 +189,45 @@ public sealed class FlowSolver
                 }
                 if (factor < 1 - 1e-9)
                 {
-                    // A tiny bit extra so the fixed point is reached quickly
-                    rates[building.Id] = rate * factor * (1 - 1e-12);
+                    // A tiny bit extra so the fixed point is reached quickly; rates that shrink towards zero in a
+                    // cycle (two buildings waiting for each other) become zero
+                    var reduced = rate * factor * (1 - 1e-12);
+                    rates[building.Id] = reduced < MinRate ? 0 : reduced;
                     changed = true;
                 }
             }
 
             if (!changed)
             {
+                converged = true;
                 break;
             }
         }
 
+        if (!converged)
+        {
+            // Should not happen; make sure the flows at least belong to the final rates
+            final = AllocateAtRates(rates);
+        }
         return BuildSolution(rates, final);
+    }
+
+    private Allocation AllocateAtRates(Dictionary<long, double> rates)
+    {
+        var offers = new Dictionary<(long, string), double>();
+        var demands = new Dictionary<(long, string), double>();
+        foreach (var building in _buildings)
+        {
+            foreach (var (resource, amount) in building.Out)
+            {
+                offers[(building.Id, resource)] = amount * rates[building.Id];
+            }
+            foreach (var (resource, amount) in building.In)
+            {
+                demands[(building.Id, resource)] = amount * rates[building.Id];
+            }
+        }
+        return Allocate(offers, demands);
     }
 
     /// <summary>Whether a supplier may deliver to a consumer at all (same company, or allowed trade at an acceptable price)</summary>
@@ -322,12 +354,13 @@ public sealed class FlowSolver
             capacityLeft[link] = CapacityLeft(link) - sent;
         }
 
-        // Proportional sharing between producers and consumers of one resource
+        // Sharing between producers and consumers of one resource: every consumer gets the same fraction of its full need,
+        // and what a consumer can't use (it is held back by something else) goes to the others
         void Share(string resource, List<long> producers, List<long> consumers, Func<long, long, bool> eligible, FlowKind kind, Func<long, long, double> price)
         {
             for (var round = 0; round < 25; round++)
             {
-                var requests = new List<(long P, long C, FlowLink Link, double Sent)>();
+                var requests = new List<(long P, long C, FlowLink Link, double Sent, double Weight)>();
                 foreach (var c in consumers)
                 {
                     var need = demandLeft[(c, resource)];
@@ -335,6 +368,8 @@ public sealed class FlowSolver
                     {
                         continue;
                     }
+                    var consumer = _nodes[c];
+                    var fullNeed = Math.Max(need, consumer.In[resource] * consumer.MaxRate);
                     var options = _neighbours[c]
                         .Where(n => offerLeft.TryGetValue((n.Other, resource), out var left) && left > Epsilon && CanUse(n.Link) && eligible(n.Other, c))
                         .Select(n => (P: n.Other, n.Link, Potential: Math.Min(offerLeft[(n.Other, resource)], CapacityLeft(n.Link)) * n.Link.Efficiency))
@@ -348,7 +383,7 @@ public sealed class FlowSolver
                     foreach (var (p, link, potential) in options)
                     {
                         var deliveredWanted = Math.Min(need * potential / total, potential);
-                        requests.Add((p, c, link, Math.Min(deliveredWanted / link.Efficiency, CapacityLeft(link))));
+                        requests.Add((p, c, link, Math.Min(deliveredWanted / link.Efficiency, CapacityLeft(link)), fullNeed * potential / total / link.Efficiency));
                     }
                 }
                 if (requests.Count == 0)
@@ -359,12 +394,12 @@ public sealed class FlowSolver
                 var progress = 0.0;
                 foreach (var producerRequests in requests.GroupBy(t => t.P))
                 {
-                    var asked = producerRequests.Sum(t => t.Sent);
-                    var available = offerLeft[(producerRequests.Key, resource)];
-                    var scale = asked > available ? available / asked : 1;
-                    foreach (var (p, c, link, sentWanted) in producerRequests)
+                    var list = producerRequests.ToList();
+                    var granted = WaterFill(list.Select(t => t.Sent).ToList(), list.Select(t => t.Weight).ToList(), offerLeft[(producerRequests.Key, resource)]);
+                    for (var i = 0; i < list.Count; i++)
                     {
-                        var sent = Math.Min(sentWanted * scale, CapacityLeft(link));
+                        var (p, c, link, _, _) = list[i];
+                        var sent = Math.Min(granted[i], CapacityLeft(link));
                         sent = Math.Min(sent, demandLeft[(c, resource)] / link.Efficiency);
                         if (sent <= Epsilon)
                         {
@@ -381,6 +416,28 @@ public sealed class FlowSolver
                     return;
                 }
             }
+        }
+
+        // Gives every request the same level × weight, but never more than it asked, until the available amount is used up
+        static List<double> WaterFill(List<double> asked, List<double> weights, double available)
+        {
+            if (asked.Sum() <= available)
+            {
+                return asked;
+            }
+            var granted = new double[asked.Count];
+            var order = Enumerable.Range(0, asked.Count).OrderBy(i => asked[i] / Math.Max(weights[i], Epsilon)).ToList();
+            var weightLeft = order.Sum(i => Math.Max(weights[i], Epsilon));
+            var left = available;
+            foreach (var i in order)
+            {
+                var weight = Math.Max(weights[i], Epsilon);
+                var level = left / weightLeft;
+                granted[i] = Math.Min(asked[i], level * weight);
+                left -= granted[i];
+                weightLeft -= weight;
+            }
+            return granted.ToList();
         }
 
         // Surplus of producers into unlimited sinks of the same company (split evenly over the reachable sinks)

@@ -22,197 +22,203 @@ namespace TransportPipes.Database.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("TransportPipes.Database.Entities.DbAction", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("FriendlyName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Xml")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DataProtectionKeys");
+                });
+
+            modelBuilder.Entity("TransportPipes.Database.Entities.DbBuilding", b =>
                 {
                     b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("ActionDetails")
-                        .HasColumnType("jsonb");
-
-                    b.Property<DateTime>("DateToBeExecuted")
+                    b.Property<DateTime?>("ConstructionEndsAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<bool>("Executed")
-                        .HasColumnType("boolean");
+                    b.Property<string>("Contents")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
 
-                    b.Property<long>("ExecutedById")
+                    b.Property<string>("Imports")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("OwnerId")
                         .HasColumnType("bigint");
 
-                    b.Property<double>("GoldClaimed")
+                    b.Property<int>("Size")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("X")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Y")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("Buildings", (string)null);
+                });
+
+            modelBuilder.Entity("TransportPipes.Database.Entities.DbCompany", b =>
+                {
+                    b.Property<long>("Id")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DistrictX")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DistrictY")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("Gold")
                         .HasColumnType("double precision");
 
-                    b.Property<int>("TransportAction")
-                        .HasColumnType("integer");
+                    b.Property<bool>("IsNpc")
+                        .HasColumnType("boolean");
 
-                    b.Property<int>("X")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Y")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DateToBeExecuted");
-
-                    b.HasIndex("Executed");
-
-                    b.HasIndex("ExecutedById");
-
-                    b.HasIndex("X", "Y")
-                        .IsUnique()
-                        .HasFilter("NOT \"Executed\"");
-
-                    b.ToTable("Actions", (string)null);
-                });
-
-            modelBuilder.Entity("TransportPipes.Database.Entities.DbClientUpdate", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("ClientUpdateDetails")
-                        .HasColumnType("jsonb");
-
-                    b.Property<long?>("ExecutedById")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ExecutedById");
-
-                    b.ToTable("ClientUpdates", (string)null);
-                });
-
-            modelBuilder.Entity("TransportPipes.Database.Entities.DbConsumerConnection", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<int>("ConnectionId")
-                        .HasColumnType("integer");
-
-                    b.Property<long>("DestinationId")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("GlobalConnectionId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ConnectionId");
-
-                    b.HasIndex("DestinationId");
-
-                    b.HasIndex("GlobalConnectionId");
-
-                    b.ToTable("ConsumerConnections", (string)null);
-                });
-
-            modelBuilder.Entity("TransportPipes.Database.Entities.DbGameObject", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<int>("ChunkX")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("ChunkY")
-                        .HasColumnType("integer");
-
-                    b.Property<long?>("DbGlobalConnectionId")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("DbOwnerId")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("GameObjectType")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("GlobalConnectionId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("X")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Y")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DbGlobalConnectionId");
-
-                    b.HasIndex("DbOwnerId");
-
-                    b.HasIndex("GlobalConnectionId");
-
-                    b.HasIndex("ChunkX", "ChunkY");
-
-                    b.HasIndex("X", "Y")
-                        .IsUnique();
-
-                    b.ToTable("GameObjects", (string)null);
-                });
-
-            modelBuilder.Entity("TransportPipes.Database.Entities.DbGlobalConnection", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<int>("GlobalConnectionId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("LastCalculated")
+                    b.Property<DateTime>("LastSeenAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("Level")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("LifetimeEarnings")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Report")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<double>("ResearchPoints")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Settings")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("Slot")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<double>("Xp")
+                        .HasColumnType("double precision");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("GlobalConnectionId");
+                    b.HasIndex("Name")
+                        .IsUnique();
 
-                    b.ToTable("GlobalConnections", (string)null);
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("Companies", (string)null);
                 });
 
-            modelBuilder.Entity("TransportPipes.Database.Entities.DbProviderConnection", b =>
+            modelBuilder.Entity("TransportPipes.Database.Entities.DbConductor", b =>
                 {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<int>("ConnectionId")
+                    b.Property<int>("X")
                         .HasColumnType("integer");
 
-                    b.Property<int>("GlobalConnectionId")
+                    b.Property<int>("Y")
                         .HasColumnType("integer");
 
-                    b.Property<long>("SourceId")
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("OwnerId")
                         .HasColumnType("bigint");
 
-                    b.HasKey("Id");
+                    b.Property<int?>("Side")
+                        .HasColumnType("integer");
 
-                    b.HasIndex("ConnectionId");
+                    b.Property<int>("Tier")
+                        .HasColumnType("integer");
 
-                    b.HasIndex("GlobalConnectionId");
+                    b.HasKey("X", "Y");
 
-                    b.HasIndex("SourceId");
+                    b.ToTable("Conductors", (string)null);
+                });
 
-                    b.ToTable("ProviderConnections", (string)null);
+            modelBuilder.Entity("TransportPipes.Database.Entities.DbEstate", b =>
+                {
+                    b.Property<int>("DistrictX")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DistrictY")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Slot")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("GatePolicies")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<long?>("OwnerId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("UnlockedParcels")
+                        .HasColumnType("integer");
+
+                    b.HasKey("DistrictX", "DistrictY", "Slot");
+
+                    b.ToTable("Estates", (string)null);
+                });
+
+            modelBuilder.Entity("TransportPipes.Database.Entities.DbTerrainOverride", b =>
+                {
+                    b.Property<int>("X")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Y")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Terrain")
+                        .HasColumnType("integer");
+
+                    b.HasKey("X", "Y");
+
+                    b.ToTable("TerrainOverrides", (string)null);
                 });
 
             modelBuilder.Entity("TransportPipes.Database.Entities.DbUser", b =>
@@ -223,13 +229,19 @@ namespace TransportPipes.Database.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
-                    b.Property<double>("Gold")
-                        .HasColumnType("double precision");
+                    b.Property<bool>("IsAdmin")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastLoginAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("NormalizedUserName")
                         .IsRequired()
@@ -253,65 +265,26 @@ namespace TransportPipes.Database.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
-            modelBuilder.Entity("TransportPipes.Database.Entities.DbAction", b =>
+            modelBuilder.Entity("TransportPipes.Database.Entities.DbWorld", b =>
                 {
-                    b.HasOne("TransportPipes.Database.Entities.DbUser", "ExecutedBy")
-                        .WithMany()
-                        .HasForeignKey("ExecutedById")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
 
-                    b.Navigation("ExecutedBy");
-                });
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
 
-            modelBuilder.Entity("TransportPipes.Database.Entities.DbClientUpdate", b =>
-                {
-                    b.HasOne("TransportPipes.Database.Entities.DbUser", "ExecutedBy")
-                        .WithMany()
-                        .HasForeignKey("ExecutedById")
-                        .OnDelete(DeleteBehavior.SetNull);
+                    b.Property<int>("Era")
+                        .HasColumnType("integer");
 
-                    b.Navigation("ExecutedBy");
-                });
+                    b.Property<DateTime>("LastTick")
+                        .HasColumnType("timestamp with time zone");
 
-            modelBuilder.Entity("TransportPipes.Database.Entities.DbConsumerConnection", b =>
-                {
-                    b.HasOne("TransportPipes.Database.Entities.DbGameObject", "Destination")
-                        .WithMany()
-                        .HasForeignKey("DestinationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Property<int>("Seed")
+                        .HasColumnType("integer");
 
-                    b.Navigation("Destination");
-                });
+                    b.HasKey("Id");
 
-            modelBuilder.Entity("TransportPipes.Database.Entities.DbGameObject", b =>
-                {
-                    b.HasOne("TransportPipes.Database.Entities.DbGlobalConnection", "DbGlobalConnection")
-                        .WithMany()
-                        .HasForeignKey("DbGlobalConnectionId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("TransportPipes.Database.Entities.DbUser", "Owner")
-                        .WithMany()
-                        .HasForeignKey("DbOwnerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("DbGlobalConnection");
-
-                    b.Navigation("Owner");
-                });
-
-            modelBuilder.Entity("TransportPipes.Database.Entities.DbProviderConnection", b =>
-                {
-                    b.HasOne("TransportPipes.Database.Entities.DbGameObject", "Source")
-                        .WithMany()
-                        .HasForeignKey("SourceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Source");
+                    b.ToTable("World", (string)null);
                 });
 #pragma warning restore 612, 618
         }

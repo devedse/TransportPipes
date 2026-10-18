@@ -1,5 +1,5 @@
 # Purpose: build, test, package and publish TransportPipes on every push.
-# The server (ASP.NET Core + SignalR + the Actionizer) and the frontend (React + PixiJS) ship as one Docker image on GHCR.
+# The server (ASP.NET Core: game world + SignalR) and the frontend (React + PixiJS) ship as one Docker image on GHCR.
 name: GitHubActionsBuilds
 
 on:

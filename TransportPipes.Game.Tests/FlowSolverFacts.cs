@@ -186,6 +186,28 @@ public class FlowSolverFacts
     }
 
     [TestMethod]
+    public void AChainInALoopUsesAllScarceEnergy()
+    {
+        // The factory needs the mine's ore and the mine can only deliver to the factory (original scenario
+        // FactoryNotBeingAbleToWorkAtFullSpeed): the scarce energy is shared and none of it is left unused
+        var net = new Net();
+        var solar = net.Wind(1, energy: 5);
+        var factory = net.Factory(1);
+        var mine = net.Mine(1);
+        var storage = net.Storage(1);
+        net.Group(solar, factory);
+        net.Group(solar, mine);
+        net.Group(factory, mine);
+        net.Group(factory, storage);
+
+        var solution = net.Solve();
+
+        Assert.AreEqual(1, solution.Rate(solar), Tolerance);
+        Assert.AreEqual(1.0 / 6, solution.Rate(factory), Tolerance);
+        Assert.AreEqual(1.0 / 6, solution.Rate(mine), Tolerance);
+    }
+
+    [TestMethod]
     public void LeftoverInputsAreNotSpilled()
     {
         // The original algorithm could lose the ore that a factory couldn't use
@@ -206,8 +228,9 @@ public class FlowSolverFacts
     [TestMethod]
     public void ABuildingLimitedByOneInputLeavesTheOtherInputToOthers()
     {
-        // A can only run at 25% because of its ore, so it asks for 5 energy, B asks for 20. The 20 energy is shared in
-        // proportion (4 and 16) and nothing is sold to the hub while an own building still wants energy.
+        // A can only run at 25% because of its ore, so it asks for 5 energy, B asks for 20. Both would get the same share
+        // of their need (75%), but A can only use 25%: it gets 5, B the other 15, and nothing is sold to the hub while an
+        // own building still wants energy.
         var net = new Net();
         var wind = net.Wind(1, energy: 20);
         var oreSource = net.Building(1, output: new() { ["ironOre"] = 3 });
@@ -219,8 +242,8 @@ public class FlowSolverFacts
 
         var solution = net.Solve();
 
-        Assert.AreEqual(0.2, solution.Rate(a), 1e-3);
-        Assert.AreEqual(0.8, solution.Rate(b), 1e-3);
+        Assert.AreEqual(0.25, solution.Rate(a), 1e-3);
+        Assert.AreEqual(0.75, solution.Rate(b), 1e-3);
         Assert.AreEqual(0, net.Delivered(solution, post, "energy"), 1e-3);
     }
 
@@ -456,6 +479,49 @@ public class FlowSolverFacts
 
         Assert.AreEqual(0, solution.Rate(mine), Tolerance);
         Assert.AreEqual(30, net.Delivered(solution, post, "energy"), Tolerance);
+    }
+
+    [TestMethod]
+    public void RandomNetworksStayConsistent()
+    {
+        var random = new Random(20261018);
+        for (var run = 0; run < 2000; run++)
+        {
+            var net = new Net();
+            var ids = new List<long>();
+            var count = random.Next(2, 12);
+            for (var i = 0; i < count; i++)
+            {
+                var owner = random.Next(1, 3);
+                ids.Add(random.Next(7) switch
+                {
+                    0 => net.Wind(owner, random.Next(1, 40)),
+                    1 => net.Mine(owner),
+                    2 => net.Factory(owner),
+                    3 => net.Storage(owner, random.Next(2) == 0, random.Next(2) == 0 ? ["energy"] : []),
+                    4 => net.TradingPost(owner, random.Next(1, 100), random.Next(3) == 0 ? ["energy", "ironOre"] : []),
+                    5 => net.Building(owner, new() { ["energy"] = random.Next(1, 30) }, new() { ["glass"] = 2 }, research: 1),
+                    _ => net.Building(owner, new() { ["ironIngot"] = random.Next(1, 5) }, new() { ["machineParts"] = 1 }, maxRate: random.NextDouble()),
+                });
+            }
+            for (var i = 0; i < count; i++)
+            {
+                net.PipeGroup(0.7 + random.NextDouble() * 0.3, random.Next(2) == 0 ? 1_000_000 : random.Next(1, 30), ids[i], ids[random.Next(count)], ids[random.Next(count)]);
+            }
+
+            // Solve checks that every building consumes what it gets and places what it makes
+            var solution = net.Solve();
+
+            Assert.IsTrue(solution.Rates.Values.All(t => double.IsFinite(t) && t >= -1e-9), $"run {run}");
+            Assert.IsTrue(solution.Flows.All(t => t.Sent >= -1e-9 && t.Delivered <= t.Sent + 1e-9 && double.IsFinite(t.Sent)), $"run {run}");
+            Assert.IsTrue(solution.GoldPerMinute.Values.All(double.IsFinite), $"run {run}");
+            foreach (var pair in net.Links.Where(t => t.A != t.B).GroupBy(t => (Math.Min(t.A, t.B), Math.Max(t.A, t.B))))
+            {
+                var capacity = pair.Max(t => t.Capacity);
+                var through = solution.Flows.Where(t => pair.First().Connects(t.From, t.To)).Sum(t => t.Sent);
+                Assert.IsLessThanOrEqualTo(capacity + 1e-6, through, $"run {run}: link capacity");
+            }
+        }
     }
 
     [TestMethod]

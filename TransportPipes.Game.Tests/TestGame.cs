@@ -12,9 +12,84 @@ internal sealed class TestGame
     public DateTime Time { get; set; } = Start;
     public GameWorld World { get; }
 
-    public TestGame(int seed = 1234)
+    public TestGame(int seed = 1234, GameContent? content = null)
     {
-        World = new GameWorld(GameContent.Default, seed, () => Time);
+        World = new GameWorld(content ?? GameContent.Default, seed, () => Time);
+    }
+
+    /// <summary>The game content without location modifiers (wind, sun, richness), so every building makes its listed amount</summary>
+    public static GameContent PlainContent { get; } = CreatePlainContent();
+
+    private static GameContent CreatePlainContent()
+    {
+        var content = GameContent.Default;
+        var buildings = content.BuildingList.Select(t => new BuildingDefinition
+        {
+            Id = t.Id,
+            Name = t.Name,
+            Category = t.Category,
+            Kind = t.Kind,
+            Size = t.Size,
+            Buildable = t.Buildable,
+            Unlock = t.Unlock,
+            Cost = t.Cost,
+            BuildSeconds = t.BuildSeconds,
+            In = t.In,
+            Out = t.Out,
+            OutFromDeposit = t.OutFromDeposit,
+            ResearchPerMinute = t.ResearchPerMinute,
+            Placement = t.Placement,
+            Modifier = ProductionModifier.None,
+            Capacity = t.Capacity,
+            Throughput = t.Throughput,
+            PriceBonus = t.PriceBonus,
+            Range = t.Range,
+            Layer = t.Layer,
+            Sprite = t.Sprite,
+            Description = t.Description,
+        }).ToList();
+        return new GameContent(content.ResourceList, buildings, content.PipeTiers, content.Progression);
+    }
+
+    private static readonly Dictionary<char, string> MapLetters = new()
+    {
+        ['W'] = "windMoily",
+        ['S'] = "solarPanel",
+        ['M'] = "ironMine",
+        ['F'] = "smallFactory",
+        ['O'] = "storage",
+        ['T'] = "tradingPost",
+    };
+
+    /// <summary>
+    /// Puts a map like the original game's tests on the world, without any placement rules: W wind moily, S solar panel,
+    /// M iron mine, F small factory, O storage, T trading post, + pipe (lossless by default, like the original game).
+    /// Returns the buildings by their map position.
+    /// </summary>
+    public Dictionary<(int X, int Y), Building> Map(Company company, TilePos origin, string map, int pipeTier = 5)
+    {
+        var buildings = new Dictionary<(int X, int Y), Building>();
+        var rows = map.Replace("\r", "").Split('\n');
+        for (var y = 0; y < rows.Length; y++)
+        {
+            for (var x = 0; x < rows[y].Length; x++)
+            {
+                var c = rows[y][x];
+                var pos = origin.Offset(x, y);
+                if (c == '+')
+                {
+                    World.LoadConductor(new Conductor { Pos = pos, Tier = pipeTier, Owner = company.Id });
+                }
+                else if (MapLetters.TryGetValue(c, out var type))
+                {
+                    var building = new Building { Id = World.NextBuildingId, Type = type, Owner = company.Id, X = pos.X, Y = pos.Y };
+                    World.LoadBuilding(building);
+                    buildings[(x, y)] = building;
+                }
+            }
+        }
+        World.SolveNetworks();
+        return buildings;
     }
 
     public void Pass(double minutes)

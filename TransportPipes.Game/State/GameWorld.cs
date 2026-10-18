@@ -26,9 +26,10 @@ public sealed class WorldChanges
     public HashSet<long> Companies { get; } = new();
     public HashSet<int> Networks { get; } = new();
     public HashSet<long> Storages { get; } = new();
+    public HashSet<(DistrictCoord District, int Slot)> Estates { get; } = new();
     public List<WorldEvent> Events { get; } = new();
 
-    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Events.Count == 0;
+    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Events.Count == 0;
 }
 
 /// <summary>
@@ -61,12 +62,16 @@ public sealed partial class GameWorld
     /// <summary>Deleted entities the persistence layer has to remove</summary>
     public List<object> Deleted { get; } = new();
 
+    /// <summary>The gold a new company starts with (the content's value unless the server configures another)</summary>
+    public double StartingGold { get; set; }
+
     public GameWorld(GameContent content, int seed, Func<DateTime> clock)
     {
         Content = content;
         Generator = new WorldGenerator(seed);
         _clock = clock;
         LastTick = clock();
+        StartingGold = content.Progression.StartingGold;
     }
 
     public DateTime Now => _clock();
@@ -188,6 +193,28 @@ public sealed partial class GameWorld
         throw new InvalidOperationException("The world is infinite, this can't happen.");
     }
 
+    public const int MinCompanyNameLength = 3;
+    public const int MaxCompanyNameLength = 24;
+
+    /// <summary>Why a company name can't be used, or null when it is fine</summary>
+    public string? CompanyNameError(string name)
+    {
+        name = name.Trim();
+        if (name.Length is < MinCompanyNameLength or > MaxCompanyNameLength)
+        {
+            return $"A company name has {MinCompanyNameLength} to {MaxCompanyNameLength} characters.";
+        }
+        if (!name.All(t => char.IsLetterOrDigit(t) || t is ' ' or '-' or '_' or '.' or '&' or '\''))
+        {
+            return "Use letters, digits, spaces and - _ . & ' in a company name.";
+        }
+        if (_companies.Values.Any(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            return "That name is already taken.";
+        }
+        return null;
+    }
+
     public static readonly (int X, int Y) HqLocal = (15, 15);
     public static readonly (int X, int Y) TradingPostLocal = (18, 15);
 
@@ -201,7 +228,7 @@ public sealed partial class GameWorld
             UserId = userId,
             Name = name.Trim(),
             Color = color,
-            Gold = Content.Progression.StartingGold,
+            Gold = StartingGold,
             CreatedAt = now,
             LastSeenAt = now,
             District = estate.District,
@@ -213,6 +240,7 @@ public sealed partial class GameWorld
         estate.OwnerId = company.Id;
         estate.UnlockedParcels = Content.Progression.StartParcels.Aggregate(0, (mask, parcel) => mask | (1 << parcel));
         estate.Touch();
+        Changes.Estates.Add((estate.District, estate.Slot));
 
         foreach (var side in Enum.GetValues<GateSide>())
         {
@@ -668,6 +696,7 @@ public sealed partial class GameWorld
 
         estate.UnlockedParcels |= 1 << parcel;
         estate.Touch();
+        Changes.Estates.Add((estate.District, estate.Slot));
         var (ox, oy) = WorldLayout.ParcelOrigin(parcel);
         for (var y = 0; y < WorldLayout.ParcelSize; y++)
         {
@@ -874,6 +903,7 @@ public sealed partial class GameWorld
         }
         estate.GatePolicies[side] = policy;
         estate.Touch();
+        Changes.Estates.Add((estate.District, estate.Slot));
         MarkDirty(WorldLayout.GatePosition(estate.District, estate.Slot, side));
         return CommandResult.Ok;
     }

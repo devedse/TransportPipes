@@ -488,6 +488,34 @@ public sealed partial class GameWorld
         Changes.Networks.Add(network.Id);
     }
 
+    /// <summary>Gold per minute of every company over all its networks</summary>
+    public Dictionary<long, double> GoldPerMinute()
+    {
+        var total = new Dictionary<long, double>();
+        foreach (var network in Networks)
+        {
+            foreach (var (company, gold) in network.Solution.GoldPerMinute)
+            {
+                total[company] = (total.TryGetValue(company, out var v) ? v : 0) + gold;
+            }
+        }
+        return total;
+    }
+
+    /// <summary>Research points per minute of every company</summary>
+    public Dictionary<long, double> ResearchPerMinute()
+    {
+        var total = new Dictionary<long, double>();
+        foreach (var network in Networks)
+        {
+            foreach (var (company, research) in network.Solution.ResearchPerMinute)
+            {
+                total[company] = (total.TryGetValue(company, out var v) ? v : 0) + research;
+            }
+        }
+        return total;
+    }
+
     /// <summary>Brings all networks up to date and solves the ones that changed</summary>
     public void SolveNetworks()
     {

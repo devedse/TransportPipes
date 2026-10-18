@@ -61,7 +61,7 @@ public static class WorldLayout
     public const int ParcelsPerSide = EstateSize / ParcelSize;
     public const int ParcelCount = ParcelsPerSide * ParcelsPerSide;
     public const int WildernessWidth = 30;
-    public const int ChunkSize = 8;
+    public const int ChunkSize = 32;
 
     public const int BlockPitch = EstateSize + CorridorWidth;
     public const int DistrictSize = CorridorWidth + BlocksPerSide * BlockPitch;

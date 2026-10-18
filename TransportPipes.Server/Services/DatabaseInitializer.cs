@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using TransportPipes.Database;
 using TransportPipes.Database.Entities;
@@ -31,12 +32,12 @@ public class DatabaseInitializer
         {
             try
             {
-                using var transportDatabase = _transportPipesDbFactory.CreateDatabaseWithOpenConnection();
-                transportDatabase.MigrateDatabase();
+                await using var dbContext = _transportPipesDbFactory.CreateDbContext();
+                await dbContext.Database.MigrateAsync(cancellationToken);
 
-                if (_options.SeedTestUsers && !transportDatabase.DbContext.Users.Any())
+                if (_options.SeedTestUsers && !await dbContext.Users.AnyAsync(cancellationToken))
                 {
-                    AddTestUsers(transportDatabase);
+                    await AddTestUsersAsync(dbContext);
                 }
 
                 _logger.LogInformation("Database is up to date");
@@ -50,14 +51,15 @@ public class DatabaseInitializer
         }
     }
 
-    private void AddTestUsers(TransportDatabase transportDatabase)
+    private async Task AddTestUsersAsync(TransportPipesDbContext dbContext)
     {
         foreach (var (userName, email) in new[] { ("admin", "admin@test.com"), ("Devedse", "devedse@test.com") })
         {
-            var user = new DbUser { UserName = userName, Email = email, Gold = _options.StartingGold };
+            var user = new DbUser { UserName = userName, NormalizedUserName = DbUser.NormalizeUserName(userName), Email = email, CreatedAt = DateTime.UtcNow, IsAdmin = true };
             user.PasswordHash = _passwordHasher.HashPassword(user, _options.TestUserPassword);
-            transportDatabase.AddUser(user);
+            dbContext.Users.Add(user);
         }
+        await dbContext.SaveChangesAsync();
 
         _logger.LogInformation("Added the test users admin and Devedse");
     }

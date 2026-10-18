@@ -5,14 +5,24 @@ public class TransportPipesOptions
     public const string SectionName = "TransportPipes";
 
     /// <summary>
-    /// How often the Actionizer executes the queued actions (building, deleting, ...)
+    /// How often the world is simulated and clients get updates
     /// </summary>
-    public double ActionizerIntervalSeconds { get; set; } = 1;
+    public double TickSeconds { get; set; } = 2;
 
     /// <summary>
-    /// The gold a newly registered player starts with
+    /// How often gold, storage contents and XP are saved (commands are saved within a tick)
     /// </summary>
-    public double StartingGold { get; set; } = 2000;
+    public double SaveSeconds { get; set; } = 30;
+
+    /// <summary>
+    /// The seed of a new world (only used when the database has no world yet)
+    /// </summary>
+    public int WorldSeed { get; set; } = 20261018;
+
+    /// <summary>
+    /// The gold a new company starts with; empty means the value from the content files (progression.yaml)
+    /// </summary>
+    public double? StartingGold { get; set; }
 
     /// <summary>
     /// Creates the users "admin" and "Devedse" (with <see cref="TestUserPassword"/>) when there are no users yet.

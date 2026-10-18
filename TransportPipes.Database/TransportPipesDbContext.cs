@@ -1,13 +1,11 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
 using TransportPipes.Database.Entities;
-using TransportPipes.Database.Entities.ActionDetails;
-using TransportPipes.Database.Entities.ClientUpdateDetails;
 using TransportPipes.Database.Helpers;
 
 namespace TransportPipes.Database;
 
-public class TransportPipesDbContext : DbContext
+public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
 {
     public TransportPipesDbContext(DbContextOptions<TransportPipesDbContext> options)
         : base(options)
@@ -15,12 +13,15 @@ public class TransportPipesDbContext : DbContext
     }
 
     public DbSet<DbUser> Users => Set<DbUser>();
-    public DbSet<DbGlobalConnection> GlobalConnections => Set<DbGlobalConnection>();
-    public DbSet<DbGameObject> GameObjects => Set<DbGameObject>();
-    public DbSet<DbConsumerConnection> ConsumerConnections => Set<DbConsumerConnection>();
-    public DbSet<DbProviderConnection> ProviderConnections => Set<DbProviderConnection>();
-    public DbSet<DbAction> Actions => Set<DbAction>();
-    public DbSet<DbClientUpdate> ClientUpdates => Set<DbClientUpdate>();
+    public DbSet<DbWorld> Worlds => Set<DbWorld>();
+    public DbSet<DbCompany> Companies => Set<DbCompany>();
+    public DbSet<DbEstate> Estates => Set<DbEstate>();
+    public DbSet<DbBuilding> Buildings => Set<DbBuilding>();
+    public DbSet<DbConductor> Conductors => Set<DbConductor>();
+    public DbSet<DbTerrainOverride> TerrainOverrides => Set<DbTerrainOverride>();
+
+    /// <summary>The keys that protect the login cookies, so logins survive a restart</summary>
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -38,71 +39,51 @@ public class TransportPipesDbContext : DbContext
             user.HasIndex(t => t.NormalizedUserName).IsUnique();
         });
 
-        modelBuilder.Entity<DbGlobalConnection>(globalConnection =>
+        modelBuilder.Entity<DbWorld>(world =>
         {
-            globalConnection.ToTable("GlobalConnections");
-            globalConnection.HasIndex(t => t.GlobalConnectionId);
+            world.ToTable("World");
+            world.Property(t => t.Id).ValueGeneratedNever();
         });
 
-        modelBuilder.Entity<DbGameObject>(gameObject =>
+        modelBuilder.Entity<DbCompany>(company =>
         {
-            gameObject.ToTable("GameObjects");
-            gameObject.HasIndex(t => new { t.ChunkX, t.ChunkY });
-            gameObject.HasIndex(t => t.GlobalConnectionId);
-            // There can only be one GameObject on every tile
-            gameObject.HasIndex(t => new { t.X, t.Y }).IsUnique();
-            gameObject.HasOne(t => t.Owner).WithMany().HasForeignKey(t => t.DbOwnerId).OnDelete(DeleteBehavior.Restrict);
-            gameObject.HasOne(t => t.DbGlobalConnection).WithMany().HasForeignKey(t => t.DbGlobalConnectionId).OnDelete(DeleteBehavior.SetNull);
+            company.ToTable("Companies");
+            company.Property(t => t.Id).ValueGeneratedNever();
+            company.Property(t => t.Name).HasMaxLength(40);
+            company.Property(t => t.Color).HasMaxLength(16);
+            company.Property(t => t.Settings).HasColumnType("jsonb");
+            company.Property(t => t.Report).HasColumnType("jsonb");
+            company.HasIndex(t => t.UserId).IsUnique();
+            company.HasIndex(t => t.Name).IsUnique();
         });
 
-        modelBuilder.Entity<DbConsumerConnection>(consumerConnection =>
+        modelBuilder.Entity<DbEstate>(estate =>
         {
-            consumerConnection.ToTable("ConsumerConnections");
-            consumerConnection.HasIndex(t => t.ConnectionId);
-            consumerConnection.HasIndex(t => t.GlobalConnectionId);
-            consumerConnection.HasOne(t => t.Destination).WithMany().HasForeignKey(t => t.DestinationId).OnDelete(DeleteBehavior.Cascade);
+            estate.ToTable("Estates");
+            estate.HasKey(t => new { t.DistrictX, t.DistrictY, t.Slot });
+            estate.Property(t => t.GatePolicies).HasColumnType("jsonb");
         });
 
-        modelBuilder.Entity<DbProviderConnection>(providerConnection =>
+        modelBuilder.Entity<DbBuilding>(building =>
         {
-            providerConnection.ToTable("ProviderConnections");
-            providerConnection.HasIndex(t => t.ConnectionId);
-            providerConnection.HasIndex(t => t.GlobalConnectionId);
-            providerConnection.HasOne(t => t.Source).WithMany().HasForeignKey(t => t.SourceId).OnDelete(DeleteBehavior.Cascade);
+            building.ToTable("Buildings");
+            building.Property(t => t.Id).ValueGeneratedNever();
+            building.Property(t => t.Type).HasMaxLength(40);
+            building.Property(t => t.Contents).HasColumnType("jsonb");
+            building.Property(t => t.Imports).HasColumnType("jsonb");
+            building.HasIndex(t => t.OwnerId);
         });
 
-        modelBuilder.Entity<DbAction>(action =>
+        modelBuilder.Entity<DbConductor>(conductor =>
         {
-            action.ToTable("Actions");
-            action.HasIndex(t => t.Executed);
-            action.HasIndex(t => t.DateToBeExecuted);
-            // Only one action can be queued per tile, this used to be enforced by a serializable transaction
-            action.HasIndex(t => new { t.X, t.Y }).IsUnique().HasFilter("NOT \"Executed\"");
-            action.HasOne(t => t.ExecutedBy).WithMany().HasForeignKey(t => t.ExecutedById).OnDelete(DeleteBehavior.Restrict);
-            action.Property(t => t.ActionDetails)
-                .HasColumnType("jsonb")
-                .HasConversion(
-                    v => DetailsJsonSerializer.Serialize(v),
-                    v => DetailsJsonSerializer.DeserializeActionDetails(v),
-                    new ValueComparer<ActionDetailsBase?>(
-                        (a, b) => DetailsJsonSerializer.Serialize(a) == DetailsJsonSerializer.Serialize(b),
-                        v => DetailsJsonSerializer.Serialize(v).GetHashCode(),
-                        v => DetailsJsonSerializer.DeserializeActionDetails(DetailsJsonSerializer.Serialize(v))));
+            conductor.ToTable("Conductors");
+            conductor.HasKey(t => new { t.X, t.Y });
         });
 
-        modelBuilder.Entity<DbClientUpdate>(clientUpdate =>
+        modelBuilder.Entity<DbTerrainOverride>(terrain =>
         {
-            clientUpdate.ToTable("ClientUpdates");
-            clientUpdate.HasOne(t => t.ExecutedBy).WithMany().HasForeignKey(t => t.ExecutedById).OnDelete(DeleteBehavior.SetNull);
-            clientUpdate.Property(t => t.ClientUpdateDetails)
-                .HasColumnType("jsonb")
-                .HasConversion(
-                    v => DetailsJsonSerializer.Serialize(v),
-                    v => DetailsJsonSerializer.DeserializeClientUpdateDetails(v),
-                    new ValueComparer<ClientUpdateDetailsBase?>(
-                        (a, b) => DetailsJsonSerializer.Serialize(a) == DetailsJsonSerializer.Serialize(b),
-                        v => DetailsJsonSerializer.Serialize(v).GetHashCode(),
-                        v => DetailsJsonSerializer.DeserializeClientUpdateDetails(DetailsJsonSerializer.Serialize(v))));
+            terrain.ToTable("TerrainOverrides");
+            terrain.HasKey(t => new { t.X, t.Y });
         });
     }
 }
