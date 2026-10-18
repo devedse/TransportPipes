@@ -1,0 +1,500 @@
+using TransportPipes.Game.Content;
+using TransportPipes.Game.Simulation;
+using TransportPipes.Game.World;
+
+namespace TransportPipes.Game.State;
+
+/// <summary>
+/// Buildings and pipes that are connected. A pipe group is a connected set of pipe and gate tiles; buildings touching
+/// the same pipe group can exchange resources (resources never pass through a building). A network is everything that
+/// is connected through pipe groups, and is solved as one.
+/// </summary>
+public sealed class Network
+{
+    public int Id { get; init; }
+    public HashSet<long> Buildings { get; } = new();
+    public HashSet<TilePos> Conductors { get; } = new();
+    public List<FlowLink> Links { get; set; } = new();
+    public FlowSolution Solution { get; set; } = FlowSolution.Empty;
+    public bool NeedsSolve { get; set; } = true;
+
+    /// <summary>The companies with buildings in this network</summary>
+    public IEnumerable<long> Owners(GameWorld world) => Buildings.Select(t => world.Building(t)!.Owner).Distinct();
+
+    public override string ToString() => $"Network {Id}: {Buildings.Count} buildings, {Conductors.Count} pipes";
+}
+
+public sealed partial class GameWorld
+{
+    private readonly Dictionary<int, Network> _networks = new();
+    private readonly Dictionary<TilePos, int> _networkOfTile = new();
+    private readonly Dictionary<long, int> _networkOfBuilding = new();
+    private readonly HashSet<TilePos> _dirtyTiles = new();
+    private readonly HashSet<long> _dirtyBuildings = new();
+    private int _nextNetworkId = 1;
+
+    public IEnumerable<Network> Networks
+    {
+        get
+        {
+            UpdateNetworks();
+            return _networks.Values;
+        }
+    }
+
+    public Network? NetworkOf(long buildingId)
+    {
+        UpdateNetworks();
+        return _networkOfBuilding.TryGetValue(buildingId, out var id) ? _networks[id] : null;
+    }
+
+    public Network? NetworkAt(TilePos pos)
+    {
+        UpdateNetworks();
+        return _networkOfTile.TryGetValue(pos, out var id) ? _networks[id] : null;
+    }
+
+    /// <summary>The topology around this tile changed</summary>
+    private void MarkDirty(TilePos pos) => _dirtyTiles.Add(pos);
+
+    /// <summary>A building was added, removed or changed: its network has to be rebuilt and solved again</summary>
+    private void MarkDirty(Building building)
+    {
+        _dirtyBuildings.Add(building.Id);
+        foreach (var tile in building.Footprint())
+        {
+            _dirtyTiles.Add(tile);
+        }
+        foreach (var tile in building.Border())
+        {
+            _dirtyTiles.Add(tile);
+        }
+    }
+
+    /// <summary>Only the flows changed (prices, storage full or empty, construction finished)</summary>
+    private void MarkNeedsSolve(long buildingId)
+    {
+        if (_networkOfBuilding.TryGetValue(buildingId, out var id))
+        {
+            _networks[id].NeedsSolve = true;
+            Changes.Networks.Add(id);
+        }
+        else
+        {
+            _dirtyBuildings.Add(buildingId);
+        }
+    }
+
+    private void MarkCompanyNetworksDirty(long companyId)
+    {
+        foreach (var building in BuildingsOf(companyId).ToList())
+        {
+            MarkNeedsSolve(building.Id);
+        }
+    }
+
+    /// <summary>Whether this conductor tile carries resources (closed gates don't)</summary>
+    private bool Conducts(Conductor conductor)
+    {
+        if (conductor.Kind != ConductorKind.Gate)
+        {
+            return true;
+        }
+        var estate = EstateAt(conductor.Pos);
+        // Corporation and contract gates open when those systems exist; until then only open gates conduct
+        return estate == null || conductor.Side is not { } side || estate.GatePolicies[side] == GatePolicy.Open;
+    }
+
+    private static readonly (int X, int Y)[] Directions = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+
+    /// <summary>Rebuilds the networks around everything that changed (other networks keep their solution)</summary>
+    private void UpdateNetworks()
+    {
+        if (_dirtyTiles.Count == 0 && _dirtyBuildings.Count == 0)
+        {
+            return;
+        }
+
+        // Dissolve every network touching a change, then flood fill again from all their members
+        var affected = new HashSet<int>();
+        var seedTiles = new HashSet<TilePos>();
+        var seedBuildings = new HashSet<long>();
+        foreach (var tile in _dirtyTiles)
+        {
+            if (_networkOfTile.TryGetValue(tile, out var id))
+            {
+                affected.Add(id);
+            }
+            if (_buildingAt.TryGetValue(tile, out var buildingId))
+            {
+                seedBuildings.Add(buildingId);
+                if (_networkOfBuilding.TryGetValue(buildingId, out var buildingNetwork))
+                {
+                    affected.Add(buildingNetwork);
+                }
+            }
+            if (_conductors.ContainsKey(tile))
+            {
+                seedTiles.Add(tile);
+            }
+        }
+        foreach (var buildingId in _dirtyBuildings)
+        {
+            if (_networkOfBuilding.TryGetValue(buildingId, out var id))
+            {
+                affected.Add(id);
+            }
+            if (_buildings.ContainsKey(buildingId))
+            {
+                seedBuildings.Add(buildingId);
+            }
+        }
+        _dirtyTiles.Clear();
+        _dirtyBuildings.Clear();
+
+        foreach (var id in affected)
+        {
+            var network = _networks[id];
+            _networks.Remove(id);
+            Changes.Networks.Add(id);
+            foreach (var tile in network.Conductors)
+            {
+                _networkOfTile.Remove(tile);
+                if (_conductors.ContainsKey(tile))
+                {
+                    seedTiles.Add(tile);
+                }
+            }
+            foreach (var buildingId in network.Buildings)
+            {
+                _networkOfBuilding.Remove(buildingId);
+                if (_buildings.ContainsKey(buildingId))
+                {
+                    seedBuildings.Add(buildingId);
+                }
+            }
+        }
+
+        foreach (var tile in seedTiles)
+        {
+            if (!_networkOfTile.ContainsKey(tile) && Conducts(_conductors[tile]))
+            {
+                Flood(tile, null);
+            }
+        }
+        foreach (var buildingId in seedBuildings)
+        {
+            if (!_networkOfBuilding.ContainsKey(buildingId))
+            {
+                Flood(null, buildingId);
+            }
+        }
+    }
+
+    /// <summary>Creates the network that contains this tile or building</summary>
+    private void Flood(TilePos? startTile, long? startBuilding)
+    {
+        var network = new Network { Id = _nextNetworkId++ };
+        var tiles = new Queue<TilePos>();
+        var buildings = new Queue<long>();
+
+        void VisitTile(TilePos tile)
+        {
+            if (network.Conductors.Add(tile))
+            {
+                _networkOfTile[tile] = network.Id;
+                tiles.Enqueue(tile);
+            }
+        }
+
+        void VisitBuilding(long id)
+        {
+            if (network.Buildings.Add(id))
+            {
+                _networkOfBuilding[id] = network.Id;
+                buildings.Enqueue(id);
+            }
+        }
+
+        if (startTile is { } t)
+        {
+            VisitTile(t);
+        }
+        if (startBuilding is { } b)
+        {
+            VisitBuilding(b);
+        }
+
+        while (tiles.Count > 0 || buildings.Count > 0)
+        {
+            while (tiles.TryDequeue(out var tile))
+            {
+                foreach (var (dx, dy) in Directions)
+                {
+                    var next = tile.Offset(dx, dy);
+                    if (_conductors.TryGetValue(next, out var conductor) && Conducts(conductor))
+                    {
+                        VisitTile(next);
+                    }
+                    else if (_buildingAt.TryGetValue(next, out var buildingId))
+                    {
+                        VisitBuilding(buildingId);
+                    }
+                }
+            }
+            while (buildings.TryDequeue(out var id))
+            {
+                foreach (var border in _buildings[id].Border())
+                {
+                    if (_conductors.TryGetValue(border, out var conductor) && Conducts(conductor))
+                    {
+                        VisitTile(border);
+                    }
+                }
+            }
+        }
+
+        // A building without any pipe is not a network
+        if (network.Conductors.Count == 0)
+        {
+            foreach (var id in network.Buildings)
+            {
+                _networkOfBuilding.Remove(id);
+            }
+            return;
+        }
+
+        network.Links = BuildLinks(network);
+        _networks[network.Id] = network;
+        Changes.Networks.Add(network.Id);
+    }
+
+    private (double Loss, double Throughput) ConductorStats(Conductor conductor)
+    {
+        if (conductor.Kind == ConductorKind.Gate)
+        {
+            return (0, double.MaxValue);
+        }
+        var tier = Content.PipeTier(conductor.Tier);
+        return (tier.LossPerTile, tier.Throughput);
+    }
+
+    /// <summary>
+    /// The links between the buildings of a network: for every pair of buildings touching the same pipe group the path
+    /// with the least loss, its efficiency and the smallest throughput on it.
+    /// </summary>
+    private List<FlowLink> BuildLinks(Network network)
+    {
+        var best = new Dictionary<(long, long), FlowLink>();
+        var touching = new Dictionary<TilePos, List<long>>();
+        foreach (var id in network.Buildings)
+        {
+            foreach (var border in _buildings[id].Border())
+            {
+                if (network.Conductors.Contains(border))
+                {
+                    if (!touching.TryGetValue(border, out var list))
+                    {
+                        touching[border] = list = new List<long>();
+                    }
+                    if (!list.Contains(id))
+                    {
+                        list.Add(id);
+                    }
+                }
+            }
+        }
+
+        foreach (var from in network.Buildings.OrderBy(t => t))
+        {
+            // Dijkstra over the pipe tiles, cost = -log(efficiency) so the best path has the highest efficiency
+            var cost = new Dictionary<TilePos, double>();
+            var previous = new Dictionary<TilePos, TilePos>();
+            var queue = new PriorityQueue<TilePos, double>();
+            foreach (var border in _buildings[from].Border().Where(network.Conductors.Contains).Distinct())
+            {
+                var start = -Math.Log(1 - ConductorStats(_conductors[border]).Loss);
+                cost[border] = start;
+                queue.Enqueue(border, start);
+            }
+
+            var done = new HashSet<TilePos>();
+            while (queue.TryDequeue(out var tile, out var c))
+            {
+                if (!done.Add(tile))
+                {
+                    continue;
+                }
+                foreach (var (dx, dy) in Directions)
+                {
+                    var next = tile.Offset(dx, dy);
+                    if (!network.Conductors.Contains(next) || done.Contains(next))
+                    {
+                        continue;
+                    }
+                    var nextCost = c - Math.Log(1 - ConductorStats(_conductors[next]).Loss);
+                    if (!cost.TryGetValue(next, out var known) || nextCost < known - 1e-12)
+                    {
+                        cost[next] = nextCost;
+                        previous[next] = tile;
+                        queue.Enqueue(next, nextCost);
+                    }
+                }
+            }
+
+            foreach (var (tile, others) in touching)
+            {
+                if (!done.Contains(tile))
+                {
+                    continue;
+                }
+                foreach (var to in others)
+                {
+                    if (to <= from)
+                    {
+                        continue;
+                    }
+                    var path = new List<TilePos> { tile };
+                    var capacity = ConductorStats(_conductors[tile]).Throughput;
+                    var current = tile;
+                    while (previous.TryGetValue(current, out var p))
+                    {
+                        path.Add(p);
+                        capacity = Math.Min(capacity, ConductorStats(_conductors[p]).Throughput);
+                        current = p;
+                    }
+                    path.Reverse();
+                    var link = new FlowLink(from, to, Math.Exp(-cost[tile]), capacity, path);
+                    if (!best.TryGetValue((from, to), out var existing) || link.Efficiency > existing.Efficiency + 1e-12)
+                    {
+                        best[(from, to)] = link;
+                    }
+                }
+            }
+        }
+        return best.Values.ToList();
+    }
+
+    // ---------------------------------------------------------------- Solving
+
+    public static readonly double[] RichnessMultiplier = [0, 0.6, 1.0, 1.3, 1.6, 2.0];
+
+    /// <summary>How well a building produces at its spot (wind, sun, deposit richness, forest)</summary>
+    public double LocationMultiplier(Building building, BuildingDefinition definition)
+    {
+        var footprint = building.Footprint().Select(Tile).ToList();
+        switch (definition.Modifier)
+        {
+            case ProductionModifier.Wind:
+                return footprint.Average(t => t.Wind);
+            case ProductionModifier.Sun:
+                return footprint.Average(t => t.Sun);
+            case ProductionModifier.Richness:
+                var deposit = definition.Placement.Deposit;
+                var richness = footprint.Where(t => deposit == null || DepositMatches(deposit, t.Deposit)).Select(t => t.Richness).DefaultIfEmpty(0).Max();
+                return RichnessMultiplier[Math.Clamp(richness, 0, RichnessMultiplier.Length - 1)];
+            case ProductionModifier.Forest:
+                return Math.Clamp(ForestAround(building.Position, building.Size) / 12.0, 0.25, 1.5);
+            default:
+                return 1;
+        }
+    }
+
+    /// <summary>The outputs of a building at level 1 at its spot (the Deep Mine produces what its deposit holds)</summary>
+    private IReadOnlyDictionary<string, double> BaseOutputs(Building building, BuildingDefinition definition)
+    {
+        if (definition.OutFromDeposit.Count == 0)
+        {
+            return definition.Out;
+        }
+        var amount = definition.Out.Values.FirstOrDefault();
+        var deposit = building.Footprint().Select(Tile).Where(t => t.Deposit != null && definition.OutFromDeposit.Contains(t.Deposit))
+            .OrderByDescending(t => t.Richness).Select(t => t.Deposit).FirstOrDefault() ?? definition.OutFromDeposit[0];
+        return new Dictionary<string, double> { [deposit] = amount };
+    }
+
+    public double StorageCapacity(Building building, BuildingDefinition definition) =>
+        definition.Capacity * Content.Progression.OutputMultiplier(building.Level);
+
+    public double TradingPostThroughput(Building building, BuildingDefinition definition) =>
+        definition.Throughput * Content.Progression.OutputMultiplier(building.Level);
+
+    /// <summary>The building as the flow solver sees it, or null when it takes no part in flows</summary>
+    public FlowNode? ToFlowNode(Building building)
+    {
+        if (building.UnderConstruction)
+        {
+            return null;
+        }
+        var definition = Content.Building(building.Type);
+        var level = Content.Progression.OutputMultiplier(building.Level);
+        switch (definition.Kind)
+        {
+            case BuildingKind.Storage:
+                return new FlowNode
+                {
+                    Id = building.Id,
+                    Owner = building.Owner,
+                    Kind = FlowNodeKind.Storage,
+                    StorageCanAccept = building.StoredTotal < StorageCapacity(building, definition) - StorageEpsilon,
+                    StorageContents = building.Contents.Where(t => t.Value > StorageEpsilon).Select(t => t.Key).ToHashSet(),
+                };
+            case BuildingKind.TradingPost:
+                var company = Company(building.Owner);
+                return new FlowNode
+                {
+                    Id = building.Id,
+                    Owner = building.Owner,
+                    Kind = FlowNodeKind.TradingPost,
+                    Throughput = TradingPostThroughput(building, definition),
+                    PriceBonus = definition.PriceBonus,
+                    // Imports cost gold: a company without gold can't import
+                    Imports = company is { Gold: > 0 } ? building.Imports : new HashSet<string>(),
+                };
+        }
+        if (definition.In.Count == 0 && definition.Out.Count == 0 && definition.ResearchPerMinute <= 0)
+        {
+            return null;
+        }
+        var location = LocationMultiplier(building, definition);
+        return new FlowNode
+        {
+            Id = building.Id,
+            Owner = building.Owner,
+            Kind = FlowNodeKind.Building,
+            In = definition.In.Where(t => t.Key != GameContent.ResearchPoints).ToDictionary(t => t.Key, t => t.Value * level),
+            Out = BaseOutputs(building, definition).Where(t => t.Key != GameContent.ResearchPoints).ToDictionary(t => t.Key, t => t.Value * level * location),
+            ResearchPerMinute = definition.ResearchPerMinute * level,
+        };
+    }
+
+    public FlowMarket Market => new()
+    {
+        HubBuyPrice = HubBuyPrice,
+        HubSellPrice = HubSellPrice,
+        SellerPrice = (owner, resource) => Company(owner) is { } company ? SellPrice(company, resource) : AutoPrice(resource),
+        BuyerMaxPrice = (owner, resource) => Company(owner) is { } company ? BuyMaxPrice(company, resource) : HubSellPrice(resource),
+        TradeAllowed = (seller, buyer, resource) =>
+            Company(seller) is { } s && Company(buyer) is { Gold: > 0 } && !s.NoTrade.Contains(resource),
+    };
+
+    private void Solve(Network network)
+    {
+        var nodes = network.Buildings.Select(t => ToFlowNode(_buildings[t])).OfType<FlowNode>().ToList();
+        var ids = nodes.Select(t => t.Id).ToHashSet();
+        var links = network.Links.Where(t => ids.Contains(t.A) && ids.Contains(t.B)).ToList();
+        network.Solution = nodes.Count < 2 ? FlowSolution.Empty : FlowSolver.Solve(nodes, links, Market);
+        network.NeedsSolve = false;
+        Changes.Networks.Add(network.Id);
+    }
+
+    /// <summary>Brings all networks up to date and solves the ones that changed</summary>
+    public void SolveNetworks()
+    {
+        UpdateNetworks();
+        foreach (var network in _networks.Values.Where(t => t.NeedsSolve).ToList())
+        {
+            Solve(network);
+        }
+    }
+}
