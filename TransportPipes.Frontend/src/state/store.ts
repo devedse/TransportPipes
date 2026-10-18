@@ -3,6 +3,7 @@ import { useStore } from "zustand";
 import type {
   BuildingDetailsDto,
   CompanyDto,
+  MarketDto,
   NetworkDetailsDto,
   ReportDto,
   ResearchStateDto,
@@ -53,6 +54,8 @@ export interface AppState {
   helpOpen: boolean;
   researchOpen: boolean;
   research: ResearchStateDto[];
+  hubOpen: boolean;
+  market: MarketDto | null;
 }
 
 export const initialState: AppState = {
@@ -83,6 +86,8 @@ export const initialState: AppState = {
   helpOpen: false,
   researchOpen: false,
   research: [],
+  hubOpen: false,
+  market: null,
 };
 
 export const appStore = createStore<AppState>(() => initialState);

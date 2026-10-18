@@ -15,6 +15,8 @@ public enum WorldEventKind
     ConstructionFinished,
     LevelUp,
     ResearchFinished,
+    PriceChanged,
+    OrderCompleted,
 }
 
 /// <summary>Something a player should hear about (a toast in the client)</summary>
@@ -28,9 +30,10 @@ public sealed class WorldChanges
     public HashSet<int> Networks { get; } = new();
     public HashSet<long> Storages { get; } = new();
     public HashSet<(DistrictCoord District, int Slot)> Estates { get; } = new();
+    public HashSet<DistrictCoord> Markets { get; } = new();
     public List<WorldEvent> Events { get; } = new();
 
-    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Events.Count == 0;
+    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Events.Count == 0;
 }
 
 /// <summary>
@@ -817,59 +820,7 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
-    // ---------------------------------------------------------------- Prices and settings
-
-    public double HubBuyPrice(string resource) => Content.Resources.TryGetValue(resource, out var definition) ? definition.Price : 0;
-
-    public double HubSellPrice(string resource) => HubBuyPrice(resource) * Content.Progression.HubSpread;
-
-    public double AutoPrice(string resource) => Math.Round((HubBuyPrice(resource) + HubSellPrice(resource)) / 2, 2);
-
-    public double SellPrice(Company company, string resource) =>
-        company.SellPrices.TryGetValue(resource, out var price) ? price : AutoPrice(resource);
-
-    public double BuyMaxPrice(Company company, string resource) =>
-        company.BuyMaxPrices.TryGetValue(resource, out var price) ? price : HubSellPrice(resource);
-
-    public CommandResult SetSellPrice(long companyId, string resource, double? price)
-    {
-        if (Company(companyId) is not { } company || !Content.Resources.ContainsKey(resource))
-        {
-            return CommandResult.Fail("Unknown company or resource.");
-        }
-        if (price is { } value)
-        {
-            company.SellPrices[resource] = Math.Round(Math.Clamp(value, HubBuyPrice(resource), HubSellPrice(resource)), 2);
-        }
-        else
-        {
-            company.SellPrices.Remove(resource);
-        }
-        company.Touch();
-        MarkCompanyNetworksDirty(company.Id);
-        Changes.Companies.Add(company.Id);
-        return CommandResult.Ok;
-    }
-
-    public CommandResult SetBuyMaxPrice(long companyId, string resource, double? price)
-    {
-        if (Company(companyId) is not { } company || !Content.Resources.ContainsKey(resource))
-        {
-            return CommandResult.Fail("Unknown company or resource.");
-        }
-        if (price is { } value)
-        {
-            company.BuyMaxPrices[resource] = Math.Round(Math.Clamp(value, HubBuyPrice(resource), HubSellPrice(resource)), 2);
-        }
-        else
-        {
-            company.BuyMaxPrices.Remove(resource);
-        }
-        company.Touch();
-        MarkCompanyNetworksDirty(company.Id);
-        Changes.Companies.Add(company.Id);
-        return CommandResult.Ok;
-    }
+    // ---------------------------------------------------------------- Settings
 
     public CommandResult SetImport(long companyId, long buildingId, string resource, bool enabled)
     {

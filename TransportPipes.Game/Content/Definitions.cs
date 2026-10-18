@@ -2,7 +2,8 @@ using TransportPipes.Game.World;
 
 namespace TransportPipes.Game.Content;
 
-public sealed record ResourceDefinition(string Id, string Name, string Icon, string Color, int Tier, int Era, double Price);
+/// <summary>Demand: units per minute the hub wants per active company before its price drops</summary>
+public sealed record ResourceDefinition(string Id, string Name, string Icon, string Color, int Tier, int Era, double Price, double Demand);
 
 public sealed record PipeTierDefinition(string Id, string Name, int Tier, int Era, double Gold, IReadOnlyDictionary<string, double> Materials, double LossPerTile, double Throughput, string? Research);
 

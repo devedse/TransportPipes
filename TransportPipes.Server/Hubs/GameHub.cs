@@ -16,6 +16,7 @@ public interface IGameClient
     Task DistrictChanged(DistrictDto district);
     Task CompanyChanged(CompanyDto company);
     Task Toast(ToastDto toast);
+    Task MarketChanged(int districtX, int districtY);
 }
 
 /// <summary>The game protocol. Every call needs a logged in user (the login cookie).</summary>
@@ -93,6 +94,7 @@ public sealed class GameHub : Hub<IGameClient>
                 company.Touch();
             }
             company.LastSeenAt = world.Now;
+            world.EnsureOrders(company);
             return new HelloDto(user, CompanyView(world, company), report, world.Now, world.Era);
         });
     }
@@ -117,7 +119,8 @@ public sealed class GameHub : Hub<IGameClient>
             {
                 return CommandResultDto.Fail("Pick a colour.");
             }
-            world.CreateCompany(userId, name, color);
+            var created = world.CreateCompany(userId, name, color);
+            world.EnsureOrders(created);
             return CommandResultDto.Ok;
         });
     }
@@ -175,6 +178,15 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<CommandResultDto> StartResearch(string tech) =>
         Command((world, company) => world.StartResearch(company, tech));
+
+    public Task<MarketDto?> GetMarket() =>
+        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Market(world, company) : null, changesWorld: false);
+
+    public Task<CommandResultDto> DeliverOrder(int order) =>
+        Command((world, company) => world.DeliverOrder(company, order));
+
+    public Task<CommandResultDto> SetNoTrade(string resource, bool noTrade) =>
+        Command((world, company) => world.SetNoTrade(company, resource, noTrade));
 
     public Task<CompanyDto?> GetCompany() =>
         _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? CompanyView(world, company) : null, changesWorld: false);

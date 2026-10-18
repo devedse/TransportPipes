@@ -50,7 +50,33 @@ public record CompanyDto(
     IReadOnlyList<string> Researched,
     string? CurrentResearch,
     DateTime? ResearchEndsAt,
+    double HubReputation,
+    int ReputationLevel,
+    double? NextReputation,
+    IReadOnlyList<DailyOrderDto> DailyOrders,
+    IReadOnlyList<string> NoTrade,
     DateTime ServerTime);
+
+public record DailyOrderDto(int Id, string Resource, double Amount, double Delivered, double RewardGold, double RewardXp, double RewardReputation, DateTime ExpiresAt);
+
+/// <summary>One resource on the hub market of the player's district, with the player's own prices</summary>
+public record MarketResourceDto(
+    string Resource,
+    double BasePrice,
+    double BuyPrice,
+    double SellPrice,
+    double SoldPerMinute,
+    double Demand,
+    double YourPrice,
+    bool YourPriceIsAuto,
+    double? PendingPrice,
+    DateTime? PendingAt,
+    double YourMaxPrice,
+    bool NoTrade,
+    double BandLow,
+    double BandHigh);
+
+public record MarketDto(int DistrictX, int DistrictY, string District, IReadOnlyList<MarketResourceDto> Resources, DateTime NextUpdate);
 
 /// <summary>A tech as one company sees it</summary>
 public record ResearchStateDto(string Id, string State, double Cost, string? Reason, double Diffusion);

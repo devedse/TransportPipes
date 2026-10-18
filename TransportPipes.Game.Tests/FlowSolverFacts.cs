@@ -482,6 +482,22 @@ public class FlowSolverFacts
     }
 
     [TestMethod]
+    public void TwoTradingPostsTogetherSellEverything()
+    {
+        var net = new Net();
+        var wind = net.Wind(1, energy: 10);
+        var first = net.TradingPost(1);
+        var second = net.TradingPost(1);
+        net.Group(wind, first, second);
+
+        var solution = net.Solve();
+
+        Assert.AreEqual(1, solution.Rate(wind), Tolerance);
+        Assert.AreEqual(5, net.Delivered(solution, first, "energy"), Tolerance);
+        Assert.AreEqual(5, net.Delivered(solution, second, "energy"), Tolerance);
+    }
+
+    [TestMethod]
     public void RandomNetworksStayConsistent()
     {
         var random = new Random(20261018);

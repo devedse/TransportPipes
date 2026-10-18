@@ -8,6 +8,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { FoundCompany } from "./components/FoundCompany";
 import { GameCanvas } from "./components/GameCanvas";
 import { HoverTip } from "./components/HoverTip";
+import { HubPanel } from "./components/HubPanel";
 import { NetworkPanel } from "./components/NetworkPanel";
 import { OverlayBar } from "./components/OverlayBar";
 import { ParcelPanel } from "./components/ParcelPanel";
@@ -43,8 +44,8 @@ function useShortcuts() {
       }
       switch (event.key.toLowerCase()) {
         case "escape":
-          if (state.researchOpen) {
-            setState({ researchOpen: false });
+          if (state.researchOpen || state.hubOpen) {
+            setState({ researchOpen: false, hubOpen: false });
           } else if (state.tool.kind !== "select") {
             gameClient.setTool({ kind: "select" });
           } else if (state.buildMenuOpen) {
@@ -68,6 +69,13 @@ function useShortcuts() {
           break;
         case "x":
           gameClient.setTool({ kind: "bulldoze" });
+          break;
+        case "m":
+          if (state.hubOpen) {
+            setState({ hubOpen: false });
+          } else {
+            void gameClient.openHub();
+          }
           break;
         case "r":
           if (state.researchOpen) {
@@ -136,6 +144,9 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="Toolbar">
             <Toolbar />
+          </ErrorBoundary>
+          <ErrorBoundary name="HubPanel">
+            <HubPanel />
           </ErrorBoundary>
           <ErrorBoundary name="ResearchPanel">
             <ResearchPanel />

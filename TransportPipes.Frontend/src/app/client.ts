@@ -84,10 +84,23 @@ export class GameClient {
     c.on("districtChanged", (district) => this.world?.setDistrict(district));
     c.on("companyChanged", (company) => this.setCompany(company));
     c.on("networksChanged", (networks) => void this.refreshFlows(networks));
+    c.on("marketChanged", (x, y) => {
+      const company = appStore.getState().company;
+      if (
+        appStore.getState().hubOpen &&
+        company !== null &&
+        company.districtX === x &&
+        company.districtY === y
+      ) {
+        void this.refreshMarket();
+      }
+    });
     c.on("toast", (t: ToastDto) => {
       toast(
         t.text,
-        t.kind === "levelUp" || t.kind === "researchFinished" ? "level" : "success",
+        t.kind === "levelUp" || t.kind === "researchFinished" || t.kind === "orderCompleted"
+          ? "level"
+          : "success",
         t.kind === "constructionFinished" ? 4500 : 7000,
       );
       if (t.building !== null && t.building === appStore.getState().selectedBuilding) {
@@ -134,8 +147,44 @@ export class GameClient {
     }
   }
 
+  async openHub() {
+    setState({ hubOpen: true, researchOpen: false, buildMenuOpen: false });
+    await this.refreshMarket();
+  }
+
+  async refreshMarket() {
+    const market = await this.connection.getMarket().catch(() => null);
+    if (market !== null) {
+      setState({ market });
+    }
+  }
+
+  async deliverOrder(order: number) {
+    if (await this.command(this.connection.deliverOrder(order))) {
+      await this.refreshCompany();
+    }
+  }
+
+  async setSellPrice(resource: string, price: number | null) {
+    if (await this.command(this.connection.setSellPrice(resource, price))) {
+      await this.refreshMarket();
+    }
+  }
+
+  async setBuyMaxPrice(resource: string, price: number | null) {
+    if (await this.command(this.connection.setBuyMaxPrice(resource, price))) {
+      await this.refreshMarket();
+    }
+  }
+
+  async setNoTrade(resource: string, noTrade: boolean) {
+    if (await this.command(this.connection.setNoTrade(resource, noTrade))) {
+      await this.refreshMarket();
+    }
+  }
+
   async openResearch() {
-    setState({ researchOpen: true, buildMenuOpen: false });
+    setState({ researchOpen: true, hubOpen: false, buildMenuOpen: false });
     await this.refreshResearch();
   }
 

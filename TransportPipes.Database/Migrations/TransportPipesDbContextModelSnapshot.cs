@@ -69,6 +69,9 @@ namespace TransportPipes.Database.Migrations
                     b.Property<long>("OwnerId")
                         .HasColumnType("bigint");
 
+                    b.Property<double>("Setting")
+                        .HasColumnType("double precision");
+
                     b.Property<int>("Size")
                         .HasColumnType("integer");
 
@@ -284,6 +287,12 @@ namespace TransportPipes.Database.Migrations
 
                     b.Property<DateTime>("LastTick")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Markets")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValueSql("'[]'::jsonb");
 
                     b.Property<int>("Seed")
                         .HasColumnType("integer");

@@ -10,4 +10,7 @@ public class DbWorld
     public int Era { get; set; } = 1;
     public DateTime CreatedAt { get; set; }
     public DateTime LastTick { get; set; }
+
+    /// <summary>The hub markets of all districts (jsonb)</summary>
+    public string Markets { get; set; } = "[]";
 }

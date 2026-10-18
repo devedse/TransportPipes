@@ -43,6 +43,7 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
         {
             world.ToTable("World");
             world.Property(t => t.Id).ValueGeneratedNever();
+            world.Property(t => t.Markets).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
         });
 
         modelBuilder.Entity<DbCompany>(company =>

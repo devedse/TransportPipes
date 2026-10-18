@@ -990,6 +990,132 @@ kbd {
   border-color: var(--accent);
 }
 
+/* ---------- Hub ---------- */
+
+.hub-panel {
+  width: min(980px, calc(100vw - 24px));
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+}
+
+.hub-panel h2 {
+  font-family: var(--font-title);
+  font-size: 1.5rem;
+}
+
+.reputation {
+  flex: 1;
+  max-width: 300px;
+  margin-left: auto;
+  margin-right: 12px;
+  display: grid;
+  gap: 3px;
+  font-size: 0.85rem;
+}
+
+.xp-fill.gold {
+  background: linear-gradient(90deg, #c9a227, var(--gold));
+}
+
+.orders {
+  display: grid;
+  gap: 8px;
+}
+
+.order {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.order.done {
+  border-color: rgba(46, 196, 166, 0.6);
+  opacity: 0.75;
+}
+
+.order-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 1.3rem;
+  border: 2px solid rgba(0, 0, 0, 0.5);
+  color: #10171b;
+}
+
+.order-body {
+  display: grid;
+  gap: 4px;
+}
+
+.order-title {
+  font-weight: 700;
+}
+
+.order-check {
+  font-size: 1.5rem;
+  color: #7fe3a8;
+}
+
+.market-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.market-table th {
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.market-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.price-input {
+  width: 76px;
+  margin: 0;
+  padding: 3px 6px;
+}
+
+.trend {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.trend.down {
+  color: var(--error);
+}
+
+.trend.up {
+  color: #7fe3a8;
+}
+
+button.link {
+  border: none;
+  background: none;
+  padding: 0 4px;
+  color: var(--info);
+  font-size: 0.8rem;
+}
+
+.warning-text {
+  color: var(--warning);
+}
+
 /* ---------- Research ---------- */
 
 .research-panel {

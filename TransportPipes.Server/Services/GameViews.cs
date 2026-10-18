@@ -44,7 +44,42 @@ public static class GameViews
             company.Researched.OrderBy(t => t).ToList(),
             company.CurrentResearch,
             company.ResearchEndsAt,
+            company.HubReputation,
+            world.ReputationLevel(company),
+            world.ReputationLevel(company) < GameWorld.ReputationLevels.Length ? GameWorld.ReputationLevels[world.ReputationLevel(company)] : null,
+            company.DailyOrders.Select(t => new DailyOrderDto(t.Id, t.Resource, t.Amount, t.Delivered, t.RewardGold, t.RewardXp, t.RewardReputation, t.ExpiresAt)).ToList(),
+            company.NoTrade.OrderBy(t => t).ToList(),
             world.Now);
+    }
+
+    public static MarketDto Market(GameWorld world, Company company)
+    {
+        var district = company.District;
+        var market = world.Market(district);
+        var resources = world.Content.ResourceList
+            .Where(t => t.Era <= world.Era + 1)
+            .Select(t =>
+            {
+                var (low, high) = world.FairBand(company, t.Id);
+                var pending = company.PendingPrices.TryGetValue(t.Id, out var p) ? p : null;
+                return new MarketResourceDto(
+                    t.Id,
+                    t.Price,
+                    world.HubBuyPrice(district, t.Id),
+                    world.HubSellPrice(district, t.Id),
+                    market.SoldRate.TryGetValue(t.Id, out var sold) ? sold : 0,
+                    world.HubDemand(district, t.Id),
+                    world.SellPrice(company, t.Id),
+                    !company.SellPrices.ContainsKey(t.Id),
+                    pending?.Price,
+                    pending?.At,
+                    world.BuyMaxPrice(company, t.Id),
+                    company.NoTrade.Contains(t.Id),
+                    low,
+                    high);
+            })
+            .ToList();
+        return new MarketDto(district.X, district.Y, WorldNames.District(district), resources, GameWorld.NextMarketUpdate(world.Now));
     }
 
     public static List<ResearchStateDto> Research(GameWorld world, Company company) =>

@@ -171,8 +171,10 @@ public sealed class GameContent
         public int Tier { get; set; } = 1;
         public int Era { get; set; } = 1;
         public double Price { get; set; }
+        public double? Demand { get; set; }
 
-        public ResourceDefinition ToDefinition() => new(Id, Name, Icon, Color, Tier, Era, Price);
+        /// <summary>Without a demand the hub wants about 1,000 gold worth per minute per active company</summary>
+        public ResourceDefinition ToDefinition() => new(Id, Name, Icon, Color, Tier, Era, Price, Demand ?? Math.Round(1000 / Math.Max(Price, 0.01)));
     }
 
     private sealed class UnlockDto

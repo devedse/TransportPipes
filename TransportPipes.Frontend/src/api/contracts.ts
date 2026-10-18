@@ -49,7 +49,48 @@ export interface CompanyDto {
   researched: string[];
   currentResearch: string | null;
   researchEndsAt: string | null;
+  hubReputation: number;
+  reputationLevel: number;
+  nextReputation: number | null;
+  dailyOrders: DailyOrderDto[];
+  noTrade: string[];
   serverTime: string;
+}
+
+export interface DailyOrderDto {
+  id: number;
+  resource: string;
+  amount: number;
+  delivered: number;
+  rewardGold: number;
+  rewardXp: number;
+  rewardReputation: number;
+  expiresAt: string;
+}
+
+export interface MarketResourceDto {
+  resource: string;
+  basePrice: number;
+  buyPrice: number;
+  sellPrice: number;
+  soldPerMinute: number;
+  demand: number;
+  yourPrice: number;
+  yourPriceIsAuto: boolean;
+  pendingPrice: number | null;
+  pendingAt: string | null;
+  yourMaxPrice: number;
+  noTrade: boolean;
+  bandLow: number;
+  bandHigh: number;
+}
+
+export interface MarketDto {
+  districtX: number;
+  districtY: number;
+  district: string;
+  resources: MarketResourceDto[];
+  nextUpdate: string;
 }
 
 export interface ResearchStateDto {
@@ -226,7 +267,7 @@ export interface BuildingDetailsDto {
 }
 
 export interface ToastDto {
-  kind: "constructionFinished" | "levelUp" | "researchFinished";
+  kind: "constructionFinished" | "levelUp" | "researchFinished" | "priceChanged" | "orderCompleted";
   text: string;
   building: number | null;
 }

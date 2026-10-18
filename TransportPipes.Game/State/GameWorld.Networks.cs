@@ -21,6 +21,9 @@ public sealed class Network
     /// <summary>Buildings run at this fraction when the network has too few pump stations</summary>
     public double PumpFactor { get; set; } = 1;
 
+    /// <summary>The district (and so the hub market) the network is in</summary>
+    public DistrictCoord District { get; set; }
+
     /// <summary>The companies with buildings in this network</summary>
     public IEnumerable<long> Owners(GameWorld world) => Buildings.Select(t => world.Building(t)!.Owner).Distinct();
 
@@ -290,6 +293,8 @@ public sealed partial class GameWorld
             return;
         }
 
+        var anchor = network.Conductors.First();
+        network.District = WorldLayout.DistrictOf(anchor.X, anchor.Y);
         network.Links = BuildLinks(network);
         _networks[network.Id] = network;
         Changes.Networks.Add(network.Id);
@@ -510,7 +515,8 @@ public sealed partial class GameWorld
                     Owner = building.Owner,
                     Kind = FlowNodeKind.TradingPost,
                     Throughput = TradingPostThroughput(building, definition),
-                    PriceBonus = definition.PriceBonus,
+                    // Hub reputation: +1% per level above 1
+                    PriceBonus = definition.PriceBonus + (company == null ? 0 : (ReputationLevel(company) - 1) * 0.01),
                     // Imports cost gold: a company without gold can't import
                     Imports = company is { Gold: > 0 } ? building.Imports : new HashSet<string>(),
                 };
@@ -534,12 +540,13 @@ public sealed partial class GameWorld
         };
     }
 
-    public FlowMarket Market => new()
+    /// <summary>Prices and trade rules for a network: the hub market of its district</summary>
+    public FlowMarket MarketFor(Network network) => new()
     {
-        HubBuyPrice = HubBuyPrice,
-        HubSellPrice = HubSellPrice,
-        SellerPrice = (owner, resource) => Company(owner) is { } company ? SellPrice(company, resource) : AutoPrice(resource),
-        BuyerMaxPrice = (owner, resource) => Company(owner) is { } company ? BuyMaxPrice(company, resource) : HubSellPrice(resource),
+        HubBuyPrice = resource => HubBuyPrice(network.District, resource),
+        HubSellPrice = resource => HubSellPrice(network.District, resource),
+        SellerPrice = (owner, resource) => Company(owner) is { } company ? SellPrice(company, resource) : HubSellPrice(network.District, resource),
+        BuyerMaxPrice = (owner, resource) => Company(owner) is { } company ? BuyMaxPrice(company, resource) : HubSellPrice(network.District, resource),
         TradeAllowed = (seller, buyer, resource) =>
             Company(seller) is { } s && Company(buyer) is { Gold: > 0 } && !s.NoTrade.Contains(resource),
     };
@@ -560,7 +567,7 @@ public sealed partial class GameWorld
 
         var ids = nodes.Select(t => t.Id).ToHashSet();
         var links = network.Links.Where(t => ids.Contains(t.A) && ids.Contains(t.B)).ToList();
-        network.Solution = nodes.Count < 2 ? FlowSolution.Empty : FlowSolver.Solve(nodes, links, Market);
+        network.Solution = nodes.Count < 2 ? FlowSolution.Empty : FlowSolver.Solve(nodes, links, MarketFor(network));
         network.NeedsSolve = false;
         Changes.Networks.Add(network.Id);
     }

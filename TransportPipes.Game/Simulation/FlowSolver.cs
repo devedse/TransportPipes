@@ -520,8 +520,9 @@ public sealed class FlowSolver
         void TradingPosts()
         {
             var posts = _nodes.Values.Where(t => t.Kind == FlowNodeKind.TradingPost).OrderBy(t => t.Id).ToList();
-            foreach (var post in posts)
+            for (var index = 0; index < posts.Count; index++)
             {
+                var post = posts[index];
                 // Everything this post could sell or import, before the throughput limit
                 var wanted = new List<(long Other, string Resource, FlowLink Link, double Amount, bool Sale)>();
                 foreach (var other in _neighbours[post.Id].Select(t => t.Other).Distinct())
@@ -551,7 +552,6 @@ public sealed class FlowSolver
                     }
                 }
 
-                // Several posts can reach the same producer: give each post an equal share of what is left
                 var total = wanted.Sum(t => t.Amount);
                 if (total <= Epsilon)
                 {
@@ -560,7 +560,9 @@ public sealed class FlowSolver
                 var scale = Math.Min(1, post.Throughput / total);
                 foreach (var (other, resource, link, amount, sale) in wanted)
                 {
-                    var reachingPosts = posts.Count(p => p.Owner == post.Owner && Neighbours(other, resource).Any(n => n.Other == p.Id));
+                    // Several posts can reach the same producer: this one takes its share of what the posts after it haven't
+                    // taken yet, so together they place everything
+                    var reachingPosts = posts.Skip(index).Count(p => p.Owner == post.Owner && Neighbours(other, resource).Any(n => n.Other == p.Id));
                     var share = sale ? Math.Min(amount * scale, offerLeft[(other, resource)] / Math.Max(1, reachingPosts)) : amount * scale;
                     var sent = Math.Min(share, CapacityLeft(link));
                     if (sent <= Epsilon)

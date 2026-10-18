@@ -75,6 +75,9 @@ public sealed class WorldStore
                 Researched = settings.Researched,
                 CurrentResearch = settings.CurrentResearch,
                 ResearchEndsAt = settings.ResearchEndsAt,
+                PendingPrices = settings.PendingPrices,
+                HubReputation = settings.HubReputation,
+                DailyOrders = settings.DailyOrders,
                 Report = JsonSerializer.Deserialize<CompanyReport>(row.Report, Json) ?? new CompanyReport { Since = row.LastSeenAt },
             });
             _companies.Add(row.Id);
@@ -123,6 +126,7 @@ public sealed class WorldStore
                 Contents = JsonSerializer.Deserialize<Dictionary<string, double>>(row.Contents, Json) ?? new(),
                 Imports = JsonSerializer.Deserialize<HashSet<string>>(row.Imports, Json) ?? new(),
                 Filter = JsonSerializer.Deserialize<HashSet<string>>(row.Filter, Json) ?? new(),
+                Setting = row.Setting,
             });
         }
 
@@ -139,6 +143,11 @@ public sealed class WorldStore
             _conductors.Add(new TilePos(row.X, row.Y));
         }
 
+        foreach (var market in JsonSerializer.Deserialize<List<MarketRow>>(dbWorld.Markets, Json) ?? [])
+        {
+            world.LoadMarket(new DistrictCoord(market.X, market.Y), market.Market);
+        }
+
         world.LastTick = dbWorld.LastTick;
         world.TakeChanges();
         world.Deleted.Clear();
@@ -150,7 +159,14 @@ public sealed class WorldStore
     {
         var snapshot = new WorldSnapshot
         {
-            World = new DbWorld { Seed = world.Generator.Seed, Era = world.Era, LastTick = world.LastTick, CreatedAt = world.Now },
+            World = new DbWorld
+            {
+                Seed = world.Generator.Seed,
+                Era = world.Era,
+                LastTick = world.LastTick,
+                CreatedAt = world.Now,
+                Markets = JsonSerializer.Serialize(world.Markets.Select(t => new MarketRow(t.Key.X, t.Key.Y, t.Value)).ToList(), Json),
+            },
         };
 
         foreach (var company in world.Companies.Where(t => t.Dirty))
@@ -181,6 +197,9 @@ public sealed class WorldStore
                     Researched = company.Researched,
                     CurrentResearch = company.CurrentResearch,
                     ResearchEndsAt = company.ResearchEndsAt,
+                    PendingPrices = company.PendingPrices,
+                    HubReputation = company.HubReputation,
+                    DailyOrders = company.DailyOrders,
                 }, Json),
                 Report = JsonSerializer.Serialize(company.Report, Json),
             }));
@@ -214,6 +233,7 @@ public sealed class WorldStore
                 Contents = JsonSerializer.Serialize(building.Contents, Json),
                 Imports = JsonSerializer.Serialize(building.Imports, Json),
                 Filter = JsonSerializer.Serialize(building.Filter, Json),
+                Setting = building.Setting,
             }));
         }
 
@@ -277,6 +297,7 @@ public sealed class WorldStore
                 db.Worlds.Attach(snapshot.World);
                 db.Entry(snapshot.World).Property(t => t.Era).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.LastTick).IsModified = true;
+                db.Entry(snapshot.World).Property(t => t.Markets).IsModified = true;
             }
             else
             {
@@ -377,5 +398,10 @@ public sealed class WorldStore
         public HashSet<string> Researched { get; init; } = new();
         public string? CurrentResearch { get; init; }
         public DateTime? ResearchEndsAt { get; init; }
+        public Dictionary<string, PendingPrice> PendingPrices { get; init; } = new();
+        public double HubReputation { get; init; }
+        public List<DailyOrder> DailyOrders { get; init; } = new();
     }
+
+    private sealed record MarketRow(int X, int Y, HubMarket Market);
 }

@@ -19,6 +19,9 @@ public class DbBuilding
     /// <summary>Trading posts: the resources imported from the hub (jsonb)</summary>
     public string Imports { get; set; } = "[]";
 
+    /// <summary>A number the owner sets (the toll of a Toll Meter)</summary>
+    public double Setting { get; set; }
+
     /// <summary>Valves: the resources that pass (jsonb)</summary>
     public string Filter { get; set; } = "[]";
 }

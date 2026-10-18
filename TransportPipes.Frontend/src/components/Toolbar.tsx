@@ -7,6 +7,10 @@ export function Toolbar() {
   const buildMenuOpen = useAppStore((state) => state.buildMenuOpen);
   const content = useAppStore((state) => state.content);
   const researchOpen = useAppStore((state) => state.researchOpen);
+  const hubOpen = useAppStore((state) => state.hubOpen);
+  const ordersOpen = useAppStore(
+    (state) => state.company?.dailyOrders.filter((t) => t.delivered < t.amount).length ?? 0,
+  );
 
   const tools = [
     {
@@ -32,6 +36,14 @@ export function Toolbar() {
       hotkey: "P",
       active: tool.kind === "pipe",
       run: () => gameClient.setTool({ kind: "pipe", tier: 1 }),
+    },
+    {
+      key: "hub",
+      label: ordersOpen > 0 ? `Hub · ${ordersOpen} orders` : "Hub",
+      icon: "🏛",
+      hotkey: "M",
+      active: hubOpen,
+      run: () => (hubOpen ? setState({ hubOpen: false }) : void gameClient.openHub()),
     },
     {
       key: "research",

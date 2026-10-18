@@ -57,10 +57,37 @@ public sealed class Company : Entity
     public string? CurrentResearch { get; set; }
     public DateTime? ResearchEndsAt { get; set; }
 
+    /// <summary>Price changes that wait for the notice period because a partner buys from this company</summary>
+    public Dictionary<string, PendingPrice> PendingPrices { get; init; } = new();
+
+    /// <summary>Hub reputation points (daily orders, trade with the hub)</summary>
+    public double HubReputation { get; set; }
+
+    /// <summary>Today's orders from the hub</summary>
+    public List<DailyOrder> DailyOrders { get; set; } = new();
+
     /// <summary>Statistics of the current session, shown in the offline report</summary>
     public CompanyReport Report { get; set; } = new();
 
     public override string ToString() => $"{Name} (#{Id})";
+}
+
+/// <summary>A new sell price (null: back to automatic) that applies at a moment</summary>
+public sealed record PendingPrice(double? Price, DateTime At);
+
+/// <summary>An order from the hub: deliver an amount of a resource before the end of the day</summary>
+public sealed class DailyOrder
+{
+    public int Id { get; set; }
+    public required string Resource { get; set; }
+    public double Amount { get; set; }
+    public double Delivered { get; set; }
+    public double RewardGold { get; set; }
+    public double RewardXp { get; set; }
+    public double RewardReputation { get; set; }
+    public DateTime ExpiresAt { get; set; }
+
+    public bool Done => Delivered >= Amount - 1e-9;
 }
 
 /// <summary>What happened since the player was last online</summary>
@@ -116,6 +143,9 @@ public sealed class Building : Entity
 
     /// <summary>Trading post: resources it buys from the hub when its company needs them</summary>
     public HashSet<string> Imports { get; init; } = new();
+
+    /// <summary>A number the owner sets: the toll (0..0.05) of a Toll Meter</summary>
+    public double Setting { get; set; }
 
     /// <summary>Valve: the only resources that pass (empty: everything passes)</summary>
     public HashSet<string> Filter { get; init; } = new();

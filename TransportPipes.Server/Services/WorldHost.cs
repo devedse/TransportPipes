@@ -214,6 +214,11 @@ public sealed class WorldHost : BackgroundService
             pushes.Add(() => _hub.Clients.All.NetworksChanged(ids));
         }
 
+        foreach (var district in changes.Markets)
+        {
+            pushes.Add(() => _hub.Clients.All.MarketChanged(district.X, district.Y));
+        }
+
         foreach (var district in changes.Estates.Select(t => t.District).Distinct())
         {
             var dto = GameViews.District(world, district);

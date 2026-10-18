@@ -11,6 +11,7 @@ import type {
   GatePolicy,
   GateSide,
   HelloDto,
+  MarketDto,
   NetworkDetailsDto,
   NetworkFlowsDto,
   ResearchStateDto,
@@ -71,6 +72,7 @@ export interface ServerEvents {
   districtChanged(district: DistrictDto): void;
   companyChanged(company: CompanyDto): void;
   toast(toast: ToastDto): void;
+  marketChanged(districtX: number, districtY: number): void;
 }
 
 const EVENT_NAMES: Record<keyof ServerEvents, string> = {
@@ -79,6 +81,7 @@ const EVENT_NAMES: Record<keyof ServerEvents, string> = {
   districtChanged: "DistrictChanged",
   companyChanged: "CompanyChanged",
   toast: "Toast",
+  marketChanged: "MarketChanged",
 };
 
 const START_RETRY_DELAYS_MS = [0, 2000, 5000, 10000];
@@ -182,6 +185,10 @@ export class GameConnection {
   getNetwork = (id: number) => this.invoke<NetworkDetailsDto | null>("GetNetwork", id);
   getCompany = () => this.invoke<CompanyDto | null>("GetCompany");
   getResearch = () => this.invoke<ResearchStateDto[]>("GetResearch");
+  getMarket = () => this.invoke<MarketDto | null>("GetMarket");
+  deliverOrder = (order: number) => this.invoke<CommandResult>("DeliverOrder", order);
+  setNoTrade = (resource: string, noTrade: boolean) =>
+    this.invoke<CommandResult>("SetNoTrade", resource, noTrade);
   startResearch = (tech: string) => this.invoke<CommandResult>("StartResearch", tech);
   placeBuilding = (type: string, x: number, y: number) =>
     this.invoke<CommandResult>("PlaceBuilding", type, x, y);

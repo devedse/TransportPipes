@@ -31,6 +31,21 @@ public sealed partial class GameWorld
         {
             events.Add((company.ResearchEndsAt!.Value, -company.Id, () => CompleteResearch(company)));
         }
+        foreach (var company in _companies.Values.Where(t => t.PendingPrices.Count != 0))
+        {
+            foreach (var (resource, pending) in company.PendingPrices.Where(t => t.Value.At <= now).ToList())
+            {
+                events.Add((pending.At, -company.Id, () => ApplySellPrice(company, resource, pending.Price)));
+            }
+        }
+        for (var at = NextMarketUpdate(LastTick); at <= now; at = NextMarketUpdate(at))
+        {
+            events.Add((at, long.MinValue, UpdateMarkets));
+        }
+        for (var at = NextDay(LastTick); at <= now; at = NextDay(at))
+        {
+            events.Add((at, long.MinValue + 1, NewDay));
+        }
         foreach (var (at, _, run) in events.OrderBy(t => t.At).ThenBy(t => t.Order))
         {
             if (at > LastTick)
@@ -98,7 +113,7 @@ public sealed partial class GameWorld
             }
 
             var span = Math.Min(minutes, TimeUntilChange(solution));
-            Apply(solution, span);
+            Apply(network, solution, span);
             minutes -= span;
             if (minutes > 1e-9)
             {
@@ -139,7 +154,7 @@ public sealed partial class GameWorld
         return time;
     }
 
-    private void Apply(FlowSolution solution, double minutes)
+    private void Apply(Network network, FlowSolution solution, double minutes)
     {
         if (minutes <= 0)
         {
@@ -172,6 +187,15 @@ public sealed partial class GameWorld
                     if (flow.Kind == FlowKind.Sale && Company(from.Owner) is { } seller)
                     {
                         Add(seller.Report.Sold, flow.Resource, flow.Delivered * minutes);
+                        Market(network.District).AddSold(flow.Resource, flow.Delivered * minutes);
+                        // Trading with your hub builds reputation: a point per 2,000 gold
+                        var level = ReputationLevel(seller);
+                        seller.HubReputation += income / 2000;
+                        if (ReputationLevel(seller) != level)
+                        {
+                            // Better hub prices from now on
+                            MarkCompanyNetworksDirty(seller.Id);
+                        }
                     }
                     break;
             }
