@@ -14,6 +14,8 @@ export const TERRAIN_COLORS: Record<TerrainType, string> = {
   mountain: "#8c9096",
   road: "#7d7a74",
   city: "#b7ae9f",
+  rock: "#3d342d",
+  cavern: "#8a6a48",
 };
 
 /** Colours for the small overview map and far zoom */
@@ -27,6 +29,8 @@ export const TERRAIN_MAP_COLORS: Record<TerrainType, string> = {
   mountain: "#9a9ea6",
   road: "#8a867e",
   city: "#c4bba9",
+  rock: "#3a312a",
+  cavern: "#9a7650",
 };
 
 function diamond(g: CanvasRenderingContext2D) {
@@ -135,6 +139,43 @@ export function drawTerrainTile(type: TerrainType, variant: number): HTMLCanvasE
         g.moveTo(i * 32 + 96, 0);
         g.lineTo(i * 32 - 96, 96);
         g.stroke();
+      }
+      break;
+    }
+    case "rock": {
+      // Solid stone of the Deep Level: grains, and a few cracks
+      speckle(g, seed, 240, [shade(base, 0.7), shade(base, 1.3), "#2a231e"], [2, 6]);
+      g.strokeStyle = "rgba(15,10,8,0.6)";
+      g.lineWidth = 2;
+      for (let i = 0; i < 2; i++) {
+        let x = 30 + hash01(seed + i * 41) * 130;
+        let y = 20 + hash01(seed + i * 43) * 50;
+        g.beginPath();
+        g.moveTo(x, y);
+        for (let step = 0; step < 4; step++) {
+          x += 8 + hash01(seed + i * 7 + step) * 16;
+          y += (hash01(seed + i * 11 + step) - 0.5) * 18;
+          g.lineTo(x, y);
+        }
+        g.stroke();
+      }
+      break;
+    }
+    case "cavern": {
+      // A dug out floor, lit warm by the lanterns: packed earth and pebbles
+      const light = g.createRadialGradient(TILE_W / 2, TILE_H / 2, 10, TILE_W / 2, TILE_H / 2, TILE_W / 2);
+      light.addColorStop(0, shade(base, 1.12));
+      light.addColorStop(1, shade(base, 0.88));
+      g.fillStyle = light;
+      g.fillRect(0, 0, TILE_W, TILE_H);
+      speckle(g, seed, 120, [shade(base, 0.75), shade(base, 1.2), "#5c4430"], [2, 5]);
+      for (let i = 0; i < 5; i++) {
+        const x = 30 + hash01(seed * 3 + i * 19) * 130;
+        const y = 22 + hash01(seed * 5 + i * 23) * 52;
+        g.fillStyle = "#6b5a4a";
+        g.beginPath();
+        g.ellipse(x, y, 4 + hash01(i + seed) * 4, 2.5, 0, 0, Math.PI * 2);
+        g.fill();
       }
       break;
     }
@@ -265,5 +306,101 @@ export function drawDeposit(color: string, richness: number, variant: number): H
     g.fillRect(x - r * 0.3, y - r * 0.4, r * 0.35, r * 0.18);
   }
   g.restore();
+  return canvas;
+}
+
+/** A vein of ore in solid rock: a hint of what digging will uncover */
+export function drawVein(color: string, richness: number, variant: number): HTMLCanvasElement {
+  const canvas = createCanvas(TILE_W, TILE_H);
+  const g = canvas.getContext("2d")!;
+  diamond(g);
+  g.save();
+  g.clip();
+  g.lineCap = "round";
+  for (let i = 0; i < richness - 1; i++) {
+    let x = 20 + hash01(variant * 19 + i * 5) * 60;
+    let y = 30 + hash01(variant * 23 + i * 7) * 40;
+    g.beginPath();
+    g.moveTo(x, y);
+    for (let step = 0; step < 6; step++) {
+      x += 14 + hash01(variant + i * 3 + step) * 14;
+      y += (hash01(variant * 5 + i + step * 3) - 0.5) * 20;
+      g.lineTo(x, y);
+    }
+    g.strokeStyle = "rgba(10,8,6,0.7)";
+    g.lineWidth = 7;
+    g.stroke();
+    g.strokeStyle = shade(color, 1.1);
+    g.lineWidth = 3.5;
+    g.stroke();
+  }
+  g.restore();
+  return canvas;
+}
+
+/** A glowing pool of magma (Magma Taps stand on these) */
+export function drawMagma(richness: number, variant: number): HTMLCanvasElement {
+  const canvas = createCanvas(TILE_W, TILE_H);
+  const g = canvas.getContext("2d")!;
+  diamond(g);
+  g.save();
+  g.clip();
+  const rx = 52 + richness * 6;
+  const ry = rx / 2;
+  const glow = g.createRadialGradient(TILE_W / 2, TILE_H / 2, 4, TILE_W / 2, TILE_H / 2, rx);
+  glow.addColorStop(0, "#fff3a0");
+  glow.addColorStop(0.35, "#ffb02e");
+  glow.addColorStop(0.75, "#e2461b");
+  glow.addColorStop(1, "#5a1a0c");
+  g.fillStyle = glow;
+  g.beginPath();
+  g.ellipse(TILE_W / 2, TILE_H / 2, rx, ry, 0, 0, Math.PI * 2);
+  g.fill();
+  // A darker crust floating on it
+  g.strokeStyle = "rgba(60,15,5,0.65)";
+  g.lineWidth = 2.5;
+  for (let i = 0; i < 4; i++) {
+    const x = TILE_W / 2 + (hash01(variant * 7 + i) - 0.5) * rx;
+    const y = TILE_H / 2 + (hash01(variant * 11 + i) - 0.5) * ry;
+    g.beginPath();
+    g.moveTo(x - 10, y);
+    g.lineTo(x, y - 4);
+    g.lineTo(x + 12, y + 2);
+    g.stroke();
+  }
+  g.beginPath();
+  g.ellipse(TILE_W / 2, TILE_H / 2, rx, ry, 0, 0, Math.PI * 2);
+  g.strokeStyle = OUTLINE;
+  g.lineWidth = 2.5;
+  g.stroke();
+  g.restore();
+  return canvas;
+}
+
+/** A lantern on a post with its warm glow, for the caverns */
+export function drawLantern(): HTMLCanvasElement {
+  const canvas = createCanvas(TILE_W, TILE_W);
+  const g = canvas.getContext("2d")!;
+  const cx = TILE_W / 2;
+  const floor = TILE_W - TILE_H / 2;
+  const glow = g.createRadialGradient(cx, floor - 30, 4, cx, floor - 10, TILE_W / 2);
+  glow.addColorStop(0, "rgba(255,214,140,0.55)");
+  glow.addColorStop(0.5, "rgba(255,170,80,0.18)");
+  glow.addColorStop(1, "rgba(255,150,60,0)");
+  g.fillStyle = glow;
+  g.fillRect(0, 0, TILE_W, TILE_W);
+  // The post
+  g.fillStyle = "#3a2a1c";
+  g.fillRect(cx - 3, floor - 58, 6, 58);
+  g.strokeStyle = OUTLINE;
+  g.lineWidth = 2;
+  g.strokeRect(cx - 3, floor - 58, 6, 58);
+  g.fillRect(cx - 3, floor - 60, 18, 4);
+  // The lantern
+  g.fillStyle = "#ffd77a";
+  g.fillRect(cx + 8, floor - 56, 12, 16);
+  g.strokeRect(cx + 8, floor - 56, 12, 16);
+  g.fillStyle = "#3a2a1c";
+  g.fillRect(cx + 6, floor - 60, 16, 5);
   return canvas;
 }

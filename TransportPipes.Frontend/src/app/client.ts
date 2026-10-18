@@ -17,9 +17,11 @@ import type { Engine, EngineCallbacks, Tool } from "../game/Engine";
 import type { TilePosition } from "../game/isometric";
 import {
   buyableParcels,
+  DEEP_OFFSET,
   ESTATE_SIZE,
   GATE_SIDES,
   gateTiles,
+  isDeep,
   isParcelUnlocked,
   parcelOf,
   zoneAt,
@@ -192,6 +194,7 @@ export class GameClient {
   private setCompany(company: CompanyDto) {
     const previous = appStore.getState().company;
     setState({ company, companyAt: Date.now(), era: company.era });
+    this.world?.setDeepLevel(company.estateX, company.estateY, company.deep.parcels);
     if (company.season.endedAt !== null && previous?.season.endedAt === null) {
       // The ceremony
       void this.openSeason();
@@ -200,7 +203,9 @@ export class GameClient {
       previous !== null &&
       (previous.unlockedParcels !== company.unlockedParcels ||
         previous.level !== company.level ||
-        previous.era !== company.era)
+        previous.era !== company.era ||
+        previous.deep.open !== company.deep.open ||
+        previous.deep.digParcel !== company.deep.digParcel)
     ) {
       this.engine?.invalidate();
     }
@@ -461,6 +466,30 @@ export class GameClient {
 
   private homedCompany: number | null = null;
 
+  /** Down into the Deep Level, or back up */
+  toggleDeep() {
+    const state = appStore.getState();
+    const company = state.company;
+    if (company === null || this.engine === null || (!company.deep.open && !state.deepView)) {
+      return;
+    }
+    if (state.deepView) {
+      this.goHome();
+    } else {
+      this.engine.lookAt(
+        company.estateX + ESTATE_SIZE / 2,
+        company.estateY + DEEP_OFFSET + ESTATE_SIZE / 2,
+        0.42,
+      );
+    }
+  }
+
+  async dig(parcel: number) {
+    if (await this.command(this.connection.dig(parcel), "The miners start digging")) {
+      await this.refreshCompany();
+    }
+  }
+
   goHome() {
     const company = appStore.getState().company;
     if (company !== null && this.engine !== null) {
@@ -528,6 +557,7 @@ export class GameClient {
     onPlaceBuilding: (type, x, y) => void this.placeBuilding(type, x, y),
     onMoveBuilding: (id, x, y) => void this.moveBuilding(id, x, y),
     onSelectArea: (x, y, width, height) => setState({ blueprintDraft: { x, y, width, height } }),
+    onLayer: (deep) => setState({ deepView: deep, selectedDeepParcel: null, selectedParcel: null }),
     onPlaceBlueprint: (blueprint, x, y) => void this.buildBlueprint(blueprint, x, y),
     onZoom: (zoom) => setState({ zoom }),
   };
@@ -623,6 +653,18 @@ export class GameClient {
       return;
     }
     const company = state.company;
+    if (company !== null && isDeep(tile.y)) {
+      // Down in the Deep Level: a parcel still in the rock can be dug out
+      const lx = tile.x - company.estateX;
+      const ly = tile.y - DEEP_OFFSET - company.estateY;
+      const inside = lx >= 0 && ly >= 0 && lx < ESTATE_SIZE && ly < ESTATE_SIZE;
+      const parcel = inside ? parcelOf(lx, ly) : null;
+      this.select(null);
+      if (parcel !== null && (company.deep.parcels & (1 << parcel)) === 0) {
+        setState({ selectedDeepParcel: parcel });
+      }
+      return;
+    }
     if (company !== null) {
       const lx = tile.x - company.estateX;
       const ly = tile.y - company.estateY;

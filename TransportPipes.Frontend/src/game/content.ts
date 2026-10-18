@@ -47,11 +47,13 @@ export class Content {
   }
 
   resourceName(id: string): string {
-    return id === "research" ? "Research" : (this.resourceById.get(id)?.name ?? id);
+    return id === "research"
+      ? "Research"
+      : (this.resourceById.get(id)?.name ?? SPECIAL_DEPOSITS[id]?.name ?? id);
   }
 
   resourceColor(id: string): string {
-    return this.resourceById.get(id)?.color ?? "#ffffff";
+    return this.resourceById.get(id)?.color ?? SPECIAL_DEPOSITS[id]?.color ?? "#ffffff";
   }
 
   /** Output multiplier at a building level: +10% per level, milestones double */
@@ -113,12 +115,15 @@ export class Content {
     ) {
       return "Collection reward";
     }
-    if (definition.layer === "deep") {
-      return "Deep Level";
-    }
     return null;
   }
 }
+
+/** Deposits that are not resources themselves (magma heats a Magma Tap) */
+const SPECIAL_DEPOSITS: Record<string, { name: string; color: string }> = {
+  magma: { name: "Magma", color: "#ff6a1a" },
+  geothermal: { name: "Geothermal heat", color: "#e0603a" },
+};
 
 export const CATEGORY_ORDER = [
   "energy",

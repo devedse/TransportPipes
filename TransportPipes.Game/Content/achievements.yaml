@@ -1,7 +1,8 @@
 # Achievements (GDD §8.5): stat is what is counted, amount the goal. Rewards: XP, gold, a title, sometimes a small
 # permanent output bonus (targets as in research.yaml, quoted).
 # Stats: buildings, pipes, levelsBought, produced:<resource>, earned, partners, contracts, orders, reputation,
-#   researched, likes, corporation, mentees, wonder (gold value delivered), parcels, repairs, level, exchangeTrades
+#   researched, likes, corporation, mentees, wonder (gold value delivered), parcels, repairs, level, exchangeTrades,
+#   dug (Deep Level parcels dug out)
 achievements:
   # Building
   - { id: firstSteps,    name: First Steps,     stat: buildings, amount: 1,    xp: 20,   description: "Build your first building." }
@@ -16,6 +17,8 @@ achievements:
   - { id: maxedOut,      name: Maxed Out,       stat: levelsBought, amount: 1000, xp: 4000, title: The Upgrader, description: "Buy 1,000 building levels." }
   - { id: landowner,     name: Landowner,       stat: parcels,   amount: 8,    xp: 400,  description: "Own 8 parcels of your valley." }
   - { id: valleyLord,    name: Lord of the Valley, stat: parcels, amount: 16,  xp: 3000, title: Lord of the Valley, description: "Own all 16 parcels." }
+  - { id: intoTheDeep,   name: Into the Deep,   stat: dug,       amount: 1,    xp: 500,  description: "Dig out a parcel of the Deep Level." }
+  - { id: molePeople,    name: Mole People,     stat: dug,       amount: 16,   xp: 5000, title: Lord of the Underworld, description: "Dig out the whole Deep Level." }
   # Production
   - { id: powerUp,       name: Power Up,        stat: "produced:energy",     amount: 100000,   xp: 200, description: "Make 100,000 energy." }
   - { id: powerPlant,    name: Power Plant,     stat: "produced:energy",     amount: 10000000, xp: 2000, title: Power Plant, output: { targets: ["resource:energy"], amount: 0.01 }, description: "Make 10 million energy. +1% energy." }

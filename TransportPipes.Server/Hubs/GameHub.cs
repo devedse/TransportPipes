@@ -360,6 +360,11 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> ReleaseOutpost(long outpost) =>
         Command((world, company) => world.ReleaseOutpost(company, outpost));
 
+    // ---------------------------------------------------------------- The Deep Level
+
+    public Task<CommandResultDto> Dig(int parcel) =>
+        Command((world, company) => world.Dig(company, parcel));
+
     // ---------------------------------------------------------------- Blueprints
 
     public Task<BlueprintsDto?> GetBlueprints() =>
@@ -688,6 +693,11 @@ public sealed class GameHub : Hub<IGameClient>
                 case "gold":
                     company.Gold += 100_000;
                     break;
+                case "deep":
+                    // The whole Deep Level dug out
+                    company.DeepParcels = (1 << WorldLayout.ParcelCount) - 1;
+                    company.Touch();
+                    break;
                 case "earn":
                     // A million earned (for the Franchise)
                     company.Gold += 1_000_000;
@@ -705,6 +715,11 @@ public sealed class GameHub : Hub<IGameClient>
                         world.FinishConstruction(building.Id);
                     }
                     world.FinishResearch(companyId);
+                    if (company.DigEndsAt != null)
+                    {
+                        // The miners are done a moment from now
+                        company.DigEndsAt = world.Now.AddSeconds(1);
+                    }
                     break;
                 case "storm":
                 case "heatwave":

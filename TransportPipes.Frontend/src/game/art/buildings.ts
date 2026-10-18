@@ -710,12 +710,40 @@ const recipes: Record<string, Recipe> = {
   },
   deepLift: {
     size: 2,
-    extra: 240,
+    extra: 260,
     draw: (k) => {
-      k.pad(0.2, 0.2, 1.6, 1.6, "#4a4a4a");
-      k.box(0.7, 0.7, 0.6, 0.6, 190, { top: "#777", left: "#5d646d", right: "#454b52" });
-      k.windowsLeft(0.7, 0.7, 0.6, 0.6, 20, 160, 4, 1, "#f6c744", "#333");
-      lights(k, 1.0, 1.0, 200, "#f6c744");
+      // A head frame over the shaft: two lattice legs, the rope wheel on top, the cage going down
+      k.pad(0.15, 0.15, 1.7, 1.7, "#4a4a4a");
+      k.box(0.6, 0.6, 0.8, 0.8, 12, { top: "#1d1d1d", left: "#5d646d", right: "#454b52" });
+      k.lattice(0.55, 1.0, 12, 215, 24, "#5a6470");
+      k.lattice(1.0, 0.55, 12, 215, 24, "#5a6470");
+      k.line([0.55, 1.0, 215], [1.0, 0.55, 215], "#5a6470", 6);
+      k.line([0.78, 0.78, 205], [0.78, 0.78, 90], "#1d1d1d", 2);
+      k.box(0.62, 0.62, 0.32, 0.32, 54, { top: "#e0b84a", left: "#c9a227", right: "#8d7118" }, 36);
+      k.attach("wheel", 0.78, 0.78, 222, 0.9, "#8a5a2a");
+      k.box(1.25, 1.2, 0.5, 0.5, 46, { top: "#8a6a4a", left: "#6b4a2a", right: "#4f3620" });
+      lights(k, 1.0, 0.55, 215, "#f6c744");
+    },
+  },
+  liftShaft: {
+    size: 2,
+    extra: 260,
+    draw: (k) => {
+      // The bottom of the shaft: a timber frame, the cage and the rope up into the dark
+      k.pad(0.15, 0.15, 1.7, 1.7, "#5c4430");
+      for (const [u, v] of [
+        [0.35, 0.35],
+        [1.65, 0.35],
+        [0.35, 1.65],
+      ] as const) {
+        k.box(u - 0.07, v - 0.07, 0.14, 0.14, 170, { top: "#8a5f36", left: "#6b4a2a", right: "#4f3620" });
+      }
+      k.line([0.35, 0.35, 170], [1.65, 0.35, 170], "#6b4a2a", 7);
+      k.line([0.35, 0.35, 170], [0.35, 1.65, 170], "#6b4a2a", 7);
+      k.line([1.0, 1.0, 255], [1.0, 1.0, 80], "#1d1d1d", 2);
+      k.box(0.72, 0.72, 0.56, 0.56, 72, { top: "#e0b84a", left: "#c9a227", right: "#8d7118" });
+      k.box(1.62, 1.62, 0.14, 0.14, 170, { top: "#8a5f36", left: "#6b4a2a", right: "#4f3620" });
+      lights(k, 0.35, 0.35, 150, "#ffd77a");
     },
   },
   magmaTap: {
@@ -783,6 +811,23 @@ const recipes: Record<string, Recipe> = {
       k.cylinder(0.5, 0.5, 0.09, 150, "#f6c744", 20, "dome", "#ffe08a");
       k.attach("rotor", 0.5, 0.5, 165, 1, "#f6c744");
       k.attach("spark", 0.5, 0.5, 120, 0.8, "#fff2b0");
+    },
+  },
+  crystalGrotto: {
+    size: 1,
+    extra: 120,
+    draw: (k) => {
+      k.pad(0.1, 0.1, 0.8, 0.8, "#4a3a30");
+      for (const [u, v, h, color] of [
+        [0.35, 0.35, 70, "#9a6bdc"],
+        [0.62, 0.32, 95, "#6bd6dc"],
+        [0.3, 0.62, 45, "#d6b8ff"],
+        [0.55, 0.58, 75, "#b08ae8"],
+        [0.72, 0.7, 40, "#6bd6dc"],
+      ] as const) {
+        k.cylinder(u, v, 0.08, h, color, 0, "cone", shade(color, 1.35));
+      }
+      k.attach("glow", 0.5, 0.5, 50, 1.1, "#bfe8ff");
     },
   },
   crystalObelisk: {

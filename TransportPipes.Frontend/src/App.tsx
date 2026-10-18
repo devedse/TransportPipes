@@ -25,6 +25,7 @@ import { ParcelPanel } from "./components/ParcelPanel";
 import { PipeTierBar } from "./components/PipeTierBar";
 import { ReportDialog } from "./components/ReportDialog";
 import { BlueprintPanel, BlueprintSaveDialog } from "./components/BlueprintPanel";
+import { DeepParcelPanel, DeepVignette, LayerSwitch } from "./components/DeepPanel";
 import { ModerationPanel } from "./components/ModerationPanel";
 import { ResearchPanel } from "./components/ResearchPanel";
 import { SeasonPanel } from "./components/SeasonPanel";
@@ -68,6 +69,8 @@ function useShortcuts() {
             state.moderationOpen
           ) {
             setState({ ...MODALS, buildMenuOpen: state.buildMenuOpen });
+          } else if (state.selectedDeepParcel !== null) {
+            setState({ selectedDeepParcel: null });
           } else if (state.blueprintDraft !== null) {
             setState({ blueprintDraft: null });
           } else if (state.inboxOpen) {
@@ -142,6 +145,9 @@ function useShortcuts() {
             void gameClient.openCompany();
           }
           break;
+        case "g":
+          gameClient.toggleDeep();
+          break;
         case "u":
           if (state.blueprintsOpen) {
             setState({ blueprintsOpen: false });
@@ -190,6 +196,7 @@ export function App() {
       {content !== null && <GameCanvas />}
       {phase === "playing" && (
         <>
+          <DeepVignette />
           <ErrorBoundary name="EventBar">
             <EventBar />
           </ErrorBoundary>
@@ -216,6 +223,8 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="ParcelPanel">
             <ParcelPanel />
+            <DeepParcelPanel />
+            <LayerSwitch />
           </ErrorBoundary>
           <ErrorBoundary name="HoverTip">
             <HoverTip />

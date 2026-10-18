@@ -73,6 +73,15 @@ public static class GameViews
                 world.MoveCost(company),
                 company.LastMovedAt is { } moved && moved + GameWorld.MoveEvery > world.Now && company.FreeMoves == 0 ? moved + GameWorld.MoveEvery : null,
                 company.SwapWith),
+            new DeepDto(
+                world.HasDeepLevel(company),
+                company.DeepParcels,
+                company.DigParcel,
+                company.DigStartedAt,
+                company.DigEndsAt,
+                GameWorld.DigCost(GameWorld.DugCount(company)),
+                GameWorld.DigTime(GameWorld.DugCount(company)).TotalHours,
+                WorldLayout.DeepOffset),
             world.Now);
     }
 

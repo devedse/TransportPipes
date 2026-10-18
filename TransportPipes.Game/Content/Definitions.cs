@@ -49,6 +49,9 @@ public enum BuildingLayer
 {
     Surface,
     Deep,
+
+    /// <summary>On the surface and in the Deep Level</summary>
+    Any,
 }
 
 /// <summary>What a building needs: a Company Level, an Era, a tech, or a finished collection (decorations)</summary>
@@ -107,7 +110,8 @@ public sealed class BuildingDefinition
     public string Description { get; init; } = "";
 
     /// <summary>Sits in a pipe and carries resources like a pipe tile (valves, toll meters)</summary>
-    public bool IsConductor => Kind is BuildingKind.Gate or BuildingKind.Valve or BuildingKind.PriorityValve or BuildingKind.TollMeter or BuildingKind.PowerLine or BuildingKind.CargoDepot;
+    public bool IsConductor => Kind is BuildingKind.Gate or BuildingKind.Valve or BuildingKind.PriorityValve or BuildingKind.TollMeter or BuildingKind.PowerLine or BuildingKind.CargoDepot
+        or BuildingKind.DeepLift;
 }
 
 public enum WonderPerk

@@ -877,13 +877,17 @@ With the Deep Lift research (Era 2, Company Level 30) every estate gets a **seco
 - **Getting in:** build a **Deep Lift** (2×2) on the surface. The view switches to a lantern-lit cutaway of rock and
   caverns.
 - **Excavation instead of buying:** underground parcels are not bought, they are **dug out**. Digging takes time (hours
-  for the first parcel, days for the last ones) and produces stone and ore while it runs: a perfect idle timer.
+  for the first parcel, days for the last ones) and produces stone and ore while it runs: a perfect idle timer. The
+  first parcel is the one around a lift's shaft, the next ones lie next to dug out parcels; one dig at a time, 2 hours
+  growing ×1.3 per parcel (about four days for the last one), 30 stone and 10 ore per minute into the storages. The
+  caverns belong to the company: they move along when it moves.
 - **Different rules:** no sun or wind, but rich deep deposits of every metal (★3–★5), magma heat for energy (Magma Tap)
   and stable temperatures: underground pipes lose nothing.
 - **Underground buildings:** Deep Mine, Magma Tap, Vault (huge storage), Crystal Grotto (cosmetic glow), and later the
   Era 4 Rare Earth Excavator.
-- **Lifts move resources** between the layers; their throughput grows with their level, so the lifts become the new
-  bottleneck to optimise.
+- **Lifts move resources** between the layers; their throughput grows with their level (2,000 per level), so the lifts
+  become the new bottleneck to optimise. Factories stay on the surface: down there are the Deep Mine, Magma Tap, Vault,
+  Crystal Grotto, Rare Earth Excavator, storages, valves and pumps.
 
 ### 11.3 Wider: expeditions, outposts and a branch
 

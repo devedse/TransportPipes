@@ -46,14 +46,24 @@ export function BuildMenu() {
   const company = useAppStore((state) => state.company);
   const companyAt = useAppStore((state) => state.companyAt);
   const era = useAppStore((state) => state.era);
-  const category = useAppStore((state) => state.buildCategory);
+  const selectedCategory = useAppStore((state) => state.buildCategory);
   const tool = useAppStore((state) => state.tool);
+  const deep = useAppStore((state) => state.deepView);
   if (!open || content === null || company === null) {
     return null;
   }
   const gold = currentGold({ company, companyAt });
+  // What can be built on the layer the camera looks at
+  const inLayer = (t: BuildingDefinition) =>
+    t.buildable && (deep ? t.layer !== "surface" : t.layer !== "deep") && t.unlock.era <= era + 1;
+  const categories = CATEGORY_ORDER.filter(
+    (c) => !deep || content.buildings.some((t) => t.category === c && inLayer(t)),
+  );
+  const category = categories.includes(selectedCategory)
+    ? selectedCategory
+    : (categories[0] ?? selectedCategory);
   const buildings = content.buildings
-    .filter((t) => t.buildable && t.category === category && t.layer === "surface" && t.unlock.era <= era + 1)
+    .filter((t) => t.category === category && inLayer(t))
     .sort(
       (a, b) => a.unlock.era - b.unlock.era || a.unlock.level - b.unlock.level || a.cost.gold - b.cost.gold,
     );
@@ -61,7 +71,7 @@ export function BuildMenu() {
   return (
     <div className="panel build-menu">
       <div className="panel-header">
-        <span className="panel-title">Build</span>
+        <span className="panel-title">{deep ? "Build in the Deep Level" : "Build"}</span>
         <button
           className="icon-button"
           title="Close (Esc)"
@@ -71,7 +81,7 @@ export function BuildMenu() {
         </button>
       </div>
       <div className="category-tabs">
-        {CATEGORY_ORDER.map((c) => (
+        {categories.map((c) => (
           <button
             key={c}
             className={c === category ? "chip active" : "chip"}

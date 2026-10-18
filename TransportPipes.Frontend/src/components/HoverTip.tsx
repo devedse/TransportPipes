@@ -1,7 +1,7 @@
 import { formatAmount } from "../app/format";
 import { gameClient } from "../app/client";
 import { newPipeTiles, pipeGold } from "../game/rules";
-import { zoneAt } from "../game/layout";
+import { isDeep, zoneAt } from "../game/layout";
 import { useAppStore } from "../state/store";
 
 const TERRAIN_NAMES: Record<string, string> = {
@@ -14,6 +14,8 @@ const TERRAIN_NAMES: Record<string, string> = {
   mountain: "Mountain",
   road: "Corridor",
   city: "Hub city",
+  rock: "Solid rock (dig it out)",
+  cavern: "Cavern",
 };
 
 /** A line of information about what is under the pointer and what the tool would do */
@@ -97,7 +99,7 @@ export function HoverTip() {
     if (info.deposit !== null) {
       parts.push(`${content.resourceName(info.deposit)} ${"★".repeat(info.richness)}`);
     }
-    if (zone.kind === "estate" && info.terrain !== "water") {
+    if (zone.kind === "estate" && info.terrain !== "water" && !isDeep(tile.y)) {
       parts.push(`wind ×${info.wind.toFixed(2)}`, `sun ×${info.sun.toFixed(2)}`);
     }
     const estate = world.estateAt(tile.x, tile.y);

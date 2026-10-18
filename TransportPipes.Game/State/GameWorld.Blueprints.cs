@@ -98,7 +98,7 @@ public sealed partial class GameWorld
                 }
             }
         }
-        foreach (var conductor in _conductors.Values.Where(t => t.Owner == companyId && t.Kind == ConductorKind.Pipe && Inside(t.Pos) && estate.Contains(t.Pos)))
+        foreach (var conductor in _conductors.Values.Where(t => t.Owner == companyId && t.Kind == ConductorKind.Pipe && Inside(t.Pos) && InEstateOrBelow(estate, t.Pos)))
         {
             blueprint.Pipes.Add(new PackedPipe(conductor.Pos.X - from.X, conductor.Pos.Y - from.Y, conductor.Tier));
         }

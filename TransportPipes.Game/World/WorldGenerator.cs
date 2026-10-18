@@ -54,6 +54,10 @@ public sealed class WorldGenerator
 
     public TileInfo Tile(TilePos pos)
     {
+        if (WorldLayout.IsDeep(pos))
+        {
+            return DeepTile(pos.X, pos.Y);
+        }
         var zone = WorldLayout.ZoneAt(pos.X, pos.Y);
         return zone.Kind switch
         {
@@ -80,6 +84,27 @@ public sealed class WorldGenerator
         var wind = BaseWind(x, y) + windBonus + terrain switch { TerrainType.Hills => 0.3, TerrainType.Beach => 0.15, TerrainType.Forest => -0.15, _ => 0 };
         var sun = BaseSun(x, y) + sunBonus + terrain switch { TerrainType.Desert => 0.45, TerrainType.Forest => -0.25, _ => 0 };
         return new TileInfo(terrain, deposit, richness, Math.Round(Clamp(wind, 0.6, 1.6), 2), Math.Round(Clamp(sun, 0.7, 1.5), 2));
+    }
+
+    // ---------------------------------------------------------------- The Deep Level
+
+    private static readonly string[] DeepDeposits = ["ironOre", "copperOre", "coal", "magma", "ironOre", "copperOre", "rareEarth"];
+
+    /// <summary>
+    /// Solid rock (dug out by the players) with rich veins of every metal (★3–★5), pools of magma and a little rare
+    /// earth. No sun and no wind down here.
+    /// </summary>
+    private TileInfo DeepTile(int x, int y)
+    {
+        var vein = Noise.Fractal(Seed + 501, x, y, 6);
+        if (vein < 0.62)
+        {
+            return new TileInfo(TerrainType.Rock, null, 0, 0, 0);
+        }
+        var kind = Noise.Value(Seed + 502, x, y, 11);
+        var deposit = DeepDeposits[Math.Min(DeepDeposits.Length - 1, (int)(kind * DeepDeposits.Length))];
+        var richness = vein > 0.74 ? 5 : vein > 0.68 ? 4 : 3;
+        return new TileInfo(TerrainType.Rock, deposit, richness, 0, 0);
     }
 
     // ---------------------------------------------------------------- Wilderness

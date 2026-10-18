@@ -11,6 +11,10 @@ public enum TerrainType
     Mountain,
     Road,
     City,
+
+    /// <summary>The Deep Level: solid rock, dug out parcel by parcel into caverns</summary>
+    Rock,
+    Cavern,
 }
 
 public readonly record struct TilePos(int X, int Y)
@@ -62,6 +66,20 @@ public static class WorldLayout
     public const int ParcelCount = ParcelsPerSide * ParcelsPerSide;
     public const int WildernessWidth = 30;
     public const int ChunkSize = 32;
+
+    /// <summary>
+    /// The Deep Level lies far away in the same coordinates: a deep tile is its surface tile shifted down by this
+    /// (whole districts and chunks, so zones and parcels line up)
+    /// </summary>
+    public const int DeepOffset = DistrictPitch * ChunkSize * 150;
+
+    public static bool IsDeep(TilePos pos) => pos.Y >= DeepOffset / 2;
+
+    /// <summary>The surface tile above a deep tile (a surface tile stays itself)</summary>
+    public static TilePos Surface(TilePos pos) => IsDeep(pos) ? pos.Offset(0, -DeepOffset) : pos;
+
+    /// <summary>The deep tile under a surface tile</summary>
+    public static TilePos Deep(TilePos pos) => IsDeep(pos) ? pos : pos.Offset(0, DeepOffset);
 
     public const int BlockPitch = EstateSize + CorridorWidth;
     public const int DistrictSize = CorridorWidth + BlocksPerSide * BlockPitch;

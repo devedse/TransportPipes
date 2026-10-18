@@ -95,6 +95,10 @@ export interface AppState {
   companyDetails: CompanyDetailsDto | null;
   blueprintsOpen: boolean;
   blueprints: BlueprintsDto | null;
+  /** The camera looks at the Deep Level */
+  deepView: boolean;
+  /** A parcel of the Deep Level the player clicked (to dig it out) */
+  selectedDeepParcel: number | null;
   /** An area of the estate the player dragged, to be named and saved as a blueprint */
   blueprintDraft: { x: number; y: number; width: number; height: number } | null;
   /** A wilderness tile the player clicked: an outpost there, or the claim it would make */
@@ -169,6 +173,8 @@ export const initialState: AppState = {
   blueprintsOpen: false,
   blueprints: null,
   blueprintDraft: null,
+  deepView: false,
+  selectedDeepParcel: null,
   wildTile: null,
   outpostCheck: null,
   season: null,

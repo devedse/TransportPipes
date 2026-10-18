@@ -17,6 +17,7 @@ import type { Content } from "./content";
 import { diagonalToScreen, worldToTile, type TilePosition } from "./isometric";
 import {
   CHUNK_SIZE,
+  DEEP_OFFSET,
   DISTRICT_SIZE,
   ESTATE_SIZE,
   PARCEL_SIZE,
@@ -25,6 +26,7 @@ import {
   districtOf,
   districtOriginX,
   districtOriginY,
+  isDeep,
   isParcelUnlocked,
   tileKey,
 } from "./layout";
@@ -88,6 +90,8 @@ export interface EngineCallbacks {
   onPlaceBuilding(type: string, x: number, y: number): void;
   onMoveBuilding(id: number, x: number, y: number): void;
   onSelectArea(x: number, y: number, width: number, height: number): void;
+  /** The camera went down into the Deep Level, or back up */
+  onLayer(deep: boolean): void;
   onPlaceBlueprint(blueprint: BlueprintDto, x: number, y: number): void;
   onZoom(scale: number): void;
 }
@@ -214,6 +218,10 @@ export class Engine {
   private readonly groundLayer = new Container();
   private readonly miniLayer = new Container();
   private readonly estateLayer = new Container();
+  /** The player's Deep Level: its outline, parcels and the dig */
+  private readonly deepGraphics = new Graphics();
+  private readonly deepLabels = new Container();
+  private deep = false;
   private readonly overlayLayer = new Container();
   private overlay: Overlay = "none";
   private readonly highlightLayer = new Graphics();
@@ -697,6 +705,13 @@ export class Engine {
       this.refreshRunning();
     }
 
+    // Which layer the camera looks at
+    const center = this.camera.screenToTile(this.app.screen.width / 2, this.app.screen.height / 2);
+    if (isDeep(center.y) !== this.deep) {
+      this.deep = isDeep(center.y);
+      this.callbacks.onLayer(this.deep);
+    }
+
     const tile = this.camera.screenToTile(this.pointerX, this.pointerY);
     const tool = this.callbacks.getState().tool;
     // A blueprint tool carries its whole layout: its id is enough
@@ -772,7 +787,10 @@ export class Engine {
           [cx * CHUNK_SIZE + CHUNK_SIZE - 1, cy * CHUNK_SIZE + CHUNK_SIZE - 1],
         ] as const) {
           const d = districtOf(tx, ty);
-          districts.add(`${d.x},${d.y}`);
+          // Down in the Deep Level there are no districts, only the player's own caverns
+          if (!isDeep(ty)) {
+            districts.add(`${d.x},${d.y}`);
+          }
         }
       }
     }
@@ -887,7 +905,25 @@ export class Engine {
         sprite.anchor.set(0, 1);
         sprite.position.set(anchor.x, anchor.y);
         ground.addChild(sprite);
-        if (tile.deposit !== null && tile.richness > 0) {
+        if (
+          tile.deposit !== null &&
+          tile.richness > 0 &&
+          (tile.terrain === "rock" || tile.deposit === "magma")
+        ) {
+          // Down in the Deep Level: veins in the rock, glowing magma once dug out
+          const texture =
+            tile.terrain === "rock"
+              ? this.textures.vein(
+                  this.callbacks.getState().content.resourceColor(tile.deposit),
+                  tile.richness,
+                  variant,
+                )
+              : this.textures.magma(tile.richness, variant);
+          const deposit = new Sprite(texture);
+          deposit.anchor.set(0, 1);
+          deposit.position.set(anchor.x, anchor.y);
+          ground.addChild(deposit);
+        } else if (tile.deposit !== null && tile.richness > 0) {
           const deposit = new Sprite(
             this.textures.deposit(
               this.callbacks.getState().content.resourceColor(tile.deposit),
@@ -1019,12 +1055,18 @@ export class Engine {
     for (let y = y0; y < y0 + CHUNK_SIZE; y++) {
       for (let x = x0; x < x0 + CHUNK_SIZE; x++) {
         const terrain = this.world.terrain(x, y);
-        if ((terrain !== "forest" && terrain !== "mountain") || this.world.isOccupied(x, y)) {
+        // The caverns are lit by a lantern here and there
+        const lantern = terrain === "cavern" && hash01((x * 7121) ^ (y * 4271)) < 0.03;
+        if ((terrain !== "forest" && terrain !== "mountain" && !lantern) || this.world.isOccupied(x, y)) {
           continue;
         }
         const variant = Math.floor(hash01((x * 92821) ^ (y * 68917)) * 24);
         const sprite = new Sprite(
-          terrain === "forest" ? this.textures.forest(variant) : this.textures.rocks(variant),
+          lantern
+            ? this.textures.lantern()
+            : terrain === "forest"
+              ? this.textures.forest(variant)
+              : this.textures.rocks(variant),
         );
         const anchor = diagonalToScreen(x, y);
         sprite.anchor.set(0, 1);
@@ -1241,7 +1283,11 @@ export class Engine {
           if (j < 0 || j >= cells) {
             continue;
           }
-          const cell = footprintAnchor(building.x + i, building.y + j, 1);
+          // A complex's members are 1×1; any other building is one sprite over its whole footprint
+          const cell =
+            cells > 1
+              ? footprintAnchor(building.x + i, building.y + j, 1)
+              : footprintAnchor(building.x, building.y, size);
           const sprite = art.frames.length > 1 ? new AnimatedSprite(art.frames) : new Sprite(art.frames[0]);
           sprite.anchor.set(0, 1);
           sprite.position.set(cell.x - anchor.x, cell.y - anchor.y);
@@ -1513,6 +1559,7 @@ export class Engine {
 
   private drawDistricts() {
     const state = this.callbacks.getState();
+    this.drawDeepLevel(state.company);
     for (const [key, view] of this.districtViews) {
       const [dx, dy] = key.split(",").map(Number) as [number, number];
       const district = this.world.district(dx, dy);
@@ -1533,6 +1580,65 @@ export class Engine {
       }
       this.drawDistrict(view, district, state.company);
     }
+  }
+
+  /** The player's Deep Level: the outline, the parcels (dug, diggable, being dug) */
+  private drawDeepLevel(company: CompanyDto | null) {
+    const g = this.deepGraphics;
+    g.clear();
+    this.deepLabels.removeChildren().forEach((child) => child.destroy());
+    if (g.parent === null) {
+      this.estateLayer.addChild(g);
+      this.labelLayer.addChild(this.deepLabels);
+    }
+    if (company === null || !company.deep.open) {
+      return;
+    }
+    const x0 = company.estateX;
+    const y0 = company.estateY + DEEP_OFFSET;
+    const amber = 0xf2b134;
+    for (let parcel = 0; parcel < PARCELS_PER_SIDE * PARCELS_PER_SIDE; parcel++) {
+      const px = x0 + (parcel % PARCELS_PER_SIDE) * PARCEL_SIZE;
+      const py = y0 + Math.floor(parcel / PARCELS_PER_SIDE) * PARCEL_SIZE;
+      traceFootprint(g, px, py, PARCEL_SIZE);
+      if (company.deep.digParcel === parcel) {
+        g.fill({ color: amber, alpha: 0.22 });
+        traceFootprint(g, px, py, PARCEL_SIZE);
+        const label = new Text({
+          text: "⛏ Digging…",
+          style: {
+            fontFamily: "system-ui",
+            fontSize: 30,
+            fontWeight: "700",
+            fill: "#ffd77a",
+            stroke: { color: "#1a120c", width: 7 },
+          },
+        });
+        label.anchor.set(0.5);
+        const center = tileCenter(px + PARCEL_SIZE / 2 - 0.5, py + PARCEL_SIZE / 2 - 0.5);
+        label.position.set(center.x, center.y);
+        label.label = "estate";
+        this.deepLabels.addChild(label);
+      }
+      g.stroke({ color: amber, width: 4, alpha: (company.deep.parcels & (1 << parcel)) !== 0 ? 0.3 : 0.55 });
+    }
+    traceFootprint(g, x0, y0, ESTATE_SIZE);
+    g.stroke({ color: amber, width: 12, alpha: 0.85 });
+    const title = new Text({
+      text: `${company.name} · Deep Level`,
+      style: {
+        fontFamily: "system-ui",
+        fontSize: 30,
+        fontWeight: "700",
+        fill: "#ffd77a",
+        stroke: { color: "#1a120c", width: 7 },
+      },
+    });
+    title.anchor.set(0.5, 1);
+    const top = tileCenter(x0 + ESTATE_SIZE / 2, y0 + ESTATE_SIZE / 2);
+    title.position.set(top.x, tileCenter(x0, y0).y - 40);
+    title.label = "estate";
+    this.deepLabels.addChild(title);
   }
 
   private drawDistrict(view: DistrictView, district: DistrictDto, company: CompanyDto | null) {

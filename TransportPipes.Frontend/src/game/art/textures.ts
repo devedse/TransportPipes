@@ -9,7 +9,15 @@ import {
   type HubStructureLook,
 } from "./buildings";
 import { createCanvas, type Attachment } from "./iso";
-import { drawDeposit, drawForestTrees, drawRocks, drawTerrainTile } from "./terrain";
+import {
+  drawDeposit,
+  drawForestTrees,
+  drawLantern,
+  drawMagma,
+  drawRocks,
+  drawTerrainTile,
+  drawVein,
+} from "./terrain";
 
 export const OBJECT_ATLAS_URL = "/images/CombinedGameObjects/combinedjson.json";
 export const TERRAIN_ATLAS_URL = "/images/roadTiles/transportTiles.json";
@@ -112,6 +120,20 @@ export class TextureBank {
     return this.cached(`deposit:${color}:${richness}:${variant % 3}`, () =>
       drawDeposit(color, richness, variant % 3),
     );
+  }
+
+  vein(color: string, richness: number, variant: number): Texture {
+    return this.cached(`vein:${color}:${richness}:${variant % 3}`, () =>
+      drawVein(color, richness, variant % 3),
+    );
+  }
+
+  magma(richness: number, variant: number): Texture {
+    return this.cached(`magma:${richness}:${variant % 3}`, () => drawMagma(richness, variant % 3));
+  }
+
+  lantern(): Texture {
+    return this.cached("lantern", () => drawLantern());
   }
 
   building(type: string, size: number): BuildingTextures {

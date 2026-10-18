@@ -9,7 +9,17 @@ import type {
   OutpostDto,
   TerrainType,
 } from "../api/contracts";
-import { CHUNK_SIZE, chunkOf, districtOf, tileKey, zoneAt } from "./layout";
+import {
+  CHUNK_SIZE,
+  DEEP_OFFSET,
+  ESTATE_SIZE,
+  PARCEL_SIZE,
+  PARCELS_PER_SIDE,
+  chunkOf,
+  districtOf,
+  tileKey,
+  zoneAt,
+} from "./layout";
 
 export interface TileInfo {
   terrain: TerrainType;
@@ -64,9 +74,52 @@ export class WorldModel {
   private readonly listeners = new Set<WorldListener>();
 
   private readonly terrainNames: TerrainType[];
+  /** The player's own Deep Level: where its estate lies down there and which parcels are dug out */
+  private deep: { x: number; y: number; parcels: number } | null = null;
 
   constructor(terrainNames: TerrainType[]) {
     this.terrainNames = terrainNames;
+  }
+
+  /** The dug out parcels of the player's Deep Level (the server sends solid rock; the caverns are the player's) */
+  setDeepLevel(estateX: number, estateY: number, parcels: number) {
+    const deep = { x: estateX, y: estateY + DEEP_OFFSET, parcels };
+    const before = this.deep;
+    if (before !== null && before.x === deep.x && before.y === deep.y && before.parcels === deep.parcels) {
+      return;
+    }
+    this.deep = deep;
+    const chunks = new Set<string>();
+    for (const area of before === null ? [deep] : [before, deep]) {
+      for (let y = area.y; y < area.y + ESTATE_SIZE; y += CHUNK_SIZE / 2) {
+        for (let x = area.x; x < area.x + ESTATE_SIZE; x += CHUNK_SIZE / 2) {
+          for (const [dx, dy] of [
+            [0, 0],
+            [CHUNK_SIZE / 2 - 1, 0],
+            [0, CHUNK_SIZE / 2 - 1],
+            [CHUNK_SIZE / 2 - 1, CHUNK_SIZE / 2 - 1],
+          ] as const) {
+            const c = chunkOf(x + dx, y + dy);
+            chunks.add(chunkKey(c.x, c.y));
+          }
+        }
+      }
+    }
+    this.emit([...chunks]);
+  }
+
+  /** Whether a deep tile is dug out: in a dug parcel of the player's Deep Level, or the pocket of a lift */
+  isDug(x: number, y: number): boolean {
+    const deep = this.deep;
+    if (deep !== null && x >= deep.x && y >= deep.y && x < deep.x + ESTATE_SIZE && y < deep.y + ESTATE_SIZE) {
+      const parcel =
+        Math.floor((y - deep.y) / PARCEL_SIZE) * PARCELS_PER_SIDE + Math.floor((x - deep.x) / PARCEL_SIZE);
+      if ((deep.parcels & (1 << parcel)) !== 0) {
+        return true;
+      }
+    }
+    const building = this.buildingAt(x, y);
+    return building !== undefined && building.type === "liftShaft";
   }
 
   onChange(listener: WorldListener): () => void {
@@ -229,8 +282,12 @@ export class WorldModel {
     const override = this.overrides.get(tileKey(x, y));
     // A Discovery's deposit
     const discovered = this.deposits.get(tileKey(x, y));
+    let terrain = override ?? this.terrainNames[chunk.terrain[i] ?? 0] ?? "grass";
+    if (terrain === "rock" && this.isDug(x, y)) {
+      terrain = "cavern";
+    }
     return {
-      terrain: override ?? this.terrainNames[chunk.terrain[i] ?? 0] ?? "grass",
+      terrain,
       deposit:
         discovered?.deposit ?? (depositIndex > 0 ? (chunk.depositNames[depositIndex - 1] ?? null) : null),
       richness: discovered?.richness ?? chunk.richness[i] ?? 0,

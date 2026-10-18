@@ -14,7 +14,7 @@ public class MovingFacts
         return (company, moily);
     }
 
-    private static DistrictCoord OtherDistrict(TestGame game, Company company)
+    internal static DistrictCoord OtherDistrict(TestGame game, Company company)
     {
         // Filling the first district opens the next one
         Company? far = null;

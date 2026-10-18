@@ -69,7 +69,7 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 ### M7 · Late game
 
 - ✅ Denser: complexes (2×2 ×5 from Era 2, 3×3 ×12 from Era 3, one shared level), tile efficiency with a leaderboard, terraforming (drain, lakes, hills with more wind, forests, seeding deposits), blueprints (drag an area to save it, a ghost to place it, built at the normal costs; shared with the corporation or on the rated board)
-- ⬜ The Deep Level
+- ✅ The Deep Level: Deep Lifts with a shaft below (throughput 2,000 per level), parcels dug out over hours to days (stone and ore into the storages), rock with veins of ★3–★5 metal, magma and rare earth, lantern-lit caverns, lossless pipes, Magma Tap, Vault, Crystal Grotto; the layer switch (G), deep build menu and dig panel
 - ⬜ Expeditions, branch estates, teleporters
 - ⬜ Bank (investing, insurance, bonds), District Steward elections
 - ⬜ Weekly challenges, season themes, Loady, photo mode, mastery research
@@ -124,3 +124,6 @@ Changes to [GameDesign.md](GameDesign.md) that came up while building; the desig
 | 2026-10-18 | Blueprints need a finished Blueprint Office to save, share and build; a franchised company can rebuild its own blueprints without one. Building a blueprint places what fits and is unlocked (and what you can pay for); a complex is saved as its members; better pipes than you have become the best you have | Blueprints carry over into a Franchise (GDD §11.7) without making the office pointless |
 | 2026-10-18 | Blueprints belong to the season's world like everything else and go with the reset | Blueprint owners are companies, which don't survive the season |
 | 2026-10-18 | A new Era launch ends the running one, and identical toasts are merged with a count | Found while testing blueprints: a fast Era change and a finished blueprint flooded the screen |
+| 2026-10-18 | Deep tiles are surface tiles shifted down by 969,600 (whole districts and chunks): the same tables, chunks, networks and renderer serve both layers. The dug out parcels belong to the company (a bit mask) instead of the land, so they move along with it | The tech design's "layer index" without a second set of tables |
+| 2026-10-18 | A Deep Lift is a pair: the lift on the surface and a shaft below, linked like Cargo Depots; the shaft can't be demolished, moved or upgraded on its own | One link mechanism for pylons, depots and lifts |
+| 2026-10-18 | Factories stay on the surface; the Deep Level is for mining, magma energy, storage and decoration | Keeps the lifts the bottleneck and the surface the factory floor |

@@ -79,6 +79,7 @@ public sealed partial class GameWorld
         var kind = Content.Building(building.Type).Kind;
         var remote = kind == BuildingKind.PowerLine ? PylonsInReach(building)
             : kind == BuildingKind.CargoDepot ? _buildings.Values.Where(t => t.Id != building.Id && t.Owner == building.Owner && IsCargoDepot(t))
+            : kind == BuildingKind.DeepLift && LiftPartner(building) is { } partner ? [partner]
             : [];
         foreach (var other in remote.ToList())
         {
@@ -164,7 +165,10 @@ public sealed partial class GameWorld
 
     /// <summary>The buildings a pylon's cable or a depot's trucks reach</summary>
     private IEnumerable<Building> RemoteLinks(Building building) =>
-        IsPylon(building) ? PylonsInReach(building) : IsCargoDepot(building) ? CargoPartners(building) : [];
+        IsPylon(building) ? PylonsInReach(building)
+        : IsCargoDepot(building) ? CargoPartners(building)
+        : IsLift(building) && LiftPartner(building) is { } partner && !partner.UnderConstruction ? [partner]
+        : [];
 
     /// <summary>The pylons a pylon's cable reaches: the owner's pylons within its reach</summary>
     public IEnumerable<Building> PylonsInReach(Building pylon)
@@ -373,7 +377,8 @@ public sealed partial class GameWorld
             return (0, double.MaxValue);
         }
         var tier = Content.PipeTier(conductor.Tier);
-        return (tier.LossPerTile, tier.Throughput * (1 + ThroughputBonus(conductor.Owner)));
+        // Stable temperatures down in the Deep Level: no losses
+        return (WorldLayout.IsDeep(conductor.Pos) ? 0 : tier.LossPerTile, tier.Throughput * (1 + ThroughputBonus(conductor.Owner)));
     }
 
     private readonly record struct TileStats(double Loss, double Throughput, IReadOnlySet<string>? Filter, bool Priority);
@@ -392,6 +397,10 @@ public sealed partial class GameWorld
         if (definition.Kind == BuildingKind.PowerLine)
         {
             return new TileStats(0, definition.Throughput, EnergyOnly, false);
+        }
+        if (definition.Kind == BuildingKind.DeepLift)
+        {
+            return new TileStats(0, LiftThroughput(building), null, false);
         }
         if (definition.Kind == BuildingKind.CargoDepot)
         {
@@ -414,7 +423,7 @@ public sealed partial class GameWorld
         var cables = new Dictionary<TilePos, List<TilePos>>();
         foreach (var tile in network.Conductors)
         {
-            if (_buildingAt.TryGetValue(tile, out var id) && _buildings[id].Position == tile && (IsPylon(_buildings[id]) || IsCargoDepot(_buildings[id])))
+            if (_buildingAt.TryGetValue(tile, out var id) && _buildings[id].Position == tile && (IsPylon(_buildings[id]) || IsCargoDepot(_buildings[id]) || IsLift(_buildings[id])))
             {
                 cables[tile] = RemoteLinks(_buildings[id]).Select(t => t.Position).Where(network.Conductors.Contains).ToList();
             }

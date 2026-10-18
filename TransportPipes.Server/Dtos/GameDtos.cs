@@ -70,7 +70,14 @@ public record CompanyDto(
     FranchiseDto Franchise,
     SeasonInfoDto Season,
     MovingDto Moving,
+    DeepDto Deep,
     DateTime ServerTime);
+
+/// <summary>
+/// The Deep Level (GDD §11.2): whether there is a lift, the dug out parcels, the parcel being dug and what the next one
+/// costs. Deep tiles are surface tiles shifted down by DeepOffset.
+/// </summary>
+public record DeepDto(bool Open, int Parcels, int? DigParcel, DateTime? DigStartedAt, DateTime? DigEndsAt, double NextCost, double NextHours, int Offset);
 
 /// <summary>Moving and activity (GDD §12): a move in progress, crates, free moves, a proposed swap</summary>
 public record MovingDto(string Activity, bool Asleep, DateTime? ArrivesAt, IReadOnlyList<CrateDto> Crates, int FreeMoves, double MoveCost, DateTime? CanMoveAt, long? SwapWith);

@@ -206,6 +206,7 @@
   name: Deep Mine
   category: extraction
   size: 2
+  layer: any
   unlock: { era: 2, research: deepMining }
   cost: { gold: 25000, materials: { steel: 30 } }
   buildSeconds: 600
@@ -233,6 +234,7 @@
   name: Rare Earth Excavator
   category: extraction
   size: 2
+  layer: any
   unlock: { era: 4 }
   cost: { gold: 200000, materials: { steel: 100, gears: 20 } }
   buildSeconds: 1800
@@ -426,6 +428,7 @@
   category: logistics
   kind: valve
   size: 1
+  layer: any
   unlock: { level: 8, research: valves }
   cost: { gold: 500 }
   buildSeconds: 10
@@ -436,6 +439,7 @@
   category: logistics
   kind: priorityValve
   size: 1
+  layer: any
   unlock: { level: 8, research: valves }
   cost: { gold: 800 }
   buildSeconds: 10
@@ -446,6 +450,7 @@
   category: logistics
   kind: pump
   size: 1
+  layer: any
   unlock: { level: 9, research: pumpStations }
   cost: { gold: 2000 }
   buildSeconds: 60
@@ -467,6 +472,7 @@
   category: logistics
   kind: storage
   size: 1
+  layer: any
   unlock: { level: 1 }
   cost: { gold: 1000 }
   buildSeconds: 60
@@ -660,7 +666,19 @@
   cost: { gold: 150000, materials: { steel: 200 } }
   buildSeconds: 3600
   throughput: 2000
-  description: The way down to the Deep Level.
+  description: "The way down to the Deep Level: carries resources between the layers, more with every level."
+
+- id: liftShaft
+  name: Lift Shaft
+  category: logistics
+  kind: deepLift
+  size: 2
+  layer: deep
+  buildable: false
+  unlock: { level: 30, research: deepLift }
+  cost: { gold: 0 }
+  buildSeconds: 0
+  description: The bottom of a Deep Lift.
 
 - id: magmaTap
   name: Magma Tap
@@ -739,3 +757,4 @@
 - { id: goldenMoily,    name: Golden Moily,    category: decoration, kind: decoration, size: 1, unlock: { collection: powerOfEra1 },  cost: { gold: 5000 }, buildSeconds: 30, description: "A wind moily of pure gold, for the Power of Era 1 collection." }
 - { id: crystalObelisk, name: Crystal Obelisk, category: decoration, kind: decoration, size: 1, unlock: { collection: diggingDeep },  cost: { gold: 5000 }, buildSeconds: 30, description: "A glowing crystal, for the Digging Deep collection." }
 - { id: goldenGear,     name: Golden Gear,     category: decoration, kind: decoration, size: 1, unlock: { collection: factoryFloor }, cost: { gold: 5000 }, buildSeconds: 30, description: "A giant golden gear, for the Factory Floor collection." }
+- { id: crystalGrotto,  name: Crystal Grotto,  category: decoration, kind: decoration, size: 1, layer: deep, unlock: { level: 30, research: deepLift }, cost: { gold: 50000 }, buildSeconds: 300, description: "Glowing crystals that light up the caverns of the Deep Level." }

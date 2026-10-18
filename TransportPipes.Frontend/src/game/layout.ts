@@ -13,6 +13,13 @@ export const DISTRICT_PITCH = DISTRICT_SIZE + WILDERNESS_WIDTH;
 export const HUB_BLOCK = Math.floor(BLOCKS_PER_SIDE / 2);
 export const ORIGIN_OFFSET = CORRIDOR_WIDTH + HUB_BLOCK * BLOCK_PITCH + ESTATE_SIZE / 2;
 
+/** The Deep Level lies far away in the same coordinates: a deep tile is its surface tile shifted down by this */
+export const DEEP_OFFSET = DISTRICT_PITCH * CHUNK_SIZE * 150;
+
+export function isDeep(y: number): boolean {
+  return y >= DEEP_OFFSET / 2;
+}
+
 export type ZoneKind = "estate" | "hub" | "corridor" | "wilderness";
 
 export interface Zone {

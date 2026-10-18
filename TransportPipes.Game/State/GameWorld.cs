@@ -138,6 +138,10 @@ public sealed partial class GameWorld
 
     public TileInfo Tile(TilePos pos)
     {
+        if (WorldLayout.IsDeep(pos))
+        {
+            return DeepTile(pos);
+        }
         var info = Generator.Tile(pos);
         if (_discoveries.Count != 0 && info.IsBuildableTerrain && DiscoveryAt(pos) is { } discovery)
         {
@@ -399,11 +403,6 @@ public sealed partial class GameWorld
             reason = $"{definition.Name} is the reward of a collection.";
             return false;
         }
-        if (definition.Layer == BuildingLayer.Deep)
-        {
-            reason = $"{definition.Name} can only be built in the Deep Level.";
-            return false;
-        }
         reason = null;
         return true;
     }
@@ -431,6 +430,24 @@ public sealed partial class GameWorld
             {
                 footprint.Add(pos.Offset(dx, dy));
             }
+        }
+
+        var deep = footprint.Any(WorldLayout.IsDeep);
+        if (deep && definition.Layer == BuildingLayer.Surface)
+        {
+            return CommandResult.Fail($"{definition.Name} can't be built in the Deep Level.");
+        }
+        if (!deep && definition.Layer == BuildingLayer.Deep)
+        {
+            return CommandResult.Fail($"{definition.Name} is built in the Deep Level.");
+        }
+        if (deep)
+        {
+            return CanPlaceDeep(estate, definition, footprint, ignoreBuilding);
+        }
+        if (definition.Kind == BuildingKind.DeepLift && footprint.Select(WorldLayout.Deep).Any(t => _buildingAt.ContainsKey(t)))
+        {
+            return CommandResult.Fail("Something is in the way down in the Deep Level.");
         }
 
         foreach (var tile in footprint)
@@ -482,6 +499,39 @@ public sealed partial class GameWorld
         if (definition.Placement.Forest && ForestAround(pos, definition.Size) < 3)
         {
             return CommandResult.Fail($"{definition.Name} needs a forest nearby.");
+        }
+        return CommandResult.Ok;
+    }
+
+    /// <summary>Deep buildings stand in the dug out caverns under your own estate</summary>
+    private CommandResult CanPlaceDeep(Estate estate, BuildingDefinition definition, List<TilePos> footprint, long? ignoreBuilding)
+    {
+        foreach (var tile in footprint)
+        {
+            if (!InEstateOrBelow(estate, tile))
+            {
+                return CommandResult.Fail("In the Deep Level you build only under your own estate.");
+            }
+            if ((_buildingAt.TryGetValue(tile, out var other) && other != ignoreBuilding) || _conductors.ContainsKey(tile))
+            {
+                return CommandResult.Fail("Something is already standing here.");
+            }
+            if (Tile(tile).Terrain != TerrainType.Cavern)
+            {
+                return CommandResult.Fail("Dig out this parcel first.");
+            }
+        }
+        if (definition.Placement.Deposit is { } deposit)
+        {
+            var best = footprint.Select(Tile).Where(t => DepositMatches(deposit, t.Deposit)).Select(t => t.Richness).DefaultIfEmpty(0).Max();
+            if (best == 0)
+            {
+                return CommandResult.Fail($"{definition.Name} needs a {DepositName(deposit)} deposit.");
+            }
+            if (best < definition.Placement.MinRichness)
+            {
+                return CommandResult.Fail($"{definition.Name} needs a deposit of at least {definition.Placement.MinRichness} stars.");
+            }
         }
         return CommandResult.Ok;
     }
@@ -646,6 +696,10 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail($"The {definition.Name} can't be demolished.");
         }
+        if (!definition.Buildable)
+        {
+            return CommandResult.Fail("Demolish the Deep Lift on the surface.");
+        }
 
         RemoveBuilding(building);
         company.Gold += Math.Round(definition.Cost.Gold * 0.5 * ComplexMembers(building));
@@ -656,6 +710,15 @@ public sealed partial class GameWorld
 
     private void RemoveBuilding(Building building)
     {
+        if (!_buildings.ContainsKey(building.Id))
+        {
+            return;
+        }
+        // A Deep Lift takes its shaft along
+        if (Content.Building(building.Type).Kind == BuildingKind.DeepLift && !WorldLayout.IsDeep(building.Position) && LiftPartner(building) is { } shaft)
+        {
+            RemoveBuilding(shaft);
+        }
         MarkDirty(building);
         foreach (var tile in building.Footprint())
         {
@@ -680,6 +743,10 @@ public sealed partial class GameWorld
         if (ComplexMembers(building) > 1)
         {
             return CommandResult.Fail("A complex can't be moved.");
+        }
+        if (definition.Kind == BuildingKind.DeepLift)
+        {
+            return CommandResult.Fail("A Deep Lift can't be moved.");
         }
         var placement = CanPlace(company, definition, pos, building.Id);
         if (!placement.Success)
@@ -754,6 +821,10 @@ public sealed partial class GameWorld
         if (definition.Kind is BuildingKind.Hq or BuildingKind.Gate or BuildingKind.Decoration)
         {
             return CommandResult.Fail($"The {definition.Name} grows with your Company Level.");
+        }
+        if (!definition.Buildable)
+        {
+            return CommandResult.Fail("Upgrade the Deep Lift on the surface.");
         }
         if (building.UnderConstruction)
         {
@@ -865,6 +936,24 @@ public sealed partial class GameWorld
         double cost = 0;
         foreach (var tile in newTiles)
         {
+            if (WorldLayout.IsDeep(tile))
+            {
+                // Down in the Deep Level: only in your own caverns
+                if (!estate.Contains(WorldLayout.Surface(tile)))
+                {
+                    return CommandResult.Fail("In the Deep Level pipes stay under your own estate.");
+                }
+                if (IsOccupied(tile))
+                {
+                    return CommandResult.Fail("Something is already there.");
+                }
+                if (Tile(tile).Terrain != TerrainType.Cavern)
+                {
+                    return CommandResult.Fail("Dig out this parcel first.");
+                }
+                cost += pipe.Gold;
+                continue;
+            }
             var zone = WorldLayout.ZoneAt(tile.X, tile.Y);
             switch (zone.Kind)
             {

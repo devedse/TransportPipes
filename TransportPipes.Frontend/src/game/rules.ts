@@ -1,6 +1,6 @@
 import type { BuildingDefinition, CompanyDto, EstateDto } from "../api/contracts";
 import type { Content } from "./content";
-import { ESTATE_SIZE, isParcelUnlocked, parcelOf, zoneAt } from "./layout";
+import { DEEP_OFFSET, ESTATE_SIZE, isDeep, isParcelUnlocked, parcelOf, zoneAt } from "./layout";
 import type { WorldModel } from "./world";
 
 // The placement rules of the server (GameWorld.CanPlace, PlacePipes), so the build ghost and the pipe tool can show
@@ -131,10 +131,38 @@ export function canPlace(
       ? { ok: true, reason: null, multiplier: 1 }
       : fail("Put it in the line of your own corridor pipe");
   }
+  const deep = isDeep(y);
+  if (deep && definition.layer === "surface") {
+    return fail(`${definition.name} can't be built in the Deep Level`);
+  }
+  if (!deep && definition.layer === "deep") {
+    return fail(`${definition.name} is built in the Deep Level`);
+  }
   for (let dy = 0; dy < definition.size; dy++) {
     for (let dx = 0; dx < definition.size; dx++) {
       const tx = x + dx;
       const ty = y + dy;
+      if (deep) {
+        // The caverns under your own estate
+        if (!insideEstate(company, tx, ty - DEEP_OFFSET)) {
+          return fail("Only under your own estate");
+        }
+        const building = world.buildingAt(tx, ty);
+        if (
+          (building !== undefined && building.id !== ignoreBuilding) ||
+          world.conductorAt(tx, ty) !== undefined
+        ) {
+          return fail("Something is in the way");
+        }
+        const terrain = world.terrain(tx, ty);
+        if (terrain === null) {
+          return fail("Loading…");
+        }
+        if (terrain !== "cavern") {
+          return fail("Dig out this parcel first");
+        }
+        continue;
+      }
       const outpost = world.outpostAt(tx, ty);
       if (outpost !== undefined) {
         if (outpost.owner !== company.id) {
@@ -240,6 +268,11 @@ export function pipeCost(
   if (world.conductorAt(x, y) !== undefined || world.buildingAt(x, y) !== undefined) {
     // Other companies' corridor pipes can't be crossed
     return null;
+  }
+  if (isDeep(y)) {
+    // Down in the Deep Level: only in your own caverns, and no losses
+    const terrain = world.terrain(x, y);
+    return insideEstate(company, x, y - DEEP_OFFSET) && terrain === "cavern" ? 1 : null;
   }
   const zone = zoneAt(x, y);
   if (

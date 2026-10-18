@@ -99,6 +99,10 @@ public sealed class WorldStore
                 LastMovedAt = settings.LastMovedAt,
                 FreeMoves = settings.FreeMoves,
                 MergeBonus = settings.MergeBonus,
+                DeepParcels = settings.DeepParcels,
+                DigParcel = settings.DigParcel,
+                DigStartedAt = settings.DigStartedAt,
+                DigEndsAt = settings.DigEndsAt,
                 SwapWith = settings.SwapWith,
                 Titles = settings.Titles,
                 Managers = settings.Managers,
@@ -332,6 +336,10 @@ public sealed class WorldStore
                     LastMovedAt = company.LastMovedAt,
                     FreeMoves = company.FreeMoves,
                     MergeBonus = company.MergeBonus,
+                    DeepParcels = company.DeepParcels,
+                    DigParcel = company.DigParcel,
+                    DigStartedAt = company.DigStartedAt,
+                    DigEndsAt = company.DigEndsAt,
                     SwapWith = company.SwapWith,
                     Titles = company.Titles,
                     Managers = company.Managers,
@@ -638,6 +646,10 @@ public sealed class WorldStore
         public DateTime? LastMovedAt { get; init; }
         public int FreeMoves { get; init; }
         public bool MergeBonus { get; init; }
+        public int DeepParcels { get; init; }
+        public int? DigParcel { get; init; }
+        public DateTime? DigStartedAt { get; init; }
+        public DateTime? DigEndsAt { get; init; }
         public long? SwapWith { get; init; }
         public HashSet<string> Titles { get; init; } = new();
         public HashSet<string> Managers { get; init; } = new();

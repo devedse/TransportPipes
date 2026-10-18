@@ -102,6 +102,14 @@ public sealed class Company : Entity
     public int FreeMoves { get; set; }
     public bool MergeBonus { get; set; }
 
+    /// <summary>The dug out parcels of the Deep Level (a bit per parcel; they move with the company)</summary>
+    public int DeepParcels { get; set; }
+
+    /// <summary>The parcel being dug out, and when that started and ends</summary>
+    public int? DigParcel { get; set; }
+    public DateTime? DigStartedAt { get; set; }
+    public DateTime? DigEndsAt { get; set; }
+
     /// <summary>A swap of estates this company proposed to another one</summary>
     public long? SwapWith { get; set; }
 

@@ -50,12 +50,16 @@ public sealed partial class GameWorld
             return;
         }
         var packed = new PackedEstate { UnlockedParcels = estate.UnlockedParcels, GatePolicies = new(estate.GatePolicies) };
-        foreach (var building in BuildingsOf(company.Id).Where(t => estate.Contains(t.Position)).ToList())
+        foreach (var building in BuildingsOf(company.Id).Where(t => InEstateOrBelow(estate, t.Position)).ToList())
         {
-            packed.Buildings.Add(PackBuilding(building, estate.Origin));
+            // A lift's shaft comes back with its lift
+            if (Content.Building(building.Type).Buildable)
+            {
+                packed.Buildings.Add(PackBuilding(building, estate.Origin));
+            }
             RemoveBuilding(building);
         }
-        foreach (var conductor in _conductors.Values.Where(t => t.Owner == company.Id && estate.Contains(t.Pos)).ToList())
+        foreach (var conductor in _conductors.Values.Where(t => t.Owner == company.Id && InEstateOrBelow(estate, t.Pos)).ToList())
         {
             if (conductor.Kind == ConductorKind.Pipe)
             {
@@ -143,7 +147,9 @@ public sealed partial class GameWorld
             Changes.Tiles.Add(pos);
         }
         // HQ and trading post first: they always fit
-        foreach (var item in packed.Buildings.OrderBy(t => Content.Building(t.Type).Kind is BuildingKind.Hq or BuildingKind.TradingPost ? 0 : 1))
+        // The Deep Level after the surface: the lifts' shafts first
+        foreach (var item in packed.Buildings.OrderBy(t => Content.Building(t.Type).Kind is BuildingKind.Hq or BuildingKind.TradingPost ? 0 : 1)
+            .ThenBy(t => t.Dy >= WorldLayout.DeepOffset / 2 ? 1 : 0))
         {
             var pos = estate.Origin.Offset(item.Dx, item.Dy);
             var definition = Content.Building(item.Type);
@@ -164,7 +170,7 @@ public sealed partial class GameWorld
         foreach (var pipe in packed.Pipes)
         {
             var pos = estate.Origin.Offset(pipe.Dx, pipe.Dy);
-            if (!IsOccupied(pos) && Tile(pos).Terrain != TerrainType.Mountain)
+            if (!IsOccupied(pos) && Tile(pos).Terrain is not (TerrainType.Mountain or TerrainType.Rock))
             {
                 _conductors[pos] = new Conductor { Pos = pos, Tier = pipe.Tier, Owner = company.Id };
                 MarkDirty(pos);
@@ -187,6 +193,7 @@ public sealed partial class GameWorld
         building.Imports.UnionWith(item.Imports);
         building.Filter.UnionWith(item.Filter);
         building.Setting = item.Setting;
+        EnsureShaft(building);
         return building;
     }
 

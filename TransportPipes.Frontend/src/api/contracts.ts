@@ -72,6 +72,7 @@ export interface CompanyDto {
   franchise: FranchiseDto;
   season: SeasonInfoDto;
   moving: MovingDto;
+  deep: DeepDto;
   serverTime: string;
 }
 
@@ -482,7 +483,17 @@ export interface ToastDto {
 // ---------------------------------------------------------------- Content (/api/content)
 
 export type TerrainType =
-  "grass" | "hills" | "forest" | "beach" | "water" | "desert" | "mountain" | "road" | "city";
+  | "grass"
+  | "hills"
+  | "forest"
+  | "beach"
+  | "water"
+  | "desert"
+  | "mountain"
+  | "road"
+  | "city"
+  | "rock"
+  | "cavern";
 
 export type BuildingKind =
   | "producer"
@@ -549,7 +560,7 @@ export interface BuildingDefinition {
   range: string | null;
   /** Power line pylons: how far the cable reaches */
   reach: number;
-  layer: "surface" | "deep";
+  layer: "surface" | "deep" | "any";
   sprite: string | null;
   description: string;
 }
@@ -1025,4 +1036,19 @@ export interface BlueprintsDto {
   mine: BlueprintDto[];
   corporation: BlueprintDto[];
   board: BlueprintDto[];
+}
+
+// ---------------------------------------------------------------- The Deep Level
+
+/** The Deep Level (GDD §11.2): deep tiles are surface tiles shifted down by `offset` */
+export interface DeepDto {
+  open: boolean;
+  /** Dug out parcels, a bit per parcel */
+  parcels: number;
+  digParcel: number | null;
+  digStartedAt: string | null;
+  digEndsAt: string | null;
+  nextCost: number;
+  nextHours: number;
+  offset: number;
 }
