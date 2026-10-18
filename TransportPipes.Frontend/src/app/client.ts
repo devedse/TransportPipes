@@ -1,9 +1,12 @@
 import type {
   BuildingDto,
+  ChatMessageDto,
   CommandResult,
   CompanyDto,
+  CorporationRole,
   GatePolicy,
   GateSide,
+  LeaderboardKind,
   ToastDto,
 } from "../api/contracts";
 import { auth, fetchContent, GameConnection } from "../api/server";
@@ -20,7 +23,7 @@ import {
 } from "../game/layout";
 import { newPipeTiles, routePipe } from "../game/rules";
 import { WorldModel } from "../game/world";
-import { appStore, initialState, setState, toast } from "../state/store";
+import { appStore, initialState, MODALS, setState, toast } from "../state/store";
 
 const DETAILS_REFRESH_MS = 2000;
 
@@ -117,6 +120,21 @@ export class GameClient {
         void this.refreshMarket();
       }
     });
+    c.on("chatMessage", (message) => this.receiveChat(message));
+    c.on("inboxChanged", (unread) => {
+      setState({ unread });
+      if (appStore.getState().inboxOpen && unread > 0) {
+        void this.refreshInbox();
+      }
+    });
+    c.on("corporationChanged", () => {
+      if (appStore.getState().corporationOpen) {
+        void this.refreshCorporations();
+      }
+      if (appStore.getState().chat !== null) {
+        void this.refreshChat();
+      }
+    });
     c.on("toast", (t: ToastDto) => {
       toast(
         t.text,
@@ -138,6 +156,7 @@ export class GameClient {
       era: hello.era,
       serverOffsetMs: new Date(hello.serverTime).getTime() - Date.now(),
       report: hello.report,
+      unread: hello.unread,
     });
     if (hello.company === null) {
       setState({ phase: "found" });
@@ -177,7 +196,7 @@ export class GameClient {
   }
 
   async openNeighbours() {
-    setState({ neighboursOpen: true, hubOpen: false, researchOpen: false, buildMenuOpen: false });
+    setState({ ...MODALS, neighboursOpen: true });
     await this.refreshNeighbours();
   }
 
@@ -300,7 +319,7 @@ export class GameClient {
   }
 
   async openHub() {
-    setState({ hubOpen: true, researchOpen: false, buildMenuOpen: false });
+    setState({ ...MODALS, hubOpen: true });
     await this.refreshMarket();
   }
 
@@ -355,7 +374,7 @@ export class GameClient {
   private neighboursTimer: number | null = null;
 
   async openResearch() {
-    setState({ researchOpen: true, hubOpen: false, buildMenuOpen: false });
+    setState({ ...MODALS, researchOpen: true });
     await this.refreshResearch();
   }
 
@@ -558,6 +577,13 @@ export class GameClient {
           return;
         }
       }
+      // Someone else's estate: visit it
+      const estate = this.world?.estateAt(tile.x, tile.y);
+      if (estate !== undefined && estate.ownerId !== null && estate.ownerId !== company.id) {
+        this.select(null);
+        void this.visitEstate(estate.ownerId);
+        return;
+      }
     }
     this.select(null);
   }
@@ -733,6 +759,266 @@ export class GameClient {
 
   closeReport() {
     setState({ report: null });
+  }
+
+  /** The one-tap upgrade of a full storage in the offline report */
+  async upgradeFromReport(building: number) {
+    if (await this.command(this.connection.upgrade(building, 1), "Upgraded: room for more")) {
+      const report = appStore.getState().report;
+      if (report !== null) {
+        setState({
+          report: { ...report, fullStorages: report.fullStorages.filter((t) => t.building !== building) },
+        });
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------- Corporations
+
+  async openCorporation() {
+    setState({ ...MODALS, corporationOpen: true });
+    await this.refreshCorporations();
+  }
+
+  async refreshCorporations() {
+    const corporations = await this.connection.getCorporations().catch(() => null);
+    if (corporations !== null) {
+      setState({ corporations });
+    }
+  }
+
+  /** Runs a corporation command and shows the result */
+  async corporation(run: (c: GameConnection) => Promise<CommandResult>, success?: string) {
+    const ok = await this.command(run(this.connection), success);
+    if (ok) {
+      await this.refreshCorporations();
+    }
+    return ok;
+  }
+
+  foundCorporation = (name: string, tag: string, color: string) =>
+    this.corporation((c) => c.foundCorporation(name, tag, color), `${name} is founded!`);
+  applyToCorporation = (id: number) => this.corporation((c) => c.applyToCorporation(id), "Application sent");
+  inviteToCorporation = (company: number) => this.corporation((c) => c.inviteToCorporation(company));
+  declineCorporation = (id: number) => this.corporation((c) => c.declineCorporation(id));
+  declineApplication = (company: number) => this.corporation((c) => c.declineApplication(company));
+  leaveCorporation = () => this.corporation((c) => c.leaveCorporation(), "You left the corporation");
+  kickFromCorporation = (member: number) => this.corporation((c) => c.kickFromCorporation(member));
+  setCorporationRole = (member: number, role: CorporationRole) =>
+    this.corporation((c) => c.setCorporationRole(member, role));
+  donateToCorporation = (gold: number) =>
+    this.corporation((c) => c.donateToCorporation(gold), "Thanks for the donation");
+  setCorporationSettings = (tax: number, perkResource: string | null, description: string) =>
+    this.corporation((c) => c.setCorporationSettings(tax, perkResource, description), "Saved");
+  upgradeCorporationHq = () => this.corporation((c) => c.upgradeCorporationHq(), "The HQ grows!");
+  deliverToCorporationGoal = () => this.corporation((c) => c.deliverToCorporationGoal(), "Delivered");
+
+  // ---------------------------------------------------------------- Leaderboards and visits
+
+  async openLeaderboard() {
+    setState({ ...MODALS, leaderboardOpen: true });
+    await this.refreshLeaderboard();
+  }
+
+  async refreshLeaderboard(kind?: LeaderboardKind, district?: boolean) {
+    const state = appStore.getState();
+    const k = kind ?? state.leaderboardKind;
+    const d = district ?? state.leaderboardDistrict;
+    setState({ leaderboardKind: k, leaderboardDistrict: d });
+    const leaderboard = await this.connection.getLeaderboard(k, d).catch(() => null);
+    setState({ leaderboard });
+  }
+
+  /** Opens the visit card of a company's estate (and looks at the estate) */
+  async visitEstate(owner: number, look = false) {
+    setState({ ...MODALS, visiting: owner, visit: null });
+    await this.refreshVisit();
+    const visit = appStore.getState().visit;
+    if (look && visit !== null) {
+      this.engine?.lookAt(visit.estateX + ESTATE_SIZE / 2, visit.estateY + ESTATE_SIZE / 2, 0.35);
+    }
+  }
+
+  async refreshVisit() {
+    const owner = appStore.getState().visiting;
+    if (owner === null) {
+      return;
+    }
+    const visit = await this.connection.visitEstate(owner).catch(() => null);
+    if (appStore.getState().visiting === owner) {
+      setState({ visit });
+    }
+  }
+
+  closeVisit() {
+    setState({ visiting: null, visit: null });
+  }
+
+  lookAtEstate(x: number, y: number) {
+    this.engine?.lookAt(x + ESTATE_SIZE / 2, y + ESTATE_SIZE / 2, 0.35);
+  }
+
+  async likeEstate(owner: number) {
+    if (await this.command(this.connection.likeEstate(owner), "Liked!")) {
+      await this.refreshVisit();
+    }
+  }
+
+  async writeGuestbook(owner: number, text: string) {
+    const ok = await this.command(this.connection.writeGuestbook(owner, text), "Note left");
+    if (ok) {
+      await this.refreshVisit();
+    }
+    return ok;
+  }
+
+  async deleteGuestbookNote(note: number) {
+    if (await this.command(this.connection.deleteGuestbookNote(note))) {
+      await this.refreshVisit();
+    }
+  }
+
+  async chooseMentor(mentor: number) {
+    if (await this.command(this.connection.chooseMentor(mentor), "You have a mentor!")) {
+      await this.refreshVisit();
+    }
+  }
+
+  // ---------------------------------------------------------------- Inbox
+
+  async openInbox() {
+    setState({ inboxOpen: true });
+    await this.refreshInbox();
+    if (appStore.getState().unread > 0) {
+      await this.connection.markInboxRead().catch(() => undefined);
+    }
+  }
+
+  async refreshInbox() {
+    const inbox = await this.connection.getInbox().catch(() => null);
+    if (inbox !== null) {
+      setState({ inbox });
+    }
+  }
+
+  // ---------------------------------------------------------------- Chat
+
+  async toggleChat() {
+    if (appStore.getState().chatOpen) {
+      setState({ chatOpen: false });
+      return;
+    }
+    setState({ chatOpen: true });
+    await this.refreshChat();
+    const state = appStore.getState();
+    const channel = state.chatChannel ?? state.chat?.channels[0]?.id ?? null;
+    if (channel !== null) {
+      await this.openChannel(channel);
+    }
+  }
+
+  async openCorporationChat() {
+    setState({ corporationOpen: false });
+    if (!appStore.getState().chatOpen) {
+      setState({ chatOpen: true });
+    }
+    await this.refreshChat();
+    const channel = appStore.getState().chat?.channels.find((t) => t.kind === "corporation");
+    if (channel !== undefined) {
+      await this.openChannel(channel.id);
+    }
+  }
+
+  async refreshChat() {
+    const chat = await this.connection.getChat().catch(() => null);
+    if (chat === null) {
+      return;
+    }
+    const current = appStore.getState().chatChannel;
+    const known = current !== null && chat.channels.some((t) => t.id === current);
+    setState({ chat, ...(known || current === null ? {} : { chatChannel: chat.channels[0]?.id ?? null }) });
+  }
+
+  async openChannel(channel: string) {
+    const state = appStore.getState();
+    setState({ chatChannel: channel, chatUnread: { ...state.chatUnread, [channel]: 0 } });
+    const messages = await this.connection.getChatHistory(channel, null).catch(() => null);
+    if (messages !== null) {
+      setState({ chatMessages: { ...appStore.getState().chatMessages, [channel]: messages } });
+    }
+  }
+
+  /** Opens a direct conversation with a company */
+  async messageCompany(company: number, name: string) {
+    const me = appStore.getState().company;
+    if (me === null || me.id === company) {
+      return;
+    }
+    const id = `direct:${Math.min(me.id, company)}:${Math.max(me.id, company)}`;
+    const chat = appStore.getState().chat;
+    if (chat !== null && !chat.channels.some((t) => t.id === id)) {
+      setState({
+        chat: { ...chat, channels: [...chat.channels, { id, name, kind: "direct", lastAt: null }] },
+      });
+    }
+    if (!appStore.getState().chatOpen) {
+      setState({ chatOpen: true });
+      if (appStore.getState().chat === null) {
+        await this.refreshChat();
+        const loaded = appStore.getState().chat;
+        if (loaded !== null && !loaded.channels.some((t) => t.id === id)) {
+          setState({
+            chat: { ...loaded, channels: [...loaded.channels, { id, name, kind: "direct", lastAt: null }] },
+          });
+        }
+      }
+    }
+    await this.openChannel(id);
+  }
+
+  async sendChat(text: string) {
+    const channel = appStore.getState().chatChannel;
+    if (channel === null || text.trim() === "") {
+      return false;
+    }
+    return this.command(this.connection.sendChat(channel, text));
+  }
+
+  async reportChat(message: number) {
+    await this.command(this.connection.reportChat(message), "Reported to the moderators. Thanks!");
+  }
+
+  async setBlocked(company: number, blocked: boolean) {
+    if (await this.command(this.connection.setBlocked(company, blocked), blocked ? "Blocked" : "Unblocked")) {
+      await this.refreshChat();
+      const channel = appStore.getState().chatChannel;
+      if (channel !== null) {
+        await this.openChannel(channel);
+      }
+    }
+  }
+
+  private receiveChat(message: ChatMessageDto) {
+    const state = appStore.getState();
+    if (state.chat?.blocked.includes(message.sender)) {
+      return;
+    }
+    const loaded = state.chatMessages[message.channel];
+    const update: Partial<typeof state> = {};
+    if (loaded !== undefined && !loaded.some((t) => t.id === message.id)) {
+      update.chatMessages = { ...state.chatMessages, [message.channel]: [...loaded, message].slice(-200) };
+    }
+    const looking = state.chatOpen && state.chatChannel === message.channel;
+    if (!looking && message.sender !== state.company?.id) {
+      update.chatUnread = {
+        ...state.chatUnread,
+        [message.channel]: (state.chatUnread[message.channel] ?? 0) + 1,
+      };
+    }
+    setState(update);
+    if (state.chat !== null && !state.chat.channels.some((t) => t.id === message.channel)) {
+      void this.refreshChat();
+    }
   }
 
   reset() {

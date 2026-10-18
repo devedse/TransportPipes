@@ -51,6 +51,10 @@ public sealed partial class GameWorld
                 ExpireOrders();
             }));
         }
+        for (var at = NextWeek(LastTick); at <= now; at = NextWeek(at))
+        {
+            events.Add((at, long.MinValue + 3, NewWeek));
+        }
         foreach (var at in _shipments.Where(t => t.ArrivesAt <= now).Select(t => t.ArrivesAt).Distinct())
         {
             events.Add((at, long.MinValue + 2, DeliverShipments));
@@ -168,6 +172,15 @@ public sealed partial class GameWorld
         return time;
     }
 
+    private const double StorageFullShare = 0.999;
+    private static readonly TimeSpan StorageFullNoticeEvery = TimeSpan.FromHours(6);
+    private readonly Dictionary<long, DateTime> _storageFullNoticeAt = new();
+
+    /// <summary>Storages that are (nearly) full</summary>
+    public IEnumerable<Building> FullStorages(long companyId) =>
+        BuildingsOf(companyId).Where(t => Content.Building(t.Type).Kind == BuildingKind.Storage && !t.UnderConstruction
+            && t.StoredTotal >= StorageCapacity(t, Content.Building(t.Type)) * StorageFullShare);
+
     private void Apply(Network network, FlowSolution solution, double minutes)
     {
         if (minutes <= 0)
@@ -226,6 +239,7 @@ public sealed partial class GameWorld
         {
             if (Company(companyId) is { } company)
             {
+                TaxEarnings(company, earned);
                 company.LifetimeEarnings += earned;
                 company.Report.GoldEarned += earned;
                 GainXpFromEarnings(company, earned);
@@ -246,6 +260,7 @@ public sealed partial class GameWorld
         {
             var storage = _buildings[storageId];
             var capacity = StorageCapacity(storage, Content.Building(storage.Type));
+            var wasFull = storage.StoredTotal >= capacity * StorageFullShare;
             foreach (var (resource, change) in net)
             {
                 var amount = (storage.Contents.TryGetValue(resource, out var v) ? v : 0) + change * minutes;
@@ -266,6 +281,12 @@ public sealed partial class GameWorld
                 {
                     storage.Contents[resource] *= capacity / total;
                 }
+            }
+            if (!wasFull && storage.StoredTotal >= capacity * StorageFullShare && Company(storage.Owner) is { IsNpc: false } owner
+                && (!_storageFullNoticeAt.TryGetValue(storageId, out var noticed) || LastTick - noticed >= StorageFullNoticeEvery))
+            {
+                _storageFullNoticeAt[storageId] = LastTick;
+                Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.StorageFull, $"Your {Content.Building(storage.Type).Name} is full", storageId));
             }
             storage.Touch();
             Changes.Storages.Add(storageId);

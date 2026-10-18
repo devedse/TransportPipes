@@ -15,9 +15,6 @@ public sealed partial class GameWorld
     public double TollIncome(long meterId) => _tollIncome.TryGetValue(meterId, out var v) ? v : 0;
 
 
-    /// <summary>Corporations come later; until then nobody shares one</summary>
-    public bool SameCorporation(long a, long b) => a == b;
-
     /// <summary>
     /// Toll Meters on public pipes: every flow through a meter of another company pays its toll on the value of what it
     /// carries; half goes to the meter's owner, half is destroyed (a gold sink).
@@ -54,7 +51,7 @@ public sealed partial class GameWorld
             var value = flow.Delivered * (flow.PricePerUnit > 0 ? flow.PricePerUnit : HubBuyPrice(network.District, flow.Resource));
             foreach (var tile in link.Path)
             {
-                if (meters.TryGetValue(tile, out var meter) && meter.Owner != payer)
+                if (meters.TryGetValue(tile, out var meter) && meter.Owner != payer && !TollFree(payer, meter.Owner))
                 {
                     var fee = value * Math.Min(MaxToll, meter.Setting);
                     AddGold(payer, -fee);

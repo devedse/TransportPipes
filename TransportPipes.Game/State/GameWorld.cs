@@ -19,6 +19,10 @@ public enum WorldEventKind
     OrderCompleted,
     ContractChanged,
     ExchangeTrade,
+    Corporation,
+    Social,
+    StorageFull,
+    Neighbour,
 }
 
 /// <summary>Something a player should hear about (a toast in the client)</summary>
@@ -34,10 +38,11 @@ public sealed class WorldChanges
     public HashSet<(DistrictCoord District, int Slot)> Estates { get; } = new();
     public HashSet<DistrictCoord> Markets { get; } = new();
     public HashSet<long> Contracts { get; } = new();
+    public HashSet<long> Corporations { get; } = new();
     public bool Exchange { get; set; }
     public List<WorldEvent> Events { get; } = new();
 
-    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Contracts.Count == 0 && !Exchange && Events.Count == 0;
+    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Contracts.Count == 0 && Corporations.Count == 0 && !Exchange && Events.Count == 0;
 }
 
 /// <summary>
@@ -275,6 +280,13 @@ public sealed partial class GameWorld
             var gate = new Conductor { Pos = pos, Kind = ConductorKind.Gate, Owner = company.Id, Side = side };
             _conductors[pos] = gate;
             MarkDirty(pos);
+        }
+
+        foreach (var neighbour in _companies.Values.Where(t => t.District == company.District && t.Id != company.Id && !t.IsNpc))
+        {
+            neighbour.Report.NewNeighbours.Add(company.Name);
+            neighbour.Touch();
+            Changes.Events.Add(new WorldEvent(neighbour.Id, WorldEventKind.Neighbour, $"{company.Name} moved into your district"));
         }
 
         AddBuilding(company, "hq", estate.Origin.Offset(HqLocal.X, HqLocal.Y), finished: true);
@@ -949,9 +961,9 @@ public sealed partial class GameWorld
         if (level > company.Level)
         {
             company.Report.LevelsGained += level - company.Level;
-            company.Report.Notes.Add($"Reached Company Level {level}");
             company.Level = level;
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.LevelUp, $"Company Level {level}!"));
+            MentorRewards(company);
         }
         company.Touch();
         Changes.Companies.Add(company.Id);

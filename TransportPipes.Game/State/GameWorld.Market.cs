@@ -67,6 +67,25 @@ public sealed partial class GameWorld
         return Math.Round(Math.Clamp(price, low, high), 2);
     }
 
+    /// <summary>The companies that buy this resource from a company right now</summary>
+    public HashSet<long> PartnersBuying(long companyId, string resource)
+    {
+        var buyers = new HashSet<long>();
+        foreach (var network in _networks.Values)
+        {
+            foreach (var flow in network.Solution.Flows)
+            {
+                if (flow.Kind is Simulation.FlowKind.Trade or Simulation.FlowKind.Contract && flow.Resource == resource
+                    && _buildings.TryGetValue(flow.From, out var from) && from.Owner == companyId
+                    && _buildings.TryGetValue(flow.To, out var to) && to.Owner != companyId)
+                {
+                    buyers.Add(to.Owner);
+                }
+            }
+        }
+        return buyers;
+    }
+
     /// <summary>Whether a company sells this resource to another company right now</summary>
     public bool SellsToPartners(long companyId, string resource) =>
         _networks.Values.Any(network => network.Solution.Flows.Any(flow =>
@@ -88,6 +107,12 @@ public sealed partial class GameWorld
         if (SellsToPartners(companyId, resource))
         {
             company.PendingPrices[resource] = new PendingPrice(value, Now + NoticePeriod);
+            var name = Content.Resources[resource].Name.ToLowerInvariant();
+            var text = value is { } v ? $"{company.Name} sells {name} at {v:0.##} g from {Now + NoticePeriod:HH:mm} UTC" : $"{company.Name} sells {name} at the automatic price from {Now + NoticePeriod:HH:mm} UTC";
+            foreach (var buyer in PartnersBuying(companyId, resource))
+            {
+                Changes.Events.Add(new WorldEvent(buyer, WorldEventKind.PriceChanged, text));
+            }
         }
         else
         {

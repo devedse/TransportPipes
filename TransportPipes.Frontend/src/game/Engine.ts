@@ -1309,7 +1309,7 @@ export class Engine {
       const hubX = district.originX + 2 + 2 * 34;
       const hubY = district.originY + 2 + 2 * 34;
       for (const structure of district.hub) {
-        const art = this.textures.hub(structure.type, structure.size);
+        const art = this.textures.hub(structure.type, structure.size, structure);
         const sprite = new Sprite(art.frames[0]);
         sprite.anchor.set(0, 1);
         const x = hubX + structure.x;
@@ -1331,7 +1331,11 @@ export class Engine {
           container.addChild(hub.effects.container);
           this.effects.add(hub);
         }
-        container.zIndex = (x + y + 2 * (structure.size - 1)) * 4 + 3;
+        // The corporation quarter is a flat plaza under the HQs that stand on it
+        container.zIndex =
+          structure.type === "corporationQuarter"
+            ? (x + y) * 4 - 8
+            : (x + y + 2 * (structure.size - 1)) * 4 + 3;
         this.objectLayer.addChild(container);
         view.hub.push(hub);
       }

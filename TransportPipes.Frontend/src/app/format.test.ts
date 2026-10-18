@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayName, formatAmount, formatDuration, formatRate, formatVersion } from "./format";
+import { displayName, formatAmount, formatDuration, formatRate, formatVersion, plural } from "./format";
 
 describe("formatVersion", () => {
   it("shows the version with the short commit", () => {
@@ -44,5 +44,13 @@ describe("formatAmount", () => {
   it("shows rates with a sign", () => {
     expect(formatRate(39.6)).toBe("+40/min");
     expect(formatRate(-17.5)).toBe("-18/min");
+  });
+});
+
+describe("plural", () => {
+  it("uses the singular for one", () => {
+    expect(plural(1, "building")).toBe("1 building");
+    expect(plural(3, "building")).toBe("3 buildings");
+    expect(plural(2, "company", "companies")).toBe("2 companies");
   });
 });

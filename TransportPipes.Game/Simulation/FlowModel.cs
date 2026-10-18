@@ -95,6 +95,9 @@ public sealed class FlowMarket
     /// <summary>Active contracts: delivered before open trade, at their own price, up to their rate</summary>
     public IReadOnlyList<FlowContract> Contracts { get; init; } = [];
 
+    /// <summary>Members of a corporation (HQ level 1) trade with each other whatever the buyer's maximum price</summary>
+    public Func<long, long, bool> IgnoreMaxPrice { get; init; } = (_, _) => false;
+
     /// <summary>Whether two different companies may trade over this link (the gates on its path)</summary>
     public Func<FlowLink, long, long, string, bool> LinkTradeAllowed { get; init; } = (_, _, _, _) => true;
 }

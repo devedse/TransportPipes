@@ -35,7 +35,7 @@ public sealed partial class GameWorld
 
     /// <summary>Research points a tech costs this company (cheaper when many others have it)</summary>
     public double ResearchCost(Company company, ResearchDefinition tech) =>
-        Math.Round(tech.Cost * (1 - MaxDiffusionDiscount * ResearchDiffusion(company, tech.Id)));
+        Math.Round(tech.Cost * (1 - MaxDiffusionDiscount * ResearchDiffusion(company, tech.Id)) * (1 - CorporationResearchDiscount(company)));
 
     /// <summary>Why a company can't start a tech, or null when it can</summary>
     public string? ResearchBlocker(Company company, ResearchDefinition tech)
@@ -109,6 +109,7 @@ public sealed partial class GameWorld
         if (Content.Research.TryGetValue(techId, out var tech))
         {
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ResearchFinished, $"Research done: {tech.Name}"));
+            company.Report.ResearchDone.Add(tech.Name);
             GainXp(company, Content.Progression.XpReward("research"));
             if (tech.ThroughputBonus > 0)
             {
@@ -134,11 +135,11 @@ public sealed partial class GameWorld
     /// <summary>The extra output (0.25 = +25%) a company's research gives a building for a resource</summary>
     public double OutputBonus(Company? company, BuildingDefinition building, string resource)
     {
-        if (company == null || company.Researched.Count == 0)
+        if (company == null)
         {
             return 0;
         }
-        double bonus = 0;
+        var bonus = CorporationOutputBonus(company, resource);
         foreach (var techId in company.Researched)
         {
             if (Content.Research.TryGetValue(techId, out var tech))

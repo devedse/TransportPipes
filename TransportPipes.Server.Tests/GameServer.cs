@@ -118,6 +118,8 @@ public sealed class TestClient : IAsyncDisposable
     public Channel<ChunkObjectsDto> Chunks { get; } = Channel.CreateUnbounded<ChunkObjectsDto>();
     public Channel<CompanyDto> Companies { get; } = Channel.CreateUnbounded<CompanyDto>();
     public Channel<ToastDto> Toasts { get; } = Channel.CreateUnbounded<ToastDto>();
+    public Channel<ChatMessageDto> Chat { get; } = Channel.CreateUnbounded<ChatMessageDto>();
+    public Channel<int> Inbox { get; } = Channel.CreateUnbounded<int>();
 
     public TestClient(HubConnection connection)
     {
@@ -125,6 +127,8 @@ public sealed class TestClient : IAsyncDisposable
         connection.On<ChunkObjectsDto>(nameof(IGameClient.ChunkChanged), t => Chunks.Writer.TryWrite(t));
         connection.On<CompanyDto>(nameof(IGameClient.CompanyChanged), t => Companies.Writer.TryWrite(t));
         connection.On<ToastDto>(nameof(IGameClient.Toast), t => Toasts.Writer.TryWrite(t));
+        connection.On<ChatMessageDto>(nameof(IGameClient.ChatMessage), t => Chat.Writer.TryWrite(t));
+        connection.On<int>(nameof(IGameClient.InboxChanged), t => Inbox.Writer.TryWrite(t));
     }
 
     public Task<T> Invoke<T>(string method, params object?[] args) => Connection.InvokeCoreAsync<T>(method, args);

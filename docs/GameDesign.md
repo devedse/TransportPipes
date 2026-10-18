@@ -637,12 +637,12 @@ than you produce it"). One tap starts the connect flow (§10.10).
 
 | HQ level | Perk |
 | --- | --- |
-| 1 | Corporation chat, free trade between members (no fair band) |
+| 1 | Corporation chat, free trade between members (no maximum price) |
 | 2 | +5% production of one chosen resource |
-| 3 | Shared gates: members' pipes may cross each other's corridors toll-free |
+| 3 | Shared gates: no tolls between members |
 | 4 | +1 manager slot |
-| 5 | Corporation research (one shared tech per week) |
-| 6–10 | Bigger perks, cosmetic growth of the HQ |
+| 5 | Corporation research: techs 20% cheaper for members |
+| 6–10 | The production perk grows by 1% per level, the HQ tower grows a floor per level |
 
 - **Weekly corporation goal** (e.g. deliver 50k steel to the Wonder) with rewards for everyone.
 - Roles: leader, officers, members. Applications, invites, kicks with a cool-down.

@@ -3,6 +3,11 @@ import { gameClient } from "./app/client";
 import { AuthScreen } from "./components/AuthScreen";
 import { BuildingPanel } from "./components/BuildingPanel";
 import { BuildMenu } from "./components/BuildMenu";
+import { ChatPanel } from "./components/ChatPanel";
+import { CorporationPanel } from "./components/CorporationPanel";
+import { InboxPanel } from "./components/InboxPanel";
+import { LeaderboardPanel } from "./components/LeaderboardPanel";
+import { VisitPanel } from "./components/VisitPanel";
 import { ConnectionOverlay } from "./components/ConnectionOverlay";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { FoundCompany } from "./components/FoundCompany";
@@ -21,7 +26,7 @@ import { Toasts } from "./components/Toasts";
 import { Toolbar } from "./components/Toolbar";
 import { TopBar } from "./components/TopBar";
 import { VersionBadge } from "./components/VersionBadge";
-import { appStore, setState, useAppStore } from "./state/store";
+import { appStore, MODALS, setState, useAppStore } from "./state/store";
 
 function isTyping(target: EventTarget | null): boolean {
   return (
@@ -46,8 +51,18 @@ function useShortcuts() {
       }
       switch (event.key.toLowerCase()) {
         case "escape":
-          if (state.researchOpen || state.hubOpen || state.neighboursOpen) {
-            setState({ researchOpen: false, hubOpen: false, neighboursOpen: false });
+          if (
+            state.researchOpen ||
+            state.hubOpen ||
+            state.neighboursOpen ||
+            state.corporationOpen ||
+            state.leaderboardOpen
+          ) {
+            setState({ ...MODALS, buildMenuOpen: state.buildMenuOpen });
+          } else if (state.inboxOpen) {
+            setState({ inboxOpen: false });
+          } else if (state.visiting !== null) {
+            gameClient.closeVisit();
           } else if (state.plannedRoute !== null) {
             setState({ plannedRoute: null, plannedPartner: null });
           } else if (state.tool.kind !== "select") {
@@ -99,6 +114,23 @@ function useShortcuts() {
           break;
         case "v":
           gameClient.setTool({ kind: "select" });
+          break;
+        case "c":
+          if (state.corporationOpen) {
+            setState({ corporationOpen: false });
+          } else {
+            void gameClient.openCorporation();
+          }
+          break;
+        case "l":
+          if (state.leaderboardOpen) {
+            setState({ leaderboardOpen: false });
+          } else {
+            void gameClient.openLeaderboard();
+          }
+          break;
+        case "t":
+          void gameClient.toggleChat();
           break;
         case "h":
           gameClient.goHome();
@@ -170,6 +202,21 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="ResearchPanel">
             <ResearchPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="CorporationPanel">
+            <CorporationPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="LeaderboardPanel">
+            <LeaderboardPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="VisitPanel">
+            <VisitPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="InboxPanel">
+            <InboxPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="ChatPanel">
+            <ChatPanel />
           </ErrorBoundary>
           <ErrorBoundary name="ReportDialog">
             <ReportDialog />

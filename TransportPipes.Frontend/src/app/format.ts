@@ -50,6 +50,11 @@ export function formatRate(perMinute: number): string {
   return `${perMinute >= 0 ? "+" : ""}${formatAmount(perMinute)}/min`;
 }
 
+/** "1 building", "3 buildings" */
+export function plural(count: number, one: string, many = `${one}s`): string {
+  return `${formatAmount(count)} ${count === 1 ? one : many}`;
+}
+
 export function formatTimeAgo(since: Date, now = new Date()): string {
   return formatDuration((now.getTime() - since.getTime()) / 1000);
 }

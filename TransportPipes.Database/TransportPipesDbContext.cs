@@ -20,6 +20,11 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<DbConductor> Conductors => Set<DbConductor>();
     public DbSet<DbTerrainOverride> TerrainOverrides => Set<DbTerrainOverride>();
     public DbSet<DbContract> Contracts => Set<DbContract>();
+    public DbSet<DbCorporation> Corporations => Set<DbCorporation>();
+    public DbSet<DbChatMessage> ChatMessages => Set<DbChatMessage>();
+    public DbSet<DbInboxMessage> InboxMessages => Set<DbInboxMessage>();
+    public DbSet<DbGuestbookNote> GuestbookNotes => Set<DbGuestbookNote>();
+    public DbSet<DbBlock> Blocks => Set<DbBlock>();
 
     /// <summary>The keys that protect the login cookies, so logins survive a restart</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
@@ -90,6 +95,50 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
             contract.Property(t => t.Id).ValueGeneratedNever();
             contract.Property(t => t.Resource).HasMaxLength(40);
             contract.HasIndex(t => t.State);
+        });
+
+        modelBuilder.Entity<DbCorporation>(corporation =>
+        {
+            corporation.ToTable("Corporations");
+            corporation.Property(t => t.Id).ValueGeneratedNever();
+            corporation.Property(t => t.Name).HasMaxLength(40);
+            corporation.Property(t => t.Tag).HasMaxLength(8);
+            corporation.Property(t => t.Color).HasMaxLength(16);
+            corporation.Property(t => t.PerkResource).HasMaxLength(40);
+            corporation.Property(t => t.Description).HasMaxLength(400);
+            corporation.Property(t => t.Data).HasColumnType("jsonb");
+            corporation.HasIndex(t => t.Tag).IsUnique();
+        });
+
+        modelBuilder.Entity<DbChatMessage>(message =>
+        {
+            message.ToTable("ChatMessages");
+            message.Property(t => t.Channel).HasMaxLength(64);
+            message.Property(t => t.SenderName).HasMaxLength(40);
+            message.Property(t => t.Text).HasMaxLength(500);
+            message.HasIndex(t => new { t.Channel, t.Id });
+        });
+
+        modelBuilder.Entity<DbInboxMessage>(message =>
+        {
+            message.ToTable("InboxMessages");
+            message.Property(t => t.Kind).HasMaxLength(40);
+            message.Property(t => t.Text).HasMaxLength(500);
+            message.HasIndex(t => new { t.Company, t.Id });
+        });
+
+        modelBuilder.Entity<DbGuestbookNote>(note =>
+        {
+            note.ToTable("GuestbookNotes");
+            note.Property(t => t.AuthorName).HasMaxLength(40);
+            note.Property(t => t.Text).HasMaxLength(300);
+            note.HasIndex(t => new { t.Owner, t.Id });
+        });
+
+        modelBuilder.Entity<DbBlock>(block =>
+        {
+            block.ToTable("Blocks");
+            block.HasKey(t => new { t.Company, t.Blocked });
         });
 
         modelBuilder.Entity<DbTerrainOverride>(terrain =>

@@ -25,6 +25,7 @@ public sealed partial class GameWorld
 
     private void NewDay()
     {
+        _likesToday.Clear();
         foreach (var company in _companies.Values.Where(t => !t.IsNpc && t.LastSeenAt >= LastTick - ActivePeriod))
         {
             EnsureOrders(company);
@@ -123,6 +124,7 @@ public sealed partial class GameWorld
             company.HubReputation += order.RewardReputation;
             GainXp(company, order.RewardXp);
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.OrderCompleted, $"Order complete: +{order.RewardGold:N0} gold"));
+            company.Report.OrdersCompleted++;
             MarkCompanyNetworksDirty(company.Id);
         }
         company.Touch();

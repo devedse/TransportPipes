@@ -27,6 +27,7 @@ builder.Services.AddSingleton<IPasswordHasher<DbUser>, PasswordHasher<DbUser>>()
 builder.Services.AddSingleton<DatabaseInitializer>();
 builder.Services.AddSingleton<AccountService>();
 builder.Services.AddSingleton<ConnectedUsers>();
+builder.Services.AddSingleton<SocialService>();
 builder.Services.AddSingleton<WorldStore>();
 builder.Services.AddSingleton<WorldHost>();
 builder.Services.AddHostedService(services => services.GetRequiredService<WorldHost>());

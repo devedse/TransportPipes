@@ -1,7 +1,7 @@
 import { gameClient } from "../app/client";
 import { formatAmount, formatRate } from "../app/format";
 import { useNow } from "../app/useNow";
-import { currentGold, useAppStore } from "../state/store";
+import { currentGold, setState, useAppStore } from "../state/store";
 
 /** Gold that counts up smoothly between server updates */
 function useLiveGold(): number {
@@ -15,6 +15,8 @@ export function TopBar() {
   const company = useAppStore((state) => state.company);
   const user = useAppStore((state) => state.user);
   const content = useAppStore((state) => state.content);
+  const unread = useAppStore((state) => state.unread);
+  const inboxOpen = useAppStore((state) => state.inboxOpen);
   const gold = useLiveGold();
   if (company === null) {
     return null;
@@ -27,7 +29,18 @@ export function TopBar() {
       <div className="panel top-company">
         <span className="company-dot" style={{ background: company.color }} />
         <div>
-          <div className="company-name">{company.name}</div>
+          <div className="company-name">
+            {company.name}
+            {company.corporationTag !== null && (
+              <button
+                className="corp-tag small-tag"
+                title="Your corporation (C)"
+                onClick={() => void gameClient.openCorporation()}
+              >
+                {company.corporationTag}
+              </button>
+            )}
+          </div>
           <div className="muted small">{user?.userName}</div>
         </div>
       </div>
@@ -72,6 +85,21 @@ export function TopBar() {
       <div className="top-spacer" />
 
       <div className="panel top-actions">
+        <button
+          className="icon-button with-badge"
+          title="Inbox"
+          onClick={() => (inboxOpen ? setState({ inboxOpen: false }) : void gameClient.openInbox())}
+        >
+          🔔
+          {unread > 0 && <span className="dot-badge">{unread > 99 ? "99+" : unread}</span>}
+        </button>
+        <button
+          className="icon-button"
+          title="Leaderboards (L)"
+          onClick={() => void gameClient.openLeaderboard()}
+        >
+          🏆
+        </button>
         <button className="icon-button" title="Back to my estate (H)" onClick={() => gameClient.goHome()}>
           ⌂
         </button>

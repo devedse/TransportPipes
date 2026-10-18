@@ -329,6 +329,22 @@ export function NeighboursPanel() {
                   {!n.connected && (
                     <button onClick={() => void gameClient.planConnection(n.id)}>Connect</button>
                   )}
+                  <span className="button-row">
+                    <button
+                      title="Visit their estate"
+                      onClick={() => void gameClient.visitEstate(n.id, true)}
+                    >
+                      Visit
+                    </button>
+                    {!n.isNpc && (
+                      <button
+                        title="Send a message"
+                        onClick={() => void gameClient.messageCompany(n.id, n.name)}
+                      >
+                        ✉
+                      </button>
+                    )}
+                  </span>
                   <button
                     onClick={() =>
                       newDraft(

@@ -60,6 +60,23 @@ public sealed class Company : Entity
     /// <summary>Price changes that wait for the notice period because a partner buys from this company</summary>
     public Dictionary<string, PendingPrice> PendingPrices { get; init; } = new();
 
+    /// <summary>The corporation this company is in, and its role there</summary>
+    public long? CorporationId { get; set; }
+    public CorporationRole Role { get; set; }
+
+    /// <summary>When it last left (or was removed from) a corporation: joining again waits a day</summary>
+    public DateTime? LeftCorporationAt { get; set; }
+
+    /// <summary>The mentor of a newcomer, and the levels the mentorship rewarded already</summary>
+    public long? MentorId { get; set; }
+    public HashSet<int> MentorRewards { get; init; } = new();
+
+    /// <summary>Lifetime earnings at the start of the week (for the weekly leaderboards)</summary>
+    public double WeekStartEarnings { get; set; }
+
+    /// <summary>Likes of the estate (all time)</summary>
+    public int Likes { get; set; }
+
     /// <summary>How well this company keeps its contracts (0..1, starts at 1): the stars others see</summary>
     public double ContractScore { get; set; } = 1;
 
@@ -106,6 +123,11 @@ public sealed class CompanyReport
     public int LevelsGained { get; set; }
     public int BuildingsCompleted { get; set; }
     public List<string> Notes { get; set; } = new();
+    public List<string> ResearchDone { get; set; } = new();
+    public List<string> Contracts { get; set; } = new();
+    public List<string> NewNeighbours { get; set; } = new();
+    public int OrdersCompleted { get; set; }
+    public int LikesReceived { get; set; }
 }
 
 public sealed class Estate : Entity
@@ -243,4 +265,51 @@ public sealed class Contract : Entity
     public bool IsOpen => State is ContractState.Offered or ContractState.Active;
 
     public double Fulfillment => Expected <= 1e-9 ? 1 : Math.Min(1, Delivered / Expected);
+}
+
+public enum CorporationRole
+{
+    Member,
+    Officer,
+    Leader,
+}
+
+/// <summary>A goal for a corporation's week: deliver an amount of a resource together</summary>
+public sealed class CorporationGoal
+{
+    public required string Resource { get; set; }
+    public double Amount { get; set; }
+    public double Delivered { get; set; }
+    public double RewardGold { get; set; }
+    public DateTime EndsAt { get; set; }
+    public Dictionary<long, double> Contributions { get; init; } = new();
+    public bool Rewarded { get; set; }
+}
+
+/// <summary>A corporation (GDD §9.2): up to 30 companies with a treasury, an HQ with perks and weekly goals</summary>
+public sealed class Corporation : Entity
+{
+    public long Id { get; init; }
+    public required string Name { get; set; }
+    public required string Tag { get; set; }
+    public required string Color { get; set; }
+    public DistrictCoord District { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public double Treasury { get; set; }
+
+    /// <summary>Share of members' trade income that goes to the treasury (0..0.1)</summary>
+    public double Tax { get; set; }
+
+    public int HqLevel { get; set; } = 1;
+
+    /// <summary>The resource the level 2 perk boosts</summary>
+    public string? PerkResource { get; set; }
+
+    public string Description { get; set; } = "";
+
+    /// <summary>Companies that asked to join, and companies invited</summary>
+    public HashSet<long> Applications { get; init; } = new();
+    public HashSet<long> Invites { get; init; } = new();
+
+    public CorporationGoal? Goal { get; set; }
 }

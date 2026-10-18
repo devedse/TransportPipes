@@ -251,8 +251,9 @@ public sealed partial class GameWorld
             seller.ContractsCompleted++;
             GainXp(seller, Content.Progression.XpReward("contract"));
             seller.Touch();
-            Changes.Events.Add(new WorldEvent(seller.Id, WorldEventKind.ContractChanged,
-                penalty > 0 ? $"Contract ended: {contract.Fulfillment:P0} delivered, {penalty:N0} gold penalty" : "Contract completed"));
+            var text = penalty > 0 ? $"Contract ended: {contract.Fulfillment:P0} delivered, {penalty:N0} gold penalty" : "Contract completed";
+            Changes.Events.Add(new WorldEvent(seller.Id, WorldEventKind.ContractChanged, text));
+            seller.Report.Contracts.Add($"{text} ({Company(contract.Buyer)?.Name})");
         }
         if (Company(contract.Buyer) is { } buyer)
         {
@@ -260,6 +261,7 @@ public sealed partial class GameWorld
             GainXp(buyer, Content.Progression.XpReward("contract"));
             buyer.Touch();
             Changes.Events.Add(new WorldEvent(buyer.Id, WorldEventKind.ContractChanged, $"Contract ended: {contract.Fulfillment:P0} delivered"));
+            buyer.Report.Contracts.Add($"Contract ended: {contract.Fulfillment:P0} delivered ({Company(contract.Seller)?.Name})");
         }
         ContractChanged(contract);
         MarkCompanyNetworksDirty(contract.Seller);

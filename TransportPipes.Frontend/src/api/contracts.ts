@@ -54,6 +54,11 @@ export interface CompanyDto {
   nextReputation: number | null;
   dailyOrders: DailyOrderDto[];
   noTrade: string[];
+  corporationId: number | null;
+  corporationTag: string | null;
+  corporationRole: CorporationRole | null;
+  mentorId: number | null;
+  likes: number;
   serverTime: string;
 }
 
@@ -111,6 +116,21 @@ export interface ReportDto {
   levelsGained: number;
   buildingsCompleted: number;
   notes: string[];
+  researchDone: string[];
+  contracts: string[];
+  newNeighbours: string[];
+  ordersCompleted: number;
+  likesReceived: number;
+  fullStorages: FullStorageDto[];
+}
+
+/** A full storage in the offline report, with a one-tap upgrade */
+export interface FullStorageDto {
+  building: number;
+  type: string;
+  level: number;
+  capacity: number;
+  upgradeCost: number | null;
 }
 
 export interface HelloDto {
@@ -119,6 +139,7 @@ export interface HelloDto {
   report: ReportDto | null;
   serverTime: string;
   era: number;
+  unread: number;
 }
 
 export interface BuildingDto {
@@ -187,13 +208,19 @@ export interface EstateDto {
   gatePolicies: Record<string, GatePolicy>;
   primary: string;
   secondary: string | null;
+  corporationTag: string | null;
 }
 
+/** A hub structure; corporation HQs have the corporation's tag, colour and HQ level */
 export interface HubStructureDto {
   type: string;
   x: number;
   y: number;
   size: number;
+  label: string | null;
+  color: string | null;
+  level: number;
+  corporation: number | null;
 }
 
 export interface DistrictDto {
@@ -525,4 +552,162 @@ export interface ExchangeDto {
   orders: ExchangeOrderDto[];
   shipments: ShipmentDto[];
   fee: number;
+}
+
+// ---------------------------------------------------------------- Society
+
+export type CorporationRole = "member" | "officer" | "leader";
+
+export interface CorporationSummaryDto {
+  id: number;
+  name: string;
+  tag: string;
+  color: string;
+  description: string;
+  members: number;
+  hqLevel: number;
+  weeklyEarnings: number;
+  applied: boolean;
+  invited: boolean;
+}
+
+export interface CorporationMemberDto {
+  id: number;
+  name: string;
+  color: string;
+  level: number;
+  role: CorporationRole;
+  weeklyEarnings: number;
+  contribution: number;
+  online: boolean;
+}
+
+export interface CorporationGoalDto {
+  resource: string;
+  amount: number;
+  delivered: number;
+  rewardGold: number;
+  endsAt: string;
+  yourContribution: number;
+  yourStock: number;
+  rewarded: boolean;
+}
+
+export interface CorporationPerkDto {
+  level: number;
+  text: string;
+  active: boolean;
+}
+
+export interface CorporationDto {
+  id: number;
+  name: string;
+  tag: string;
+  color: string;
+  description: string;
+  treasury: number;
+  tax: number;
+  hqLevel: number;
+  nextHqCost: number | null;
+  perkResource: string | null;
+  yourRole: CorporationRole;
+  members: CorporationMemberDto[];
+  applications: CorporationMemberDto[];
+  goal: CorporationGoalDto | null;
+  perks: CorporationPerkDto[];
+}
+
+export interface CorporationsDto {
+  mine: CorporationDto | null;
+  district: CorporationSummaryDto[];
+  foundLevel: number;
+  foundCost: number;
+  maxMembers: number;
+  canJoinAt: string | null;
+}
+
+export type LeaderboardKind = "netWorth" | "income" | "weeklyEarnings" | "level" | "partners" | "likes";
+
+export interface LeaderboardEntryDto {
+  company: number;
+  name: string;
+  color: string;
+  value: number;
+  rank: number;
+  you: boolean;
+}
+
+export interface LeaderboardDto {
+  kind: LeaderboardKind;
+  district: boolean;
+  entries: LeaderboardEntryDto[];
+  you: LeaderboardEntryDto | null;
+}
+
+export interface GuestbookNoteDto {
+  id: number;
+  author: number;
+  authorName: string;
+  text: string;
+  at: string;
+}
+
+/** An estate as a visitor sees it */
+export interface EstateVisitDto {
+  id: number;
+  name: string;
+  color: string;
+  level: number;
+  isNpc: boolean;
+  isYou: boolean;
+  likes: number;
+  likedToday: boolean;
+  corporationTag: string | null;
+  corporationName: string | null;
+  netWorth: number;
+  buildings: number;
+  partners: number;
+  createdAt: string;
+  estateX: number;
+  estateY: number;
+  canChooseAsMentor: boolean;
+  isYourMentor: boolean;
+  mentees: number;
+  guestbook: GuestbookNoteDto[];
+}
+
+export interface ChatMessageDto {
+  id: number;
+  channel: string;
+  sender: number;
+  senderName: string;
+  text: string;
+  sentAt: string;
+}
+
+export type ChatChannelKind = "district" | "corporation" | "direct";
+
+export interface ChatChannelDto {
+  id: string;
+  name: string;
+  kind: ChatChannelKind;
+  lastAt: string | null;
+}
+
+export interface ChatDto {
+  channels: ChatChannelDto[];
+  blocked: number[];
+}
+
+export interface InboxMessageDto {
+  id: number;
+  kind: string;
+  text: string;
+  at: string;
+  read: boolean;
+}
+
+export interface InboxDto {
+  messages: InboxMessageDto[];
+  unread: number;
 }

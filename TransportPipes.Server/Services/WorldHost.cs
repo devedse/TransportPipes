@@ -19,6 +19,7 @@ public sealed class WorldHost : BackgroundService
     private readonly WorldStore _store;
     private readonly IHubContext<GameHub, IGameClient> _hub;
     private readonly ConnectedUsers _connectedUsers;
+    private readonly SocialService _social;
     private readonly TransportPipesOptions _options;
     private readonly ILogger<WorldHost> _logger;
     private readonly TimeProvider _time;
@@ -28,11 +29,12 @@ public sealed class WorldHost : BackgroundService
     private bool _saveSoon;
     private DateTime _lastSave;
 
-    public WorldHost(WorldStore store, IHubContext<GameHub, IGameClient> hub, ConnectedUsers connectedUsers, IOptions<TransportPipesOptions> options, ILogger<WorldHost> logger, TimeProvider time)
+    public WorldHost(WorldStore store, IHubContext<GameHub, IGameClient> hub, ConnectedUsers connectedUsers, SocialService social, IOptions<TransportPipesOptions> options, ILogger<WorldHost> logger, TimeProvider time)
     {
         _store = store;
         _hub = hub;
         _connectedUsers = connectedUsers;
+        _social = social;
         _options = options.Value;
         _logger = logger;
         _time = time;
@@ -248,15 +250,65 @@ public sealed class WorldHost : BackgroundService
             }
         }
 
+        var notifications = new List<(long Company, string Kind, string Text)>();
         foreach (var worldEvent in changes.Events)
         {
-            if (world.Company(worldEvent.Company) is { } company && online.Contains(company.UserId))
+            if (world.Company(worldEvent.Company) is not { IsNpc: false } company)
+            {
+                continue;
+            }
+            if (online.Contains(company.UserId))
             {
                 var toast = GameViews.Toast(worldEvent);
                 pushes.Add(() => _hub.Clients.Group(GameHub.UserGroup(company.UserId)).Toast(toast));
             }
+            if (worldEvent.Kind != WorldEventKind.ConstructionFinished)
+            {
+                notifications.Add((company.Id, GameViews.Camel(worldEvent.Kind), worldEvent.Text));
+            }
+        }
+        if (notifications.Count != 0)
+        {
+            var users = notifications.Select(t => t.Company).Distinct().ToDictionary(t => t, t => world.Company(t)!.UserId);
+            pushes.Add(() => NotifyAsync(notifications, users, online));
+        }
+
+        var corporationUsers = changes.Corporations
+            .Select(world.Corporation).OfType<Corporation>()
+            .SelectMany(world.Members)
+            .Concat(changes.Corporations.SelectMany(id => world.Corporation(id) is { } corporation
+                ? corporation.Applications.Concat(corporation.Invites).Select(world.Company).OfType<Company>()
+                : []))
+            .Select(t => t.UserId)
+            .Where(online.Contains)
+            .Distinct()
+            .ToList();
+        foreach (var userId in corporationUsers)
+        {
+            pushes.Add(() => _hub.Clients.Group(GameHub.UserGroup(userId)).CorporationChanged());
         }
         return pushes;
+    }
+
+    /// <summary>Puts messages in inboxes (outside the world lock) and tells the online owners</summary>
+    public async Task NotifyAsync(IReadOnlyList<(long Company, string Kind, string Text)> messages)
+    {
+        var users = await RunAsync(world => messages.Select(t => t.Company).Distinct()
+            .Select(world.Company).OfType<Company>().ToDictionary(t => t.Id, t => t.UserId), changesWorld: false);
+        await NotifyAsync(messages.Where(t => users.ContainsKey(t.Company)).ToList(), users, _connectedUsers.OnlineUsers.ToHashSet());
+    }
+
+    private async Task NotifyAsync(IReadOnlyList<(long Company, string Kind, string Text)> messages, Dictionary<long, long> users, HashSet<long> online)
+    {
+        var companies = await _social.NotifyAsync(messages);
+        foreach (var company in companies)
+        {
+            if (users.TryGetValue(company, out var userId) && online.Contains(userId))
+            {
+                var unread = await _social.UnreadAsync(company);
+                await _hub.Clients.Group(GameHub.UserGroup(userId)).InboxChanged(unread);
+            }
+        }
     }
 
     private async Task SendAsync(List<Func<Task>> pushes)

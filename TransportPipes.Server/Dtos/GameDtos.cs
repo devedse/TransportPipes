@@ -21,7 +21,7 @@ public record CommandResultDto(bool Success, string? Error)
 }
 
 /// <summary>Everything the client needs right after connecting</summary>
-public record HelloDto(UserInfo User, CompanyDto? Company, ReportDto? Report, DateTime ServerTime, int Era);
+public record HelloDto(UserInfo User, CompanyDto? Company, ReportDto? Report, DateTime ServerTime, int Era, int Unread);
 
 public record CompanyDto(
     long Id,
@@ -55,6 +55,11 @@ public record CompanyDto(
     double? NextReputation,
     IReadOnlyList<DailyOrderDto> DailyOrders,
     IReadOnlyList<string> NoTrade,
+    long? CorporationId,
+    string? CorporationTag,
+    string? CorporationRole,
+    long? MentorId,
+    int Likes,
     DateTime ServerTime);
 
 public record DailyOrderDto(int Id, string Resource, double Amount, double Delivered, double RewardGold, double RewardXp, double RewardReputation, DateTime ExpiresAt);
@@ -89,7 +94,16 @@ public record ReportDto(
     IReadOnlyDictionary<string, double> Produced,
     int LevelsGained,
     int BuildingsCompleted,
-    IReadOnlyList<string> Notes);
+    IReadOnlyList<string> Notes,
+    IReadOnlyList<string> ResearchDone,
+    IReadOnlyList<string> Contracts,
+    IReadOnlyList<string> NewNeighbours,
+    int OrdersCompleted,
+    int LikesReceived,
+    IReadOnlyList<FullStorageDto> FullStorages);
+
+/// <summary>A full storage in the offline report, with a one-tap upgrade</summary>
+public record FullStorageDto(long Building, string Type, int Level, double Capacity, double? UpgradeCost);
 
 public record BuildingDto(long Id, string Type, long Owner, int X, int Y, int Size, int Level, DateTime? ConstructionEndsAt, int? Network);
 
@@ -104,9 +118,10 @@ public record ChunkObjectsDto(int Cx, int Cy, IReadOnlyList<BuildingDto> Buildin
 
 public record TerrainOverrideDto(int X, int Y, string Terrain);
 
-public record EstateDto(int Slot, int X, int Y, long? OwnerId, string? OwnerName, string? OwnerColor, int OwnerLevel, int UnlockedParcels, IReadOnlyDictionary<string, string> GatePolicies, string Primary, string? Secondary);
+public record EstateDto(int Slot, int X, int Y, long? OwnerId, string? OwnerName, string? OwnerColor, int OwnerLevel, int UnlockedParcels, IReadOnlyDictionary<string, string> GatePolicies, string Primary, string? Secondary, string? CorporationTag);
 
-public record HubStructureDto(string Type, int X, int Y, int Size);
+/// <summary>A hub structure; corporation HQs have the corporation's tag, colour and HQ level</summary>
+public record HubStructureDto(string Type, int X, int Y, int Size, string? Label = null, string? Color = null, int Level = 0, long? Corporation = null);
 
 public record DistrictDto(int X, int Y, int OriginX, int OriginY, string Name, IReadOnlyList<EstateDto> Estates, IReadOnlyList<HubStructureDto> Hub);
 
@@ -207,3 +222,71 @@ public record ShipmentDto(long Id, string Resource, double Amount, DateTime Arri
 public record ExchangeBookDto(string Resource, double BestBid, double BidAmount, double BestAsk, double AskAmount);
 
 public record ExchangeDto(bool HasOffice, IReadOnlyList<ExchangeBookDto> Books, IReadOnlyList<ExchangeOrderDto> Orders, IReadOnlyList<ShipmentDto> Shipments, double Fee);
+
+// ---------------------------------------------------------------- Society (M4)
+
+public record CorporationSummaryDto(long Id, string Name, string Tag, string Color, string Description, int Members, int HqLevel, double WeeklyEarnings, bool Applied, bool Invited);
+
+public record CorporationMemberDto(long Id, string Name, string Color, int Level, string Role, double WeeklyEarnings, double Contribution, bool Online);
+
+public record CorporationGoalDto(string Resource, double Amount, double Delivered, double RewardGold, DateTime EndsAt, double YourContribution, double YourStock, bool Rewarded);
+
+public record CorporationPerkDto(int Level, string Text, bool Active);
+
+public record CorporationDto(
+    long Id,
+    string Name,
+    string Tag,
+    string Color,
+    string Description,
+    double Treasury,
+    double Tax,
+    int HqLevel,
+    double? NextHqCost,
+    string? PerkResource,
+    string YourRole,
+    IReadOnlyList<CorporationMemberDto> Members,
+    IReadOnlyList<CorporationMemberDto> Applications,
+    CorporationGoalDto? Goal,
+    IReadOnlyList<CorporationPerkDto> Perks);
+
+public record CorporationsDto(CorporationDto? Mine, IReadOnlyList<CorporationSummaryDto> District, int FoundLevel, double FoundCost, int MaxMembers, DateTime? CanJoinAt);
+
+public record LeaderboardEntryDto(long Company, string Name, string Color, double Value, int Rank, bool You);
+
+public record LeaderboardDto(string Kind, bool District, IReadOnlyList<LeaderboardEntryDto> Entries, LeaderboardEntryDto? You);
+
+public record GuestbookNoteDto(long Id, long Author, string AuthorName, string Text, DateTime At);
+
+/// <summary>An estate as a visitor sees it</summary>
+public record EstateVisitDto(
+    long Id,
+    string Name,
+    string Color,
+    int Level,
+    bool IsNpc,
+    bool IsYou,
+    int Likes,
+    bool LikedToday,
+    string? CorporationTag,
+    string? CorporationName,
+    double NetWorth,
+    int Buildings,
+    int Partners,
+    DateTime CreatedAt,
+    int EstateX,
+    int EstateY,
+    bool CanChooseAsMentor,
+    bool IsYourMentor,
+    int Mentees,
+    IReadOnlyList<GuestbookNoteDto> Guestbook);
+
+public record ChatMessageDto(long Id, string Channel, long Sender, string SenderName, string Text, DateTime SentAt);
+
+public record ChatChannelDto(string Id, string Name, string Kind, DateTime? LastAt);
+
+public record ChatDto(IReadOnlyList<ChatChannelDto> Channels, IReadOnlyList<long> Blocked);
+
+public record InboxMessageDto(long Id, string Kind, string Text, DateTime At, bool Read);
+
+public record InboxDto(IReadOnlyList<InboxMessageDto> Messages, int Unread);

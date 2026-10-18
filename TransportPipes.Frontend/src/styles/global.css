@@ -495,6 +495,20 @@ kbd {
   justify-self: start;
 }
 
+.tool {
+  position: relative;
+}
+
+/* The count of things waiting (orders, applications) sits on the corner of the tool */
+.tool .badge {
+  position: absolute;
+  top: -7px;
+  right: -5px;
+  margin: 0;
+  min-width: 18px;
+  text-align: center;
+}
+
 .tool.active {
   background: var(--accent-soft);
   border-color: var(--accent);
@@ -1415,6 +1429,568 @@ button.link {
   color: var(--info);
 }
 
+/* ---------- Society: corporations, chat, inbox, visits, leaderboards ---------- */
+
+textarea {
+  width: 100%;
+  margin-top: 4px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  background: rgba(0, 0, 0, 0.3);
+  font: inherit;
+  color: inherit;
+  resize: vertical;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--panel-border);
+  margin: 4px 0;
+}
+
+.corp-tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 6px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  background: var(--accent-strong);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.corp-tag.small-tag {
+  margin-left: 6px;
+  padding: 0 6px;
+  font-size: 0.7rem;
+  vertical-align: middle;
+  border-radius: 5px;
+}
+
+button.corp-tag.small-tag {
+  cursor: pointer;
+}
+
+.corp-panel,
+.leaderboard-panel {
+  width: min(860px, calc(100vw - 24px));
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.leaderboard-panel {
+  width: min(640px, calc(100vw - 24px));
+}
+
+.corp-panel h2,
+.leaderboard-panel h2 {
+  font-family: var(--font-title);
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto;
+}
+
+.section-title {
+  font-size: 1rem;
+  margin-top: 4px;
+}
+
+.corp-list,
+.corp-members {
+  display: grid;
+  gap: 8px;
+}
+
+.corp-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.corp-row.invited {
+  border-color: rgba(246, 199, 68, 0.6);
+}
+
+.corp-row-body {
+  display: grid;
+  gap: 2px;
+}
+
+.corp-found {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.corp-found .swatches,
+.corp-found button.primary {
+  grid-column: 1 / -1;
+}
+
+.corp-member {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto 70px auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.corp-member button.link {
+  justify-self: start;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+/* Online members get a green ring */
+.company-dot.online {
+  box-shadow:
+    0 0 0 2px var(--panel-bg-strong),
+    0 0 0 4px #3fe07a;
+}
+
+.role {
+  font-size: 0.72rem;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.role.leader {
+  background: rgba(246, 199, 68, 0.3);
+}
+
+.role.officer {
+  background: rgba(108, 180, 238, 0.3);
+}
+
+.corp-overview {
+  display: grid;
+  gap: 12px;
+}
+
+.corp-goal,
+.corp-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: rgba(0, 0, 0, 0.2);
+  align-content: start;
+}
+
+.corp-goal {
+  border-color: rgba(46, 196, 166, 0.45);
+}
+
+.goal-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.goal-line strong {
+  margin-right: auto;
+}
+
+.corp-cards {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 12px;
+}
+
+.donate {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.donate input {
+  margin: 0;
+}
+
+.perks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+  font-size: 0.85rem;
+}
+
+.perk {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.perk.active {
+  color: var(--text);
+  opacity: 1;
+}
+
+.perk-level {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 6px;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.perk.active .perk-level {
+  background: var(--accent-strong);
+  color: #04201a;
+}
+
+.corp-settings {
+  display: grid;
+  gap: 10px;
+  max-width: 520px;
+}
+
+.tabs.compact .tab {
+  flex: none;
+  padding: 4px 12px;
+}
+
+table.leaderboard {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table.leaderboard th {
+  text-align: left;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 4px 8px;
+}
+
+table.leaderboard td {
+  padding: 6px 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+table.leaderboard .rank {
+  width: 40px;
+  text-align: center;
+  font-weight: 700;
+}
+
+table.leaderboard .value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+table.leaderboard tr.you td {
+  background: var(--accent-soft);
+}
+
+table.leaderboard tr.gap td {
+  text-align: center;
+  color: var(--text-muted);
+}
+
+table.leaderboard button.link {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.visit-panel {
+  position: absolute;
+  top: 82px;
+  right: var(--gap);
+  width: min(360px, calc(100vw - 24px));
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.visit-panel .panel-header {
+  margin-bottom: 0;
+}
+
+.visit-panel h3 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.visit-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.visit-stats > div {
+  display: grid;
+  justify-items: center;
+  padding: 6px 4px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+button.liked {
+  color: #ff7a8a;
+}
+
+.mentor-offer {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(246, 199, 68, 0.5);
+  background: rgba(246, 199, 68, 0.08);
+}
+
+.guestbook {
+  display: grid;
+  gap: 8px;
+}
+
+.guestbook-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.guestbook-form input {
+  margin: 0;
+}
+
+.guestbook-note {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  display: grid;
+  gap: 2px;
+}
+
+.guestbook-note button.link {
+  justify-self: start;
+  padding: 0;
+}
+
+.with-badge {
+  position: relative;
+}
+
+.dot-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--error);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+}
+
+.inbox-panel {
+  position: absolute;
+  top: 74px;
+  right: var(--gap);
+  width: min(400px, calc(100vw - 24px));
+  max-height: min(520px, calc(100vh - 160px));
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 8px;
+  z-index: 5;
+}
+
+.inbox-panel .panel-header {
+  margin-bottom: 0;
+}
+
+.inbox-list {
+  overflow-y: auto;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  scrollbar-width: thin;
+}
+
+.inbox-item {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  gap: 6px;
+  align-items: start;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.inbox-item.unread {
+  background: var(--accent-soft);
+}
+
+.inbox-time {
+  white-space: nowrap;
+}
+
+.chat-toggle {
+  position: absolute;
+  left: var(--gap);
+  bottom: 28px;
+  padding: 8px 14px;
+}
+
+/* Above the toolbar, so they never overlap */
+.chat-panel {
+  position: absolute;
+  left: var(--gap);
+  bottom: 84px;
+  width: min(380px, calc(100vw - 24px));
+  height: min(380px, calc(100vh - 260px));
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 8px;
+  padding: 10px;
+  z-index: 4;
+}
+
+.chat-channels {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chat-channel {
+  flex: none;
+  max-width: 150px;
+  padding: 3px 9px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-channel.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.chat-close {
+  margin-left: auto;
+  flex: none;
+  width: 26px;
+  height: 26px;
+}
+
+.chat-list {
+  overflow-y: auto;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  scrollbar-width: thin;
+  padding-right: 4px;
+}
+
+.chat-message {
+  display: grid;
+  gap: 1px;
+  justify-items: start;
+}
+
+.chat-message.mine {
+  justify-items: end;
+}
+
+.chat-meta {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.chat-sender {
+  padding: 0;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+.chat-message.mine .chat-sender {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.chat-text {
+  padding: 5px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  max-width: 92%;
+  overflow-wrap: anywhere;
+}
+
+.chat-message.mine .chat-text {
+  background: rgba(46, 196, 166, 0.22);
+}
+
+.chat-menu {
+  display: flex;
+  gap: 4px;
+}
+
+.chat-menu button {
+  padding: 2px 8px;
+  font-size: 0.75rem;
+}
+
+.chat-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.chat-form input {
+  margin: 0;
+}
+
+.report-storages {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.report-storage {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+}
+
 /* ---------- Small screens ---------- */
 
 @media (max-width: 720px) {
@@ -1450,5 +2026,34 @@ button.link {
 
   .hover-tip {
     bottom: 72px;
+  }
+
+  .visit-panel {
+    top: auto;
+    bottom: 76px;
+    left: var(--gap);
+    right: var(--gap);
+    width: auto;
+    max-height: 50vh;
+  }
+
+  .chat-toggle {
+    bottom: 76px;
+  }
+
+  .chat-panel {
+    bottom: 76px;
+    right: var(--gap);
+    width: auto;
+    height: 45vh;
+  }
+
+  .corp-cards,
+  .corp-found {
+    grid-template-columns: 1fr;
+  }
+
+  .corp-member {
+    grid-template-columns: auto 1fr auto;
   }
 }

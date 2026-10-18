@@ -242,7 +242,7 @@ public sealed class FlowSolver
             return _market.LinkTradeAllowed(link, supplier.Owner, consumer.Owner, resource);
         }
         var price = _market.SellerPrice(supplier.Owner, resource);
-        return _market.BuyerMaxPrice(consumer.Owner, resource) >= price - Epsilon
+        return (_market.BuyerMaxPrice(consumer.Owner, resource) >= price - Epsilon || _market.IgnoreMaxPrice(supplier.Owner, consumer.Owner))
             && _market.TradeAllowed(supplier.Owner, consumer.Owner, resource)
             && _market.LinkTradeAllowed(link, supplier.Owner, consumer.Owner, resource);
     }
@@ -365,7 +365,7 @@ public sealed class FlowSolver
                     var buyer = _nodes[c].Owner;
                     return seller != buyer
                         && _market.SellerPrice(seller, resource) == price
-                        && _market.BuyerMaxPrice(buyer, resource) >= price - Epsilon
+                        && (_market.BuyerMaxPrice(buyer, resource) >= price - Epsilon || _market.IgnoreMaxPrice(seller, buyer))
                         && _market.TradeAllowed(seller, buyer, resource)
                         && _market.LinkTradeAllowed(link, seller, buyer, resource);
                 }, FlowKind.Trade, (p, _) => _market.SellerPrice(_nodes[p].Owner, resource));

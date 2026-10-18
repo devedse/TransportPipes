@@ -9,6 +9,14 @@ export function Toolbar() {
   const researchOpen = useAppStore((state) => state.researchOpen);
   const hubOpen = useAppStore((state) => state.hubOpen);
   const neighboursOpen = useAppStore((state) => state.neighboursOpen);
+  const corporationOpen = useAppStore((state) => state.corporationOpen);
+  const invites = useAppStore(
+    (state) =>
+      (state.corporations?.mine?.applications.length ?? 0) +
+      (state.corporations?.mine === null
+        ? (state.corporations?.district.filter((t) => t.invited).length ?? 0)
+        : 0),
+  );
   const ordersOpen = useAppStore(
     (state) => state.company?.dailyOrders.filter((t) => t.delivered < t.amount).length ?? 0,
   );
@@ -45,6 +53,15 @@ export function Toolbar() {
       hotkey: "N",
       active: neighboursOpen,
       run: () => (neighboursOpen ? setState({ neighboursOpen: false }) : void gameClient.openNeighbours()),
+    },
+    {
+      key: "corporation",
+      label: "Corp",
+      badge: invites,
+      icon: "🏢",
+      hotkey: "C",
+      active: corporationOpen,
+      run: () => (corporationOpen ? setState({ corporationOpen: false }) : void gameClient.openCorporation()),
     },
     {
       key: "hub",

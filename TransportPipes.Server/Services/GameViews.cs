@@ -49,6 +49,11 @@ public static class GameViews
             world.ReputationLevel(company) < GameWorld.ReputationLevels.Length ? GameWorld.ReputationLevels[world.ReputationLevel(company)] : null,
             company.DailyOrders.Select(t => new DailyOrderDto(t.Id, t.Resource, t.Amount, t.Delivered, t.RewardGold, t.RewardXp, t.RewardReputation, t.ExpiresAt)).ToList(),
             company.NoTrade.OrderBy(t => t).ToList(),
+            company.CorporationId,
+            world.CorporationOf(company)?.Tag,
+            company.CorporationId != null ? Camel(company.Role) : null,
+            company.MentorId,
+            company.Likes,
             world.Now);
     }
 
@@ -92,15 +97,38 @@ public static class GameViews
             return new ResearchStateDto(tech.Id, state, world.ResearchCost(company, tech), state == "locked" ? world.ResearchBlocker(company, tech) : null, world.ResearchDiffusion(company, tech.Id));
         }).ToList();
 
-    public static ReportDto Report(CompanyReport report) => new(
-        report.Since,
-        report.GoldEarned,
-        report.GoldSpent,
-        report.Sold,
-        report.Produced,
-        report.LevelsGained,
-        report.BuildingsCompleted,
-        report.Notes);
+    public static ReportDto Report(GameWorld world, Company company)
+    {
+        var report = company.Report;
+        var full = world.FullStorages(company.Id)
+            .Select(t =>
+            {
+                var definition = world.Content.Building(t.Type);
+                var upgradable = t.Level < world.Content.Progression.MaxBuildingLevel;
+                return new FullStorageDto(t.Id, t.Type, t.Level, world.StorageCapacity(t, definition), upgradable ? world.UpgradeCost(t, 1) : null);
+            })
+            .ToList();
+        return new ReportDto(
+            report.Since,
+            report.GoldEarned,
+            report.GoldSpent,
+            report.Sold,
+            report.Produced,
+            report.LevelsGained,
+            report.BuildingsCompleted,
+            report.Notes,
+            report.ResearchDone,
+            report.Contracts,
+            report.NewNeighbours,
+            report.OrdersCompleted,
+            report.LikesReceived,
+            full);
+    }
+
+    /// <summary>Whether a report has anything to tell</summary>
+    public static bool HasNews(CompanyReport report) =>
+        report.GoldEarned > 0 || report.BuildingsCompleted > 0 || report.LevelsGained > 0 || report.ResearchDone.Count > 0
+        || report.Contracts.Count > 0 || report.NewNeighbours.Count > 0 || report.OrdersCompleted > 0 || report.LikesReceived > 0;
 
     public static BuildingDto Building(GameWorld world, Building building) => new(
         building.Id,
@@ -198,7 +226,8 @@ public static class GameViews
                 estate?.UnlockedParcels ?? 0,
                 (estate?.GatePolicies ?? new Dictionary<GateSide, GatePolicy>()).ToDictionary(t => Camel(t.Key), t => Camel(t.Value)),
                 Camel(profile.Primary),
-                profile.Secondary is { } secondary ? Camel(secondary) : null));
+                profile.Secondary is { } secondary ? Camel(secondary) : null,
+                owner != null ? world.CorporationOf(owner)?.Tag : null));
         }
         var hub = WorldLayout.HubOrigin(district);
         return new DistrictDto(
@@ -208,7 +237,161 @@ public static class GameViews
             WorldLayout.DistrictOriginY(district.Y),
             WorldNames.District(district),
             estates,
-            world.Generator.HubStructures(district).Select(t => new HubStructureDto(t.Type, t.X, t.Y, t.Size)).ToList());
+            HubStructures(world, district));
+    }
+
+    /// <summary>The 4 lots of the corporation quarter, by HQ level</summary>
+    private static readonly (int X, int Y)[] HqLots = [(0, 0), (4, 0), (0, 4), (4, 4)];
+
+    private static List<HubStructureDto> HubStructures(GameWorld world, DistrictCoord district)
+    {
+        var structures = new List<HubStructureDto>();
+        foreach (var structure in world.Generator.HubStructures(district))
+        {
+            structures.Add(new HubStructureDto(structure.Type, structure.X, structure.Y, structure.Size));
+            if (structure.Type != "corporationQuarter")
+            {
+                continue;
+            }
+            var corporations = world.Corporations
+                .Where(t => t.District == district)
+                .OrderByDescending(t => t.HqLevel).ThenByDescending(t => world.Members(t).Count()).ThenBy(t => t.Id)
+                .Take(HqLots.Length)
+                .ToList();
+            for (var i = 0; i < corporations.Count; i++)
+            {
+                var corporation = corporations[i];
+                structures.Add(new HubStructureDto("corporationHq", structure.X + HqLots[i].X, structure.Y + HqLots[i].Y, 3, corporation.Tag, corporation.Color, corporation.HqLevel, corporation.Id));
+            }
+        }
+        return structures;
+    }
+
+    // ---------------------------------------------------------------- Society
+
+    private static readonly string[] PerkTexts =
+    [
+        "Corporation chat; members trade freely (no maximum price)",
+        "+5% production of the chosen resource",
+        "No tolls between members",
+        "+1 manager slot for every member",
+        "Research 20% cheaper for members",
+        "Production perk +6%",
+        "Production perk +7%",
+        "Production perk +8%",
+        "Production perk +9%",
+        "Production perk +10%",
+    ];
+
+    private static double WeeklyEarnings(Company company) => company.LifetimeEarnings - company.WeekStartEarnings;
+
+    private static CorporationMemberDto Member(GameWorld world, Company company, CorporationGoal? goal, IReadOnlySet<long> online) => new(
+        company.Id,
+        company.Name,
+        company.Color,
+        company.Level,
+        Camel(company.Role),
+        WeeklyEarnings(company),
+        goal?.Contributions.GetValueOrDefault(company.Id) ?? 0,
+        online.Contains(company.UserId));
+
+    public static CorporationsDto Corporations(GameWorld world, Company company, IReadOnlySet<long> online)
+    {
+        var mine = world.CorporationOf(company) is { } corporation ? Corporation(world, corporation, company, online) : null;
+        var district = world.Corporations
+            .Where(t => t.District == company.District)
+            .Select(t => new CorporationSummaryDto(
+                t.Id,
+                t.Name,
+                t.Tag,
+                t.Color,
+                t.Description,
+                world.Members(t).Count(),
+                t.HqLevel,
+                world.Members(t).Sum(WeeklyEarnings),
+                t.Applications.Contains(company.Id),
+                t.Invites.Contains(company.Id)))
+            .OrderByDescending(t => t.Invited).ThenByDescending(t => t.HqLevel).ThenByDescending(t => t.Members)
+            .ToList();
+        DateTime? canJoinAt = company.LeftCorporationAt is { } left && left + GameWorld.RejoinWait > world.Now ? left + GameWorld.RejoinWait : null;
+        return new CorporationsDto(mine, district, GameWorld.CorporationFoundLevel, GameWorld.CorporationFoundCost, GameWorld.MaxCorporationMembers, canJoinAt);
+    }
+
+    private static CorporationDto Corporation(GameWorld world, Corporation corporation, Company viewer, IReadOnlySet<long> online)
+    {
+        var goal = corporation.Goal;
+        var members = world.Members(corporation)
+            .OrderByDescending(t => t.Role).ThenByDescending(t => WeeklyEarnings(t))
+            .Select(t => Member(world, t, goal, online))
+            .ToList();
+        var officer = viewer.Role is CorporationRole.Leader or CorporationRole.Officer;
+        var applications = officer
+            ? corporation.Applications.Select(world.Company).OfType<Company>().Select(t => Member(world, t, null, online)).ToList()
+            : [];
+        CorporationGoalDto? goalDto = goal == null
+            ? null
+            : new CorporationGoalDto(
+                goal.Resource,
+                goal.Amount,
+                goal.Delivered,
+                goal.RewardGold,
+                goal.EndsAt,
+                goal.Contributions.GetValueOrDefault(viewer.Id),
+                world.Materials(viewer.Id).GetValueOrDefault(goal.Resource),
+                goal.Rewarded);
+        return new CorporationDto(
+            corporation.Id,
+            corporation.Name,
+            corporation.Tag,
+            corporation.Color,
+            corporation.Description,
+            corporation.Treasury,
+            corporation.Tax,
+            corporation.HqLevel,
+            corporation.HqLevel < GameWorld.MaxHqLevel ? GameWorld.HqUpgradeCost(corporation.HqLevel) : null,
+            corporation.PerkResource,
+            Camel(viewer.Role),
+            members,
+            applications,
+            goalDto,
+            PerkTexts.Select((text, i) => new CorporationPerkDto(i + 1, text, corporation.HqLevel >= i + 1)).ToList());
+    }
+
+    public static LeaderboardDto Leaderboard(GameWorld world, Company viewer, LeaderboardKind kind, bool district)
+    {
+        var all = world.Leaderboard(kind, district ? viewer.District : null, int.MaxValue);
+        LeaderboardEntryDto View(LeaderboardEntry entry) => new(entry.Company, entry.Name, entry.Color, entry.Value, entry.Rank, entry.Company == viewer.Id);
+        var you = all.FirstOrDefault(t => t.Company == viewer.Id);
+        return new LeaderboardDto(Camel(kind), district, all.Take(50).Select(View).ToList(), you != null ? View(you) : null);
+    }
+
+    public static EstateVisitDto Visit(GameWorld world, Company owner, Company viewer, IReadOnlyList<GuestbookNoteDto> guestbook)
+    {
+        var estate = world.EstateOf(owner)!;
+        var corporation = world.CorporationOf(owner);
+        var canMentor = !owner.IsNpc && owner.Id != viewer.Id && viewer.MentorId == null && viewer.Level < GameWorld.MenteeMaxLevel
+            && owner.Level >= GameWorld.MentorLevel && world.Mentees(owner.Id) < GameWorld.MaxMentees;
+        return new EstateVisitDto(
+            owner.Id,
+            owner.Name,
+            owner.Color,
+            owner.Level,
+            owner.IsNpc,
+            owner.Id == viewer.Id,
+            owner.Likes,
+            world.LikedToday(viewer.Id, owner.Id),
+            corporation?.Tag,
+            corporation?.Name,
+            world.NetWorth(owner),
+            world.BuildingsOf(owner.Id).Count(),
+            world.PartnerCounts().GetValueOrDefault(owner.Id),
+            owner.CreatedAt,
+            estate.Origin.X,
+            estate.Origin.Y,
+            canMentor,
+            viewer.MentorId == owner.Id,
+            world.Mentees(owner.Id),
+            guestbook);
     }
 
     public static NetworkFlowsDto Flows(GameWorld world, Network network)

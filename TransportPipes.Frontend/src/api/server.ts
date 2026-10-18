@@ -5,8 +5,16 @@ import type {
   ChunkDto,
   ChunkObjectsDto,
   CommandResult,
+  ChatDto,
+  ChatMessageDto,
   CompanyDto,
   ContractsDto,
+  CorporationRole,
+  CorporationsDto,
+  EstateVisitDto,
+  InboxDto,
+  LeaderboardDto,
+  LeaderboardKind,
   ExchangeDto,
   NeighbourDto,
   DistrictDto,
@@ -77,6 +85,9 @@ export interface ServerEvents {
   toast(toast: ToastDto): void;
   marketChanged(districtX: number, districtY: number): void;
   exchangeChanged(): void;
+  chatMessage(message: ChatMessageDto): void;
+  inboxChanged(unread: number): void;
+  corporationChanged(): void;
 }
 
 const EVENT_NAMES: Record<keyof ServerEvents, string> = {
@@ -87,6 +98,9 @@ const EVENT_NAMES: Record<keyof ServerEvents, string> = {
   toast: "Toast",
   marketChanged: "MarketChanged",
   exchangeChanged: "ExchangeChanged",
+  chatMessage: "ChatMessage",
+  inboxChanged: "InboxChanged",
+  corporationChanged: "CorporationChanged",
 };
 
 const START_RETRY_DELAYS_MS = [0, 2000, 5000, 10000];
@@ -232,4 +246,38 @@ export class GameConnection {
   setValveFilter = (building: number, resource: string, enabled: boolean) =>
     this.invoke<CommandResult>("SetValveFilter", building, resource, enabled);
   cheat = (what: string) => this.invoke<CommandResult>("Cheat", what);
+
+  // Society
+  getCorporations = () => this.invoke<CorporationsDto | null>("GetCorporations");
+  foundCorporation = (name: string, tag: string, color: string) =>
+    this.invoke<CommandResult>("FoundCorporation", name, tag, color);
+  applyToCorporation = (corporation: number) => this.invoke<CommandResult>("ApplyToCorporation", corporation);
+  inviteToCorporation = (company: number) => this.invoke<CommandResult>("InviteToCorporation", company);
+  declineCorporation = (corporation: number) => this.invoke<CommandResult>("DeclineCorporation", corporation);
+  declineApplication = (applicant: number) => this.invoke<CommandResult>("DeclineApplication", applicant);
+  leaveCorporation = () => this.invoke<CommandResult>("LeaveCorporation");
+  kickFromCorporation = (member: number) => this.invoke<CommandResult>("KickFromCorporation", member);
+  setCorporationRole = (member: number, role: CorporationRole) =>
+    this.invoke<CommandResult>("SetCorporationRole", member, role);
+  donateToCorporation = (gold: number) => this.invoke<CommandResult>("DonateToCorporation", gold);
+  setCorporationSettings = (tax: number, perkResource: string | null, description: string) =>
+    this.invoke<CommandResult>("SetCorporationSettings", tax, perkResource, description);
+  upgradeCorporationHq = () => this.invoke<CommandResult>("UpgradeCorporationHq");
+  deliverToCorporationGoal = () => this.invoke<CommandResult>("DeliverToCorporationGoal");
+  getLeaderboard = (kind: LeaderboardKind, district: boolean) =>
+    this.invoke<LeaderboardDto | null>("GetLeaderboard", kind, district);
+  visitEstate = (owner: number) => this.invoke<EstateVisitDto | null>("VisitEstate", owner);
+  likeEstate = (owner: number) => this.invoke<CommandResult>("LikeEstate", owner);
+  chooseMentor = (mentor: number) => this.invoke<CommandResult>("ChooseMentor", mentor);
+  writeGuestbook = (owner: number, text: string) => this.invoke<CommandResult>("WriteGuestbook", owner, text);
+  deleteGuestbookNote = (note: number) => this.invoke<CommandResult>("DeleteGuestbookNote", note);
+  getChat = () => this.invoke<ChatDto | null>("GetChat");
+  getChatHistory = (channel: string, before: number | null) =>
+    this.invoke<ChatMessageDto[]>("GetChatHistory", channel, before);
+  sendChat = (channel: string, text: string) => this.invoke<CommandResult>("SendChat", channel, text);
+  reportChat = (message: number) => this.invoke<CommandResult>("ReportChat", message);
+  setBlocked = (company: number, blocked: boolean) =>
+    this.invoke<CommandResult>("SetBlocked", company, blocked);
+  getInbox = () => this.invoke<InboxDto | null>("GetInbox");
+  markInboxRead = () => this.invoke<void>("MarkInboxRead");
 }

@@ -1,7 +1,13 @@
 import { Assets, Texture, type Spritesheet } from "pixi.js";
 import type { TerrainType } from "../../api/contracts";
 import { resolveFrames } from "../spriteFrames";
-import { drawBuilding, drawGate, drawHubStructure, type BuildingArt } from "./buildings";
+import {
+  drawBuilding,
+  drawGate,
+  drawHubStructure,
+  type BuildingArt,
+  type HubStructureLook,
+} from "./buildings";
 import { createCanvas, type Attachment } from "./iso";
 import { drawDeposit, drawForestTrees, drawRocks, drawTerrainTile } from "./terrain";
 
@@ -160,11 +166,11 @@ export class TextureBank {
     return result;
   }
 
-  hub(type: string, size: number): BuildingTextures {
-    const key = `hub:${type}:${size}`;
+  hub(type: string, size: number, look?: HubStructureLook): BuildingTextures {
+    const key = `hub:${type}:${size}:${look?.label ?? ""}:${look?.color ?? ""}:${look?.level ?? 0}`;
     let result = this.buildingCache.get(key);
     if (result === undefined) {
-      const art: BuildingArt = drawHubStructure(type, size);
+      const art: BuildingArt = drawHubStructure(type, size, look);
       result = { frames: [Texture.from(art.canvas)], size, attachments: art.attachments, original: false };
       this.buildingCache.set(key, result);
     }

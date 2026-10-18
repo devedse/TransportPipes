@@ -31,6 +31,7 @@ public sealed class WorldStore
     private readonly HashSet<(int, int, int)> _estates = new();
     private readonly HashSet<long> _buildings = new();
     private readonly HashSet<long> _contracts = new();
+    private readonly HashSet<long> _corporations = new();
     private readonly HashSet<TilePos> _conductors = new();
     private readonly Dictionary<TilePos, TerrainType> _terrainOverrides = new();
     private readonly List<object> _orphans = new();
@@ -79,6 +80,13 @@ public sealed class WorldStore
                 PendingPrices = settings.PendingPrices,
                 ContractScore = settings.ContractScore,
                 ContractsCompleted = settings.ContractsCompleted,
+                CorporationId = settings.CorporationId,
+                Role = settings.Role,
+                LeftCorporationAt = settings.LeftCorporationAt,
+                MentorId = settings.MentorId,
+                MentorRewards = settings.MentorRewards,
+                WeekStartEarnings = settings.WeekStartEarnings,
+                Likes = settings.Likes,
                 HubReputation = settings.HubReputation,
                 DailyOrders = settings.DailyOrders,
                 Report = JsonSerializer.Deserialize<CompanyReport>(row.Report, Json) ?? new CompanyReport { Since = row.LastSeenAt },
@@ -144,6 +152,29 @@ public sealed class WorldStore
                 Side = row.Side is { } side ? (GateSide)side : null,
             });
             _conductors.Add(new TilePos(row.X, row.Y));
+        }
+
+        foreach (var row in await db.Corporations.ToListAsync(cancellationToken))
+        {
+            var data = JsonSerializer.Deserialize<CorporationData>(row.Data, Json);
+            world.LoadCorporation(new Corporation
+            {
+                Id = row.Id,
+                Name = row.Name,
+                Tag = row.Tag,
+                Color = row.Color,
+                District = new DistrictCoord(row.DistrictX, row.DistrictY),
+                CreatedAt = row.CreatedAt,
+                Treasury = row.Treasury,
+                Tax = row.Tax,
+                HqLevel = row.HqLevel,
+                PerkResource = row.PerkResource,
+                Description = row.Description,
+                Applications = data?.Applications ?? new(),
+                Invites = data?.Invites ?? new(),
+                Goal = data?.Goal,
+            });
+            _corporations.Add(row.Id);
         }
 
         foreach (var row in await db.Contracts.ToListAsync(cancellationToken))
@@ -232,6 +263,13 @@ public sealed class WorldStore
                     PendingPrices = company.PendingPrices,
                     ContractScore = company.ContractScore,
                     ContractsCompleted = company.ContractsCompleted,
+                    CorporationId = company.CorporationId,
+                    Role = company.Role,
+                    LeftCorporationAt = company.LeftCorporationAt,
+                    MentorId = company.MentorId,
+                    MentorRewards = company.MentorRewards,
+                    WeekStartEarnings = company.WeekStartEarnings,
+                    Likes = company.Likes,
                     HubReputation = company.HubReputation,
                     DailyOrders = company.DailyOrders,
                 }, Json),
@@ -284,6 +322,26 @@ public sealed class WorldStore
             }));
         }
 
+        foreach (var corporation in world.Corporations.Where(t => t.Dirty))
+        {
+            snapshot.Upserts.Add((corporation, new DbCorporation
+            {
+                Id = corporation.Id,
+                Name = corporation.Name,
+                Tag = corporation.Tag,
+                Color = corporation.Color,
+                DistrictX = corporation.District.X,
+                DistrictY = corporation.District.Y,
+                CreatedAt = corporation.CreatedAt,
+                Treasury = corporation.Treasury,
+                Tax = corporation.Tax,
+                HqLevel = corporation.HqLevel,
+                PerkResource = corporation.PerkResource,
+                Description = corporation.Description,
+                Data = JsonSerializer.Serialize(new CorporationData(corporation.Applications, corporation.Invites, corporation.Goal), Json),
+            }));
+        }
+
         foreach (var contract in world.Contracts.Where(t => t.Dirty))
         {
             snapshot.Upserts.Add((contract, new DbContract
@@ -326,6 +384,9 @@ public sealed class WorldStore
                 case Company company:
                     snapshot.Deletes.Add(new DbCompany { Id = company.Id });
                     break;
+                case Corporation corporation:
+                    snapshot.Deletes.Add(new DbCorporation { Id = corporation.Id });
+                    break;
                 // A pipe that was removed and laid again is just an update
                 case Conductor conductor when world.ConductorAt(conductor.Pos) == null:
                     snapshot.Deletes.Add(new DbConductor { X = conductor.Pos.X, Y = conductor.Pos.Y });
@@ -350,6 +411,7 @@ public sealed class WorldStore
         var newBuildings = new List<long>();
         var newConductors = new List<TilePos>();
         var newContracts = new List<long>();
+        var newCorporations = new List<long>();
         try
         {
             if (_worldExists)
@@ -374,6 +436,9 @@ public sealed class WorldStore
                         break;
                     case DbCompany company when _companies.Contains(company.Id):
                         db.Companies.Remove(company);
+                        break;
+                    case DbCorporation corporation when _corporations.Contains(corporation.Id):
+                        db.Corporations.Remove(corporation);
                         break;
                     case DbConductor conductor when _conductors.Contains(new TilePos(conductor.X, conductor.Y)):
                         db.Conductors.Remove(conductor);
@@ -402,6 +467,9 @@ public sealed class WorldStore
                     case DbContract contract:
                         Upsert(db, contract, _contracts.Contains(contract.Id), () => newContracts.Add(contract.Id));
                         break;
+                    case DbCorporation corporation:
+                        Upsert(db, corporation, _corporations.Contains(corporation.Id), () => newCorporations.Add(corporation.Id));
+                        break;
                 }
             }
 
@@ -426,6 +494,7 @@ public sealed class WorldStore
         _buildings.UnionWith(newBuildings);
         _conductors.UnionWith(newConductors);
         _contracts.UnionWith(newContracts);
+        _corporations.UnionWith(newCorporations);
         foreach (var row in snapshot.Deletes)
         {
             switch (row)
@@ -435,6 +504,9 @@ public sealed class WorldStore
                     break;
                 case DbCompany company:
                     _companies.Remove(company.Id);
+                    break;
+                case DbCorporation corporation:
+                    _corporations.Remove(corporation.Id);
                     break;
                 case DbConductor conductor:
                     _conductors.Remove(new TilePos(conductor.X, conductor.Y));
@@ -472,6 +544,13 @@ public sealed class WorldStore
         public Dictionary<string, PendingPrice> PendingPrices { get; init; } = new();
         public double ContractScore { get; init; } = 1;
         public int ContractsCompleted { get; init; }
+        public long? CorporationId { get; init; }
+        public CorporationRole Role { get; init; }
+        public DateTime? LeftCorporationAt { get; init; }
+        public long? MentorId { get; init; }
+        public HashSet<int> MentorRewards { get; init; } = new();
+        public double WeekStartEarnings { get; init; }
+        public int Likes { get; init; }
         public double HubReputation { get; init; }
         public List<DailyOrder> DailyOrders { get; init; } = new();
     }
@@ -479,4 +558,6 @@ public sealed class WorldStore
     private sealed record MarketRow(int X, int Y, HubMarket Market);
 
     private sealed record ExchangeState(List<ExchangeOrder> Orders, List<Shipment> Shipments);
+
+    private sealed record CorporationData(HashSet<long> Applications, HashSet<long> Invites, CorporationGoal? Goal);
 }

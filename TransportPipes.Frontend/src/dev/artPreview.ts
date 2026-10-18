@@ -66,5 +66,13 @@ if (only === null || only === "hub") {
   ] as const) {
     show(type, drawHubStructure(type, size).canvas);
   }
+  for (const [label, color, level] of [
+    ["PG", "#aa3355", 1],
+    ["IRON", "#2e86de", 4],
+    ["NOVA", "#2ec4a6", 7],
+    ["MAX", "#f6c744", 10],
+  ] as const) {
+    show(`corporationHq ${level}`, drawHubStructure("corporationHq", 3, { label, color, level }).canvas);
+  }
 }
 document.body.dataset.ready = "1";

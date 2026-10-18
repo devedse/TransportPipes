@@ -1025,7 +1025,52 @@ export function drawGate(
 }
 
 /** The buildings of the hub city */
-export function drawHubStructure(type: string, size: number): BuildingArt {
+/** What a corporation HQ shows: its tag, colour and HQ level */
+export interface HubStructureLook {
+  label: string | null;
+  color: string | null;
+  level: number;
+}
+
+/** The HQ tower grows a floor per HQ level */
+const HQ_FLOOR = 38;
+
+function drawCorporationHq(look: HubStructureLook): BuildingArt {
+  const level = Math.max(1, look.level);
+  const color = look.color ?? "#2e86de";
+  const k = new Iso(3, 3 * 90 + 140 + level * HQ_FLOOR);
+  k.pad(0.1, 0.1, 2.8, 2.8, "#d6cfc0");
+  // Podium with the entrance, then the tower, then a crown that gets fancier with the level
+  k.box(0.25, 0.25, 2.5, 2.5, 34, { top: "#cfc8b8", left: "#a39c8e", right: "#8c8579" });
+  k.doorLeft(1.2, 2.75, 0, 0.6, 26, "#26323a");
+  const tower = 60 + level * HQ_FLOOR;
+  const wall = { top: shade(color, 1.35), left: shade(color, 0.85), right: shade(color, 0.65) };
+  k.box(0.55, 0.55, 1.9, 1.9, tower, wall, 34);
+  const rows = Math.max(2, Math.round(tower / 32));
+  k.windowsLeft(0.55, 0.55, 1.9, 1.9, 44, tower - 20, rows, 4, "#bfe3ff", shade(color, 0.5));
+  k.windowsRight(0.55, 0.55, 1.9, 1.9, 44, tower - 20, rows, 4, "#9fd0f5", shade(color, 0.45));
+  const top = 34 + tower;
+  if (level >= 6) {
+    // Setback with a second, slimmer tower
+    k.box(0.85, 0.85, 1.3, 1.3, 40 + (level - 6) * 8, wall, top);
+    k.attach("glow", 1.5, 1.5, top + 50 + (level - 6) * 8, 0.8, "#fff2b0");
+  }
+  const crown = level >= 6 ? top + 40 + (level - 6) * 8 : top;
+  k.lattice(1.5, 1.5, crown, crown + 50 + Math.min(level, 5) * 6, 14, "#d9d9d9");
+  k.attach("flag", 1.5, 1.5, crown + 50 + Math.min(level, 5) * 6, 1, color);
+  k.attach("blink", 1.5, 1.5, crown + 54 + Math.min(level, 5) * 6, 0.6, "#ff5a4f");
+  // The tag on a sign at the front edge of the roof, readable from afar
+  if (look.label !== null) {
+    k.box(0.6, 2.3, 1.8, 0.08, 34, { top: "#222", left: "#1b1b1b", right: "#111" }, top);
+    k.text(1.5, 2.38, top + 17, look.label, "#ffffff", look.label.length > 4 ? 22 : 28);
+  }
+  return { canvas: k.canvas, size: 3, attachments: k.attachments };
+}
+
+export function drawHubStructure(type: string, size: number, look?: HubStructureLook): BuildingArt {
+  if (type === "corporationHq") {
+    return drawCorporationHq(look ?? { label: null, color: null, level: 1 });
+  }
   const k = new Iso(size, size * 90 + 60);
   const s = size;
   switch (type) {
@@ -1062,16 +1107,16 @@ export function drawHubStructure(type: string, size: number): BuildingArt {
       break;
     }
     case "corporationQuarter": {
+      // A plaza with four lots; the corporations' HQs stand on them (drawn separately)
       k.pad(0.1, 0.1, s - 0.2, s - 0.2, "#b9b2a5");
       for (let i = 0; i < 4; i++) {
-        const u = 0.6 + (i % 2) * (s / 2);
-        const v = 0.6 + Math.floor(i / 2) * (s / 2);
-        block(k, u, v, s / 2 - 1.2, s / 2 - 1.2, 120 + i * 30, {
-          rows: 3,
-          cols: 3,
-          wall: ["#2c3e50", "#34495e", "#3d3d4a", "#2e4a3e"][i],
-        });
+        const u = (i % 2) * 4;
+        const v = Math.floor(i / 2) * 4;
+        k.pad(u + 0.15, v + 0.15, 2.7, 2.7, "#9d968a", "#7d776c");
       }
+      k.pad(3.2, 0.2, 0.6, s - 0.4, "#cbc4b6", null);
+      k.pad(0.2, 3.2, s - 0.4, 0.6, "#cbc4b6", null);
+      k.cylinder(3.5, 3.5, 0.35, 10, "#c9c2b4", 0, "flat", "#6ec6ff");
       break;
     }
     case "tradingHouse": {

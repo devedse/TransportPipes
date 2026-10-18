@@ -82,7 +82,14 @@ export function BuildingPanel() {
           <div>
             <h3>{definition.name}</h3>
             <div className="muted small">
-              {mine ? "Yours" : details.ownerName} · Level {building.level}
+              {mine ? (
+                "Yours"
+              ) : (
+                <button className="link" onClick={() => void gameClient.visitEstate(building.owner)}>
+                  {details.ownerName}
+                </button>
+              )}{" "}
+              · Level {building.level}
               {details.locationMultiplier !== 1 &&
                 definition.modifier !== "none" &&
                 ` · spot ×${details.locationMultiplier.toFixed(2)}`}

@@ -1,0 +1,140 @@
+using TransportPipes.Game.State;
+using TransportPipes.Server.Dtos;
+
+namespace TransportPipes.Server.Tests;
+
+[TestClass]
+public class SocietyFacts
+{
+    private static async Task<(TestClient Client, CompanyDto Company)> PlayerAsync(GameServer server, string name)
+    {
+        var client = await server.ConnectAsync(await server.RegisterAsync(name));
+        await client.Command("CreateCompany", name, "#3399ff");
+        var hello = await client.Invoke<HelloDto>("Hello");
+        return (client, hello.Company!);
+    }
+
+    [TestMethod]
+    public async Task NeighboursChatInTheirDistrictAndDirectly()
+    {
+        using var server = new GameServer();
+        var (ann, annCompany) = await PlayerAsync(server, "Annie");
+        var (bob, bobCompany) = await PlayerAsync(server, "Bobby");
+        await using var _ = ann;
+        await using var __ = bob;
+
+        var chat = await ann.Invoke<ChatDto>("GetChat");
+        var district = chat.Channels.Single(t => t.Kind == "district").Id;
+        await ann.Command("SendChat", district, "  Anyone selling coal?  ");
+
+        var heard = await TestClient.WaitFor(bob.Chat, t => t.Channel == district);
+        Assert.AreEqual("Anyone selling coal?", heard.Text);
+        Assert.AreEqual("Annie", heard.SenderName);
+        Assert.AreEqual("Anyone selling coal?", (await bob.Invoke<IReadOnlyList<ChatMessageDto>>("GetChatHistory", district, null)).Single().Text);
+
+        var direct = $"direct:{Math.Min(annCompany.Id, bobCompany.Id)}:{Math.Max(annCompany.Id, bobCompany.Id)}";
+        await bob.Command("SendChat", direct, "I do, 4 g");
+        Assert.AreEqual("I do, 4 g", (await TestClient.WaitFor(ann.Chat, t => t.Channel == direct)).Text);
+        Assert.IsTrue((await ann.Invoke<ChatDto>("GetChat")).Channels.Any(t => t.Id == direct && t.Name == "Bobby"));
+
+        // Nobody else reads or writes a direct channel, and a blocked company can't write
+        Assert.IsFalse((await ann.Invoke<CommandResultDto>("SendChat", "direct:998:999", "hi")).Success);
+        await ann.Command("SetBlocked", bobCompany.Id, true);
+        Assert.IsFalse((await bob.Invoke<CommandResultDto>("SendChat", direct, "hello?")).Success);
+        Assert.IsEmpty(await ann.Invoke<IReadOnlyList<ChatMessageDto>>("GetChatHistory", direct, null), "blocked senders are hidden");
+
+        // The rate limit
+        var results = new List<bool>();
+        for (var i = 0; i < 8; i++)
+        {
+            results.Add((await ann.Invoke<CommandResultDto>("SendChat", district, $"spam {i}")).Success);
+        }
+        Assert.IsTrue(results.Contains(false));
+    }
+
+    [TestMethod]
+    public async Task VisitorsLikeEstatesAndSignTheGuestbook()
+    {
+        using var server = new GameServer();
+        var (ann, annCompany) = await PlayerAsync(server, "Annie");
+        var (bob, _) = await PlayerAsync(server, "Bobby");
+        await using var _1 = ann;
+        await using var _2 = bob;
+
+        await bob.Command("LikeEstate", annCompany.Id);
+        Assert.IsFalse((await bob.Invoke<CommandResultDto>("LikeEstate", annCompany.Id)).Success, "once a day");
+        await bob.Command("WriteGuestbook", annCompany.Id, "Lovely pipes!");
+        Assert.IsFalse((await bob.Invoke<CommandResultDto>("WriteGuestbook", annCompany.Id, "Again")).Success, "one note a day");
+
+        var visit = await bob.Invoke<EstateVisitDto>("VisitEstate", annCompany.Id);
+        Assert.AreEqual(1, visit.Likes);
+        Assert.IsTrue(visit.LikedToday);
+        Assert.AreEqual("Lovely pipes!", visit.Guestbook.Single().Text);
+
+        // The owner hears about both in the inbox
+        await TestClient.WaitFor(ann.Inbox, t => t >= 2);
+        var inbox = await ann.Invoke<InboxDto>("GetInbox");
+        Assert.IsTrue(inbox.Messages.Any(t => t.Kind == "social" && t.Text.Contains("likes your estate")));
+        Assert.IsTrue(inbox.Messages.Any(t => t.Kind == "guestbook" && t.Text.Contains("Lovely pipes!")));
+        await ann.Invoke<object>("MarkInboxRead");
+        Assert.AreEqual(0, (await ann.Invoke<InboxDto>("GetInbox")).Unread);
+
+        // A day later Bobby may like it again
+        await server.AdvanceAsync(TimeSpan.FromDays(1));
+        await bob.Command("LikeEstate", annCompany.Id);
+    }
+
+    [TestMethod]
+    public async Task ACorporationIsFoundedJoinedAndHasItsOwnChat()
+    {
+        using var server = new GameServer();
+        var (ann, annCompany) = await PlayerAsync(server, "Annie");
+        var (bob, bobCompany) = await PlayerAsync(server, "Bobby");
+        await using var _1 = ann;
+        await using var _2 = bob;
+
+        Assert.IsFalse((await ann.Invoke<CommandResultDto>("FoundCorporation", "Pipe Guild", "PG", "#aa3355")).Success, "needs level 8");
+        await server.World.RunAsync(world =>
+        {
+            var company = world.Company(annCompany.Id)!;
+            world.GainXp(company, world.Content.Progression.XpForLevel(8) - company.Xp);
+            company.Gold += 20_000;
+        });
+        await ann.Command("FoundCorporation", "Pipe Guild", "pg", "#aa3355");
+
+        var corporations = await bob.Invoke<CorporationsDto>("GetCorporations");
+        var guild = corporations.District.Single();
+        Assert.AreEqual("PG", guild.Tag);
+        await bob.Command("ApplyToCorporation", guild.Id);
+        var mine = (await ann.Invoke<CorporationsDto>("GetCorporations")).Mine!;
+        Assert.AreEqual("leader", mine.YourRole);
+        Assert.AreEqual(bobCompany.Id, mine.Applications.Single().Id);
+        await ann.Command("InviteToCorporation", bobCompany.Id);
+
+        mine = (await bob.Invoke<CorporationsDto>("GetCorporations")).Mine!;
+        Assert.HasCount(2, mine.Members);
+        Assert.AreEqual("member", mine.YourRole);
+        Assert.IsNotNull(mine.Goal);
+        Assert.AreEqual("PG", (await bob.Invoke<CompanyDto>("GetCompany")).CorporationTag);
+
+        // The HQ stands in the corporation quarter of the hub
+        var district = await bob.Invoke<DistrictDto>("GetDistrict", bobCompany.DistrictX, bobCompany.DistrictY);
+        var hq = district.Hub.Single(t => t.Type == "corporationHq");
+        Assert.AreEqual("PG", hq.Label);
+        Assert.AreEqual(1, hq.Level);
+        Assert.IsTrue(district.Estates.Any(t => t.OwnerId == bobCompany.Id && t.CorporationTag == "PG"));
+
+        var channel = (await bob.Invoke<ChatDto>("GetChat")).Channels.Single(t => t.Kind == "corporation");
+        Assert.AreEqual("Pipe Guild", channel.Name);
+        await bob.Command("SendChat", channel.Id, "Thanks for having me");
+        Assert.AreEqual("Thanks for having me", (await TestClient.WaitFor(ann.Chat, t => t.Channel == channel.Id)).Text);
+
+        // Leaderboards list both, with you marked
+        var board = await bob.Invoke<LeaderboardDto>("GetLeaderboard", LeaderboardKind.Level, true);
+        Assert.AreEqual(annCompany.Id, board.Entries[0].Company);
+        Assert.AreEqual(2, board.You!.Rank);
+
+        await bob.Command("LeaveCorporation");
+        Assert.IsFalse((await bob.Invoke<CommandResultDto>("SendChat", channel.Id, "still here?")).Success);
+    }
+}

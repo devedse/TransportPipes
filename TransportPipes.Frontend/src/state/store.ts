@@ -2,9 +2,16 @@ import { createStore } from "zustand/vanilla";
 import { useStore } from "zustand";
 import type {
   BuildingDetailsDto,
+  ChatDto,
+  ChatMessageDto,
   CompanyDto,
   ContractsDto,
+  CorporationsDto,
+  EstateVisitDto,
   ExchangeDto,
+  InboxDto,
+  LeaderboardDto,
+  LeaderboardKind,
   GateSide,
   MarketDto,
   NeighbourDto,
@@ -70,6 +77,25 @@ export interface AppState {
   /** A pipe route the player is looking at (Connect), drawn on the map until it is built or dropped */
   plannedRoute: TilePosition[] | null;
   plannedPartner: number | null;
+
+  corporationOpen: boolean;
+  corporations: CorporationsDto | null;
+  leaderboardOpen: boolean;
+  leaderboardKind: LeaderboardKind;
+  leaderboardDistrict: boolean;
+  leaderboard: LeaderboardDto | null;
+  /** The company whose estate the player visits */
+  visiting: number | null;
+  visit: EstateVisitDto | null;
+  inboxOpen: boolean;
+  inbox: InboxDto | null;
+  unread: number;
+  chatOpen: boolean;
+  chat: ChatDto | null;
+  chatChannel: string | null;
+  chatMessages: Record<string, ChatMessageDto[]>;
+  /** New messages per channel since the player last looked at it */
+  chatUnread: Record<string, number>;
 }
 
 export const initialState: AppState = {
@@ -110,7 +136,33 @@ export const initialState: AppState = {
   contracts: null,
   plannedRoute: null,
   plannedPartner: null,
+  corporationOpen: false,
+  corporations: null,
+  leaderboardOpen: false,
+  leaderboardKind: "netWorth",
+  leaderboardDistrict: true,
+  leaderboard: null,
+  visiting: null,
+  visit: null,
+  inboxOpen: false,
+  inbox: null,
+  unread: 0,
+  chatOpen: false,
+  chat: null,
+  chatChannel: null,
+  chatMessages: {},
+  chatUnread: {},
 };
+
+/** The big panels in the middle of the screen; one at a time */
+export const MODALS = {
+  researchOpen: false,
+  hubOpen: false,
+  neighboursOpen: false,
+  corporationOpen: false,
+  leaderboardOpen: false,
+  buildMenuOpen: false,
+} satisfies Partial<AppState>;
 
 export const appStore = createStore<AppState>(() => initialState);
 
