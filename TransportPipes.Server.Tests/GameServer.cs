@@ -32,7 +32,18 @@ public sealed class GameServer : WebApplicationFactory<Program>
     {
         _ownsDatabase = connectionString == null;
         ConnectionString = connectionString ?? PostgresTestDatabase.CreateDatabase();
-        Time = time ?? new FakeTimeProvider(DateTimeOffset.UtcNow);
+        Time = time ?? new FakeTimeProvider(StartTime());
+    }
+
+    /// <summary>
+    /// A minute after the next quarter hour: hub markets update every 15 minutes, so tests that check exact earnings
+    /// over a few minutes don't depend on the time they run
+    /// </summary>
+    public static DateTimeOffset StartTime()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var quarter = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute / 15 * 15, 0, TimeSpan.Zero);
+        return quarter.AddMinutes(16);
     }
 
     private static JsonSerializerOptions CreateJson()

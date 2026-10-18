@@ -147,7 +147,7 @@ public class GameServerFacts
         {
             string cookie;
             TilePos moily;
-            var time = new FakeTimeProvider(DateTimeOffset.UtcNow);
+            var time = new FakeTimeProvider(GameServer.StartTime());
             using (var server = new GameServer(connectionString, time))
             {
                 cookie = await server.RegisterAsync("Keeper");
