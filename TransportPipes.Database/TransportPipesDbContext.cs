@@ -51,6 +51,7 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
             world.Property(t => t.Id).ValueGeneratedNever();
             world.Property(t => t.Markets).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
             world.Property(t => t.Exchange).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
+            world.Property(t => t.Events).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
         });
 
         modelBuilder.Entity<DbCompany>(company =>

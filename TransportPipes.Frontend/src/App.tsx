@@ -4,6 +4,7 @@ import { AuthScreen } from "./components/AuthScreen";
 import { BuildingPanel } from "./components/BuildingPanel";
 import { BuildMenu } from "./components/BuildMenu";
 import { ChatPanel } from "./components/ChatPanel";
+import { EventBar } from "./components/EventBar";
 import { CorporationPanel } from "./components/CorporationPanel";
 import { InboxPanel } from "./components/InboxPanel";
 import { LeaderboardPanel } from "./components/LeaderboardPanel";
@@ -163,6 +164,9 @@ export function App() {
       {content !== null && <GameCanvas />}
       {phase === "playing" && (
         <>
+          <ErrorBoundary name="EventBar">
+            <EventBar />
+          </ErrorBoundary>
           <ErrorBoundary name="TopBar">
             <TopBar />
           </ErrorBoundary>

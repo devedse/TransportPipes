@@ -550,7 +550,7 @@ public sealed partial class GameWorld
         {
             return null;
         }
-        var location = LocationMultiplier(building, definition);
+        var location = LocationMultiplier(building, definition) * EventOutputFactor(building, definition);
         var owner = Company(building.Owner);
         return new FlowNode
         {

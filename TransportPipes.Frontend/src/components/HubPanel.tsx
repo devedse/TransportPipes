@@ -2,8 +2,9 @@ import { useState } from "react";
 import { gameClient } from "../app/client";
 import { formatAmount, formatDuration } from "../app/format";
 import { useNow } from "../app/useNow";
-import type { MarketResourceDto } from "../api/contracts";
+import type { GameEventDto, MarketResourceDto } from "../api/contracts";
 import { setState, useAppStore } from "../state/store";
+import { EVENT_ICONS, eventTime } from "../app/events";
 
 function Trend({ row }: { row: MarketResourceDto }) {
   const ratio = row.buyPrice / row.basePrice;
@@ -61,6 +62,58 @@ function PriceInput({
 }
 
 /** The hub of your district: today's orders, your reputation and the market with your prices for other players */
+/** The event calendar of the district (GDD §15) */
+function CalendarTab({ serverNow }: { serverNow: number }) {
+  const company = useAppStore((state) => state.company)!;
+  const days = new Map<string, GameEventDto[]>();
+  for (const event of company.events) {
+    const day = new Date(Math.max(new Date(event.startsAt).getTime(), serverNow)).toLocaleDateString([], {
+      weekday: "long",
+      day: "numeric",
+      month: "short",
+    });
+    days.set(day, [...(days.get(day) ?? []), event]);
+  }
+  return (
+    <div className="calendar">
+      <p className="muted small">
+        What is coming to your district in the next {company.forecastHours} hours.
+        {company.forecastHours < 72 && " A Weather Station sees three days ahead and halves storm damage."}
+      </p>
+      {company.events.length === 0 && <p className="muted">A quiet day: nothing planned.</p>}
+      {[...days.entries()].map(([day, events]) => (
+        <div key={day} className="calendar-day">
+          <div className="panel-title">{day}</div>
+          {events.map((event) => (
+            <div
+              key={event.id}
+              className={
+                event.active ? `calendar-event active ${event.kind}` : `calendar-event ${event.kind}`
+              }
+            >
+              <span className="event-icon">{EVENT_ICONS[event.kind]}</span>
+              <div>
+                <div>
+                  <strong>{event.name}</strong>{" "}
+                  <span className="muted small">
+                    {new Date(event.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}–
+                    {new Date(event.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {event.everywhere && " · everywhere"}
+                  </span>
+                </div>
+                <div className="small">{event.effect}</div>
+              </div>
+              <span className={event.active ? "event-when now" : "event-when"}>
+                {eventTime(event, serverNow)}
+              </span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function HubPanel() {
   const open = useAppStore((state) => state.hubOpen);
   const market = useAppStore((state) => state.market);
@@ -68,7 +121,7 @@ export function HubPanel() {
   const content = useAppStore((state) => state.content);
   const serverOffset = useAppStore((state) => state.serverOffsetMs);
   const now = useNow();
-  const [tab, setTab] = useState<"orders" | "market" | "exchange">("orders");
+  const [tab, setTab] = useState<"orders" | "market" | "exchange" | "calendar">("orders");
   if (!open || company === null || content === null) {
     return null;
   }
@@ -108,12 +161,20 @@ export function HubPanel() {
           <button className={tab === "market" ? "tab active" : "tab"} onClick={() => setTab("market")}>
             Prices
           </button>
+          <button className={tab === "calendar" ? "tab active" : "tab"} onClick={() => setTab("calendar")}>
+            Calendar
+            {company.events.some((t) => t.active) && (
+              <span className="badge">{company.events.filter((t) => t.active).length}</span>
+            )}
+          </button>
           <button className={tab === "exchange" ? "tab active" : "tab"} onClick={() => setTab("exchange")}>
             Exchange
           </button>
         </div>
 
-        {tab === "exchange" ? (
+        {tab === "calendar" ? (
+          <CalendarTab serverNow={serverNow} />
+        ) : tab === "exchange" ? (
           <ExchangeTab serverNow={serverNow} />
         ) : tab === "orders" ? (
           <div className="orders">
@@ -126,12 +187,13 @@ export function HubPanel() {
               const left = (new Date(order.expiresAt).getTime() - serverNow) / 1000;
               const resource = content.resource(order.resource);
               return (
-                <div key={order.id} className={done ? "order done" : "order"}>
+                <div key={order.id} className={done ? "order done" : order.urgent ? "order urgent" : "order"}>
                   <div className="order-icon" style={{ background: resource?.color }}>
                     {resource?.icon}
                   </div>
                   <div className="order-body">
                     <div className="order-title">
+                      {order.urgent && <span className="urgent-tag">📢 Shortage</span>}
                       {formatAmount(order.amount)} {content.resourceName(order.resource).toLowerCase()}
                     </div>
                     <div className="meter-bar">

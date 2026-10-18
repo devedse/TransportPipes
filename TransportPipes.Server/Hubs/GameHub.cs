@@ -517,6 +517,15 @@ public sealed class GameHub : Hub<IGameClient>
                     }
                     world.FinishResearch(companyId);
                     break;
+                case "storm":
+                case "heatwave":
+                case "expo":
+                case "shortage":
+                case "festival":
+                    var kind = Enum.Parse<EventKind>(what, ignoreCase: true);
+                    var resource = kind is EventKind.Expo or EventKind.Shortage ? world.Content.ResourceList.First(t => t.Tier == 2).Id : null;
+                    world.StartEventNow(kind, kind == EventKind.Festival ? null : company.District, TimeSpan.FromHours(2), resource);
+                    break;
                 case "away":
                     // The next Hello shows the report as if the player was away for an hour
                     company.Report.Since = world.Now.AddHours(-1);
@@ -530,7 +539,7 @@ public sealed class GameHub : Hub<IGameClient>
                     }
                     break;
                 default:
-                    return CommandResult.Fail("gold, level, research, finish, away or fill");
+                    return CommandResult.Fail("gold, level, research, finish, away, fill, storm, heatwave, expo, shortage or festival");
             }
             world.CompanyChanged(company);
             return CommandResult.Ok;
@@ -558,6 +567,9 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<CommandResultDto> Upgrade(long building, int levels) =>
         Command((world, company) => world.Upgrade(company, building, Math.Clamp(levels, 1, 100)));
+
+    public Task<CommandResultDto> Repair(long building) =>
+        Command((world, company) => world.Repair(company, building));
 
     public Task<CommandResultDto> Demolish(long building) =>
         Command((world, company) => world.Demolish(company, building));

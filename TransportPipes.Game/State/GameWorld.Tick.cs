@@ -21,8 +21,13 @@ public sealed partial class GameWorld
         {
             return;
         }
+        PlanEvents();
         // Everything that finishes in between, in the order it happens
         var events = new List<(DateTime At, long Order, Action Run)>();
+        foreach (var (at, run) in EventMoments(LastTick, now).ToList())
+        {
+            events.Add((at, long.MinValue + 4, run));
+        }
         foreach (var building in _buildings.Values.Where(t => t.ConstructionEndsAt is { } end && end <= now))
         {
             events.Add((building.ConstructionEndsAt!.Value, building.Id, () => CompleteConstruction(building)));

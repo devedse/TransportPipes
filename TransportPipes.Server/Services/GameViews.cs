@@ -47,15 +47,28 @@ public static class GameViews
             company.HubReputation,
             world.ReputationLevel(company),
             world.ReputationLevel(company) < GameWorld.ReputationLevels.Length ? GameWorld.ReputationLevels[world.ReputationLevel(company)] : null,
-            company.DailyOrders.Select(t => new DailyOrderDto(t.Id, t.Resource, t.Amount, t.Delivered, t.RewardGold, t.RewardXp, t.RewardReputation, t.ExpiresAt)).ToList(),
+            company.DailyOrders.Select(t => new DailyOrderDto(t.Id, t.Resource, t.Amount, t.Delivered, t.RewardGold, t.RewardXp, t.RewardReputation, t.ExpiresAt, t.Urgent)).ToList(),
             company.NoTrade.OrderBy(t => t).ToList(),
             company.CorporationId,
             world.CorporationOf(company)?.Tag,
             company.CorporationId != null ? Camel(company.Role) : null,
             company.MentorId,
             company.Likes,
+            world.Calendar(company).Select(t => Event(world, t)).ToList(),
+            (int)world.Horizon(company).TotalHours,
             world.Now);
     }
+
+    public static GameEventDto Event(GameWorld world, GameEvent gameEvent) => new(
+        gameEvent.Id,
+        Camel(gameEvent.Kind),
+        world.EventName(gameEvent),
+        world.EventEffect(gameEvent),
+        gameEvent.StartsAt,
+        gameEvent.EndsAt,
+        gameEvent.Resource,
+        gameEvent.ActiveAt(world.Now),
+        gameEvent.District == null);
 
     public static MarketDto Market(GameWorld world, Company company)
     {
@@ -139,7 +152,8 @@ public static class GameViews
         building.Size,
         building.Level,
         building.ConstructionEndsAt,
-        world.NetworkOf(building.Id)?.Id);
+        world.NetworkOf(building.Id)?.Id,
+        building.Damaged);
 
     public static ChunkObjectsDto ChunkObjects(GameWorld world, int cx, int cy)
     {
@@ -481,13 +495,18 @@ public static class GameViews
             definition.Kind is BuildingKind.Hq or BuildingKind.Gate ? 0 : Math.Round(definition.Cost.Gold * 0.5),
             Issues(world, building, node, network),
             building.Setting,
-            world.TollIncome(building.Id));
+            world.TollIncome(building.Id),
+            building.Damaged ? world.RepairCost(building) : null);
     }
 
     /// <summary>Why a building can't run (fully): missing suppliers or buyers on its pipes</summary>
     private static List<string> Issues(GameWorld world, Building building, FlowNode? node, Network? network)
     {
         var issues = new List<string>();
+        if (building.Damaged)
+        {
+            issues.Add("Storm damage: it works at half speed until it is repaired.");
+        }
         if (node == null || node.Kind != FlowNodeKind.Building || building.UnderConstruction)
         {
             return issues;

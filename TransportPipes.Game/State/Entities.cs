@@ -109,6 +109,9 @@ public sealed class DailyOrder
     public double RewardReputation { get; set; }
     public DateTime ExpiresAt { get; set; }
 
+    /// <summary>A Shortage order: bigger, better paid, gone when the event ends</summary>
+    public bool Urgent { get; set; }
+
     public bool Done => Delivered >= Amount - 1e-9;
 }
 
@@ -176,6 +179,9 @@ public sealed class Building : Entity
 
     /// <summary>Valve: the only resources that pass (empty: everything passes)</summary>
     public HashSet<string> Filter { get; init; } = new();
+
+    /// <summary>Storm damage: half speed until repaired</summary>
+    public bool Damaged { get; set; }
 
     public bool UnderConstruction => ConstructionEndsAt != null;
 

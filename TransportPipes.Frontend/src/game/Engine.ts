@@ -1033,6 +1033,9 @@ export class Engine {
         view.idle = badge;
         this.effects.add(view);
       }
+      if (building.damaged) {
+        container.addChild(damageBadge(size));
+      }
     }
     this.objectLayer.addChild(container);
     this.applyRunning(view);
@@ -1540,4 +1543,23 @@ export class Engine {
   worldToTile(x: number, y: number): TilePosition {
     return worldToTile(x, y);
   }
+}
+
+/** A warning sign over a building that a storm damaged */
+function damageBadge(size: number): Container {
+  const badge = new Container();
+  const sign = new Graphics();
+  sign.moveTo(0, -34).lineTo(32, 22).lineTo(-32, 22).closePath();
+  sign.fill({ color: 0xf4a261 });
+  sign.stroke({ color: 0x17181c, width: 6 });
+  const mark = new Text({
+    text: "!",
+    style: { fontFamily: "system-ui", fontSize: 40, fontWeight: "900", fill: "#17181c" },
+  });
+  mark.anchor.set(0.5);
+  mark.position.set(0, 2);
+  badge.addChild(sign, mark);
+  badge.position.set(TILE_WIDTH * size - 70, -TILE_HEIGHT * size - 20);
+  badge.label = "damaged";
+  return badge;
 }

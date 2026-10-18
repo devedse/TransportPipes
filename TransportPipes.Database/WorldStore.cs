@@ -138,6 +138,7 @@ public sealed class WorldStore
                 Imports = JsonSerializer.Deserialize<HashSet<string>>(row.Imports, Json) ?? new(),
                 Filter = JsonSerializer.Deserialize<HashSet<string>>(row.Filter, Json) ?? new(),
                 Setting = row.Setting,
+                Damaged = row.Damaged,
             });
         }
 
@@ -210,6 +211,11 @@ public sealed class WorldStore
             world.LoadExchange(exchange.Orders, exchange.Shipments ?? []);
         }
 
+        if (JsonSerializer.Deserialize<EventsState>(dbWorld.Events, Json) is { Events: not null } events)
+        {
+            world.LoadEvents(events.Events, events.PlannedDays ?? []);
+        }
+
         world.LastTick = dbWorld.LastTick;
         world.TakeChanges();
         world.Deleted.Clear();
@@ -229,6 +235,7 @@ public sealed class WorldStore
                 CreatedAt = world.Now,
                 Markets = JsonSerializer.Serialize(world.Markets.Select(t => new MarketRow(t.Key.X, t.Key.Y, t.Value)).ToList(), Json),
                 Exchange = JsonSerializer.Serialize(new ExchangeState(world.ExchangeOrders.ToList(), world.Shipments.ToList()), Json),
+                Events = JsonSerializer.Serialize(new EventsState(world.Events.ToList(), world.PlannedDays.ToList()), Json),
             },
         };
 
@@ -306,6 +313,7 @@ public sealed class WorldStore
                 Imports = JsonSerializer.Serialize(building.Imports, Json),
                 Filter = JsonSerializer.Serialize(building.Filter, Json),
                 Setting = building.Setting,
+                Damaged = building.Damaged,
             }));
         }
 
@@ -421,6 +429,7 @@ public sealed class WorldStore
                 db.Entry(snapshot.World).Property(t => t.LastTick).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Markets).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Exchange).IsModified = true;
+                db.Entry(snapshot.World).Property(t => t.Events).IsModified = true;
             }
             else
             {
@@ -558,6 +567,8 @@ public sealed class WorldStore
     private sealed record MarketRow(int X, int Y, HubMarket Market);
 
     private sealed record ExchangeState(List<ExchangeOrder> Orders, List<Shipment> Shipments);
+
+    private sealed record EventsState(List<GameEvent> Events, List<string>? PlannedDays);
 
     private sealed record CorporationData(HashSet<long> Applications, HashSet<long> Invites, CorporationGoal? Goal);
 }

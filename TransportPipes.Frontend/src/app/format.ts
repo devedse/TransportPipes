@@ -15,8 +15,10 @@ export function formatDuration(seconds: number): string {
     return "instant";
   }
   if (seconds >= 3600) {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.round((seconds % 3600) / 60);
+    // Round to whole minutes first, so 1 h 59.9 min becomes 2 h (not 1 h 60 min)
+    const totalMinutes = Math.round(seconds / 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
     return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
   }
   const minutes = Math.floor(seconds / 60);

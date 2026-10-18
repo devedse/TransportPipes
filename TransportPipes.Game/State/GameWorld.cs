@@ -23,6 +23,7 @@ public enum WorldEventKind
     Social,
     StorageFull,
     Neighbour,
+    Calendar,
 }
 
 /// <summary>Something a player should hear about (a toast in the client)</summary>

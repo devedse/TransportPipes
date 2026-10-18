@@ -59,7 +59,34 @@ export interface CompanyDto {
   corporationRole: CorporationRole | null;
   mentorId: number | null;
   likes: number;
+  /** Running events and the ones within the forecast */
+  events: GameEventDto[];
+  forecastHours: number;
   serverTime: string;
+}
+
+export type EventKind =
+  | "storm"
+  | "heatwave"
+  | "drought"
+  | "coldSnap"
+  | "expo"
+  | "shortage"
+  | "discovery"
+  | "festival"
+  | "eraLaunch";
+
+/** An event in the calendar (GDD §15) */
+export interface GameEventDto {
+  id: number;
+  kind: EventKind;
+  name: string;
+  effect: string;
+  startsAt: string;
+  endsAt: string;
+  resource: string | null;
+  active: boolean;
+  everywhere: boolean;
 }
 
 export interface DailyOrderDto {
@@ -71,6 +98,8 @@ export interface DailyOrderDto {
   rewardXp: number;
   rewardReputation: number;
   expiresAt: string;
+  /** A Shortage order: bigger, better paid, gone when the event ends */
+  urgent: boolean;
 }
 
 export interface MarketResourceDto {
@@ -152,6 +181,8 @@ export interface BuildingDto {
   level: number;
   constructionEndsAt: string | null;
   network: number | null;
+  /** Storm damage: half speed until repaired */
+  damaged: boolean;
 }
 
 export type ConductorKind = "pipe" | "gate";
@@ -293,6 +324,7 @@ export interface BuildingDetailsDto {
   issues: string[];
   setting: number;
   tollIncome: number;
+  repairCost: number | null;
 }
 
 export interface ToastDto {

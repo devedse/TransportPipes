@@ -40,10 +40,12 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("You liked this estate today already.");
         }
-        owner.Likes++;
-        owner.Report.LikesReceived++;
-        owner.Gold += 20 * owner.Level;
-        GainXp(owner, 10);
+        // Festivals: likes count double
+        var factor = LikeFactor(owner.District);
+        owner.Likes += factor;
+        owner.Report.LikesReceived += factor;
+        owner.Gold += 20 * owner.Level * factor;
+        GainXp(owner, 10 * factor);
         owner.Touch();
         Changes.Companies.Add(owner.Id);
         Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.Social, $"{liker.Name} likes your estate!"));

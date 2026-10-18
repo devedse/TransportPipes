@@ -60,9 +60,14 @@ public record CompanyDto(
     string? CorporationRole,
     long? MentorId,
     int Likes,
+    IReadOnlyList<GameEventDto> Events,
+    int ForecastHours,
     DateTime ServerTime);
 
-public record DailyOrderDto(int Id, string Resource, double Amount, double Delivered, double RewardGold, double RewardXp, double RewardReputation, DateTime ExpiresAt);
+/// <summary>An event in the calendar (GDD §15)</summary>
+public record GameEventDto(long Id, string Kind, string Name, string Effect, DateTime StartsAt, DateTime EndsAt, string? Resource, bool Active, bool Everywhere);
+
+public record DailyOrderDto(int Id, string Resource, double Amount, double Delivered, double RewardGold, double RewardXp, double RewardReputation, DateTime ExpiresAt, bool Urgent);
 
 /// <summary>One resource on the hub market of the player's district, with the player's own prices</summary>
 public record MarketResourceDto(
@@ -105,7 +110,7 @@ public record ReportDto(
 /// <summary>A full storage in the offline report, with a one-tap upgrade</summary>
 public record FullStorageDto(long Building, string Type, int Level, double Capacity, double? UpgradeCost);
 
-public record BuildingDto(long Id, string Type, long Owner, int X, int Y, int Size, int Level, DateTime? ConstructionEndsAt, int? Network);
+public record BuildingDto(long Id, string Type, long Owner, int X, int Y, int Size, int Level, DateTime? ConstructionEndsAt, int? Network, bool Damaged);
 
 public record ConductorDto(int X, int Y, string Kind, int Tier, long Owner, string? Side, int? Network);
 
@@ -155,7 +160,8 @@ public record BuildingDetailsDto(
     double DemolishRefund,
     IReadOnlyList<string> Issues,
     double Setting,
-    double TollIncome);
+    double TollIncome,
+    double? RepairCost);
 
 public record ToastDto(string Kind, string Text, long? Building);
 

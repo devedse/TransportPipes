@@ -734,6 +734,12 @@ export class GameClient {
     }
   }
 
+  async repair(building: number) {
+    if (await this.command(this.connection.repair(building), "Repaired")) {
+      await this.refreshDetails();
+    }
+  }
+
   async demolish(building: number) {
     if (await this.command(this.connection.demolish(building), "Demolished")) {
       this.select(null);

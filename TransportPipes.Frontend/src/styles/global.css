@@ -1991,6 +1991,161 @@ button.liked {
   font-size: 0.88rem;
 }
 
+/* ---------- Events and weather ---------- */
+
+.event-bar {
+  position: absolute;
+  top: 128px;
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+.event-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  border-color: rgba(246, 199, 68, 0.5);
+}
+
+.event-chip.storm {
+  border-color: rgba(108, 180, 238, 0.7);
+}
+
+.event-icon {
+  font-size: 1.2rem;
+}
+
+/* The weather over the map: rain in a storm, warm light in a heatwave, lights at a festival */
+.weather {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.weather.storm {
+  background:
+    repeating-linear-gradient(
+      105deg,
+      transparent 0 18px,
+      rgba(200, 225, 255, 0.16) 18px 19px,
+      transparent 19px 46px
+    ),
+    linear-gradient(rgba(20, 35, 60, 0.32), rgba(20, 35, 60, 0.32));
+  background-size:
+    120px 240px,
+    100% 100%;
+  animation: rain 0.45s linear infinite;
+}
+
+@keyframes rain {
+  from {
+    background-position:
+      0 0,
+      0 0;
+  }
+  to {
+    background-position:
+      -40px 240px,
+      0 0;
+  }
+}
+
+.weather.heatwave {
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    rgba(255, 170, 60, 0.22),
+    rgba(255, 120, 40, 0.1) 60%,
+    transparent
+  );
+  animation: shimmer 4s ease-in-out infinite alternate;
+}
+
+@keyframes shimmer {
+  from {
+    opacity: 0.7;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.weather.festival {
+  background:
+    radial-gradient(circle at 10% 20%, rgba(255, 90, 140, 0.18) 0 3px, transparent 4px),
+    radial-gradient(circle at 70% 60%, rgba(255, 220, 90, 0.18) 0 3px, transparent 4px),
+    radial-gradient(circle at 40% 80%, rgba(90, 200, 255, 0.18) 0 3px, transparent 4px);
+  background-size: 160px 160px;
+  animation: confetti 6s linear infinite;
+}
+
+@keyframes confetti {
+  to {
+    background-position: 0 160px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .weather {
+    animation: none;
+  }
+}
+
+.calendar {
+  display: grid;
+  gap: 12px;
+}
+
+.calendar-day {
+  display: grid;
+  gap: 6px;
+}
+
+.calendar-event {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.calendar-event.active {
+  border-color: rgba(246, 199, 68, 0.6);
+  background: rgba(246, 199, 68, 0.08);
+}
+
+.event-when {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.event-when.now {
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.order.urgent {
+  border-color: rgba(239, 111, 108, 0.6);
+  background: rgba(239, 111, 108, 0.08);
+}
+
+.urgent-tag {
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  background: rgba(239, 111, 108, 0.35);
+}
+
 /* ---------- Small screens ---------- */
 
 @media (max-width: 720px) {

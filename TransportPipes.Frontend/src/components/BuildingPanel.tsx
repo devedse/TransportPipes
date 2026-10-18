@@ -121,6 +121,15 @@ export function BuildingPanel() {
           ))}
         </ul>
       )}
+      {mine && details.repairCost !== null && (
+        <button
+          className="primary wide"
+          disabled={gold < details.repairCost}
+          onClick={() => void gameClient.repair(building.id)}
+        >
+          🔧 Repair · {formatAmount(details.repairCost)} g
+        </button>
+      )}
 
       {details.inputs.length > 0 && (
         <section>

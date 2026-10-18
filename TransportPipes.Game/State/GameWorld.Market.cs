@@ -30,7 +30,7 @@ public sealed partial class GameWorld
 
     /// <summary>What the hub of a district pays for a resource</summary>
     public double HubBuyPrice(DistrictCoord district, string resource) =>
-        Math.Round(BasePrice(resource) * (_markets.TryGetValue(district, out var market) ? market.Multiplier(resource) : 1), 4);
+        Math.Round(BasePrice(resource) * (_markets.TryGetValue(district, out var market) ? market.Multiplier(resource) : 1) * EventPriceFactor(district, resource), 4);
 
     /// <summary>What the hub of a district charges for a resource</summary>
     public double HubSellPrice(DistrictCoord district, string resource) => HubBuyPrice(district, resource) * Content.Progression.HubSpread;
@@ -189,7 +189,8 @@ public sealed partial class GameWorld
 
     /// <summary>What a hub wants per minute of a resource before its price drops</summary>
     public double HubDemand(DistrictCoord district, string resource) =>
-        (Content.Resources.TryGetValue(resource, out var definition) ? definition.Demand : 0) * Math.Max(1, ActiveCompanies(district)) * Math.Pow(1.5, Era - 1);
+        (Content.Resources.TryGetValue(resource, out var definition) ? definition.Demand : 0) * Math.Max(1, ActiveCompanies(district)) * Math.Pow(1.5, Era - 1)
+        * EventDemandFactor(district, resource);
 
     private void UpdateMarkets()
     {

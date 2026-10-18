@@ -605,7 +605,7 @@
   unlock: { level: 10 }
   cost: { gold: 6000 }
   buildSeconds: 300
-  description: One more manager slot, and repairs storm damage nearby.
+  description: One more manager slot, and repairs your storm damage when the storm is over.
 
 - id: weatherStation
   name: Weather Station
@@ -615,7 +615,7 @@
   unlock: { level: 18 }
   cost: { gold: 15000 }
   buildSeconds: 300
-  description: Forecasts the weather 24 hours ahead and halves storm damage.
+  description: Shows the event calendar three days ahead instead of one, and halves the risk of storm damage.
 
 - id: recycler
   name: Recycler

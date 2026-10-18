@@ -24,4 +24,7 @@ public class DbBuilding
 
     /// <summary>Valves: the resources that pass (jsonb)</summary>
     public string Filter { get; set; } = "[]";
+
+    /// <summary>Storm damage: half speed until repaired</summary>
+    public bool Damaged { get; set; }
 }

@@ -66,6 +66,9 @@ namespace TransportPipes.Database.Migrations
                         .IsRequired()
                         .HasColumnType("jsonb");
 
+                    b.Property<bool>("Damaged")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Filter")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -519,6 +522,12 @@ namespace TransportPipes.Database.Migrations
 
                     b.Property<int>("Era")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Events")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValueSql("'{}'::jsonb");
 
                     b.Property<string>("Exchange")
                         .IsRequired()

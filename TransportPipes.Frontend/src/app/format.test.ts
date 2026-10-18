@@ -54,3 +54,10 @@ describe("plural", () => {
     expect(plural(2, "company", "companies")).toBe("2 companies");
   });
 });
+
+describe("formatDuration in hours", () => {
+  it("never shows 60 minutes", () => {
+    expect(formatDuration(2 * 3600 - 1)).toBe("2 h");
+    expect(formatDuration(3600 + 90 * 60 - 20)).toBe("2 h 30 min");
+  });
+});

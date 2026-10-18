@@ -26,6 +26,7 @@ public sealed partial class GameWorld
     private void NewDay()
     {
         _likesToday.Clear();
+        PlanEvents();
         foreach (var company in _companies.Values.Where(t => !t.IsNpc && t.LastSeenAt >= LastTick - ActivePeriod))
         {
             EnsureOrders(company);
@@ -35,11 +36,18 @@ public sealed partial class GameWorld
     /// <summary>Gives a company today's orders when it doesn't have them yet</summary>
     public void EnsureOrders(Company company)
     {
-        if (company.DailyOrders.Count != 0 && company.DailyOrders.All(t => t.ExpiresAt > LastTick))
+        var removed = company.DailyOrders.RemoveAll(t => t.Urgent && t.ExpiresAt <= LastTick);
+        var daily = company.DailyOrders.Where(t => !t.Urgent).ToList();
+        if (daily.Count != 0 && daily.All(t => t.ExpiresAt > LastTick))
         {
+            if (removed > 0)
+            {
+                company.Touch();
+                Changes.Companies.Add(company.Id);
+            }
             return;
         }
-        company.DailyOrders = GenerateOrders(company);
+        company.DailyOrders = [.. GenerateOrders(company), .. company.DailyOrders.Where(t => t.Urgent)];
         company.Touch();
         Changes.Companies.Add(company.Id);
     }

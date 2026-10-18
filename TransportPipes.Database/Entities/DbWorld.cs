@@ -16,4 +16,7 @@ public class DbWorld
 
     /// <summary>The Exchange: open orders and shipments on their way (jsonb)</summary>
     public string Exchange { get; set; } = "{}";
+
+    /// <summary>Planned and running events, and the days they were planned for (jsonb)</summary>
+    public string Events { get; set; } = "{}";
 }

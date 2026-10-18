@@ -24,6 +24,9 @@ public class TransportPipesOptions
     /// </summary>
     public bool Tenants { get; set; } = true;
 
+    /// <summary>Weather and hub events (GDD §15)</summary>
+    public bool Events { get; set; } = true;
+
     /// <summary>
     /// The gold a new company starts with; empty means the value from the content files (progression.yaml)
     /// </summary>

@@ -231,6 +231,7 @@ export class GameConnection {
   removePipes = (tiles: number[]) => this.invoke<CommandResult>("RemovePipes", tiles);
   upgrade = (building: number, levels: number) => this.invoke<CommandResult>("Upgrade", building, levels);
   demolish = (building: number) => this.invoke<CommandResult>("Demolish", building);
+  repair = (building: number) => this.invoke<CommandResult>("Repair", building);
   move = (building: number, x: number, y: number) => this.invoke<CommandResult>("Move", building, x, y);
   buyParcel = (parcel: number) => this.invoke<CommandResult>("BuyParcel", parcel);
   setSellPrice = (resource: string, price: number | null) =>
