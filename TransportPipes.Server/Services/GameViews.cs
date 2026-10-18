@@ -178,12 +178,15 @@ public static class GameViews
 
     public static NetworkFlowsDto Flows(GameWorld world, Network network)
     {
-        var links = network.Links.ToDictionary(t => (Math.Min(t.A, t.B), Math.Max(t.A, t.B)));
         var flows = new List<FlowDto>();
         foreach (var flow in network.Solution.Flows)
         {
             var path = new List<int>();
-            if (links.TryGetValue((Math.Min(flow.From, flow.To), Math.Max(flow.From, flow.To)), out var link))
+            var link = network.Links
+                .Where(t => t.Connects(flow.From, flow.To) && t.Allows(flow.Resource))
+                .OrderByDescending(t => t.Priority).ThenByDescending(t => t.Efficiency)
+                .FirstOrDefault();
+            if (link != null)
             {
                 var tiles = link.A == flow.From ? link.Path : link.Path.Reverse();
                 foreach (var tile in tiles)
@@ -250,6 +253,8 @@ public static class GameViews
             definition.Kind == BuildingKind.Storage ? world.StorageCapacity(building, definition) : null,
             definition.Kind == BuildingKind.TradingPost ? world.TradingPostThroughput(building, definition) : null,
             definition.Kind == BuildingKind.TradingPost ? building.Imports.OrderBy(t => t).ToList() : null,
+            definition.Kind == BuildingKind.Valve ? building.Filter.OrderBy(t => t).ToList() : null,
+            network?.PumpFactor ?? 1,
             upgradable ? world.UpgradeCost(building, 1) : null,
             upgradable ? world.UpgradeCost(building, Math.Min(10, maxLevels)) : null,
             affordable,
@@ -311,6 +316,72 @@ public static class GameViews
             }
         }
         return issues;
+    }
+
+    public static NetworkDetailsDto NetworkDetails(GameWorld world, Network network)
+    {
+        var solution = network.Solution;
+        var isMachine = new Dictionary<long, bool>();
+        bool Machine(long id) => isMachine.TryGetValue(id, out var v) ? v
+            : isMachine[id] = world.Building(id) is { } b && world.Content.Building(b.Type).Kind is not (BuildingKind.Storage or BuildingKind.TradingPost);
+
+        var resources = new Dictionary<string, double[]>();
+        double[] Row(string resource) => resources.TryGetValue(resource, out var row) ? row : resources[resource] = new double[8];
+        foreach (var flow in solution.Flows)
+        {
+            var row = Row(flow.Resource);
+            if (Machine(flow.From))
+            {
+                row[0] += flow.Sent;
+            }
+            if (Machine(flow.To) && flow.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.FromStorage or FlowKind.Import)
+            {
+                row[1] += flow.Delivered;
+            }
+            switch (flow.Kind)
+            {
+                case FlowKind.Sale: row[2] += flow.Delivered; break;
+                case FlowKind.Import: row[3] += flow.Sent; break;
+                case FlowKind.Trade: row[4] += flow.Delivered; break;
+                case FlowKind.ToStorage: row[5] += flow.Delivered; break;
+                case FlowKind.FromStorage: row[6] += flow.Sent; break;
+            }
+            row[7] += flow.Sent - flow.Delivered;
+        }
+
+        var used = new Dictionary<FlowLink, double>(ReferenceEqualityComparer.Instance);
+        foreach (var flow in solution.Flows)
+        {
+            var link = network.Links
+                .Where(t => t.Connects(flow.From, flow.To) && t.Allows(flow.Resource))
+                .OrderByDescending(t => t.Priority).ThenByDescending(t => t.Efficiency)
+                .FirstOrDefault();
+            if (link != null)
+            {
+                used[link] = (used.TryGetValue(link, out var v) ? v : 0) + flow.Sent;
+            }
+        }
+        var bottlenecks = used
+            .Where(t => t.Key.Capacity < 1e12 && t.Value >= t.Key.Capacity * 0.999)
+            .Select(t => new BottleneckDto(t.Key.A, t.Key.B, t.Key.Capacity, t.Value, t.Key.Path.SelectMany(p => new[] { p.X, p.Y }).ToList()))
+            .ToList();
+
+        var owners = network.Owners(world)
+            .Select(world.Company)
+            .OfType<Company>()
+            .Select(t => new NetworkOwnerDto(t.Id, t.Name, t.Color, solution.GoldPerMinute.TryGetValue(t.Id, out var g) ? g : 0))
+            .ToList();
+        var pumps = network.Buildings.Count(t => world.Building(t) is { } b && world.Content.Building(b.Type).Kind == BuildingKind.Pump);
+
+        return new NetworkDetailsDto(
+            network.Id,
+            network.Buildings.Count(t => world.Building(t) is { } b && !world.Content.Building(b.Type).IsConductor),
+            network.Conductors.Count,
+            pumps,
+            network.PumpFactor,
+            owners,
+            resources.OrderBy(t => t.Key).Select(t => new NetworkResourceDto(t.Key, t.Value[0], t.Value[1], t.Value[2], t.Value[3], t.Value[4], t.Value[5], t.Value[6], t.Value[7])).ToList(),
+            bottlenecks);
     }
 
     public static ToastDto Toast(WorldEvent worldEvent) => new(Camel(worldEvent.Kind), worldEvent.Text, worldEvent.Building);

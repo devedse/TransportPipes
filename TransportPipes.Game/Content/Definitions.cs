@@ -91,7 +91,8 @@ public sealed class BuildingDefinition
     public string? Sprite { get; init; }
     public string Description { get; init; } = "";
 
-    public bool IsConductor => Kind is BuildingKind.Gate or BuildingKind.Valve or BuildingKind.PriorityValve or BuildingKind.Pump or BuildingKind.TollMeter;
+    /// <summary>Sits in a pipe and carries resources like a pipe tile (valves, toll meters)</summary>
+    public bool IsConductor => Kind is BuildingKind.Gate or BuildingKind.Valve or BuildingKind.PriorityValve or BuildingKind.TollMeter;
 }
 
 public enum ResearchBranch

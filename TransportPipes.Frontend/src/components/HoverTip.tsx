@@ -52,7 +52,7 @@ export function HoverTip() {
     }
   } else if (tool.kind === "pipe" && company !== null) {
     if (route !== null && route.length > 0) {
-      const tiles = newPipeTiles(world, company, route);
+      const tiles = newPipeTiles(world, company, route, content);
       const tier = content.pipeTiers.find((t) => t.tier === tool.tier);
       const gold = pipeGold(world, tiles, tier?.gold ?? 2);
       text = `${tiles.length} pipe tiles · ${formatAmount(gold)} g · release to build`;

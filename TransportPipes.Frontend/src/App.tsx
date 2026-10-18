@@ -8,7 +8,10 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { FoundCompany } from "./components/FoundCompany";
 import { GameCanvas } from "./components/GameCanvas";
 import { HoverTip } from "./components/HoverTip";
+import { NetworkPanel } from "./components/NetworkPanel";
+import { OverlayBar } from "./components/OverlayBar";
 import { ParcelPanel } from "./components/ParcelPanel";
+import { PipeTierBar } from "./components/PipeTierBar";
 import { ReportDialog } from "./components/ReportDialog";
 import { ResearchPanel } from "./components/ResearchPanel";
 import { Toasts } from "./components/Toasts";
@@ -46,10 +49,17 @@ function useShortcuts() {
             gameClient.setTool({ kind: "select" });
           } else if (state.buildMenuOpen) {
             setState({ buildMenuOpen: false });
+          } else if (state.selectedNetwork !== null) {
+            gameClient.selectNetwork(null);
           } else {
             gameClient.select(null);
           }
           break;
+        case "o": {
+          const order = ["none", "deposits", "wind", "sun", "owners"] as const;
+          setState({ overlay: order[(order.indexOf(state.overlay) + 1) % order.length]! });
+          break;
+        }
         case "b":
           setState({ buildMenuOpen: !state.buildMenuOpen });
           break;
@@ -108,6 +118,15 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="BuildingPanel">
             <BuildingPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="NetworkPanel">
+            <NetworkPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="OverlayBar">
+            <OverlayBar />
+          </ErrorBoundary>
+          <ErrorBoundary name="PipeTierBar">
+            <PipeTierBar />
           </ErrorBoundary>
           <ErrorBoundary name="ParcelPanel">
             <ParcelPanel />

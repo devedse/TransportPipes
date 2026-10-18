@@ -117,6 +117,9 @@ public sealed class Building : Entity
     /// <summary>Trading post: resources it buys from the hub when its company needs them</summary>
     public HashSet<string> Imports { get; init; } = new();
 
+    /// <summary>Valve: the only resources that pass (empty: everything passes)</summary>
+    public HashSet<string> Filter { get; init; } = new();
+
     public bool UnderConstruction => ConstructionEndsAt != null;
 
     public TilePos Position => new(X, Y);

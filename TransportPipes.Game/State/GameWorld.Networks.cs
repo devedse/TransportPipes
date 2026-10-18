@@ -18,6 +18,9 @@ public sealed class Network
     public FlowSolution Solution { get; set; } = FlowSolution.Empty;
     public bool NeedsSolve { get; set; } = true;
 
+    /// <summary>Buildings run at this fraction when the network has too few pump stations</summary>
+    public double PumpFactor { get; set; } = 1;
+
     /// <summary>The companies with buildings in this network</summary>
     public IEnumerable<long> Owners(GameWorld world) => Buildings.Select(t => world.Building(t)!.Owner).Distinct();
 
@@ -106,6 +109,16 @@ public sealed partial class GameWorld
     }
 
     private static readonly (int X, int Y)[] Directions = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+
+    /// <summary>Buildings a network may have per pump station (plus one free batch)</summary>
+    public const int BuildingsPerPump = 50;
+
+    /// <summary>A building that sits in a pipe and carries resources like one (valves, toll meters)</summary>
+    private bool IsConductorBuilding(Building building) => !building.UnderConstruction && Content.Building(building.Type).IsConductor;
+
+    private bool IsConductorTile(TilePos pos) =>
+        (_conductors.TryGetValue(pos, out var conductor) && Conducts(conductor))
+        || (_buildingAt.TryGetValue(pos, out var id) && IsConductorBuilding(_buildings[id]));
 
     /// <summary>Rebuilds the networks around everything that changed (other networks keep their solution)</summary>
     private void UpdateNetworks()
@@ -212,7 +225,16 @@ public sealed partial class GameWorld
             if (network.Buildings.Add(id))
             {
                 _networkOfBuilding[id] = network.Id;
-                buildings.Enqueue(id);
+                var building = _buildings[id];
+                if (IsConductorBuilding(building))
+                {
+                    // A valve is part of the pipe
+                    VisitTile(building.Position);
+                }
+                else
+                {
+                    buildings.Enqueue(id);
+                }
             }
         }
 
@@ -232,13 +254,13 @@ public sealed partial class GameWorld
                 foreach (var (dx, dy) in Directions)
                 {
                     var next = tile.Offset(dx, dy);
-                    if (_conductors.TryGetValue(next, out var conductor) && Conducts(conductor))
-                    {
-                        VisitTile(next);
-                    }
-                    else if (_buildingAt.TryGetValue(next, out var buildingId))
+                    if (_buildingAt.TryGetValue(next, out var buildingId))
                     {
                         VisitBuilding(buildingId);
+                    }
+                    else if (_conductors.TryGetValue(next, out var conductor) && Conducts(conductor))
+                    {
+                        VisitTile(next);
                     }
                 }
             }
@@ -246,7 +268,11 @@ public sealed partial class GameWorld
             {
                 foreach (var border in _buildings[id].Border())
                 {
-                    if (_conductors.TryGetValue(border, out var conductor) && Conducts(conductor))
+                    if (_buildingAt.TryGetValue(border, out var other) && IsConductorBuilding(_buildings[other]))
+                    {
+                        VisitBuilding(other);
+                    }
+                    else if (_conductors.TryGetValue(border, out var conductor) && Conducts(conductor))
                     {
                         VisitTile(border);
                     }
@@ -279,15 +305,31 @@ public sealed partial class GameWorld
         return (tier.LossPerTile, tier.Throughput * (1 + ThroughputBonus(conductor.Owner)));
     }
 
+    private readonly record struct TileStats(double Loss, double Throughput, IReadOnlySet<string>? Filter, bool Priority);
+
+    private TileStats StatsOf(TilePos tile)
+    {
+        if (_conductors.TryGetValue(tile, out var conductor))
+        {
+            var (loss, throughput) = ConductorStats(conductor);
+            return new TileStats(loss, throughput, null, false);
+        }
+        var building = _buildings[_buildingAt[tile]];
+        var definition = Content.Building(building.Type);
+        return new TileStats(0, double.MaxValue, definition.Kind == BuildingKind.Valve && building.Filter.Count > 0 ? building.Filter : null, definition.Kind == BuildingKind.PriorityValve);
+    }
+
     /// <summary>
     /// The links between the buildings of a network: for every pair of buildings touching the same pipe group the path
-    /// with the least loss, its efficiency and the smallest throughput on it.
+    /// with the least loss, its efficiency and the smallest throughput on it. With valves in the network the links are
+    /// made per resource (a valve only lets its resources through).
     /// </summary>
     private List<FlowLink> BuildLinks(Network network)
     {
-        var best = new Dictionary<(long, long), FlowLink>();
+        var stats = network.Conductors.ToDictionary(t => t, StatsOf);
+        var members = network.Buildings.Where(t => !IsConductorBuilding(_buildings[t])).OrderBy(t => t).ToList();
         var touching = new Dictionary<TilePos, List<long>>();
-        foreach (var id in network.Buildings)
+        foreach (var id in members)
         {
             foreach (var border in _buildings[id].Border())
             {
@@ -305,69 +347,90 @@ public sealed partial class GameWorld
             }
         }
 
-        foreach (var from in network.Buildings.OrderBy(t => t))
+        // Without valves one set of links carries everything, otherwise every resource has its own
+        List<string?> resources = [null];
+        if (stats.Values.Any(t => t.Filter != null))
         {
-            // Dijkstra over the pipe tiles, cost = -log(efficiency) so the best path has the highest efficiency
-            var cost = new Dictionary<TilePos, double>();
-            var previous = new Dictionary<TilePos, TilePos>();
-            var queue = new PriorityQueue<TilePos, double>();
-            foreach (var border in _buildings[from].Border().Where(network.Conductors.Contains).Distinct())
-            {
-                var start = -Math.Log(1 - ConductorStats(_conductors[border]).Loss);
-                cost[border] = start;
-                queue.Enqueue(border, start);
-            }
+            resources = members
+                .Select(t => Content.Building(_buildings[t].Type))
+                .SelectMany(t => t.In.Keys.Concat(t.Out.Keys).Concat(t.OutFromDeposit))
+                .Where(t => t != GameContent.ResearchPoints)
+                .Distinct()
+                .Order(StringComparer.Ordinal)
+                .Cast<string?>()
+                .ToList();
+        }
 
-            var done = new HashSet<TilePos>();
-            while (queue.TryDequeue(out var tile, out var c))
+        var best = new Dictionary<(long, long, string?), FlowLink>();
+        foreach (var resource in resources)
+        {
+            bool Passable(TilePos tile) => resource == null || stats[tile].Filter is not { } filter || filter.Contains(resource);
+            IReadOnlySet<string>? only = resource == null ? null : new HashSet<string> { resource };
+
+            foreach (var from in members)
             {
-                if (!done.Add(tile))
+                // Dijkstra over the pipe tiles, cost = -log(efficiency) so the best path has the highest efficiency
+                var cost = new Dictionary<TilePos, double>();
+                var previous = new Dictionary<TilePos, TilePos>();
+                var queue = new PriorityQueue<TilePos, double>();
+                foreach (var border in _buildings[from].Border().Where(t => network.Conductors.Contains(t) && Passable(t)).Distinct())
                 {
-                    continue;
+                    var start = -Math.Log(1 - stats[border].Loss);
+                    cost[border] = start;
+                    queue.Enqueue(border, start);
                 }
-                foreach (var (dx, dy) in Directions)
+
+                var done = new HashSet<TilePos>();
+                while (queue.TryDequeue(out var tile, out var c))
                 {
-                    var next = tile.Offset(dx, dy);
-                    if (!network.Conductors.Contains(next) || done.Contains(next))
+                    if (!done.Add(tile))
                     {
                         continue;
                     }
-                    var nextCost = c - Math.Log(1 - ConductorStats(_conductors[next]).Loss);
-                    if (!cost.TryGetValue(next, out var known) || nextCost < known - 1e-12)
+                    foreach (var (dx, dy) in Directions)
                     {
-                        cost[next] = nextCost;
-                        previous[next] = tile;
-                        queue.Enqueue(next, nextCost);
+                        var next = tile.Offset(dx, dy);
+                        if (!network.Conductors.Contains(next) || done.Contains(next) || !Passable(next))
+                        {
+                            continue;
+                        }
+                        var nextCost = c - Math.Log(1 - stats[next].Loss);
+                        if (!cost.TryGetValue(next, out var known) || nextCost < known - 1e-12)
+                        {
+                            cost[next] = nextCost;
+                            previous[next] = tile;
+                            queue.Enqueue(next, nextCost);
+                        }
                     }
                 }
-            }
 
-            foreach (var (tile, others) in touching)
-            {
-                if (!done.Contains(tile))
+                foreach (var (tile, others) in touching)
                 {
-                    continue;
-                }
-                foreach (var to in others)
-                {
-                    if (to <= from)
+                    if (!done.Contains(tile))
                     {
                         continue;
                     }
-                    var path = new List<TilePos> { tile };
-                    var capacity = ConductorStats(_conductors[tile]).Throughput;
-                    var current = tile;
-                    while (previous.TryGetValue(current, out var p))
+                    foreach (var to in others)
                     {
-                        path.Add(p);
-                        capacity = Math.Min(capacity, ConductorStats(_conductors[p]).Throughput);
-                        current = p;
-                    }
-                    path.Reverse();
-                    var link = new FlowLink(from, to, Math.Exp(-cost[tile]), capacity, path);
-                    if (!best.TryGetValue((from, to), out var existing) || link.Efficiency > existing.Efficiency + 1e-12)
-                    {
-                        best[(from, to)] = link;
+                        if (to <= from)
+                        {
+                            continue;
+                        }
+                        var path = new List<TilePos> { tile };
+                        var capacity = stats[tile].Throughput;
+                        var current = tile;
+                        while (previous.TryGetValue(current, out var p))
+                        {
+                            path.Add(p);
+                            capacity = Math.Min(capacity, stats[p].Throughput);
+                            current = p;
+                        }
+                        path.Reverse();
+                        var link = new FlowLink(from, to, Math.Exp(-cost[tile]), capacity, path, only, path.Any(t => stats[t].Priority));
+                        if (!best.TryGetValue((from, to, resource), out var existing) || link.Efficiency > existing.Efficiency + 1e-12)
+                        {
+                            best[(from, to, resource)] = link;
+                        }
                     }
                 }
             }
@@ -484,6 +547,17 @@ public sealed partial class GameWorld
     private void Solve(Network network)
     {
         var nodes = network.Buildings.Select(t => ToFlowNode(_buildings[t])).OfType<FlowNode>().ToList();
+
+        // Every 50 buildings need a pump station; without enough of them everything runs slower
+        var counted = nodes.Count(t => t.Kind == FlowNodeKind.Building);
+        var pumps = network.Buildings.Count(t => _buildings[t] is { UnderConstruction: false } b && Content.Building(b.Type).Kind == BuildingKind.Pump);
+        var allowed = BuildingsPerPump * (1 + pumps);
+        network.PumpFactor = counted > allowed ? allowed / (double)counted : 1;
+        if (network.PumpFactor < 1)
+        {
+            nodes = nodes.Select(t => t.Kind == FlowNodeKind.Building && Content.Building(_buildings[t.Id].Type).Kind != BuildingKind.Pump ? t.WithMaxRate(t.MaxRate * network.PumpFactor) : t).ToList();
+        }
+
         var ids = nodes.Select(t => t.Id).ToHashSet();
         var links = network.Links.Where(t => ids.Contains(t.A) && ids.Contains(t.B)).ToList();
         network.Solution = nodes.Count < 2 ? FlowSolution.Empty : FlowSolver.Solve(nodes, links, Market);

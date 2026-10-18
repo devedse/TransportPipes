@@ -203,7 +203,15 @@ export class GameClient {
         company: state.company,
         era: state.era,
         tool: state.tool,
+        overlay: state.overlay,
         selectedBuilding: state.selectedBuilding,
+        selectedNetwork:
+          state.selectedNetwork === null
+            ? null
+            : {
+                id: state.selectedNetwork,
+                bottlenecks: state.networkDetails?.bottlenecks.map((t) => t.path) ?? [],
+              },
         serverOffsetMs: state.serverOffsetMs,
       };
     },
@@ -283,7 +291,7 @@ export class GameClient {
     if (state.company === null || this.world === null || state.tool.kind !== "pipe") {
       return;
     }
-    const tiles = newPipeTiles(this.world, state.company, route);
+    const tiles = newPipeTiles(this.world, state.company, route, state.content ?? undefined);
     if (tiles.length === 0) {
       return;
     }
@@ -300,6 +308,11 @@ export class GameClient {
     const state = appStore.getState();
     if (building !== undefined) {
       this.select(building.id);
+      return;
+    }
+    const conductor = this.world?.conductorAt(tile.x, tile.y);
+    if (conductor !== undefined && conductor.network !== null) {
+      this.selectNetwork(conductor.network);
       return;
     }
     const company = state.company;
@@ -320,10 +333,54 @@ export class GameClient {
 
   select(id: number | null) {
     this.stopDetails();
-    setState({ selectedBuilding: id, buildingDetails: null, selectedParcel: null });
+    setState({
+      selectedBuilding: id,
+      buildingDetails: null,
+      selectedParcel: null,
+      selectedNetwork: null,
+      networkDetails: null,
+    });
     if (id !== null) {
       void this.refreshDetails();
       this.detailsTimer = window.setInterval(() => void this.refreshDetails(), DETAILS_REFRESH_MS);
+    }
+  }
+
+  selectNetwork(id: number | null) {
+    this.stopDetails();
+    setState({
+      selectedNetwork: id,
+      networkDetails: null,
+      selectedBuilding: null,
+      buildingDetails: null,
+      selectedParcel: null,
+    });
+    if (id !== null) {
+      void this.refreshNetwork();
+      this.detailsTimer = window.setInterval(() => void this.refreshNetwork(), DETAILS_REFRESH_MS);
+    }
+  }
+
+  async refreshNetwork() {
+    const id = appStore.getState().selectedNetwork;
+    if (id === null || this.connection.status !== "connected") {
+      return;
+    }
+    const details = await this.connection.getNetwork(id).catch(() => null);
+    if (appStore.getState().selectedNetwork !== id) {
+      return;
+    }
+    if (details === null) {
+      // The network was rebuilt (a pipe changed): it has a new id
+      this.selectNetwork(null);
+      return;
+    }
+    setState({ networkDetails: details });
+  }
+
+  async setValveFilter(building: number, resource: string, enabled: boolean) {
+    if (await this.command(this.connection.setValveFilter(building, resource, enabled))) {
+      await this.refreshDetails();
     }
   }
 

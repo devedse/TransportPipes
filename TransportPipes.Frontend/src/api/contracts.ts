@@ -214,6 +214,8 @@ export interface BuildingDetailsDto {
   capacity: number | null;
   throughput: number | null;
   imports: string[] | null;
+  filter: string[] | null;
+  pumpFactor: number;
   upgradeCost: number | null;
   upgradeCost10: number | null;
   maxAffordableLevels: number;
@@ -368,4 +370,27 @@ export interface GameContentDto {
     terrain: TerrainType[];
     richnessMultiplier: number[];
   };
+}
+
+export interface NetworkResourceDto {
+  resource: string;
+  produced: number;
+  used: number;
+  sold: number;
+  imported: number;
+  traded: number;
+  stored: number;
+  fromStorage: number;
+  lost: number;
+}
+
+export interface NetworkDetailsDto {
+  id: number;
+  buildings: number;
+  pipes: number;
+  pumps: number;
+  pumpFactor: number;
+  owners: Array<{ id: number; name: string; color: string; goldPerMinute: number }>;
+  resources: NetworkResourceDto[];
+  bottlenecks: Array<{ a: number; b: number; capacity: number; used: number; path: number[] }>;
 }

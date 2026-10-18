@@ -59,11 +59,15 @@ internal sealed class TestGame
         ['F'] = "smallFactory",
         ['O'] = "storage",
         ['T'] = "tradingPost",
+        ['V'] = "valve",
+        ['P'] = "priorityValve",
+        ['U'] = "pumpStation",
     };
 
     /// <summary>
     /// Puts a map like the original game's tests on the world, without any placement rules: W wind moily, S solar panel,
-    /// M iron mine, F small factory, O storage, T trading post, + pipe (lossless by default, like the original game).
+    /// M iron mine, F small factory, O storage, T trading post, V valve, P priority valve, U pump station, + pipe
+    /// (lossless by default, like the original game).
     /// Returns the buildings by their map position.
     /// </summary>
     public Dictionary<(int X, int Y), Building> Map(Company company, TilePos origin, string map, int pipeTier = 5)

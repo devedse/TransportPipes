@@ -122,6 +122,7 @@ public sealed class WorldStore
                 ConstructionEndsAt = row.ConstructionEndsAt,
                 Contents = JsonSerializer.Deserialize<Dictionary<string, double>>(row.Contents, Json) ?? new(),
                 Imports = JsonSerializer.Deserialize<HashSet<string>>(row.Imports, Json) ?? new(),
+                Filter = JsonSerializer.Deserialize<HashSet<string>>(row.Filter, Json) ?? new(),
             });
         }
 
@@ -212,6 +213,7 @@ public sealed class WorldStore
                 ConstructionEndsAt = building.ConstructionEndsAt,
                 Contents = JsonSerializer.Serialize(building.Contents, Json),
                 Imports = JsonSerializer.Serialize(building.Imports, Json),
+                Filter = JsonSerializer.Serialize(building.Filter, Json),
             }));
         }
 

@@ -173,14 +173,43 @@ export function canPlace(
   return { ok: true, reason: null, multiplier: locationMultiplier(content, world, definition, x, y) };
 }
 
-/** Whether a pipe may go on this tile for this company, and what it costs relative to plain land */
-export function pipeCost(world: WorldModel, company: CompanyDto, x: number, y: number): number | null {
-  const conductor = world.conductorAt(x, y);
-  if (conductor !== undefined) {
-    // Own pipes and gates are already there; other companies' corridor pipes can't be crossed
-    return conductor.owner === company.id ? 0.15 : null;
+/** Building kinds that sit in a pipe and carry resources (a pipe route may go through your own) */
+const CONDUCTOR_KINDS = new Set(["valve", "priorityValve", "tollMeter"]);
+
+/** Whether this tile already carries your resources: your pipe, gate, valve */
+export function isOwnConductor(
+  world: WorldModel,
+  company: CompanyDto,
+  x: number,
+  y: number,
+  content?: Content,
+): boolean {
+  if (world.conductorAt(x, y)?.owner === company.id) {
+    return true;
   }
-  if (world.buildingAt(x, y) !== undefined) {
+  const building = world.buildingAt(x, y);
+  return (
+    building !== undefined &&
+    building.owner === company.id &&
+    building.constructionEndsAt === null &&
+    content !== undefined &&
+    CONDUCTOR_KINDS.has(content.building(building.type)?.kind ?? "")
+  );
+}
+
+/** Whether a pipe may go on this tile for this company, and what it costs relative to plain land */
+export function pipeCost(
+  world: WorldModel,
+  company: CompanyDto,
+  x: number,
+  y: number,
+  content?: Content,
+): number | null {
+  if (isOwnConductor(world, company, x, y, content)) {
+    return 0.15;
+  }
+  if (world.conductorAt(x, y) !== undefined || world.buildingAt(x, y) !== undefined) {
+    // Other companies' corridor pipes can't be crossed
     return null;
   }
   const zone = zoneAt(x, y);
@@ -200,9 +229,13 @@ export function routePipe(
   company: CompanyDto,
   from: { x: number; y: number },
   to: { x: number; y: number },
+  content?: Content,
   limit = 4000,
 ): Array<{ x: number; y: number }> | null {
-  if (pipeCost(world, company, from.x, from.y) === null || pipeCost(world, company, to.x, to.y) === null) {
+  if (
+    pipeCost(world, company, from.x, from.y, content) === null ||
+    pipeCost(world, company, to.x, to.y, content) === null
+  ) {
     return null;
   }
   const key = (x: number, y: number) => `${x},${y}`;
@@ -240,7 +273,7 @@ export function routePipe(
     ] as const) {
       const nx = current.x + dx;
       const ny = current.y + dy;
-      const step = pipeCost(world, company, nx, ny);
+      const step = pipeCost(world, company, nx, ny, content);
       if (step === null) {
         continue;
       }
@@ -256,13 +289,14 @@ export function routePipe(
   return null;
 }
 
-/** The tiles of a route that need a new pipe (own pipes and gates are already there) */
+/** The tiles of a route that need a new pipe (own pipes, gates and valves are already there) */
 export function newPipeTiles(
   world: WorldModel,
   company: CompanyDto,
   route: Array<{ x: number; y: number }>,
+  content?: Content,
 ): Array<{ x: number; y: number }> {
-  return route.filter((t) => world.conductorAt(t.x, t.y)?.owner !== company.id);
+  return route.filter((t) => !isOwnConductor(world, company, t.x, t.y, content));
 }
 
 /** Gold for laying pipes on these tiles (bridges over water cost three times as much) */

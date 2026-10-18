@@ -909,6 +909,87 @@ kbd {
   color: var(--gold);
 }
 
+/* ---------- Network, overlays, pipe tiers ---------- */
+
+.network-panel {
+  position: absolute;
+  top: 82px;
+  right: var(--gap);
+  width: min(400px, calc(100vw - 24px));
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+  display: grid;
+  gap: 12px;
+}
+
+.network-panel h4 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.network-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.network-table th {
+  color: var(--text-muted);
+  font-weight: 600;
+  text-align: right;
+}
+
+.network-table td {
+  text-align: right;
+  padding: 2px 4px;
+}
+
+.network-table td:first-child {
+  text-align: left;
+  white-space: nowrap;
+}
+
+.network-table td.warning {
+  color: var(--warning);
+}
+
+.overlay-bar {
+  position: absolute;
+  top: 82px;
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  gap: 5px;
+  padding: 6px;
+}
+
+.pipe-tiers {
+  position: absolute;
+  bottom: 120px;
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+}
+
+.tier {
+  display: grid;
+  text-align: left;
+  gap: 1px;
+  min-width: 140px;
+}
+
+.tier.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
 /* ---------- Research ---------- */
 
 .research-panel {

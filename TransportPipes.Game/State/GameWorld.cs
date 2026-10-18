@@ -894,6 +894,30 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
+    /// <summary>Which resources a valve lets through (none chosen: everything)</summary>
+    public CommandResult SetValveFilter(long companyId, long buildingId, string resource, bool enabled)
+    {
+        if (Building(buildingId) is not { } building || building.Owner != companyId || Content.Building(building.Type).Kind != BuildingKind.Valve)
+        {
+            return CommandResult.Fail("That is not your valve.");
+        }
+        if (!Content.Resources.ContainsKey(resource))
+        {
+            return CommandResult.Fail("Unknown resource.");
+        }
+        if (enabled)
+        {
+            building.Filter.Add(resource);
+        }
+        else
+        {
+            building.Filter.Remove(resource);
+        }
+        building.Touch();
+        MarkDirty(building);
+        return CommandResult.Ok;
+    }
+
     public CommandResult SetGatePolicy(long companyId, GateSide side, GatePolicy policy)
     {
         if (Company(companyId) is not { } company || EstateOf(company) is not { } estate)

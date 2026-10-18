@@ -164,6 +164,9 @@ public sealed class GameHub : Hub<IGameClient>
             return world.Networks.Where(t => wanted.Contains(t.Id)).Select(t => GameViews.Flows(world, t)).ToList();
         }, changesWorld: false);
 
+    public Task<NetworkDetailsDto?> GetNetwork(int id) =>
+        _world.RunAsync(world => world.Networks.FirstOrDefault(t => t.Id == id) is { } network ? GameViews.NetworkDetails(world, network) : null, changesWorld: false);
+
     public Task<BuildingDetailsDto?> GetBuilding(long id) =>
         _world.RunAsync(world => world.Building(id) is { } building ? GameViews.BuildingDetails(world, building) : null, changesWorld: false);
 
@@ -267,6 +270,9 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<CommandResultDto> SetImport(long building, string resource, bool enabled) =>
         Command((world, company) => world.SetImport(company, building, resource, enabled));
+
+    public Task<CommandResultDto> SetValveFilter(long building, string resource, bool enabled) =>
+        Command((world, company) => world.SetValveFilter(company, building, resource, enabled));
 
     public Task<CommandResultDto> SetGatePolicy(string side, string policy) =>
         Command((world, company) => Enum.TryParse<GateSide>(side, true, out var s) && Enum.TryParse<GatePolicy>(policy, true, out var p)

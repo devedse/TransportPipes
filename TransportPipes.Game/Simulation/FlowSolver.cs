@@ -37,22 +37,22 @@ public sealed class FlowSolver
         {
             _neighbours[node.Id] = new List<(long, FlowLink)>();
         }
-        // One link per pair of nodes: the one with the least loss
-        var best = new Dictionary<(long, long), FlowLink>();
+        // One link per pair of nodes (and set of resources): the one with the least loss
+        var best = new Dictionary<string, FlowLink>();
         foreach (var link in links)
         {
             if (link.A == link.B || !_nodes.ContainsKey(link.A) || !_nodes.ContainsKey(link.B))
             {
                 continue;
             }
-            var key = (Math.Min(link.A, link.B), Math.Max(link.A, link.B));
+            var key = link.Signature;
             if (!best.TryGetValue(key, out var existing) || link.Efficiency > existing.Efficiency
                 || (link.Efficiency == existing.Efficiency && link.Capacity > existing.Capacity))
             {
                 best[key] = link;
             }
         }
-        foreach (var link in best.Values.OrderBy(t => Math.Min(t.A, t.B)).ThenBy(t => Math.Max(t.A, t.B)))
+        foreach (var link in best.Values.OrderBy(t => t.Signature, StringComparer.Ordinal))
         {
             _neighbours[link.A].Add((link.B, link));
             _neighbours[link.B].Add((link.A, link));
@@ -108,7 +108,7 @@ public sealed class FlowSolver
                     if (!HasUnlimitedSource(building, resource))
                     {
                         var potential = allocation.Received(building.Id, resource);
-                        foreach (var (other, link) in _neighbours[building.Id])
+                        foreach (var (other, link) in Neighbours(building.Id, resource))
                         {
                             var supplier = _nodes[other];
                             if (supplier.Kind == FlowNodeKind.Building && supplier.Out.ContainsKey(resource) && Eligible(supplier, building, resource))
@@ -129,12 +129,12 @@ public sealed class FlowSolver
                     var fraction = 1.0;
                     foreach (var (resource, amount) in building.Out)
                     {
-                        if (HasSink(building))
+                        if (HasSink(building, resource))
                         {
                             continue;
                         }
                         var potential = allocation.SentToBuildings(building.Id, resource);
-                        foreach (var (other, link) in _neighbours[building.Id])
+                        foreach (var (other, link) in Neighbours(building.Id, resource))
                         {
                             var buyer = _nodes[other];
                             if (buyer.Kind == FlowNodeKind.Building && buyer.In.ContainsKey(resource) && Eligible(building, buyer, resource))
@@ -241,18 +241,38 @@ public sealed class FlowSolver
         return _market.BuyerMaxPrice(consumer.Owner, resource) >= price - Epsilon && _market.TradeAllowed(supplier.Owner, consumer.Owner, resource);
     }
 
+    private readonly Dictionary<(long, string), List<(long Other, FlowLink Link)>> _neighboursByResource = new();
+
+    /// <summary>
+    /// The nodes a resource can reach from this node, each with the link it takes: a priority link when there is one,
+    /// otherwise the one with the least loss
+    /// </summary>
+    private List<(long Other, FlowLink Link)> Neighbours(long node, string resource)
+    {
+        if (!_neighboursByResource.TryGetValue((node, resource), out var result))
+        {
+            result = _neighbours[node]
+                .Where(t => t.Link.Allows(resource))
+                .GroupBy(t => t.Other)
+                .Select(t => t.OrderByDescending(n => n.Link.Priority).ThenByDescending(n => n.Link.Efficiency).ThenByDescending(n => n.Link.Capacity).First())
+                .ToList();
+            _neighboursByResource[(node, resource)] = result;
+        }
+        return result;
+    }
+
     /// <summary>An own storage with this resource or an own trading post that imports it</summary>
     private bool HasUnlimitedSource(FlowNode consumer, string resource) =>
-        _neighbours[consumer.Id].Any(n =>
+        Neighbours(consumer.Id, resource).Any(n =>
         {
             var node = _nodes[n.Other];
             return node.Owner == consumer.Owner
                 && ((node.Kind == FlowNodeKind.Storage && node.StorageContents.Contains(resource)) || (node.Kind == FlowNodeKind.TradingPost && node.Imports.Contains(resource)));
         });
 
-    /// <summary>An own storage that is not full or an own trading post</summary>
-    private bool HasSink(FlowNode producer) =>
-        _neighbours[producer.Id].Any(n =>
+    /// <summary>An own storage that is not full or an own trading post the resource can reach</summary>
+    private bool HasSink(FlowNode producer, string resource) =>
+        Neighbours(producer.Id, resource).Any(n =>
         {
             var node = _nodes[n.Other];
             return node.Owner == producer.Owner
@@ -313,7 +333,8 @@ public sealed class FlowSolver
             var producers = _buildings.Where(t => t.Out.ContainsKey(resource) && offerLeft[(t.Id, resource)] > Epsilon).Select(t => t.Id).ToList();
             var consumers = _buildings.Where(t => t.In.ContainsKey(resource) && demandLeft[(t.Id, resource)] > Epsilon).Select(t => t.Id).ToList();
 
-            // 1. Within the same company
+            // 1. Within the same company: consumers behind a priority valve first
+            Share(resource, producers, consumers, (p, c) => _nodes[p].Owner == _nodes[c].Owner, FlowKind.Internal, (_, _) => 0, priorityOnly: true);
             Share(resource, producers, consumers, (p, c) => _nodes[p].Owner == _nodes[c].Owner, FlowKind.Internal, (_, _) => 0);
 
             // 2. Between companies, cheapest sellers first
@@ -356,7 +377,7 @@ public sealed class FlowSolver
 
         // Sharing between producers and consumers of one resource: every consumer gets the same fraction of its full need,
         // and what a consumer can't use (it is held back by something else) goes to the others
-        void Share(string resource, List<long> producers, List<long> consumers, Func<long, long, bool> eligible, FlowKind kind, Func<long, long, double> price)
+        void Share(string resource, List<long> producers, List<long> consumers, Func<long, long, bool> eligible, FlowKind kind, Func<long, long, double> price, bool priorityOnly = false)
         {
             for (var round = 0; round < 25; round++)
             {
@@ -370,8 +391,8 @@ public sealed class FlowSolver
                     }
                     var consumer = _nodes[c];
                     var fullNeed = Math.Max(need, consumer.In[resource] * consumer.MaxRate);
-                    var options = _neighbours[c]
-                        .Where(n => offerLeft.TryGetValue((n.Other, resource), out var left) && left > Epsilon && CanUse(n.Link) && eligible(n.Other, c))
+                    var options = Neighbours(c, resource)
+                        .Where(n => (!priorityOnly || n.Link.Priority) && offerLeft.TryGetValue((n.Other, resource), out var left) && left > Epsilon && CanUse(n.Link) && eligible(n.Other, c))
                         .Select(n => (P: n.Other, n.Link, Potential: Math.Min(offerLeft[(n.Other, resource)], CapacityLeft(n.Link)) * n.Link.Efficiency))
                         .Where(t => t.Potential > Epsilon)
                         .ToList();
@@ -450,7 +471,7 @@ public sealed class FlowSolver
                 {
                     continue;
                 }
-                var sinks = _neighbours[p].Where(n => isSink(_nodes[n.Other]) && _nodes[n.Other].Owner == _nodes[p].Owner && CanUse(n.Link)).ToList();
+                var sinks = Neighbours(p, resource).Where(n => isSink(_nodes[n.Other]) && _nodes[n.Other].Owner == _nodes[p].Owner && CanUse(n.Link)).ToList();
                 if (sinks.Count == 0)
                 {
                     continue;
@@ -478,7 +499,7 @@ public sealed class FlowSolver
                 {
                     continue;
                 }
-                var sources = _neighbours[c].Where(n => isSource(_nodes[n.Other]) && _nodes[n.Other].Owner == _nodes[c].Owner && CanUse(n.Link)).ToList();
+                var sources = Neighbours(c, resource).Where(n => isSource(_nodes[n.Other]) && _nodes[n.Other].Owner == _nodes[c].Owner && CanUse(n.Link)).ToList();
                 if (sources.Count == 0)
                 {
                     continue;
@@ -503,17 +524,18 @@ public sealed class FlowSolver
             {
                 // Everything this post could sell or import, before the throughput limit
                 var wanted = new List<(long Other, string Resource, FlowLink Link, double Amount, bool Sale)>();
-                foreach (var (other, link) in _neighbours[post.Id])
+                foreach (var other in _neighbours[post.Id].Select(t => t.Other).Distinct())
                 {
                     var node = _nodes[other];
-                    if (node.Owner != post.Owner || node.Kind != FlowNodeKind.Building || !CanUse(link))
+                    if (node.Owner != post.Owner || node.Kind != FlowNodeKind.Building)
                     {
                         continue;
                     }
                     foreach (var resource in node.Out.Keys)
                     {
                         var left = offerLeft[(other, resource)];
-                        if (left > Epsilon)
+                        var link = Neighbours(post.Id, resource).FirstOrDefault(t => t.Other == other).Link;
+                        if (left > Epsilon && link != null && CanUse(link))
                         {
                             wanted.Add((other, resource, link, left, true));
                         }
@@ -521,7 +543,8 @@ public sealed class FlowSolver
                     foreach (var resource in node.In.Keys)
                     {
                         var need = demandLeft[(other, resource)];
-                        if (need > Epsilon && post.Imports.Contains(resource))
+                        var link = Neighbours(post.Id, resource).FirstOrDefault(t => t.Other == other).Link;
+                        if (need > Epsilon && post.Imports.Contains(resource) && link != null && CanUse(link))
                         {
                             wanted.Add((other, resource, link, need / link.Efficiency, false));
                         }
@@ -537,7 +560,7 @@ public sealed class FlowSolver
                 var scale = Math.Min(1, post.Throughput / total);
                 foreach (var (other, resource, link, amount, sale) in wanted)
                 {
-                    var reachingPosts = posts.Count(p => p.Owner == post.Owner && _neighbours[other].Any(n => n.Other == p.Id));
+                    var reachingPosts = posts.Count(p => p.Owner == post.Owner && Neighbours(other, resource).Any(n => n.Other == p.Id));
                     var share = sale ? Math.Min(amount * scale, offerLeft[(other, resource)] / Math.Max(1, reachingPosts)) : amount * scale;
                     var sent = Math.Min(share, CapacityLeft(link));
                     if (sent <= Epsilon)

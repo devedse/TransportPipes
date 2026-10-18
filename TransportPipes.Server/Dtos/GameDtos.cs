@@ -104,6 +104,8 @@ public record BuildingDetailsDto(
     double? Capacity,
     double? Throughput,
     IReadOnlyList<string>? Imports,
+    IReadOnlyList<string>? Filter,
+    double PumpFactor,
     double? UpgradeCost,
     double? UpgradeCost10,
     int MaxAffordableLevels,
@@ -113,3 +115,19 @@ public record BuildingDetailsDto(
     IReadOnlyList<string> Issues);
 
 public record ToastDto(string Kind, string Text, long? Building);
+
+public record NetworkResourceDto(string Resource, double Produced, double Used, double Sold, double Imported, double Traded, double Stored, double FromStorage, double Lost);
+
+public record NetworkOwnerDto(long Id, string Name, string Color, double GoldPerMinute);
+
+public record BottleneckDto(long A, long B, double Capacity, double Used, IReadOnlyList<int> Path);
+
+public record NetworkDetailsDto(
+    int Id,
+    int Buildings,
+    int Pipes,
+    int Pumps,
+    double PumpFactor,
+    IReadOnlyList<NetworkOwnerDto> Owners,
+    IReadOnlyList<NetworkResourceDto> Resources,
+    IReadOnlyList<BottleneckDto> Bottlenecks);

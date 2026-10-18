@@ -11,6 +11,7 @@ import type {
   GatePolicy,
   GateSide,
   HelloDto,
+  NetworkDetailsDto,
   NetworkFlowsDto,
   ResearchStateDto,
   ToastDto,
@@ -178,6 +179,7 @@ export class GameConnection {
   getDistrict = (x: number, y: number) => this.invoke<DistrictDto>("GetDistrict", x, y);
   getFlows = (networks: number[]) => this.invoke<NetworkFlowsDto[]>("GetFlows", networks);
   getBuilding = (id: number) => this.invoke<BuildingDetailsDto | null>("GetBuilding", id);
+  getNetwork = (id: number) => this.invoke<NetworkDetailsDto | null>("GetNetwork", id);
   getCompany = () => this.invoke<CompanyDto | null>("GetCompany");
   getResearch = () => this.invoke<ResearchStateDto[]>("GetResearch");
   startResearch = (tech: string) => this.invoke<CommandResult>("StartResearch", tech);
@@ -197,4 +199,7 @@ export class GameConnection {
     this.invoke<CommandResult>("SetImport", building, resource, enabled);
   setGatePolicy = (side: GateSide, policy: GatePolicy) =>
     this.invoke<CommandResult>("SetGatePolicy", side, policy);
+  setValveFilter = (building: number, resource: string, enabled: boolean) =>
+    this.invoke<CommandResult>("SetValveFilter", building, resource, enabled);
+  cheat = (what: string) => this.invoke<CommandResult>("Cheat", what);
 }

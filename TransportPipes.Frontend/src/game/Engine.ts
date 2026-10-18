@@ -30,12 +30,17 @@ export type Tool =
   | { kind: "bulldoze" }
   | { kind: "move"; building: number };
 
+export type Overlay = "none" | "owners" | "wind" | "sun" | "deposits";
+
 export interface EngineState {
   content: Content;
   company: CompanyDto | null;
   era: number;
   tool: Tool;
+  overlay: Overlay;
   selectedBuilding: number | null;
+  /** The network shown in the inspector, with the paths of its full links */
+  selectedNetwork: { id: number; bottlenecks: number[][] } | null;
   /** Milliseconds to add to Date.now() to get the server's clock */
   serverOffsetMs: number;
 }
@@ -77,6 +82,22 @@ export function tileCenter(x: number, y: number): { x: number; y: number } {
   return { x: anchor.x + TILE_WIDTH, y: anchor.y - TILE_HEIGHT / 2 };
 }
 
+/** Blue (0) to red (1) */
+function heat(t: number): number {
+  const r = Math.round(40 + 215 * t);
+  const g = Math.round(120 + 80 * Math.sin(Math.PI * t));
+  const b = Math.round(255 - 215 * t);
+  return (r << 16) | (g << 8) | b;
+}
+
+/** Dim grey-blue (0) to bright yellow (1) */
+function sunHeat(t: number): number {
+  const r = Math.round(70 + 185 * t);
+  const g = Math.round(80 + 150 * t);
+  const b = Math.round(120 - 90 * t);
+  return (r << 16) | (g << 8) | b;
+}
+
 function traceFootprint(g: Graphics, x: number, y: number, size: number) {
   const top = diagonalToScreen(x, y);
   const right = diagonalToScreen(x + size - 1, y);
@@ -109,6 +130,7 @@ class ChunkView {
   readonly cx: number;
   readonly cy: number;
   ground: Container | null = null;
+  overlay: Graphics | null = null;
   mini: Sprite | null = null;
   objects: ObjectView[] = [];
   loaded = false;
@@ -130,6 +152,8 @@ export class Engine {
   private readonly groundLayer = new Container();
   private readonly miniLayer = new Container();
   private readonly estateLayer = new Container();
+  private readonly overlayLayer = new Container();
+  private overlay: Overlay = "none";
   private readonly highlightLayer = new Graphics();
   private readonly objectLayer = new Container({ sortableChildren: true });
   private readonly flowLayer = new Container();
@@ -190,6 +214,7 @@ export class Engine {
     this.worldLayer.addChild(
       this.groundLayer,
       this.miniLayer,
+      this.overlayLayer,
       this.estateLayer,
       this.highlightLayer,
       this.objectLayer,
@@ -198,6 +223,8 @@ export class Engine {
       this.labelLayer,
     );
     app.stage.addChild(this.worldLayer);
+    // The far view starts hidden (it is switched when the zoom crosses FAR_ZOOM)
+    this.miniLayer.visible = false;
     this.registerInput(app.canvas);
     app.ticker.add(this.update, this);
     this.removeListeners.push(
@@ -459,7 +486,7 @@ export class Engine {
       return;
     }
     const end = this.camera.screenToTile(this.pointerX, this.pointerY);
-    const route = routePipe(this.world, state.company, this.pipeStart, end);
+    const route = routePipe(this.world, state.company, this.pipeStart, end, state.content);
     this.pipeRoute = route;
     this.callbacks.onPipeRoute(route);
   }
@@ -490,6 +517,14 @@ export class Engine {
     }
 
     this.streamChunks();
+    const overlay = this.callbacks.getState().overlay;
+    if (overlay !== this.overlay) {
+      this.overlay = overlay;
+      this.flowLayer.alpha = overlay === "none" ? 1 : 0.35;
+      for (const chunk of this.chunks.values()) {
+        this.drawOverlay(chunk);
+      }
+    }
     for (const key of this.dirtyChunks) {
       const chunk = this.chunks.get(key);
       if (chunk !== undefined) {
@@ -630,6 +665,8 @@ export class Engine {
   private clearChunk(chunk: ChunkView) {
     chunk.ground?.destroy({ children: true });
     chunk.ground = null;
+    chunk.overlay?.destroy();
+    chunk.overlay = null;
     if (chunk.mini !== null) {
       chunk.mini.texture.destroy(true);
       chunk.mini.destroy();
@@ -657,6 +694,7 @@ export class Engine {
     this.clearChunk(chunk);
     this.drawGround(chunk);
     this.drawMini(chunk);
+    this.drawOverlay(chunk);
     this.drawObjects(chunk);
     if (firstTime) {
       // Pipes on the edge of the neighbours connect to this chunk's objects
@@ -708,6 +746,75 @@ export class Engine {
     ground.cullable = true;
     chunk.ground = ground;
     this.groundLayer.addChild(ground);
+  }
+
+  /** Colours over the terrain: who owns what, wind, sun or deposits */
+  private drawOverlay(chunk: ChunkView) {
+    chunk.overlay?.destroy();
+    chunk.overlay = null;
+    if (this.overlay === "none" || !chunk.loaded) {
+      return;
+    }
+    const g = new Graphics();
+    const content = this.callbacks.getState().content;
+    const x0 = chunk.cx * CHUNK_SIZE;
+    const y0 = chunk.cy * CHUNK_SIZE;
+    const ownerColors = new Map<number, string>();
+    for (const district of this.world.districts.values()) {
+      for (const estate of district.estates) {
+        if (estate.ownerId !== null && estate.ownerColor !== null) {
+          ownerColors.set(estate.ownerId, estate.ownerColor);
+        }
+      }
+    }
+    for (let y = y0; y < y0 + CHUNK_SIZE; y++) {
+      for (let x = x0; x < x0 + CHUNK_SIZE; x++) {
+        const tile = this.world.tile(x, y);
+        if (tile === null) {
+          continue;
+        }
+        let color: string | number | null = null;
+        let alpha = 0.5;
+        switch (this.overlay) {
+          case "wind":
+          case "sun": {
+            if (tile.terrain === "water" || tile.terrain === "road" || tile.terrain === "city") {
+              break;
+            }
+            // Most estates are between 0.8 and 1.4: that range gets the whole scale
+            const value = this.overlay === "wind" ? tile.wind : tile.sun;
+            const t = Math.max(0, Math.min(1, (value - 0.8) / 0.6));
+            color = this.overlay === "wind" ? heat(t) : sunHeat(t);
+            alpha = 0.68;
+            break;
+          }
+          case "deposits":
+            if (tile.deposit !== null) {
+              color = content.resourceColor(tile.deposit);
+              alpha = 0.45 + tile.richness * 0.1;
+            } else {
+              color = 0x0b1d24;
+              alpha = 0.6;
+            }
+            break;
+          case "owners": {
+            const building = this.world.buildingAt(x, y);
+            const owner = building?.owner ?? this.world.conductorAt(x, y)?.owner;
+            if (owner !== undefined) {
+              color = ownerColors.get(owner) ?? "#ffffff";
+              alpha = 0.7;
+            }
+            break;
+          }
+        }
+        if (color !== null) {
+          traceFootprint(g, x, y, 1);
+          g.fill({ color, alpha });
+        }
+      }
+    }
+    chunk.overlay = g;
+    this.overlayLayer.addChild(g);
   }
 
   /** The far view of a chunk: one small picture of its terrain and buildings */
@@ -1346,6 +1453,20 @@ export class Engine {
       return;
     }
     const state = this.callbacks.getState();
+    if (state.selectedNetwork !== null) {
+      for (const conductor of this.world.conductors.values()) {
+        if (conductor.network === state.selectedNetwork.id) {
+          traceFootprint(g, conductor.x, conductor.y, 1);
+        }
+      }
+      g.fill({ color: 0x6cb4ee, alpha: 0.35 + Math.sin(this.time * 3) * 0.1 });
+      for (const path of state.selectedNetwork.bottlenecks) {
+        for (let i = 0; i < path.length; i += 2) {
+          traceFootprint(g, path[i]!, path[i + 1]!, 1);
+        }
+      }
+      g.fill({ color: 0xef6f6c, alpha: 0.55 });
+    }
     if (state.selectedBuilding !== null) {
       const building = this.world.buildings.get(state.selectedBuilding);
       if (building !== undefined) {

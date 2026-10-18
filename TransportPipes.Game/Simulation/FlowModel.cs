@@ -43,13 +43,38 @@ public sealed class FlowNode
     /// <summary>Trading post: resources it may buy from the hub</summary>
     public IReadOnlySet<string> Imports { get; init; } = new HashSet<string>();
 
+    public FlowNode WithMaxRate(double maxRate) => new()
+    {
+        Id = Id,
+        Owner = Owner,
+        Kind = Kind,
+        In = In,
+        Out = Out,
+        MaxRate = maxRate,
+        ResearchPerMinute = ResearchPerMinute,
+        StorageCanAccept = StorageCanAccept,
+        StorageContents = StorageContents,
+        Throughput = Throughput,
+        PriceBonus = PriceBonus,
+        Imports = Imports,
+    };
+
     public override string ToString() => $"#{Id} ({Kind}, owner {Owner})";
 }
 
-/// <summary>Two nodes that share a pipe group: resources can flow between them (in both directions)</summary>
-public sealed record FlowLink(long A, long B, double Efficiency, double Capacity, IReadOnlyList<TilePos> Path)
+/// <summary>
+/// Two nodes that share a pipe group: resources can flow between them (in both directions).
+/// Resources: only these pass (valves on the way); null = everything. Priority: the path crosses a priority valve, its
+/// consumers are served first.
+/// </summary>
+public sealed record FlowLink(long A, long B, double Efficiency, double Capacity, IReadOnlyList<TilePos> Path, IReadOnlySet<string>? Resources = null, bool Priority = false)
 {
     public bool Connects(long x, long y) => (A == x && B == y) || (A == y && B == x);
+
+    public bool Allows(string resource) => Resources == null || Resources.Contains(resource);
+
+    /// <summary>Links that differ only in efficiency (same nodes, resources and priority) compete: the best one wins</summary>
+    internal string Signature => $"{Math.Min(A, B)}-{Math.Max(A, B)}-{(Resources == null ? "*" : string.Join(",", Resources.Order(StringComparer.Ordinal)))}-{Priority}";
 }
 
 /// <summary>Prices and trade rules the solver needs</summary>

@@ -71,6 +71,7 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
             building.Property(t => t.Type).HasMaxLength(40);
             building.Property(t => t.Contents).HasColumnType("jsonb");
             building.Property(t => t.Imports).HasColumnType("jsonb");
+            building.Property(t => t.Filter).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
             building.HasIndex(t => t.OwnerId);
         });
 

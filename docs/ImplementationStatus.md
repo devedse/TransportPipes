@@ -30,10 +30,10 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 ### M2 · Industry
 
-- ⬜ All Era 1 resources and buildings with art
-- ⬜ Research and Labs, research tree UI, knowledge diffusion
-- ⬜ Pipe tiers, losses, throughput, valves, priority valves, pump stations
-- ⬜ Network inspector, overlays (flow, ownership, losses, climate, deposits)
+- ✅ All Era 1 resources and buildings with art (procedural art for the whole catalog)
+- ✅ Research and Labs: 45 techs in four branches (Eras 1–5 and the late game), research tree UI, knowledge diffusion, output and throughput bonuses
+- ✅ Pipe tiers (with their materials), losses, throughput, valves (resource filters), priority valves, pump stations (one per 50 buildings)
+- ✅ Network inspector (resources made/used/sold/stored/lost, full connections in red), overlays (deposits, wind, sun, owners)
 
 ### M3 · Economy
 
@@ -86,3 +86,7 @@ Changes to [GameDesign.md](GameDesign.md) that came up while building; the desig
 | 2026-10-18 | Shares within a tier are water-filled: same fraction of need for everyone, unused shares go to others | Proportional shares left energy unused when one consumer was limited by another input |
 | 2026-10-18 | Storages and trading posts only serve their owner (in the original game a storage bought from anyone) | Your storage should never pay for a neighbour's surplus |
 | 2026-10-18 | Smoke, rotors and machine animations only run while a building works; idle buildings show "zz" and the panel says why | Players see at a glance what is not connected |
+| 2026-10-18 | A valve with no resources chosen lets everything through | A new valve should not silently cut a working pipe |
+| 2026-10-18 | Priority valve: consumers whose pipe path crosses it are served first (within your own company) | Simple to understand, works in both directions |
+| 2026-10-18 | Pump stations: the first 50 buildings of a network are free, every pump station adds 50; above that everything runs proportionally slower | No hard failure, a gentle push to use pumps |
+| 2026-10-18 | Big Factory, Steel Mill, Wire Mill, Silo, Showroom, Refinery, Circuit Fab, Assembly, Robots and Superconductor Lab need their tech (as in the GDD tree) | The research tree unlocks them |

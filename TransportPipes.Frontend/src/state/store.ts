@@ -1,9 +1,16 @@
 import { createStore } from "zustand/vanilla";
 import { useStore } from "zustand";
-import type { BuildingDetailsDto, CompanyDto, ReportDto, ResearchStateDto, UserInfo } from "../api/contracts";
+import type {
+  BuildingDetailsDto,
+  CompanyDto,
+  NetworkDetailsDto,
+  ReportDto,
+  ResearchStateDto,
+  UserInfo,
+} from "../api/contracts";
 import type { ConnectionStatus } from "../api/server";
 import type { Content } from "../game/content";
-import type { Tool } from "../game/Engine";
+import type { Overlay, Tool } from "../game/Engine";
 import type { TilePosition } from "../game/isometric";
 import type { Placement } from "../game/rules";
 
@@ -33,6 +40,9 @@ export interface AppState {
   selectedBuilding: number | null;
   buildingDetails: BuildingDetailsDto | null;
   selectedParcel: number | null;
+  selectedNetwork: number | null;
+  networkDetails: NetworkDetailsDto | null;
+  overlay: Overlay;
   hoverTile: TilePosition | null;
   placement: Placement | null;
   pipeRoute: TilePosition[] | null;
@@ -61,6 +71,9 @@ export const initialState: AppState = {
   selectedBuilding: null,
   buildingDetails: null,
   selectedParcel: null,
+  selectedNetwork: null,
+  networkDetails: null,
+  overlay: "none",
   hoverTile: null,
   placement: null,
   pipeRoute: null,

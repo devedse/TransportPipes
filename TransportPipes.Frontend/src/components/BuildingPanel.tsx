@@ -199,6 +199,38 @@ export function BuildingPanel() {
         </section>
       )}
 
+      {details.filter !== null && (
+        <section>
+          <h4>Valve · {details.filter.length === 0 ? "everything passes" : "only these pass"}</h4>
+          {mine && (
+            <div className="import-grid">
+              {content.resources
+                .filter((r) => r.era <= 2)
+                .map((resource) => {
+                  const enabled = details.filter?.includes(resource.id) ?? false;
+                  return (
+                    <label key={resource.id} className="check">
+                      <input
+                        type="checkbox"
+                        checked={enabled}
+                        onChange={() => void gameClient.setValveFilter(building.id, resource.id, !enabled)}
+                      />
+                      {resource.name}
+                    </label>
+                  );
+                })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {details.pumpFactor < 1 && (
+        <p className="status idle">
+          Its network needs more pump stations: everything in it runs at{" "}
+          {Math.round(details.pumpFactor * 100)}%.
+        </p>
+      )}
+
       <Flows details={details} content={content} />
 
       {mine && details.upgradeCost !== null && !underConstruction && (
