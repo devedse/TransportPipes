@@ -4,7 +4,11 @@ namespace TransportPipes.Game.State;
 
 public sealed partial class GameWorld
 {
-    public const double MaxContractDays = 30;
+    public const double BaseContractDays = 7;
+    public const double FuturesContractDays = 30;
+
+    /// <summary>Contracts run at most a week; Futures allows a fixed price up to 30 days ahead</summary>
+    public double MaxContractDays(Company company) => HasResearch(company, "futures") ? FuturesContractDays : BaseContractDays;
 
     private readonly Dictionary<long, Contract> _contracts = new();
 
@@ -52,9 +56,9 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("Choose an amount per minute.");
         }
-        if (days is < 1 or > MaxContractDays)
+        if (days < 1 || days > MaxContractDays(company))
         {
-            return CommandResult.Fail($"A contract runs 1 to {MaxContractDays} days.");
+            return CommandResult.Fail($"A contract runs 1 to {MaxContractDays(company)} days{(HasResearch(company, "futures") ? "" : " (Futures allows longer ones)")}.");
         }
         var basePrice = HubBuyPrice(company.District, resource);
         if (price < basePrice * 0.5 || price > HubSellPrice(company.District, resource) * 1.2)

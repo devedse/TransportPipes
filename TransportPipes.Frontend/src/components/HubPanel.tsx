@@ -261,6 +261,15 @@ export function HubPanel() {
                     </td>
                     <td>
                       {row.buyPrice.toFixed(2)} <Trend row={row} />
+                      {row.heading !== null && Math.abs(row.heading - row.buyPrice) > 0.005 && (
+                        <span
+                          className={row.heading > row.buyPrice ? "trend up" : "trend down"}
+                          title="Market Insight: where the hub price is heading"
+                        >
+                          {" "}
+                          → {row.heading.toFixed(2)}
+                        </span>
+                      )}
                     </td>
                     <td>{row.sellPrice.toFixed(2)}</td>
                     <td className="muted">
@@ -334,9 +343,10 @@ function ExchangeTab({ serverNow }: { serverNow: number }) {
   return (
     <div className="exchange">
       <p className="muted small">
-        Trade with anyone in the district without a pipe. Sell orders hold their goods from your storages, buy
-        orders hold their gold. Goods go by cargo (faster with a Cargo Depot); the seller pays a{" "}
-        {Math.round(exchange.fee * 100)}% fee that disappears.
+        Trade with anyone {exchange.global ? "at every hub (Global Exchange)" : "in the district"} without a
+        pipe. Sell orders hold their goods from your storages, buy orders hold their gold. Goods go by cargo
+        (faster with a Cargo Depot and Trains); the seller pays a {Math.round(exchange.fee * 100)}% fee that
+        disappears.
       </p>
       {!exchange.hasOffice ? (
         <p className="status idle">Build an Exchange Office (Company Level 12) to place orders.</p>

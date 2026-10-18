@@ -26,6 +26,13 @@ public sealed class HubMarket
     /// <summary>The price multiplier the hub pays with now (the last announced one, so all networks agree)</summary>
     public double Multiplier(string resource) => Announced.TryGetValue(resource, out var m) ? m : 1;
 
+    /// <summary>Market Insight: the multiplier the next updates move towards, with what was sold lately</summary>
+    public double Heading(string resource, double demand)
+    {
+        var rate = SoldRate.TryGetValue(resource, out var r) ? r : 0;
+        return rate <= 1e-9 ? MaxMultiplier : Math.Round(Math.Clamp(Math.Sqrt(demand / rate), MinMultiplier, MaxMultiplier), 3);
+    }
+
     public void AddSold(string resource, double amount) =>
         SoldSinceUpdate[resource] = (SoldSinceUpdate.TryGetValue(resource, out var v) ? v : 0) + amount;
 

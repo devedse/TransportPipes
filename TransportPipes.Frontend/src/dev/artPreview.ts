@@ -74,6 +74,10 @@ if (only === null || only === "hub") {
   ] as const) {
     show(`corporationHq ${level}`, drawHubStructure("corporationHq", 3, { label, color, level }).canvas);
   }
+  show(
+    "billboard",
+    drawHubStructure("billboard", 2, { label: "Pipe Dreams Inc", color: "#aa3355", level: 0 }).canvas,
+  );
   for (const variant of [
     "clockTower",
     "grandFountain",

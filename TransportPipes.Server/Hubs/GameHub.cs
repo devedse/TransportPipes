@@ -660,6 +660,9 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> SetBuildingSetting(long building, double value) =>
         Command((world, company) => world.SetBuildingSetting(company, building, value));
 
+    public Task<CommandResultDto> SetShowroomProduct(long building, string resource) =>
+        Command((world, company) => world.SetShowroomProduct(company, building, resource));
+
     public Task<CommandResultDto> SetValveFilter(long building, string resource, bool enabled) =>
         Command((world, company) => world.SetValveFilter(company, building, resource, enabled));
 

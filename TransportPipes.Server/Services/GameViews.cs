@@ -99,7 +99,8 @@ public static class GameViews
                     world.BuyMaxPrice(company, t.Id),
                     company.NoTrade.Contains(t.Id),
                     low,
-                    high);
+                    high,
+                    world.HubPriceHeading(company, t.Id));
             })
             .ToList();
         return new MarketDto(district.X, district.Y, WorldNames.District(district), resources, GameWorld.NextMarketUpdate(world.Now));
@@ -296,6 +297,9 @@ public static class GameViews
             HubStructures(world, district));
     }
 
+    /// <summary>The two billboards of a hub: the richest companies of the district with the Brand tech</summary>
+    private static readonly (int X, int Y)[] Billboards = [(9, 9), (20, 17)];
+
     /// <summary>The 4 lots of the corporation quarter, by HQ level</summary>
     private static readonly (int X, int Y)[] HqLots = [(0, 0), (4, 0), (0, 4), (4, 4)];
 
@@ -317,6 +321,18 @@ public static class GameViews
                 continue;
             }
             structures.Add(new HubStructureDto(structure.Type, structure.X, structure.Y, structure.Size));
+            if (structure.Type == "marketHall")
+            {
+                var brands = world.Companies
+                    .Where(t => t.District == district && !t.IsNpc && world.HasResearch(t, "brand"))
+                    .OrderByDescending(world.NetWorth)
+                    .Take(Billboards.Length)
+                    .ToList();
+                for (var i = 0; i < brands.Count; i++)
+                {
+                    structures.Add(new HubStructureDto("billboard", Billboards[i].X, Billboards[i].Y, 2, brands[i].Name, brands[i].Color));
+                }
+            }
             if (structure.Type != "corporationQuarter")
             {
                 continue;
@@ -615,7 +631,7 @@ public static class GameViews
             definition.Kind == BuildingKind.Storage ? world.StorageCapacity(building, definition) : null,
             definition.Kind == BuildingKind.TradingPost ? world.TradingPostThroughput(building, definition) : null,
             definition.Kind == BuildingKind.TradingPost ? building.Imports.OrderBy(t => t).ToList() : null,
-            definition.Kind == BuildingKind.Valve ? building.Filter.OrderBy(t => t).ToList() : null,
+            definition.Kind is BuildingKind.Valve or BuildingKind.Showroom ? building.Filter.OrderBy(t => t).ToList() : null,
             network?.PumpFactor ?? 1,
             upgradable ? world.UpgradeCost(building, 1) : null,
             upgradable ? world.UpgradeCost(building, Math.Min(10, maxLevels)) : null,
@@ -939,7 +955,9 @@ public static class GameViews
 
     public static ExchangeDto Exchange(GameWorld world, Company me)
     {
-        var orders = world.ExchangeOrders.Where(t => t.District == me.District).ToList();
+        // Global Exchange: the global orders of every hub as well
+        var global = world.HasResearch(me, "globalExchange");
+        var orders = world.ExchangeOrders.Where(t => t.District == me.District || (global && t.Global)).ToList();
         var books = orders
             .GroupBy(t => t.Resource)
             .OrderBy(t => t.Key)
@@ -955,14 +973,14 @@ public static class GameViews
         var mine = orders
             .Where(t => t.Company == me.Id)
             .OrderByDescending(t => t.Id)
-            .Select(t => new ExchangeOrderDto(t.Id, t.Resource, t.Selling, t.Amount, t.Price, t.CreatedAt, true))
+            .Select(t => new ExchangeOrderDto(t.Id, t.Resource, t.Selling, t.Amount, t.Price, t.CreatedAt, true, t.Global))
             .ToList();
         var shipments = world.Shipments
             .Where(t => t.To == me.Id || t.From == me.Id)
             .OrderBy(t => t.ArrivesAt)
             .Select(t => new ShipmentDto(t.Id, t.Resource, t.Amount, t.ArrivesAt, t.To == me.Id, world.Company(t.To == me.Id ? t.From : t.To)?.Name ?? ""))
             .ToList();
-        return new ExchangeDto(world.HasBuilding(me.Id, BuildingKind.ExchangeOffice), books, mine, shipments, GameWorld.ExchangeFee);
+        return new ExchangeDto(world.HasBuilding(me.Id, BuildingKind.ExchangeOffice), books, mine, shipments, GameWorld.ExchangeFee, global);
     }
 
     public static ToastDto Toast(WorldEvent worldEvent) => new(Camel(worldEvent.Kind), worldEvent.Text, worldEvent.Building);

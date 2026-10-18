@@ -55,6 +55,7 @@ interface Draft {
 function ContractForm({ draft, onDone }: { draft: Draft; onDone: () => void }) {
   const content = useAppStore((s) => s.content)!;
   const neighbours = useAppStore((s) => s.neighbours);
+  const company = useAppStore((s) => s.company);
   const [value, setValue] = useState(draft);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -146,7 +147,7 @@ function ContractForm({ draft, onDone }: { draft: Draft; onDone: () => void }) {
           <input
             type="number"
             min={1}
-            max={30}
+            max={company?.researched.includes("futures") ? 30 : 7}
             step={1}
             value={value.days}
             onChange={(e) => setValue({ ...value, days: Number(e.target.value) })}

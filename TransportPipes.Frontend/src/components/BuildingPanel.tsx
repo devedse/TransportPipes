@@ -215,7 +215,32 @@ export function BuildingPanel() {
         </section>
       )}
 
-      {details.filter !== null && (
+      {definition.kind === "showroom" && details.filter !== null && (
+        <section>
+          <h4>Showroom · partners pay 10% more for</h4>
+          {mine ? (
+            <select
+              value={details.filter[0] ?? ""}
+              onChange={(e) => void gameClient.setShowroomProduct(building.id, e.target.value)}
+            >
+              <option value="">Choose a product…</option>
+              {content.resources
+                .filter((r) => r.id !== "energy")
+                .map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+            </select>
+          ) : (
+            <p className="small">
+              {details.filter[0] !== undefined ? content.resourceName(details.filter[0]) : "Nothing yet"}
+            </p>
+          )}
+        </section>
+      )}
+
+      {definition.kind === "valve" && details.filter !== null && (
         <section>
           <h4>Valve · {details.filter.length === 0 ? "everything passes" : "only these pass"}</h4>
           {mine && (

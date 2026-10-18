@@ -1096,6 +1096,22 @@ function scaffold(k: Iso, u: number, v: number, w: number, d: number, z: number,
   k.line([u + w, v + d, z + h / 2], [u + w, v, z + h / 2], "#b8862f", 3);
 }
 
+/** A hub billboard with a company's name (the Brand tech) */
+function drawBillboard(look: HubStructureLook): BuildingArt {
+  const k = new Iso(2, 2 * 90 + 200);
+  const color = look.color ?? "#2e86de";
+  k.pad(0.2, 0.2, 1.6, 1.6, "#c7b79a");
+  k.line([0.5, 1.2, 0], [0.5, 1.2, 120], "#3a3f45", 6);
+  k.line([1.5, 1.2, 0], [1.5, 1.2, 120], "#3a3f45", 6);
+  k.box(0.2, 1.1, 1.6, 0.12, 90, { top: shade(color, 1.3), left: color, right: shade(color, 0.7) }, 110);
+  k.box(0.2, 1.22, 1.6, 0.03, 6, "#f6c744", 196);
+  if (look.label !== null) {
+    k.text(1.0, 1.3, 160, look.label.length > 12 ? `${look.label.slice(0, 11)}…` : look.label, "#ffffff", 22);
+  }
+  k.attach("glow", 1.0, 1.25, 205, 0.5, "#fff2b0");
+  return { canvas: k.canvas, size: 2, attachments: k.attachments };
+}
+
 /** A crane next to a Wonder under construction */
 function crane(k: Iso, u: number, v: number, h: number) {
   k.lattice(u, v, 0, h, 16, "#e0a020");
@@ -1324,6 +1340,9 @@ export function drawHubStructure(type: string, size: number, look?: HubStructure
   }
   if ((type === "wonderSite" || type === "eraWonderSite") && look?.variant) {
     return drawWonder(look);
+  }
+  if (type === "billboard") {
+    return drawBillboard(look ?? { label: null, color: null, level: 0 });
   }
   const k = new Iso(size, size * 90 + 60);
   const s = size;

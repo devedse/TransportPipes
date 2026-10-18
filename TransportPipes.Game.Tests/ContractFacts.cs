@@ -116,7 +116,7 @@ public class ContractFacts
     {
         var (game, a, b) = Partners();
         StringAssert.Contains(game.World.ProposeContract(a.Id, b.Id, true, "energy", 5, 100, 3).Error, "price between");
-        StringAssert.Contains(game.World.ProposeContract(a.Id, b.Id, true, "energy", 5, 1.5, 60).Error, "1 to 30 days");
+        StringAssert.Contains(game.World.ProposeContract(a.Id, b.Id, true, "energy", 5, 1.5, 60).Error, "1 to 7 days");
         StringAssert.Contains(game.World.ProposeContract(a.Id, b.Id, true, "energy", 0, 1.5, 3).Error, "amount");
         StringAssert.Contains(game.World.ProposeContract(a.Id, a.Id, true, "energy", 5, 1.5, 3).Error, "another company");
         Assert.IsTrue(game.World.ProposeContract(a.Id, b.Id, true, "energy", 5, 1.5, 3).Success);

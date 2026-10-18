@@ -207,7 +207,7 @@
   cost: 3000
   minutes: 90
   requires: [contracts2]
-  description: Contracts with a fixed price in the future.
+  description: Contracts up to 30 days instead of 7, a fixed price far into the future.
 
 # ---------------------------------------------------------------- Era 3
 - id: solarFarm

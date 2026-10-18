@@ -395,8 +395,9 @@ public sealed partial class GameWorld
         }
         if (definition.Kind == BuildingKind.CargoDepot)
         {
-            // Trucks carry everything, without losses, more with every level
-            return new TileStats(0, definition.Throughput * building.Level, null, false);
+            // Trucks carry everything, without losses, more with every level (trains twice as much)
+            var trains = Company(building.Owner) is { } owner && HasResearch(owner, "trains") ? 2 : 1;
+            return new TileStats(0, definition.Throughput * building.Level * trains, null, false);
         }
         return new TileStats(0, double.MaxValue, definition.Kind == BuildingKind.Valve && building.Filter.Count > 0 ? building.Filter : null, definition.Kind == BuildingKind.PriorityValve);
     }
@@ -635,7 +636,7 @@ public sealed partial class GameWorld
     {
         HubBuyPrice = resource => HubBuyPrice(network.District, resource),
         HubSellPrice = resource => HubSellPrice(network.District, resource),
-        SellerPrice = (owner, resource) => Company(owner) is { } company ? SellPrice(company, resource) : HubSellPrice(network.District, resource),
+        SellerPrice = (owner, resource) => Company(owner) is { } company ? SellPrice(company, resource) * ShowroomFactor(company, resource) : HubSellPrice(network.District, resource),
         BuyerMaxPrice = (owner, resource) => Company(owner) is { } company ? BuyMaxPrice(company, resource) : HubSellPrice(network.District, resource),
         TradeAllowed = (seller, buyer, resource) =>
             Company(seller) is { } s && Company(buyer) is { Gold: > 0 } && !s.NoTrade.Contains(resource),

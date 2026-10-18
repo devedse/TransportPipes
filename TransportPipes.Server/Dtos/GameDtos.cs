@@ -89,7 +89,8 @@ public record MarketResourceDto(
     double YourMaxPrice,
     bool NoTrade,
     double BandLow,
-    double BandHigh);
+    double BandHigh,
+    double? Heading);
 
 public record MarketDto(int DistrictX, int DistrictY, string District, IReadOnlyList<MarketResourceDto> Resources, DateTime NextUpdate);
 
@@ -241,13 +242,13 @@ public record ContractDto(
 
 public record ContractsDto(IReadOnlyList<ContractDto> Mine, IReadOnlyList<ContractDto> Board);
 
-public record ExchangeOrderDto(long Id, string Resource, bool Selling, double Amount, double Price, DateTime CreatedAt, bool Mine);
+public record ExchangeOrderDto(long Id, string Resource, bool Selling, double Amount, double Price, DateTime CreatedAt, bool Mine, bool Global);
 
 public record ShipmentDto(long Id, string Resource, double Amount, DateTime ArrivesAt, bool Incoming, string Partner);
 
 public record ExchangeBookDto(string Resource, double BestBid, double BidAmount, double BestAsk, double AskAmount);
 
-public record ExchangeDto(bool HasOffice, IReadOnlyList<ExchangeBookDto> Books, IReadOnlyList<ExchangeOrderDto> Orders, IReadOnlyList<ShipmentDto> Shipments, double Fee);
+public record ExchangeDto(bool HasOffice, IReadOnlyList<ExchangeBookDto> Books, IReadOnlyList<ExchangeOrderDto> Orders, IReadOnlyList<ShipmentDto> Shipments, double Fee, bool Global);
 
 // ---------------------------------------------------------------- Society (M4)
 

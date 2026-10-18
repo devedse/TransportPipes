@@ -16,6 +16,9 @@ public sealed class ExchangeOrder
     public double Amount { get; set; }
     public double Price { get; init; }
     public DateTime CreatedAt { get; init; }
+
+    /// <summary>Global Exchange: it trades with the global orders of every hub</summary>
+    public bool Global { get; init; }
 }
 
 /// <summary>Goods on their way by cargo: they arrive in the buyer's storages</summary>
@@ -66,6 +69,11 @@ public sealed partial class GameWorld
         {
             minutes /= 2;
         }
+        // Trains
+        if (HasResearch(to, "trains") || HasResearch(from, "trains"))
+        {
+            minutes /= 2;
+        }
         // A Lighthouse in the buyer's district
         return TimeSpan.FromMinutes(minutes * WonderCargoFactor(to));
     }
@@ -108,6 +116,7 @@ public sealed partial class GameWorld
             Id = NextOrderId++,
             Company = companyId,
             District = company.District,
+            Global = HasResearch(company, "globalExchange"),
             Resource = resource,
             Selling = selling,
             Amount = amount,
@@ -128,7 +137,7 @@ public sealed partial class GameWorld
     private void Match(ExchangeOrder order)
     {
         var opposite = _orders
-            .Where(t => t.District == order.District && t.Resource == order.Resource && t.Selling != order.Selling && t.Company != order.Company)
+            .Where(t => (t.District == order.District || (t.Global && order.Global)) && t.Resource == order.Resource && t.Selling != order.Selling && t.Company != order.Company)
             .Where(t => order.Selling ? t.Price >= order.Price : t.Price <= order.Price)
             .OrderBy(t => order.Selling ? -t.Price : t.Price).ThenBy(t => t.Id)
             .ToList();

@@ -67,6 +67,7 @@ internal sealed class TestGame
         ['E'] = "exchangeOffice",
         ['C'] = "cargoDepot",
         ['L'] = "powerLinePylon",
+        ['H'] = "showroom",
     };
 
     /// <summary>

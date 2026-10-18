@@ -67,6 +67,34 @@ public sealed partial class GameWorld
         return Math.Round(Math.Clamp(price, low, high), 2);
     }
 
+    /// <summary>A Showroom: partners pay 10% more for the product it shows</summary>
+    public double ShowroomFactor(Company company, string resource) =>
+        BuildingsOf(company.Id).Any(t => !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Showroom && t.Filter.Contains(resource)) ? 1.1 : 1;
+
+    /// <summary>Chooses the one product a Showroom shows</summary>
+    public CommandResult SetShowroomProduct(long companyId, long buildingId, string resource)
+    {
+        if (Building(buildingId) is not { } building || building.Owner != companyId || Content.Building(building.Type).Kind != BuildingKind.Showroom)
+        {
+            return CommandResult.Fail("That is not your Showroom.");
+        }
+        if (!Content.Resources.ContainsKey(resource))
+        {
+            return CommandResult.Fail("Unknown resource.");
+        }
+        building.Filter.Clear();
+        building.Filter.Add(resource);
+        building.Touch();
+        MarkCompanyNetworksDirty(companyId);
+        return CommandResult.Ok;
+    }
+
+    /// <summary>Market Insight: where the hub price of a resource is heading (null without the tech)</summary>
+    public double? HubPriceHeading(Company company, string resource) =>
+        HasResearch(company, "marketInsight")
+            ? Math.Round(BasePrice(resource) * Market(company.District).Heading(resource, HubDemand(company.District, resource)) * EventPriceFactor(company.District, resource), 4)
+            : null;
+
     /// <summary>The companies that buy this resource from a company right now</summary>
     public HashSet<long> PartnersBuying(long companyId, string resource)
     {

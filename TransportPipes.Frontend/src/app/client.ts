@@ -681,6 +681,12 @@ export class GameClient {
     }
   }
 
+  async setShowroomProduct(building: number, resource: string) {
+    if (await this.command(this.connection.setShowroomProduct(building, resource))) {
+      await this.refreshDetails();
+    }
+  }
+
   async setValveFilter(building: number, resource: string, enabled: boolean) {
     if (await this.command(this.connection.setValveFilter(building, resource, enabled))) {
       await this.refreshDetails();

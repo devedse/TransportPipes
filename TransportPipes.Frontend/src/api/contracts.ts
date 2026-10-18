@@ -123,6 +123,8 @@ export interface MarketResourceDto {
   noTrade: boolean;
   bandLow: number;
   bandHigh: number;
+  /** Market Insight: where the hub's buy price is heading */
+  heading: number | null;
 }
 
 export interface MarketDto {
@@ -615,6 +617,7 @@ export interface ExchangeOrderDto {
   price: number;
   createdAt: string;
   mine: boolean;
+  global: boolean;
 }
 
 export interface ShipmentDto {
@@ -640,6 +643,8 @@ export interface ExchangeDto {
   orders: ExchangeOrderDto[];
   shipments: ShipmentDto[];
   fee: number;
+  /** Global Exchange: orders trade with every hub */
+  global: boolean;
 }
 
 // ---------------------------------------------------------------- Society
