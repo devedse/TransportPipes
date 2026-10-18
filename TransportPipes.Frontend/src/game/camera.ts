@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, MAX_ZOOM, MIN_ZOOM, TILE_WIDTH, ZOOM_STEP } from "./constants";
+import { CHUNK_SIZE, MAX_ZOOM, MIN_ZOOM, TILE_WIDTH, ZOOM_FACTOR } from "./constants";
 import { diagonalToScreen, worldToChunk, worldToTile, type Point, type TilePosition } from "./isometric";
 
 export interface ChunkRange {
@@ -15,8 +15,8 @@ export interface WorldRect {
   bottom: number;
 }
 
-/** Tallest sprite in the atlas (the construction site); buildings stick out this far above their tile. */
-const MAX_SPRITE_HEIGHT = 500;
+/** Tallest sprite (the Big Turbine); buildings stick out this far above their tile. */
+const MAX_SPRITE_HEIGHT = 520;
 
 /**
  * Whether any sprite of a chunk can be inside the world rectangle. The chunk range from the
@@ -40,8 +40,8 @@ const INERTIA_DECAY = 1.1;
 const INERTIA_STOP = 0.1;
 
 export function clampZoom(scale: number): number {
-  // Round to one decimal like the original game, so repeated steps don't drift.
-  return Math.round(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, scale)) * 10) / 10;
+  // Rounded so repeated steps in and out end where they started
+  return Math.round(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, scale)) * 10000) / 10000;
 }
 
 /**
@@ -81,7 +81,7 @@ export class Camera {
   }
 
   zoomBy(steps: number, anchorX: number, anchorY: number): boolean {
-    return this.zoomTo(this.scale + steps * ZOOM_STEP, anchorX, anchorY);
+    return this.zoomTo(this.scale * Math.pow(ZOOM_FACTOR, steps), anchorX, anchorY);
   }
 
   /** Centers the camera on a world point for a viewport of the given size. */

@@ -1,99 +1,340 @@
-// The SignalR contract of the TransportHub (TransportPipes.Server). JSON is camelCase.
+// The contract with the server (TransportPipes.Server/Dtos/GameDtos.cs and GameViews.Content). camelCase JSON, enums as
+// camelCase strings.
 
-export const HUB_URL = "/hubs/transport";
-
-/** Plain HTTP endpoint (not part of the hub) with the version of the running server. */
-export const VERSION_URL = "/api/version";
-
-export const GameObjectType = {
-  None: 0,
-  FactorySmall: 1,
-  IronMine: 2,
-  WindMoily: 200,
-  SolarPanel: 201,
-  Storage: 400,
-  TradingBuilding: 450,
-  GreyPipe: 10000,
-} as const;
-
-export type GameObjectTypeValue = (typeof GameObjectType)[keyof typeof GameObjectType];
-
-/** Name the server uses for an empty tile in ChunkData.gameObjects. */
-export const EMPTY_GAME_OBJECT = "none";
-
-export interface LoginResult {
-  success: boolean;
-  message: string;
-  userName: string;
-  userId: number;
-}
-
-export interface ResourceInfo {
-  resourceType: number;
-  resourceTypeName: string;
-  /** Amount per second. */
-  value: number;
-}
-
-export interface GameObjectInfo {
-  gameObjectType: number;
-  gameObjectTypeName: string;
-  price: number;
-  consumptionInfo: ResourceInfo[];
-  productionInfo: ResourceInfo[];
-  buildTimeInSeconds: number;
-}
-
-/** One 8x8 chunk. All arrays are indexed [x][y]. */
-export interface ChunkData {
-  chunkX: number;
-  chunkY: number;
-  /** 0 grass, 1 beach, 2 water. */
-  terrain: number[][];
-  /** Sprite name of the game object on the tile, or "none". */
-  gameObjects: string[][];
-  /** Owner user id per tile (0 = no owner). */
-  owners: number[][];
-}
-
-export interface GoldInfo {
-  userName: string;
-  currentGold: number;
-  goldPerSecond: number;
-}
-
-export type NotificationLevel = "info" | "warning" | "error";
-
-export interface ServerNotification {
-  message: string;
-  level: NotificationLevel;
-  /** null = sticky until dismissed. */
-  durationMs: number | null;
-}
-
-/** GET /api/version */
 export interface VersionInfo {
-  /** e.g. "1.0.5" (master) or "1.0.5-beta" (other branches). */
   version: string;
-  /** The git commit the server was built from, if known. */
   commit: string | null;
 }
 
-/** Methods on the hub that the client invokes, with their return types. */
-export interface ServerMethods {
-  Login: (userName: string, password: string) => LoginResult;
-  Register: (userName: string, password: string, email: string) => LoginResult;
-  GetGameObjectInfos: () => GameObjectInfo[];
-  RequestChunk: (chunkX: number, chunkY: number) => ChunkData;
-  BuildGameObject: (x: number, y: number, gameObjectType: number) => void;
-  DeleteGameObject: (x: number, y: number) => void;
-  GetStatusOfGameObject: (x: number, y: number) => string | null;
-  CalculateMyIncome: () => void;
+export interface UserInfo {
+  id: number;
+  userName: string;
 }
 
-/** Messages the hub pushes to the client. */
-export interface ClientEvents {
-  ChunkUpdated: (chunk: ChunkData) => void;
-  GoldUpdated: (gold: GoldInfo) => void;
-  Notify: (notification: ServerNotification) => void;
+export interface AuthResult {
+  success: boolean;
+  error: string | null;
+  user: UserInfo | null;
+}
+
+export interface CommandResult {
+  success: boolean;
+  error: string | null;
+}
+
+export interface CompanyDto {
+  id: number;
+  name: string;
+  color: string;
+  gold: number;
+  goldPerMinute: number;
+  xp: number;
+  level: number;
+  levelXp: number;
+  nextLevelXp: number;
+  researchPoints: number;
+  researchPerMinute: number;
+  lifetimeEarnings: number;
+  districtX: number;
+  districtY: number;
+  slot: number;
+  estateX: number;
+  estateY: number;
+  unlockedParcels: number;
+  nextParcelCost: number | null;
+  nextParcelLevel: number | null;
+  sellPrices: Record<string, number>;
+  buyMaxPrices: Record<string, number>;
+  buildingCounts: Record<string, number>;
+  serverTime: string;
+}
+
+export interface ReportDto {
+  since: string;
+  goldEarned: number;
+  goldSpent: number;
+  sold: Record<string, number>;
+  produced: Record<string, number>;
+  levelsGained: number;
+  buildingsCompleted: number;
+  notes: string[];
+}
+
+export interface HelloDto {
+  user: UserInfo;
+  company: CompanyDto | null;
+  report: ReportDto | null;
+  serverTime: string;
+  era: number;
+}
+
+export interface BuildingDto {
+  id: number;
+  type: string;
+  owner: number;
+  x: number;
+  y: number;
+  size: number;
+  level: number;
+  constructionEndsAt: string | null;
+  network: number | null;
+}
+
+export type ConductorKind = "pipe" | "gate";
+export type GateSide = "top" | "right" | "bottom" | "left";
+export type GatePolicy = "closed" | "corporation" | "contract" | "open";
+
+export interface ConductorDto {
+  x: number;
+  y: number;
+  kind: ConductorKind;
+  tier: number;
+  owner: number;
+  side: GateSide | null;
+  network: number | null;
+}
+
+export interface TerrainOverrideDto {
+  x: number;
+  y: number;
+  terrain: TerrainType;
+}
+
+export interface ChunkObjectsDto {
+  cx: number;
+  cy: number;
+  buildings: BuildingDto[];
+  conductors: ConductorDto[];
+  terrainOverrides: TerrainOverrideDto[];
+}
+
+export interface ChunkDto {
+  cx: number;
+  cy: number;
+  /** Base64, one byte per tile (row by row): the terrain index */
+  terrain: string;
+  deposits: string;
+  richness: string;
+  /** Base64 bytes: wind and sun × 100 */
+  wind: string;
+  sun: string;
+  depositNames: string[];
+  objects: ChunkObjectsDto;
+}
+
+export interface EstateDto {
+  slot: number;
+  x: number;
+  y: number;
+  ownerId: number | null;
+  ownerName: string | null;
+  ownerColor: string | null;
+  ownerLevel: number;
+  unlockedParcels: number;
+  gatePolicies: Record<string, GatePolicy>;
+  primary: string;
+  secondary: string | null;
+}
+
+export interface HubStructureDto {
+  type: string;
+  x: number;
+  y: number;
+  size: number;
+}
+
+export interface DistrictDto {
+  x: number;
+  y: number;
+  originX: number;
+  originY: number;
+  name: string;
+  estates: EstateDto[];
+  hub: HubStructureDto[];
+}
+
+export type FlowKind = "internal" | "trade" | "toStorage" | "fromStorage" | "sale" | "import";
+
+export interface FlowDto {
+  from: number;
+  to: number;
+  resource: string;
+  sent: number;
+  delivered: number;
+  kind: FlowKind;
+  price: number;
+  /** Tiles as x0, y0, x1, y1, ... */
+  path: number[];
+}
+
+export interface NetworkFlowsDto {
+  id: number;
+  rates: Record<string, number>;
+  flows: FlowDto[];
+}
+
+export interface ResourceAmountDto {
+  resource: string;
+  amount: number;
+  max: number;
+}
+
+export interface BuildingFlowDto {
+  direction: "in" | "out";
+  resource: string;
+  amount: number;
+  partner: number;
+  partnerType: string;
+  partnerOwner: string;
+  kind: FlowKind;
+  price: number;
+}
+
+export interface BuildingDetailsDto {
+  building: BuildingDto;
+  ownerName: string;
+  rate: number;
+  locationMultiplier: number;
+  inputs: ResourceAmountDto[];
+  outputs: ResourceAmountDto[];
+  researchPerMinute: number;
+  contents: Record<string, number> | null;
+  capacity: number | null;
+  throughput: number | null;
+  imports: string[] | null;
+  upgradeCost: number | null;
+  upgradeCost10: number | null;
+  maxAffordableLevels: number;
+  upgradeCostMax: number | null;
+  flows: BuildingFlowDto[];
+  demolishRefund: number;
+  issues: string[];
+}
+
+export interface ToastDto {
+  kind: "constructionFinished" | "levelUp";
+  text: string;
+  building: number | null;
+}
+
+// ---------------------------------------------------------------- Content (/api/content)
+
+export type TerrainType =
+  "grass" | "hills" | "forest" | "beach" | "water" | "desert" | "mountain" | "road" | "city";
+
+export type BuildingKind =
+  | "producer"
+  | "storage"
+  | "tradingPost"
+  | "lab"
+  | "hq"
+  | "gate"
+  | "valve"
+  | "priorityValve"
+  | "pump"
+  | "tollMeter"
+  | "cargoDepot"
+  | "exchangeOffice"
+  | "showroom"
+  | "workshop"
+  | "weatherStation"
+  | "recycler"
+  | "expeditionOffice"
+  | "blueprintOffice"
+  | "deepLift"
+  | "bank"
+  | "teleporter"
+  | "terraformer"
+  | "powerLine"
+  | "corporationHq"
+  | "decoration";
+
+export interface ResourceDefinition {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  tier: number;
+  era: number;
+  price: number;
+}
+
+export interface BuildingDefinition {
+  id: string;
+  name: string;
+  category: string;
+  kind: BuildingKind;
+  size: number;
+  buildable: boolean;
+  unlock: { level: number; era: number; research: string | null };
+  cost: { gold: number; materials: Record<string, number> };
+  buildSeconds: number;
+  in: Record<string, number>;
+  out: Record<string, number>;
+  outFromDeposit: string[];
+  researchPerMinute: number;
+  placement: {
+    terrain: TerrainType[];
+    deposit: string | null;
+    shore: boolean;
+    forest: boolean;
+    minRichness: number;
+  };
+  modifier: "none" | "wind" | "sun" | "richness" | "forest";
+  capacity: number;
+  throughput: number;
+  priceBonus: number;
+  range: string | null;
+  layer: "surface" | "deep";
+  sprite: string | null;
+  description: string;
+}
+
+export interface PipeTierDefinition {
+  id: string;
+  name: string;
+  tier: number;
+  era: number;
+  gold: number;
+  materials: Record<string, number>;
+  lossPerTile: number;
+  throughput: number;
+  research: string | null;
+}
+
+export interface GameContentDto {
+  resourceList: ResourceDefinition[];
+  buildings: BuildingDefinition[];
+  pipeTiers: PipeTierDefinition[];
+  progression: {
+    maxCompanyLevel: number;
+    xpForLevel: number[];
+    xpRewards: Record<string, number>;
+    maxBuildingLevel: number;
+    outputPerLevel: number;
+    costPerLevel: number;
+    milestones: number[];
+    costPerCopy: number;
+    startParcels: number[];
+    parcelLevels: number[];
+    parcelCosts: number[];
+    hubSpread: number;
+  };
+  layout: {
+    estateSize: number;
+    corridorWidth: number;
+    blocksPerSide: number;
+    parcelSize: number;
+    parcelsPerSide: number;
+    wildernessWidth: number;
+    chunkSize: number;
+    blockPitch: number;
+    districtSize: number;
+    districtPitch: number;
+    hubBlock: number;
+    originOffset: number;
+    gateLocal: Record<GateSide, { x: number; y: number }>;
+    terrain: TerrainType[];
+    richnessMultiplier: number[];
+  };
 }

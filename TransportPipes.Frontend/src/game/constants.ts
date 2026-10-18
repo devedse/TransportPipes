@@ -1,23 +1,19 @@
-export const CHUNK_SIZE = 8;
+export { CHUNK_SIZE } from "./layout";
+
+/** Half the width of a tile diamond (a tile is 192×96 pixels, like the original game) */
 export const TILE_WIDTH = 96;
 export const TILE_HEIGHT = 96;
 
-export const MIN_ZOOM = 0.3;
-export const MAX_ZOOM = 2;
-export const ZOOM_STEP = 0.1;
+export const MIN_ZOOM = 0.04;
+export const MAX_ZOOM = 1.5;
+/** Every zoom step multiplies or divides the scale by this */
+export const ZOOM_FACTOR = 1.18;
+
+/** Below this zoom the map shows estates and districts instead of every tile */
+export const FAR_ZOOM = 0.16;
 
 /** Pointer movement (in px) below which a press/release counts as a click instead of a drag. */
 export const CLICK_TOLERANCE_PX = 5;
 
 /** Frames per tick for animated sprites (the original game used 0.2). */
 export const ANIMATION_SPEED = 0.2;
-
-export const TERRAIN_FRAMES = ["grass.png", "beach.png", "water.png", "loading.png"] as const;
-export const LOADING_TERRAIN = 3;
-
-export const NOT_OWNED_TINT = 0x886666;
-export const OWNED_TINT = 0xffffff;
-
-export const OBJECT_ATLAS_URL = "/images/CombinedGameObjects/combinedjson.json";
-export const OBJECT_ATLAS_IMAGE_URL = "/images/CombinedGameObjects/combinedimage.png";
-export const TERRAIN_ATLAS_URL = "/images/roadTiles/transportTiles.json";

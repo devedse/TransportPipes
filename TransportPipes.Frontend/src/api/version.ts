@@ -1,4 +1,6 @@
-import { VERSION_URL, type VersionInfo } from "./contracts";
+import type { VersionInfo } from "./contracts";
+
+export const VERSION_URL = "/api/version";
 
 /** Fetches the version of the running server. */
 export async function fetchServerVersion(signal?: AbortSignal): Promise<VersionInfo> {

@@ -242,7 +242,62 @@ public static class GameViews
             affordable,
             affordable > 0 ? world.UpgradeCost(building, affordable) : null,
             flows,
-            definition.Kind is BuildingKind.Hq or BuildingKind.Gate ? 0 : Math.Round(definition.Cost.Gold * 0.5));
+            definition.Kind is BuildingKind.Hq or BuildingKind.Gate ? 0 : Math.Round(definition.Cost.Gold * 0.5),
+            Issues(world, building, node, network));
+    }
+
+    /// <summary>Why a building can't run (fully): missing suppliers or buyers on its pipes</summary>
+    private static List<string> Issues(GameWorld world, Building building, FlowNode? node, Network? network)
+    {
+        var issues = new List<string>();
+        if (node == null || node.Kind != FlowNodeKind.Building || building.UnderConstruction)
+        {
+            return issues;
+        }
+        if (network == null)
+        {
+            issues.Add("Not connected: lay a pipe from it to the buildings it works with.");
+            return issues;
+        }
+        var linked = network.Links
+            .Where(t => t.A == building.Id || t.B == building.Id)
+            .Select(t => world.Building(t.A == building.Id ? t.B : t.A))
+            .OfType<Building>()
+            .Where(t => !t.UnderConstruction)
+            .ToList();
+        string Name(string resource) => world.Content.Resources.TryGetValue(resource, out var r) ? r.Name.ToLowerInvariant() : resource;
+
+        foreach (var resource in node.In.Keys)
+        {
+            var supplied = linked.Any(other =>
+            {
+                var definition = world.Content.Building(other.Type);
+                var mine = other.Owner == building.Owner;
+                return world.ToFlowNode(other) is { } n && n.Out.ContainsKey(resource)
+                    || (mine && definition.Kind == BuildingKind.Storage && other.Contents.ContainsKey(resource))
+                    || (mine && definition.Kind == BuildingKind.TradingPost && other.Imports.Contains(resource));
+            });
+            if (!supplied)
+            {
+                issues.Add($"No {Name(resource)} on its pipes: connect a building that makes it, or let your trading post buy it.");
+            }
+        }
+        if (node.Out.Count > 0)
+        {
+            var hasSink = linked.Any(other =>
+            {
+                var definition = world.Content.Building(other.Type);
+                return other.Owner == building.Owner && definition.Kind is BuildingKind.Storage or BuildingKind.TradingPost;
+            });
+            foreach (var resource in node.Out.Keys.Where(_ => !hasSink))
+            {
+                if (!linked.Any(other => world.ToFlowNode(other) is { } n && n.In.ContainsKey(resource)))
+                {
+                    issues.Add($"Nothing on its pipes takes its {Name(resource)}: connect your trading post, a storage or a building that uses it.");
+                }
+            }
+        }
+        return issues;
     }
 
     public static ToastDto Toast(WorldEvent worldEvent) => new(Camel(worldEvent.Kind), worldEvent.Text, worldEvent.Building);

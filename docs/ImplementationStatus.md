@@ -20,13 +20,13 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 ### M1 · Estates and the new core
 
-- 🚧 `TransportPipes.Game`: content (YAML), world layout (districts, estates, corridors, gates, parcels), terrain and deposits
-- ⬜ Flow solver with the flow order, storage, trading post, losses and throughput
-- ⬜ World state: buildings (1×1/2×2/3×3), pipes, networks, construction, levels and milestones, parcels, Company Level and XP, ticks
-- ⬜ Persistence, cookie accounts, company creation, estate assignment
-- ⬜ SignalR protocol v2 (district groups, chunk deltas, flows)
-- ⬜ Frontend v2: estate/district rendering, SpriteKit, build and pipe tools, HUD, building panel, parcels, flow animation, offline report
-- ⬜ Remove the old game code (Actionizer, Calculators, old schema), port the calculation scenarios to the new solver
+- ✅ `TransportPipes.Game`: content (YAML), world layout (districts, estates, corridors, gates, parcels), terrain and deposits
+- ✅ Flow solver with the flow order, storage, trading post, imports, losses and throughput; water-filling shares
+- ✅ World state: buildings (1×1/2×2/3×3), pipes, networks, construction, levels and milestones, parcels, Company Level and XP, ticks with exact catch-up
+- ✅ Persistence (new schema, world snapshots), cookie accounts (logins survive restarts), company creation, estate assignment
+- ✅ SignalR protocol v2 (chunk groups, chunk deltas, networks and flows, districts, company state, toasts)
+- ✅ Frontend v2: estate/district rendering at two levels of detail, procedural art for every building, build and pipe tools, HUD, building panel with issues, parcels, flow animation, offline report
+- ✅ Old game code removed (Actionizer, Calculators, Common, old schema); the original calculation and connection scenarios run on the new world and solver
 
 ### M2 · Industry
 
@@ -82,3 +82,7 @@ Changes to [GameDesign.md](GameDesign.md) that came up while building; the desig
 | --- | --- | --- |
 | 2026-10-18 | Buildings only connect through pipes (not by touching each other); resources never pass through a building | Original rule, keeps layouts meaningful |
 | 2026-10-18 | Simulation by district ticks with cached flows instead of a pure event queue | Simpler, same behaviour |
+| 2026-10-18 | Pipes may be laid on unbought parcels of your own estate | Gates are on the outer parcels; trading with neighbours (Level 3) must not wait for Level 25 parcels |
+| 2026-10-18 | Shares within a tier are water-filled: same fraction of need for everyone, unused shares go to others | Proportional shares left energy unused when one consumer was limited by another input |
+| 2026-10-18 | Storages and trading posts only serve their owner (in the original game a storage bought from anyone) | Your storage should never pay for a neighbour's surplus |
+| 2026-10-18 | Smoke, rotors and machine animations only run while a building works; idle buildings show "zz" and the panel says why | Players see at a glance what is not connected |

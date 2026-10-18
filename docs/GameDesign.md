@@ -223,7 +223,11 @@ can salvage).
 
 ### 5.2 Pipes and networks
 
-- Buildings touching a pipe (or each other) are connected. Everything connected is one **network**.
+- Buildings touching a pipe are connected; buildings touching each other are not. Resources never pass *through* a
+  building: two buildings exchange resources when they touch the same pipe group. Everything connected is one
+  **network**.
+- Pipes may be laid on every parcel of your own estate, also the ones you haven't bought yet (buildings need bought
+  parcels), so every gate can be reached from the start.
 - Pipes carry every resource. (Era 2 adds **power lines** for energy only: long range, no losses, crossing water.)
 - **Pipe tiers:**
 
@@ -248,7 +252,8 @@ Every producer in a network delivers its output each minute in this order:
 1. **Your own consumers** in the network (factories, labs, Wonders you feed).
 2. **Contract partners**, up to the contracted amount.
 3. **Other companies' consumers** in the network whose maximum price is at or above your price, divided in proportion
-   to what they need.
+   to what they need. A consumer that can't use its full share (it is short of another input) leaves the rest to the
+   others, so every consumer runs at the same speed unless something else holds it back.
 4. **Your storages**, until full.
 5. **Your Trading Post**, sold to the hub at the hub price.
 6. Nothing left to deliver to → the producer runs slower (**idle**) instead of wasting.
@@ -1215,15 +1220,16 @@ concept screens).
 
 ### 18.1 Simulation model
 
-- **Event driven, piecewise constant.** Between two events every network has constant flows, so its state at any time
-  can be computed directly. Events: construction finished, storage full or empty, contract start or end, price
-  update, event start or end, upgrade, connection change. This is how today's game already works (`LastCalculated`,
-  recalculation when a network changes) and the Actionizer queue (`DbAction.DateToBeExecuted`) becomes the world
-  scheduler.
+- **Ticks with cached flows.** The world lives in memory and runs every few seconds. Between two changes every network
+  has constant flows, so a network is only solved again when it changes: construction finished, storage full or
+  empty, a company out of gold, price update, upgrade, connection change. Within a tick these moments are handled at
+  the exact time they happen, so a catch-up of a day (after a restart) gives the same result as ticks every minute.
+  Commands are saved immediately, gold and storage contents every 30 seconds.
 - **Cumulative prices.** For each hub and resource the server keeps `C(t) = ∫ price dt`. The hub income of a network
   between `t0` and `t1` is `Σ flow × (C(t1) − C(t0))`, so price changes never require recalculating networks.
-- **Flow solver.** The current `ResourceCalculator` (requests and provisions) is extended with the flow order of §5.3,
-  prices, contracts and losses. Network size is bounded by Pump Stations.
+- **Flow solver.** A new solver (replacing the original `ResourceCalculator`, whose calculation scenarios it still
+  passes) with the flow order of §5.3, prices, storage, trading posts, losses and throughput. Network size is bounded
+  by Pump Stations.
 
 ### 18.2 Districts as shards
 
