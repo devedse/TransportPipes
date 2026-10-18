@@ -4,6 +4,7 @@ import type {
   BuildingDetailsDto,
   ChatDto,
   ChatMessageDto,
+  CompanyDetailsDto,
   CompanyDto,
   ContractsDto,
   CorporationsDto,
@@ -85,6 +86,8 @@ export interface AppState {
 
   corporationOpen: boolean;
   corporations: CorporationsDto | null;
+  companyOpen: boolean;
+  companyDetails: CompanyDetailsDto | null;
   leaderboardOpen: boolean;
   leaderboardKind: LeaderboardKind;
   leaderboardDistrict: boolean;
@@ -145,6 +148,8 @@ export const initialState: AppState = {
   plannedPartner: null,
   corporationOpen: false,
   corporations: null,
+  companyOpen: false,
+  companyDetails: null,
   leaderboardOpen: false,
   leaderboardKind: "netWorth",
   leaderboardDistrict: true,
@@ -168,6 +173,7 @@ export const MODALS = {
   neighboursOpen: false,
   corporationOpen: false,
   leaderboardOpen: false,
+  companyOpen: false,
   buildMenuOpen: false,
 } satisfies Partial<AppState>;
 

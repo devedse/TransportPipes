@@ -7,6 +7,7 @@ import type {
   CommandResult,
   ChatDto,
   ChatMessageDto,
+  CompanyDetailsDto,
   CompanyDto,
   ContractsDto,
   CorporationRole,
@@ -285,5 +286,8 @@ export class GameConnection {
   getInbox = () => this.invoke<InboxDto | null>("GetInbox");
   markInboxRead = () => this.invoke<void>("MarkInboxRead");
   getWonders = () => this.invoke<WondersDto | null>("GetWonders");
+  getCompanyDetails = () => this.invoke<CompanyDetailsDto | null>("GetCompanyDetails");
+  hireManager = (manager: string) => this.invoke<CommandResult>("HireManager", manager);
+  dismissManager = (manager: string) => this.invoke<CommandResult>("DismissManager", manager);
   deliverToWonder = (eraWonder: boolean) => this.invoke<CommandResult>("DeliverToWonder", eraWonder);
 }

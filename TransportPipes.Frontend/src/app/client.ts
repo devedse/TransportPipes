@@ -143,11 +143,18 @@ export class GameClient {
     c.on("toast", (t: ToastDto) => {
       toast(
         t.text,
-        t.kind === "levelUp" || t.kind === "researchFinished" || t.kind === "orderCompleted"
+        t.kind === "levelUp" ||
+          t.kind === "researchFinished" ||
+          t.kind === "orderCompleted" ||
+          t.kind === "achievement" ||
+          t.kind === "wonder"
           ? "level"
           : "success",
         t.kind === "constructionFinished" ? 4500 : 7000,
       );
+      if (t.kind === "achievement" && appStore.getState().companyOpen) {
+        void this.refreshCompanyDetails();
+      }
       if (t.building !== null && t.building === appStore.getState().selectedBuilding) {
         void this.refreshDetails();
       }
@@ -796,6 +803,32 @@ export class GameClient {
           report: { ...report, fullStorages: report.fullStorages.filter((t) => t.building !== building) },
         });
       }
+    }
+  }
+
+  // ---------------------------------------------------------------- Company: managers and achievements
+
+  async openCompany() {
+    setState({ ...MODALS, companyOpen: true });
+    await this.refreshCompanyDetails();
+  }
+
+  async refreshCompanyDetails() {
+    const companyDetails = await this.connection.getCompanyDetails().catch(() => null);
+    if (companyDetails !== null) {
+      setState({ companyDetails });
+    }
+  }
+
+  async hireManager(manager: string) {
+    if (await this.command(this.connection.hireManager(manager), "Welcome aboard!")) {
+      await this.refreshCompanyDetails();
+    }
+  }
+
+  async dismissManager(manager: string) {
+    if (await this.command(this.connection.dismissManager(manager))) {
+      await this.refreshCompanyDetails();
     }
   }
 

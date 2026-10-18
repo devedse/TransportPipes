@@ -59,6 +59,7 @@ public static class GameViews
             world.Era,
             world.EraDeadline,
             company.Titles.OrderBy(t => t).ToList(),
+            company.Achievements.Where(t => t.StartsWith("collection:")).Select(t => t["collection:".Length..]).ToList(),
             world.Now);
     }
 
@@ -384,6 +385,45 @@ public static class GameViews
             applications,
             goalDto,
             PerkTexts.Select((text, i) => new CorporationPerkDto(i + 1, text, corporation.HqLevel >= i + 1)).ToList());
+    }
+
+    public static CompanyDetailsDto CompanyDetails(GameWorld world, Company company)
+    {
+        var partners = world.PartnerCounts();
+        var levels = world.BuildingsOf(company.Id).Where(t => !t.UnderConstruction).GroupBy(t => t.Type).ToDictionary(t => t.Key, t => t.Max(b => b.Level));
+        return new CompanyDetailsDto(
+            world.ManagerSlots(company),
+            world.Content.Managers.Select(t => new ManagerDto(t.Id, t.Name, t.Cost, t.Color, t.Automation, t.Bonus, company.Managers.Contains(t.Id))).ToList(),
+            world.Content.Achievements
+                .Select(t => new AchievementDto(t.Id, t.Name, t.Description, t.Amount, world.StatValue(company, t.Stat, partners), company.Achievements.Contains(t.Id), t.Xp, t.Gold, t.Title))
+                .ToList(),
+            world.Content.Collections
+                .Select(t => new CollectionDto(
+                    t.Id,
+                    t.Name,
+                    t.Description,
+                    t.Level,
+                    t.Buildings,
+                    t.Buildings.Where(b => levels.GetValueOrDefault(b) >= t.Level).ToList(),
+                    company.Achievements.Contains(GameWorld.CollectionKey(t.Id)),
+                    world.Content.BuildingList.FirstOrDefault(b => b.Unlock.Collection == t.Id)?.Id))
+                .ToList(),
+            company.Titles.OrderBy(t => t).ToList(),
+            [
+                new StatDto("Gold earned", company.LifetimeEarnings),
+                new StatDto("Net worth", world.NetWorth(company)),
+                new StatDto("Buildings built", world.StatValue(company, "buildings")),
+                new StatDto("Pipe tiles laid", world.StatValue(company, "pipes")),
+                new StatDto("Levels bought", world.StatValue(company, "levelsBought")),
+                new StatDto("Trading partners", partners.GetValueOrDefault(company.Id)),
+                new StatDto("Contracts finished", company.ContractsCompleted),
+                new StatDto("Daily orders", world.StatValue(company, "orders")),
+                new StatDto("Techs researched", company.Researched.Count),
+                new StatDto("Delivered to Wonders (g)", world.StatValue(company, "wonder")),
+                new StatDto("Likes", company.Likes),
+            ],
+            company.Stats.Where(t => t.Key.StartsWith("produced:")).OrderByDescending(t => t.Value).Take(8)
+                .Select(t => new StatDto(t.Key["produced:".Length..], t.Value)).ToList());
     }
 
     public static WondersDto Wonders(GameWorld world, Company company)

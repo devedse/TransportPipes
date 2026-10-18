@@ -133,6 +133,7 @@ public sealed partial class GameWorld
             GainXp(company, order.RewardXp);
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.OrderCompleted, $"Order complete: +{order.RewardGold:N0} gold"));
             company.Report.OrdersCompleted++;
+            AddStat(company, "orders", 1);
             MarkCompanyNetworksDirty(company.Id);
         }
         company.Touch();

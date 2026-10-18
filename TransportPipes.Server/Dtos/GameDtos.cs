@@ -65,6 +65,7 @@ public record CompanyDto(
     int Era,
     DateTime EraDeadline,
     IReadOnlyList<string> Titles,
+    IReadOnlyList<string> Collections,
     DateTime ServerTime);
 
 /// <summary>An event in the calendar (GDD §15)</summary>
@@ -322,3 +323,22 @@ public record WonderDto(
     IReadOnlyList<WonderBuilderDto> TopBuilders);
 
 public record WondersDto(int Era, DateTime EraStartedAt, DateTime EraDeadline, WonderDto? District, WonderDto? EraWonder, string DistrictName);
+
+// ---------------------------------------------------------------- Company: managers, achievements, statistics (M5)
+
+public record ManagerDto(string Id, string Name, double Cost, string Color, string Automation, string Bonus, bool Hired);
+
+public record AchievementDto(string Id, string Name, string Description, double Amount, double Value, bool Done, double Xp, double Gold, string? Title);
+
+public record CollectionDto(string Id, string Name, string Description, int Level, IReadOnlyList<string> Buildings, IReadOnlyList<string> Done, bool Finished, string? Reward);
+
+public record StatDto(string Name, double Value);
+
+public record CompanyDetailsDto(
+    int ManagerSlots,
+    IReadOnlyList<ManagerDto> Managers,
+    IReadOnlyList<AchievementDto> Achievements,
+    IReadOnlyList<CollectionDto> Collections,
+    IReadOnlyList<string> Titles,
+    IReadOnlyList<StatDto> Stats,
+    IReadOnlyList<StatDto> Produced);

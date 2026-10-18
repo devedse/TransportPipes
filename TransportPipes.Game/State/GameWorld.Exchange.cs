@@ -158,6 +158,8 @@ public sealed partial class GameWorld
         seller.Gold += value - fee;
         seller.LifetimeEarnings += value - fee;
         seller.Report.GoldEarned += value - fee;
+        AddStat(seller, "exchangeTrades", 1);
+        AddStat(buyer, "exchangeTrades", 1);
         GainXpFromEarnings(seller, value - fee);
         // The buyer reserved its own limit price: the difference comes back
         buyer.Gold += amount * (buy.Price - price);

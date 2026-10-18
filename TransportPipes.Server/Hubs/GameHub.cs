@@ -269,6 +269,17 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> DeliverToCorporationGoal() =>
         Command((world, company) => world.DeliverToCorporationGoal(company));
 
+    // ---------------------------------------------------------------- Company: managers and achievements
+
+    public Task<CompanyDetailsDto?> GetCompanyDetails() =>
+        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.CompanyDetails(world, company) : null, changesWorld: false);
+
+    public Task<CommandResultDto> HireManager(string manager) =>
+        Command((world, company) => world.HireManager(company, manager));
+
+    public Task<CommandResultDto> DismissManager(string manager) =>
+        Command((world, company) => world.DismissManager(company, manager));
+
     // ---------------------------------------------------------------- Wonders
 
     public Task<WondersDto?> GetWonders() =>

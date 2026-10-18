@@ -80,6 +80,11 @@ public sealed class Company : Entity
     /// <summary>Titles earned (Wonder tiers, achievements)</summary>
     public HashSet<string> Titles { get; init; } = new();
 
+    /// <summary>Hired managers (ids), achievements and collections reached (ids), and the counters behind them</summary>
+    public HashSet<string> Managers { get; init; } = new();
+    public HashSet<string> Achievements { get; init; } = new();
+    public Dictionary<string, double> Stats { get; init; } = new();
+
     /// <summary>How well this company keeps its contracts (0..1, starts at 1): the stars others see</summary>
     public double ContractScore { get; set; } = 1;
 

@@ -65,6 +65,8 @@ export interface CompanyDto {
   era: number;
   eraDeadline: string;
   titles: string[];
+  /** Finished collections (they unlock decorations) */
+  collections: string[];
   serverTime: string;
 }
 
@@ -333,14 +335,25 @@ export interface BuildingDetailsDto {
   repairCost: number | null;
 }
 
+/** The kinds of WorldEventKind on the server */
+export type ToastKind =
+  | "constructionFinished"
+  | "levelUp"
+  | "researchFinished"
+  | "priceChanged"
+  | "orderCompleted"
+  | "contractChanged"
+  | "exchangeTrade"
+  | "corporation"
+  | "social"
+  | "storageFull"
+  | "neighbour"
+  | "calendar"
+  | "wonder"
+  | "achievement";
+
 export interface ToastDto {
-  kind:
-    | "constructionFinished"
-    | "levelUp"
-    | "researchFinished"
-    | "priceChanged"
-    | "orderCompleted"
-    | "contractChanged";
+  kind: ToastKind;
   text: string;
   building: number | null;
 }
@@ -394,7 +407,7 @@ export interface BuildingDefinition {
   kind: BuildingKind;
   size: number;
   buildable: boolean;
-  unlock: { level: number; era: number; research: string | null };
+  unlock: { level: number; era: number; research: string | null; collection: string | null };
   cost: { gold: number; materials: Record<string, number> };
   buildSeconds: number;
   in: Record<string, number>;
@@ -793,4 +806,54 @@ export interface WondersDto {
   district: WonderDto | null;
   eraWonder: WonderDto | null;
   districtName: string;
+}
+
+// ---------------------------------------------------------------- Company: managers, achievements, statistics
+
+export interface ManagerDto {
+  id: string;
+  name: string;
+  cost: number;
+  color: string;
+  automation: string;
+  bonus: string;
+  hired: boolean;
+}
+
+export interface AchievementDto {
+  id: string;
+  name: string;
+  description: string;
+  amount: number;
+  value: number;
+  done: boolean;
+  xp: number;
+  gold: number;
+  title: string | null;
+}
+
+export interface CollectionDto {
+  id: string;
+  name: string;
+  description: string;
+  level: number;
+  buildings: string[];
+  done: string[];
+  finished: boolean;
+  reward: string | null;
+}
+
+export interface StatDto {
+  name: string;
+  value: number;
+}
+
+export interface CompanyDetailsDto {
+  managerSlots: number;
+  managers: ManagerDto[];
+  achievements: AchievementDto[];
+  collections: CollectionDto[];
+  titles: string[];
+  stats: StatDto[];
+  produced: StatDto[];
 }

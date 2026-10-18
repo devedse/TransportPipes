@@ -587,7 +587,7 @@ public sealed partial class GameWorld
                     Kind = FlowNodeKind.TradingPost,
                     Throughput = TradingPostThroughput(building, definition),
                     // Hub reputation: +1% per level above 1
-                    PriceBonus = definition.PriceBonus + (company == null ? 0 : (ReputationLevel(company) - 1) * 0.01),
+                    PriceBonus = definition.PriceBonus + (company == null ? 0 : (ReputationLevel(company) - 1) * 0.01) + ManagerPriceBonus(company),
                     // Imports cost gold: a company without gold can't import
                     Imports = company is { Gold: > 0 } ? building.Imports : new HashSet<string>(),
                 };

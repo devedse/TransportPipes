@@ -88,6 +88,9 @@ public sealed class WorldStore
                 WeekStartEarnings = settings.WeekStartEarnings,
                 Likes = settings.Likes,
                 Titles = settings.Titles,
+                Managers = settings.Managers,
+                Achievements = settings.Achievements,
+                Stats = settings.Stats,
                 HubReputation = settings.HubReputation,
                 DailyOrders = settings.DailyOrders,
                 Report = JsonSerializer.Deserialize<CompanyReport>(row.Report, Json) ?? new CompanyReport { Since = row.LastSeenAt },
@@ -285,6 +288,9 @@ public sealed class WorldStore
                     WeekStartEarnings = company.WeekStartEarnings,
                     Likes = company.Likes,
                     Titles = company.Titles,
+                    Managers = company.Managers,
+                    Achievements = company.Achievements,
+                    Stats = company.Stats,
                     HubReputation = company.HubReputation,
                     DailyOrders = company.DailyOrders,
                 }, Json),
@@ -570,6 +576,9 @@ public sealed class WorldStore
         public double WeekStartEarnings { get; init; }
         public int Likes { get; init; }
         public HashSet<string> Titles { get; init; } = new();
+        public HashSet<string> Managers { get; init; } = new();
+        public HashSet<string> Achievements { get; init; } = new();
+        public Dictionary<string, double> Stats { get; init; } = new();
         public double HubReputation { get; init; }
         public List<DailyOrder> DailyOrders { get; init; } = new();
     }

@@ -5,6 +5,7 @@ import { BuildingPanel } from "./components/BuildingPanel";
 import { BuildMenu } from "./components/BuildMenu";
 import { ChatPanel } from "./components/ChatPanel";
 import { EventBar } from "./components/EventBar";
+import { CompanyPanel } from "./components/CompanyPanel";
 import { CorporationPanel } from "./components/CorporationPanel";
 import { InboxPanel } from "./components/InboxPanel";
 import { LeaderboardPanel } from "./components/LeaderboardPanel";
@@ -57,7 +58,8 @@ function useShortcuts() {
             state.hubOpen ||
             state.neighboursOpen ||
             state.corporationOpen ||
-            state.leaderboardOpen
+            state.leaderboardOpen ||
+            state.companyOpen
           ) {
             setState({ ...MODALS, buildMenuOpen: state.buildMenuOpen });
           } else if (state.inboxOpen) {
@@ -121,6 +123,13 @@ function useShortcuts() {
             setState({ corporationOpen: false });
           } else {
             void gameClient.openCorporation();
+          }
+          break;
+        case "i":
+          if (state.companyOpen) {
+            setState({ companyOpen: false });
+          } else {
+            void gameClient.openCompany();
           }
           break;
         case "l":
@@ -206,6 +215,9 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="ResearchPanel">
             <ResearchPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="CompanyPanel">
+            <CompanyPanel />
           </ErrorBoundary>
           <ErrorBoundary name="CorporationPanel">
             <CorporationPanel />

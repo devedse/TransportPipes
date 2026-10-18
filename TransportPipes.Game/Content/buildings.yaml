@@ -730,8 +730,11 @@
   description: A pair of portals linking two of your networks anywhere in the world.
 
 # ---------------------------------------------------------------- Decorations
-- { id: tree,        name: Tree,        category: decoration, kind: decoration, size: 1, unlock: { level: 1 },  cost: { gold: 20 },   buildSeconds: 1, description: A tree. Visitors like trees. }
-- { id: flowerBed,   name: Flower Bed,  category: decoration, kind: decoration, size: 1, unlock: { level: 3 },  cost: { gold: 50 },   buildSeconds: 1, description: Colourful flowers. }
-- { id: lamp,        name: Lamp Post,   category: decoration, kind: decoration, size: 1, unlock: { level: 5 },  cost: { gold: 80 },   buildSeconds: 1, description: Lights up at night. }
-- { id: fountain,    name: Fountain,    category: decoration, kind: decoration, size: 1, unlock: { level: 12 }, cost: { gold: 2000 }, buildSeconds: 30, description: A splashing fountain. }
-- { id: statue,      name: Founder Statue, category: decoration, kind: decoration, size: 1, unlock: { level: 20 }, cost: { gold: 20000 }, buildSeconds: 60, description: A statue of the founder of your company. }
+- { id: tree,        name: Tree,        category: decoration, kind: decoration, size: 1, unlock: { level: 1 },  cost: { gold: 20 },   buildSeconds: 1, description: "A tree. Visitors like trees." }
+- { id: flowerBed,   name: Flower Bed,  category: decoration, kind: decoration, size: 1, unlock: { level: 3 },  cost: { gold: 50 },   buildSeconds: 1, description: "Colourful flowers." }
+- { id: lamp,        name: Lamp Post,   category: decoration, kind: decoration, size: 1, unlock: { level: 5 },  cost: { gold: 80 },   buildSeconds: 1, description: "Lights up at night." }
+- { id: fountain,    name: Fountain,    category: decoration, kind: decoration, size: 1, unlock: { level: 12 }, cost: { gold: 2000 }, buildSeconds: 30, description: "A splashing fountain." }
+- { id: statue,      name: Founder Statue, category: decoration, kind: decoration, size: 1, unlock: { level: 20 }, cost: { gold: 20000 }, buildSeconds: 60, description: "A statue of the founder of your company." }
+- { id: goldenMoily,    name: Golden Moily,    category: decoration, kind: decoration, size: 1, unlock: { collection: powerOfEra1 },  cost: { gold: 5000 }, buildSeconds: 30, description: "A wind moily of pure gold, for the Power of Era 1 collection." }
+- { id: crystalObelisk, name: Crystal Obelisk, category: decoration, kind: decoration, size: 1, unlock: { collection: diggingDeep },  cost: { gold: 5000 }, buildSeconds: 30, description: "A glowing crystal, for the Digging Deep collection." }
+- { id: goldenGear,     name: Golden Gear,     category: decoration, kind: decoration, size: 1, unlock: { collection: factoryFloor }, cost: { gold: 5000 }, buildSeconds: 30, description: "A giant golden gear, for the Factory Floor collection." }

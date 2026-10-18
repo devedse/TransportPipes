@@ -51,7 +51,17 @@ public enum BuildingLayer
     Deep,
 }
 
-public sealed record BuildingUnlock(int Level, int Era, string? Research);
+/// <summary>What a building needs: a Company Level, an Era, a tech, or a finished collection (decorations)</summary>
+public sealed record BuildingUnlock(int Level, int Era, string? Research, string? Collection = null);
+
+/// <summary>A manager (GDD §8.4); the automation and the bonus are in the code, by id</summary>
+public sealed record ManagerDefinition(string Id, string Name, double Cost, string Color, string Automation, string Bonus);
+
+/// <summary>An achievement (GDD §8.5): a stat that reaches an amount</summary>
+public sealed record AchievementDefinition(string Id, string Name, string Stat, double Amount, double Xp, double Gold, string? Title, OutputBonus? Output, string Description);
+
+/// <summary>A collection: every building of a list at a level; it unlocks a decoration</summary>
+public sealed record CollectionDefinition(string Id, string Name, int Level, IReadOnlyList<string> Buildings, double Xp, string? Title, string Description);
 
 public sealed record BuildingCost(double Gold, IReadOnlyDictionary<string, double> Materials);
 

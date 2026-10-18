@@ -89,7 +89,8 @@ public sealed partial class GameWorld
         }
         company.ResearchPoints -= cost;
         company.CurrentResearch = tech.Id;
-        company.ResearchEndsAt = Now.AddMinutes(tech.Minutes);
+        // Planner Sam
+        company.ResearchEndsAt = Now.AddMinutes(tech.Minutes * ManagerResearchFactor(company));
         company.Touch();
         Changes.Companies.Add(company.Id);
         return CommandResult.Ok;
@@ -121,6 +122,7 @@ public sealed partial class GameWorld
             }
         }
         MarkCompanyNetworksDirty(company.Id);
+        PlanNextResearch(company);
     }
 
     /// <summary>Finishes the current research right away (for tests and admins)</summary>
@@ -139,7 +141,7 @@ public sealed partial class GameWorld
         {
             return 0;
         }
-        var bonus = CorporationOutputBonus(company, resource);
+        var bonus = CorporationOutputBonus(company, resource) + ManagerOutputBonus(company, building) + AchievementOutputBonus(company, building, resource);
         foreach (var techId in company.Researched)
         {
             if (Content.Research.TryGetValue(techId, out var tech))

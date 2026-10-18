@@ -25,6 +25,7 @@ public enum WorldEventKind
     Neighbour,
     Calendar,
     Wonder,
+    Achievement,
 }
 
 /// <summary>Something a player should hear about (a toast in the client)</summary>
@@ -355,6 +356,11 @@ public sealed partial class GameWorld
             reason = $"{definition.Name} needs research.";
             return false;
         }
+        if (definition.Unlock.Collection is { } collection && !company.Achievements.Contains(CollectionKey(collection)))
+        {
+            reason = $"{definition.Name} is the reward of a collection.";
+            return false;
+        }
         if (definition.Layer == BuildingLayer.Deep)
         {
             reason = $"{definition.Name} can only be built in the Deep Level.";
@@ -666,7 +672,8 @@ public sealed partial class GameWorld
         {
             total += Content.Progression.UpgradeCost(definition, level);
         }
-        return total;
+        // Foreman Rick
+        return Math.Round(total * ManagerUpgradeFactor(Company(building.Owner)), 2);
     }
 
     /// <summary>How many levels the company can afford right now (for the Max button)</summary>
@@ -716,6 +723,7 @@ public sealed partial class GameWorld
 
         var from = building.Level;
         building.Level += levels;
+        AddStat(company, "levelsBought", levels);
         building.Touch();
         MarkDirty(building);
         foreach (var tile in building.Footprint())
@@ -852,6 +860,7 @@ public sealed partial class GameWorld
             MarkDirty(tile);
             Changes.Tiles.Add(tile);
         }
+        AddStat(company, "pipes", newTiles.Count);
         return CommandResult.Ok;
     }
 

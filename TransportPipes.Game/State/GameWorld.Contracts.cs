@@ -263,9 +263,18 @@ public sealed partial class GameWorld
             Changes.Events.Add(new WorldEvent(buyer.Id, WorldEventKind.ContractChanged, $"Contract ended: {contract.Fulfillment:P0} delivered"));
             buyer.Report.Contracts.Add($"Contract ended: {contract.Fulfillment:P0} delivered ({Company(contract.Seller)?.Name})");
         }
+        // Trader Lin: reputation for every finished contract, and a good contract is offered again
+        foreach (var party in new[] { Company(contract.Seller), Company(contract.Buyer) })
+        {
+            if (HasManager(party, TraderLin))
+            {
+                party!.HubReputation += 10;
+            }
+        }
         ContractChanged(contract);
         MarkCompanyNetworksDirty(contract.Seller);
         MarkCompanyNetworksDirty(contract.Buyer);
+        RenewContract(contract);
     }
 
     /// <summary>Offers that nobody took for a week disappear</summary>

@@ -405,6 +405,13 @@ public sealed partial class GameWorld
             var chance = Horizon(owner) == ForecastAhead ? StormDamageChance / 2 : StormDamageChance;
             if (random.NextDouble() < chance)
             {
+                if (HasManager(owner, EngineerJo))
+                {
+                    // Engineer Jo repairs it right away
+                    AddStat(owner, "repairs", 1);
+                    Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.Calendar, $"The storm hit your {definition.Name}; Engineer Jo repaired it right away", building.Id));
+                    continue;
+                }
                 SetDamaged(building, true);
                 Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.Calendar, $"The storm damaged your {definition.Name}: it works at half speed until it is repaired", building.Id));
             }
@@ -441,6 +448,7 @@ public sealed partial class GameWorld
             return payment;
         }
         SetDamaged(building, false);
+        AddStat(company, "repairs", 1);
         return CommandResult.Ok;
     }
 

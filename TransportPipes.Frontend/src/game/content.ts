@@ -92,7 +92,7 @@ export class Content {
   /** Why a building can't be built yet, or null */
   lockReason(
     definition: BuildingDefinition,
-    company: Pick<CompanyDto, "level" | "researched">,
+    company: Pick<CompanyDto, "level" | "researched"> & Partial<Pick<CompanyDto, "collections">>,
     era: number,
   ): string | null {
     if (!definition.buildable) {
@@ -106,6 +106,12 @@ export class Content {
     }
     if (definition.unlock.research !== null && !company.researched.includes(definition.unlock.research)) {
       return `Research ${this.research(definition.unlock.research)?.name ?? definition.unlock.research}`;
+    }
+    if (
+      definition.unlock.collection !== null &&
+      !(company.collections ?? []).includes(definition.unlock.collection)
+    ) {
+      return "Collection reward";
     }
     if (definition.layer === "deep") {
       return "Deep Level";

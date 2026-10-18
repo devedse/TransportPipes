@@ -28,7 +28,11 @@ export function TopBar() {
 
   return (
     <div className="top-bar">
-      <div className="panel top-company">
+      <div
+        className="panel top-company clickable"
+        title="Your company: managers, achievements and statistics (I)"
+        onClick={() => void gameClient.openCompany()}
+      >
         <span className="company-dot" style={{ background: company.color }} />
         <div>
           <div className="company-name">

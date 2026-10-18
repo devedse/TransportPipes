@@ -181,6 +181,7 @@ public sealed partial class GameWorld
             value += amount * BasePrice(resource);
         }
         wonder.Contributions[company.Id] = wonder.Contributions.GetValueOrDefault(company.Id) + value;
+        AddStat(company, "wonder", value);
         // Building a Wonder is as good for your company's experience as selling the goods
         GainXpFromEarnings(company, value);
         company.Touch();

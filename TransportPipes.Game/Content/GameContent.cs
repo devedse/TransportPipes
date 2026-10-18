@@ -26,8 +26,24 @@ public sealed class GameContent
     public IReadOnlyList<WonderDefinition> DistrictWonders { get; }
     public IReadOnlyList<WonderDefinition> EraWonders { get; }
 
-    public GameContent(IReadOnlyList<ResourceDefinition> resources, IReadOnlyList<BuildingDefinition> buildings, IReadOnlyList<PipeTierDefinition> pipeTiers, ProgressionSettings progression, IReadOnlyList<ResearchDefinition>? research = null, IReadOnlyList<WonderDefinition>? wonders = null)
+    public IReadOnlyList<ManagerDefinition> Managers { get; }
+    public IReadOnlyList<AchievementDefinition> Achievements { get; }
+    public IReadOnlyList<CollectionDefinition> Collections { get; }
+
+    public GameContent(
+        IReadOnlyList<ResourceDefinition> resources,
+        IReadOnlyList<BuildingDefinition> buildings,
+        IReadOnlyList<PipeTierDefinition> pipeTiers,
+        ProgressionSettings progression,
+        IReadOnlyList<ResearchDefinition>? research = null,
+        IReadOnlyList<WonderDefinition>? wonders = null,
+        IReadOnlyList<ManagerDefinition>? managers = null,
+        IReadOnlyList<AchievementDefinition>? achievements = null,
+        IReadOnlyList<CollectionDefinition>? collections = null)
     {
+        Managers = managers ?? [];
+        Achievements = achievements ?? [];
+        Collections = collections ?? [];
         DistrictWonders = wonders?.Where(t => t.Era == 0).ToList() ?? [];
         EraWonders = wonders?.Where(t => t.Era > 0).OrderBy(t => t.Era).ToList() ?? [];
         ResearchList = research ?? [];
@@ -73,7 +89,18 @@ public sealed class GameContent
         var progression = Read<ProgressionDto>("progression.yaml").ToSettings();
         var research = Read<List<ResearchDto>>("research.yaml").Select(t => t.ToDefinition()).ToList();
         var wonders = Read<WondersDto>("wonders.yaml");
-        return new GameContent(resources, buildings, pipes, progression, research, [.. wonders.District.Select(t => t.ToDefinition()), .. wonders.Era.Select(t => t.ToDefinition())]);
+        var managers = Read<List<ManagerDto>>("managers.yaml").Select(t => new ManagerDefinition(t.Id, t.Name, t.Cost, t.Color, t.Automation, t.Bonus)).ToList();
+        var achievements = Read<AchievementsDto>("achievements.yaml");
+        return new GameContent(
+            resources,
+            buildings,
+            pipes,
+            progression,
+            research,
+            [.. wonders.District.Select(t => t.ToDefinition()), .. wonders.Era.Select(t => t.ToDefinition())],
+            managers,
+            achievements.Achievements.Select(t => t.ToDefinition()).ToList(),
+            achievements.Collections.Select(t => new CollectionDefinition(t.Id, t.Name, t.Level, t.Buildings, t.Xp, t.Title, t.Description)).ToList());
     }
 
     private void Validate()
@@ -172,6 +199,21 @@ public sealed class GameContent
                 CheckResource($"wonder {wonder.Id}", resource);
             }
         }
+        foreach (var collection in Collections)
+        {
+            foreach (var building in collection.Buildings.Where(t => !Buildings.ContainsKey(t)))
+            {
+                errors.Add($"collection {collection.Id}: unknown building '{building}'");
+            }
+        }
+        foreach (var building in BuildingList.Where(t => t.Unlock.Collection != null && Collections.All(c => c.Id != t.Unlock.Collection)))
+        {
+            errors.Add($"{building.Id}: unknown collection '{building.Unlock.Collection}'");
+        }
+        if (Achievements.Select(t => t.Id).Distinct().Count() != Achievements.Count || Managers.Select(t => t.Id).Distinct().Count() != Managers.Count)
+        {
+            errors.Add("Achievement and manager ids must be unique");
+        }
         if (EraWonders.Count != 0 && !EraWonders.Select(t => t.Era).SequenceEqual(Enumerable.Range(1, EraWonders.Count)))
         {
             errors.Add("There is one Era Wonder per Era, from Era 1");
@@ -205,6 +247,7 @@ public sealed class GameContent
         public int Level { get; set; } = 1;
         public int Era { get; set; } = 1;
         public string? Research { get; set; }
+        public string? Collection { get; set; }
     }
 
     private sealed class CostDto
@@ -256,7 +299,7 @@ public sealed class GameContent
             Kind = Enum.Parse<BuildingKind>(Kind, ignoreCase: true),
             Size = Size,
             Buildable = Buildable,
-            Unlock = new BuildingUnlock(Unlock.Level, Unlock.Era, Unlock.Research),
+            Unlock = new BuildingUnlock(Unlock.Level, Unlock.Era, Unlock.Research, Unlock.Collection),
             Cost = new BuildingCost(Cost.Gold, Cost.Materials),
             BuildSeconds = BuildSeconds,
             In = In,
@@ -279,6 +322,49 @@ public sealed class GameContent
             Sprite = Sprite,
             Description = Description,
         };
+    }
+
+    private sealed class ManagerDto
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public double Cost { get; set; }
+        public string Color { get; set; } = "#888888";
+        public string Automation { get; set; } = "";
+        public string Bonus { get; set; } = "";
+    }
+
+    private sealed class AchievementsDto
+    {
+        public List<AchievementDto> Achievements { get; set; } = new();
+        public List<CollectionDto> Collections { get; set; } = new();
+    }
+
+    private sealed class AchievementDto
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Stat { get; set; } = "";
+        public double Amount { get; set; }
+        public double Xp { get; set; }
+        public double Gold { get; set; }
+        public string? Title { get; set; }
+        public OutputBonusDto? Output { get; set; }
+        public string Description { get; set; } = "";
+
+        public AchievementDefinition ToDefinition() =>
+            new(Id, Name, Stat, Amount, Xp, Gold, Title, Output == null ? null : new OutputBonus(Output.Targets, Output.Amount), Description);
+    }
+
+    private sealed class CollectionDto
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public int Level { get; set; }
+        public List<string> Buildings { get; set; } = new();
+        public double Xp { get; set; }
+        public string? Title { get; set; }
+        public string Description { get; set; } = "";
     }
 
     private sealed class WondersDto

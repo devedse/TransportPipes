@@ -50,7 +50,11 @@ public sealed partial class GameWorld
         }
         for (var at = NextMarketUpdate(LastTick); at <= now; at = NextMarketUpdate(at))
         {
-            events.Add((at, long.MinValue, UpdateMarkets));
+            events.Add((at, long.MinValue, () =>
+            {
+                UpdateMarkets();
+                RunManagers();
+            }));
         }
         for (var at = NextDay(LastTick); at <= now; at = NextDay(at))
         {
@@ -82,6 +86,7 @@ public sealed partial class GameWorld
             run();
         }
         Advance(now);
+        CheckAchievements();
     }
 
     private void CompleteConstruction(Building building)
@@ -101,6 +106,7 @@ public sealed partial class GameWorld
         if (Company(building.Owner) is { } company)
         {
             company.Report.BuildingsCompleted++;
+            AddStat(company, "buildings", 1);
             company.Touch();
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ConstructionFinished, $"{Content.Building(building.Type).Name} is ready", building.Id));
         }
@@ -247,6 +253,7 @@ public sealed partial class GameWorld
                 && Company(from.Owner) is { } producer)
             {
                 Add(producer.Report.Produced, flow.Resource, flow.Sent * minutes);
+                AddStat(producer, $"produced:{flow.Resource}", flow.Sent * minutes);
             }
         }
 

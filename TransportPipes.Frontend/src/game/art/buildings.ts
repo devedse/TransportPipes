@@ -775,6 +775,53 @@ const recipes: Record<string, Recipe> = {
   },
 
   // ---------------------------------------------------------------- Decorations
+  goldenMoily: {
+    size: 1,
+    extra: 190,
+    draw: (k) => {
+      k.box(0.25, 0.25, 0.5, 0.5, 20, "#c9c2b4");
+      k.cylinder(0.5, 0.5, 0.09, 150, "#f6c744", 20, "dome", "#ffe08a");
+      k.attach("rotor", 0.5, 0.5, 165, 1, "#f6c744");
+      k.attach("spark", 0.5, 0.5, 120, 0.8, "#fff2b0");
+    },
+  },
+  crystalObelisk: {
+    size: 1,
+    extra: 170,
+    draw: (k) => {
+      k.box(0.2, 0.2, 0.6, 0.6, 16, "#5d6670");
+      k.box(0.36, 0.36, 0.28, 0.28, 120, { top: "#d6b8ff", left: "#9a6bdc", right: "#7a4fbf" }, 16);
+      k.cylinder(0.5, 0.5, 0.2, 4, "#b08ae8", 136, "cone", "#e6d4ff");
+      k.attach("glow", 0.5, 0.5, 90, 0.9, "#d6b8ff");
+    },
+  },
+  goldenGear: {
+    size: 1,
+    extra: 140,
+    draw: (k) => {
+      k.box(0.25, 0.4, 0.5, 0.2, 18, "#c9c2b4");
+      const [x, y] = k.pt(0.5, 0.5, 70);
+      const g = k.g;
+      g.fillStyle = "#f6c744";
+      g.strokeStyle = OUTLINE;
+      g.lineWidth = 3;
+      g.beginPath();
+      for (let i = 0; i < 24; i++) {
+        const angle = (i / 24) * Math.PI * 2;
+        const r = i % 2 === 0 ? 50 : 40;
+        g.lineTo(x + Math.cos(angle) * r, y + Math.sin(angle) * r);
+      }
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.fillStyle = "#b8862f";
+      g.beginPath();
+      g.arc(x, y, 14, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      k.attach("spark", 0.5, 0.5, 110, 0.7, "#fff2b0");
+    },
+  },
   tree: {
     size: 1,
     extra: 60,
