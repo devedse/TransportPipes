@@ -102,9 +102,11 @@ export function canPlace(
   x: number,
   y: number,
   ignoreBuilding: number | null = null,
+  /** Buildings that exist already (moved, or from a crate) need no unlock */
+  ignoreLock = false,
 ): Placement {
   const fail = (reason: string): Placement => ({ ok: false, reason, multiplier: 0 });
-  const lock = content.lockReason(definition, company, era);
+  const lock = ignoreLock ? null : content.lockReason(definition, company, era);
   if (lock !== null) {
     return fail(`Needs ${lock}`);
   }

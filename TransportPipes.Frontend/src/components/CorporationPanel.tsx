@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { gameClient } from "../app/client";
 import { formatAmount, formatDuration } from "../app/format";
 import { useNow } from "../app/useNow";
@@ -7,6 +7,7 @@ import type {
   CorporationMemberDto,
   CorporationRole,
   CorporationsDto,
+  DistrictChoiceDto,
 } from "../api/contracts";
 import { setState, useAppStore } from "../state/store";
 
@@ -23,6 +24,39 @@ function Tag({ tag, color }: { tag: string; color: string }) {
     <span className="corp-tag" style={{ background: color }}>
       {tag}
     </span>
+  );
+}
+
+/** A corporation block (GDD §12.3): keep free estates of a district for the members for 72 hours */
+function BlockReservation() {
+  const [districts, setDistricts] = useState<DistrictChoiceDto[] | null>(null);
+  const [choice, setChoice] = useState("");
+  useEffect(() => {
+    void gameClient.connection.getDistricts().then(setDistricts);
+  }, []);
+  const target = districts?.find((t) => `${t.x},${t.y}` === choice);
+  return (
+    <div className="block-reservation">
+      <label>
+        Corporation block: keep free estates for your members for 72 hours, so you can move in together
+        <select value={choice} onChange={(e) => setChoice(e.target.value)}>
+          <option value="">Choose a district…</option>
+          {districts
+            ?.filter((t) => t.freeEstates > 0)
+            .map((t) => (
+              <option key={`${t.x},${t.y}`} value={`${t.x},${t.y}`}>
+                {t.name} · {t.freeEstates} free
+              </option>
+            ))}
+        </select>
+      </label>
+      <button
+        disabled={target === undefined}
+        onClick={() => target && void gameClient.reserveBlock(target.x, target.y)}
+      >
+        Reserve the block
+      </button>
+    </div>
   );
 }
 
@@ -349,6 +383,7 @@ function Settings({ corporation }: { corporation: CorporationDto }) {
       ) : (
         <p className="muted">Officers change the tax, the production perk and the description.</p>
       )}
+      {officer && corporation.members.length >= 5 && <BlockReservation />}
       <hr />
       <button className="danger" onClick={() => void gameClient.leaveCorporation()}>
         Leave {corporation.name}

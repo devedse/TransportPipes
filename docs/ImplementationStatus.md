@@ -63,7 +63,7 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 - ✅ Eras 3–5 content (buildings, resources, pipe tiers, Era Wonders up to the Space Elevator) and Era deadlines; the remaining tech effects: Futures (contracts up to 30 days), Global Exchange (orders trade across hubs), Trains (Cargo Depots ×2, cargo twice as fast), Market Insight (where hub prices are heading), Showroom (+10% for one product), Brand (hub billboards)
 - ✅ Franchise (Shares: √(earnings since the last franchise / 1000), +1% production each, 24 h notice), the season finale (the Space Elevator or Era 5's deadline, a 24 h launch countdown, rankings), Legacy on the account (starting gold, titles, a manager slot from Legacy level 5) and the next world after a week
-- ⬜ Activity stages, Caretaker, Quiet Isles, relocation, crates, swaps, corporation blocks, district merges
+- ✅ Activity stages (active, resting, dormant with a Caretaker taking 10% and handing over corporation leadership, asleep after 30 days on the Quiet Isles), estates packed and unpacked with their layout, relocation once a week (an hour in transit), crates, swaps, corporation blocks (72 h), quiet districts offering a free move with a free parcel
 - ⬜ Mobile layout polish, moderation tools
 
 ### M7 · Late game
@@ -115,4 +115,6 @@ Changes to [GameDesign.md](GameDesign.md) that came up while building; the desig
 | 2026-10-18 | A franchise resets the Company Level too (parcels stay); a quarter of the research stays: the cheapest techs | Back to a fast early game with a head start, as the design intends |
 | 2026-10-18 | Legacy points = √(net worth / 1000) + 10 per achievement + 5 per title + 20 per franchise + up to 100 for the top 10; Legacy level = √(points / 10); +500 starting gold per level (max 10,000) | Rewards a whole season of play, but a newcomer can still catch up |
 | 2026-10-18 | The next world (new seed) opens a week after the season ends; chat, inbox and guestbooks start fresh with it | A clean start for everyone; accounts and Legacy stay |
+| 2026-10-18 | A move costs 1,000 × Company Level gold (free moves after waking up or from a quiet district); a sleeping estate's public pipes become toll-free hub pipes; waking up gives 1,000 × level gold, 500 × level research points and a free move | Coming back feels like a gift; nobody is stuck next to an empty estate |
+| 2026-10-18 | Quiet districts are not folded into the wilderness (estates stay for tenants and newcomers); their active players get the free move with a parcel | Same effect for players, no risk of breaking the map |
 | 2026-10-18 | Shortage orders are a fourth, urgent order (twice the size, three times the reward per unit) that disappears when the shortage ends; festivals fall on fixed holidays | They add to the daily rhythm without replacing it |

@@ -45,6 +45,10 @@ public sealed partial class GameWorld
         {
             events.Add((at, long.MinValue + 8, run));
         }
+        foreach (var (at, run) in ArrivalMoments(LastTick, now).ToList())
+        {
+            events.Add((at, long.MinValue + 9, run));
+        }
         foreach (var building in _buildings.Values.Where(t => t.ConstructionEndsAt is { } end && end <= now))
         {
             events.Add((building.ConstructionEndsAt!.Value, building.Id, () => CompleteConstruction(building)));
@@ -273,6 +277,8 @@ public sealed partial class GameWorld
         {
             if (Company(companyId) is { } company)
             {
+                // The Caretaker of a dormant company
+                company.Gold -= earned * CaretakerShare(company);
                 TaxEarnings(company, earned);
                 company.LifetimeEarnings += earned;
                 company.Report.GoldEarned += earned;

@@ -14,7 +14,8 @@ public static class GameViews
 
     public static CompanyDto Company(GameWorld world, Company company, double goldPerMinute, double researchPerMinute)
     {
-        var estate = world.EstateOf(company)!;
+        // While the estate is packed (moving, or asleep) there is no estate
+        var estate = world.EstateOf(company);
         var (parcelCost, parcelLevel) = world.NextParcel(company);
         var progression = world.Content.Progression;
         return new CompanyDto(
@@ -33,9 +34,9 @@ public static class GameViews
             company.District.X,
             company.District.Y,
             company.Slot,
-            estate.Origin.X,
-            estate.Origin.Y,
-            estate.UnlockedParcels,
+            estate?.Origin.X ?? 0,
+            estate?.Origin.Y ?? 0,
+            estate?.UnlockedParcels ?? 0,
             parcelLevel == int.MaxValue ? null : parcelCost,
             parcelLevel == int.MaxValue ? null : parcelLevel,
             company.SellPrices,
@@ -63,6 +64,15 @@ public static class GameViews
             world.OutpostsOf(company.Id).Select(t => Outpost(world, t, company.Id)).ToList(),
             new FranchiseDto(company.Shares, company.Franchises, world.FranchiseShares(company), world.FranchiseBlocker(company), company.FranchiseAt, company.LegacyLevel),
             SeasonInfo(world),
+            new MovingDto(
+                Camel(world.ActivityOf(company)),
+                company.Asleep,
+                company.ArrivesAt,
+                company.Crates.Select((t, i) => new CrateDto(i, t.Type, t.Level)).ToList(),
+                company.FreeMoves,
+                world.MoveCost(company),
+                company.LastMovedAt is { } moved && moved + GameWorld.MoveEvery > world.Now && company.FreeMoves == 0 ? moved + GameWorld.MoveEvery : null,
+                company.SwapWith),
             world.Now);
     }
 
@@ -300,7 +310,9 @@ public static class GameViews
                 (estate?.GatePolicies ?? new Dictionary<GateSide, GatePolicy>()).ToDictionary(t => Camel(t.Key), t => Camel(t.Value)),
                 Camel(profile.Primary),
                 profile.Secondary is { } secondary ? Camel(secondary) : null,
-                owner != null ? world.CorporationOf(owner)?.Tag : null));
+                owner != null ? world.CorporationOf(owner)?.Tag : null,
+                owner is { IsNpc: false } ? Camel(world.ActivityOf(owner)) : null,
+                estate?.ReservedFor is { } corporationId && estate.ReservedUntil > world.Now ? world.Corporation(corporationId)?.Tag : null));
         }
         var hub = WorldLayout.HubOrigin(district);
         return new DistrictDto(
@@ -543,7 +555,7 @@ public static class GameViews
 
     public static EstateVisitDto Visit(GameWorld world, Company owner, Company viewer, IReadOnlyList<GuestbookNoteDto> guestbook)
     {
-        var estate = world.EstateOf(owner)!;
+        var estate = world.EstateOf(owner);
         var corporation = world.CorporationOf(owner);
         var canMentor = !owner.IsNpc && owner.Id != viewer.Id && viewer.MentorId == null && viewer.Level < GameWorld.MenteeMaxLevel
             && owner.Level >= GameWorld.MentorLevel && world.Mentees(owner.Id) < GameWorld.MaxMentees;
@@ -562,12 +574,14 @@ public static class GameViews
             world.BuildingsOf(owner.Id).Count(),
             world.PartnerCounts().GetValueOrDefault(owner.Id),
             owner.CreatedAt,
-            estate.Origin.X,
-            estate.Origin.Y,
+            estate?.Origin.X ?? 0,
+            estate?.Origin.Y ?? 0,
             canMentor,
             viewer.MentorId == owner.Id,
             world.Mentees(owner.Id),
-            guestbook);
+            guestbook,
+            owner.SwapWith == viewer.Id,
+            viewer.SwapWith == owner.Id);
     }
 
     public static NetworkFlowsDto Flows(GameWorld world, Network network)
@@ -902,8 +916,13 @@ public static class GameViews
                 ? rates.Where(t => t.Value > 0.01).OrderByDescending(t => t.Value * world.BasePrice(t.Key)).Select(t => new ResourceRateDto(t.Key, t.Value)).ToList()
                 : [];
 
+        var home = world.EstateOf(me);
+        if (home == null)
+        {
+            return [];
+        }
         return world.Companies
-            .Where(t => t.District == me.District && t.Id != me.Id)
+            .Where(t => t.District == me.District && t.Id != me.Id && world.EstateOf(t) != null)
             .Select(t =>
             {
                 var estate = world.EstateOf(t)!;
@@ -924,7 +943,7 @@ public static class GameViews
                     earn.GetValueOrDefault(t.Id),
                     pay.GetValueOrDefault(t.Id));
             })
-            .OrderBy(t => Math.Abs(t.EstateX - world.EstateOf(me)!.Origin.X) + Math.Abs(t.EstateY - world.EstateOf(me)!.Origin.Y))
+            .OrderBy(t => Math.Abs(t.EstateX - home.Origin.X) + Math.Abs(t.EstateY - home.Origin.Y))
             .ToList();
     }
 

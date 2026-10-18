@@ -126,7 +126,8 @@ public sealed partial class GameWorld
 
     public Estate? Estate(DistrictCoord district, int slot) => _estates.TryGetValue((district, slot), out var estate) ? estate : null;
 
-    public Estate? EstateOf(Company company) => Estate(company.District, company.Slot);
+    /// <summary>The company's estate; null while it is packed (asleep on the Quiet Isles, or moving)</summary>
+    public Estate? EstateOf(Company company) => Estate(company.District, company.Slot) is { } estate && estate.OwnerId == company.Id ? estate : null;
 
     public Estate? EstateAt(TilePos pos)
     {
@@ -193,6 +194,15 @@ public sealed partial class GameWorld
 
     // ---------------------------------------------------------------- Companies and estates
 
+    /// <summary>For testing: opens the next district before the open ones are full</summary>
+    public void OpenNextDistrict()
+    {
+        if (WorldLayout.DistrictOrder().FirstOrDefault(t => !_openDistricts.Contains(t)) is var next)
+        {
+            OpenDistrict(next);
+        }
+    }
+
     private void OpenDistrict(DistrictCoord district)
     {
         if (!_openDistricts.Add(district))
@@ -224,7 +234,8 @@ public sealed partial class GameWorld
             for (var slot = 0; slot < WorldLayout.EstatesPerDistrict; slot++)
             {
                 var estate = _estates[(district, slot)];
-                if (estate.OwnerId == null)
+                // Corporation blocks are kept for their members
+                if (estate.OwnerId == null && (estate.ReservedFor == null || estate.ReservedUntil <= LastTick))
                 {
                     return estate;
                 }

@@ -33,7 +33,7 @@ import { chunkKey, type WorldModel } from "./world";
 
 export type Tool =
   | { kind: "select" }
-  | { kind: "build"; type: string }
+  | { kind: "build"; type: string; crate?: number }
   | { kind: "pipe"; tier: number }
   | { kind: "bulldoze" }
   | { kind: "move"; building: number };
@@ -1144,6 +1144,29 @@ export class Engine {
       if (building.damaged) {
         container.addChild(damageBadge(size));
       }
+      // Away for a while: a sign on the HQ (and ivy when a Caretaker looks after the estate)
+      if (definition?.kind === "hq" && owner?.activity != null && owner.activity !== "active") {
+        const sign = new Text({
+          text: owner.activity === "resting" ? "zz resting" : "Caretaker",
+          style: {
+            fontFamily: "system-ui",
+            fontSize: 26,
+            fontWeight: "800",
+            fill: owner.activity === "resting" ? "#bfe9ff" : "#b7e4a0",
+            stroke: { color: "#0b1d24", width: 6 },
+          },
+        });
+        sign.anchor.set(0.5, 1);
+        sign.position.set(TILE_WIDTH * size, -TILE_HEIGHT * size - 150);
+        container.addChild(sign);
+      }
+      if (owner?.activity === "dormant") {
+        for (const child of container.children) {
+          if (child instanceof Sprite) {
+            child.tint = 0xb8d8a0;
+          }
+        }
+      }
     }
     this.objectLayer.addChild(container);
     this.applyRunning(view);
@@ -1510,6 +1533,7 @@ export class Engine {
         origin.x,
         origin.y,
         building?.id ?? null,
+        tool.kind === "move" || tool.crate !== undefined,
       );
       const g = new Graphics();
       for (let dy = 0; dy < definition.size; dy++) {

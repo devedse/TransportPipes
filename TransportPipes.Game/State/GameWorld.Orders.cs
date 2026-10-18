@@ -27,6 +27,7 @@ public sealed partial class GameWorld
     {
         _likesToday.Clear();
         PlanEvents();
+        CheckActivity();
         foreach (var company in _companies.Values.Where(t => !t.IsNpc && t.LastSeenAt >= LastTick - ActivePeriod))
         {
             EnsureOrders(company);

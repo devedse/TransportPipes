@@ -1,6 +1,7 @@
 import { gameClient } from "../app/client";
 import { formatAmount } from "../app/format";
-import type { LeaderboardEntryDto, LeaderboardKind } from "../api/contracts";
+import { useEffect, useState } from "react";
+import type { LeaderboardEntryDto, LeaderboardKind, SleeperDto } from "../api/contracts";
 import { setState, useAppStore } from "../state/store";
 
 const KINDS: Array<{ id: LeaderboardKind; name: string; unit: string }> = [
@@ -36,12 +37,39 @@ function Row({ entry, kind }: { entry: LeaderboardEntryDto; kind: LeaderboardKin
   );
 }
 
+/** The Quiet Isles (GDD §12.2): the estates that sleep until their owners come back */
+function QuietIsles() {
+  const [sleepers, setSleepers] = useState<SleeperDto[] | null>(null);
+  useEffect(() => {
+    void gameClient.connection.getQuietIsles().then(setSleepers);
+  }, []);
+  return (
+    <div className="quiet-isles">
+      <p className="muted small">
+        Estates of players who have been away for a month sleep here, packed up with everything they built.
+        When their owners come back, they move to a free spot for free.
+      </p>
+      {sleepers?.length === 0 && <p className="muted">Nobody is asleep.</p>}
+      {sleepers?.map((t) => (
+        <div key={t.id} className="sleeper">
+          <span className="company-dot" style={{ background: t.color }} /> {t.name}
+          <span className="muted small">
+            {" "}
+            · Level {t.level} · asleep since {new Date(t.since).toLocaleDateString()}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Leaderboards of the district and the whole world (GDD §9.5) */
 export function LeaderboardPanel() {
   const open = useAppStore((s) => s.leaderboardOpen);
   const board = useAppStore((s) => s.leaderboard);
   const kind = useAppStore((s) => s.leaderboardKind);
   const district = useAppStore((s) => s.leaderboardDistrict);
+  const [isles, setIsles] = useState(false);
   if (!open) {
     return null;
   }
@@ -77,39 +105,49 @@ export function LeaderboardPanel() {
           </button>
         </div>
         <div className="tabs">
+          <button className={isles ? "tab active" : "tab"} onClick={() => setIsles(true)}>
+            Quiet Isles
+          </button>
           {KINDS.map((k) => (
             <button
               key={k.id}
-              className={k.id === kind ? "tab active" : "tab"}
-              onClick={() => void gameClient.refreshLeaderboard(k.id)}
+              className={!isles && k.id === kind ? "tab active" : "tab"}
+              onClick={() => {
+                setIsles(false);
+                void gameClient.refreshLeaderboard(k.id);
+              }}
             >
               {k.name}
             </button>
           ))}
         </div>
-        <table className="leaderboard">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Company</th>
-              <th className="value">{unit}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {board?.entries.map((entry) => (
-              <Row key={entry.company} entry={entry} kind={kind} />
-            ))}
-            {board !== null && board.you !== null && !youShown && (
-              <>
-                <tr className="gap">
-                  <td colSpan={3}>…</td>
-                </tr>
-                <Row entry={board.you} kind={kind} />
-              </>
-            )}
-          </tbody>
-        </table>
-        {board?.entries.length === 0 && <p className="muted">No companies yet.</p>}
+        {isles ? (
+          <QuietIsles />
+        ) : (
+          <table className="leaderboard">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Company</th>
+                <th className="value">{unit}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {board?.entries.map((entry) => (
+                <Row key={entry.company} entry={entry} kind={kind} />
+              ))}
+              {board !== null && board.you !== null && !youShown && (
+                <>
+                  <tr className="gap">
+                    <td colSpan={3}>…</td>
+                  </tr>
+                  <Row entry={board.you} kind={kind} />
+                </>
+              )}
+            </tbody>
+          </table>
+        )}
+        {!isles && board?.entries.length === 0 && <p className="muted">No companies yet.</p>}
       </div>
     </div>
   );

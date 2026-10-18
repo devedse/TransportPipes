@@ -155,7 +155,9 @@ public sealed class WorldHost : BackgroundService
                 season = _world.Season;
                 if (!_store.ResultsSaved)
                 {
+                    // Claimed here, so the results go to Legacy only once
                     results = _world.SeasonResults.ToList();
+                    _store.ResultsSaved = true;
                 }
             }
         }
@@ -165,8 +167,15 @@ public sealed class WorldHost : BackgroundService
         }
         if (results != null)
         {
-            await _accounts.AddLegacyAsync(results);
-            _store.ResultsSaved = true;
+            try
+            {
+                await _accounts.AddLegacyAsync(results);
+            }
+            catch
+            {
+                _store.ResultsSaved = false;
+                throw;
+            }
             _saveSoon = true;
             _logger.LogInformation("Season {Season} ended: Legacy for {Players} players", season, results.Count);
         }
@@ -175,6 +184,11 @@ public sealed class WorldHost : BackgroundService
             await _lock.WaitAsync();
             try
             {
+                // Someone else may have opened the next world meanwhile
+                if (_world!.SeasonEndedAt != end)
+                {
+                    return;
+                }
                 await _store.ResetAsync(season + 1, Now);
                 var world = await LoadWorldAsync(CancellationToken.None);
                 world.Tick();

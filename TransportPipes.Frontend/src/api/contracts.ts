@@ -70,7 +70,47 @@ export interface CompanyDto {
   outposts: OutpostDto[];
   franchise: FranchiseDto;
   season: SeasonInfoDto;
+  moving: MovingDto;
   serverTime: string;
+}
+
+export type ActivityStage = "active" | "resting" | "dormant" | "asleep";
+
+/** Moving and activity (GDD §12) */
+export interface MovingDto {
+  activity: ActivityStage;
+  asleep: boolean;
+  arrivesAt: string | null;
+  crates: CrateDto[];
+  freeMoves: number;
+  moveCost: number;
+  canMoveAt: string | null;
+  swapWith: number | null;
+}
+
+export interface CrateDto {
+  index: number;
+  type: string;
+  level: number;
+}
+
+export interface DistrictChoiceDto {
+  x: number;
+  y: number;
+  name: string;
+  freeEstates: number;
+  players: number;
+  activeShare: number;
+  reservedForYou: boolean;
+  yours: boolean;
+}
+
+export interface SleeperDto {
+  id: number;
+  name: string;
+  color: string;
+  level: number;
+  since: string;
 }
 
 /** The Franchise (GDD §8.7) */
@@ -319,6 +359,10 @@ export interface EstateDto {
   primary: string;
   secondary: string | null;
   corporationTag: string | null;
+  /** The owner's activity stage (players only) */
+  activity: ActivityStage | null;
+  /** A corporation block: the tag of the corporation it is kept for */
+  reservedFor: string | null;
 }
 
 /** A hub structure; corporation HQs have the corporation's tag, colour and HQ level */
@@ -804,6 +848,8 @@ export interface EstateVisitDto {
   isYourMentor: boolean;
   mentees: number;
   guestbook: GuestbookNoteDto[];
+  swapFromThem: boolean;
+  swapFromYou: boolean;
 }
 
 export interface ChatMessageDto {

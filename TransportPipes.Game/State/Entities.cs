@@ -91,6 +91,20 @@ public sealed class Company : Entity
     /// <summary>The Legacy level the owner brought from earlier seasons (a free manager slot from level 5)</summary>
     public int LegacyLevel { get; set; }
 
+    /// <summary>Moving and sleeping (GDD §12): the packed estate, buildings that didn't fit, the move in progress</summary>
+    public PackedEstate? Packed { get; set; }
+    public List<PackedBuilding> Crates { get; init; } = new();
+    public bool Asleep { get; set; }
+    public DateTime? ArrivesAt { get; set; }
+    public DateTime? LastMovedAt { get; set; }
+
+    /// <summary>Free moves (after waking up, or when a district merges) and a free parcel on arrival</summary>
+    public int FreeMoves { get; set; }
+    public bool MergeBonus { get; set; }
+
+    /// <summary>A swap of estates this company proposed to another one</summary>
+    public long? SwapWith { get; set; }
+
     /// <summary>Hired managers (ids), achievements and collections reached (ids), and the counters behind them</summary>
     public HashSet<string> Managers { get; init; } = new();
     public HashSet<string> Achievements { get; init; } = new();
@@ -163,6 +177,10 @@ public sealed class Estate : Entity
     public int UnlockedParcels { get; set; }
 
     public Dictionary<GateSide, GatePolicy> GatePolicies { get; init; } = Enum.GetValues<GateSide>().ToDictionary(t => t, _ => GatePolicy.Open);
+
+    /// <summary>A corporation block (GDD §12.3): a free estate kept for the members of a corporation for a while</summary>
+    public long? ReservedFor { get; set; }
+    public DateTime? ReservedUntil { get; set; }
 
     public bool IsUnlocked(int parcel) => (UnlockedParcels & (1 << parcel)) != 0;
 
@@ -338,3 +356,27 @@ public sealed class Corporation : Entity
 
     public CorporationGoal? Goal { get; set; }
 }
+
+/// <summary>A building in a crate or a packed estate: where it stood (relative to the estate), its level and contents</summary>
+public sealed class PackedBuilding
+{
+    public required string Type { get; init; }
+    public int Dx { get; init; }
+    public int Dy { get; init; }
+    public int Level { get; init; } = 1;
+    public Dictionary<string, double> Contents { get; init; } = new();
+    public HashSet<string> Imports { get; init; } = new();
+    public HashSet<string> Filter { get; init; } = new();
+    public double Setting { get; init; }
+}
+
+/// <summary>An estate packed up for a move or for the Quiet Isles: nothing is lost</summary>
+public sealed class PackedEstate
+{
+    public int UnlockedParcels { get; init; }
+    public Dictionary<GateSide, GatePolicy> GatePolicies { get; init; } = new();
+    public List<PackedBuilding> Buildings { get; init; } = new();
+    public List<PackedPipe> Pipes { get; init; } = new();
+}
+
+public sealed record PackedPipe(int Dx, int Dy, int Tier);

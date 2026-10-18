@@ -72,6 +72,15 @@ export function TopBar() {
         </div>
       </div>
 
+      {company.moving.arrivesAt !== null && (
+        <div className="panel top-era finale" title="Your estate is moving to its new district">
+          <span className="era-number">🎈 Moving</span>
+          <span className="muted small">
+            lands in{" "}
+            {formatDuration(Math.max(0, (new Date(company.moving.arrivesAt).getTime() - serverNow) / 1000))}
+          </span>
+        </div>
+      )}
       {company.season.endedAt !== null ? (
         <button
           className="panel top-era finale"

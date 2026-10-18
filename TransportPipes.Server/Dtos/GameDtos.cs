@@ -69,7 +69,18 @@ public record CompanyDto(
     IReadOnlyList<OutpostDto> Outposts,
     FranchiseDto Franchise,
     SeasonInfoDto Season,
+    MovingDto Moving,
     DateTime ServerTime);
+
+/// <summary>Moving and activity (GDD §12): a move in progress, crates, free moves, a proposed swap</summary>
+public record MovingDto(string Activity, bool Asleep, DateTime? ArrivesAt, IReadOnlyList<CrateDto> Crates, int FreeMoves, double MoveCost, DateTime? CanMoveAt, long? SwapWith);
+
+public record CrateDto(int Index, string Type, int Level);
+
+/// <summary>A district a company could move to</summary>
+public record DistrictChoiceDto(int X, int Y, string Name, int FreeEstates, int Players, double ActiveShare, bool ReservedForYou, bool Yours);
+
+public record SleeperDto(long Id, string Name, string Color, int Level, DateTime Since);
 
 /// <summary>The Franchise (GDD §8.7): Shares so far and what a franchise would give now</summary>
 public record FranchiseDto(int Shares, int Franchises, int SharesNow, string? Blocker, DateTime? At, int LegacyLevel);
@@ -156,7 +167,7 @@ public record OutpostCheckDto(string? Error, int X, int Y, double Lease, int Siz
 
 public record TerrainOverrideDto(int X, int Y, string Terrain);
 
-public record EstateDto(int Slot, int X, int Y, long? OwnerId, string? OwnerName, string? OwnerColor, int OwnerLevel, int UnlockedParcels, IReadOnlyDictionary<string, string> GatePolicies, string Primary, string? Secondary, string? CorporationTag);
+public record EstateDto(int Slot, int X, int Y, long? OwnerId, string? OwnerName, string? OwnerColor, int OwnerLevel, int UnlockedParcels, IReadOnlyDictionary<string, string> GatePolicies, string Primary, string? Secondary, string? CorporationTag, string? Activity, string? ReservedFor);
 
 /// <summary>A hub structure; corporation HQs have the corporation's tag, colour and HQ level</summary>
 public record HubStructureDto(string Type, int X, int Y, int Size, string? Label = null, string? Color = null, int Level = 0, long? Corporation = null, string? Variant = null, int Stages = 0);
@@ -318,7 +329,9 @@ public record EstateVisitDto(
     bool CanChooseAsMentor,
     bool IsYourMentor,
     int Mentees,
-    IReadOnlyList<GuestbookNoteDto> Guestbook);
+    IReadOnlyList<GuestbookNoteDto> Guestbook,
+    bool SwapFromThem,
+    bool SwapFromYou);
 
 public record ChatMessageDto(long Id, string Channel, long Sender, string SenderName, string Text, DateTime SentAt);
 

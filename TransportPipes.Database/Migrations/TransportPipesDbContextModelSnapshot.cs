@@ -376,6 +376,12 @@ namespace TransportPipes.Database.Migrations
                     b.Property<long?>("OwnerId")
                         .HasColumnType("bigint");
 
+                    b.Property<long?>("ReservedFor")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("ReservedUntil")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("UnlockedParcels")
                         .HasColumnType("integer");
 

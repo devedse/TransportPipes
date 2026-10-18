@@ -97,6 +97,27 @@ export function VisitPanel() {
           </button>
         </div>
       )}
+      {!visit.isYou && !visit.isNpc && (
+        <div className="swap-offer">
+          {visit.swapFromThem ? (
+            <>
+              <span className="small">{visit.name} proposes to swap estates with you.</span>
+              <button className="primary" onClick={() => void gameClient.proposeSwap(visit.id)}>
+                Accept the swap
+              </button>
+            </>
+          ) : visit.swapFromYou ? (
+            <span className="muted small">You proposed to swap estates; they have to agree.</span>
+          ) : (
+            <button
+              title="Both estates trade places with their whole layout"
+              onClick={() => void gameClient.proposeSwap(visit.id)}
+            >
+              ⇄ Propose to swap estates
+            </button>
+          )}
+        </div>
+      )}
       {visit.canChooseAsMentor && (
         <div className="mentor-offer">
           <span className="small">

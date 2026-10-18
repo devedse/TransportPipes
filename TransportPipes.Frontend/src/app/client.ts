@@ -553,6 +553,13 @@ export class GameClient {
       return;
     }
     const name = state.content?.building(type)?.name ?? type;
+    // A building from a crate: unpacked as it was, no construction
+    if (state.tool.kind === "build" && state.tool.crate !== undefined) {
+      if (await this.command(this.connection.placeCrate(state.tool.crate, x, y), `${name} is unpacked`)) {
+        this.setTool({ kind: "select" });
+      }
+      return;
+    }
     if (await this.command(this.connection.placeBuilding(type, x, y), `${name} is being built`)) {
       // Keep building more of the same until the player switches tools
       void this.refreshCompany();
@@ -828,6 +835,33 @@ export class GameClient {
         });
       }
     }
+  }
+
+  // ---------------------------------------------------------------- Moving (GDD §12)
+
+  async relocate(x: number, y: number) {
+    if (await this.command(this.connection.relocate(x, y), "Up, up and away: your estate lands in an hour")) {
+      setState({ companyOpen: false });
+    }
+  }
+
+  async scrapCrate(crate: number) {
+    await this.command(this.connection.scrapCrate(crate), "Scrapped for 75% of its cost");
+  }
+
+  placeCrate(crate: number, type: string) {
+    setState({ companyOpen: false });
+    this.setTool({ kind: "build", type, crate });
+  }
+
+  async proposeSwap(other: number) {
+    if (await this.command(this.connection.proposeSwap(other), "Swap proposed")) {
+      await this.refreshVisit();
+    }
+  }
+
+  async reserveBlock(x: number, y: number) {
+    await this.command(this.connection.reserveBlock(x, y), "Block reserved for 72 hours");
   }
 
   // ---------------------------------------------------------------- Franchise and season

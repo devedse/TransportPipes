@@ -479,6 +479,7 @@ public sealed partial class GameWorld
             company.WeekStartEarnings = company.LifetimeEarnings;
             company.Touch();
         }
+        CheckQuietDistricts();
     }
 
     /// <summary>The corporation tax on a member's trade income goes to the treasury</summary>

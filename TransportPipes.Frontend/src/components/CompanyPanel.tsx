@@ -4,6 +4,7 @@ import { formatAmount, formatDuration } from "../app/format";
 import { useNow } from "../app/useNow";
 import type { AchievementDto, ManagerDto } from "../api/contracts";
 import { setState, useAppStore } from "../state/store";
+import { MoveTab } from "./MoveTab";
 
 function initials(name: string): string {
   return name
@@ -128,9 +129,9 @@ export function CompanyPanel() {
   const details = useAppStore((s) => s.companyDetails);
   const company = useAppStore((s) => s.company);
   const content = useAppStore((s) => s.content);
-  const [tab, setTab] = useState<"overview" | "managers" | "achievements" | "collections" | "franchise">(
-    "overview",
-  );
+  const [tab, setTab] = useState<
+    "overview" | "managers" | "achievements" | "collections" | "franchise" | "move"
+  >("overview");
   if (!open || company === null || content === null) {
     return null;
   }
@@ -176,8 +177,16 @@ export function CompanyPanel() {
           <button className={tab === "franchise" ? "tab active" : "tab"} onClick={() => setTab("franchise")}>
             Franchise
           </button>
+          <button className={tab === "move" ? "tab active" : "tab"} onClick={() => setTab("move")}>
+            Move
+            {company.moving.crates.length > 0 && (
+              <span className="badge">{company.moving.crates.length}</span>
+            )}
+          </button>
         </div>
-        {tab === "franchise" ? (
+        {tab === "move" ? (
+          <MoveTab />
+        ) : tab === "franchise" ? (
           <FranchiseTab />
         ) : details === null ? (
           <p className="muted">Loading…</p>

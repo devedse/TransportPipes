@@ -9,6 +9,8 @@ import type {
   ChatMessageDto,
   CompanyDetailsDto,
   OutpostCheckDto,
+  DistrictChoiceDto,
+  SleeperDto,
   SeasonDto,
   CompanyDto,
   ContractsDto,
@@ -293,6 +295,13 @@ export class GameConnection {
   markInboxRead = () => this.invoke<void>("MarkInboxRead");
   getWonders = () => this.invoke<WondersDto | null>("GetWonders");
   getCompanyDetails = () => this.invoke<CompanyDetailsDto | null>("GetCompanyDetails");
+  getDistricts = () => this.invoke<DistrictChoiceDto[]>("GetDistricts");
+  relocate = (x: number, y: number) => this.invoke<CommandResult>("Relocate", x, y);
+  placeCrate = (crate: number, x: number, y: number) => this.invoke<CommandResult>("PlaceCrate", crate, x, y);
+  scrapCrate = (crate: number) => this.invoke<CommandResult>("ScrapCrate", crate);
+  proposeSwap = (other: number) => this.invoke<CommandResult>("ProposeSwap", other);
+  reserveBlock = (x: number, y: number) => this.invoke<CommandResult>("ReserveBlock", x, y);
+  getQuietIsles = () => this.invoke<SleeperDto[]>("GetQuietIsles");
   startFranchise = () => this.invoke<CommandResult>("StartFranchise");
   cancelFranchise = () => this.invoke<CommandResult>("CancelFranchise");
   getSeason = () => this.invoke<SeasonDto>("GetSeason");

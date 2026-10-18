@@ -104,6 +104,8 @@ public sealed class GameHub : Hub<IGameClient>
                 company.Touch();
             }
             company.LastSeenAt = world.Now;
+            // Back from the Quiet Isles
+            world.WakeUp(company);
             world.EnsureOrders(company);
             return new HelloDto(user, CompanyView(world, company), report, world.Now, world.Era, 0);
         });
@@ -297,6 +299,53 @@ public sealed class GameHub : Hub<IGameClient>
         var userId = UserId;
         return _world.RunAsync(world => GameViews.Season(world, userId), changesWorld: false);
     }
+
+    // ---------------------------------------------------------------- Moving (GDD §12)
+
+    public Task<IReadOnlyList<DistrictChoiceDto>> GetDistricts() =>
+        _world.RunAsync<IReadOnlyList<DistrictChoiceDto>>(world =>
+        {
+            if (world.CompanyOfUser(UserId) is not { } me)
+            {
+                return [];
+            }
+            return world.OpenDistricts.OrderBy(t => t.X).ThenBy(t => t.Y).Select(district =>
+            {
+                var estates = Enumerable.Range(0, WorldLayout.EstatesPerDistrict).Select(slot => world.Estate(district, slot)).OfType<Estate>().ToList();
+                var players = world.Companies.Where(t => !t.IsNpc && !t.Asleep && t.District == district).ToList();
+                var free = estates.Count(t => (t.OwnerId == null || world.Company(t.OwnerId.Value) is { IsNpc: true })
+                    && (t.ReservedFor == null || t.ReservedUntil <= world.Now || t.ReservedFor == me.CorporationId));
+                return new DistrictChoiceDto(
+                    district.X,
+                    district.Y,
+                    WorldNames.District(district),
+                    free,
+                    players.Count,
+                    players.Count == 0 ? 0 : players.Count(t => world.ActivityOf(t) == Activity.Active) / (double)players.Count,
+                    estates.Any(t => t.ReservedFor != null && t.ReservedFor == me.CorporationId && t.ReservedUntil > world.Now),
+                    district == me.District);
+            }).ToList();
+        }, changesWorld: false);
+
+    public Task<CommandResultDto> Relocate(int x, int y) =>
+        Command((world, company) => world.Relocate(company, new DistrictCoord(x, y)));
+
+    public Task<CommandResultDto> PlaceCrate(int crate, int x, int y) =>
+        Command((world, company) => world.PlaceCrate(company, crate, new TilePos(x, y)));
+
+    public Task<CommandResultDto> ScrapCrate(int crate) =>
+        Command((world, company) => world.ScrapCrate(company, crate));
+
+    public Task<CommandResultDto> ProposeSwap(long other) =>
+        Command((world, company) => world.ProposeSwap(company, other));
+
+    public Task<CommandResultDto> ReserveBlock(int x, int y) =>
+        Command((world, company) => world.ReserveBlock(company, new DistrictCoord(x, y)));
+
+    public Task<IReadOnlyList<SleeperDto>> GetQuietIsles() =>
+        _world.RunAsync<IReadOnlyList<SleeperDto>>(world =>
+            world.QuietIsles.OrderByDescending(t => t.Level).Take(100).Select(t => new SleeperDto(t.Id, t.Name, t.Color, t.Level, t.LastSeenAt)).ToList(),
+            changesWorld: false);
 
     // ---------------------------------------------------------------- Outposts
 
@@ -582,6 +631,15 @@ public sealed class GameHub : Hub<IGameClient>
                     break;
                 case "era":
                     world.AdvanceEra();
+                    break;
+                case "district":
+                    world.OpenNextDistrict();
+                    break;
+                case "arrive":
+                    world.LandNow(company);
+                    break;
+                case "sleep":
+                    world.PutToSleep(company);
                     break;
                 case "finale":
                     // To Era 5 and the launch countdown

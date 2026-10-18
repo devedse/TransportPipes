@@ -10,4 +10,8 @@ public class DbEstate
 
     /// <summary>Gate policy per side (jsonb)</summary>
     public string GatePolicies { get; set; } = "{}";
+
+    /// <summary>A corporation block: kept for a corporation's members until then</summary>
+    public long? ReservedFor { get; set; }
+    public DateTime? ReservedUntil { get; set; }
 }

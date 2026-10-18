@@ -92,6 +92,14 @@ public sealed class WorldStore
                 Franchises = settings.Franchises,
                 EarningsAtFranchise = settings.EarningsAtFranchise,
                 LegacyLevel = settings.LegacyLevel,
+                Packed = settings.Packed,
+                Crates = settings.Crates,
+                Asleep = settings.Asleep,
+                ArrivesAt = settings.ArrivesAt,
+                LastMovedAt = settings.LastMovedAt,
+                FreeMoves = settings.FreeMoves,
+                MergeBonus = settings.MergeBonus,
+                SwapWith = settings.SwapWith,
                 Titles = settings.Titles,
                 Managers = settings.Managers,
                 Achievements = settings.Achievements,
@@ -114,6 +122,8 @@ public sealed class WorldStore
                 OwnerId = row.OwnerId,
                 UnlockedParcels = row.UnlockedParcels,
                 GatePolicies = JsonSerializer.Deserialize<Dictionary<GateSide, GatePolicy>>(row.GatePolicies, Json) ?? new(),
+                ReservedFor = row.ReservedFor,
+                ReservedUntil = row.ReservedUntil,
             });
             _estates.Add((row.DistrictX, row.DistrictY, row.Slot));
         }
@@ -310,6 +320,14 @@ public sealed class WorldStore
                     Franchises = company.Franchises,
                     EarningsAtFranchise = company.EarningsAtFranchise,
                     LegacyLevel = company.LegacyLevel,
+                    Packed = company.Packed,
+                    Crates = company.Crates,
+                    Asleep = company.Asleep,
+                    ArrivesAt = company.ArrivesAt,
+                    LastMovedAt = company.LastMovedAt,
+                    FreeMoves = company.FreeMoves,
+                    MergeBonus = company.MergeBonus,
+                    SwapWith = company.SwapWith,
                     Titles = company.Titles,
                     Managers = company.Managers,
                     Achievements = company.Achievements,
@@ -331,6 +349,8 @@ public sealed class WorldStore
                 OwnerId = estate.OwnerId,
                 UnlockedParcels = estate.UnlockedParcels,
                 GatePolicies = JsonSerializer.Serialize(estate.GatePolicies, Json),
+                ReservedFor = estate.ReservedFor,
+                ReservedUntil = estate.ReservedUntil,
             }));
         }
 
@@ -605,6 +625,14 @@ public sealed class WorldStore
         public int Franchises { get; init; }
         public double EarningsAtFranchise { get; init; }
         public int LegacyLevel { get; init; }
+        public PackedEstate? Packed { get; init; }
+        public List<PackedBuilding> Crates { get; init; } = new();
+        public bool Asleep { get; init; }
+        public DateTime? ArrivesAt { get; init; }
+        public DateTime? LastMovedAt { get; init; }
+        public int FreeMoves { get; init; }
+        public bool MergeBonus { get; init; }
+        public long? SwapWith { get; init; }
         public HashSet<string> Titles { get; init; } = new();
         public HashSet<string> Managers { get; init; } = new();
         public HashSet<string> Achievements { get; init; } = new();
