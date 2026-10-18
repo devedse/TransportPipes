@@ -345,7 +345,9 @@ export function BuildingPanel() {
 
       {mine && definition.kind !== "hq" && (
         <div className="button-row footer-row">
-          <button onClick={() => gameClient.setTool({ kind: "move", building: building.id })}>Move</button>
+          {details.complexMembers <= 1 && (
+            <button onClick={() => gameClient.setTool({ kind: "move", building: building.id })}>Move</button>
+          )}
           {confirmDemolish ? (
             <>
               <button className="danger" onClick={() => void gameClient.demolish(building.id)}>
