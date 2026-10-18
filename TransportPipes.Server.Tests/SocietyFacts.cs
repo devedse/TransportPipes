@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using TransportPipes.Game.State;
 using TransportPipes.Server.Dtos;
 
@@ -175,5 +177,60 @@ public class SeasonServerFacts
         Assert.IsGreaterThan(2000, company.Gold, "Legacy brings starting gold");
         Assert.AreEqual(2, company.Season.Season);
         Assert.IsTrue(company.Titles.Contains("Season 1 Champion"));
+    }
+}
+
+[TestClass]
+public class ModerationFacts
+{
+    [TestMethod]
+    public async Task ModeratorsReviewReportsAndMuteOrBan()
+    {
+        using var server = new GameServer();
+        var troll = await server.ConnectAsync(await server.RegisterAsync("Troll"));
+        var victim = await server.ConnectAsync(await server.RegisterAsync("Victim"));
+        var modCookie = await server.RegisterAsync("Moderator");
+        await using var _1 = troll;
+        await using var _2 = victim;
+        await troll.Command("CreateCompany", "Troll Inc", "#ff0000");
+        await victim.Command("CreateCompany", "Victim Inc", "#00ff00");
+        await using (var db = server.Services.GetRequiredService<TransportPipes.Database.TransportPipesDbFactory>().CreateDbContext())
+        {
+            await db.Users.Where(t => t.UserName == "Moderator").ExecuteUpdateAsync(t => t.SetProperty(u => u.IsAdmin, true));
+        }
+        await using var moderator = await server.ConnectAsync(modCookie);
+
+        var district = (await troll.Invoke<ChatDto>("GetChat")).Channels.Single(t => t.Kind == "district").Id;
+        await troll.Command("SendChat", district, "something nasty");
+        var message = await TestClient.WaitFor(victim.Chat, t => t.Text == "something nasty");
+        await victim.Command("ReportChat", message.Id);
+
+        Assert.IsEmpty(await victim.Invoke<IReadOnlyList<ReportedMessageDto>>("GetReports"), "only for moderators");
+        var reports = await moderator.Invoke<IReadOnlyList<ReportedMessageDto>>("GetReports");
+        Assert.AreEqual("something nasty", reports.Single().Text);
+        Assert.IsTrue((await moderator.Invoke<HelloDto>("Hello")).User.IsAdmin);
+
+        await moderator.Command("ModerateMessage", message.Id, "mute");
+        Assert.IsEmpty(await moderator.Invoke<IReadOnlyList<ReportedMessageDto>>("GetReports"), "the message is gone");
+        StringAssert.Contains((await troll.Invoke<CommandResultDto>("SendChat", district, "again")).Error, "muted");
+
+        await moderator.Command("RenameCompany", (await troll.Invoke<CompanyDto>("GetCompany")).Id, "Nice Company");
+        Assert.AreEqual("Nice Company", (await troll.Invoke<CompanyDto>("GetCompany")).Name);
+    }
+
+    [TestMethod]
+    public async Task ABannedPlayerCantLogIn()
+    {
+        using var server = new GameServer();
+        await server.RegisterAsync("Banned");
+        await using (var db = server.Services.GetRequiredService<TransportPipes.Database.TransportPipesDbFactory>().CreateDbContext())
+        {
+            await db.Users.Where(t => t.UserName == "Banned").ExecuteUpdateAsync(t => t.SetProperty(u => u.BannedUntil, DateTime.UtcNow.AddYears(1)));
+        }
+
+        var (result, _) = await server.LoginAsync("Banned", "secret123");
+
+        Assert.IsFalse(result.Success);
+        StringAssert.Contains(result.Error, "banned");
     }
 }

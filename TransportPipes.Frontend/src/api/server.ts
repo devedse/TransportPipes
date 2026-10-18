@@ -11,6 +11,7 @@ import type {
   OutpostCheckDto,
   DistrictChoiceDto,
   SleeperDto,
+  ReportedMessageDto,
   SeasonDto,
   CompanyDto,
   ContractsDto,
@@ -302,6 +303,11 @@ export class GameConnection {
   proposeSwap = (other: number) => this.invoke<CommandResult>("ProposeSwap", other);
   reserveBlock = (x: number, y: number) => this.invoke<CommandResult>("ReserveBlock", x, y);
   getQuietIsles = () => this.invoke<SleeperDto[]>("GetQuietIsles");
+  getReports = () => this.invoke<ReportedMessageDto[]>("GetReports");
+  moderateMessage = (message: number, action: "dismiss" | "delete" | "mute" | "ban") =>
+    this.invoke<CommandResult>("ModerateMessage", message, action);
+  renameCompany = (company: number, name: string) =>
+    this.invoke<CommandResult>("RenameCompany", company, name);
   startFranchise = () => this.invoke<CommandResult>("StartFranchise");
   cancelFranchise = () => this.invoke<CommandResult>("CancelFranchise");
   getSeason = () => this.invoke<SeasonDto>("GetSeason");

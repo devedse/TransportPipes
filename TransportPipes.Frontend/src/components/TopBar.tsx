@@ -141,6 +141,15 @@ export function TopBar() {
           🔔
           {unread > 0 && <span className="dot-badge">{unread > 99 ? "99+" : unread}</span>}
         </button>
+        {user?.isAdmin && (
+          <button
+            className="icon-button"
+            title="Moderation"
+            onClick={() => setState({ moderationOpen: true })}
+          >
+            🛡
+          </button>
+        )}
         <button
           className="icon-button"
           title="Leaderboards (L)"
@@ -151,10 +160,14 @@ export function TopBar() {
         <button className="icon-button" title="Back to my estate (H)" onClick={() => gameClient.goHome()}>
           ⌂
         </button>
-        <button className="icon-button" title="Zoom out (-)" onClick={() => gameClient.zoomBy(-1)}>
+        <button
+          className="icon-button desktop-only"
+          title="Zoom out (-)"
+          onClick={() => gameClient.zoomBy(-1)}
+        >
           −
         </button>
-        <button className="icon-button" title="Zoom in (+)" onClick={() => gameClient.zoomBy(1)}>
+        <button className="icon-button desktop-only" title="Zoom in (+)" onClick={() => gameClient.zoomBy(1)}>
           +
         </button>
         <button className="icon-button" title="Log out" onClick={() => void gameClient.logout()}>

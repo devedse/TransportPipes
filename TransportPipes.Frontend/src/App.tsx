@@ -24,6 +24,7 @@ import { OverlayBar } from "./components/OverlayBar";
 import { ParcelPanel } from "./components/ParcelPanel";
 import { PipeTierBar } from "./components/PipeTierBar";
 import { ReportDialog } from "./components/ReportDialog";
+import { ModerationPanel } from "./components/ModerationPanel";
 import { ResearchPanel } from "./components/ResearchPanel";
 import { SeasonPanel } from "./components/SeasonPanel";
 import { Toasts } from "./components/Toasts";
@@ -61,7 +62,8 @@ function useShortcuts() {
             state.neighboursOpen ||
             state.corporationOpen ||
             state.leaderboardOpen ||
-            state.companyOpen
+            state.companyOpen ||
+            state.moderationOpen
           ) {
             setState({ ...MODALS, buildMenuOpen: state.buildMenuOpen });
           } else if (state.inboxOpen) {
@@ -240,6 +242,9 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="ChatPanel">
             <ChatPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="ModerationPanel">
+            <ModerationPanel />
           </ErrorBoundary>
           <ErrorBoundary name="SeasonPanel">
             <SeasonPanel />

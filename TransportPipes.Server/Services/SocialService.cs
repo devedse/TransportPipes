@@ -138,6 +138,36 @@ public sealed class SocialService
         return message.Channel;
     }
 
+    // ---------------------------------------------------------------- Moderation
+
+    /// <summary>The reported messages, newest first</summary>
+    public async Task<IReadOnlyList<ReportedMessageDto>> ReportsAsync()
+    {
+        await using var db = _db.CreateDbContext();
+        return await db.ChatMessages.Where(t => t.Reported).OrderByDescending(t => t.Id).Take(100)
+            .Select(t => new ReportedMessageDto(t.Id, t.Channel, t.Sender, t.SenderName, t.Text, t.SentAt))
+            .ToListAsync();
+    }
+
+    public async Task<bool> DeleteMessageAsync(long message)
+    {
+        await using var db = _db.CreateDbContext();
+        return await db.ChatMessages.Where(t => t.Id == message).ExecuteDeleteAsync() > 0;
+    }
+
+    public async Task<bool> DismissReportAsync(long message)
+    {
+        await using var db = _db.CreateDbContext();
+        return await db.ChatMessages.Where(t => t.Id == message).ExecuteUpdateAsync(t => t.SetProperty(m => m.Reported, false)) > 0;
+    }
+
+    /// <summary>The sender of a message (a company id), for muting or banning its owner</summary>
+    public async Task<long?> SenderAsync(long message)
+    {
+        await using var db = _db.CreateDbContext();
+        return await db.ChatMessages.Where(t => t.Id == message).Select(t => (long?)t.Sender).FirstOrDefaultAsync();
+    }
+
     public async Task<IReadOnlyList<long>> BlockedAsync(long company)
     {
         await using var db = _db.CreateDbContext();

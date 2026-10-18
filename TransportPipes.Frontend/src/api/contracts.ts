@@ -9,6 +9,7 @@ export interface VersionInfo {
 export interface UserInfo {
   id: number;
   userName: string;
+  isAdmin: boolean;
 }
 
 export interface AuthResult {
@@ -979,4 +980,15 @@ export interface CompanyDetailsDto {
   titles: string[];
   stats: StatDto[];
   produced: StatDto[];
+}
+
+// ---------------------------------------------------------------- Moderation
+
+export interface ReportedMessageDto {
+  id: number;
+  channel: string;
+  sender: number;
+  senderName: string;
+  text: string;
+  sentAt: string;
 }

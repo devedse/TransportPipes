@@ -24,6 +24,10 @@ public class DbUser
 
     public bool IsAdmin { get; set; }
 
+    /// <summary>Moderation: no chat until, no playing until</summary>
+    public DateTime? MutedUntil { get; set; }
+    public DateTime? BannedUntil { get; set; }
+
     /// <summary>Legacy points from earlier seasons (GDD §8.8) and the titles they brought (jsonb)</summary>
     public int Legacy { get; set; }
 

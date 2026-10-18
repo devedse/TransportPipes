@@ -90,7 +90,30 @@ public sealed class AccountService
     public async Task<bool> ExistsAsync(long userId)
     {
         await using var db = _dbFactory.CreateDbContext();
-        return await db.Users.AnyAsync(t => t.Id == userId);
+        var now = _time.GetUtcNow().UtcDateTime;
+        // A banned user is signed out
+        return await db.Users.AnyAsync(t => t.Id == userId && (t.BannedUntil == null || t.BannedUntil <= now));
+    }
+
+    /// <summary>Whether a user is an admin, and until when they are muted and banned</summary>
+    public async Task<(bool IsAdmin, DateTime? MutedUntil, DateTime? BannedUntil)> ModerationAsync(long userId)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        var user = await db.Users.FirstOrDefaultAsync(t => t.Id == userId);
+        var now = _time.GetUtcNow().UtcDateTime;
+        return user == null ? (false, null, null) : (user.IsAdmin, user.MutedUntil > now ? user.MutedUntil : null, user.BannedUntil > now ? user.BannedUntil : null);
+    }
+
+    public async Task MuteAsync(long userId, TimeSpan duration)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        await db.Users.Where(t => t.Id == userId).ExecuteUpdateAsync(t => t.SetProperty(u => u.MutedUntil, _time.GetUtcNow().UtcDateTime + duration));
+    }
+
+    public async Task BanAsync(long userId, TimeSpan duration)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        await db.Users.Where(t => t.Id == userId).ExecuteUpdateAsync(t => t.SetProperty(u => u.BannedUntil, _time.GetUtcNow().UtcDateTime + duration));
     }
 
     /// <summary>The Legacy of a user (points and titles from earlier seasons)</summary>

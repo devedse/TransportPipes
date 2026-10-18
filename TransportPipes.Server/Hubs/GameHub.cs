@@ -89,6 +89,8 @@ public sealed class GameHub : Hub<IGameClient>
     {
         var userId = UserId;
         var user = new UserInfo(userId, UserName);
+        var (isAdmin, _, _) = await _accounts.ModerationAsync(userId);
+        user = user with { IsAdmin = isAdmin };
         var hello = await _world.RunAsync(world =>
         {
             var company = world.CompanyOfUser(userId);
@@ -512,6 +514,10 @@ public sealed class GameHub : Hub<IGameClient>
                 return CommandResultDto.Fail("This company doesn't take your messages.");
             }
         }
+        if ((await _accounts.ModerationAsync(userId)).MutedUntil is { } muted)
+        {
+            return CommandResultDto.Fail($"A moderator muted you until {muted:HH:mm} UTC.");
+        }
         if (_social.CheckMessage(sender.Id, text) is { } failed)
         {
             return CommandResultDto.Fail(failed);
@@ -547,6 +553,66 @@ public sealed class GameHub : Hub<IGameClient>
         }
         await _social.SetBlockedAsync(id, company, blocked);
         return CommandResultDto.Ok;
+    }
+
+    // ---------------------------------------------------------------- Moderation (admins only)
+
+    private async Task<bool> IsAdminAsync() => (await _accounts.ModerationAsync(UserId)).IsAdmin;
+
+    public async Task<IReadOnlyList<ReportedMessageDto>> GetReports() =>
+        await IsAdminAsync() ? await _social.ReportsAsync() : [];
+
+    public async Task<CommandResultDto> ModerateMessage(long message, string action)
+    {
+        if (!await IsAdminAsync())
+        {
+            return CommandResultDto.Fail("Only moderators do that.");
+        }
+        var sender = await _social.SenderAsync(message);
+        var user = sender is { } company ? await _world.RunAsync(world => world.Company(company)?.UserId, changesWorld: false) : null;
+        switch (action)
+        {
+            case "dismiss":
+                await _social.DismissReportAsync(message);
+                break;
+            case "delete":
+                await _social.DeleteMessageAsync(message);
+                break;
+            case "mute" when user is { } muted:
+                await _accounts.MuteAsync(muted, TimeSpan.FromHours(24));
+                await _social.DeleteMessageAsync(message);
+                break;
+            case "ban" when user is { } banned:
+                await _accounts.BanAsync(banned, TimeSpan.FromDays(7));
+                await _social.DeleteMessageAsync(message);
+                break;
+            default:
+                return CommandResultDto.Fail("dismiss, delete, mute or ban");
+        }
+        return CommandResultDto.Ok;
+    }
+
+    /// <summary>Renames a company with an offensive name</summary>
+    public async Task<CommandResultDto> RenameCompany(long company, string name)
+    {
+        if (!await IsAdminAsync())
+        {
+            return CommandResultDto.Fail("Only moderators do that.");
+        }
+        return await _world.RunAsync(world =>
+        {
+            if (world.Company(company) is not { } target)
+            {
+                return CommandResultDto.Fail("Unknown company.");
+            }
+            if (world.CompanyNameError(name) is { } error)
+            {
+                return CommandResultDto.Fail(error);
+            }
+            target.Name = name.Trim();
+            world.CompanyChanged(target);
+            return CommandResultDto.Ok;
+        });
     }
 
     // ---------------------------------------------------------------- Inbox

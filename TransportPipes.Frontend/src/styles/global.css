@@ -897,6 +897,7 @@ kbd {
 .modal-backdrop {
   position: absolute;
   inset: 0;
+  z-index: 10;
   display: grid;
   place-items: center;
   background: rgba(3, 12, 15, 0.55);
@@ -2546,9 +2547,231 @@ button.liked {
   background: rgba(0, 0, 0, 0.2);
 }
 
+/* ---------- Moderation ---------- */
+
+.moderation-panel {
+  width: min(760px, calc(100vw - 24px));
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.report-row {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(239, 111, 108, 0.4);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.report-text {
+  margin-top: 4px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.rename-row {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.rename-row input {
+  margin: 0;
+}
+
 /* ---------- Small screens ---------- */
 
 @media (max-width: 720px) {
+  /* A phone: nothing scrolls sideways, the map gets the room */
+  html,
+  body,
+  .app {
+    overflow: hidden;
+    max-width: 100vw;
+  }
+
+  .desktop-only {
+    display: none;
+  }
+
+  .top-bar {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    gap: 4px;
+  }
+
+  .top-bar .panel {
+    padding: 6px 8px;
+  }
+
+  .top-company {
+    max-width: 120px;
+    min-width: 0;
+  }
+
+  .company-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.85rem;
+  }
+
+  .top-gold {
+    min-width: 0;
+  }
+
+  .gold-amount {
+    font-size: 1rem;
+  }
+
+  .gold-rate {
+    display: none;
+  }
+
+  .level-info {
+    display: none;
+  }
+
+  .top-spacer {
+    display: none;
+  }
+
+  .top-actions {
+    margin-left: auto;
+    gap: 2px;
+  }
+
+  .top-actions .icon-button {
+    width: 30px;
+    height: 30px;
+  }
+
+  .overlay-bar {
+    top: 60px;
+    max-width: calc(100vw - 16px);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .overlay-bar button {
+    padding: 3px 8px;
+    font-size: 0.75rem;
+  }
+
+  .event-bar {
+    top: 100px;
+    max-width: calc(100vw - 16px);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .event-chip {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+  }
+
+  .toolbar {
+    left: 8px;
+    right: 8px;
+    translate: none;
+    bottom: 8px;
+    padding: 6px;
+    gap: 4px;
+    justify-content: space-between;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .tool {
+    flex: none;
+    padding: 6px 9px;
+  }
+
+  .tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .tab {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  .modal-backdrop {
+    place-items: end center;
+    padding-bottom: 8px;
+  }
+
+  .hub-panel,
+  .neighbours-panel,
+  .research-panel,
+  .corp-panel,
+  .company-panel,
+  .leaderboard-panel,
+  .season-panel,
+  .moderation-panel {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 90px);
+    padding: 10px;
+  }
+
+  .panel-header h2 {
+    font-size: 1.15rem;
+  }
+
+  .reputation {
+    display: none;
+  }
+
+  .wonder-need {
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .wonder-need .meter-bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .wonder-need .muted {
+    display: none;
+  }
+
+  .market-table {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .inbox-panel {
+    top: 56px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+  }
+
+  /* Toasts at the top, where they don't cover the toolbar */
+  .toasts {
+    top: 100px;
+    bottom: auto;
+    left: 8px;
+    right: 8px;
+    max-width: none;
+  }
+
+  .version-badge {
+    display: none;
+  }
+
   .top-research,
   .top-era,
   .top-company .muted {

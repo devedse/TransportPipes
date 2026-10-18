@@ -102,7 +102,7 @@ static async Task<UserInfo> SignInAsync(HttpContext context, DbUser user)
         [new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), new Claim(ClaimTypes.Name, user.UserName)],
         CookieAuthenticationDefaults.AuthenticationScheme);
     await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity), new AuthenticationProperties { IsPersistent = true });
-    return new UserInfo(user.Id, user.UserName);
+    return new UserInfo(user.Id, user.UserName, user.IsAdmin);
 }
 
 auth.MapPost("/register", async (RegisterRequest request, AccountService accounts, HttpContext context) =>
@@ -113,9 +113,13 @@ auth.MapPost("/register", async (RegisterRequest request, AccountService account
         : new AuthResult(true, null, await SignInAsync(context, user));
 });
 
-auth.MapPost("/login", async (LoginRequest request, AccountService accounts, HttpContext context) =>
+auth.MapPost("/login", async (LoginRequest request, AccountService accounts, HttpContext context, TimeProvider time) =>
 {
     var user = await accounts.LoginAsync(request.UserName ?? "", request.Password ?? "");
+    if (user?.BannedUntil is { } banned && banned > time.GetUtcNow().UtcDateTime)
+    {
+        return new AuthResult(false, $"This account is banned until {banned:yyyy-MM-dd HH:mm} UTC.", null);
+    }
     return user == null
         ? new AuthResult(false, "Wrong user name or password.", null)
         : new AuthResult(true, null, await SignInAsync(context, user));
@@ -127,8 +131,12 @@ auth.MapPost("/logout", async (HttpContext context) =>
     return Results.NoContent();
 });
 
-auth.MapGet("/me", (ClaimsPrincipal user) =>
-    new UserInfo(long.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!), user.FindFirstValue(ClaimTypes.Name) ?? ""))
+auth.MapGet("/me", async (ClaimsPrincipal user, AccountService accounts) =>
+{
+    var id = long.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    var (isAdmin, _, _) = await accounts.ModerationAsync(id);
+    return new UserInfo(id, user.FindFirstValue(ClaimTypes.Name) ?? "", isAdmin);
+})
     .RequireAuthorization();
 
 app.MapFallbackToFile("index.html");

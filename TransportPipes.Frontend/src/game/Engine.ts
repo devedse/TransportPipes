@@ -196,6 +196,8 @@ export class Engine {
   private dragButton = 0;
   private dragPointerId: number | null = null;
   private dragDeltaX = 0;
+  /** Two fingers on the map (touch screens) */
+  private pinching = false;
   private dragDeltaY = 0;
   private pressX = 0;
   private pressY = 0;
@@ -338,8 +340,37 @@ export class Engine {
       return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
     };
 
+    // Two fingers: pinch to zoom (and move the map with their middle)
+    const touches = new Map<number, { x: number; y: number }>();
+    let pinch: { distance: number; x: number; y: number } | null = null;
+    const pinchState = () => {
+      const [a, b] = [...touches.values()];
+      return { distance: Math.hypot(a!.x - b!.x, a!.y - b!.y), x: (a!.x + b!.x) / 2, y: (a!.y + b!.y) / 2 };
+    };
+    const releaseTouch = (event: PointerEvent) => {
+      touches.delete(event.pointerId);
+      if (touches.size < 2) {
+        pinch = null;
+        this.pinching = false;
+      }
+    };
+
     const onPointerDown = (event: PointerEvent) => {
-      if (this.dragging) {
+      if (event.pointerType === "touch") {
+        touches.set(event.pointerId, toLocal(event));
+        if (touches.size === 2) {
+          // The first finger's drag (or tap) becomes a pinch
+          if (this.dragging) {
+            this.dragging = false;
+            this.dragPointerId = null;
+            this.cancelToolDrag();
+          }
+          pinch = pinchState();
+          this.pinching = true;
+          return;
+        }
+      }
+      if (this.dragging || pinch !== null) {
         return;
       }
       const local = toLocal(event);
@@ -364,6 +395,22 @@ export class Engine {
 
     const onPointerMove = (event: PointerEvent) => {
       const local = toLocal(event);
+      if (event.pointerType === "touch" && touches.has(event.pointerId)) {
+        touches.set(event.pointerId, local);
+        if (pinch !== null && touches.size === 2) {
+          const now = pinchState();
+          if (
+            pinch.distance > 0 &&
+            this.camera.zoomTo(this.camera.scale * (now.distance / pinch.distance), now.x, now.y)
+          ) {
+            this.callbacks.onZoom(this.camera.scale);
+          }
+          this.dragDeltaX += now.x - pinch.x;
+          this.dragDeltaY += now.y - pinch.y;
+          pinch = now;
+          return;
+        }
+      }
       if (this.dragging && event.pointerId === this.dragPointerId) {
         if (Math.hypot(local.x - this.pressX, local.y - this.pressY) > CLICK_TOLERANCE_PX) {
           this.movedBeyondClick = true;
@@ -422,8 +469,14 @@ export class Engine {
 
     canvas.addEventListener("pointerdown", onPointerDown);
     canvas.addEventListener("pointermove", onPointerMove);
-    canvas.addEventListener("pointerup", (event) => endDrag(event, true));
-    canvas.addEventListener("pointercancel", (event) => endDrag(event, false));
+    canvas.addEventListener("pointerup", (event) => {
+      releaseTouch(event);
+      endDrag(event, true);
+    });
+    canvas.addEventListener("pointercancel", (event) => {
+      releaseTouch(event);
+      endDrag(event, false);
+    });
     canvas.addEventListener("pointerleave", () => {
       if (!this.dragging) {
         this.pointerInside = false;
@@ -514,7 +567,11 @@ export class Engine {
     const deltaSeconds = this.app.ticker.deltaMS / 1000;
     this.time += deltaSeconds;
     this.panWithKeys(deltaSeconds);
-    this.camera.update(this.dragging && !this.isToolDrag(), this.dragDeltaX, this.dragDeltaY);
+    this.camera.update(
+      (this.dragging && !this.isToolDrag()) || this.pinching,
+      this.dragDeltaX,
+      this.dragDeltaY,
+    );
     this.dragDeltaX = 0;
     this.dragDeltaY = 0;
     this.worldLayer.scale.set(this.camera.scale);

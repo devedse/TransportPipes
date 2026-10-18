@@ -5,7 +5,7 @@ namespace TransportPipes.Server.Dtos;
 
 public record VersionInfo(string Version, string? Commit);
 
-public record UserInfo(long Id, string UserName);
+public record UserInfo(long Id, string UserName, bool IsAdmin = false);
 
 public record LoginRequest(string UserName, string Password);
 
@@ -384,3 +384,7 @@ public record CompanyDetailsDto(
     IReadOnlyList<string> Titles,
     IReadOnlyList<StatDto> Stats,
     IReadOnlyList<StatDto> Produced);
+
+// ---------------------------------------------------------------- Moderation (M6)
+
+public record ReportedMessageDto(long Id, string Channel, long Sender, string SenderName, string Text, DateTime SentAt);

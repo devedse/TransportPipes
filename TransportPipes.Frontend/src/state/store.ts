@@ -96,6 +96,7 @@ export interface AppState {
   /** The season results, shown when the season ended */
   season: SeasonDto | null;
   seasonOpen: boolean;
+  moderationOpen: boolean;
   leaderboardOpen: boolean;
   leaderboardKind: LeaderboardKind;
   leaderboardDistrict: boolean;
@@ -162,6 +163,7 @@ export const initialState: AppState = {
   outpostCheck: null,
   season: null,
   seasonOpen: false,
+  moderationOpen: false,
   leaderboardOpen: false,
   leaderboardKind: "netWorth",
   leaderboardDistrict: true,
@@ -186,6 +188,7 @@ export const MODALS = {
   corporationOpen: false,
   leaderboardOpen: false,
   companyOpen: false,
+  moderationOpen: false,
   buildMenuOpen: false,
 } satisfies Partial<AppState>;
 
