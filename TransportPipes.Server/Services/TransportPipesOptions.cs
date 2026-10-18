@@ -31,4 +31,9 @@ public class TransportPipesOptions
     public bool SeedTestUsers { get; set; }
 
     public string TestUserPassword { get; set; } = "a";
+
+    /// <summary>
+    /// Allows the Cheat hub method (gold, levels, research points, finishing constructions) for testing. Never in production.
+    /// </summary>
+    public bool Cheats { get; set; }
 }

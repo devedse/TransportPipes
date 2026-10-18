@@ -46,7 +46,19 @@ export interface CompanyDto {
   sellPrices: Record<string, number>;
   buyMaxPrices: Record<string, number>;
   buildingCounts: Record<string, number>;
+  researched: string[];
+  currentResearch: string | null;
+  researchEndsAt: string | null;
   serverTime: string;
+}
+
+export interface ResearchStateDto {
+  id: string;
+  state: "done" | "researching" | "available" | "locked";
+  cost: number;
+  reason: string | null;
+  /** Share of the other active companies that have it (0..1) */
+  diffusion: number;
 }
 
 export interface ReportDto {
@@ -212,7 +224,7 @@ export interface BuildingDetailsDto {
 }
 
 export interface ToastDto {
-  kind: "constructionFinished" | "levelUp";
+  kind: "constructionFinished" | "levelUp" | "researchFinished";
   text: string;
   building: number | null;
 }
@@ -302,10 +314,29 @@ export interface PipeTierDefinition {
   research: string | null;
 }
 
+export type ResearchBranch = "energy" | "industry" | "logistics" | "economy";
+
+export interface ResearchDefinition {
+  id: string;
+  name: string;
+  branch: ResearchBranch;
+  era: number;
+  level: number;
+  cost: number;
+  minutes: number;
+  requires: string[];
+  outputBonuses: Array<{ targets: string[]; amount: number }>;
+  throughputBonus: number;
+  bandWidthBonus: number;
+  managerSlots: number;
+  description: string;
+}
+
 export interface GameContentDto {
   resourceList: ResourceDefinition[];
   buildings: BuildingDefinition[];
   pipeTiers: PipeTierDefinition[];
+  research: ResearchDefinition[];
   progression: {
     maxCompanyLevel: number;
     xpForLevel: number[];

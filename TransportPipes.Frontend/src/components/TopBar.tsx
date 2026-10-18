@@ -14,6 +14,7 @@ function useLiveGold(): number {
 export function TopBar() {
   const company = useAppStore((state) => state.company);
   const user = useAppStore((state) => state.user);
+  const content = useAppStore((state) => state.content);
   const gold = useLiveGold();
   if (company === null) {
     return null;
@@ -52,11 +53,20 @@ export function TopBar() {
         </div>
       </div>
 
-      {company.researchPerMinute > 0 || company.researchPoints > 0 ? (
-        <div className="panel top-research" title="Research points from your labs">
-          🔬 {formatAmount(company.researchPoints)}{" "}
+      {company.researchPerMinute > 0 || company.researchPoints > 0 || company.currentResearch !== null ? (
+        <button
+          className="panel top-research"
+          title="Research (R)"
+          onClick={() => void gameClient.openResearch()}
+        >
+          <span>🔬 {formatAmount(company.researchPoints)}</span>
           <span className="muted small">{formatRate(company.researchPerMinute)}</span>
-        </div>
+          {company.currentResearch !== null && content !== null && (
+            <span className="small current-research">
+              → {content.research(company.currentResearch)?.name}
+            </span>
+          )}
+        </button>
       ) : null}
 
       <div className="top-spacer" />

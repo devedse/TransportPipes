@@ -83,7 +83,7 @@ export function BuildMenu() {
       </div>
       <ul className="build-list">
         {buildings.map((definition) => {
-          const lock = content.lockReason(definition, company.level, era);
+          const lock = content.lockReason(definition, company, era);
           const copies = company.buildingCounts[definition.id] ?? 0;
           const cost = content.buildCost(definition, copies);
           const affordable = gold >= cost;

@@ -104,7 +104,7 @@ export function canPlace(
   ignoreBuilding: number | null = null,
 ): Placement {
   const fail = (reason: string): Placement => ({ ok: false, reason, multiplier: 0 });
-  const lock = content.lockReason(definition, company.level, era);
+  const lock = content.lockReason(definition, company, era);
   if (lock !== null) {
     return fail(`Needs ${lock}`);
   }

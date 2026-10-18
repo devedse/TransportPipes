@@ -31,11 +31,13 @@ public sealed class GameHub : Hub<IGameClient>
 
     private readonly WorldHost _world;
     private readonly ConnectedUsers _connectedUsers;
+    private readonly TransportPipesOptions _options;
 
-    public GameHub(WorldHost world, ConnectedUsers connectedUsers)
+    public GameHub(WorldHost world, ConnectedUsers connectedUsers, Microsoft.Extensions.Options.IOptions<TransportPipesOptions> options)
     {
         _world = world;
         _connectedUsers = connectedUsers;
+        _options = options.Value;
     }
 
     public static string UserGroup(long userId) => $"user:{userId}";
@@ -165,6 +167,12 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<BuildingDetailsDto?> GetBuilding(long id) =>
         _world.RunAsync(world => world.Building(id) is { } building ? GameViews.BuildingDetails(world, building) : null, changesWorld: false);
 
+    public Task<IReadOnlyList<ResearchStateDto>> GetResearch() =>
+        _world.RunAsync<IReadOnlyList<ResearchStateDto>>(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Research(world, company) : [], changesWorld: false);
+
+    public Task<CommandResultDto> StartResearch(string tech) =>
+        Command((world, company) => world.StartResearch(company, tech));
+
     public Task<CompanyDto?> GetCompany() =>
         _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? CompanyView(world, company) : null, changesWorld: false);
 
@@ -181,6 +189,42 @@ public sealed class GameHub : Hub<IGameClient>
             }
             var result = command(world, company.Id);
             return result.Success ? CommandResultDto.Ok : CommandResultDto.Fail(result.Error ?? "That didn't work.");
+        });
+    }
+
+    /// <summary>Testing only (TransportPipes:Cheats): gold, level, research or finish</summary>
+    public Task<CommandResultDto> Cheat(string what)
+    {
+        if (!_options.Cheats)
+        {
+            return Task.FromResult(CommandResultDto.Fail("Cheats are off."));
+        }
+        return Command((world, companyId) =>
+        {
+            var company = world.Company(companyId)!;
+            switch (what)
+            {
+                case "gold":
+                    company.Gold += 100_000;
+                    break;
+                case "level":
+                    world.GainXp(company, world.Content.Progression.XpForLevel(company.Level + 5) - company.Xp);
+                    break;
+                case "research":
+                    company.ResearchPoints += 5_000;
+                    break;
+                case "finish":
+                    foreach (var building in world.BuildingsOf(companyId).Where(t => t.UnderConstruction).ToList())
+                    {
+                        world.FinishConstruction(building.Id);
+                    }
+                    world.FinishResearch(companyId);
+                    break;
+                default:
+                    return CommandResult.Fail("gold, level, research or finish");
+            }
+            world.CompanyChanged(company);
+            return CommandResult.Ok;
         });
     }
 

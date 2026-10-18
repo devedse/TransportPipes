@@ -6,6 +6,7 @@ export function Toolbar() {
   const tool = useAppStore((state) => state.tool);
   const buildMenuOpen = useAppStore((state) => state.buildMenuOpen);
   const content = useAppStore((state) => state.content);
+  const researchOpen = useAppStore((state) => state.researchOpen);
 
   const tools = [
     {
@@ -31,6 +32,14 @@ export function Toolbar() {
       hotkey: "P",
       active: tool.kind === "pipe",
       run: () => gameClient.setTool({ kind: "pipe", tier: 1 }),
+    },
+    {
+      key: "research",
+      label: "Research",
+      icon: "🔬",
+      hotkey: "R",
+      active: researchOpen,
+      run: () => (researchOpen ? setState({ researchOpen: false }) : void gameClient.openResearch()),
     },
     {
       key: "bulldoze",

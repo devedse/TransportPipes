@@ -19,9 +19,13 @@ public sealed class GameContent
     public IReadOnlyList<BuildingDefinition> BuildingList { get; }
     public IReadOnlyList<PipeTierDefinition> PipeTiers { get; }
     public ProgressionSettings Progression { get; }
+    public IReadOnlyDictionary<string, ResearchDefinition> Research { get; }
+    public IReadOnlyList<ResearchDefinition> ResearchList { get; }
 
-    public GameContent(IReadOnlyList<ResourceDefinition> resources, IReadOnlyList<BuildingDefinition> buildings, IReadOnlyList<PipeTierDefinition> pipeTiers, ProgressionSettings progression)
+    public GameContent(IReadOnlyList<ResourceDefinition> resources, IReadOnlyList<BuildingDefinition> buildings, IReadOnlyList<PipeTierDefinition> pipeTiers, ProgressionSettings progression, IReadOnlyList<ResearchDefinition>? research = null)
     {
+        ResearchList = research ?? [];
+        Research = ResearchList.ToDictionary(t => t.Id);
         ResourceList = resources;
         Resources = resources.ToDictionary(t => t.Id);
         BuildingList = buildings;
@@ -61,7 +65,8 @@ public sealed class GameContent
         var buildings = Read<List<BuildingDto>>("buildings.yaml").Select(t => t.ToDefinition()).ToList();
         var pipes = Read<List<PipeTierDto>>("pipes.yaml").Select(t => t.ToDefinition()).ToList();
         var progression = Read<ProgressionDto>("progression.yaml").ToSettings();
-        return new GameContent(resources, buildings, pipes, progression);
+        var research = Read<List<ResearchDto>>("research.yaml").Select(t => t.ToDefinition()).ToList();
+        return new GameContent(resources, buildings, pipes, progression, research);
     }
 
     private void Validate()
@@ -102,6 +107,51 @@ public sealed class GameContent
         if (BuildingList.Select(t => t.Id).Distinct().Count() != BuildingList.Count)
         {
             errors.Add("Building ids must be unique");
+        }
+
+        void CheckResearch(string owner, string? research)
+        {
+            if (research != null && ResearchList.Count != 0 && !Research.ContainsKey(research))
+            {
+                errors.Add($"{owner}: unknown research '{research}'");
+            }
+        }
+        foreach (var building in BuildingList)
+        {
+            CheckResearch(building.Id, building.Unlock.Research);
+        }
+        foreach (var pipe in PipeTiers)
+        {
+            CheckResearch($"pipe {pipe.Id}", pipe.Research);
+        }
+        foreach (var tech in ResearchList)
+        {
+            foreach (var required in tech.Requires)
+            {
+                CheckResearch($"research {tech.Id}", required);
+            }
+            foreach (var target in tech.OutputBonuses.SelectMany(t => t.Targets))
+            {
+                var colon = target.IndexOf(':');
+                var kind = colon < 0 ? "" : target[..colon];
+                var value = colon < 0 ? "" : target[(colon + 1)..];
+                var known = kind switch
+                {
+                    "modifier" => Enum.TryParse<ProductionModifier>(value, true, out _),
+                    "building" => Buildings.ContainsKey(value),
+                    "category" => BuildingList.Any(t => t.Category == value),
+                    "resource" => Resources.ContainsKey(value),
+                    _ => false,
+                };
+                if (!known)
+                {
+                    errors.Add($"research {tech.Id}: unknown bonus target '{target}'");
+                }
+            }
+        }
+        if (ResearchList.Select(t => t.Id).Distinct().Count() != ResearchList.Count)
+        {
+            errors.Add("Research ids must be unique");
         }
 
         if (errors.Count != 0)
@@ -217,6 +267,56 @@ public sealed class GameContent
         public string? Research { get; set; }
 
         public PipeTierDefinition ToDefinition() => new(Id, Name, Tier, Era, Gold, Materials, LossPerTile, Throughput, Research);
+    }
+
+    private sealed class AmountDto
+    {
+        public double Amount { get; set; }
+    }
+
+    private sealed class OutputBonusDto
+    {
+        public List<string> Targets { get; set; } = new();
+        public double Amount { get; set; }
+    }
+
+    private sealed class ResearchEffectDto
+    {
+        public OutputBonusDto? Output { get; set; }
+        public AmountDto? Throughput { get; set; }
+        public AmountDto? BandWidth { get; set; }
+        public AmountDto? ManagerSlots { get; set; }
+    }
+
+    private sealed class ResearchDto
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Branch { get; set; } = "energy";
+        public int Era { get; set; } = 1;
+        public int Level { get; set; }
+        public double Cost { get; set; }
+        public double Minutes { get; set; }
+        public List<string> Requires { get; set; } = new();
+        public List<ResearchEffectDto> Effects { get; set; } = new();
+        public string Description { get; set; } = "";
+
+        public ResearchDefinition ToDefinition() => new()
+        {
+            Id = Id,
+            Name = Name,
+            Branch = Enum.Parse<ResearchBranch>(Branch, ignoreCase: true),
+            Era = Era,
+            Level = Level,
+            Cost = Cost,
+            Minutes = Minutes,
+            Requires = Requires,
+            OutputBonuses = Effects.Where(t => t.Output != null).Select(t => new OutputBonus(t.Output!.Targets, t.Output.Amount)).ToList(),
+            ThroughputBonus = Effects.Sum(t => t.Throughput?.Amount ?? 0),
+            BandWidthBonus = Effects.Sum(t => t.BandWidth?.Amount ?? 0),
+            ManagerSlots = (int)Effects.Sum(t => t.ManagerSlots?.Amount ?? 0),
+            Description = Description,
+        };
     }
 
     private sealed class ProgressionDto

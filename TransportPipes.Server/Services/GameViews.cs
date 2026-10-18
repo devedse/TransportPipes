@@ -41,8 +41,21 @@ public static class GameViews
             company.SellPrices,
             company.BuyMaxPrices,
             world.BuildingsOf(company.Id).GroupBy(t => t.Type).ToDictionary(t => t.Key, t => t.Count()),
+            company.Researched.OrderBy(t => t).ToList(),
+            company.CurrentResearch,
+            company.ResearchEndsAt,
             world.Now);
     }
+
+    public static List<ResearchStateDto> Research(GameWorld world, Company company) =>
+        world.Content.ResearchList.Select(tech =>
+        {
+            var state = company.Researched.Contains(tech.Id) ? "done"
+                : company.CurrentResearch == tech.Id ? "researching"
+                : world.ResearchBlocker(company, tech) is null ? "available"
+                : "locked";
+            return new ResearchStateDto(tech.Id, state, world.ResearchCost(company, tech), state == "locked" ? world.ResearchBlocker(company, tech) : null, world.ResearchDiffusion(company, tech.Id));
+        }).ToList();
 
     public static ReportDto Report(CompanyReport report) => new(
         report.Since,
@@ -308,6 +321,7 @@ public static class GameViews
         content.ResourceList,
         Buildings = content.BuildingList,
         content.PipeTiers,
+        Research = content.ResearchList,
         Progression = new
         {
             content.Progression.MaxCompanyLevel,

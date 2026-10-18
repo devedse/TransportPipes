@@ -94,6 +94,54 @@ public sealed class BuildingDefinition
     public bool IsConductor => Kind is BuildingKind.Gate or BuildingKind.Valve or BuildingKind.PriorityValve or BuildingKind.Pump or BuildingKind.TollMeter;
 }
 
+public enum ResearchBranch
+{
+    Energy,
+    Industry,
+    Logistics,
+    Economy,
+}
+
+/// <summary>+Amount output for buildings that match one of the targets (modifier:wind, building:x, category:x, resource:x)</summary>
+public sealed record OutputBonus(IReadOnlyList<string> Targets, double Amount)
+{
+    public bool Applies(BuildingDefinition building, string resource) => Targets.Any(target =>
+    {
+        var colon = target.IndexOf(':');
+        var (kind, value) = (target[..colon], target[(colon + 1)..]);
+        return kind switch
+        {
+            "modifier" => string.Equals(building.Modifier.ToString(), value, StringComparison.OrdinalIgnoreCase),
+            "building" => building.Id == value,
+            "category" => building.Category == value,
+            "resource" => resource == value,
+            _ => false,
+        };
+    });
+}
+
+public sealed class ResearchDefinition
+{
+    public required string Id { get; init; }
+    public required string Name { get; init; }
+    public ResearchBranch Branch { get; init; }
+    public int Era { get; init; } = 1;
+
+    /// <summary>The Company Level needed to start it (late-game techs)</summary>
+    public int Level { get; init; }
+
+    /// <summary>Research points, before knowledge diffusion</summary>
+    public double Cost { get; init; }
+
+    public double Minutes { get; init; }
+    public IReadOnlyList<string> Requires { get; init; } = [];
+    public IReadOnlyList<OutputBonus> OutputBonuses { get; init; } = [];
+    public double ThroughputBonus { get; init; }
+    public double BandWidthBonus { get; init; }
+    public int ManagerSlots { get; init; }
+    public string Description { get; init; } = "";
+}
+
 public sealed class ProgressionSettings
 {
     public int MaxCompanyLevel { get; init; }

@@ -50,6 +50,13 @@ public sealed class Company : Entity
     /// <summary>Building types this company has built at least once (for the first-time XP bonus)</summary>
     public HashSet<string> BuiltTypes { get; init; } = new();
 
+    /// <summary>Techs this company has researched</summary>
+    public HashSet<string> Researched { get; init; } = new();
+
+    /// <summary>The tech being researched now, and when it is done</summary>
+    public string? CurrentResearch { get; set; }
+    public DateTime? ResearchEndsAt { get; set; }
+
     /// <summary>Statistics of the current session, shown in the offline report</summary>
     public CompanyReport Report { get; set; } = new();
 

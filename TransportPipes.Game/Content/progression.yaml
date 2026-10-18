@@ -11,6 +11,7 @@ xp:
   upgradeLevel: 2
   milestone: 50
   parcel: 100
+  research: 40
   # One XP per (goldPerXp * company level) gold earned
   goldPerXp: 25
 

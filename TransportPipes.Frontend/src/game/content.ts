@@ -1,7 +1,9 @@
 import type {
   BuildingDefinition,
+  CompanyDto,
   GameContentDto,
   PipeTierDefinition,
+  ResearchDefinition,
   ResourceDefinition,
 } from "../api/contracts";
 
@@ -12,6 +14,7 @@ export class Content {
   readonly pipeTiers: PipeTierDefinition[];
   private readonly buildingById = new Map<string, BuildingDefinition>();
   private readonly resourceById = new Map<string, ResourceDefinition>();
+  private readonly researchById = new Map<string, ResearchDefinition>();
 
   readonly dto: GameContentDto;
 
@@ -25,6 +28,9 @@ export class Content {
     }
     for (const resource of dto.resourceList) {
       this.resourceById.set(resource.id, resource);
+    }
+    for (const tech of dto.research) {
+      this.researchById.set(tech.id, tech);
     }
   }
 
@@ -75,19 +81,31 @@ export class Content {
     return this.progression.xpForLevel[level] ?? Infinity;
   }
 
+  research(id: string): ResearchDefinition | undefined {
+    return this.researchById.get(id);
+  }
+
+  get researchList(): ResearchDefinition[] {
+    return this.dto.research;
+  }
+
   /** Why a building can't be built yet, or null */
-  lockReason(definition: BuildingDefinition, companyLevel: number, era: number): string | null {
+  lockReason(
+    definition: BuildingDefinition,
+    company: Pick<CompanyDto, "level" | "researched">,
+    era: number,
+  ): string | null {
     if (!definition.buildable) {
       return "Can't be built";
     }
     if (definition.unlock.era > era) {
       return `Era ${definition.unlock.era}`;
     }
-    if (companyLevel < definition.unlock.level) {
+    if (company.level < definition.unlock.level) {
       return `Level ${definition.unlock.level}`;
     }
-    if (definition.unlock.research !== null) {
-      return "Research";
+    if (definition.unlock.research !== null && !company.researched.includes(definition.unlock.research)) {
+      return `Research ${this.research(definition.unlock.research)?.name ?? definition.unlock.research}`;
     }
     if (definition.layer === "deep") {
       return "Deep Level";

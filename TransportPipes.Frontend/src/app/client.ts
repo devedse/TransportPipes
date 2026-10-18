@@ -85,7 +85,11 @@ export class GameClient {
     c.on("companyChanged", (company) => this.setCompany(company));
     c.on("networksChanged", (networks) => void this.refreshFlows(networks));
     c.on("toast", (t: ToastDto) => {
-      toast(t.text, t.kind === "levelUp" ? "level" : "success");
+      toast(
+        t.text,
+        t.kind === "levelUp" || t.kind === "researchFinished" ? "level" : "success",
+        t.kind === "constructionFinished" ? 4500 : 7000,
+      );
       if (t.building !== null && t.building === appStore.getState().selectedBuilding) {
         void this.refreshDetails();
       }
@@ -119,6 +123,34 @@ export class GameClient {
       (previous.unlockedParcels !== company.unlockedParcels || previous.level !== company.level)
     ) {
       this.engine?.invalidate();
+    }
+    if (
+      appStore.getState().researchOpen &&
+      (previous?.currentResearch !== company.currentResearch ||
+        previous?.researched.length !== company.researched.length ||
+        Math.floor((previous?.researchPoints ?? 0) / 10) !== Math.floor(company.researchPoints / 10))
+    ) {
+      void this.refreshResearch();
+    }
+  }
+
+  async openResearch() {
+    setState({ researchOpen: true, buildMenuOpen: false });
+    await this.refreshResearch();
+  }
+
+  async refreshResearch() {
+    const research = await this.connection.getResearch().catch(() => null);
+    if (research !== null) {
+      setState({ research });
+    }
+  }
+
+  async startResearch(tech: string) {
+    const name = appStore.getState().content?.research(tech)?.name ?? tech;
+    if (await this.command(this.connection.startResearch(tech), `Researching ${name}`)) {
+      await this.refreshCompany();
+      await this.refreshResearch();
     }
   }
 

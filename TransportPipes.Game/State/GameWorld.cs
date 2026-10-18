@@ -14,6 +14,7 @@ public enum WorldEventKind
 {
     ConstructionFinished,
     LevelUp,
+    ResearchFinished,
 }
 
 /// <summary>Something a player should hear about (a toast in the client)</summary>
@@ -318,8 +319,6 @@ public sealed partial class GameWorld
         return true;
     }
 
-    /// <summary>Research is part of a later milestone; until then nothing that needs research is unlocked</summary>
-    public bool HasResearch(Company company, string research) => false;
 
     // ---------------------------------------------------------------- Placement
 
@@ -906,6 +905,14 @@ public sealed partial class GameWorld
         Changes.Estates.Add((estate.District, estate.Slot));
         MarkDirty(WorldLayout.GatePosition(estate.District, estate.Slot, side));
         return CommandResult.Ok;
+    }
+
+    /// <summary>A company changed outside a command (admin tools): save it and tell its player</summary>
+    public void CompanyChanged(Company company)
+    {
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        MarkCompanyNetworksDirty(company.Id);
     }
 
     // ---------------------------------------------------------------- Experience

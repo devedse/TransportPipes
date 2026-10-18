@@ -1,6 +1,6 @@
 import { createStore } from "zustand/vanilla";
 import { useStore } from "zustand";
-import type { BuildingDetailsDto, CompanyDto, ReportDto, UserInfo } from "../api/contracts";
+import type { BuildingDetailsDto, CompanyDto, ReportDto, ResearchStateDto, UserInfo } from "../api/contracts";
 import type { ConnectionStatus } from "../api/server";
 import type { Content } from "../game/content";
 import type { Tool } from "../game/Engine";
@@ -41,6 +41,8 @@ export interface AppState {
   toasts: Toast[];
   report: ReportDto | null;
   helpOpen: boolean;
+  researchOpen: boolean;
+  research: ResearchStateDto[];
 }
 
 export const initialState: AppState = {
@@ -66,6 +68,8 @@ export const initialState: AppState = {
   toasts: [],
   report: null,
   helpOpen: false,
+  researchOpen: false,
+  research: [],
 };
 
 export const appStore = createStore<AppState>(() => initialState);

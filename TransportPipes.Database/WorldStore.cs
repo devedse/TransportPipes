@@ -72,6 +72,9 @@ public sealed class WorldStore
                 BuyMaxPrices = settings.BuyMaxPrices,
                 NoTrade = settings.NoTrade,
                 BuiltTypes = settings.BuiltTypes,
+                Researched = settings.Researched,
+                CurrentResearch = settings.CurrentResearch,
+                ResearchEndsAt = settings.ResearchEndsAt,
                 Report = JsonSerializer.Deserialize<CompanyReport>(row.Report, Json) ?? new CompanyReport { Since = row.LastSeenAt },
             });
             _companies.Add(row.Id);
@@ -174,6 +177,9 @@ public sealed class WorldStore
                     BuyMaxPrices = company.BuyMaxPrices,
                     NoTrade = company.NoTrade,
                     BuiltTypes = company.BuiltTypes,
+                    Researched = company.Researched,
+                    CurrentResearch = company.CurrentResearch,
+                    ResearchEndsAt = company.ResearchEndsAt,
                 }, Json),
                 Report = JsonSerializer.Serialize(company.Report, Json),
             }));
@@ -366,5 +372,8 @@ public sealed class WorldStore
         public Dictionary<string, double> BuyMaxPrices { get; init; } = new();
         public HashSet<string> NoTrade { get; init; } = new();
         public HashSet<string> BuiltTypes { get; init; } = new();
+        public HashSet<string> Researched { get; init; } = new();
+        public string? CurrentResearch { get; init; }
+        public DateTime? ResearchEndsAt { get; init; }
     }
 }

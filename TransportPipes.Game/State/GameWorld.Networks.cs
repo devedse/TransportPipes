@@ -276,7 +276,7 @@ public sealed partial class GameWorld
             return (0, double.MaxValue);
         }
         var tier = Content.PipeTier(conductor.Tier);
-        return (tier.LossPerTile, tier.Throughput);
+        return (tier.LossPerTile, tier.Throughput * (1 + ThroughputBonus(conductor.Owner)));
     }
 
     /// <summary>
@@ -457,13 +457,16 @@ public sealed partial class GameWorld
             return null;
         }
         var location = LocationMultiplier(building, definition);
+        var owner = Company(building.Owner);
         return new FlowNode
         {
             Id = building.Id,
             Owner = building.Owner,
             Kind = FlowNodeKind.Building,
             In = definition.In.Where(t => t.Key != GameContent.ResearchPoints).ToDictionary(t => t.Key, t => t.Value * level),
-            Out = BaseOutputs(building, definition).Where(t => t.Key != GameContent.ResearchPoints).ToDictionary(t => t.Key, t => t.Value * level * location),
+            Out = BaseOutputs(building, definition)
+                .Where(t => t.Key != GameContent.ResearchPoints)
+                .ToDictionary(t => t.Key, t => t.Value * level * location * (1 + OutputBonus(owner, definition, t.Key))),
             ResearchPerMinute = definition.ResearchPerMinute * level,
         };
     }

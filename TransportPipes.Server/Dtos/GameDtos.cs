@@ -47,7 +47,13 @@ public record CompanyDto(
     IReadOnlyDictionary<string, double> SellPrices,
     IReadOnlyDictionary<string, double> BuyMaxPrices,
     IReadOnlyDictionary<string, int> BuildingCounts,
+    IReadOnlyList<string> Researched,
+    string? CurrentResearch,
+    DateTime? ResearchEndsAt,
     DateTime ServerTime);
+
+/// <summary>A tech as one company sees it</summary>
+public record ResearchStateDto(string Id, string State, double Cost, string? Reason, double Diffusion);
 
 public record ReportDto(
     DateTime Since,

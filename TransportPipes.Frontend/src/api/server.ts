@@ -12,6 +12,7 @@ import type {
   GateSide,
   HelloDto,
   NetworkFlowsDto,
+  ResearchStateDto,
   ToastDto,
   UserInfo,
 } from "./contracts";
@@ -178,6 +179,8 @@ export class GameConnection {
   getFlows = (networks: number[]) => this.invoke<NetworkFlowsDto[]>("GetFlows", networks);
   getBuilding = (id: number) => this.invoke<BuildingDetailsDto | null>("GetBuilding", id);
   getCompany = () => this.invoke<CompanyDto | null>("GetCompany");
+  getResearch = () => this.invoke<ResearchStateDto[]>("GetResearch");
+  startResearch = (tech: string) => this.invoke<CommandResult>("StartResearch", tech);
   placeBuilding = (type: string, x: number, y: number) =>
     this.invoke<CommandResult>("PlaceBuilding", type, x, y);
   placePipes = (tiles: number[], tier: number) => this.invoke<CommandResult>("PlacePipes", tiles, tier);

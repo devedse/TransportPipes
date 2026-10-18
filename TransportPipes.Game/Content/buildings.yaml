@@ -303,7 +303,7 @@
   name: Big Factory
   category: processing
   size: 2
-  unlock: { level: 12 }
+  unlock: { level: 12, research: bigFactory }
   cost: { gold: 12000, materials: { bricks: 100 } }
   buildSeconds: 600
   in: { energy: 90, ironOre: 60 }
@@ -314,7 +314,7 @@
   name: Steel Mill
   category: processing
   size: 2
-  unlock: { era: 2 }
+  unlock: { era: 2, research: steelMaking }
   cost: { gold: 30000, materials: { bricks: 300 } }
   buildSeconds: 900
   in: { energy: 80, ironIngot: 20, coal: 10 }
@@ -325,7 +325,7 @@
   name: Wire Mill
   category: processing
   size: 1
-  unlock: { era: 2 }
+  unlock: { era: 2, research: wireDrawing }
   cost: { gold: 12000, materials: { ironIngot: 50 } }
   buildSeconds: 300
   in: { energy: 30, copperIngot: 6 }
@@ -358,7 +358,7 @@
   name: Refinery
   category: processing
   size: 3
-  unlock: { era: 3 }
+  unlock: { era: 3, research: refining }
   cost: { gold: 250000, materials: { steel: 300, concrete: 300 } }
   buildSeconds: 3600
   in: { energy: 150, oil: 30, water: 20 }
@@ -369,7 +369,7 @@
   name: Circuit Fab
   category: processing
   size: 2
-  unlock: { era: 4 }
+  unlock: { era: 4, research: circuits }
   cost: { gold: 600000, materials: { steel: 200, glass: 300 } }
   buildSeconds: 3600
   in: { energy: 200, copperWire: 6, plastic: 4, glass: 2 }
@@ -380,7 +380,7 @@
   name: Assembly Plant
   category: processing
   size: 3
-  unlock: { era: 4 }
+  unlock: { era: 4, research: assembly }
   cost: { gold: 1500000, materials: { steel: 500, gears: 100 } }
   buildSeconds: 7200
   in: { energy: 400, gears: 10, circuits: 4 }
@@ -391,7 +391,7 @@
   name: Robot Works
   category: processing
   size: 3
-  unlock: { era: 4 }
+  unlock: { era: 4, research: robots }
   cost: { gold: 4000000, materials: { circuits: 100, gears: 200 } }
   buildSeconds: 7200
   in: { energy: 800, engines: 2, circuits: 6 }
@@ -402,7 +402,7 @@
   name: Superconductor Lab
   category: processing
   size: 2
-  unlock: { era: 5 }
+  unlock: { era: 5, research: superconductors }
   cost: { gold: 10000000, materials: { circuits: 300, robots: 10 } }
   buildSeconds: 7200
   in: { energy: 2000, rareEarth: 4, circuits: 4 }
@@ -490,7 +490,7 @@
   category: logistics
   kind: storage
   size: 2
-  unlock: { era: 2 }
+  unlock: { era: 2, research: siloStorage }
   cost: { gold: 60000, materials: { concrete: 200, steel: 50 } }
   buildSeconds: 900
   capacity: 500000
@@ -556,7 +556,7 @@
   category: commerce
   kind: showroom
   size: 2
-  unlock: { level: 20 }
+  unlock: { level: 20, research: showroom }
   cost: { gold: 80000, materials: { glass: 200 } }
   buildSeconds: 900
   description: Players pay 10% more for one product of your choice.

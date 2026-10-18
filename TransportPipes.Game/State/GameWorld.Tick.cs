@@ -21,18 +21,23 @@ public sealed partial class GameWorld
         {
             return;
         }
-        var finishing = _buildings.Values
-            .Where(t => t.ConstructionEndsAt is { } end && end <= now)
-            .OrderBy(t => t.ConstructionEndsAt).ThenBy(t => t.Id)
-            .ToList();
-        foreach (var building in finishing)
+        // Everything that finishes in between, in the order it happens
+        var events = new List<(DateTime At, long Order, Action Run)>();
+        foreach (var building in _buildings.Values.Where(t => t.ConstructionEndsAt is { } end && end <= now))
         {
-            var end = building.ConstructionEndsAt!.Value;
-            if (end > LastTick)
+            events.Add((building.ConstructionEndsAt!.Value, building.Id, () => CompleteConstruction(building)));
+        }
+        foreach (var company in _companies.Values.Where(t => t.ResearchEndsAt is { } end && end <= now))
+        {
+            events.Add((company.ResearchEndsAt!.Value, -company.Id, () => CompleteResearch(company)));
+        }
+        foreach (var (at, _, run) in events.OrderBy(t => t.At).ThenBy(t => t.Order))
+        {
+            if (at > LastTick)
             {
-                Advance(end);
+                Advance(at);
             }
-            CompleteConstruction(building);
+            run();
         }
         Advance(now);
     }

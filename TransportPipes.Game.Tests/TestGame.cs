@@ -48,7 +48,7 @@ internal sealed class TestGame
             Sprite = t.Sprite,
             Description = t.Description,
         }).ToList();
-        return new GameContent(content.ResourceList, buildings, content.PipeTiers, content.Progression);
+        return new GameContent(content.ResourceList, buildings, content.PipeTiers, content.Progression, content.ResearchList);
     }
 
     private static readonly Dictionary<char, string> MapLetters = new()

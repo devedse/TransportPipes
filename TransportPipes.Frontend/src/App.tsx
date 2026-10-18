@@ -10,6 +10,7 @@ import { GameCanvas } from "./components/GameCanvas";
 import { HoverTip } from "./components/HoverTip";
 import { ParcelPanel } from "./components/ParcelPanel";
 import { ReportDialog } from "./components/ReportDialog";
+import { ResearchPanel } from "./components/ResearchPanel";
 import { Toasts } from "./components/Toasts";
 import { Toolbar } from "./components/Toolbar";
 import { TopBar } from "./components/TopBar";
@@ -39,7 +40,9 @@ function useShortcuts() {
       }
       switch (event.key.toLowerCase()) {
         case "escape":
-          if (state.tool.kind !== "select") {
+          if (state.researchOpen) {
+            setState({ researchOpen: false });
+          } else if (state.tool.kind !== "select") {
             gameClient.setTool({ kind: "select" });
           } else if (state.buildMenuOpen) {
             setState({ buildMenuOpen: false });
@@ -55,6 +58,13 @@ function useShortcuts() {
           break;
         case "x":
           gameClient.setTool({ kind: "bulldoze" });
+          break;
+        case "r":
+          if (state.researchOpen) {
+            setState({ researchOpen: false });
+          } else {
+            void gameClient.openResearch();
+          }
           break;
         case "v":
           gameClient.setTool({ kind: "select" });
@@ -107,6 +117,9 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="Toolbar">
             <Toolbar />
+          </ErrorBoundary>
+          <ErrorBoundary name="ResearchPanel">
+            <ResearchPanel />
           </ErrorBoundary>
           <ErrorBoundary name="ReportDialog">
             <ReportDialog />
