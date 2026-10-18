@@ -237,6 +237,10 @@ public sealed class FlowSolver
         {
             return true;
         }
+        if (_market.Contracts.Any(t => t.Seller == supplier.Owner && t.Buyer == consumer.Owner && t.Resource == resource))
+        {
+            return _market.LinkTradeAllowed(link, supplier.Owner, consumer.Owner, resource);
+        }
         var price = _market.SellerPrice(supplier.Owner, resource);
         return _market.BuyerMaxPrice(consumer.Owner, resource) >= price - Epsilon
             && _market.TradeAllowed(supplier.Owner, consumer.Owner, resource)
@@ -314,7 +318,7 @@ public sealed class FlowSolver
                 : (sent, delivered, price);
             SentTotals[(from, resource)] = Sent(from, resource) + sent;
             ReceivedTotals[(to, resource)] = Received(to, resource) + delivered;
-            if (kind is FlowKind.Internal or FlowKind.Trade)
+            if (kind is FlowKind.Internal or FlowKind.Trade or FlowKind.Contract)
             {
                 SentToBuildingTotals[(from, resource)] = SentToBuildings(from, resource) + sent;
             }
@@ -339,7 +343,15 @@ public sealed class FlowSolver
             Share(resource, producers, consumers, (p, c, _) => _nodes[p].Owner == _nodes[c].Owner, FlowKind.Internal, (_, _) => 0, priorityOnly: true);
             Share(resource, producers, consumers, (p, c, _) => _nodes[p].Owner == _nodes[c].Owner, FlowKind.Internal, (_, _) => 0);
 
-            // 2. Between companies, cheapest sellers first
+            // 2. Contracts, up to the contracted amount
+            foreach (var contract in _market.Contracts.Where(t => t.Resource == resource).OrderBy(t => t.Id))
+            {
+                Share(resource, producers, consumers, (p, c, link) =>
+                    _nodes[p].Owner == contract.Seller && _nodes[c].Owner == contract.Buyer && _market.LinkTradeAllowed(link, contract.Seller, contract.Buyer, resource),
+                    FlowKind.Contract, (_, _) => contract.Price, budget: contract.Rate);
+            }
+
+            // 3. Between companies, cheapest sellers first
             var priceLevels = producers
                 .Select(p => _market.SellerPrice(_nodes[p].Owner, resource))
                 .Distinct()
@@ -359,12 +371,12 @@ public sealed class FlowSolver
                 }, FlowKind.Trade, (p, _) => _market.SellerPrice(_nodes[p].Owner, resource));
             }
 
-            // 3. Own storages: surplus goes in, shortages come out
+            // 4. Own storages: surplus goes in, shortages come out
             ToSinks(resource, producers, node => node.Kind == FlowNodeKind.Storage && node.StorageCanAccept, FlowKind.ToStorage, null);
             FromSources(resource, consumers, node => node.Kind == FlowNodeKind.Storage && node.StorageContents.Contains(resource), FlowKind.FromStorage, null);
         }
 
-        // 4. Trading posts: shared throughput over all resources
+        // 5. Trading posts: shared throughput over all resources
         TradingPosts();
 
         return allocation;
@@ -380,9 +392,11 @@ public sealed class FlowSolver
 
         // Sharing between producers and consumers of one resource: every consumer gets the same fraction of its full need,
         // and what a consumer can't use (it is held back by something else) goes to the others
-        void Share(string resource, List<long> producers, List<long> consumers, Func<long, long, FlowLink, bool> eligible, FlowKind kind, Func<long, long, double> price, bool priorityOnly = false)
+        void Share(string resource, List<long> producers, List<long> consumers, Func<long, long, FlowLink, bool> eligible, FlowKind kind, Func<long, long, double> price, bool priorityOnly = false, double budget = double.MaxValue)
         {
-            for (var round = 0; round < 25; round++)
+            // budget: the most that may be delivered in total (a contract's rate)
+            var budgetLeft = budget;
+            for (var round = 0; round < 25 && budgetLeft > Epsilon; round++)
             {
                 var requests = new List<(long P, long C, FlowLink Link, double Sent, double Weight)>();
                 foreach (var c in consumers)
@@ -414,6 +428,12 @@ public sealed class FlowSolver
                 {
                     return;
                 }
+                var wanted = requests.Sum(t => t.Sent * t.Link.Efficiency);
+                if (wanted > budgetLeft)
+                {
+                    var scale = budgetLeft / wanted;
+                    requests = requests.Select(t => (t.P, t.C, t.Link, t.Sent * scale, t.Weight)).ToList();
+                }
 
                 var progress = 0.0;
                 foreach (var producerRequests in requests.GroupBy(t => t.P))
@@ -432,6 +452,7 @@ public sealed class FlowSolver
                         Record(p, c, resource, kind, sent, link, price(p, c));
                         offerLeft[(p, resource)] -= sent;
                         demandLeft[(c, resource)] -= sent * link.Efficiency;
+                        budgetLeft -= sent * link.Efficiency;
                         progress += sent;
                     }
                 }
@@ -616,7 +637,7 @@ public sealed class FlowSolver
             var to = _nodes[flow.To];
             switch (flow.Kind)
             {
-                case FlowKind.Trade:
+                case FlowKind.Trade or FlowKind.Contract:
                     AddGold(from.Owner, flow.Delivered * flow.PricePerUnit);
                     AddGold(to.Owner, -flow.Delivered * flow.PricePerUnit);
                     break;

@@ -44,7 +44,20 @@ public sealed partial class GameWorld
         }
         for (var at = NextDay(LastTick); at <= now; at = NextDay(at))
         {
-            events.Add((at, long.MinValue + 1, NewDay));
+            events.Add((at, long.MinValue + 1, () =>
+            {
+                NewDay();
+                ExpireOffers();
+                ExpireOrders();
+            }));
+        }
+        foreach (var at in _shipments.Where(t => t.ArrivesAt <= now).Select(t => t.ArrivesAt).Distinct())
+        {
+            events.Add((at, long.MinValue + 2, DeliverShipments));
+        }
+        foreach (var contract in _contracts.Values.Where(t => t.State == ContractState.Active && t.EndsAt <= now))
+        {
+            events.Add((contract.EndsAt!.Value, contract.Id, () => EndContract(contract)));
         }
         foreach (var (at, _, run) in events.OrderBy(t => t.At).ThenBy(t => t.Order))
         {
@@ -92,6 +105,7 @@ public sealed partial class GameWorld
             return;
         }
         SolveNetworks();
+        ExpectContracts(minutes);
         foreach (var network in _networks.Values.OrderBy(t => t.Id).ToList())
         {
             AdvanceNetwork(network, minutes);
@@ -175,13 +189,14 @@ public sealed partial class GameWorld
             }
         }
 
+        TrackContracts(solution, minutes);
         var earnings = new Dictionary<long, double>();
         foreach (var flow in solution.Flows)
         {
             var from = _buildings[flow.From];
             switch (flow.Kind)
             {
-                case FlowKind.Trade or FlowKind.Sale:
+                case FlowKind.Trade or FlowKind.Contract or FlowKind.Sale:
                     var income = flow.Delivered * flow.PricePerUnit * minutes;
                     earnings[from.Owner] = (earnings.TryGetValue(from.Owner, out var e) ? e : 0) + income;
                     if (flow.Kind == FlowKind.Sale && Company(from.Owner) is { } seller)
@@ -199,7 +214,7 @@ public sealed partial class GameWorld
                     }
                     break;
             }
-            if (flow.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.ToStorage or FlowKind.Sale
+            if (flow.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.Contract or FlowKind.ToStorage or FlowKind.Sale
                 && Content.Building(from.Type).Kind is not (BuildingKind.Storage or BuildingKind.TradingPost)
                 && Company(from.Owner) is { } producer)
             {

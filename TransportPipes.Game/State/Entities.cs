@@ -60,6 +60,11 @@ public sealed class Company : Entity
     /// <summary>Price changes that wait for the notice period because a partner buys from this company</summary>
     public Dictionary<string, PendingPrice> PendingPrices { get; init; } = new();
 
+    /// <summary>How well this company keeps its contracts (0..1, starts at 1): the stars others see</summary>
+    public double ContractScore { get; set; } = 1;
+
+    public int ContractsCompleted { get; set; }
+
     /// <summary>Hub reputation points (daily orders, trade with the hub)</summary>
     public double HubReputation { get; set; }
 
@@ -198,4 +203,44 @@ public sealed class Conductor : Entity
 
     /// <summary>Gates: the side of the estate</summary>
     public GateSide? Side { get; init; }
+}
+
+public enum ContractState
+{
+    Offered,
+    Active,
+    Ended,
+    Declined,
+    Cancelled,
+}
+
+/// <summary>
+/// A fixed amount per minute of a resource from a seller to a buyer at a fixed price for some days (GDD §5.7).
+/// Offered to one company, or to everyone in the district on the contract board.
+/// </summary>
+public sealed class Contract : Entity
+{
+    public long Id { get; init; }
+    public long Proposer { get; init; }
+
+    /// <summary>0 while it is an open offer on the board without a seller or buyer yet</summary>
+    public long Seller { get; set; }
+    public long Buyer { get; set; }
+    public required string Resource { get; init; }
+    public double Rate { get; init; }
+    public double Price { get; init; }
+    public double Days { get; init; }
+    public double PenaltyRate { get; init; } = 0.05;
+    public DateTime CreatedAt { get; init; }
+    public DateTime? StartedAt { get; set; }
+    public DateTime? EndsAt { get; set; }
+    public ContractState State { get; set; }
+
+    /// <summary>Delivered and expected so far (units)</summary>
+    public double Delivered { get; set; }
+    public double Expected { get; set; }
+
+    public bool IsOpen => State is ContractState.Offered or ContractState.Active;
+
+    public double Fulfillment => Expected <= 1e-9 ? 1 : Math.Min(1, Delivered / Expected);
 }

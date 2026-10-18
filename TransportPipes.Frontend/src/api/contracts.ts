@@ -269,7 +269,13 @@ export interface BuildingDetailsDto {
 }
 
 export interface ToastDto {
-  kind: "constructionFinished" | "levelUp" | "researchFinished" | "priceChanged" | "orderCompleted";
+  kind:
+    | "constructionFinished"
+    | "levelUp"
+    | "researchFinished"
+    | "priceChanged"
+    | "orderCompleted"
+    | "contractChanged";
   text: string;
   building: number | null;
 }
@@ -436,4 +442,87 @@ export interface NetworkDetailsDto {
   owners: Array<{ id: number; name: string; color: string; goldPerMinute: number }>;
   resources: NetworkResourceDto[];
   bottlenecks: Array<{ a: number; b: number; capacity: number; used: number; path: number[] }>;
+}
+
+export interface ResourceRateDto {
+  resource: string;
+  perMinute: number;
+}
+
+export interface NeighbourDto {
+  id: number;
+  name: string;
+  color: string;
+  level: number;
+  contractStars: number;
+  isNpc: boolean;
+  slot: number;
+  estateX: number;
+  estateY: number;
+  gatePolicies: Record<string, GatePolicy>;
+  connected: boolean;
+  surplus: ResourceRateDto[];
+  needs: ResourceRateDto[];
+  youEarn: number;
+  youPay: number;
+}
+
+export interface ContractDto {
+  id: number;
+  proposer: number;
+  proposerName: string;
+  seller: number;
+  sellerName: string;
+  buyer: number;
+  buyerName: string;
+  resource: string;
+  rate: number;
+  price: number;
+  days: number;
+  state: "offered" | "active" | "ended" | "declined" | "cancelled";
+  createdAt: string;
+  endsAt: string | null;
+  delivered: number;
+  expected: number;
+  proposerStars: number;
+}
+
+export interface ContractsDto {
+  mine: ContractDto[];
+  board: ContractDto[];
+}
+
+export interface ExchangeOrderDto {
+  id: number;
+  resource: string;
+  selling: boolean;
+  amount: number;
+  price: number;
+  createdAt: string;
+  mine: boolean;
+}
+
+export interface ShipmentDto {
+  id: number;
+  resource: string;
+  amount: number;
+  arrivesAt: string;
+  incoming: boolean;
+  partner: string;
+}
+
+export interface ExchangeBookDto {
+  resource: string;
+  bestBid: number;
+  bidAmount: number;
+  bestAsk: number;
+  askAmount: number;
+}
+
+export interface ExchangeDto {
+  hasOffice: boolean;
+  books: ExchangeBookDto[];
+  orders: ExchangeOrderDto[];
+  shipments: ShipmentDto[];
+  fee: number;
 }

@@ -17,6 +17,7 @@ public interface IGameClient
     Task CompanyChanged(CompanyDto company);
     Task Toast(ToastDto toast);
     Task MarketChanged(int districtX, int districtY);
+    Task ExchangeChanged();
 }
 
 /// <summary>The game protocol. Every call needs a logged in user (the login cookie).</summary>
@@ -181,6 +182,31 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<MarketDto?> GetMarket() =>
         _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Market(world, company) : null, changesWorld: false);
+
+    public Task<IReadOnlyList<NeighbourDto>> GetNeighbourhood() =>
+        _world.RunAsync<IReadOnlyList<NeighbourDto>>(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Neighbourhood(world, company) : [], changesWorld: false);
+
+    public Task<ContractsDto?> GetContracts() =>
+        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Contracts(world, company) : null, changesWorld: false);
+
+    /// <summary>partner: a company id, or null for the contract board</summary>
+    public Task<CommandResultDto> ProposeContract(long? partner, bool selling, string resource, double rate, double price, double days) =>
+        Command((world, company) => world.ProposeContract(company, partner, selling, resource, rate, price, days));
+
+    public Task<CommandResultDto> AcceptContract(long contract) =>
+        Command((world, company) => world.AcceptContract(company, contract));
+
+    public Task<CommandResultDto> DeclineContract(long contract) =>
+        Command((world, company) => world.DeclineContract(company, contract));
+
+    public Task<ExchangeDto?> GetExchange() =>
+        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Exchange(world, company) : null, changesWorld: false);
+
+    public Task<CommandResultDto> PlaceExchangeOrder(string resource, bool selling, double amount, double price) =>
+        Command((world, company) => world.PlaceExchangeOrder(company, resource, selling, amount, price));
+
+    public Task<CommandResultDto> CancelExchangeOrder(long order) =>
+        Command((world, company) => world.CancelExchangeOrder(company, order));
 
     public Task<CommandResultDto> DeliverOrder(int order) =>
         Command((world, company) => world.DeliverOrder(company, order));

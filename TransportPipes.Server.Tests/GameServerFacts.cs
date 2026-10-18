@@ -171,8 +171,11 @@ public class GameServerFacts
                 Assert.AreEqual("Keepers & Co", hello.Company!.Name);
                 Assert.AreEqual(1, hello.Company.BuildingCounts["windMoily"]);
                 Assert.IsGreaterThan(0, hello.Company.GoldPerMinute);
-                var expected = 2000 - 202 + hello.Company.GoldPerMinute * (60.5);
-                Assert.AreEqual(expected, hello.Company.Gold, 1e-3, "30 seconds of construction, then 60.5 minutes of wind");
+                // 30 seconds of construction, then 60.5 minutes of wind; the hub pays up to 25% more for scarce energy after
+                // its first market update, so the rate now is the highest one of that hour
+                var earned = hello.Company.Gold - (2000 - 202);
+                Assert.IsGreaterThan(hello.Company.GoldPerMinute * 60.5 / 1.3, earned);
+                Assert.IsLessThanOrEqualTo(hello.Company.GoldPerMinute * 60.5 * 1.001, earned);
                 Assert.IsNotNull(hello.Report, "an offline report after an hour away");
                 Assert.IsTrue(await server.World.RunAsync(w => w.BuildingAt(moily)?.Type == "windMoily", changesWorld: false));
             }

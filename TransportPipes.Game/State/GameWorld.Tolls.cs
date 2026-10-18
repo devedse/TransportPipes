@@ -15,9 +15,6 @@ public sealed partial class GameWorld
     public double TollIncome(long meterId) => _tollIncome.TryGetValue(meterId, out var v) ? v : 0;
 
 
-    /// <summary>Whether two companies have an active contract for a resource (the contract board comes next)</summary>
-    public bool HasContract(long seller, long buyer, string resource) => false;
-
     /// <summary>Corporations come later; until then nobody shares one</summary>
     public bool SameCorporation(long a, long b) => a == b;
 

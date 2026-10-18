@@ -68,7 +68,7 @@ export function HubPanel() {
   const content = useAppStore((state) => state.content);
   const serverOffset = useAppStore((state) => state.serverOffsetMs);
   const now = useNow();
-  const [tab, setTab] = useState<"orders" | "market">("orders");
+  const [tab, setTab] = useState<"orders" | "market" | "exchange">("orders");
   if (!open || company === null || content === null) {
     return null;
   }
@@ -108,9 +108,14 @@ export function HubPanel() {
           <button className={tab === "market" ? "tab active" : "tab"} onClick={() => setTab("market")}>
             Prices
           </button>
+          <button className={tab === "exchange" ? "tab active" : "tab"} onClick={() => setTab("exchange")}>
+            Exchange
+          </button>
         </div>
 
-        {tab === "orders" ? (
+        {tab === "exchange" ? (
+          <ExchangeTab serverNow={serverNow} />
+        ) : tab === "orders" ? (
           <div className="orders">
             <p className="muted small">
               The hub wants these today. Deliver them from your storages for a reward, reputation and XP. New
@@ -243,6 +248,139 @@ export function HubPanel() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ExchangeTab({ serverNow }: { serverNow: number }) {
+  const exchange = useAppStore((state) => state.exchange);
+  const content = useAppStore((state) => state.content)!;
+  const [selling, setSelling] = useState(true);
+  const [resource, setResource] = useState("ironOre");
+  const [amount, setAmount] = useState(100);
+  const [price, setPrice] = useState(4);
+  if (exchange === null) {
+    return <p className="muted">Loading…</p>;
+  }
+  return (
+    <div className="exchange">
+      <p className="muted small">
+        Trade with anyone in the district without a pipe. Sell orders hold their goods from your storages, buy
+        orders hold their gold. Goods go by cargo (faster with a Cargo Depot); the seller pays a{" "}
+        {Math.round(exchange.fee * 100)}% fee that disappears.
+      </p>
+      {!exchange.hasOffice ? (
+        <p className="status idle">Build an Exchange Office (Company Level 12) to place orders.</p>
+      ) : (
+        <form
+          className="form-row exchange-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void gameClient.placeExchangeOrder(resource, selling, amount, price);
+          }}
+        >
+          <label>
+            I want to
+            <select value={selling ? "sell" : "buy"} onChange={(e) => setSelling(e.target.value === "sell")}>
+              <option value="sell">sell</option>
+              <option value="buy">buy</option>
+            </select>
+          </label>
+          <label>
+            Resource
+            <select
+              value={resource}
+              onChange={(e) => {
+                setResource(e.target.value);
+                setPrice(Math.round((content.resource(e.target.value)?.price ?? 1) * 150) / 100);
+              }}
+            >
+              {content.resources
+                .filter((r) => r.era <= 2)
+                .map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label>
+            Amount
+            <input type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+          </label>
+          <label>
+            Price (g)
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              value={price}
+              onChange={(e) => setPrice(Number(e.target.value))}
+            />
+          </label>
+          <button className="primary" type="submit">
+            Place order
+          </button>
+        </form>
+      )}
+      <table className="market-table">
+        <thead>
+          <tr>
+            <th>Resource</th>
+            <th>Best buy offer</th>
+            <th>Best sell offer</th>
+          </tr>
+        </thead>
+        <tbody>
+          {exchange.books.length === 0 && (
+            <tr>
+              <td colSpan={3} className="muted">
+                No orders yet.
+              </td>
+            </tr>
+          )}
+          {exchange.books.map((book) => (
+            <tr key={book.resource}>
+              <td>
+                <span className="flow-dot" style={{ background: content.resourceColor(book.resource) }} />{" "}
+                {content.resourceName(book.resource)}
+              </td>
+              <td>
+                {book.bidAmount > 0 ? `${formatAmount(book.bidAmount)} @ ${book.bestBid.toFixed(2)}` : "—"}
+              </td>
+              <td>
+                {book.askAmount > 0 ? `${formatAmount(book.askAmount)} @ ${book.bestAsk.toFixed(2)}` : "—"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {exchange.orders.length > 0 && (
+        <>
+          <h4>Your orders</h4>
+          {exchange.orders.map((order) => (
+            <div key={order.id} className="contract">
+              <span>
+                {order.selling ? "Selling" : "Buying"} {formatAmount(order.amount)}{" "}
+                {content.resourceName(order.resource).toLowerCase()} @ {order.price.toFixed(2)} g
+              </span>
+              <button onClick={() => void gameClient.cancelExchangeOrder(order.id)}>Cancel</button>
+            </div>
+          ))}
+        </>
+      )}
+      {exchange.shipments.length > 0 && (
+        <>
+          <h4>Cargo on its way</h4>
+          {exchange.shipments.map((shipment) => (
+            <div key={shipment.id} className="small">
+              🚚 {formatAmount(shipment.amount)} {content.resourceName(shipment.resource).toLowerCase()}{" "}
+              {shipment.incoming ? `from ${shipment.partner}` : `to ${shipment.partner}`} · arrives in{" "}
+              {formatDuration(Math.max(0, (new Date(shipment.arrivesAt).getTime() - serverNow) / 1000))}
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }

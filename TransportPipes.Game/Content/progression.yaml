@@ -12,6 +12,7 @@ xp:
   milestone: 50
   parcel: 100
   research: 40
+  contract: 60
   # One XP per (goldPerXp * company level) gold earned
   goldPerXp: 25
 

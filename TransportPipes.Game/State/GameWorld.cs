@@ -17,6 +17,8 @@ public enum WorldEventKind
     ResearchFinished,
     PriceChanged,
     OrderCompleted,
+    ContractChanged,
+    ExchangeTrade,
 }
 
 /// <summary>Something a player should hear about (a toast in the client)</summary>
@@ -31,9 +33,11 @@ public sealed class WorldChanges
     public HashSet<long> Storages { get; } = new();
     public HashSet<(DistrictCoord District, int Slot)> Estates { get; } = new();
     public HashSet<DistrictCoord> Markets { get; } = new();
+    public HashSet<long> Contracts { get; } = new();
+    public bool Exchange { get; set; }
     public List<WorldEvent> Events { get; } = new();
 
-    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Events.Count == 0;
+    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Contracts.Count == 0 && !Exchange && Events.Count == 0;
 }
 
 /// <summary>
@@ -177,9 +181,19 @@ public sealed partial class GameWorld
         {
             _estates[(district, slot)] = new Estate { District = district, Slot = slot, Origin = WorldLayout.EstateOrigin(district, slot) };
         }
+        if (TenantsEnabled)
+        {
+            CreateTenants(district);
+        }
     }
 
-    /// <summary>The estate a new company gets: the first free estate in the oldest district with room</summary>
+    /// <summary>NPC tenants on free estates (off in most tests)</summary>
+    public bool TenantsEnabled { get; set; }
+
+    /// <summary>
+    /// The estate a new company gets: the first free estate in the oldest district with room; when only tenants are left
+    /// there, a tenant moves out
+    /// </summary>
     private Estate FindFreeEstate()
     {
         foreach (var district in WorldLayout.DistrictOrder())
@@ -190,6 +204,15 @@ public sealed partial class GameWorld
                 var estate = _estates[(district, slot)];
                 if (estate.OwnerId == null)
                 {
+                    return estate;
+                }
+            }
+            for (var slot = 0; slot < WorldLayout.EstatesPerDistrict; slot++)
+            {
+                var estate = _estates[(district, slot)];
+                if (estate.OwnerId is { } owner && Company(owner) is { IsNpc: true })
+                {
+                    EvictTenant(estate);
                     return estate;
                 }
             }

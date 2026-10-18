@@ -30,6 +30,7 @@ public sealed class WorldStore
     private readonly HashSet<long> _companies = new();
     private readonly HashSet<(int, int, int)> _estates = new();
     private readonly HashSet<long> _buildings = new();
+    private readonly HashSet<long> _contracts = new();
     private readonly HashSet<TilePos> _conductors = new();
     private readonly Dictionary<TilePos, TerrainType> _terrainOverrides = new();
     private readonly List<object> _orphans = new();
@@ -76,6 +77,8 @@ public sealed class WorldStore
                 CurrentResearch = settings.CurrentResearch,
                 ResearchEndsAt = settings.ResearchEndsAt,
                 PendingPrices = settings.PendingPrices,
+                ContractScore = settings.ContractScore,
+                ContractsCompleted = settings.ContractsCompleted,
                 HubReputation = settings.HubReputation,
                 DailyOrders = settings.DailyOrders,
                 Report = JsonSerializer.Deserialize<CompanyReport>(row.Report, Json) ?? new CompanyReport { Since = row.LastSeenAt },
@@ -143,9 +146,37 @@ public sealed class WorldStore
             _conductors.Add(new TilePos(row.X, row.Y));
         }
 
+        foreach (var row in await db.Contracts.ToListAsync(cancellationToken))
+        {
+            world.LoadContract(new Contract
+            {
+                Id = row.Id,
+                Proposer = row.Proposer,
+                Seller = row.Seller,
+                Buyer = row.Buyer,
+                Resource = row.Resource,
+                Rate = row.Rate,
+                Price = row.Price,
+                Days = row.Days,
+                PenaltyRate = row.PenaltyRate,
+                CreatedAt = row.CreatedAt,
+                StartedAt = row.StartedAt,
+                EndsAt = row.EndsAt,
+                State = (ContractState)row.State,
+                Delivered = row.Delivered,
+                Expected = row.Expected,
+            });
+            _contracts.Add(row.Id);
+        }
+
         foreach (var market in JsonSerializer.Deserialize<List<MarketRow>>(dbWorld.Markets, Json) ?? [])
         {
             world.LoadMarket(new DistrictCoord(market.X, market.Y), market.Market);
+        }
+
+        if (JsonSerializer.Deserialize<ExchangeState>(dbWorld.Exchange, Json) is { Orders: not null } exchange)
+        {
+            world.LoadExchange(exchange.Orders, exchange.Shipments ?? []);
         }
 
         world.LastTick = dbWorld.LastTick;
@@ -166,6 +197,7 @@ public sealed class WorldStore
                 LastTick = world.LastTick,
                 CreatedAt = world.Now,
                 Markets = JsonSerializer.Serialize(world.Markets.Select(t => new MarketRow(t.Key.X, t.Key.Y, t.Value)).ToList(), Json),
+                Exchange = JsonSerializer.Serialize(new ExchangeState(world.ExchangeOrders.ToList(), world.Shipments.ToList()), Json),
             },
         };
 
@@ -198,6 +230,8 @@ public sealed class WorldStore
                     CurrentResearch = company.CurrentResearch,
                     ResearchEndsAt = company.ResearchEndsAt,
                     PendingPrices = company.PendingPrices,
+                    ContractScore = company.ContractScore,
+                    ContractsCompleted = company.ContractsCompleted,
                     HubReputation = company.HubReputation,
                     DailyOrders = company.DailyOrders,
                 }, Json),
@@ -250,6 +284,28 @@ public sealed class WorldStore
             }));
         }
 
+        foreach (var contract in world.Contracts.Where(t => t.Dirty))
+        {
+            snapshot.Upserts.Add((contract, new DbContract
+            {
+                Id = contract.Id,
+                Proposer = contract.Proposer,
+                Seller = contract.Seller,
+                Buyer = contract.Buyer,
+                Resource = contract.Resource,
+                Rate = contract.Rate,
+                Price = contract.Price,
+                Days = contract.Days,
+                PenaltyRate = contract.PenaltyRate,
+                CreatedAt = contract.CreatedAt,
+                StartedAt = contract.StartedAt,
+                EndsAt = contract.EndsAt,
+                State = (int)contract.State,
+                Delivered = contract.Delivered,
+                Expected = contract.Expected,
+            }));
+        }
+
         foreach (var (pos, terrain) in world.TerrainOverrides)
         {
             if (!_terrainOverrides.TryGetValue(pos, out var saved) || saved != terrain)
@@ -266,6 +322,9 @@ public sealed class WorldStore
             {
                 case Building building:
                     snapshot.Deletes.Add(new DbBuilding { Id = building.Id });
+                    break;
+                case Company company:
+                    snapshot.Deletes.Add(new DbCompany { Id = company.Id });
                     break;
                 // A pipe that was removed and laid again is just an update
                 case Conductor conductor when world.ConductorAt(conductor.Pos) == null:
@@ -290,6 +349,7 @@ public sealed class WorldStore
         var newEstates = new List<(int, int, int)>();
         var newBuildings = new List<long>();
         var newConductors = new List<TilePos>();
+        var newContracts = new List<long>();
         try
         {
             if (_worldExists)
@@ -298,6 +358,7 @@ public sealed class WorldStore
                 db.Entry(snapshot.World).Property(t => t.Era).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.LastTick).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Markets).IsModified = true;
+                db.Entry(snapshot.World).Property(t => t.Exchange).IsModified = true;
             }
             else
             {
@@ -310,6 +371,9 @@ public sealed class WorldStore
                 {
                     case DbBuilding building when _buildings.Contains(building.Id):
                         db.Buildings.Remove(building);
+                        break;
+                    case DbCompany company when _companies.Contains(company.Id):
+                        db.Companies.Remove(company);
                         break;
                     case DbConductor conductor when _conductors.Contains(new TilePos(conductor.X, conductor.Y)):
                         db.Conductors.Remove(conductor);
@@ -335,6 +399,9 @@ public sealed class WorldStore
                         var pos = new TilePos(conductor.X, conductor.Y);
                         Upsert(db, conductor, _conductors.Contains(pos), () => newConductors.Add(pos));
                         break;
+                    case DbContract contract:
+                        Upsert(db, contract, _contracts.Contains(contract.Id), () => newContracts.Add(contract.Id));
+                        break;
                 }
             }
 
@@ -358,12 +425,16 @@ public sealed class WorldStore
         _estates.UnionWith(newEstates);
         _buildings.UnionWith(newBuildings);
         _conductors.UnionWith(newConductors);
+        _contracts.UnionWith(newContracts);
         foreach (var row in snapshot.Deletes)
         {
             switch (row)
             {
                 case DbBuilding building:
                     _buildings.Remove(building.Id);
+                    break;
+                case DbCompany company:
+                    _companies.Remove(company.Id);
                     break;
                 case DbConductor conductor:
                     _conductors.Remove(new TilePos(conductor.X, conductor.Y));
@@ -399,9 +470,13 @@ public sealed class WorldStore
         public string? CurrentResearch { get; init; }
         public DateTime? ResearchEndsAt { get; init; }
         public Dictionary<string, PendingPrice> PendingPrices { get; init; } = new();
+        public double ContractScore { get; init; } = 1;
+        public int ContractsCompleted { get; init; }
         public double HubReputation { get; init; }
         public List<DailyOrder> DailyOrders { get; init; } = new();
     }
 
     private sealed record MarketRow(int X, int Y, HubMarket Market);
+
+    private sealed record ExchangeState(List<ExchangeOrder> Orders, List<Shipment> Shipments);
 }

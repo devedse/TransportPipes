@@ -8,6 +8,7 @@ export function Toolbar() {
   const content = useAppStore((state) => state.content);
   const researchOpen = useAppStore((state) => state.researchOpen);
   const hubOpen = useAppStore((state) => state.hubOpen);
+  const neighboursOpen = useAppStore((state) => state.neighboursOpen);
   const ordersOpen = useAppStore(
     (state) => state.company?.dailyOrders.filter((t) => t.delivered < t.amount).length ?? 0,
   );
@@ -31,15 +32,24 @@ export function Toolbar() {
     },
     {
       key: "pipe",
-      label: `Pipe · ${content?.pipeTiers[0]?.gold ?? 2} g/tile`,
+      label: "Pipe",
       icon: "⧉",
       hotkey: "P",
       active: tool.kind === "pipe",
       run: () => gameClient.setTool({ kind: "pipe", tier: 1 }),
     },
     {
+      key: "neighbours",
+      label: "Neighbours",
+      icon: "🤝",
+      hotkey: "N",
+      active: neighboursOpen,
+      run: () => (neighboursOpen ? setState({ neighboursOpen: false }) : void gameClient.openNeighbours()),
+    },
+    {
       key: "hub",
-      label: ordersOpen > 0 ? `Hub · ${ordersOpen} orders` : "Hub",
+      label: "Hub",
+      badge: ordersOpen,
       icon: "🏛",
       hotkey: "M",
       active: hubOpen,
@@ -69,11 +79,20 @@ export function Toolbar() {
         <button
           key={t.key}
           className={t.active ? "tool active" : "tool"}
-          title={`${t.label} (${t.hotkey})`}
+          title={
+            t.key === "pipe"
+              ? `Pipe, ${content?.pipeTiers[0]?.gold ?? 2} g per tile (P)`
+              : `${t.label} (${t.hotkey})`
+          }
           onClick={t.run}
         >
           <span className="tool-icon">{t.icon}</span>
-          <span className="tool-label">{t.label}</span>
+          <span className="tool-label">
+            {t.label}
+            {"badge" in t && typeof t.badge === "number" && t.badge > 0 && (
+              <span className="badge">{t.badge}</span>
+            )}
+          </span>
           <kbd>{t.hotkey}</kbd>
         </button>
       ))}

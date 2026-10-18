@@ -6,6 +6,9 @@ import type {
   ChunkObjectsDto,
   CommandResult,
   CompanyDto,
+  ContractsDto,
+  ExchangeDto,
+  NeighbourDto,
   DistrictDto,
   GameContentDto,
   GatePolicy,
@@ -73,6 +76,7 @@ export interface ServerEvents {
   companyChanged(company: CompanyDto): void;
   toast(toast: ToastDto): void;
   marketChanged(districtX: number, districtY: number): void;
+  exchangeChanged(): void;
 }
 
 const EVENT_NAMES: Record<keyof ServerEvents, string> = {
@@ -82,6 +86,7 @@ const EVENT_NAMES: Record<keyof ServerEvents, string> = {
   companyChanged: "CompanyChanged",
   toast: "Toast",
   marketChanged: "MarketChanged",
+  exchangeChanged: "ExchangeChanged",
 };
 
 const START_RETRY_DELAYS_MS = [0, 2000, 5000, 10000];
@@ -186,6 +191,22 @@ export class GameConnection {
   getCompany = () => this.invoke<CompanyDto | null>("GetCompany");
   getResearch = () => this.invoke<ResearchStateDto[]>("GetResearch");
   getMarket = () => this.invoke<MarketDto | null>("GetMarket");
+  getNeighbourhood = () => this.invoke<NeighbourDto[]>("GetNeighbourhood");
+  getExchange = () => this.invoke<ExchangeDto | null>("GetExchange");
+  placeExchangeOrder = (resource: string, selling: boolean, amount: number, price: number) =>
+    this.invoke<CommandResult>("PlaceExchangeOrder", resource, selling, amount, price);
+  cancelExchangeOrder = (order: number) => this.invoke<CommandResult>("CancelExchangeOrder", order);
+  getContracts = () => this.invoke<ContractsDto | null>("GetContracts");
+  proposeContract = (
+    partner: number | null,
+    selling: boolean,
+    resource: string,
+    rate: number,
+    price: number,
+    days: number,
+  ) => this.invoke<CommandResult>("ProposeContract", partner, selling, resource, rate, price, days);
+  acceptContract = (contract: number) => this.invoke<CommandResult>("AcceptContract", contract);
+  declineContract = (contract: number) => this.invoke<CommandResult>("DeclineContract", contract);
   deliverOrder = (order: number) => this.invoke<CommandResult>("DeliverOrder", order);
   setNoTrade = (resource: string, noTrade: boolean) =>
     this.invoke<CommandResult>("SetNoTrade", resource, noTrade);

@@ -38,6 +38,8 @@ export interface EngineState {
   era: number;
   tool: Tool;
   overlay: Overlay;
+  /** A pipe route to show (Connect), not built yet */
+  plannedRoute: TilePosition[] | null;
   selectedBuilding: number | null;
   /** The network shown in the inspector, with the paths of its full links */
   selectedNetwork: { id: number; bottlenecks: number[][] } | null;
@@ -548,7 +550,7 @@ export class Engine {
 
     const tile = this.camera.screenToTile(this.pointerX, this.pointerY);
     const tool = this.callbacks.getState().tool;
-    const toolKey = JSON.stringify(tool);
+    const toolKey = JSON.stringify(tool) + (this.callbacks.getState().plannedRoute?.length ?? 0);
     const changed =
       this.hovered === null ||
       tile.x !== this.hovered.x ||
@@ -1357,6 +1359,9 @@ export class Engine {
     const state = this.callbacks.getState();
     const tool = state.tool;
     const tile = this.hovered;
+    if (state.plannedRoute !== null && state.company !== null) {
+      this.drawRoute(state.plannedRoute, 1, state.company);
+    }
     if (tile === null || state.company === null || this.far) {
       this.callbacks.onHover(tile, null);
       return;
@@ -1448,6 +1453,29 @@ export class Engine {
       this.ghostLayer.addChild(g);
     }
     this.callbacks.onHover(tile, null);
+  }
+
+  /** Ghost pipes along a route (the ones that are not there yet) */
+  private drawRoute(route: TilePosition[], tier: number, company: CompanyDto) {
+    const g = new Graphics();
+    for (const t of route) {
+      const own = this.world.conductorAt(t.x, t.y)?.owner === company.id;
+      traceFootprint(g, t.x, t.y, 1);
+      g.fill({ color: own ? 0x6cb4ee : 0x2ec4a6, alpha: 0.35 });
+      if (!own) {
+        const texture = this.textures.pipe("urdl");
+        if (texture !== undefined) {
+          const sprite = new Sprite(texture);
+          sprite.anchor.set(0, 1);
+          const anchor = diagonalToScreen(t.x, t.y);
+          sprite.position.set(anchor.x, anchor.y);
+          sprite.alpha = 0.55;
+          sprite.tint = PIPE_TINTS[tier] ?? 0xffffff;
+          this.ghostLayer.addChild(sprite);
+        }
+      }
+    }
+    this.ghostLayer.addChildAt(g, 0);
   }
 
   private drawHighlights() {

@@ -188,6 +188,62 @@ namespace TransportPipes.Database.Migrations
                     b.ToTable("Conductors", (string)null);
                 });
 
+            modelBuilder.Entity("TransportPipes.Database.Entities.DbContract", b =>
+                {
+                    b.Property<long>("Id")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("Buyer")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double>("Days")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Delivered")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime?>("EndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double>("Expected")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("PenaltyRate")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Price")
+                        .HasColumnType("double precision");
+
+                    b.Property<long>("Proposer")
+                        .HasColumnType("bigint");
+
+                    b.Property<double>("Rate")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Resource")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<long>("Seller")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("State")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("State");
+
+                    b.ToTable("Contracts", (string)null);
+                });
+
             modelBuilder.Entity("TransportPipes.Database.Entities.DbEstate", b =>
                 {
                     b.Property<int>("DistrictX")
@@ -284,6 +340,12 @@ namespace TransportPipes.Database.Migrations
 
                     b.Property<int>("Era")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Exchange")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValueSql("'{}'::jsonb");
 
                     b.Property<DateTime>("LastTick")
                         .HasColumnType("timestamp with time zone");

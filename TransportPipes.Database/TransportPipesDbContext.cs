@@ -19,6 +19,7 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<DbBuilding> Buildings => Set<DbBuilding>();
     public DbSet<DbConductor> Conductors => Set<DbConductor>();
     public DbSet<DbTerrainOverride> TerrainOverrides => Set<DbTerrainOverride>();
+    public DbSet<DbContract> Contracts => Set<DbContract>();
 
     /// <summary>The keys that protect the login cookies, so logins survive a restart</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
@@ -44,6 +45,7 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
             world.ToTable("World");
             world.Property(t => t.Id).ValueGeneratedNever();
             world.Property(t => t.Markets).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
+            world.Property(t => t.Exchange).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
         });
 
         modelBuilder.Entity<DbCompany>(company =>
@@ -80,6 +82,14 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
         {
             conductor.ToTable("Conductors");
             conductor.HasKey(t => new { t.X, t.Y });
+        });
+
+        modelBuilder.Entity<DbContract>(contract =>
+        {
+            contract.ToTable("Contracts");
+            contract.Property(t => t.Id).ValueGeneratedNever();
+            contract.Property(t => t.Resource).HasMaxLength(40);
+            contract.HasIndex(t => t.State);
         });
 
         modelBuilder.Entity<DbTerrainOverride>(terrain =>

@@ -10,6 +10,7 @@ import { GameCanvas } from "./components/GameCanvas";
 import { GatePanel } from "./components/GatePanel";
 import { HoverTip } from "./components/HoverTip";
 import { HubPanel } from "./components/HubPanel";
+import { NeighboursPanel, PlannedRouteBanner } from "./components/NeighboursPanel";
 import { NetworkPanel } from "./components/NetworkPanel";
 import { OverlayBar } from "./components/OverlayBar";
 import { ParcelPanel } from "./components/ParcelPanel";
@@ -45,8 +46,10 @@ function useShortcuts() {
       }
       switch (event.key.toLowerCase()) {
         case "escape":
-          if (state.researchOpen || state.hubOpen) {
-            setState({ researchOpen: false, hubOpen: false });
+          if (state.researchOpen || state.hubOpen || state.neighboursOpen) {
+            setState({ researchOpen: false, hubOpen: false, neighboursOpen: false });
+          } else if (state.plannedRoute !== null) {
+            setState({ plannedRoute: null, plannedPartner: null });
           } else if (state.tool.kind !== "select") {
             gameClient.setTool({ kind: "select" });
           } else if (state.buildMenuOpen) {
@@ -72,6 +75,13 @@ function useShortcuts() {
           break;
         case "x":
           gameClient.setTool({ kind: "bulldoze" });
+          break;
+        case "n":
+          if (state.neighboursOpen) {
+            setState({ neighboursOpen: false });
+          } else {
+            void gameClient.openNeighbours();
+          }
           break;
         case "m":
           if (state.hubOpen) {
@@ -150,6 +160,10 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="Toolbar">
             <Toolbar />
+          </ErrorBoundary>
+          <ErrorBoundary name="NeighboursPanel">
+            <NeighboursPanel />
+            <PlannedRouteBanner />
           </ErrorBoundary>
           <ErrorBoundary name="HubPanel">
             <HubPanel />

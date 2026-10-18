@@ -143,3 +143,19 @@ export function tileKey(x: number, y: number): number {
   // Unique for |x|, |y| < 2^20
   return (x + 1048576) * 2097152 + (y + 1048576);
 }
+
+export const GATE_SIDES = ["top", "right", "bottom", "left"] as const;
+
+const GATE_LOCAL: Record<(typeof GATE_SIDES)[number], [number, number, number, number]> = {
+  // x, y within the estate, and the step to the corridor tile outside it
+  top: [ESTATE_SIZE / 2, 0, 0, -1],
+  right: [ESTATE_SIZE - 1, ESTATE_SIZE / 2, 1, 0],
+  bottom: [ESTATE_SIZE / 2, ESTATE_SIZE - 1, 0, 1],
+  left: [0, ESTATE_SIZE / 2, -1, 0],
+};
+
+/** The gate of an estate on a side, and the corridor tile right outside it */
+export function gateTiles(estateX: number, estateY: number, side: (typeof GATE_SIDES)[number]) {
+  const [x, y, dx, dy] = GATE_LOCAL[side];
+  return { gate: { x: estateX + x, y: estateY + y }, outside: { x: estateX + x + dx, y: estateY + y + dy } };
+}

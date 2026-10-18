@@ -13,4 +13,7 @@ public class DbWorld
 
     /// <summary>The hub markets of all districts (jsonb)</summary>
     public string Markets { get; set; } = "[]";
+
+    /// <summary>The Exchange: open orders and shipments on their way (jsonb)</summary>
+    public string Exchange { get; set; } = "{}";
 }

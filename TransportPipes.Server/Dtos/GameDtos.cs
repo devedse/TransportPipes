@@ -159,3 +159,51 @@ public record NetworkDetailsDto(
     IReadOnlyList<NetworkOwnerDto> Owners,
     IReadOnlyList<NetworkResourceDto> Resources,
     IReadOnlyList<BottleneckDto> Bottlenecks);
+
+public record ResourceRateDto(string Resource, double PerMinute);
+
+public record NeighbourDto(
+    long Id,
+    string Name,
+    string Color,
+    int Level,
+    int ContractStars,
+    bool IsNpc,
+    int Slot,
+    int EstateX,
+    int EstateY,
+    IReadOnlyDictionary<string, string> GatePolicies,
+    bool Connected,
+    IReadOnlyList<ResourceRateDto> Surplus,
+    IReadOnlyList<ResourceRateDto> Needs,
+    double YouEarn,
+    double YouPay);
+
+public record ContractDto(
+    long Id,
+    long Proposer,
+    string ProposerName,
+    long Seller,
+    string SellerName,
+    long Buyer,
+    string BuyerName,
+    string Resource,
+    double Rate,
+    double Price,
+    double Days,
+    string State,
+    DateTime CreatedAt,
+    DateTime? EndsAt,
+    double Delivered,
+    double Expected,
+    int ProposerStars);
+
+public record ContractsDto(IReadOnlyList<ContractDto> Mine, IReadOnlyList<ContractDto> Board);
+
+public record ExchangeOrderDto(long Id, string Resource, bool Selling, double Amount, double Price, DateTime CreatedAt, bool Mine);
+
+public record ShipmentDto(long Id, string Resource, double Amount, DateTime ArrivesAt, bool Incoming, string Partner);
+
+public record ExchangeBookDto(string Resource, double BestBid, double BidAmount, double BestAsk, double AskAmount);
+
+public record ExchangeDto(bool HasOffice, IReadOnlyList<ExchangeBookDto> Books, IReadOnlyList<ExchangeOrderDto> Orders, IReadOnlyList<ShipmentDto> Shipments, double Fee);

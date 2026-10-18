@@ -3,8 +3,11 @@ import { useStore } from "zustand";
 import type {
   BuildingDetailsDto,
   CompanyDto,
+  ContractsDto,
+  ExchangeDto,
   GateSide,
   MarketDto,
+  NeighbourDto,
   NetworkDetailsDto,
   ReportDto,
   ResearchStateDto,
@@ -60,6 +63,13 @@ export interface AppState {
   research: ResearchStateDto[];
   hubOpen: boolean;
   market: MarketDto | null;
+  exchange: ExchangeDto | null;
+  neighboursOpen: boolean;
+  neighbours: NeighbourDto[];
+  contracts: ContractsDto | null;
+  /** A pipe route the player is looking at (Connect), drawn on the map until it is built or dropped */
+  plannedRoute: TilePosition[] | null;
+  plannedPartner: number | null;
 }
 
 export const initialState: AppState = {
@@ -94,6 +104,12 @@ export const initialState: AppState = {
   research: [],
   hubOpen: false,
   market: null,
+  exchange: null,
+  neighboursOpen: false,
+  neighbours: [],
+  contracts: null,
+  plannedRoute: null,
+  plannedPartner: null,
 };
 
 export const appStore = createStore<AppState>(() => initialState);

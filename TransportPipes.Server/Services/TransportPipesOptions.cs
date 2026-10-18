@@ -20,6 +20,11 @@ public class TransportPipesOptions
     public int WorldSeed { get; set; } = 20261018;
 
     /// <summary>
+    /// NPC tenants on the estates nobody has taken yet (GDD §4.7)
+    /// </summary>
+    public bool Tenants { get; set; } = true;
+
+    /// <summary>
     /// The gold a new company starts with; empty means the value from the content files (progression.yaml)
     /// </summary>
     public double? StartingGold { get; set; }

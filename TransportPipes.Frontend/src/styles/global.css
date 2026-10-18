@@ -990,6 +990,144 @@ kbd {
   border-color: var(--accent);
 }
 
+/* ---------- Neighbours and contracts ---------- */
+
+.neighbours-panel {
+  width: min(900px, calc(100vw - 24px));
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+}
+
+.neighbours-panel h2 {
+  font-family: var(--font-title);
+  font-size: 1.5rem;
+}
+
+.neighbour-list,
+.contract-list {
+  display: grid;
+  gap: 8px;
+}
+
+.neighbour,
+.contract {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.contract {
+  grid-template-columns: 1fr auto;
+}
+
+.contract.active {
+  border-color: rgba(46, 196, 166, 0.5);
+}
+
+.contract.offered {
+  border-color: rgba(246, 199, 68, 0.5);
+}
+
+.contract.ended,
+.contract.declined,
+.contract.cancelled {
+  opacity: 0.6;
+}
+
+.neighbour-body {
+  display: grid;
+  gap: 3px;
+}
+
+.neighbour-actions {
+  display: grid;
+  gap: 5px;
+}
+
+.chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.res-chip {
+  border: 1px solid;
+  border-radius: 999px;
+  padding: 0 7px;
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.stars {
+  color: var(--gold);
+  font-size: 0.8rem;
+  letter-spacing: -1px;
+}
+
+.badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  background: var(--accent-strong);
+  color: #04201a;
+  font-weight: 700;
+}
+
+.badge.npc {
+  background: #6b6f80;
+  color: #fff;
+}
+
+.badge.connected {
+  background: var(--info);
+}
+
+.contract-form {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--accent);
+  background: rgba(46, 196, 166, 0.08);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+select {
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text);
+  font: inherit;
+}
+
+.route-banner {
+  position: absolute;
+  top: 140px;
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-color: var(--accent);
+}
+
 /* ---------- Gates ---------- */
 
 .gate-panel {
@@ -1148,6 +1286,16 @@ button.link {
 
 .warning-text {
   color: var(--warning);
+}
+
+.exchange {
+  display: grid;
+  gap: 10px;
+}
+
+.exchange-form {
+  grid-template-columns: repeat(4, 1fr) auto;
+  align-items: end;
 }
 
 /* ---------- Research ---------- */

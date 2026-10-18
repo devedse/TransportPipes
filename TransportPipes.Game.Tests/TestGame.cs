@@ -63,6 +63,8 @@ internal sealed class TestGame
         ['P'] = "priorityValve",
         ['U'] = "pumpStation",
         ['X'] = "tollMeter",
+        ['E'] = "exchangeOffice",
+        ['C'] = "cargoDepot",
     };
 
     /// <summary>

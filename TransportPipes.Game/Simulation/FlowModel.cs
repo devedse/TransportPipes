@@ -92,12 +92,21 @@ public sealed class FlowMarket
     /// <summary>Whether two different companies may trade (settings, gold)</summary>
     public Func<long, long, string, bool> TradeAllowed { get; init; } = (_, _, _) => true;
 
+    /// <summary>Active contracts: delivered before open trade, at their own price, up to their rate</summary>
+    public IReadOnlyList<FlowContract> Contracts { get; init; } = [];
+
     /// <summary>Whether two different companies may trade over this link (the gates on its path)</summary>
     public Func<FlowLink, long, long, string, bool> LinkTradeAllowed { get; init; } = (_, _, _, _) => true;
 }
 
+/// <summary>A contract the solver serves: the seller delivers up to Rate per minute of a resource to the buyer at Price</summary>
+public sealed record FlowContract(long Id, long Seller, long Buyer, string Resource, double Rate, double Price);
+
 public enum FlowKind
 {
+    /// <summary>Between two companies under a contract, at the contract price</summary>
+    Contract,
+
     /// <summary>Between buildings of the same company</summary>
     Internal,
 

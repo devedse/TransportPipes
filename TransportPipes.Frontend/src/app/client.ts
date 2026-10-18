@@ -10,8 +10,15 @@ import { auth, fetchContent, GameConnection } from "../api/server";
 import { Content } from "../game/content";
 import type { Engine, EngineCallbacks, Tool } from "../game/Engine";
 import type { TilePosition } from "../game/isometric";
-import { buyableParcels, ESTATE_SIZE, isParcelUnlocked, parcelOf } from "../game/layout";
-import { newPipeTiles } from "../game/rules";
+import {
+  buyableParcels,
+  ESTATE_SIZE,
+  GATE_SIDES,
+  gateTiles,
+  isParcelUnlocked,
+  parcelOf,
+} from "../game/layout";
+import { newPipeTiles, routePipe } from "../game/rules";
 import { WorldModel } from "../game/world";
 import { appStore, initialState, setState, toast } from "../state/store";
 
@@ -94,6 +101,11 @@ export class GameClient {
     });
     c.on("companyChanged", (company) => this.setCompany(company));
     c.on("networksChanged", (networks) => void this.refreshFlows(networks));
+    c.on("exchangeChanged", () => {
+      if (appStore.getState().hubOpen) {
+        void this.refreshMarket();
+      }
+    });
     c.on("marketChanged", (x, y) => {
       const company = appStore.getState().company;
       if (
@@ -147,6 +159,13 @@ export class GameClient {
     ) {
       this.engine?.invalidate();
     }
+    if (appStore.getState().neighboursOpen && this.neighboursTimer === null) {
+      // At most one refresh per few seconds while the panel is open
+      this.neighboursTimer = window.setTimeout(() => {
+        this.neighboursTimer = null;
+        void this.refreshNeighbours();
+      }, 3000);
+    }
     if (
       appStore.getState().researchOpen &&
       (previous?.currentResearch !== company.currentResearch ||
@@ -157,15 +176,155 @@ export class GameClient {
     }
   }
 
+  async openNeighbours() {
+    setState({ neighboursOpen: true, hubOpen: false, researchOpen: false, buildMenuOpen: false });
+    await this.refreshNeighbours();
+  }
+
+  async refreshNeighbours() {
+    const [neighbours, contracts] = await Promise.all([
+      this.connection.getNeighbourhood().catch(() => null),
+      this.connection.getContracts().catch(() => null),
+    ]);
+    setState({
+      ...(neighbours !== null ? { neighbours } : {}),
+      ...(contracts !== null ? { contracts } : {}),
+    });
+  }
+
+  /**
+   * Plans the pipe from your nearest gate to a neighbour's through the corridors and shows it on the map. The chunks on
+   * the way have to be loaded, so the camera moves there first and the route is found when they are.
+   */
+  async planConnection(partner: number) {
+    const state = appStore.getState();
+    const neighbour = state.neighbours.find((t) => t.id === partner);
+    const company = state.company;
+    if (neighbour === undefined || company === null || this.world === null) {
+      return;
+    }
+    const pairs = GATE_SIDES.flatMap((mine) =>
+      GATE_SIDES.map((theirs) => ({
+        from: gateTiles(company.estateX, company.estateY, mine),
+        to: gateTiles(neighbour.estateX, neighbour.estateY, theirs),
+        policy: neighbour.gatePolicies[theirs] ?? "open",
+      })),
+    )
+      .filter((t) => t.policy !== "closed")
+      .sort(
+        (a, b) =>
+          Math.abs(a.from.outside.x - a.to.outside.x) +
+          Math.abs(a.from.outside.y - a.to.outside.y) -
+          (Math.abs(b.from.outside.x - b.to.outside.x) + Math.abs(b.from.outside.y - b.to.outside.y)),
+      );
+    const best = pairs[0];
+    if (best === undefined) {
+      toast(`${neighbour.name} has closed all its gates.`, "error");
+      return;
+    }
+    setState({ neighboursOpen: false, tool: { kind: "select" } });
+    this.engine?.lookAt(
+      (best.from.outside.x + best.to.outside.x) / 2,
+      (best.from.outside.y + best.to.outside.y) / 2,
+      0.3,
+    );
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const current = appStore.getState().company;
+      if (current === null) {
+        return;
+      }
+      const route = routePipe(
+        this.world,
+        current,
+        best.from.outside,
+        best.to.outside,
+        state.content ?? undefined,
+        8000,
+      );
+      if (route !== null) {
+        setState({ plannedRoute: route, plannedPartner: partner });
+        return;
+      }
+    }
+    toast("No free way through the corridors to their gate.", "error");
+  }
+
+  async buildPlannedRoute() {
+    const state = appStore.getState();
+    if (state.plannedRoute === null || state.company === null || this.world === null) {
+      return;
+    }
+    const tiles = newPipeTiles(this.world, state.company, state.plannedRoute, state.content ?? undefined);
+    if (
+      await this.command(
+        this.connection.placePipes(
+          tiles.flatMap((t) => [t.x, t.y]),
+          1,
+        ),
+        "Connected! Trade starts right away.",
+      )
+    ) {
+      setState({ plannedRoute: null, plannedPartner: null });
+    }
+  }
+
+  async proposeContract(
+    partner: number | null,
+    selling: boolean,
+    resource: string,
+    rate: number,
+    price: number,
+    days: number,
+  ) {
+    const ok = await this.command(
+      this.connection.proposeContract(partner, selling, resource, rate, price, days),
+      partner === null ? "Your offer is on the contract board" : "Offer sent",
+    );
+    if (ok) {
+      await this.refreshNeighbours();
+    }
+    return ok;
+  }
+
+  async acceptContract(contract: number) {
+    if (await this.command(this.connection.acceptContract(contract), "Contract signed")) {
+      await this.refreshNeighbours();
+    }
+  }
+
+  async declineContract(contract: number) {
+    if (await this.command(this.connection.declineContract(contract))) {
+      await this.refreshNeighbours();
+    }
+  }
+
   async openHub() {
     setState({ hubOpen: true, researchOpen: false, buildMenuOpen: false });
     await this.refreshMarket();
   }
 
   async refreshMarket() {
-    const market = await this.connection.getMarket().catch(() => null);
-    if (market !== null) {
-      setState({ market });
+    const [market, exchange] = await Promise.all([
+      this.connection.getMarket().catch(() => null),
+      this.connection.getExchange().catch(() => null),
+    ]);
+    setState({ ...(market !== null ? { market } : {}), ...(exchange !== null ? { exchange } : {}) });
+  }
+
+  async placeExchangeOrder(resource: string, selling: boolean, amount: number, price: number) {
+    if (
+      await this.command(this.connection.placeExchangeOrder(resource, selling, amount, price), "Order placed")
+    ) {
+      await this.refreshMarket();
+      return true;
+    }
+    return false;
+  }
+
+  async cancelExchangeOrder(order: number) {
+    if (await this.command(this.connection.cancelExchangeOrder(order))) {
+      await this.refreshMarket();
     }
   }
 
@@ -192,6 +351,8 @@ export class GameClient {
       await this.refreshMarket();
     }
   }
+
+  private neighboursTimer: number | null = null;
 
   async openResearch() {
     setState({ researchOpen: true, hubOpen: false, buildMenuOpen: false });
@@ -263,6 +424,7 @@ export class GameClient {
         era: state.era,
         tool: state.tool,
         overlay: state.overlay,
+        plannedRoute: state.plannedRoute,
         selectedBuilding: state.selectedBuilding,
         selectedNetwork:
           state.selectedNetwork === null

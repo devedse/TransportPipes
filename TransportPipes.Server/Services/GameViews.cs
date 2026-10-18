@@ -371,7 +371,7 @@ public static class GameViews
             {
                 row[0] += flow.Sent;
             }
-            if (Machine(flow.To) && flow.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.FromStorage or FlowKind.Import)
+            if (Machine(flow.To) && flow.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.Contract or FlowKind.FromStorage or FlowKind.Import)
             {
                 row[1] += flow.Delivered;
             }
@@ -379,7 +379,7 @@ public static class GameViews
             {
                 case FlowKind.Sale: row[2] += flow.Delivered; break;
                 case FlowKind.Import: row[3] += flow.Sent; break;
-                case FlowKind.Trade: row[4] += flow.Delivered; break;
+                case FlowKind.Trade or FlowKind.Contract: row[4] += flow.Delivered; break;
                 case FlowKind.ToStorage: row[5] += flow.Delivered; break;
                 case FlowKind.FromStorage: row[6] += flow.Sent; break;
             }
@@ -419,6 +419,218 @@ public static class GameViews
             owners,
             resources.OrderBy(t => t.Key).Select(t => new NetworkResourceDto(t.Key, t.Value[0], t.Value[1], t.Value[2], t.Value[3], t.Value[4], t.Value[5], t.Value[6], t.Value[7])).ToList(),
             bottlenecks);
+    }
+
+    /// <summary>The companies of a district as one of them sees them: surplus, needs, trade with you</summary>
+    public static List<NeighbourDto> Neighbourhood(GameWorld world, Company me)
+    {
+        var surplus = new Dictionary<long, Dictionary<string, double>>();
+        var needs = new Dictionary<long, Dictionary<string, double>>();
+        var earn = new Dictionary<long, double>();
+        var pay = new Dictionary<long, double>();
+        var connected = new HashSet<long>();
+        void Add(Dictionary<long, Dictionary<string, double>> map, long company, string resource, double amount)
+        {
+            if (!map.TryGetValue(company, out var rates))
+            {
+                map[company] = rates = new Dictionary<string, double>();
+            }
+            rates[resource] = (rates.TryGetValue(resource, out var v) ? v : 0) + amount;
+        }
+
+        foreach (var network in world.Networks.Where(t => t.District == me.District))
+        {
+            var owners = network.Owners(world).ToHashSet();
+            if (owners.Contains(me.Id))
+            {
+                connected.UnionWith(owners);
+            }
+            var received = new Dictionary<(long, string), double>();
+            foreach (var flow in network.Solution.Flows)
+            {
+                var from = world.Building(flow.From)!.Owner;
+                var to = world.Building(flow.To)!.Owner;
+                received[(flow.To, flow.Resource)] = (received.TryGetValue((flow.To, flow.Resource), out var r) ? r : 0) + flow.Delivered;
+                if (flow.Kind == FlowKind.Sale)
+                {
+                    // Sold to the hub: they could sell it to you instead
+                    Add(surplus, from, flow.Resource, flow.Sent);
+                }
+                if (flow.Kind is FlowKind.Trade or FlowKind.Contract)
+                {
+                    var value = flow.Delivered * flow.PricePerUnit;
+                    if (from == me.Id)
+                    {
+                        earn[to] = (earn.TryGetValue(to, out var e) ? e : 0) + value;
+                    }
+                    if (to == me.Id)
+                    {
+                        pay[from] = (pay.TryGetValue(from, out var p) ? p : 0) + value;
+                    }
+                }
+            }
+            var sent = new Dictionary<(long, string), double>();
+            foreach (var flow in network.Solution.Flows)
+            {
+                sent[(flow.From, flow.Resource)] = (sent.TryGetValue((flow.From, flow.Resource), out var v) ? v : 0) + flow.Sent;
+            }
+            foreach (var id in network.Buildings)
+            {
+                if (world.Building(id) is not { } building || world.ToFlowNode(building) is not { Kind: FlowNodeKind.Building } node)
+                {
+                    continue;
+                }
+                var rate = network.Solution.Rate(id);
+                // What it could make but nobody takes: spare for a neighbour (only when it has what it needs to make it)
+                var inputsMet = node.In.All(t => (received.TryGetValue((id, t.Key), out var got) ? got : 0) >= t.Value * rate - 1e-6);
+                foreach (var (resource, amount) in node.Out)
+                {
+                    var unused = amount * node.MaxRate - (sent.TryGetValue((id, resource), out var s) ? s : 0);
+                    if (unused > 0.01 && (node.In.Count == 0 || inputsMet))
+                    {
+                        Add(surplus, building.Owner, resource, unused);
+                    }
+                }
+                // What it misses, when its product has somewhere to go (otherwise it doesn't really need it)
+                var placeable = node.Out.Count == 0 || network.Links.Any(link =>
+                {
+                    if (!link.Connects(id, link.A == id ? link.B : link.A))
+                    {
+                        return false;
+                    }
+                    var other = world.Building(link.A == id ? link.B : link.A);
+                    if (other == null)
+                    {
+                        return false;
+                    }
+                    var kind = world.Content.Building(other.Type).Kind;
+                    return (other.Owner == building.Owner && kind is BuildingKind.Storage or BuildingKind.TradingPost)
+                        || world.ToFlowNode(other) is { } n && node.Out.Keys.Any(n.In.ContainsKey);
+                });
+                if (!placeable)
+                {
+                    continue;
+                }
+                foreach (var (resource, amount) in node.In)
+                {
+                    var missing = amount * node.MaxRate - (received.TryGetValue((id, resource), out var got) ? got : 0);
+                    if (missing > 0.01)
+                    {
+                        Add(needs, building.Owner, resource, missing);
+                    }
+                }
+            }
+        }
+        // Buildings without any pipe need everything
+        foreach (var building in world.Buildings.Where(t => world.NetworkOf(t.Id) == null && !t.UnderConstruction))
+        {
+            if (world.Company(building.Owner)?.District == me.District && world.ToFlowNode(building) is { Kind: FlowNodeKind.Building } node)
+            {
+                foreach (var (resource, amount) in node.In)
+                {
+                    Add(needs, building.Owner, resource, amount);
+                }
+            }
+        }
+
+        List<ResourceRateDto> Rates(Dictionary<long, Dictionary<string, double>> map, long company) =>
+            map.TryGetValue(company, out var rates)
+                ? rates.Where(t => t.Value > 0.01).OrderByDescending(t => t.Value * world.BasePrice(t.Key)).Select(t => new ResourceRateDto(t.Key, t.Value)).ToList()
+                : [];
+
+        return world.Companies
+            .Where(t => t.District == me.District && t.Id != me.Id)
+            .Select(t =>
+            {
+                var estate = world.EstateOf(t)!;
+                return new NeighbourDto(
+                    t.Id,
+                    t.Name,
+                    t.Color,
+                    t.Level,
+                    GameWorld.ContractStars(t),
+                    t.IsNpc,
+                    t.Slot,
+                    estate.Origin.X,
+                    estate.Origin.Y,
+                    estate.GatePolicies.ToDictionary(g => Camel(g.Key), g => Camel(g.Value)),
+                    connected.Contains(t.Id),
+                    Rates(surplus, t.Id),
+                    Rates(needs, t.Id),
+                    earn.GetValueOrDefault(t.Id),
+                    pay.GetValueOrDefault(t.Id));
+            })
+            .OrderBy(t => Math.Abs(t.EstateX - world.EstateOf(me)!.Origin.X) + Math.Abs(t.EstateY - world.EstateOf(me)!.Origin.Y))
+            .ToList();
+    }
+
+    public static ContractDto Contract(GameWorld world, Contract contract)
+    {
+        string Name(long id) => id == 0 ? "" : world.Company(id)?.Name ?? "?";
+        var proposer = world.Company(contract.Proposer);
+        return new ContractDto(
+            contract.Id,
+            contract.Proposer,
+            Name(contract.Proposer),
+            contract.Seller,
+            Name(contract.Seller),
+            contract.Buyer,
+            Name(contract.Buyer),
+            contract.Resource,
+            contract.Rate,
+            contract.Price,
+            contract.Days,
+            Camel(contract.State),
+            contract.CreatedAt,
+            contract.EndsAt,
+            contract.Delivered,
+            contract.Expected,
+            proposer == null ? 0 : GameWorld.ContractStars(proposer));
+    }
+
+    public static ContractsDto Contracts(GameWorld world, Company me)
+    {
+        var recent = world.Now.AddDays(-3);
+        var mine = world.Contracts
+            .Where(t => t.Proposer == me.Id || t.Seller == me.Id || t.Buyer == me.Id)
+            .Where(t => t.IsOpen || (t.EndsAt ?? t.CreatedAt) > recent)
+            .OrderBy(t => t.State).ThenByDescending(t => t.Id)
+            .Select(t => Contract(world, t))
+            .ToList();
+        var board = world.Contracts
+            .Where(t => t.State == ContractState.Offered && (t.Seller == 0 || t.Buyer == 0) && t.Proposer != me.Id && world.Company(t.Proposer)?.District == me.District)
+            .OrderByDescending(t => t.Id)
+            .Select(t => Contract(world, t))
+            .ToList();
+        return new ContractsDto(mine, board);
+    }
+
+    public static ExchangeDto Exchange(GameWorld world, Company me)
+    {
+        var orders = world.ExchangeOrders.Where(t => t.District == me.District).ToList();
+        var books = orders
+            .GroupBy(t => t.Resource)
+            .OrderBy(t => t.Key)
+            .Select(g =>
+            {
+                var bids = g.Where(t => !t.Selling).ToList();
+                var asks = g.Where(t => t.Selling).ToList();
+                var bestBid = bids.Count == 0 ? 0 : bids.Max(t => t.Price);
+                var bestAsk = asks.Count == 0 ? 0 : asks.Min(t => t.Price);
+                return new ExchangeBookDto(g.Key, bestBid, bids.Where(t => t.Price == bestBid).Sum(t => t.Amount), bestAsk, asks.Where(t => t.Price == bestAsk).Sum(t => t.Amount));
+            })
+            .ToList();
+        var mine = orders
+            .Where(t => t.Company == me.Id)
+            .OrderByDescending(t => t.Id)
+            .Select(t => new ExchangeOrderDto(t.Id, t.Resource, t.Selling, t.Amount, t.Price, t.CreatedAt, true))
+            .ToList();
+        var shipments = world.Shipments
+            .Where(t => t.To == me.Id || t.From == me.Id)
+            .OrderBy(t => t.ArrivesAt)
+            .Select(t => new ShipmentDto(t.Id, t.Resource, t.Amount, t.ArrivesAt, t.To == me.Id, world.Company(t.To == me.Id ? t.From : t.To)?.Name ?? ""))
+            .ToList();
+        return new ExchangeDto(world.HasBuilding(me.Id, BuildingKind.ExchangeOffice), books, mine, shipments, GameWorld.ExchangeFee);
     }
 
     public static ToastDto Toast(WorldEvent worldEvent) => new(Camel(worldEvent.Kind), worldEvent.Text, worldEvent.Building);

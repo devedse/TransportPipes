@@ -575,6 +575,7 @@ public sealed partial class GameWorld
         TradeAllowed = (seller, buyer, resource) =>
             Company(seller) is { } s && Company(buyer) is { Gold: > 0 } && !s.NoTrade.Contains(resource),
         LinkTradeAllowed = (link, seller, buyer, resource) => PathAllowsTrade(link.Path, seller, buyer, resource),
+        Contracts = ActiveContracts(network.Buildings.Select(t => _buildings[t].Owner).ToHashSet()),
     };
 
     private void Solve(Network network)

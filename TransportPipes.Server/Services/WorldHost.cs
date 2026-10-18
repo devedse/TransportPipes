@@ -82,6 +82,11 @@ public sealed class WorldHost : BackgroundService
             {
                 world.StartingGold = startingGold;
             }
+            world.TenantsEnabled = _options.Tenants;
+            if (_options.Tenants)
+            {
+                world.EnsureTenants();
+            }
             var away = Now - world.LastTick;
             world.Tick();
             world.TakeChanges();
@@ -212,6 +217,11 @@ public sealed class WorldHost : BackgroundService
         {
             var ids = changes.Networks.ToList();
             pushes.Add(() => _hub.Clients.All.NetworksChanged(ids));
+        }
+
+        if (changes.Exchange)
+        {
+            pushes.Add(() => _hub.Clients.All.ExchangeChanged());
         }
 
         foreach (var district in changes.Markets)
