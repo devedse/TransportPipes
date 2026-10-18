@@ -1,0 +1,149 @@
+using TransportPipes.Game.World;
+
+namespace TransportPipes.Game.Content;
+
+public sealed record ResourceDefinition(string Id, string Name, string Icon, string Color, int Tier, int Era, double Price);
+
+public sealed record PipeTierDefinition(string Id, string Name, int Tier, int Era, double Gold, IReadOnlyDictionary<string, double> Materials, double LossPerTile, double Throughput, string? Research);
+
+public enum BuildingKind
+{
+    Producer,
+    Storage,
+    TradingPost,
+    Lab,
+    Hq,
+    Gate,
+    Valve,
+    PriorityValve,
+    Pump,
+    TollMeter,
+    CargoDepot,
+    ExchangeOffice,
+    Showroom,
+    Workshop,
+    WeatherStation,
+    Recycler,
+    ExpeditionOffice,
+    BlueprintOffice,
+    DeepLift,
+    Bank,
+    Teleporter,
+    Terraformer,
+    PowerLine,
+    CorporationHq,
+    Decoration,
+}
+
+public enum ProductionModifier
+{
+    None,
+    Wind,
+    Sun,
+    Richness,
+    Forest,
+}
+
+public enum BuildingLayer
+{
+    Surface,
+    Deep,
+}
+
+public sealed record BuildingUnlock(int Level, int Era, string? Research);
+
+public sealed record BuildingCost(double Gold, IReadOnlyDictionary<string, double> Materials);
+
+public sealed record BuildingPlacement(IReadOnlyList<TerrainType> Terrain, string? Deposit, bool Shore, bool Forest, int MinRichness)
+{
+    public static readonly IReadOnlyList<TerrainType> DefaultTerrain = [TerrainType.Grass, TerrainType.Hills, TerrainType.Forest, TerrainType.Desert, TerrainType.Beach];
+}
+
+public sealed class BuildingDefinition
+{
+    public required string Id { get; init; }
+    public required string Name { get; init; }
+    public required string Category { get; init; }
+    public BuildingKind Kind { get; init; }
+    public int Size { get; init; } = 1;
+    public bool Buildable { get; init; } = true;
+    public required BuildingUnlock Unlock { get; init; }
+    public required BuildingCost Cost { get; init; }
+    public double BuildSeconds { get; init; }
+
+    /// <summary>Inputs per minute at level 1</summary>
+    public IReadOnlyDictionary<string, double> In { get; init; } = new Dictionary<string, double>();
+
+    /// <summary>Outputs per minute at level 1</summary>
+    public IReadOnlyDictionary<string, double> Out { get; init; } = new Dictionary<string, double>();
+
+    /// <summary>For buildings like the Deep Mine: the output resource is the deposit's resource (one of these)</summary>
+    public IReadOnlyList<string> OutFromDeposit { get; init; } = [];
+
+    public double ResearchPerMinute { get; init; }
+    public required BuildingPlacement Placement { get; init; }
+    public ProductionModifier Modifier { get; init; }
+    public double Capacity { get; init; }
+    public double Throughput { get; init; }
+    public double PriceBonus { get; init; }
+    public string? Range { get; init; }
+    public BuildingLayer Layer { get; init; }
+    public string? Sprite { get; init; }
+    public string Description { get; init; } = "";
+
+    public bool IsConductor => Kind is BuildingKind.Gate or BuildingKind.Valve or BuildingKind.PriorityValve or BuildingKind.Pump or BuildingKind.TollMeter;
+}
+
+public sealed class ProgressionSettings
+{
+    public int MaxCompanyLevel { get; init; }
+    public double XpBase { get; init; }
+    public double XpExponent { get; init; }
+    public IReadOnlyDictionary<string, double> XpRewards { get; init; } = new Dictionary<string, double>();
+    public int MaxBuildingLevel { get; init; }
+    public double OutputPerLevel { get; init; }
+    public double CostPerLevel { get; init; }
+    public IReadOnlyList<int> Milestones { get; init; } = [];
+    public double CostPerCopy { get; init; }
+    public IReadOnlyList<int> StartParcels { get; init; } = [];
+    public IReadOnlyList<int> ParcelOrder { get; init; } = [];
+    public IReadOnlyList<int> ParcelLevels { get; init; } = [];
+    public double FirstParcelCost { get; init; }
+    public double ParcelCostFactor { get; init; }
+    public IReadOnlyDictionary<int, int> ManagerSlots { get; init; } = new Dictionary<int, int>();
+    public double StartingGold { get; init; }
+    public double HubSpread { get; init; }
+
+    public double XpReward(string key) => XpRewards.TryGetValue(key, out var value) ? value : 0;
+
+    /// <summary>Total XP needed to reach a Company Level</summary>
+    public double XpForLevel(int level) => level <= 1 ? 0 : Math.Round(XpBase * Math.Pow(level - 1, XpExponent));
+
+    public int LevelForXp(double xp)
+    {
+        var level = 1;
+        while (level < MaxCompanyLevel && xp >= XpForLevel(level + 1))
+        {
+            level++;
+        }
+        return level;
+    }
+
+    /// <summary>Output multiplier of a building at this level (milestones double the output)</summary>
+    public double OutputMultiplier(int level)
+    {
+        var milestones = Milestones.Count(t => level >= t);
+        return Math.Pow(OutputPerLevel, level - 1) * Math.Pow(2, milestones);
+    }
+
+    /// <summary>The gold to upgrade from this level to the next</summary>
+    public double UpgradeCost(BuildingDefinition definition, int level) =>
+        Math.Round(Math.Max(definition.Cost.Gold, 10) * Math.Pow(CostPerLevel, level - 1));
+
+    /// <summary>The gold for another copy of a building when you already own a number of them</summary>
+    public double BuildCost(BuildingDefinition definition, int copiesOwned) =>
+        Math.Round(definition.Cost.Gold * Math.Pow(CostPerCopy, copiesOwned));
+
+    /// <summary>The cost of the n-th extra parcel (0 = the first one after the start parcels)</summary>
+    public double ParcelCost(int extraParcelIndex) => Math.Round(FirstParcelCost * Math.Pow(ParcelCostFactor, extraParcelIndex));
+}

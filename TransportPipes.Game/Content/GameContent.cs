@@ -1,0 +1,278 @@
+using System.Reflection;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
+using TransportPipes.Game.World;
+
+namespace TransportPipes.Game.Content;
+
+/// <summary>
+/// All game data (resources, buildings, pipes, progression), loaded from the YAML files in Content/.
+/// </summary>
+public sealed class GameContent
+{
+    /// <summary>Pseudo resource for research points made by labs; it is credited to the company, it never flows.</summary>
+    public const string ResearchPoints = "research";
+
+    public IReadOnlyDictionary<string, ResourceDefinition> Resources { get; }
+    public IReadOnlyList<ResourceDefinition> ResourceList { get; }
+    public IReadOnlyDictionary<string, BuildingDefinition> Buildings { get; }
+    public IReadOnlyList<BuildingDefinition> BuildingList { get; }
+    public IReadOnlyList<PipeTierDefinition> PipeTiers { get; }
+    public ProgressionSettings Progression { get; }
+
+    public GameContent(IReadOnlyList<ResourceDefinition> resources, IReadOnlyList<BuildingDefinition> buildings, IReadOnlyList<PipeTierDefinition> pipeTiers, ProgressionSettings progression)
+    {
+        ResourceList = resources;
+        Resources = resources.ToDictionary(t => t.Id);
+        BuildingList = buildings;
+        Buildings = buildings.ToDictionary(t => t.Id);
+        PipeTiers = pipeTiers.OrderBy(t => t.Tier).ToList();
+        Progression = progression;
+        Validate();
+    }
+
+    public BuildingDefinition Building(string id) =>
+        Buildings.TryGetValue(id, out var definition) ? definition : throw new KeyNotFoundException($"Unknown building '{id}'.");
+
+    public PipeTierDefinition PipeTier(int tier) =>
+        PipeTiers.FirstOrDefault(t => t.Tier == tier) ?? throw new KeyNotFoundException($"Unknown pipe tier {tier}.");
+
+    private static GameContent? _default;
+
+    /// <summary>The content embedded in this assembly (cached, it never changes at runtime).</summary>
+    public static GameContent Default => _default ??= LoadEmbedded();
+
+    public static GameContent LoadEmbedded()
+    {
+        var deserializer = new DeserializerBuilder()
+            .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .Build();
+
+        T Read<T>(string file)
+        {
+            var assembly = typeof(GameContent).Assembly;
+            using var stream = assembly.GetManifestResourceStream($"Content.{file}")
+                ?? throw new InvalidOperationException($"Embedded content file {file} not found.");
+            using var reader = new StreamReader(stream);
+            return deserializer.Deserialize<T>(reader);
+        }
+
+        var resources = Read<List<ResourceDto>>("resources.yaml").Select(t => t.ToDefinition()).ToList();
+        var buildings = Read<List<BuildingDto>>("buildings.yaml").Select(t => t.ToDefinition()).ToList();
+        var pipes = Read<List<PipeTierDto>>("pipes.yaml").Select(t => t.ToDefinition()).ToList();
+        var progression = Read<ProgressionDto>("progression.yaml").ToSettings();
+        return new GameContent(resources, buildings, pipes, progression);
+    }
+
+    private void Validate()
+    {
+        var errors = new List<string>();
+        var specialDeposits = new HashSet<string> { "anyMetal", "geothermal", "magma" };
+
+        void CheckResource(string owner, string resource)
+        {
+            if (resource != ResearchPoints && !Resources.ContainsKey(resource))
+            {
+                errors.Add($"{owner}: unknown resource '{resource}'");
+            }
+        }
+
+        foreach (var building in BuildingList)
+        {
+            if (building.Size is < 1 or > 3)
+            {
+                errors.Add($"{building.Id}: size must be 1, 2 or 3");
+            }
+            foreach (var resource in building.In.Keys.Concat(building.Out.Keys).Concat(building.Cost.Materials.Keys).Concat(building.OutFromDeposit))
+            {
+                CheckResource(building.Id, resource);
+            }
+            if (building.Placement.Deposit is { } deposit && !specialDeposits.Contains(deposit))
+            {
+                CheckResource(building.Id, deposit);
+            }
+        }
+        foreach (var pipe in PipeTiers)
+        {
+            foreach (var resource in pipe.Materials.Keys)
+            {
+                CheckResource($"pipe {pipe.Id}", resource);
+            }
+        }
+        if (BuildingList.Select(t => t.Id).Distinct().Count() != BuildingList.Count)
+        {
+            errors.Add("Building ids must be unique");
+        }
+
+        if (errors.Count != 0)
+        {
+            throw new InvalidOperationException("Invalid game content:" + Environment.NewLine + string.Join(Environment.NewLine, errors));
+        }
+    }
+
+    // ---------------------------------------------------------------- YAML shapes
+
+    private sealed class ResourceDto
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Icon { get; set; } = "";
+        public string Color { get; set; } = "#ffffff";
+        public int Tier { get; set; } = 1;
+        public int Era { get; set; } = 1;
+        public double Price { get; set; }
+
+        public ResourceDefinition ToDefinition() => new(Id, Name, Icon, Color, Tier, Era, Price);
+    }
+
+    private sealed class UnlockDto
+    {
+        public int Level { get; set; } = 1;
+        public int Era { get; set; } = 1;
+        public string? Research { get; set; }
+    }
+
+    private sealed class CostDto
+    {
+        public double Gold { get; set; }
+        public Dictionary<string, double> Materials { get; set; } = new();
+    }
+
+    private sealed class PlacementDto
+    {
+        public List<string>? Terrain { get; set; }
+        public string? Deposit { get; set; }
+        public bool Shore { get; set; }
+        public bool Forest { get; set; }
+        public int MinRichness { get; set; }
+    }
+
+    private sealed class BuildingDto
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Category { get; set; } = "";
+        public string Kind { get; set; } = "producer";
+        public int Size { get; set; } = 1;
+        public bool Buildable { get; set; } = true;
+        public UnlockDto Unlock { get; set; } = new();
+        public CostDto Cost { get; set; } = new();
+        public double BuildSeconds { get; set; }
+        public Dictionary<string, double> In { get; set; } = new();
+        public Dictionary<string, double> Out { get; set; } = new();
+        public List<string> OutFromDeposit { get; set; } = new();
+        public double Research { get; set; }
+        public PlacementDto Placement { get; set; } = new();
+        public string Modifier { get; set; } = "none";
+        public double Capacity { get; set; }
+        public double Throughput { get; set; }
+        public double PriceBonus { get; set; }
+        public string? Range { get; set; }
+        public string Layer { get; set; } = "surface";
+        public string? Sprite { get; set; }
+        public string Description { get; set; } = "";
+
+        public BuildingDefinition ToDefinition() => new()
+        {
+            Id = Id,
+            Name = Name,
+            Category = Category,
+            Kind = Enum.Parse<BuildingKind>(Kind, ignoreCase: true),
+            Size = Size,
+            Buildable = Buildable,
+            Unlock = new BuildingUnlock(Unlock.Level, Unlock.Era, Unlock.Research),
+            Cost = new BuildingCost(Cost.Gold, Cost.Materials),
+            BuildSeconds = BuildSeconds,
+            In = In,
+            Out = Out,
+            OutFromDeposit = OutFromDeposit,
+            ResearchPerMinute = Research,
+            Placement = new BuildingPlacement(
+                Placement.Terrain?.Select(t => Enum.Parse<TerrainType>(t, ignoreCase: true)).ToList() ?? BuildingPlacement.DefaultTerrain,
+                Placement.Deposit,
+                Placement.Shore,
+                Placement.Forest,
+                Placement.MinRichness),
+            Modifier = Enum.Parse<ProductionModifier>(Modifier, ignoreCase: true),
+            Capacity = Capacity,
+            Throughput = Throughput,
+            PriceBonus = PriceBonus,
+            Range = Range,
+            Layer = Enum.Parse<BuildingLayer>(Layer, ignoreCase: true),
+            Sprite = Sprite,
+            Description = Description,
+        };
+    }
+
+    private sealed class PipeTierDto
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public int Tier { get; set; }
+        public int Era { get; set; } = 1;
+        public double Gold { get; set; }
+        public Dictionary<string, double> Materials { get; set; } = new();
+        public double LossPerTile { get; set; }
+        public double Throughput { get; set; }
+        public string? Research { get; set; }
+
+        public PipeTierDefinition ToDefinition() => new(Id, Name, Tier, Era, Gold, Materials, LossPerTile, Throughput, Research);
+    }
+
+    private sealed class ProgressionDto
+    {
+        public CompanyLevelDto CompanyLevel { get; set; } = new();
+        public Dictionary<string, double> Xp { get; set; } = new();
+        public BuildingLevelsDto BuildingLevels { get; set; } = new();
+        public ParcelsDto Parcels { get; set; } = new();
+        public Dictionary<int, int> ManagerSlots { get; set; } = new();
+        public double StartingGold { get; set; }
+        public double HubSpread { get; set; } = 2.5;
+
+        public ProgressionSettings ToSettings() => new()
+        {
+            MaxCompanyLevel = CompanyLevel.MaxLevel,
+            XpBase = CompanyLevel.XpBase,
+            XpExponent = CompanyLevel.XpExponent,
+            XpRewards = Xp,
+            MaxBuildingLevel = BuildingLevels.MaxLevel,
+            OutputPerLevel = BuildingLevels.OutputPerLevel,
+            CostPerLevel = BuildingLevels.CostPerLevel,
+            Milestones = BuildingLevels.Milestones,
+            CostPerCopy = BuildingLevels.CostPerCopy,
+            StartParcels = Parcels.Start,
+            ParcelOrder = Parcels.Order,
+            ParcelLevels = Parcels.Levels,
+            FirstParcelCost = Parcels.FirstCost,
+            ParcelCostFactor = Parcels.CostFactor,
+            ManagerSlots = ManagerSlots,
+            StartingGold = StartingGold,
+            HubSpread = HubSpread,
+        };
+    }
+
+    private sealed class CompanyLevelDto
+    {
+        public int MaxLevel { get; set; } = 60;
+        public double XpBase { get; set; } = 100;
+        public double XpExponent { get; set; } = 1.7;
+    }
+
+    private sealed class BuildingLevelsDto
+    {
+        public int MaxLevel { get; set; } = 100;
+        public double OutputPerLevel { get; set; } = 1.1;
+        public double CostPerLevel { get; set; } = 1.15;
+        public List<int> Milestones { get; set; } = new();
+        public double CostPerCopy { get; set; } = 1.07;
+    }
+
+    private sealed class ParcelsDto
+    {
+        public List<int> Start { get; set; } = new();
+        public List<int> Order { get; set; } = new();
+        public List<int> Levels { get; set; } = new();
+        public double FirstCost { get; set; }
+        public double CostFactor { get; set; } = 2;
+    }
+}
