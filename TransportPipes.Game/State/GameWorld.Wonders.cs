@@ -330,6 +330,12 @@ public sealed partial class GameWorld
         }
         Changes.Districts.Add(Capital);
         Changes.Wonders = true;
+        // A quick next Era ends the party of the last one (both would be called after the current Era)
+        foreach (var launch in _events.Where(t => t.Kind == EventKind.EraLaunch && t.Started && !t.Ended).ToList())
+        {
+            launch.EndsAt = LastTick;
+            EndEvent(launch);
+        }
         StartEventNow(EventKind.EraLaunch, null, TimeSpan.FromDays(1));
     }
 

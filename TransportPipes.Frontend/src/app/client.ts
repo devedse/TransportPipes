@@ -1,4 +1,6 @@
 import type {
+  BlueprintDto,
+  BlueprintSharing,
   BuildingDto,
   ChatMessageDto,
   CommandResult,
@@ -525,6 +527,8 @@ export class GameClient {
       void this.command(this.connection.removePipes(tiles.flatMap((t) => [t.x, t.y]))),
     onPlaceBuilding: (type, x, y) => void this.placeBuilding(type, x, y),
     onMoveBuilding: (id, x, y) => void this.moveBuilding(id, x, y),
+    onSelectArea: (x, y, width, height) => setState({ blueprintDraft: { x, y, width, height } }),
+    onPlaceBlueprint: (blueprint, x, y) => void this.buildBlueprint(blueprint, x, y),
     onZoom: (zoom) => setState({ zoom }),
   };
 
@@ -917,6 +921,83 @@ export class GameClient {
   async releaseOutpost(outpost: number) {
     if (await this.command(this.connection.releaseOutpost(outpost), "The land went back to the wilderness")) {
       this.closeWild();
+    }
+  }
+
+  // ---------------------------------------------------------------- Blueprints
+
+  async openBlueprints() {
+    setState({ ...MODALS, blueprintsOpen: true });
+    await this.refreshBlueprints();
+  }
+
+  async refreshBlueprints() {
+    const blueprints = await this.connection.getBlueprints().catch(() => null);
+    if (blueprints !== null) {
+      setState({ blueprints });
+    }
+  }
+
+  /** Drag a rectangle over the estate to save it */
+  startBlueprintArea() {
+    setState({ blueprintsOpen: false });
+    this.setTool({ kind: "blueprintArea" });
+  }
+
+  async saveBlueprint(name: string) {
+    const draft = appStore.getState().blueprintDraft;
+    if (draft === null) {
+      return;
+    }
+    if (
+      await this.command(
+        this.connection.saveBlueprint(name, draft.x, draft.y, draft.width, draft.height),
+        `Blueprint "${name.trim()}" saved`,
+      )
+    ) {
+      setState({ blueprintDraft: null });
+      this.setTool({ kind: "select" });
+      await this.openBlueprints();
+    }
+  }
+
+  holdBlueprint(blueprint: BlueprintDto) {
+    setState({ blueprintsOpen: false });
+    this.setTool({ kind: "blueprint", blueprint });
+  }
+
+  private async buildBlueprint(blueprint: BlueprintDto, x: number, y: number) {
+    const placement = appStore.getState().placement;
+    if (placement !== null && !placement.ok) {
+      toast(placement.reason ?? "Nothing of the blueprint fits here.", "error");
+      return;
+    }
+    if (
+      await this.command(
+        this.connection.buildBlueprint(blueprint.id, x, y),
+        `"${blueprint.name}" is being built`,
+      )
+    ) {
+      // Keep the blueprint in hand to build it again
+      void this.refreshCompany();
+    }
+  }
+
+  async shareBlueprint(blueprint: number, sharing: BlueprintSharing) {
+    if (await this.command(this.connection.shareBlueprint(blueprint, sharing))) {
+      await this.refreshBlueprints();
+    }
+  }
+
+  async rateBlueprint(blueprint: number, stars: number) {
+    if (await this.command(this.connection.rateBlueprint(blueprint, stars), "Thanks for rating")) {
+      await this.refreshBlueprints();
+    }
+  }
+
+  async deleteBlueprint(blueprint: number) {
+    if (await this.command(this.connection.deleteBlueprint(blueprint))) {
+      await this.refreshBlueprints();
     }
   }
 

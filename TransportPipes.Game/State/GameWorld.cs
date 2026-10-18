@@ -49,9 +49,10 @@ public sealed class WorldChanges
     public bool Exchange { get; set; }
     public bool Wonders { get; set; }
     public bool Outposts { get; set; }
+    public bool Blueprints { get; set; }
     public List<WorldEvent> Events { get; } = new();
 
-    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Contracts.Count == 0 && Corporations.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && !Outposts && Events.Count == 0;
+    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Contracts.Count == 0 && Corporations.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && !Outposts && !Blueprints && Events.Count == 0;
 }
 
 /// <summary>

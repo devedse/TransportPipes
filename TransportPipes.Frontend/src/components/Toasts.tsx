@@ -8,6 +8,7 @@ export function Toasts() {
         <button key={t.id} className={`panel toast ${t.kind}`} onClick={() => dismissToast(t.id)}>
           {t.kind === "level" && <span className="toast-icon">⭐</span>}
           {t.text}
+          {(t.count ?? 1) > 1 && <span className="toast-count">×{t.count}</span>}
         </button>
       ))}
     </div>

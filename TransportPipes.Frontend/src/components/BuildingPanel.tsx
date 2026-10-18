@@ -131,6 +131,11 @@ export function BuildingPanel() {
       {mine && definition.kind === "terraformer" && building.constructionEndsAt === null && (
         <TerraformTools />
       )}
+      {mine && definition.kind === "blueprintOffice" && building.constructionEndsAt === null && (
+        <button className="primary wide" onClick={() => void gameClient.openBlueprints()}>
+          📐 Blueprints (U)
+        </button>
+      )}
       {mine && details.repairCost !== null && (
         <button
           className="primary wide"

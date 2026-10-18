@@ -247,6 +247,30 @@ public static class GameViews
     }
 
     /// <summary>The best claim covering a tile</summary>
+    public static BlueprintsDto Blueprints(GameWorld world, Company company)
+    {
+        BlueprintDto View(Blueprint blueprint)
+        {
+            var owner = world.Company(blueprint.Owner);
+            return new BlueprintDto(blueprint.Id, blueprint.Name, blueprint.Owner, owner?.Name ?? "?", owner?.Color ?? "#888888", blueprint.Width, blueprint.Height,
+                blueprint.Buildings.Select(t => new BlueprintItemDto(t.Type, t.Dx, t.Dy)).ToList(),
+                blueprint.Pipes.Select(t => new BlueprintPipeDto(t.Dx, t.Dy, t.Tier)).ToList(),
+                blueprint.Sharing.ToString().ToLowerInvariant(), Math.Round(blueprint.Rating, 2), blueprint.Ratings.Count,
+                blueprint.Ratings.TryGetValue(company.Id, out var mine) ? mine : null,
+                Math.Round(world.BlueprintCost(company, blueprint)), blueprint.CreatedAt);
+        }
+
+        var usable = world.BlueprintsFor(company).ToList();
+        return new BlueprintsDto(
+            world.HasBuilding(company.Id, BuildingKind.BlueprintOffice),
+            company.Franchises > 0,
+            GameWorld.MaxBlueprints,
+            usable.Where(t => t.Owner == company.Id).OrderBy(t => t.Name).Select(View).ToList(),
+            usable.Where(t => t.Owner != company.Id && t.Sharing == BlueprintSharing.Corporation).OrderBy(t => t.Name).Select(View).ToList(),
+            usable.Where(t => t.Owner != company.Id && t.Sharing == BlueprintSharing.Board)
+                .OrderByDescending(t => t.Rating).ThenByDescending(t => t.Ratings.Count).Take(40).Select(View).ToList());
+    }
+
     public static OutpostCheckDto OutpostCheck(GameWorld world, Company company, TilePos tile)
     {
         var (origin, error) = world.BestOutpostAt(company, tile);

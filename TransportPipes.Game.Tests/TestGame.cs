@@ -68,11 +68,12 @@ internal sealed class TestGame
         ['C'] = "cargoDepot",
         ['L'] = "powerLinePylon",
         ['H'] = "showroom",
+        ['B'] = "blueprintOffice",
     };
 
     /// <summary>
     /// Puts a map like the original game's tests on the world, without any placement rules: W wind moily, S solar panel,
-    /// M iron mine, F small factory, O storage, T trading post, V valve, P priority valve, U pump station, L power line pylon, + pipe
+    /// M iron mine, F small factory, O storage, T trading post, V valve, P priority valve, U pump station, L power line pylon, H showroom, B blueprint office, + pipe
     /// (lossless by default, like the original game).
     /// Returns the buildings by their map position.
     /// </summary>

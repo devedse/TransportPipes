@@ -538,6 +538,12 @@ namespace TransportPipes.Database.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Blueprints")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValueSql("'[]'::jsonb");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 

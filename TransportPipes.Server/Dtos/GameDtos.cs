@@ -389,3 +389,28 @@ public record CompanyDetailsDto(
 // ---------------------------------------------------------------- Moderation (M6)
 
 public record ReportedMessageDto(long Id, string Channel, long Sender, string SenderName, string Text, DateTime SentAt);
+
+// ---------------------------------------------------------------- Blueprints (M7)
+
+public record BlueprintItemDto(string Type, int Dx, int Dy);
+
+public record BlueprintPipeDto(int Dx, int Dy, int Tier);
+
+public record BlueprintDto(
+    long Id,
+    string Name,
+    long Owner,
+    string OwnerName,
+    string OwnerColor,
+    int Width,
+    int Height,
+    IReadOnlyList<BlueprintItemDto> Buildings,
+    IReadOnlyList<BlueprintPipeDto> Pipes,
+    string Sharing,
+    double Rating,
+    int Ratings,
+    int? MyRating,
+    double Cost,
+    DateTime CreatedAt);
+
+public record BlueprintsDto(bool HasOffice, bool CanRebuild, int Max, IReadOnlyList<BlueprintDto> Mine, IReadOnlyList<BlueprintDto> Corporation, IReadOnlyList<BlueprintDto> Board);

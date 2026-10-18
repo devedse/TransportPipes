@@ -1,5 +1,6 @@
 import { AnimatedSprite, Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 import type {
+  BlueprintDto,
   BuildingDto,
   CompanyDto,
   ConductorDto,
@@ -37,7 +38,18 @@ export type Tool =
   | { kind: "pipe"; tier: number }
   | { kind: "bulldoze" }
   | { kind: "move"; building: number }
-  | { kind: "terraform"; action: TerraformAction; resource?: string };
+  | { kind: "terraform"; action: TerraformAction; resource?: string }
+  /** Drag a rectangle of the estate to save it as a blueprint */
+  | { kind: "blueprintArea" }
+  | { kind: "blueprint"; blueprint: BlueprintDto };
+
+/** The top-left tile of a blueprint when the pointer is at a tile (the pointer is in its middle) */
+export function blueprintOrigin(pointerX: number, pointerY: number, blueprint: BlueprintDto) {
+  return {
+    x: pointerX - Math.floor((blueprint.width - 1) / 2),
+    y: pointerY - Math.floor((blueprint.height - 1) / 2),
+  };
+}
 
 export type TerraformAction = "drain" | "lake" | "raise" | "flatten" | "forest" | "seedDeposit";
 
@@ -75,6 +87,8 @@ export interface EngineCallbacks {
   onRemovePipes(tiles: TilePosition[]): void;
   onPlaceBuilding(type: string, x: number, y: number): void;
   onMoveBuilding(id: number, x: number, y: number): void;
+  onSelectArea(x: number, y: number, width: number, height: number): void;
+  onPlaceBlueprint(blueprint: BlueprintDto, x: number, y: number): void;
   onZoom(scale: number): void;
 }
 
@@ -114,11 +128,41 @@ function sunHeat(t: number): number {
   return (r << 16) | (g << 8) | b;
 }
 
-function traceFootprint(g: Graphics, x: number, y: number, size: number) {
+/** The pipe sprite for a tile: the sides it connects to ("urdl"); a straight piece when it connects to one side */
+function pipeShapeOf(x: number, y: number, connects: (x: number, y: number) => boolean): string {
+  let shape = "";
+  let horizontal = 0;
+  let vertical = 0;
+  if (connects(x, y - 1)) {
+    shape += "u";
+    vertical++;
+  }
+  if (connects(x + 1, y)) {
+    shape += "r";
+    horizontal++;
+  }
+  if (connects(x, y + 1)) {
+    shape += "d";
+    vertical++;
+  }
+  if (connects(x - 1, y)) {
+    shape += "l";
+    horizontal++;
+  }
+  if (shape === "") {
+    return "urdl";
+  }
+  if (horizontal + vertical < 2) {
+    return horizontal > vertical ? "rl" : "ud";
+  }
+  return shape;
+}
+
+function traceFootprint(g: Graphics, x: number, y: number, size: number, height = size) {
   const top = diagonalToScreen(x, y);
   const right = diagonalToScreen(x + size - 1, y);
-  const bottom = diagonalToScreen(x + size - 1, y + size - 1);
-  const left = diagonalToScreen(x, y + size - 1);
+  const bottom = diagonalToScreen(x + size - 1, y + height - 1);
+  const left = diagonalToScreen(x, y + height - 1);
   g.moveTo(top.x + TILE_WIDTH, top.y - TILE_HEIGHT);
   g.lineTo(right.x + TILE_WIDTH * 2, right.y - TILE_HEIGHT / 2);
   g.lineTo(bottom.x + TILE_WIDTH, bottom.y);
@@ -208,6 +252,8 @@ export class Engine {
   private pressY = 0;
   private movedBeyondClick = false;
   private pipeStart: TilePosition | null = null;
+  /** The first corner of a blueprint area being dragged */
+  private areaStart: TilePosition | null = null;
   private pipeRoute: TilePosition[] | null = null;
   private bulldozeTiles = new Map<number, TilePosition>();
   private hovered: TilePosition | null = null;
@@ -396,6 +442,9 @@ export class Engine {
         this.bulldozeTiles.clear();
         this.addBulldozeTile();
       }
+      if (event.button === 0 && tool.kind === "blueprintArea") {
+        this.areaStart = this.camera.screenToTile(local.x, local.y);
+      }
     };
 
     const onPointerMove = (event: PointerEvent) => {
@@ -499,13 +548,31 @@ export class Engine {
     });
   }
 
-  /** Left-dragging with the pipe or bulldoze tool draws instead of panning */
+  /** Left-dragging with the pipe, bulldoze or blueprint area tool draws instead of panning */
   private isToolDrag(): boolean {
     const tool = this.callbacks.getState().tool;
-    return this.dragButton === 0 && (tool.kind === "pipe" || tool.kind === "bulldoze");
+    return (
+      this.dragButton === 0 &&
+      (tool.kind === "pipe" || tool.kind === "bulldoze" || tool.kind === "blueprintArea")
+    );
+  }
+
+  /** The rectangle between the first corner of a blueprint area and the pointer */
+  private areaRect(): { x: number; y: number; width: number; height: number } | null {
+    if (this.areaStart === null) {
+      return null;
+    }
+    const tile = this.camera.screenToTile(this.pointerX, this.pointerY);
+    return {
+      x: Math.min(this.areaStart.x, tile.x),
+      y: Math.min(this.areaStart.y, tile.y),
+      width: Math.abs(tile.x - this.areaStart.x) + 1,
+      height: Math.abs(tile.y - this.areaStart.y) + 1,
+    };
   }
 
   private cancelToolDrag() {
+    this.areaStart = null;
     this.pipeStart = null;
     this.pipeRoute = null;
     this.bulldozeTiles.clear();
@@ -524,6 +591,10 @@ export class Engine {
       } else {
         this.callbacks.onRemovePipes(tiles.filter((t) => this.world.conductorAt(t.x, t.y)?.kind === "pipe"));
       }
+    }
+    const area = tool.kind === "blueprintArea" ? this.areaRect() : null;
+    if (area !== null) {
+      this.callbacks.onSelectArea(area.x, area.y, area.width, area.height);
     }
     this.cancelToolDrag();
   }
@@ -550,6 +621,11 @@ export class Engine {
         const origin = footprintOrigin(tile.x, tile.y, building.size);
         this.callbacks.onMoveBuilding(building.id, origin.x, origin.y);
       }
+      return;
+    }
+    if (tool.kind === "blueprint") {
+      const origin = blueprintOrigin(tile.x, tile.y, tool.blueprint);
+      this.callbacks.onPlaceBlueprint(tool.blueprint, origin.x, origin.y);
       return;
     }
     this.callbacks.onClick(tile, this.world.buildingAt(tile.x, tile.y));
@@ -623,7 +699,10 @@ export class Engine {
 
     const tile = this.camera.screenToTile(this.pointerX, this.pointerY);
     const tool = this.callbacks.getState().tool;
-    const toolKey = JSON.stringify(tool) + (this.callbacks.getState().plannedRoute?.length ?? 0);
+    // A blueprint tool carries its whole layout: its id is enough
+    const toolKey =
+      (tool.kind === "blueprint" ? `blueprint:${tool.blueprint.id}` : JSON.stringify(tool)) +
+      (this.callbacks.getState().plannedRoute?.length ?? 0);
     const changed =
       this.hovered === null ||
       tile.x !== this.hovered.x ||
@@ -1078,34 +1157,11 @@ export class Engine {
   }
 
   private pipeShape(x: number, y: number): string {
-    const connects = (tx: number, ty: number) =>
-      this.world.conductorAt(tx, ty) !== undefined || this.world.buildingAt(tx, ty) !== undefined;
-    let shape = "";
-    let horizontal = 0;
-    let vertical = 0;
-    if (connects(x, y - 1)) {
-      shape += "u";
-      vertical++;
-    }
-    if (connects(x + 1, y)) {
-      shape += "r";
-      horizontal++;
-    }
-    if (connects(x, y + 1)) {
-      shape += "d";
-      vertical++;
-    }
-    if (connects(x - 1, y)) {
-      shape += "l";
-      horizontal++;
-    }
-    if (shape === "") {
-      return "urdl";
-    }
-    if (horizontal + vertical < 2) {
-      return horizontal > vertical ? "rl" : "ud";
-    }
-    return shape;
+    return pipeShapeOf(
+      x,
+      y,
+      (tx, ty) => this.world.conductorAt(tx, ty) !== undefined || this.world.buildingAt(tx, ty) !== undefined,
+    );
   }
 
   private conductorView(conductor: ConductorDto): ObjectView {
@@ -1692,6 +1748,35 @@ export class Engine {
       return;
     }
 
+    if (tool.kind === "blueprintArea") {
+      const area = this.dragging ? this.areaRect() : { x: tile.x, y: tile.y, width: 1, height: 1 };
+      if (area !== null) {
+        const g = new Graphics();
+        traceFootprint(g, area.x, area.y, area.width, area.height);
+        g.fill({ color: 0x6cb4ee, alpha: 0.3 });
+        traceFootprint(g, area.x, area.y, area.width, area.height);
+        g.stroke({ color: 0x6cb4ee, width: 6 });
+        this.ghostLayer.addChild(g);
+        if (this.dragging) {
+          const label = new Text({
+            text: `${area.width} × ${area.height}`,
+            style: { fill: 0xffffff, fontSize: 36, fontWeight: "700", stroke: { color: 0x1d3b5a, width: 6 } },
+          });
+          label.anchor.set(0.5);
+          const center = tileCenter(area.x + (area.width - 1) / 2, area.y + (area.height - 1) / 2);
+          label.position.set(center.x, center.y);
+          this.ghostLayer.addChild(label);
+        }
+      }
+      this.callbacks.onHover(tile, null);
+      return;
+    }
+
+    if (tool.kind === "blueprint") {
+      this.drawBlueprintGhost(tool.blueprint, tile, state.company, state);
+      return;
+    }
+
     if (tool.kind === "bulldoze") {
       const g = new Graphics();
       const tiles = this.dragging ? [...this.bulldozeTiles.values()] : [tile];
@@ -1707,6 +1792,85 @@ export class Engine {
       this.ghostLayer.addChild(g);
     }
     this.callbacks.onHover(tile, null);
+  }
+
+  /** Every building of a blueprint where it would go: green when it can be built, red when not */
+  private drawBlueprintGhost(
+    blueprint: BlueprintDto,
+    tile: TilePosition,
+    company: CompanyDto,
+    state: EngineState,
+  ) {
+    const origin = blueprintOrigin(tile.x, tile.y, blueprint);
+    const g = new Graphics();
+    traceFootprint(g, origin.x, origin.y, blueprint.width, blueprint.height);
+    g.stroke({ color: 0x6cb4ee, width: 5, alpha: 0.9 });
+    const sprites: Sprite[] = [];
+    // The pipes as they will look: connected to each other and to the blueprint's buildings
+    const taken = new Set(blueprint.pipes.map((t) => tileKey(t.dx, t.dy)));
+    for (const item of blueprint.buildings) {
+      const size = state.content.building(item.type)?.size ?? 1;
+      for (let dy = 0; dy < size; dy++) {
+        for (let dx = 0; dx < size; dx++) {
+          taken.add(tileKey(item.dx + dx, item.dy + dy));
+        }
+      }
+    }
+    for (const pipe of blueprint.pipes) {
+      const texture = this.textures.pipe(pipeShapeOf(pipe.dx, pipe.dy, (x, y) => taken.has(tileKey(x, y))));
+      if (texture !== undefined) {
+        const sprite = new Sprite(texture);
+        sprite.anchor.set(0, 1);
+        const anchor = diagonalToScreen(origin.x + pipe.dx, origin.y + pipe.dy);
+        sprite.position.set(anchor.x, anchor.y);
+        sprite.alpha = 0.6;
+        sprite.tint = PIPE_TINTS[pipe.tier] ?? 0xffffff;
+        sprites.push(sprite);
+      }
+    }
+    let fits = 0;
+    let firstReason: string | null = null;
+    for (const item of blueprint.buildings) {
+      const definition = state.content.building(item.type);
+      if (definition === undefined) {
+        continue;
+      }
+      const x = origin.x + item.dx;
+      const y = origin.y + item.dy;
+      const placement = canPlace(state.content, this.world, company, state.era, definition, x, y);
+      if (placement.ok) {
+        fits++;
+      } else {
+        firstReason ??= placement.reason;
+      }
+      traceFootprint(g, x, y, definition.size);
+      g.fill({ color: placement.ok ? 0x2ec4a6 : 0xef6f6c, alpha: 0.4 });
+      const art = this.textures.building(definition.id, definition.size);
+      const sprite = new Sprite(art.frames[0]);
+      sprite.anchor.set(0, 1);
+      const anchor = footprintAnchor(x, y, definition.size);
+      sprite.position.set(anchor.x, anchor.y);
+      sprite.alpha = 0.65;
+      if (!placement.ok) {
+        sprite.tint = 0xff9090;
+      }
+      sprites.push(sprite);
+    }
+    this.ghostLayer.addChild(g);
+    // Back to front, like the buildings themselves
+    sprites.sort((a, b) => a.y - b.y);
+    for (const sprite of sprites) {
+      this.ghostLayer.addChild(sprite);
+    }
+    const all = blueprint.buildings.length;
+    this.callbacks.onHover(tile, {
+      ok: fits > 0,
+      reason:
+        fits === all
+          ? null
+          : `${all - fits} of ${all} don't fit here${firstReason ? ` (${firstReason})` : ""}`,
+      multiplier: fits / Math.max(1, all),
+    });
   }
 
   /** Ghost pipes along a route (the ones that are not there yet) */

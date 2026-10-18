@@ -25,6 +25,12 @@ public sealed class WorldHost : BackgroundService
     private readonly ILogger<WorldHost> _logger;
     private readonly TimeProvider _time;
     private readonly SemaphoreSlim _lock = new(1, 1);
+
+    /// <summary>
+    /// Held from taking a snapshot until it is written, and by the season reset: a snapshot of the old world must not
+    /// land in the database after the reset (taken before _lock, never the other way round)
+    /// </summary>
+    private readonly SemaphoreSlim _saveLock = new(1, 1);
     private readonly TaskCompletionSource _ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private GameWorld? _world;
     private bool _saveSoon;
@@ -181,6 +187,7 @@ public sealed class WorldHost : BackgroundService
         }
         if (ended is { } end && Now >= end + GameViews.SeasonBreak)
         {
+            await _saveLock.WaitAsync();
             await _lock.WaitAsync();
             try
             {
@@ -199,6 +206,7 @@ public sealed class WorldHost : BackgroundService
             finally
             {
                 _lock.Release();
+                _saveLock.Release();
             }
             _logger.LogInformation("Season {Season} begins in a new world", season + 1);
             await _hub.Clients.All.SeasonChanged();
@@ -235,26 +243,34 @@ public sealed class WorldHost : BackgroundService
         {
             return;
         }
-        WorldSnapshot snapshot;
-        await _lock.WaitAsync();
+        await _saveLock.WaitAsync();
         try
         {
-            snapshot = _store.TakeSnapshot(_world!);
-            _saveSoon = false;
-            _lastSave = Now;
+            WorldSnapshot snapshot;
+            await _lock.WaitAsync();
+            try
+            {
+                snapshot = _store.TakeSnapshot(_world!);
+                _saveSoon = false;
+                _lastSave = Now;
+            }
+            finally
+            {
+                _lock.Release();
+            }
+            try
+            {
+                await _store.SaveAsync(snapshot);
+            }
+            catch (Exception ex)
+            {
+                _saveSoon = true;
+                _logger.LogError(ex, "Could not save the world");
+            }
         }
         finally
         {
-            _lock.Release();
-        }
-        try
-        {
-            await _store.SaveAsync(snapshot);
-        }
-        catch (Exception ex)
-        {
-            _saveSoon = true;
-            _logger.LogError(ex, "Could not save the world");
+            _saveLock.Release();
         }
     }
 

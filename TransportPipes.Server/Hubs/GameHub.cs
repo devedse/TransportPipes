@@ -360,6 +360,26 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> ReleaseOutpost(long outpost) =>
         Command((world, company) => world.ReleaseOutpost(company, outpost));
 
+    // ---------------------------------------------------------------- Blueprints
+
+    public Task<BlueprintsDto?> GetBlueprints() =>
+        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Blueprints(world, company) : null, changesWorld: false);
+
+    public Task<CommandResultDto> SaveBlueprint(string name, int x, int y, int width, int height) =>
+        Command((world, company) => world.SaveBlueprint(company, name, new TilePos(x, y), width, height));
+
+    public Task<CommandResultDto> BuildBlueprint(long blueprint, int x, int y) =>
+        Command((world, company) => world.BuildBlueprint(company, blueprint, new TilePos(x, y)));
+
+    public Task<CommandResultDto> ShareBlueprint(long blueprint, BlueprintSharing sharing) =>
+        Command((world, company) => world.ShareBlueprint(company, blueprint, sharing));
+
+    public Task<CommandResultDto> RateBlueprint(long blueprint, int stars) =>
+        Command((world, company) => world.RateBlueprint(company, blueprint, stars));
+
+    public Task<CommandResultDto> DeleteBlueprint(long blueprint) =>
+        Command((world, company) => world.DeleteBlueprint(company, blueprint));
+
     // ---------------------------------------------------------------- Wonders
 
     public Task<WondersDto?> GetWonders() =>

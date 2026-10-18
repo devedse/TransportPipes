@@ -1,6 +1,8 @@
 import { HubConnectionBuilder, LogLevel, type HubConnection } from "@microsoft/signalr";
 import type {
   AuthResult,
+  BlueprintSharing,
+  BlueprintsDto,
   BuildingDetailsDto,
   ChunkDto,
   ChunkObjectsDto,
@@ -319,4 +321,14 @@ export class GameConnection {
   hireManager = (manager: string) => this.invoke<CommandResult>("HireManager", manager);
   dismissManager = (manager: string) => this.invoke<CommandResult>("DismissManager", manager);
   deliverToWonder = (eraWonder: boolean) => this.invoke<CommandResult>("DeliverToWonder", eraWonder);
+  getBlueprints = () => this.invoke<BlueprintsDto | null>("GetBlueprints");
+  saveBlueprint = (name: string, x: number, y: number, width: number, height: number) =>
+    this.invoke<CommandResult>("SaveBlueprint", name, x, y, width, height);
+  buildBlueprint = (blueprint: number, x: number, y: number) =>
+    this.invoke<CommandResult>("BuildBlueprint", blueprint, x, y);
+  shareBlueprint = (blueprint: number, sharing: BlueprintSharing) =>
+    this.invoke<CommandResult>("ShareBlueprint", blueprint, sharing);
+  rateBlueprint = (blueprint: number, stars: number) =>
+    this.invoke<CommandResult>("RateBlueprint", blueprint, stars);
+  deleteBlueprint = (blueprint: number) => this.invoke<CommandResult>("DeleteBlueprint", blueprint);
 }

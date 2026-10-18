@@ -1,6 +1,8 @@
 import { gameClient } from "../app/client";
 import { setState, useAppStore } from "../state/store";
 
+const BLUEPRINT_LEVEL = 22;
+
 /** The tools at the bottom of the screen */
 export function Toolbar() {
   const tool = useAppStore((state) => state.tool);
@@ -16,6 +18,12 @@ export function Toolbar() {
       (state.corporations?.mine === null
         ? (state.corporations?.district.filter((t) => t.invited).length ?? 0)
         : 0),
+  );
+  const blueprintsOpen = useAppStore((state) => state.blueprintsOpen);
+  // Blueprints come with the Blueprint Office (Level 22) and stay after a Franchise
+  const blueprints = useAppStore(
+    (state) =>
+      (state.company?.level ?? 0) >= BLUEPRINT_LEVEL || (state.company?.franchise.franchises ?? 0) > 0,
   );
   const ordersOpen = useAppStore(
     (state) => state.company?.dailyOrders.filter((t) => t.delivered < t.amount).length ?? 0,
@@ -80,6 +88,19 @@ export function Toolbar() {
       active: researchOpen,
       run: () => (researchOpen ? setState({ researchOpen: false }) : void gameClient.openResearch()),
     },
+    ...(blueprints
+      ? [
+          {
+            key: "blueprints",
+            label: "Plans",
+            icon: "📐",
+            hotkey: "U",
+            active: blueprintsOpen || tool.kind === "blueprint" || tool.kind === "blueprintArea",
+            run: () =>
+              blueprintsOpen ? setState({ blueprintsOpen: false }) : void gameClient.openBlueprints(),
+          },
+        ]
+      : []),
     {
       key: "bulldoze",
       label: "Remove",

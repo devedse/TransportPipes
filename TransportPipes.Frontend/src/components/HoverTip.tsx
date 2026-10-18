@@ -66,6 +66,19 @@ export function HoverTip() {
   } else if (tool.kind === "move") {
     text = placement?.ok === false ? placement.reason : "Click where it should go";
     tone = placement?.ok === false ? "bad" : "";
+  } else if (tool.kind === "blueprintArea") {
+    text = "Drag a rectangle over your estate to save it as a blueprint (Esc to stop)";
+  } else if (tool.kind === "blueprint") {
+    const blueprint = tool.blueprint;
+    if (placement !== null && placement.ok && placement.reason === null) {
+      text = `Click to build "${blueprint.name}" · ${formatAmount(blueprint.cost)} g`;
+      tone = "good";
+    } else if (placement !== null) {
+      text = placement.ok
+        ? `Click to build what fits: ${placement.reason}`
+        : (placement.reason ?? "It doesn't fit here");
+      tone = placement.ok ? "" : "bad";
+    }
   } else if (tool.kind === "terraform") {
     const names: Record<string, string> = {
       drain: "Drain",

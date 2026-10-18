@@ -246,6 +246,8 @@ public sealed class WorldStore
             world.LoadSeeds((outposts.Seeds ?? []).Select(t => (new TilePos(t.X, t.Y), t.Deposit, t.Richness)));
         }
 
+        world.LoadBlueprints(JsonSerializer.Deserialize<List<Blueprint>>(dbWorld.Blueprints, Json) ?? []);
+
         if (JsonSerializer.Deserialize<SeasonState>(dbWorld.Season, Json) is { } season)
         {
             world.LoadSeason(season.Season, season.FinaleAt, season.EndedAt, season.Results ?? []);
@@ -276,6 +278,7 @@ public sealed class WorldStore
                 Outposts = JsonSerializer.Serialize(new OutpostsState(world.Outposts.ToList(), world.Discoveries.ToList(),
                     world.Seeds.Select(t => new SeedRow(t.Key.X, t.Key.Y, t.Value.Deposit, t.Value.Richness)).ToList()), Json),
                 Season = JsonSerializer.Serialize(new SeasonState(world.Season, world.FinaleAt, world.SeasonEndedAt, world.SeasonResults, ResultsSaved), Json),
+                Blueprints = JsonSerializer.Serialize(world.Blueprints.ToList(), Json),
             },
         };
 
@@ -492,6 +495,7 @@ public sealed class WorldStore
                 db.Entry(snapshot.World).Property(t => t.Wonders).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Outposts).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Season).IsModified = true;
+                db.Entry(snapshot.World).Property(t => t.Blueprints).IsModified = true;
             }
             else
             {
@@ -689,6 +693,7 @@ public sealed class WorldStore
         world.Events = "{}";
         world.Wonders = "{}";
         world.Outposts = "{}";
+        world.Blueprints = "[]";
         world.Season = JsonSerializer.Serialize(new SeasonState(season, null, null, [], false), Json);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

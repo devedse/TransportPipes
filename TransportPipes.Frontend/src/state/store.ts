@@ -21,6 +21,7 @@ import type {
   NeighbourDto,
   NetworkDetailsDto,
   ReportDto,
+  BlueprintsDto,
   ResearchStateDto,
   UserInfo,
 } from "../api/contracts";
@@ -38,6 +39,8 @@ export interface Toast {
   id: number;
   text: string;
   kind: "info" | "success" | "error" | "level";
+  /** The same message more than once (a blueprint finishing, a burst of sales) */
+  count?: number;
 }
 
 export interface AppState {
@@ -90,6 +93,10 @@ export interface AppState {
   corporations: CorporationsDto | null;
   companyOpen: boolean;
   companyDetails: CompanyDetailsDto | null;
+  blueprintsOpen: boolean;
+  blueprints: BlueprintsDto | null;
+  /** An area of the estate the player dragged, to be named and saved as a blueprint */
+  blueprintDraft: { x: number; y: number; width: number; height: number } | null;
   /** A wilderness tile the player clicked: an outpost there, or the claim it would make */
   wildTile: TilePosition | null;
   outpostCheck: OutpostCheckDto | null;
@@ -159,6 +166,9 @@ export const initialState: AppState = {
   corporations: null,
   companyOpen: false,
   companyDetails: null,
+  blueprintsOpen: false,
+  blueprints: null,
+  blueprintDraft: null,
   wildTile: null,
   outpostCheck: null,
   season: null,
@@ -188,6 +198,7 @@ export const MODALS = {
   corporationOpen: false,
   leaderboardOpen: false,
   companyOpen: false,
+  blueprintsOpen: false,
   moderationOpen: false,
   buildMenuOpen: false,
 } satisfies Partial<AppState>;
@@ -206,6 +217,15 @@ let nextToastId = 1;
 
 export function toast(text: string, kind: Toast["kind"] = "info", durationMs = 4500) {
   const id = nextToastId++;
+  const same = appStore.getState().toasts.find((t) => t.text === text && t.kind === kind);
+  if (same !== undefined) {
+    // One toast with a count; the new id restarts its timer
+    appStore.setState((state) => ({
+      toasts: state.toasts.map((t) => (t.id === same.id ? { ...t, id, count: (t.count ?? 1) + 1 } : t)),
+    }));
+    setTimeout(() => dismissToast(id), durationMs);
+    return;
+  }
   appStore.setState((state) => ({ toasts: [...state.toasts.slice(-4), { id, text, kind }] }));
   setTimeout(() => dismissToast(id), durationMs);
 }

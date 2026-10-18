@@ -24,6 +24,7 @@ import { OverlayBar } from "./components/OverlayBar";
 import { ParcelPanel } from "./components/ParcelPanel";
 import { PipeTierBar } from "./components/PipeTierBar";
 import { ReportDialog } from "./components/ReportDialog";
+import { BlueprintPanel, BlueprintSaveDialog } from "./components/BlueprintPanel";
 import { ModerationPanel } from "./components/ModerationPanel";
 import { ResearchPanel } from "./components/ResearchPanel";
 import { SeasonPanel } from "./components/SeasonPanel";
@@ -63,9 +64,12 @@ function useShortcuts() {
             state.corporationOpen ||
             state.leaderboardOpen ||
             state.companyOpen ||
+            state.blueprintsOpen ||
             state.moderationOpen
           ) {
             setState({ ...MODALS, buildMenuOpen: state.buildMenuOpen });
+          } else if (state.blueprintDraft !== null) {
+            setState({ blueprintDraft: null });
           } else if (state.inboxOpen) {
             setState({ inboxOpen: false });
           } else if (state.visiting !== null) {
@@ -136,6 +140,13 @@ function useShortcuts() {
             setState({ companyOpen: false });
           } else {
             void gameClient.openCompany();
+          }
+          break;
+        case "u":
+          if (state.blueprintsOpen) {
+            setState({ blueprintsOpen: false });
+          } else {
+            void gameClient.openBlueprints();
           }
           break;
         case "l":
@@ -224,6 +235,10 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="CompanyPanel">
             <CompanyPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="BlueprintPanel">
+            <BlueprintPanel />
+            <BlueprintSaveDialog />
           </ErrorBoundary>
           <ErrorBoundary name="CorporationPanel">
             <CorporationPanel />

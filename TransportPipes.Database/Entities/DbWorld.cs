@@ -26,6 +26,9 @@ public class DbWorld
     /// <summary>Outposts in the wilderness and the deposits Discoveries left (jsonb)</summary>
     public string Outposts { get; set; } = "{}";
 
+    /// <summary>Saved and shared layouts (jsonb)</summary>
+    public string Blueprints { get; set; } = "[]";
+
     /// <summary>The season: its number, the finale and the results (jsonb)</summary>
     public string Season { get; set; } = "{}";
 }

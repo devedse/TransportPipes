@@ -27,7 +27,7 @@ public sealed class GameEvent
     public DistrictCoord? District { get; init; }
 
     public DateTime StartsAt { get; init; }
-    public DateTime EndsAt { get; init; }
+    public DateTime EndsAt { get; set; }
 
     /// <summary>Expo and Shortage: the product; Discovery: the deposit</summary>
     public string? Resource { get; init; }

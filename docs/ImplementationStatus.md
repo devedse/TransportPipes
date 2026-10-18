@@ -68,7 +68,7 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 ### M7 · Late game
 
-- 🚧 Complexes (2×2 ×5 from Era 2, 3×3 ×12 from Era 3, one shared level) ✅, tile efficiency with a leaderboard ✅, terraforming (drain, lakes, hills with more wind, forests, seeding deposits) ✅, blueprints ⬜
+- ✅ Denser: complexes (2×2 ×5 from Era 2, 3×3 ×12 from Era 3, one shared level), tile efficiency with a leaderboard, terraforming (drain, lakes, hills with more wind, forests, seeding deposits), blueprints (drag an area to save it, a ghost to place it, built at the normal costs; shared with the corporation or on the rated board)
 - ⬜ The Deep Level
 - ⬜ Expeditions, branch estates, teleporters
 - ⬜ Bank (investing, insurance, bonds), District Steward elections
@@ -121,3 +121,6 @@ Changes to [GameDesign.md](GameDesign.md) that came up while building; the desig
 | 2026-10-18 | Complexes form by themselves when the research is there and four (nine) finished identical 1×1 producers stand in a square; the complex takes the lowest level of its members and can't be moved (demolish refunds all members) | Clear and automatic: a complex is always better than its members |
 | 2026-10-18 | Terraforming is done tile by tile with costs per action; seeding a deposit takes 20,000 gold and 50 steel and adds one star (up to five) | A big, visible gold sink, as the design intends |
 | 2026-10-18 | Shortage orders are a fourth, urgent order (twice the size, three times the reward per unit) that disappears when the shortage ends; festivals fall on fixed holidays | They add to the daily rhythm without replacing it |
+| 2026-10-18 | Blueprints need a finished Blueprint Office to save, share and build; a franchised company can rebuild its own blueprints without one. Building a blueprint places what fits and is unlocked (and what you can pay for); a complex is saved as its members; better pipes than you have become the best you have | Blueprints carry over into a Franchise (GDD §11.7) without making the office pointless |
+| 2026-10-18 | Blueprints belong to the season's world like everything else and go with the reset | Blueprint owners are companies, which don't survive the season |
+| 2026-10-18 | A new Era launch ends the running one, and identical toasts are merged with a count | Found while testing blueprints: a fast Era change and a finished blueprint flooded the screen |

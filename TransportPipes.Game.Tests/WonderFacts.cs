@@ -96,6 +96,9 @@ public class WonderFacts
         Assert.AreEqual(GameWorld.TierReward(WonderTier.Diamond, 1), big.Gold);
         Assert.IsTrue(small.Titles.Any(t => t.EndsWith("Bronze")), "a little counts too");
         Assert.IsTrue(game.World.ActiveEvents(big.District).Any(t => t.Kind == EventKind.EraLaunch), "a launch party");
+
+        game.World.AdvanceEra();
+        Assert.AreEqual(1, game.World.ActiveEvents(big.District).Count(t => t.Kind == EventKind.EraLaunch), "one party at a time");
     }
 
     [TestMethod]

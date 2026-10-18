@@ -995,3 +995,34 @@ export interface ReportedMessageDto {
   text: string;
   sentAt: string;
 }
+
+// ---------------------------------------------------------------- Blueprints
+
+export type BlueprintSharing = "private" | "corporation" | "board";
+
+export interface BlueprintDto {
+  id: number;
+  name: string;
+  owner: number;
+  ownerName: string;
+  ownerColor: string;
+  width: number;
+  height: number;
+  buildings: Array<{ type: string; dx: number; dy: number }>;
+  pipes: Array<{ dx: number; dy: number; tier: number }>;
+  sharing: BlueprintSharing;
+  rating: number;
+  ratings: number;
+  myRating: number | null;
+  cost: number;
+  createdAt: string;
+}
+
+export interface BlueprintsDto {
+  hasOffice: boolean;
+  canRebuild: boolean;
+  max: number;
+  mine: BlueprintDto[];
+  corporation: BlueprintDto[];
+  board: BlueprintDto[];
+}
