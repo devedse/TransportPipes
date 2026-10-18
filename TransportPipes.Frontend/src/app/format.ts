@@ -14,6 +14,12 @@ export function formatDuration(seconds: number): string {
   if (seconds <= 0) {
     return "instant";
   }
+  if (seconds >= 2 * 86400) {
+    const totalHours = Math.round(seconds / 3600);
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    return hours === 0 ? `${days} d` : `${days} d ${hours} h`;
+  }
   if (seconds >= 3600) {
     // Round to whole minutes first, so 1 h 59.9 min becomes 2 h (not 1 h 60 min)
     const totalMinutes = Math.round(seconds / 60);

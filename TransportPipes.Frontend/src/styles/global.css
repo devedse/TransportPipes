@@ -2146,10 +2146,139 @@ button.liked {
   background: rgba(239, 111, 108, 0.35);
 }
 
+/* ---------- Wonders and Eras ---------- */
+
+.top-era {
+  display: grid;
+  justify-items: start;
+  gap: 0;
+  padding: 6px 12px;
+  border-radius: var(--panel-radius);
+}
+
+.era-number {
+  font-family: var(--font-title);
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.wonders {
+  display: grid;
+  gap: 12px;
+}
+
+.wonder-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(246, 199, 68, 0.4);
+  background: linear-gradient(180deg, rgba(246, 199, 68, 0.08), rgba(0, 0, 0, 0.2));
+}
+
+.wonder-card.finished {
+  border-color: rgba(46, 196, 166, 0.6);
+}
+
+.wonder-card h3 {
+  font-family: var(--font-title);
+  font-size: 1.3rem;
+}
+
+.wonder-head,
+.wonder-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.wonder-foot {
+  align-items: center;
+}
+
+.wonder-stage {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.stage-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.stage-dots .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.stage-dots .dot.done {
+  background: var(--gold);
+}
+
+.stage-dots .dot.now {
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+
+.wonder-needs {
+  display: grid;
+  gap: 6px;
+}
+
+.wonder-need {
+  display: grid;
+  grid-template-columns: auto 110px 1fr auto 120px;
+  gap: 8px;
+  align-items: center;
+}
+
+.wonder-need .muted {
+  text-align: right;
+}
+
+.tier {
+  margin-left: 6px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #1b1b1b;
+}
+
+.tier.bronze {
+  background: #cd8b52;
+}
+
+.tier.silver {
+  background: #c9d1d9;
+}
+
+.tier.gold {
+  background: var(--gold);
+}
+
+.tier.diamond {
+  background: linear-gradient(90deg, #9be7ff, #e3c2ff);
+}
+
+.builders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 0.8rem;
+}
+
 /* ---------- Small screens ---------- */
 
 @media (max-width: 720px) {
   .top-research,
+  .top-era,
   .top-company .muted {
     display: none;
   }

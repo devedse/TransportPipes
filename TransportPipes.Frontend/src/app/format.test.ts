@@ -59,5 +59,6 @@ describe("formatDuration in hours", () => {
   it("never shows 60 minutes", () => {
     expect(formatDuration(2 * 3600 - 1)).toBe("2 h");
     expect(formatDuration(3600 + 90 * 60 - 20)).toBe("2 h 30 min");
+    expect(formatDuration(20 * 86400 + 5 * 3600)).toBe("20 d 5 h");
   });
 });

@@ -514,7 +514,9 @@
   unlock: { era: 2, research: powerLines }
   cost: { gold: 300, materials: { copperWire: 2 } }
   buildSeconds: 10
-  description: Carries energy far without losses, also across water.
+  reach: 8
+  throughput: 5000
+  description: Carries energy (only energy) to your pylons up to 8 tiles away, without losses, also across water.
 
 # ---------------------------------------------------------------- Commerce
 - id: tradingPost

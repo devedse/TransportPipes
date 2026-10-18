@@ -359,7 +359,10 @@ public sealed class WorldGenerator
 
     // ---------------------------------------------------------------- Hub cities
 
-    /// <summary>The decorative layout of a hub city (local coordinates within the hub block)</summary>
+    /// <summary>
+    /// The layout of a hub city (local coordinates within the hub block). The Capital has the Era Wonder's site where
+    /// other hubs have a park.
+    /// </summary>
     public IReadOnlyList<HubStructure> HubStructures(DistrictCoord district) =>
     [
         new("marketHall", 13, 13, 3),
@@ -372,7 +375,7 @@ public sealed class WorldGenerator
         new("tradingHouse", 4, 13, 2),
         new("tradingHouse", 26, 13, 2),
         new("tradingHouse", 13, 26, 2),
-        new("park", 9, 18, 3),
+        district == new DistrictCoord(0, 0) ? new("eraWonderSite", 6, 16, 6) : new("park", 9, 18, 3),
         new("park", 18, 8, 3),
     ];
 }

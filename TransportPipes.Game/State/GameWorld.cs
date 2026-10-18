@@ -24,6 +24,7 @@ public enum WorldEventKind
     StorageFull,
     Neighbour,
     Calendar,
+    Wonder,
 }
 
 /// <summary>Something a player should hear about (a toast in the client)</summary>
@@ -40,10 +41,15 @@ public sealed class WorldChanges
     public HashSet<DistrictCoord> Markets { get; } = new();
     public HashSet<long> Contracts { get; } = new();
     public HashSet<long> Corporations { get; } = new();
+
+    /// <summary>Districts whose hub changed (a Wonder grew)</summary>
+    public HashSet<DistrictCoord> Districts { get; } = new();
+
     public bool Exchange { get; set; }
+    public bool Wonders { get; set; }
     public List<WorldEvent> Events { get; } = new();
 
-    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Contracts.Count == 0 && Corporations.Count == 0 && !Exchange && Events.Count == 0;
+    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Contracts.Count == 0 && Corporations.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && Events.Count == 0;
 }
 
 /// <summary>

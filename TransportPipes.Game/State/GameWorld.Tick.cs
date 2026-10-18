@@ -22,11 +22,16 @@ public sealed partial class GameWorld
             return;
         }
         PlanEvents();
+        EnsureEraWonder();
         // Everything that finishes in between, in the order it happens
         var events = new List<(DateTime At, long Order, Action Run)>();
         foreach (var (at, run) in EventMoments(LastTick, now).ToList())
         {
             events.Add((at, long.MinValue + 4, run));
+        }
+        foreach (var (at, run) in EraMoments(LastTick, now).ToList())
+        {
+            events.Add((at, long.MinValue + 5, run));
         }
         foreach (var building in _buildings.Values.Where(t => t.ConstructionEndsAt is { } end && end <= now))
         {
@@ -83,6 +88,11 @@ public sealed partial class GameWorld
     {
         building.ConstructionEndsAt = null;
         building.Touch();
+        if (Content.Building(building.Type).Kind == BuildingKind.PowerLine)
+        {
+            // Its cables connect now
+            MarkDirty(building);
+        }
         MarkNeedsSolve(building.Id);
         foreach (var tile in building.Footprint())
         {

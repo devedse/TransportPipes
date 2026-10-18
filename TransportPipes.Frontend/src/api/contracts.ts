@@ -62,6 +62,9 @@ export interface CompanyDto {
   /** Running events and the ones within the forecast */
   events: GameEventDto[];
   forecastHours: number;
+  era: number;
+  eraDeadline: string;
+  titles: string[];
   serverTime: string;
 }
 
@@ -252,6 +255,9 @@ export interface HubStructureDto {
   color: string | null;
   level: number;
   corporation: number | null;
+  /** Wonders: the Wonder's id and how many stages it has (level = stages built) */
+  variant: string | null;
+  stages: number;
 }
 
 export interface DistrictDto {
@@ -407,6 +413,8 @@ export interface BuildingDefinition {
   throughput: number;
   priceBonus: number;
   range: string | null;
+  /** Power line pylons: how far the cable reaches */
+  reach: number;
   layer: "surface" | "deep";
   sprite: string | null;
   description: string;
@@ -742,4 +750,47 @@ export interface InboxMessageDto {
 export interface InboxDto {
   messages: InboxMessageDto[];
   unread: number;
+}
+
+// ---------------------------------------------------------------- Wonders and Eras
+
+export interface WonderNeedDto {
+  resource: string;
+  required: number;
+  delivered: number;
+  yourStock: number;
+}
+
+export interface WonderBuilderDto {
+  company: number;
+  name: string;
+  color: string;
+  value: number;
+}
+
+export type WonderTier = "none" | "bronze" | "silver" | "gold" | "diamond";
+
+export interface WonderDto {
+  type: string;
+  name: string;
+  description: string;
+  isEra: boolean;
+  stage: number;
+  stages: number;
+  finished: boolean;
+  needs: WonderNeedDto[];
+  total: number;
+  yourContribution: number;
+  yourTier: WonderTier;
+  yourShare: number;
+  topBuilders: WonderBuilderDto[];
+}
+
+export interface WondersDto {
+  era: number;
+  eraStartedAt: string;
+  eraDeadline: string;
+  district: WonderDto | null;
+  eraWonder: WonderDto | null;
+  districtName: string;
 }

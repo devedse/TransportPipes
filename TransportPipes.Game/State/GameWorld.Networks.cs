@@ -75,6 +75,15 @@ public sealed partial class GameWorld
         {
             _dirtyTiles.Add(tile);
         }
+        // A pylon joins (or splits) the networks of the pylons its cable reaches
+        if (Content.Building(building.Type).Kind == BuildingKind.PowerLine)
+        {
+            foreach (var other in PylonsInReach(building))
+            {
+                _dirtyBuildings.Add(other.Id);
+                _dirtyTiles.Add(other.Position);
+            }
+        }
     }
 
     /// <summary>Only the flows changed (prices, storage full or empty, construction finished)</summary>
@@ -143,6 +152,16 @@ public sealed partial class GameWorld
 
     /// <summary>A building that sits in a pipe and carries resources like one (valves, toll meters)</summary>
     private bool IsConductorBuilding(Building building) => !building.UnderConstruction && Content.Building(building.Type).IsConductor;
+
+    private bool IsPylon(Building building) => !building.UnderConstruction && Content.Building(building.Type).Kind == BuildingKind.PowerLine;
+
+    /// <summary>The pylons a pylon's cable reaches: the owner's pylons within its reach</summary>
+    public IEnumerable<Building> PylonsInReach(Building pylon)
+    {
+        var reach = Content.Building(pylon.Type).Reach;
+        return _buildings.Values.Where(t => t.Id != pylon.Id && t.Owner == pylon.Owner && IsPylon(t)
+            && (t.X - pylon.X) * (t.X - pylon.X) + (t.Y - pylon.Y) * (t.Y - pylon.Y) <= reach * reach);
+    }
 
     private bool IsConductorTile(TilePos pos) =>
         (_conductors.TryGetValue(pos, out var conductor) && Conducts(conductor))
@@ -279,6 +298,14 @@ public sealed partial class GameWorld
         {
             while (tiles.TryDequeue(out var tile))
             {
+                // A power line reaches the next pylons
+                if (_buildingAt.TryGetValue(tile, out var here) && IsPylon(_buildings[here]))
+                {
+                    foreach (var other in PylonsInReach(_buildings[here]))
+                    {
+                        VisitBuilding(other.Id);
+                    }
+                }
                 foreach (var (dx, dy) in Directions)
                 {
                     var next = tile.Offset(dx, dy);
@@ -337,6 +364,8 @@ public sealed partial class GameWorld
 
     private readonly record struct TileStats(double Loss, double Throughput, IReadOnlySet<string>? Filter, bool Priority);
 
+    private static readonly IReadOnlySet<string> EnergyOnly = new HashSet<string> { "energy" };
+
     private TileStats StatsOf(TilePos tile)
     {
         if (_conductors.TryGetValue(tile, out var conductor))
@@ -346,6 +375,10 @@ public sealed partial class GameWorld
         }
         var building = _buildings[_buildingAt[tile]];
         var definition = Content.Building(building.Type);
+        if (definition.Kind == BuildingKind.PowerLine)
+        {
+            return new TileStats(0, definition.Throughput, EnergyOnly, false);
+        }
         return new TileStats(0, double.MaxValue, definition.Kind == BuildingKind.Valve && building.Filter.Count > 0 ? building.Filter : null, definition.Kind == BuildingKind.PriorityValve);
     }
 
@@ -357,6 +390,15 @@ public sealed partial class GameWorld
     private List<FlowLink> BuildLinks(Network network)
     {
         var stats = network.Conductors.ToDictionary(t => t, StatsOf);
+        // The cables between pylons: extra neighbours besides the four next tiles
+        var cables = new Dictionary<TilePos, List<TilePos>>();
+        foreach (var tile in network.Conductors)
+        {
+            if (_buildingAt.TryGetValue(tile, out var id) && IsPylon(_buildings[id]))
+            {
+                cables[tile] = PylonsInReach(_buildings[id]).Select(t => t.Position).Where(network.Conductors.Contains).ToList();
+            }
+        }
         var members = network.Buildings.Where(t => !IsConductorBuilding(_buildings[t])).OrderBy(t => t).ToList();
         var touching = new Dictionary<TilePos, List<long>>();
         foreach (var id in members)
@@ -417,9 +459,13 @@ public sealed partial class GameWorld
                     {
                         continue;
                     }
-                    foreach (var (dx, dy) in Directions)
+                    var neighbours = Directions.Select(d => tile.Offset(d.X, d.Y));
+                    if (cables.TryGetValue(tile, out var cable))
                     {
-                        var next = tile.Offset(dx, dy);
+                        neighbours = neighbours.Concat(cable);
+                    }
+                    foreach (var next in neighbours)
+                    {
                         if (!network.Conductors.Contains(next) || done.Contains(next) || !Passable(next))
                         {
                             continue;
@@ -550,7 +596,7 @@ public sealed partial class GameWorld
         {
             return null;
         }
-        var location = LocationMultiplier(building, definition) * EventOutputFactor(building, definition);
+        var location = LocationMultiplier(building, definition) * EventOutputFactor(building, definition) * WonderOutputFactor(building);
         var owner = Company(building.Owner);
         return new FlowNode
         {
@@ -561,7 +607,7 @@ public sealed partial class GameWorld
             Out = BaseOutputs(building, definition)
                 .Where(t => t.Key != GameContent.ResearchPoints)
                 .ToDictionary(t => t.Key, t => t.Value * level * location * (1 + OutputBonus(owner, definition, t.Key))),
-            ResearchPerMinute = definition.ResearchPerMinute * level,
+            ResearchPerMinute = definition.ResearchPerMinute * level * WonderResearchFactor(building),
         };
     }
 

@@ -74,5 +74,20 @@ if (only === null || only === "hub") {
   ] as const) {
     show(`corporationHq ${level}`, drawHubStructure("corporationHq", 3, { label, color, level }).canvas);
   }
+  for (const variant of [
+    "clockTower",
+    "grandFountain",
+    "observatory",
+    "lighthouse",
+    "greatDynamo",
+    "copperCathedral",
+  ]) {
+    for (const level of [1, 3]) {
+      show(
+        `${variant} ${level}/3`,
+        drawHubStructure("wonderSite", 6, { label: variant, color: null, level, variant, stages: 3 }).canvas,
+      );
+    }
+  }
 }
 document.body.dataset.ready = "1";

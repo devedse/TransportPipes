@@ -903,8 +903,60 @@ export class Engine {
       const building = this.world.buildings.get(id);
       if (building !== undefined) {
         chunk.objects.push(this.buildingView(building, state));
+        const cables = this.cables(building, state);
+        if (cables !== null) {
+          chunk.objects.push({
+            display: cables,
+            effects: null,
+            building: null,
+            machine: null,
+            idle: null,
+            progress: null,
+          });
+        }
       }
     }
+  }
+
+  /** Power line cables from a pylon to its owner's pylons in reach (each cable once, from the pylon with the lower id) */
+  private cables(pylon: BuildingDto, state: EngineState): Graphics | null {
+    const reach = state.content.building(pylon.type)?.reach ?? 0;
+    if (reach <= 0 || pylon.constructionEndsAt !== null) {
+      return null;
+    }
+    const g = new Graphics();
+    const from = tileCenter(pylon.x, pylon.y);
+    let z = (pylon.x + pylon.y) * 4 + 3;
+    let any = false;
+    for (const other of this.world.buildings.values()) {
+      if (
+        other.id <= pylon.id ||
+        other.type !== pylon.type ||
+        other.owner !== pylon.owner ||
+        other.constructionEndsAt !== null ||
+        (other.x - pylon.x) ** 2 + (other.y - pylon.y) ** 2 > reach * reach
+      ) {
+        continue;
+      }
+      const to = tileCenter(other.x, other.y);
+      for (const offset of [-14, 14]) {
+        const ax = from.x + offset;
+        const ay = from.y - 170;
+        const bx = to.x + offset;
+        const by = to.y - 170;
+        // A cable sags in the middle
+        g.moveTo(ax, ay).quadraticCurveTo((ax + bx) / 2, (ay + by) / 2 + 50, bx, by);
+      }
+      z = Math.max(z, (other.x + other.y) * 4 + 3);
+      any = true;
+    }
+    if (!any) {
+      return null;
+    }
+    g.stroke({ color: 0x2a2d33, width: 3, alpha: 0.85 });
+    g.zIndex = z + 1;
+    this.objectLayer.addChild(g);
+    return g;
   }
 
   private pipeShape(x: number, y: number): string {

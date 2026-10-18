@@ -66,7 +66,8 @@ public sealed partial class GameWorld
         {
             minutes /= 2;
         }
-        return TimeSpan.FromMinutes(minutes);
+        // A Lighthouse in the buyer's district
+        return TimeSpan.FromMinutes(minutes * WonderCargoFactor(to));
     }
 
     public CommandResult PlaceExchangeOrder(long companyId, string resource, bool selling, double amount, double price)

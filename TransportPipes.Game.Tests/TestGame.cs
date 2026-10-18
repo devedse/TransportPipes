@@ -44,11 +44,12 @@ internal sealed class TestGame
             Throughput = t.Throughput,
             PriceBonus = t.PriceBonus,
             Range = t.Range,
+            Reach = t.Reach,
             Layer = t.Layer,
             Sprite = t.Sprite,
             Description = t.Description,
         }).ToList();
-        return new GameContent(content.ResourceList, buildings, content.PipeTiers, content.Progression, content.ResearchList);
+        return new GameContent(content.ResourceList, buildings, content.PipeTiers, content.Progression, content.ResearchList, [.. content.DistrictWonders, .. content.EraWonders]);
     }
 
     private static readonly Dictionary<char, string> MapLetters = new()
@@ -65,11 +66,12 @@ internal sealed class TestGame
         ['X'] = "tollMeter",
         ['E'] = "exchangeOffice",
         ['C'] = "cargoDepot",
+        ['L'] = "powerLinePylon",
     };
 
     /// <summary>
     /// Puts a map like the original game's tests on the world, without any placement rules: W wind moily, S solar panel,
-    /// M iron mine, F small factory, O storage, T trading post, V valve, P priority valve, U pump station, + pipe
+    /// M iron mine, F small factory, O storage, T trading post, V valve, P priority valve, U pump station, L power line pylon, + pipe
     /// (lossless by default, like the original game).
     /// Returns the buildings by their map position.
     /// </summary>

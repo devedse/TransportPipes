@@ -1,5 +1,5 @@
 import { gameClient } from "../app/client";
-import { formatAmount, formatRate } from "../app/format";
+import { formatAmount, formatDuration, formatRate } from "../app/format";
 import { useNow } from "../app/useNow";
 import { currentGold, setState, useAppStore } from "../state/store";
 
@@ -17,6 +17,8 @@ export function TopBar() {
   const content = useAppStore((state) => state.content);
   const unread = useAppStore((state) => state.unread);
   const inboxOpen = useAppStore((state) => state.inboxOpen);
+  const serverOffset = useAppStore((state) => state.serverOffsetMs);
+  const serverNow = useNow(60000) + serverOffset;
   const gold = useLiveGold();
   if (company === null) {
     return null;
@@ -65,6 +67,17 @@ export function TopBar() {
           </div>
         </div>
       </div>
+
+      <button
+        className="panel top-era"
+        title="Wonders: the Era ends when the Era Wonder is finished, at the latest on its deadline"
+        onClick={() => void gameClient.openHub("wonders")}
+      >
+        <span className="era-number">Era {company.era}</span>
+        <span className="muted small">
+          {formatDuration(Math.max(0, (new Date(company.eraDeadline).getTime() - serverNow) / 1000))} left
+        </span>
+      </button>
 
       {company.researchPerMinute > 0 || company.researchPoints > 0 || company.currentResearch !== null ? (
         <button

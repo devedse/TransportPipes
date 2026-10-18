@@ -15,6 +15,7 @@ import type {
   InboxDto,
   LeaderboardDto,
   LeaderboardKind,
+  WondersDto,
   ExchangeDto,
   NeighbourDto,
   DistrictDto,
@@ -88,6 +89,7 @@ export interface ServerEvents {
   chatMessage(message: ChatMessageDto): void;
   inboxChanged(unread: number): void;
   corporationChanged(): void;
+  wondersChanged(): void;
 }
 
 const EVENT_NAMES: Record<keyof ServerEvents, string> = {
@@ -101,6 +103,7 @@ const EVENT_NAMES: Record<keyof ServerEvents, string> = {
   chatMessage: "ChatMessage",
   inboxChanged: "InboxChanged",
   corporationChanged: "CorporationChanged",
+  wondersChanged: "WondersChanged",
 };
 
 const START_RETRY_DELAYS_MS = [0, 2000, 5000, 10000];
@@ -281,4 +284,6 @@ export class GameConnection {
     this.invoke<CommandResult>("SetBlocked", company, blocked);
   getInbox = () => this.invoke<InboxDto | null>("GetInbox");
   markInboxRead = () => this.invoke<void>("MarkInboxRead");
+  getWonders = () => this.invoke<WondersDto | null>("GetWonders");
+  deliverToWonder = (eraWonder: boolean) => this.invoke<CommandResult>("DeliverToWonder", eraWonder);
 }

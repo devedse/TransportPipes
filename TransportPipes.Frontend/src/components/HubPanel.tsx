@@ -3,7 +3,8 @@ import { gameClient } from "../app/client";
 import { formatAmount, formatDuration } from "../app/format";
 import { useNow } from "../app/useNow";
 import type { GameEventDto, MarketResourceDto } from "../api/contracts";
-import { setState, useAppStore } from "../state/store";
+import { setState, useAppStore, type HubTab } from "../state/store";
+import { WondersTab } from "./WondersTab";
 import { EVENT_ICONS, eventTime } from "../app/events";
 
 function Trend({ row }: { row: MarketResourceDto }) {
@@ -121,7 +122,8 @@ export function HubPanel() {
   const content = useAppStore((state) => state.content);
   const serverOffset = useAppStore((state) => state.serverOffsetMs);
   const now = useNow();
-  const [tab, setTab] = useState<"orders" | "market" | "exchange" | "calendar">("orders");
+  const tab = useAppStore((state) => state.hubTab);
+  const setTab = (hubTab: HubTab) => setState({ hubTab });
   if (!open || company === null || content === null) {
     return null;
   }
@@ -167,12 +169,17 @@ export function HubPanel() {
               <span className="badge">{company.events.filter((t) => t.active).length}</span>
             )}
           </button>
+          <button className={tab === "wonders" ? "tab active" : "tab"} onClick={() => setTab("wonders")}>
+            Wonders
+          </button>
           <button className={tab === "exchange" ? "tab active" : "tab"} onClick={() => setTab("exchange")}>
             Exchange
           </button>
         </div>
 
-        {tab === "calendar" ? (
+        {tab === "wonders" ? (
+          <WondersTab serverNow={serverNow} />
+        ) : tab === "calendar" ? (
           <CalendarTab serverNow={serverNow} />
         ) : tab === "exchange" ? (
           <ExchangeTab serverNow={serverNow} />

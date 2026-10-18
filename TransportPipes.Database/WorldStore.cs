@@ -87,6 +87,7 @@ public sealed class WorldStore
                 MentorRewards = settings.MentorRewards,
                 WeekStartEarnings = settings.WeekStartEarnings,
                 Likes = settings.Likes,
+                Titles = settings.Titles,
                 HubReputation = settings.HubReputation,
                 DailyOrders = settings.DailyOrders,
                 Report = JsonSerializer.Deserialize<CompanyReport>(row.Report, Json) ?? new CompanyReport { Since = row.LastSeenAt },
@@ -216,6 +217,11 @@ public sealed class WorldStore
             world.LoadEvents(events.Events, events.PlannedDays ?? []);
         }
 
+        if (JsonSerializer.Deserialize<WondersState>(dbWorld.Wonders, Json) is { } wonders)
+        {
+            world.LoadWonders(wonders.EraStartedAt, wonders.EraWonder, wonders.DistrictWonders ?? []);
+        }
+
         world.LastTick = dbWorld.LastTick;
         world.TakeChanges();
         world.Deleted.Clear();
@@ -236,6 +242,7 @@ public sealed class WorldStore
                 Markets = JsonSerializer.Serialize(world.Markets.Select(t => new MarketRow(t.Key.X, t.Key.Y, t.Value)).ToList(), Json),
                 Exchange = JsonSerializer.Serialize(new ExchangeState(world.ExchangeOrders.ToList(), world.Shipments.ToList()), Json),
                 Events = JsonSerializer.Serialize(new EventsState(world.Events.ToList(), world.PlannedDays.ToList()), Json),
+                Wonders = JsonSerializer.Serialize(new WondersState(world.EraStartedAt, world.EraWonder, world.DistrictWonders.Values.ToList()), Json),
             },
         };
 
@@ -277,6 +284,7 @@ public sealed class WorldStore
                     MentorRewards = company.MentorRewards,
                     WeekStartEarnings = company.WeekStartEarnings,
                     Likes = company.Likes,
+                    Titles = company.Titles,
                     HubReputation = company.HubReputation,
                     DailyOrders = company.DailyOrders,
                 }, Json),
@@ -430,6 +438,7 @@ public sealed class WorldStore
                 db.Entry(snapshot.World).Property(t => t.Markets).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Exchange).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Events).IsModified = true;
+                db.Entry(snapshot.World).Property(t => t.Wonders).IsModified = true;
             }
             else
             {
@@ -560,6 +569,7 @@ public sealed class WorldStore
         public HashSet<int> MentorRewards { get; init; } = new();
         public double WeekStartEarnings { get; init; }
         public int Likes { get; init; }
+        public HashSet<string> Titles { get; init; } = new();
         public double HubReputation { get; init; }
         public List<DailyOrder> DailyOrders { get; init; } = new();
     }
@@ -569,6 +579,8 @@ public sealed class WorldStore
     private sealed record ExchangeState(List<ExchangeOrder> Orders, List<Shipment> Shipments);
 
     private sealed record EventsState(List<GameEvent> Events, List<string>? PlannedDays);
+
+    private sealed record WondersState(DateTime EraStartedAt, Wonder? EraWonder, List<Wonder>? DistrictWonders);
 
     private sealed record CorporationData(HashSet<long> Applications, HashSet<long> Invites, CorporationGoal? Goal);
 }

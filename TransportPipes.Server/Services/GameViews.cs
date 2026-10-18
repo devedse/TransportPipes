@@ -56,6 +56,9 @@ public static class GameViews
             company.Likes,
             world.Calendar(company).Select(t => Event(world, t)).ToList(),
             (int)world.Horizon(company).TotalHours,
+            world.Era,
+            world.EraDeadline,
+            company.Titles.OrderBy(t => t).ToList(),
             world.Now);
     }
 
@@ -262,6 +265,18 @@ public static class GameViews
         var structures = new List<HubStructureDto>();
         foreach (var structure in world.Generator.HubStructures(district))
         {
+            var wonder = structure.Type switch
+            {
+                "wonderSite" => world.DistrictWonder(district),
+                "eraWonderSite" => world.EraWonder,
+                _ => null,
+            };
+            if (wonder != null)
+            {
+                var definition = world.WonderDefinition(wonder);
+                structures.Add(new HubStructureDto(structure.Type, structure.X, structure.Y, structure.Size, definition.Name, Level: wonder.Stage, Variant: wonder.Type, Stages: definition.Stages.Count));
+                continue;
+            }
             structures.Add(new HubStructureDto(structure.Type, structure.X, structure.Y, structure.Size));
             if (structure.Type != "corporationQuarter")
             {
@@ -369,6 +384,43 @@ public static class GameViews
             applications,
             goalDto,
             PerkTexts.Select((text, i) => new CorporationPerkDto(i + 1, text, corporation.HqLevel >= i + 1)).ToList());
+    }
+
+    public static WondersDto Wonders(GameWorld world, Company company)
+    {
+        var district = world.DistrictWonder(company.District);
+        return new WondersDto(
+            world.Era,
+            world.EraStartedAt,
+            world.EraDeadline,
+            district == null ? null : Wonder(world, district, company),
+            world.EraWonder == null ? null : Wonder(world, world.EraWonder, company),
+            WorldNames.District(company.District));
+    }
+
+    private static WonderDto Wonder(GameWorld world, Wonder wonder, Company company)
+    {
+        var definition = world.WonderDefinition(wonder);
+        var materials = world.Materials(company.Id);
+        var total = wonder.Contributions.Values.Sum();
+        var (share, tier) = wonder.District == null ? world.EraWonderTier(company) : (total > 0 ? wonder.Contributions.GetValueOrDefault(company.Id) / total : 0, WonderTier.None);
+        return new WonderDto(
+            wonder.Type,
+            definition.Name,
+            definition.Description,
+            wonder.District == null,
+            wonder.Stage,
+            definition.Stages.Count,
+            wonder.Finished,
+            wonder.Required.Select(t => new WonderNeedDto(t.Key, t.Value, wonder.Delivered.GetValueOrDefault(t.Key), materials.GetValueOrDefault(t.Key))).ToList(),
+            total,
+            wonder.Contributions.GetValueOrDefault(company.Id),
+            Camel(tier),
+            share,
+            wonder.Contributions.OrderByDescending(t => t.Value).Take(5)
+                .Select(t => world.Company(t.Key) is { } c ? new WonderBuilderDto(c.Id, c.Name, c.Color, t.Value) : null)
+                .OfType<WonderBuilderDto>()
+                .ToList());
     }
 
     public static LeaderboardDto Leaderboard(GameWorld world, Company viewer, LeaderboardKind kind, bool district)

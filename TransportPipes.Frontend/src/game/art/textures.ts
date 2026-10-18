@@ -167,7 +167,7 @@ export class TextureBank {
   }
 
   hub(type: string, size: number, look?: HubStructureLook): BuildingTextures {
-    const key = `hub:${type}:${size}:${look?.label ?? ""}:${look?.color ?? ""}:${look?.level ?? 0}`;
+    const key = `hub:${type}:${size}:${look?.label ?? ""}:${look?.color ?? ""}:${look?.level ?? 0}:${look?.variant ?? ""}:${look?.stages ?? 0}`;
     let result = this.buildingCache.get(key);
     if (result === undefined) {
       const art: BuildingArt = drawHubStructure(type, size, look);

@@ -23,7 +23,7 @@ import {
 } from "../game/layout";
 import { newPipeTiles, routePipe } from "../game/rules";
 import { WorldModel } from "../game/world";
-import { appStore, initialState, MODALS, setState, toast } from "../state/store";
+import { appStore, initialState, MODALS, setState, toast, type HubTab } from "../state/store";
 
 const DETAILS_REFRESH_MS = 2000;
 
@@ -127,6 +127,11 @@ export class GameClient {
         void this.refreshInbox();
       }
     });
+    c.on("wondersChanged", () => {
+      if (appStore.getState().hubOpen && appStore.getState().hubTab === "wonders") {
+        void this.refreshWonders();
+      }
+    });
     c.on("corporationChanged", () => {
       if (appStore.getState().corporationOpen) {
         void this.refreshCorporations();
@@ -171,10 +176,12 @@ export class GameClient {
 
   private setCompany(company: CompanyDto) {
     const previous = appStore.getState().company;
-    setState({ company, companyAt: Date.now() });
+    setState({ company, companyAt: Date.now(), era: company.era });
     if (
       previous !== null &&
-      (previous.unlockedParcels !== company.unlockedParcels || previous.level !== company.level)
+      (previous.unlockedParcels !== company.unlockedParcels ||
+        previous.level !== company.level ||
+        previous.era !== company.era)
     ) {
       this.engine?.invalidate();
     }
@@ -318,9 +325,22 @@ export class GameClient {
     }
   }
 
-  async openHub() {
-    setState({ ...MODALS, hubOpen: true });
-    await this.refreshMarket();
+  async openHub(tab?: HubTab) {
+    setState({ ...MODALS, hubOpen: true, ...(tab !== undefined ? { hubTab: tab } : {}) });
+    await Promise.all([this.refreshMarket(), this.refreshWonders()]);
+  }
+
+  async refreshWonders() {
+    const wonders = await this.connection.getWonders().catch(() => null);
+    if (wonders !== null) {
+      setState({ wonders });
+    }
+  }
+
+  async deliverToWonder(eraWonder: boolean) {
+    if (await this.command(this.connection.deliverToWonder(eraWonder), "Delivered: thank you, builder!")) {
+      await this.refreshWonders();
+    }
   }
 
   async refreshMarket() {

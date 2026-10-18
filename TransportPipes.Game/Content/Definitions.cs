@@ -88,12 +88,39 @@ public sealed class BuildingDefinition
     public double Throughput { get; init; }
     public double PriceBonus { get; init; }
     public string? Range { get; init; }
+
+    /// <summary>Power line pylons: how far (in tiles) the cable reaches to the next pylon</summary>
+    public int Reach { get; init; }
+
     public BuildingLayer Layer { get; init; }
     public string? Sprite { get; init; }
     public string Description { get; init; } = "";
 
     /// <summary>Sits in a pipe and carries resources like a pipe tile (valves, toll meters)</summary>
-    public bool IsConductor => Kind is BuildingKind.Gate or BuildingKind.Valve or BuildingKind.PriorityValve or BuildingKind.TollMeter;
+    public bool IsConductor => Kind is BuildingKind.Gate or BuildingKind.Valve or BuildingKind.PriorityValve or BuildingKind.TollMeter or BuildingKind.PowerLine;
+}
+
+public enum WonderPerk
+{
+    None,
+    HubDemand,
+    Production,
+    Research,
+    Cargo,
+}
+
+/// <summary>A District Wonder (Era 0) or the Era Wonder of the Capital (GDD §9.3, §9.4)</summary>
+public sealed class WonderDefinition
+{
+    public required string Id { get; init; }
+    public required string Name { get; init; }
+    public int Era { get; init; }
+    public WonderPerk Perk { get; init; }
+    public double PerkAmount { get; init; }
+    public string Description { get; init; } = "";
+
+    /// <summary>What every stage needs, for 8 active companies</summary>
+    public required IReadOnlyList<IReadOnlyDictionary<string, double>> Stages { get; init; }
 }
 
 public enum ResearchBranch

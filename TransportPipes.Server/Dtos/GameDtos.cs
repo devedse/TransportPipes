@@ -62,6 +62,9 @@ public record CompanyDto(
     int Likes,
     IReadOnlyList<GameEventDto> Events,
     int ForecastHours,
+    int Era,
+    DateTime EraDeadline,
+    IReadOnlyList<string> Titles,
     DateTime ServerTime);
 
 /// <summary>An event in the calendar (GDD §15)</summary>
@@ -126,7 +129,7 @@ public record TerrainOverrideDto(int X, int Y, string Terrain);
 public record EstateDto(int Slot, int X, int Y, long? OwnerId, string? OwnerName, string? OwnerColor, int OwnerLevel, int UnlockedParcels, IReadOnlyDictionary<string, string> GatePolicies, string Primary, string? Secondary, string? CorporationTag);
 
 /// <summary>A hub structure; corporation HQs have the corporation's tag, colour and HQ level</summary>
-public record HubStructureDto(string Type, int X, int Y, int Size, string? Label = null, string? Color = null, int Level = 0, long? Corporation = null);
+public record HubStructureDto(string Type, int X, int Y, int Size, string? Label = null, string? Color = null, int Level = 0, long? Corporation = null, string? Variant = null, int Stages = 0);
 
 public record DistrictDto(int X, int Y, int OriginX, int OriginY, string Name, IReadOnlyList<EstateDto> Estates, IReadOnlyList<HubStructureDto> Hub);
 
@@ -296,3 +299,26 @@ public record ChatDto(IReadOnlyList<ChatChannelDto> Channels, IReadOnlyList<long
 public record InboxMessageDto(long Id, string Kind, string Text, DateTime At, bool Read);
 
 public record InboxDto(IReadOnlyList<InboxMessageDto> Messages, int Unread);
+
+// ---------------------------------------------------------------- Wonders and Eras (M5)
+
+public record WonderNeedDto(string Resource, double Required, double Delivered, double YourStock);
+
+public record WonderBuilderDto(long Company, string Name, string Color, double Value);
+
+public record WonderDto(
+    string Type,
+    string Name,
+    string Description,
+    bool IsEra,
+    int Stage,
+    int Stages,
+    bool Finished,
+    IReadOnlyList<WonderNeedDto> Needs,
+    double Total,
+    double YourContribution,
+    string YourTier,
+    double YourShare,
+    IReadOnlyList<WonderBuilderDto> TopBuilders);
+
+public record WondersDto(int Era, DateTime EraStartedAt, DateTime EraDeadline, WonderDto? District, WonderDto? EraWonder, string DistrictName);

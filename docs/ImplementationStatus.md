@@ -55,7 +55,7 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 ### M5 · Living world
 
 - ✅ Events and calendar: storms (wind ×2, damage and repairs), heatwaves, droughts, cold snaps, expos, shortages (urgent orders), festivals; planned per district from the seed, announced a day ahead, three days with a Weather Station; weather on the screen
-- ⬜ District Wonders and the server Wonder, Eras 1–2 with Era 2 content
+- ✅ District Wonders (Clock Tower, Grand Fountain, Observatory, Lighthouse; three stages, a perk for the district) and the Era Wonders in the Capital (Great Dynamo … Space Elevator; Bronze to Diamond rewards and titles), Eras with deadlines and a launch party, Era 2 power lines (energy-only cables between pylons, across water)
 - ⬜ Managers, achievements and collections
 - ⬜ Outposts and the wilderness
 
@@ -103,4 +103,7 @@ Changes to [GameDesign.md](GameDesign.md) that came up while building; the desig
 | 2026-10-18 | Chat: 300 characters, at most 6 messages per 20 seconds; blocked companies are hidden in channels and can't write you directly; reported messages are flagged for moderation (M6) | Basic safety from day one |
 | 2026-10-18 | The offline report shows after 15 minutes away; every notable event also lands in the inbox (the newest 200 are kept) | Nothing important is missed, nothing piles up forever |
 | 2026-10-18 | Events are planned per district four days ahead from the world seed; a storm damages each wind building with 10% chance (5% with a Weather Station), a repair costs 10% of the building, an Engineer's Workshop repairs for free when the storm ends | Predictable for players who plan, cheap enough that a storm is an event and not a punishment |
+| 2026-10-18 | The Capital (the first district) has the Era Wonder on its own site next to its District Wonder; Wonder stages scale with the number of active companies (at least 3, base 8) when they begin; deliveries count as earnings for XP | Every district has its own Wonder, also the Capital; Wonders fit small and large servers |
+| 2026-10-18 | Era Wonder tiers by share of everything delivered: Bronze any part, Silver 1%, Gold 4%, Diamond 10%; rewards 2k/10k/40k/100k gold × Era and a title. An Era lasts at most 21 days | Everyone who helps gets something, the big builders a lot |
+| 2026-10-18 | Power line pylons reach 8 tiles to the owner's next pylon, carry only energy, without losses and over water | Long distance energy in Era 2 without losses, but pipes stay needed for goods |
 | 2026-10-18 | Shortage orders are a fourth, urgent order (twice the size, three times the reward per unit) that disappears when the shortage ends; festivals fall on fixed holidays | They add to the daily rhythm without replacing it |

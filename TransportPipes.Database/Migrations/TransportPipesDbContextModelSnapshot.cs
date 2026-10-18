@@ -547,6 +547,12 @@ namespace TransportPipes.Database.Migrations
                     b.Property<int>("Seed")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Wonders")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValueSql("'{}'::jsonb");
+
                     b.HasKey("Id");
 
                     b.ToTable("World", (string)null);

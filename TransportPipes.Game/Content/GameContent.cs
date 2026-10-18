@@ -22,8 +22,14 @@ public sealed class GameContent
     public IReadOnlyDictionary<string, ResearchDefinition> Research { get; }
     public IReadOnlyList<ResearchDefinition> ResearchList { get; }
 
-    public GameContent(IReadOnlyList<ResourceDefinition> resources, IReadOnlyList<BuildingDefinition> buildings, IReadOnlyList<PipeTierDefinition> pipeTiers, ProgressionSettings progression, IReadOnlyList<ResearchDefinition>? research = null)
+    /// <summary>District Wonders (one is picked per district) and the Era Wonders by Era</summary>
+    public IReadOnlyList<WonderDefinition> DistrictWonders { get; }
+    public IReadOnlyList<WonderDefinition> EraWonders { get; }
+
+    public GameContent(IReadOnlyList<ResourceDefinition> resources, IReadOnlyList<BuildingDefinition> buildings, IReadOnlyList<PipeTierDefinition> pipeTiers, ProgressionSettings progression, IReadOnlyList<ResearchDefinition>? research = null, IReadOnlyList<WonderDefinition>? wonders = null)
     {
+        DistrictWonders = wonders?.Where(t => t.Era == 0).ToList() ?? [];
+        EraWonders = wonders?.Where(t => t.Era > 0).OrderBy(t => t.Era).ToList() ?? [];
         ResearchList = research ?? [];
         Research = ResearchList.ToDictionary(t => t.Id);
         ResourceList = resources;
@@ -66,7 +72,8 @@ public sealed class GameContent
         var pipes = Read<List<PipeTierDto>>("pipes.yaml").Select(t => t.ToDefinition()).ToList();
         var progression = Read<ProgressionDto>("progression.yaml").ToSettings();
         var research = Read<List<ResearchDto>>("research.yaml").Select(t => t.ToDefinition()).ToList();
-        return new GameContent(resources, buildings, pipes, progression, research);
+        var wonders = Read<WondersDto>("wonders.yaml");
+        return new GameContent(resources, buildings, pipes, progression, research, [.. wonders.District.Select(t => t.ToDefinition()), .. wonders.Era.Select(t => t.ToDefinition())]);
     }
 
     private void Validate()
@@ -154,6 +161,22 @@ public sealed class GameContent
             errors.Add("Research ids must be unique");
         }
 
+        foreach (var wonder in DistrictWonders.Concat(EraWonders))
+        {
+            if (wonder.Stages.Count == 0)
+            {
+                errors.Add($"wonder {wonder.Id}: needs stages");
+            }
+            foreach (var resource in wonder.Stages.SelectMany(t => t.Keys))
+            {
+                CheckResource($"wonder {wonder.Id}", resource);
+            }
+        }
+        if (EraWonders.Count != 0 && !EraWonders.Select(t => t.Era).SequenceEqual(Enumerable.Range(1, EraWonders.Count)))
+        {
+            errors.Add("There is one Era Wonder per Era, from Era 1");
+        }
+
         if (errors.Count != 0)
         {
             throw new InvalidOperationException("Invalid game content:" + Environment.NewLine + string.Join(Environment.NewLine, errors));
@@ -220,6 +243,7 @@ public sealed class GameContent
         public double Throughput { get; set; }
         public double PriceBonus { get; set; }
         public string? Range { get; set; }
+        public int Reach { get; set; }
         public string Layer { get; set; } = "surface";
         public string? Sprite { get; set; }
         public string Description { get; set; } = "";
@@ -250,10 +274,44 @@ public sealed class GameContent
             Throughput = Throughput,
             PriceBonus = PriceBonus,
             Range = Range,
+            Reach = Reach,
             Layer = Enum.Parse<BuildingLayer>(Layer, ignoreCase: true),
             Sprite = Sprite,
             Description = Description,
         };
+    }
+
+    private sealed class WondersDto
+    {
+        public List<WonderDto> District { get; set; } = new();
+        public List<WonderDto> Era { get; set; } = new();
+    }
+
+    private sealed class WonderDto
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public int Era { get; set; }
+        public WonderPerkDto? Perk { get; set; }
+        public string Description { get; set; } = "";
+        public List<Dictionary<string, double>> Stages { get; set; } = new();
+
+        public WonderDefinition ToDefinition() => new()
+        {
+            Id = Id,
+            Name = Name,
+            Era = Era,
+            Perk = Perk == null ? WonderPerk.None : Enum.Parse<WonderPerk>(Perk.Kind, ignoreCase: true),
+            PerkAmount = Perk?.Amount ?? 0,
+            Description = Description,
+            Stages = Stages,
+        };
+    }
+
+    private sealed class WonderPerkDto
+    {
+        public string Kind { get; set; } = "";
+        public double Amount { get; set; }
     }
 
     private sealed class PipeTierDto

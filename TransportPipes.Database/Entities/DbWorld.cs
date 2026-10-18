@@ -19,4 +19,7 @@ public class DbWorld
 
     /// <summary>Planned and running events, and the days they were planned for (jsonb)</summary>
     public string Events { get; set; } = "{}";
+
+    /// <summary>The Era Wonder, the District Wonders and when the Era began (jsonb)</summary>
+    public string Wonders { get; set; } = "{}";
 }

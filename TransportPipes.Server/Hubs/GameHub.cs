@@ -21,6 +21,7 @@ public interface IGameClient
     Task ChatMessage(ChatMessageDto message);
     Task InboxChanged(int unread);
     Task CorporationChanged();
+    Task WondersChanged();
 }
 
 /// <summary>The game protocol. Every call needs a logged in user (the login cookie).</summary>
@@ -267,6 +268,14 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<CommandResultDto> DeliverToCorporationGoal() =>
         Command((world, company) => world.DeliverToCorporationGoal(company));
+
+    // ---------------------------------------------------------------- Wonders
+
+    public Task<WondersDto?> GetWonders() =>
+        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Wonders(world, company) : null, changesWorld: false);
+
+    public Task<CommandResultDto> DeliverToWonder(bool eraWonder) =>
+        Command((world, company) => world.DeliverToWonder(company, eraWonder));
 
     // ---------------------------------------------------------------- Visiting, mentors and leaderboards
 
@@ -525,6 +534,34 @@ public sealed class GameHub : Hub<IGameClient>
                     var kind = Enum.Parse<EventKind>(what, ignoreCase: true);
                     var resource = kind is EventKind.Expo or EventKind.Shortage ? world.Content.ResourceList.First(t => t.Tier == 2).Id : null;
                     world.StartEventNow(kind, kind == EventKind.Festival ? null : company.District, TimeSpan.FromHours(2), resource);
+                    break;
+                case "era":
+                    world.AdvanceEra();
+                    break;
+                case "stock":
+                    // 1,000 of every resource of this Era in your first storage
+                    if (world.BuildingsOf(companyId).FirstOrDefault(t => world.Content.Building(t.Type).Kind == TransportPipes.Game.Content.BuildingKind.Storage) is not { } store)
+                    {
+                        return CommandResult.Fail("Build a storage first.");
+                    }
+                    foreach (var definition in world.Content.ResourceList.Where(t => t.Era <= world.Era && t.Id != "energy"))
+                    {
+                        store.Contents[definition.Id] = store.Contents.GetValueOrDefault(definition.Id) + 1000;
+                    }
+                    store.Touch();
+                    break;
+                case "wonder":
+                    // Fills your storages with what the next stages need (an hour of a big district's work)
+                    var silo = world.BuildingsOf(companyId).FirstOrDefault(t => world.Content.Building(t.Type).Kind == TransportPipes.Game.Content.BuildingKind.Storage);
+                    if (silo == null || world.DistrictWonder(company.District) is not { } districtWonder)
+                    {
+                        return CommandResult.Fail("Build a storage first.");
+                    }
+                    foreach (var (need, required) in districtWonder.Required)
+                    {
+                        silo.Contents[need] = silo.Contents.GetValueOrDefault(need) + required;
+                    }
+                    silo.Touch();
                     break;
                 case "away":
                     // The next Hello shows the report as if the player was away for an hour

@@ -12,6 +12,7 @@ import type {
   InboxDto,
   LeaderboardDto,
   LeaderboardKind,
+  WondersDto,
   GateSide,
   MarketDto,
   NeighbourDto,
@@ -27,6 +28,8 @@ import type { TilePosition } from "../game/isometric";
 import type { Placement } from "../game/rules";
 
 export type Phase = "loading" | "login" | "found" | "playing" | "error";
+
+export type HubTab = "orders" | "market" | "calendar" | "wonders" | "exchange";
 
 export interface Toast {
   id: number;
@@ -69,7 +72,9 @@ export interface AppState {
   researchOpen: boolean;
   research: ResearchStateDto[];
   hubOpen: boolean;
+  hubTab: HubTab;
   market: MarketDto | null;
+  wonders: WondersDto | null;
   exchange: ExchangeDto | null;
   neighboursOpen: boolean;
   neighbours: NeighbourDto[];
@@ -129,7 +134,9 @@ export const initialState: AppState = {
   researchOpen: false,
   research: [],
   hubOpen: false,
+  hubTab: "orders",
   market: null,
+  wonders: null,
   exchange: null,
   neighboursOpen: false,
   neighbours: [],

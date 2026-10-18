@@ -1025,11 +1025,215 @@ export function drawGate(
 }
 
 /** The buildings of the hub city */
-/** What a corporation HQ shows: its tag, colour and HQ level */
+/** What a corporation HQ or a Wonder shows: tag, colour and level, or the Wonder and its stages */
 export interface HubStructureLook {
   label: string | null;
   color: string | null;
   level: number;
+  variant?: string | null;
+  stages?: number;
+}
+
+/** Scaffolding around the part of a Wonder that is being built */
+function scaffold(k: Iso, u: number, v: number, w: number, d: number, z: number, h: number) {
+  for (const [pu, pv] of [
+    [u, v + d],
+    [u + w, v + d],
+    [u + w, v],
+  ] as const) {
+    k.lattice(pu, pv, z, z + h, 10, "#b8862f");
+  }
+  k.line([u, v + d, z + h], [u + w, v + d, z + h], "#b8862f", 4);
+  k.line([u + w, v + d, z + h], [u + w, v, z + h], "#b8862f", 4);
+  k.line([u, v + d, z + h / 2], [u + w, v + d, z + h / 2], "#b8862f", 3);
+  k.line([u + w, v + d, z + h / 2], [u + w, v, z + h / 2], "#b8862f", 3);
+}
+
+/** A crane next to a Wonder under construction */
+function crane(k: Iso, u: number, v: number, h: number) {
+  k.lattice(u, v, 0, h, 16, "#e0a020");
+  k.line([u, v, h], [u - 2.2, v + 0.2, h + 10], "#e0a020", 6);
+  k.line([u, v, h], [u + 0.8, v - 0.1, h + 4], "#e0a020", 6);
+  k.line([u - 1.8, v + 0.2, h + 8], [u - 1.8, v + 0.2, h - 60], "#333", 2);
+  k.attach("blink", u, v, h + 14, 0.6, "#ff5a4f");
+}
+
+/**
+ * A Wonder (GDD §9.3, §9.4): every stage adds a part; the part being built has scaffolding and a crane stands next to
+ * it until the Wonder is finished.
+ */
+function drawWonder(look: HubStructureLook): BuildingArt {
+  const stages = Math.max(1, look.stages ?? 3);
+  const built = Math.min(stages, look.level);
+  const finished = built >= stages;
+  const k = new Iso(6, 6 * 90 + 520);
+  k.pad(0.1, 0.1, 5.8, 5.8, "#b5ab96");
+  k.pad(0.6, 0.6, 4.8, 4.8, "#d6cfc0");
+  // How much of the part in progress stands (a third, as a promise)
+  const part = (stage: number) => (stage < built ? 1 : stage === built && !finished ? 0.35 : 0);
+  const stone = { top: "#efe7d6", left: "#cbbfa5", right: "#ab9f86" };
+  switch (look.variant) {
+    case "clockTower": {
+      k.box(1.6, 1.6, 2.8, 2.8, 60 * Math.max(0.3, part(0)), stone);
+      if (part(1) > 0) {
+        k.box(2.1, 2.1, 1.8, 1.8, 220 * part(1), stone, 60);
+        k.windowsLeft(2.1, 2.1, 1.8, 1.8, 80, 200 * part(1) - 30, 3, 2, "#6aa8d8");
+        k.windowsRight(2.1, 2.1, 1.8, 1.8, 80, 200 * part(1) - 30, 3, 2, "#5a98c8");
+      }
+      if (part(2) > 0) {
+        const z = 280;
+        k.box(2.0, 2.0, 2.0, 2.0, 70 * part(2), { top: "#efe7d6", left: "#f4ecda", right: "#d8ccb2" }, z);
+        if (part(2) === 1) {
+          // A pointed roof with a golden finial
+          k.cylinder(3, 3, 0.95, 6, "#7a3b2e", z + 70, "cone", "#8f4535");
+          k.line([3, 3, z + 150], [3, 3, z + 190], "#c9a227", 5);
+          k.attach("flag", 3, 3, z + 190, 1, "#f6c744");
+          k.attach("glow", 3, 3, z + 40, 0.7, "#fff2b0");
+        }
+      }
+      break;
+    }
+    case "grandFountain": {
+      const radii = [2.4, 1.6, 0.9];
+      let z = 0;
+      radii.forEach((r, i) => {
+        if (part(i) > 0) {
+          k.cylinder(3, 3, r, 40 * part(i), "#d9d2c3", z, "flat", part(i) === 1 ? "#6ec6ff" : "#cfc8b8");
+          z += 40 * part(i);
+        }
+      });
+      if (finished) {
+        k.cylinder(3, 3, 0.25, 90, "#d9d2c3", z, "dome", "#e8e2d4");
+        k.attach("spark", 3, 3, z + 100, 1.4, "#bfe9ff");
+        k.attach("spark", 2.2, 3.4, 50, 1, "#bfe9ff");
+        k.attach("spark", 3.8, 2.6, 50, 1, "#bfe9ff");
+      }
+      break;
+    }
+    case "observatory": {
+      k.box(1.2, 1.2, 3.6, 3.6, 80 * Math.max(0.3, part(0)), {
+        top: "#e7e0d0",
+        left: "#b9ad93",
+        right: "#998d74",
+      });
+      if (part(1) > 0) {
+        k.cylinder(3, 3, 1.4, 90 * part(1), "#d8d0be", 80, "flat", "#cfc6b2");
+      }
+      if (part(2) > 0) {
+        k.cylinder(3, 3, 1.4, 1, "#8fa3b8", 170, "dome", part(2) === 1 ? "#9fb7cf" : "#c9c2b4");
+        if (part(2) === 1) {
+          k.line([3, 3, 230], [3.9, 2.4, 300], "#2a3440", 10);
+          k.attach("glow", 3, 3, 240, 0.8, "#cfe8ff");
+        }
+      }
+      break;
+    }
+    case "lighthouse": {
+      k.cylinder(3, 3, 1.5, 60 * Math.max(0.3, part(0)), "#c7bfae", 0, "flat", "#d8d0be");
+      const colors = ["#e8e2d4", "#c0392b"];
+      for (let i = 0; i < 6; i++) {
+        const p = i < 3 ? part(1) : part(2);
+        if (p > 0 && (i % 3) / 3 < p) {
+          k.cylinder(3, 3, 0.85 - i * 0.05, 50, colors[i % 2]!, 60 + i * 50, "flat", colors[i % 2]);
+        }
+      }
+      if (finished) {
+        k.cylinder(3, 3, 0.6, 50, "#f6e8a0", 360, "dome", "#2c3e50");
+        k.attach("glow", 3, 3, 385, 1.6, "#fff2b0");
+      }
+      break;
+    }
+    case "greatDynamo": {
+      // The copper coils stand behind the turbine hall: drawn first
+      if (part(1) > 0) {
+        for (let i = 0; i < 3; i++) {
+          k.cylinder(1.6 + i * 1.4, 1.0, 0.45, 200 * part(1), "#b87333", 0, "dome", "#d4894a");
+        }
+      }
+      k.box(0.8, 1.6, 4.4, 3.0, 110 * Math.max(0.3, part(0)), {
+        top: "#6b4e2e",
+        left: "#8a5a32",
+        right: "#6f4628",
+      });
+      if (part(0) === 1) {
+        k.windowsLeft(0.8, 1.6, 4.4, 3.0, 20, 80, 2, 6, "#f6c744", "#3a2614");
+        k.gable(0.8, 1.6, 4.4, 3.0, 110, 50, "#4a5560");
+      }
+      if (part(2) > 0) {
+        k.cylinder(4.8, 4.6, 0.5, 320 * part(2), "#7a3b2e", 0, "open");
+        if (part(2) === 1) {
+          k.attach("smoke", 4.8, 4.6, 330, 1.4, "#cccccc");
+          k.attach("spark", 2.9, 1.2, 180, 1.5, "#9fe0ff");
+        }
+      }
+      break;
+    }
+    case "copperCathedral": {
+      const stoneColors = { top: "#e8dcc4", left: "#c9b48e", right: "#a99670" };
+      k.box(1.2, 1.8, 3.6, 2.4, 120 * Math.max(0.3, part(0)), stoneColors);
+      if (part(0) === 1) {
+        k.windowsLeft(1.2, 1.8, 3.6, 2.4, 25, 80, 1, 5, "#7fb3e0", "#5a4630");
+        k.gable(1.2, 1.8, 3.6, 2.4, 120, 60, "#4a9a82");
+      }
+      if (part(2) > 0) {
+        // The copper dome over the crossing
+        k.cylinder(3, 3, 1.0, 50 * part(2), "#e8dcc4", 150, part(2) === 1 ? "dome" : "flat", "#5fb39a");
+        if (part(2) === 1) {
+          k.attach("flag", 3, 3, 300, 1, "#f6c744");
+        }
+      }
+      if (part(1) > 0) {
+        // Twin towers at the front
+        for (const u of [1.0, 4.0]) {
+          k.box(u, 4.2, 1.0, 1.0, 220 * part(1), stoneColors);
+          if (part(1) === 1) {
+            k.cylinder(u + 0.5, 4.7, 0.55, 4, "#4a9a82", 220, "cone", "#5fb39a");
+          }
+        }
+      }
+      break;
+    }
+    default: {
+      // The later Era Wonders: a tower of glass and steel that grows with every stage
+      const height = 110 * (built + (finished ? 0 : 0.35));
+      k.box(1.5, 1.5, 3, 3, Math.max(40, height), { top: "#9fb7cf", left: "#5d7d99", right: "#4a6680" });
+      k.windowsLeft(
+        1.5,
+        1.5,
+        3,
+        3,
+        20,
+        Math.max(30, height - 30),
+        Math.max(1, Math.round(height / 40)),
+        5,
+        "#cfe8ff",
+      );
+      k.windowsRight(
+        1.5,
+        1.5,
+        3,
+        3,
+        20,
+        Math.max(30, height - 30),
+        Math.max(1, Math.round(height / 40)),
+        5,
+        "#bfe0ff",
+      );
+      if (finished) {
+        k.lattice(3, 3, height, height + 200, 20, "#d9d9d9");
+        k.attach("blink", 3, 3, height + 205, 0.8, "#ff5a4f");
+      }
+    }
+  }
+  if (!finished) {
+    const z = [0, 60, 220][Math.min(2, built)] ?? 0;
+    scaffold(k, 1.5, 1.5, 3, 3, z, 160);
+    crane(k, 5.2, 1, 330);
+  }
+  if (look.label !== null) {
+    k.text(3, 5.7, 6, look.label.toUpperCase(), "#f2c230", 30);
+  }
+  return { canvas: k.canvas, size: 6, attachments: k.attachments };
 }
 
 /** The HQ tower grows a floor per HQ level */
@@ -1070,6 +1274,9 @@ function drawCorporationHq(look: HubStructureLook): BuildingArt {
 export function drawHubStructure(type: string, size: number, look?: HubStructureLook): BuildingArt {
   if (type === "corporationHq") {
     return drawCorporationHq(look ?? { label: null, color: null, level: 1 });
+  }
+  if ((type === "wonderSite" || type === "eraWonderSite") && look?.variant) {
+    return drawWonder(look);
   }
   const k = new Iso(size, size * 90 + 60);
   const s = size;

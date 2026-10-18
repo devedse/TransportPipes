@@ -190,7 +190,7 @@ public sealed partial class GameWorld
     /// <summary>What a hub wants per minute of a resource before its price drops</summary>
     public double HubDemand(DistrictCoord district, string resource) =>
         (Content.Resources.TryGetValue(resource, out var definition) ? definition.Demand : 0) * Math.Max(1, ActiveCompanies(district)) * Math.Pow(1.5, Era - 1)
-        * EventDemandFactor(district, resource);
+        * EventDemandFactor(district, resource) * WonderDemandFactor(district);
 
     private void UpdateMarkets()
     {

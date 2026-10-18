@@ -77,6 +77,9 @@ public sealed class Company : Entity
     /// <summary>Likes of the estate (all time)</summary>
     public int Likes { get; set; }
 
+    /// <summary>Titles earned (Wonder tiers, achievements)</summary>
+    public HashSet<string> Titles { get; init; } = new();
+
     /// <summary>How well this company keeps its contracts (0..1, starts at 1): the stars others see</summary>
     public double ContractScore { get; set; } = 1;
 

@@ -1,0 +1,90 @@
+# Wonders (GDD §9.3, §9.4). Everyone delivers to them from their storages.
+# Stage amounts are for 8 active companies (in the district, or on the server); when a stage begins they scale with the
+# number of active companies (at least 3).
+# District Wonders give everyone in the district a perk for the rest of the season when they are finished:
+#   hubDemand  the hub wants more of everything        production  more production for everyone
+#   research   labs make more research points          cargo       Exchange cargo arrives faster
+# The Era Wonder in the Capital starts the next Era when it is finished (at the latest on the Era's deadline).
+
+district:
+  - id: clockTower
+    name: Clock Tower
+    perk: { kind: hubDemand, amount: 0.1 }
+    description: The hub wants 10% more of everything.
+    stages:
+      - { bricks: 3000, planks: 3000 }
+      - { ironIngot: 2000, glass: 1000 }
+      - { bricks: 6000, glass: 3000, copperIngot: 1500 }
+
+  - id: grandFountain
+    name: Grand Fountain
+    perk: { kind: production, amount: 0.05 }
+    description: Everyone in the district makes 5% more.
+    stages:
+      - { stone: 4000, planks: 2000 }
+      - { bricks: 3000, glass: 1500 }
+      - { glass: 4000, copperIngot: 2000 }
+
+  - id: observatory
+    name: Observatory
+    perk: { kind: research, amount: 0.1 }
+    description: Labs make 10% more research points.
+    stages:
+      - { bricks: 3000, ironIngot: 1000 }
+      - { glass: 2000, copperIngot: 1000 }
+      - { glass: 4000, ironIngot: 3000, copperIngot: 2000 }
+
+  - id: lighthouse
+    name: Lighthouse
+    perk: { kind: cargo, amount: 0.5 }
+    description: Exchange cargo arrives twice as fast.
+    stages:
+      - { stone: 4000, bricks: 1500 }
+      - { bricks: 4000, glass: 1000 }
+      - { ironIngot: 3000, glass: 3000 }
+
+era:
+  - id: greatDynamo
+    era: 1
+    name: The Great Dynamo
+    description: The power plant of a new age. Finishing it starts Era 2.
+    stages:
+      - { bricks: 30000, ironIngot: 15000 }
+      - { glass: 20000, ironIngot: 25000 }
+      - { bricks: 60000, glass: 40000, copperIngot: 20000 }
+
+  - id: copperCathedral
+    era: 2
+    name: The Copper Cathedral
+    description: A cathedral of copper and steel. Finishing it starts Era 3.
+    stages:
+      - { steel: 20000, concrete: 30000 }
+      - { copperWire: 20000, steel: 30000 }
+      - { concrete: 60000, copperWire: 40000, gears: 10000 }
+
+  - id: refineryTower
+    era: 3
+    name: The Grand Refinery Tower
+    description: Oil becomes everything. Finishing it starts Era 4.
+    stages:
+      - { plastic: 20000, steel: 30000 }
+      - { gears: 20000, plastic: 30000 }
+      - { steel: 60000, plastic: 50000, gears: 30000 }
+
+  - id: thinkingMachine
+    era: 4
+    name: The Thinking Machine
+    description: A machine that thinks. Finishing it starts Era 5.
+    stages:
+      - { circuits: 10000, engines: 5000 }
+      - { circuits: 20000, robots: 3000 }
+      - { robots: 8000, circuits: 30000, engines: 10000 }
+
+  - id: spaceElevator
+    era: 5
+    name: The Space Elevator
+    description: The season finale. When it launches, the season ends.
+    stages:
+      - { superconductors: 5000, steel: 100000 }
+      - { robots: 10000, superconductors: 10000 }
+      - { superconductors: 20000, engines: 20000, circuits: 50000 }
