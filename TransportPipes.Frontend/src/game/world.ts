@@ -6,6 +6,7 @@ import type {
   DistrictDto,
   EstateDto,
   NetworkFlowsDto,
+  OutpostDto,
   TerrainType,
 } from "../api/contracts";
 import { CHUNK_SIZE, chunkOf, districtOf, tileKey, zoneAt } from "./layout";
@@ -56,6 +57,10 @@ export class WorldModel {
   private readonly overridesByChunk = new Map<string, Set<number>>();
   private readonly tileBuilding = new Map<number, number>();
   private readonly overrides = new Map<number, TerrainType>();
+  readonly outposts = new Map<number, OutpostDto>();
+  private readonly outpostsByChunk = new Map<string, Set<number>>();
+  private readonly deposits = new Map<number, { deposit: string; richness: number }>();
+  private readonly depositsByChunk = new Map<string, Set<number>>();
   private readonly listeners = new Set<WorldListener>();
 
   private readonly terrainNames: TerrainType[];
@@ -129,9 +134,46 @@ export class WorldModel {
       overrideKeys.add(k);
     }
     this.overridesByChunk.set(key, overrideKeys);
+
+    const outpostIds = new Set<number>();
+    for (const outpost of dto.outposts) {
+      this.outposts.set(outpost.id, outpost);
+      outpostIds.add(outpost.id);
+    }
+    this.outpostsByChunk.set(key, outpostIds);
+
+    const depositKeys = new Set<number>();
+    for (const deposit of dto.deposits) {
+      const k = tileKey(deposit.x, deposit.y);
+      this.deposits.set(k, { deposit: deposit.deposit, richness: deposit.richness });
+      depositKeys.add(k);
+    }
+    this.depositsByChunk.set(key, depositKeys);
+  }
+
+  /** The outpost a tile is in (when a chunk with it is loaded) */
+  outpostAt(x: number, y: number): OutpostDto | undefined {
+    for (const outpost of this.outposts.values()) {
+      if (x >= outpost.x && y >= outpost.y && x < outpost.x + outpost.size && y < outpost.y + outpost.size) {
+        return outpost;
+      }
+    }
+    return undefined;
   }
 
   private clearObjects(key: string) {
+    const outposts = this.outpostsByChunk.get(key) ?? new Set<number>();
+    this.outpostsByChunk.delete(key);
+    for (const id of outposts) {
+      // An outpost spans chunks: it stays while another chunk still has it
+      if (![...this.outpostsByChunk.values()].some((ids) => ids.has(id))) {
+        this.outposts.delete(id);
+      }
+    }
+    for (const k of this.depositsByChunk.get(key) ?? []) {
+      this.deposits.delete(k);
+    }
+    this.depositsByChunk.delete(key);
     for (const id of this.buildingsByChunk.get(key) ?? []) {
       const building = this.buildings.get(id);
       if (building !== undefined) {
@@ -185,10 +227,13 @@ export class WorldModel {
     const i = (y - c.y * CHUNK_SIZE) * CHUNK_SIZE + (x - c.x * CHUNK_SIZE);
     const depositIndex = chunk.deposits[i] ?? 0;
     const override = this.overrides.get(tileKey(x, y));
+    // A Discovery's deposit
+    const discovered = this.deposits.get(tileKey(x, y));
     return {
       terrain: override ?? this.terrainNames[chunk.terrain[i] ?? 0] ?? "grass",
-      deposit: depositIndex > 0 ? (chunk.depositNames[depositIndex - 1] ?? null) : null,
-      richness: chunk.richness[i] ?? 0,
+      deposit:
+        discovered?.deposit ?? (depositIndex > 0 ? (chunk.depositNames[depositIndex - 1] ?? null) : null),
+      richness: discovered?.richness ?? chunk.richness[i] ?? 0,
       wind: (chunk.wind[i] ?? 100) / 100,
       sun: (chunk.sun[i] ?? 100) / 100,
     };

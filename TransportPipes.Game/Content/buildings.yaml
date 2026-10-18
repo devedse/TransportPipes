@@ -504,7 +504,8 @@
   unlock: { level: 12 }
   cost: { gold: 10000 }
   buildSeconds: 300
-  description: Ships Exchange deliveries and outpost cargo by truck.
+  throughput: 200
+  description: Trucks connect all your Cargo Depots (estate and outposts) like a pipe without losses, 200 per minute per level. Halves Exchange cargo times.
 
 - id: powerLinePylon
   name: Power Line Pylon

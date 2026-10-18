@@ -60,6 +60,7 @@ public static class GameViews
             world.EraDeadline,
             company.Titles.OrderBy(t => t).ToList(),
             company.Achievements.Where(t => t.StartsWith("collection:")).Select(t => t["collection:".Length..]).ToList(),
+            world.OutpostsOf(company.Id).Select(t => Outpost(world, t, company.Id)).ToList(),
             world.Now);
     }
 
@@ -186,7 +187,44 @@ public static class GameViews
                 }
             }
         }
-        return new ChunkObjectsDto(cx, cy, buildings, conductors, overrides);
+        var outposts = world.Outposts
+            .Where(t => t.X < x0 + WorldLayout.ChunkSize && t.X + GameWorld.OutpostSize > x0 && t.Y < y0 + WorldLayout.ChunkSize && t.Y + GameWorld.OutpostSize > y0)
+            .Select(t => Outpost(world, t, null))
+            .ToList();
+        var deposits = new List<DepositOverrideDto>();
+        foreach (var discovery in world.Discoveries.Where(t => Math.Abs(t.X - (x0 + WorldLayout.ChunkSize / 2)) < WorldLayout.ChunkSize && Math.Abs(t.Y - (y0 + WorldLayout.ChunkSize / 2)) < WorldLayout.ChunkSize))
+        {
+            for (var y = discovery.Y - 3; y <= discovery.Y + 3; y++)
+            {
+                for (var x = discovery.X - 3; x <= discovery.X + 3; x++)
+                {
+                    if (x >= x0 && x < x0 + WorldLayout.ChunkSize && y >= y0 && y < y0 + WorldLayout.ChunkSize && world.DepositOverride(new TilePos(x, y)) is { } deposit)
+                    {
+                        deposits.Add(new DepositOverrideDto(x, y, deposit.Deposit, deposit.Richness));
+                    }
+                }
+            }
+        }
+        return new ChunkObjectsDto(cx, cy, buildings, conductors, overrides, outposts, deposits);
+    }
+
+    public static OutpostDto Outpost(GameWorld world, Outpost outpost, long? viewer)
+    {
+        var owner = world.Company(outpost.Owner);
+        var mine = viewer == outpost.Owner;
+        return new OutpostDto(outpost.Id, outpost.Owner, owner?.Name ?? "", owner?.Color ?? "#888888", outpost.X, outpost.Y, GameWorld.OutpostSize, mine ? outpost.Lease : null, mine ? outpost.PaidUntil : null);
+    }
+
+    /// <summary>The best claim covering a tile</summary>
+    public static OutpostCheckDto OutpostCheck(GameWorld world, Company company, TilePos tile)
+    {
+        var (origin, error) = world.BestOutpostAt(company, tile);
+        var tiles = Enumerable.Range(0, GameWorld.OutpostSize * GameWorld.OutpostSize)
+            .Select(i => world.Tile(origin.Offset(i % GameWorld.OutpostSize, i / GameWorld.OutpostSize)))
+            .Where(t => t.Deposit != null && t.Richness >= 3)
+            .ToList();
+        var deposit = tiles.GroupBy(t => t.Deposit).OrderByDescending(t => t.Count()).Select(t => t.Key).FirstOrDefault();
+        return new OutpostCheckDto(error, origin.X, origin.Y, world.OutpostLease(), GameWorld.OutpostSize, deposit, tiles.Count);
     }
 
     public static ChunkDto Chunk(GameWorld world, int cx, int cy)

@@ -75,14 +75,15 @@ public sealed partial class GameWorld
         {
             _dirtyTiles.Add(tile);
         }
-        // A pylon joins (or splits) the networks of the pylons its cable reaches
-        if (Content.Building(building.Type).Kind == BuildingKind.PowerLine)
+        // A pylon or a Cargo Depot joins (or splits) the networks it reaches
+        var kind = Content.Building(building.Type).Kind;
+        var remote = kind == BuildingKind.PowerLine ? PylonsInReach(building)
+            : kind == BuildingKind.CargoDepot ? _buildings.Values.Where(t => t.Id != building.Id && t.Owner == building.Owner && IsCargoDepot(t))
+            : [];
+        foreach (var other in remote.ToList())
         {
-            foreach (var other in PylonsInReach(building))
-            {
-                _dirtyBuildings.Add(other.Id);
-                _dirtyTiles.Add(other.Position);
-            }
+            _dirtyBuildings.Add(other.Id);
+            _dirtyTiles.Add(other.Position);
         }
     }
 
@@ -154,6 +155,16 @@ public sealed partial class GameWorld
     private bool IsConductorBuilding(Building building) => !building.UnderConstruction && Content.Building(building.Type).IsConductor;
 
     private bool IsPylon(Building building) => !building.UnderConstruction && Content.Building(building.Type).Kind == BuildingKind.PowerLine;
+
+    private bool IsCargoDepot(Building building) => !building.UnderConstruction && Content.Building(building.Type).Kind == BuildingKind.CargoDepot;
+
+    /// <summary>The other Cargo Depots of a depot's owner: trucks connect them all (estate and outposts)</summary>
+    public IEnumerable<Building> CargoPartners(Building depot) =>
+        _buildings.Values.Where(t => t.Id != depot.Id && t.Owner == depot.Owner && IsCargoDepot(t));
+
+    /// <summary>The buildings a pylon's cable or a depot's trucks reach</summary>
+    private IEnumerable<Building> RemoteLinks(Building building) =>
+        IsPylon(building) ? PylonsInReach(building) : IsCargoDepot(building) ? CargoPartners(building) : [];
 
     /// <summary>The pylons a pylon's cable reaches: the owner's pylons within its reach</summary>
     public IEnumerable<Building> PylonsInReach(Building pylon)
@@ -275,8 +286,11 @@ public sealed partial class GameWorld
                 var building = _buildings[id];
                 if (IsConductorBuilding(building))
                 {
-                    // A valve is part of the pipe
-                    VisitTile(building.Position);
+                    // A valve is part of the pipe (a Cargo Depot with all its tiles)
+                    foreach (var tile in building.Footprint())
+                    {
+                        VisitTile(tile);
+                    }
                 }
                 else
                 {
@@ -298,10 +312,10 @@ public sealed partial class GameWorld
         {
             while (tiles.TryDequeue(out var tile))
             {
-                // A power line reaches the next pylons
-                if (_buildingAt.TryGetValue(tile, out var here) && IsPylon(_buildings[here]))
+                // A power line reaches the next pylons, trucks the owner's other Cargo Depots
+                if (_buildingAt.TryGetValue(tile, out var here) && _buildings[here].Position == tile)
                 {
-                    foreach (var other in PylonsInReach(_buildings[here]))
+                    foreach (var other in RemoteLinks(_buildings[here]))
                     {
                         VisitBuilding(other.Id);
                     }
@@ -379,6 +393,11 @@ public sealed partial class GameWorld
         {
             return new TileStats(0, definition.Throughput, EnergyOnly, false);
         }
+        if (definition.Kind == BuildingKind.CargoDepot)
+        {
+            // Trucks carry everything, without losses, more with every level
+            return new TileStats(0, definition.Throughput * building.Level, null, false);
+        }
         return new TileStats(0, double.MaxValue, definition.Kind == BuildingKind.Valve && building.Filter.Count > 0 ? building.Filter : null, definition.Kind == BuildingKind.PriorityValve);
     }
 
@@ -394,9 +413,9 @@ public sealed partial class GameWorld
         var cables = new Dictionary<TilePos, List<TilePos>>();
         foreach (var tile in network.Conductors)
         {
-            if (_buildingAt.TryGetValue(tile, out var id) && IsPylon(_buildings[id]))
+            if (_buildingAt.TryGetValue(tile, out var id) && _buildings[id].Position == tile && (IsPylon(_buildings[id]) || IsCargoDepot(_buildings[id])))
             {
-                cables[tile] = PylonsInReach(_buildings[id]).Select(t => t.Position).Where(network.Conductors.Contains).ToList();
+                cables[tile] = RemoteLinks(_buildings[id]).Select(t => t.Position).Where(network.Conductors.Contains).ToList();
             }
         }
         var members = network.Buildings.Where(t => !IsConductorBuilding(_buildings[t])).OrderBy(t => t).ToList();

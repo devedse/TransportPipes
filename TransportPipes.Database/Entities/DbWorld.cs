@@ -22,4 +22,7 @@ public class DbWorld
 
     /// <summary>The Era Wonder, the District Wonders and when the Era began (jsonb)</summary>
     public string Wonders { get; set; } = "{}";
+
+    /// <summary>Outposts in the wilderness and the deposits Discoveries left (jsonb)</summary>
+    public string Outposts { get; set; } = "{}";
 }

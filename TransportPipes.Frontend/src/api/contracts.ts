@@ -67,6 +67,7 @@ export interface CompanyDto {
   titles: string[];
   /** Finished collections (they unlock decorations) */
   collections: string[];
+  outposts: OutpostDto[];
   serverTime: string;
 }
 
@@ -216,6 +217,40 @@ export interface ChunkObjectsDto {
   buildings: BuildingDto[];
   conductors: ConductorDto[];
   terrainOverrides: TerrainOverrideDto[];
+  outposts: OutpostDto[];
+  /** Deposits that differ from the generated terrain (Discoveries) */
+  deposits: DepositOverrideDto[];
+}
+
+/** An outpost claim in the wilderness (lease details only for its owner) */
+export interface OutpostDto {
+  id: number;
+  owner: number;
+  ownerName: string;
+  ownerColor: string;
+  x: number;
+  y: number;
+  size: number;
+  lease: number | null;
+  paidUntil: string | null;
+}
+
+export interface DepositOverrideDto {
+  x: number;
+  y: number;
+  deposit: string;
+  richness: number;
+}
+
+export interface OutpostCheckDto {
+  error: string | null;
+  /** The best claim covering the tile */
+  x: number;
+  y: number;
+  lease: number;
+  size: number;
+  deposit: string | null;
+  richTiles: number;
 }
 
 export interface ChunkDto {

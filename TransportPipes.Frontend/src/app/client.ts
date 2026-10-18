@@ -20,6 +20,7 @@ import {
   gateTiles,
   isParcelUnlocked,
   parcelOf,
+  zoneAt,
 } from "../game/layout";
 import { newPipeTiles, routePipe } from "../game/rules";
 import { WorldModel } from "../game/world";
@@ -480,6 +481,8 @@ export class GameClient {
                 bottlenecks: state.networkDetails?.bottlenecks.map((t) => t.path) ?? [],
               },
         serverOffsetMs: state.serverOffsetMs,
+        wildTile: state.wildTile,
+        outpostCheck: state.outpostCheck,
       };
     },
     canRequest: () => this.connection.status === "connected" && appStore.getState().phase === "playing",
@@ -603,6 +606,12 @@ export class GameClient {
           setState({ selectedParcel: parcel, selectedBuilding: null, buildingDetails: null });
           return;
         }
+      }
+      // The wilderness: an outpost, or a claim
+      if (zoneAt(tile.x, tile.y).kind === "wilderness") {
+        this.select(null);
+        void this.selectWild(tile);
+        return;
       }
       // Someone else's estate: visit it
       const estate = this.world?.estateAt(tile.x, tile.y);
@@ -803,6 +812,40 @@ export class GameClient {
           report: { ...report, fullStorages: report.fullStorages.filter((t) => t.building !== building) },
         });
       }
+    }
+  }
+
+  // ---------------------------------------------------------------- Outposts
+
+  async selectWild(tile: TilePosition) {
+    setState({ wildTile: tile, outpostCheck: null, visiting: null, visit: null });
+    if (this.world?.outpostAt(tile.x, tile.y) !== undefined) {
+      return;
+    }
+    const check = await this.connection.checkOutpost(tile.x, tile.y).catch(() => null);
+    if (appStore.getState().wildTile === tile) {
+      setState({ outpostCheck: check });
+    }
+  }
+
+  closeWild() {
+    setState({ wildTile: null, outpostCheck: null });
+  }
+
+  async claimOutpost() {
+    // The best claim the server found around the tile
+    const check = appStore.getState().outpostCheck;
+    if (
+      check !== null &&
+      (await this.command(this.connection.claimOutpost(check.x, check.y), "The outpost is yours!"))
+    ) {
+      setState({ outpostCheck: null });
+    }
+  }
+
+  async releaseOutpost(outpost: number) {
+    if (await this.command(this.connection.releaseOutpost(outpost), "The land went back to the wilderness")) {
+      this.closeWild();
     }
   }
 

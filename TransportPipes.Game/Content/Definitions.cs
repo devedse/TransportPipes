@@ -107,7 +107,7 @@ public sealed class BuildingDefinition
     public string Description { get; init; } = "";
 
     /// <summary>Sits in a pipe and carries resources like a pipe tile (valves, toll meters)</summary>
-    public bool IsConductor => Kind is BuildingKind.Gate or BuildingKind.Valve or BuildingKind.PriorityValve or BuildingKind.TollMeter or BuildingKind.PowerLine;
+    public bool IsConductor => Kind is BuildingKind.Gate or BuildingKind.Valve or BuildingKind.PriorityValve or BuildingKind.TollMeter or BuildingKind.PowerLine or BuildingKind.CargoDepot;
 }
 
 public enum WonderPerk

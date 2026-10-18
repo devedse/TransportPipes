@@ -48,9 +48,10 @@ public sealed class WorldChanges
 
     public bool Exchange { get; set; }
     public bool Wonders { get; set; }
+    public bool Outposts { get; set; }
     public List<WorldEvent> Events { get; } = new();
 
-    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Contracts.Count == 0 && Corporations.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && Events.Count == 0;
+    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Contracts.Count == 0 && Corporations.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && !Outposts && Events.Count == 0;
 }
 
 /// <summary>
@@ -136,8 +137,16 @@ public sealed partial class GameWorld
     public TileInfo Tile(TilePos pos)
     {
         var info = Generator.Tile(pos);
+        if (_discoveries.Count != 0 && info.IsBuildableTerrain && DiscoveryAt(pos) is { } discovery)
+        {
+            info = info with { Deposit = discovery.Resource, Richness = 5 };
+        }
         return _terrainOverrides.TryGetValue(pos, out var terrain) ? info with { Terrain = terrain } : info;
     }
+
+    /// <summary>Deposits that differ from the generated terrain (discoveries), for the clients</summary>
+    public (string Deposit, int Richness)? DepositOverride(TilePos pos) =>
+        _discoveries.Count != 0 && Generator.Tile(pos).IsBuildableTerrain && DiscoveryAt(pos) is { } discovery ? (discovery.Resource, 5) : null;
 
     public bool IsOccupied(TilePos pos) => _buildingAt.ContainsKey(pos) || _conductors.ContainsKey(pos);
 
@@ -397,11 +406,18 @@ public sealed partial class GameWorld
 
         foreach (var tile in footprint)
         {
-            if (!estate.Contains(tile))
+            if (OutpostAt(tile) is { } outpost)
             {
-                return CommandResult.Fail("You can only build on your own estate.");
+                if (outpost.Owner != company.Id)
+                {
+                    return CommandResult.Fail("This is someone else's outpost.");
+                }
             }
-            if (!estate.IsUnlocked(estate.ParcelAt(tile)))
+            else if (!estate.Contains(tile))
+            {
+                return CommandResult.Fail("You can only build on your own estate and your outposts.");
+            }
+            else if (!estate.IsUnlocked(estate.ParcelAt(tile)))
             {
                 return CommandResult.Fail("This parcel is still locked. Buy it first.");
             }
@@ -828,8 +844,15 @@ public sealed partial class GameWorld
                     break;
                 case ZoneKind.Corridor:
                     break;
+                case ZoneKind.Wilderness:
+                    // A long way home from an outpost
+                    if (OutpostAt(tile) is { } outpost && outpost.Owner != companyId)
+                    {
+                        return CommandResult.Fail("This is someone else's outpost.");
+                    }
+                    break;
                 default:
-                    return CommandResult.Fail("Pipes go on your estate and in the corridors.");
+                    return CommandResult.Fail("Pipes go on your estate, in the corridors and in the wilderness.");
             }
             if (IsOccupied(tile))
             {

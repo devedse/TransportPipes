@@ -280,6 +280,17 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> DismissManager(string manager) =>
         Command((world, company) => world.DismissManager(company, manager));
 
+    // ---------------------------------------------------------------- Outposts
+
+    public Task<OutpostCheckDto?> CheckOutpost(int x, int y) =>
+        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.OutpostCheck(world, company, new TilePos(x, y)) : null, changesWorld: false);
+
+    public Task<CommandResultDto> ClaimOutpost(int x, int y) =>
+        Command((world, company) => world.ClaimOutpost(company, new TilePos(x, y)));
+
+    public Task<CommandResultDto> ReleaseOutpost(long outpost) =>
+        Command((world, company) => world.ReleaseOutpost(company, outpost));
+
     // ---------------------------------------------------------------- Wonders
 
     public Task<WondersDto?> GetWonders() =>
@@ -548,6 +559,15 @@ public sealed class GameHub : Hub<IGameClient>
                     break;
                 case "era":
                     world.AdvanceEra();
+                    break;
+                case "discover":
+                    // A copper Discovery in the wilderness north of your estate, 8 tiles from the district's edge
+                    var estateOrigin = world.EstateOf(company)!.Origin;
+                    var edge = Enumerable.Range(0, 200).Select(d => new TilePos(estateOrigin.X + 12, estateOrigin.Y - 5 - d))
+                        .First(t => WorldLayout.ZoneAt(t.X, t.Y).Kind == ZoneKind.Wilderness);
+                    var spot = Enumerable.Range(8, 15).Select(d => edge.Offset(0, -d))
+                        .FirstOrDefault(t => world.Generator.Tile(t).IsBuildableTerrain && world.OutpostAt(t) == null);
+                    world.StartDiscovery(spot, "copperOre");
                     break;
                 case "stock":
                     // 1,000 of every resource of this Era in your first storage

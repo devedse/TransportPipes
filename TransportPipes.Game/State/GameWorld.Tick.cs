@@ -33,6 +33,10 @@ public sealed partial class GameWorld
         {
             events.Add((at, long.MinValue + 5, run));
         }
+        foreach (var (at, run) in LeaseMoments(LastTick, now).ToList())
+        {
+            events.Add((at, long.MinValue + 6, run));
+        }
         foreach (var building in _buildings.Values.Where(t => t.ConstructionEndsAt is { } end && end <= now))
         {
             events.Add((building.ConstructionEndsAt!.Value, building.Id, () => CompleteConstruction(building)));
@@ -93,9 +97,9 @@ public sealed partial class GameWorld
     {
         building.ConstructionEndsAt = null;
         building.Touch();
-        if (Content.Building(building.Type).Kind == BuildingKind.PowerLine)
+        if (Content.Building(building.Type).Kind is BuildingKind.PowerLine or BuildingKind.CargoDepot)
         {
-            // Its cables connect now
+            // Its cables (or cargo routes) connect now
             MarkDirty(building);
         }
         MarkNeedsSolve(building.Id);

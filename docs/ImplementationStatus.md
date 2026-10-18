@@ -57,7 +57,7 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 - ✅ Events and calendar: storms (wind ×2, damage and repairs), heatwaves, droughts, cold snaps, expos, shortages (urgent orders), festivals; planned per district from the seed, announced a day ahead, three days with a Weather Station; weather on the screen
 - ✅ District Wonders (Clock Tower, Grand Fountain, Observatory, Lighthouse; three stages, a perk for the district) and the Era Wonders in the Capital (Great Dynamo … Space Elevator; Bronze to Diamond rewards and titles), Eras with deadlines and a launch party, Era 2 power lines (energy-only cables between pylons, across water)
 - ✅ Managers (Engineer Jo, Accountant Bea, Foreman Rick, Trader Lin, Planner Sam; slots from Company Level, Automation, Engineer's Workshop and corporation HQ 4), 44 achievements with XP, gold, titles and small bonuses, collections that unlock golden decorations, the Company panel
-- ⬜ Outposts and the wilderness
+- ✅ Outposts and the wilderness: 8×8 claims on rich deposits from Company Level 15 (three at most, weekly lease), pipes through the wilderness, Cargo Depots that connect all their owner's networks, Discovery events with new rich deposits
 
 ### M6 · Full season
 
@@ -108,4 +108,7 @@ Changes to [GameDesign.md](GameDesign.md) that came up while building; the desig
 | 2026-10-18 | Power line pylons reach 8 tiles to the owner's next pylon, carry only energy, without losses and over water | Long distance energy in Era 2 without losses, but pipes stay needed for goods |
 | 2026-10-18 | Managers are hired once (no wages) and can be dismissed to free a slot; their automations run with the market update every 15 minutes (Bea sells 5% of a full storage's capacity, Rick buys one level that pays back within 2 h while keeping 3× its cost) | Simple to understand, never drains a company that is away |
 | 2026-10-18 | Achievements are checked once a minute; collections need every building of a list at level 10 and unlock a golden decoration | Cheap to check, clear goals for veterans |
+| 2026-10-18 | An outpost needs at least 4 rich tiles (3 stars or more); the claim covering a clicked tile is chosen for the most rich tiles; the lease is 3,000 × Era gold a week, paid automatically, and an unpaid lease gives the land back (buildings demolished at half their cost) | Fair, simple, no surprise costs that pile up |
+| 2026-10-18 | Cargo Depots connect all networks of their owner (estate and outposts) like a lossless pipe of 200 per minute per level, instead of shipping in batches | The same flow model everywhere; trucks are a stronger but expensive alternative to a long, lossy pipe |
+| 2026-10-18 | Anyone may lay pipes through the wilderness, except in someone else's outpost | Outposts need a way home |
 | 2026-10-18 | Shortage orders are a fourth, urgent order (twice the size, three times the reward per unit) that disappears when the shortage ends; festivals fall on fixed holidays | They add to the daily rhythm without replacing it |

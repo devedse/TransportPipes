@@ -28,8 +28,12 @@ public sealed class GameEvent
     public DateTime StartsAt { get; init; }
     public DateTime EndsAt { get; init; }
 
-    /// <summary>Expo and Shortage: the product</summary>
+    /// <summary>Expo and Shortage: the product; Discovery: the deposit</summary>
     public string? Resource { get; init; }
+
+    /// <summary>Discovery: where the deposit appears</summary>
+    public int? X { get; init; }
+    public int? Y { get; init; }
 
     public bool Announced { get; set; }
     public bool Started { get; set; }
@@ -230,6 +234,8 @@ public sealed partial class GameWorld
         {
             AddEvent(new GameEvent { Id = NextEventId++, Kind = EventKind.Festival, District = null, StartsAt = day, EndsAt = day.AddDays(1) });
         }
+        var dayNumber = (ulong)(day - DateTime.UnixEpoch).TotalDays;
+        PlanDiscovery(day, new SeededRandom((ulong)Generator.Seed * 8191 + dayNumber * 524287));
     }
 
     private void AddEvent(GameEvent gameEvent)
@@ -285,7 +291,7 @@ public sealed partial class GameWorld
         EventKind.ColdSnap => "Cold Snap",
         EventKind.Expo => $"{ResourceName(gameEvent.Resource)} Expo",
         EventKind.Shortage => $"{ResourceName(gameEvent.Resource)} Shortage",
-        EventKind.Discovery => "Discovery",
+        EventKind.Discovery => $"{ResourceName(gameEvent.Resource)} Discovery",
         EventKind.Festival => "Festival",
         _ => $"Era {Era} launch",
     };
@@ -298,7 +304,7 @@ public sealed partial class GameWorld
         EventKind.ColdSnap => "The hub wants twice as much energy",
         EventKind.Expo => $"The hub pays ×3 for {ResourceName(gameEvent.Resource).ToLowerInvariant()}",
         EventKind.Shortage => $"An urgent order for {ResourceName(gameEvent.Resource).ToLowerInvariant()} with a big reward",
-        EventKind.Discovery => "A rich deposit appeared in the wilderness",
+        EventKind.Discovery => $"A rich {ResourceName(gameEvent.Resource).ToLowerInvariant()} deposit appears in the wilderness: claim an outpost on it",
         EventKind.Festival => "Likes count double",
         _ => "+10% production for everyone",
     };
@@ -332,6 +338,9 @@ public sealed partial class GameWorld
         {
             case EventKind.Storm:
                 DamageInStorm(gameEvent);
+                break;
+            case EventKind.Discovery:
+                Discover(gameEvent);
                 break;
             case EventKind.Shortage when gameEvent.Resource != null:
                 foreach (var company in CompaniesIn(gameEvent).Where(t => t.LastSeenAt >= LastTick - ActivePeriod))

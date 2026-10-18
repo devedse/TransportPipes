@@ -66,6 +66,7 @@ public record CompanyDto(
     DateTime EraDeadline,
     IReadOnlyList<string> Titles,
     IReadOnlyList<string> Collections,
+    IReadOnlyList<OutpostDto> Outposts,
     DateTime ServerTime);
 
 /// <summary>An event in the calendar (GDD §15)</summary>
@@ -123,7 +124,22 @@ public record ConductorDto(int X, int Y, string Kind, int Tier, long Owner, stri
 /// </summary>
 public record ChunkDto(int Cx, int Cy, string? Terrain, string? Deposits, string? Richness, string? Wind, string? Sun, IReadOnlyList<string> DepositNames, ChunkObjectsDto Objects);
 
-public record ChunkObjectsDto(int Cx, int Cy, IReadOnlyList<BuildingDto> Buildings, IReadOnlyList<ConductorDto> Conductors, IReadOnlyList<TerrainOverrideDto> TerrainOverrides);
+public record ChunkObjectsDto(
+    int Cx,
+    int Cy,
+    IReadOnlyList<BuildingDto> Buildings,
+    IReadOnlyList<ConductorDto> Conductors,
+    IReadOnlyList<TerrainOverrideDto> TerrainOverrides,
+    IReadOnlyList<OutpostDto> Outposts,
+    IReadOnlyList<DepositOverrideDto> Deposits);
+
+/// <summary>An outpost claim (lease details only for its owner)</summary>
+public record OutpostDto(long Id, long Owner, string OwnerName, string OwnerColor, int X, int Y, int Size, double? Lease, DateTime? PaidUntil);
+
+/// <summary>A deposit that differs from the generated terrain (a Discovery)</summary>
+public record DepositOverrideDto(int X, int Y, string Deposit, int Richness);
+
+public record OutpostCheckDto(string? Error, int X, int Y, double Lease, int Size, string? Deposit, int RichTiles);
 
 public record TerrainOverrideDto(int X, int Y, string Terrain);
 

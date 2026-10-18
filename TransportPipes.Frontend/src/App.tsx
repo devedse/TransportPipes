@@ -10,6 +10,7 @@ import { CorporationPanel } from "./components/CorporationPanel";
 import { InboxPanel } from "./components/InboxPanel";
 import { LeaderboardPanel } from "./components/LeaderboardPanel";
 import { VisitPanel } from "./components/VisitPanel";
+import { WildernessPanel } from "./components/WildernessPanel";
 import { ConnectionOverlay } from "./components/ConnectionOverlay";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { FoundCompany } from "./components/FoundCompany";
@@ -66,6 +67,8 @@ function useShortcuts() {
             setState({ inboxOpen: false });
           } else if (state.visiting !== null) {
             gameClient.closeVisit();
+          } else if (state.wildTile !== null) {
+            gameClient.closeWild();
           } else if (state.plannedRoute !== null) {
             setState({ plannedRoute: null, plannedPartner: null });
           } else if (state.tool.kind !== "select") {
@@ -227,6 +230,9 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="VisitPanel">
             <VisitPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="WildernessPanel">
+            <WildernessPanel />
           </ErrorBoundary>
           <ErrorBoundary name="InboxPanel">
             <InboxPanel />

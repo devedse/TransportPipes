@@ -1,5 +1,12 @@
 import { AnimatedSprite, Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
-import type { BuildingDto, CompanyDto, ConductorDto, DistrictDto, TerrainType } from "../api/contracts";
+import type {
+  BuildingDto,
+  CompanyDto,
+  ConductorDto,
+  DistrictDto,
+  OutpostDto,
+  TerrainType,
+} from "../api/contracts";
 import { createCanvas, hash01 } from "./art/iso";
 import { TERRAIN_MAP_COLORS } from "./art/terrain";
 import { TextureBank, TERRAIN_VARIANTS } from "./art/textures";
@@ -13,6 +20,7 @@ import {
   ESTATE_SIZE,
   PARCEL_SIZE,
   PARCELS_PER_SIDE,
+  chunkOf,
   districtOf,
   districtOriginX,
   districtOriginY,
@@ -45,6 +53,9 @@ export interface EngineState {
   selectedNetwork: { id: number; bottlenecks: number[][] } | null;
   /** Milliseconds to add to Date.now() to get the server's clock */
   serverOffsetMs: number;
+  /** A wilderness tile the player looks at (an outpost or a claim), and whether that claim is possible */
+  wildTile: TilePosition | null;
+  outpostCheck: { error: string | null; x: number; y: number } | null;
 }
 
 export interface EngineCallbacks {
@@ -898,6 +909,21 @@ export class Engine {
       }
     }
 
+    // Outpost claims (drawn by the chunk with their corner)
+    for (const outpost of this.world.outposts.values()) {
+      const corner = chunkOf(outpost.x, outpost.y);
+      if (corner.x === chunk.cx && corner.y === chunk.cy) {
+        chunk.objects.push({
+          display: this.outpostView(outpost),
+          effects: null,
+          building: null,
+          machine: null,
+          idle: null,
+          progress: null,
+        });
+      }
+    }
+
     // Buildings
     for (const id of this.world.buildingIdsInChunk(chunk.cx, chunk.cy)) {
       const building = this.world.buildings.get(id);
@@ -916,6 +942,36 @@ export class Engine {
         }
       }
     }
+  }
+
+  /** The border of an outpost claim in its owner's colour, with a flag and the owner's name */
+  private outpostView(outpost: OutpostDto): Container {
+    const container = new Container();
+    const color = parseInt(outpost.ownerColor.replace("#", ""), 16);
+    const g = new Graphics();
+    traceFootprint(g, outpost.x, outpost.y, outpost.size);
+    g.fill({ color, alpha: 0.1 });
+    traceFootprint(g, outpost.x, outpost.y, outpost.size);
+    g.stroke({ color, width: 6, alpha: 0.9 });
+    container.addChild(g);
+    const label = new Text({
+      text: `⛺ ${outpost.ownerName}`,
+      style: {
+        fontFamily: "system-ui",
+        fontSize: 30,
+        fontWeight: "800",
+        fill: "#ffffff",
+        stroke: { color: "#0b1d24", width: 6 },
+      },
+    });
+    // At the front corner, where buildings don't hide it
+    const front = tileCenter(outpost.x + outpost.size - 1, outpost.y + outpost.size - 1);
+    label.anchor.set(0.5, 0);
+    label.position.set(front.x, front.y + 30);
+    container.addChild(label);
+    container.zIndex = (outpost.x + outpost.y) * 4 - 6;
+    this.objectLayer.addChild(container);
+    return container;
   }
 
   /** Power line cables from a pylon to its owner's pylons in reach (each cable once, from the pylon with the lower id) */
@@ -1221,34 +1277,45 @@ export class Engine {
         if (flow.path.length < 2 || flow.delivered <= 0) {
           continue;
         }
-        const points: Array<{ x: number; y: number }> = [];
+        // The path in pieces: a Cargo Depot route jumps far (trucks, no dots on the way)
+        const pieces: Array<Array<{ x: number; y: number }>> = [[]];
         const from = this.world.buildings.get(flow.from);
         const to = this.world.buildings.get(flow.to);
         if (from !== undefined) {
-          points.push(this.buildingCenter(from));
+          pieces[0]!.push(this.buildingCenter(from));
         }
         for (let i = 0; i < flow.path.length; i += 2) {
-          const center = tileCenter(flow.path[i]!, flow.path[i + 1]!);
-          points.push({ x: center.x, y: center.y - 22 });
+          const x = flow.path[i]!;
+          const y = flow.path[i + 1]!;
+          if (i >= 2 && Math.max(Math.abs(x - flow.path[i - 2]!), Math.abs(y - flow.path[i - 1]!)) > 9) {
+            pieces.push([]);
+          }
+          const center = tileCenter(x, y);
+          pieces[pieces.length - 1]!.push({ x: center.x, y: center.y - 22 });
         }
         if (to !== undefined) {
-          points.push(this.buildingCenter(to));
+          pieces[pieces.length - 1]!.push(this.buildingCenter(to));
         }
-        let length = 0;
-        for (let i = 1; i < points.length; i++) {
-          length += Math.hypot(points[i]!.x - points[i - 1]!.x, points[i]!.y - points[i - 1]!.y);
-        }
-        // More dots for bigger flows, spaced along the path
-        const spacing = Math.max(70, 260 / Math.log2(2 + flow.delivered));
-        const count = Math.max(1, Math.min(40, Math.floor(length / spacing)));
         const color = content.resourceColor(flow.resource);
-        for (let i = 0; i < count; i++) {
-          const sprite = new Sprite(dotTexture());
-          sprite.anchor.set(0.5);
-          sprite.scale.set(flow.kind === "sale" || flow.kind === "trade" ? 0.75 : 0.6);
-          sprite.tint = color;
-          this.flowLayer.addChild(sprite);
-          this.flowDots.push({ sprite, points, length, offset: (length / count) * i, speed: 190 });
+        for (const points of pieces) {
+          let length = 0;
+          for (let i = 1; i < points.length; i++) {
+            length += Math.hypot(points[i]!.x - points[i - 1]!.x, points[i]!.y - points[i - 1]!.y);
+          }
+          if (length <= 0) {
+            continue;
+          }
+          // More dots for bigger flows, spaced along the path
+          const spacing = Math.max(70, 260 / Math.log2(2 + flow.delivered));
+          const count = Math.max(1, Math.min(40, Math.floor(length / spacing)));
+          for (let i = 0; i < count; i++) {
+            const sprite = new Sprite(dotTexture());
+            sprite.anchor.set(0.5);
+            sprite.scale.set(flow.kind === "sale" || flow.kind === "trade" ? 0.75 : 0.6);
+            sprite.tint = color;
+            this.flowLayer.addChild(sprite);
+            this.flowDots.push({ sprite, points, length, offset: (length / count) * i, speed: 190 });
+          }
         }
       }
     }
@@ -1566,6 +1633,17 @@ export class Engine {
         traceFootprint(g, building.x, building.y, building.size);
         g.stroke({ color: 0xf6c744, width: 6 });
       }
+    }
+    if (state.wildTile !== null) {
+      // An outpost, or the claim a click would make
+      const outpost = this.world.outpostAt(state.wildTile.x, state.wildTile.y);
+      const x = outpost?.x ?? state.outpostCheck?.x ?? state.wildTile.x - 3;
+      const y = outpost?.y ?? state.outpostCheck?.y ?? state.wildTile.y - 3;
+      const ok = outpost !== undefined || (state.outpostCheck !== null && state.outpostCheck.error === null);
+      traceFootprint(g, x, y, 8);
+      g.fill({ color: ok ? 0x2ec4a6 : 0xef6f6c, alpha: 0.18 + Math.sin(this.time * 3) * 0.06 });
+      traceFootprint(g, x, y, 8);
+      g.stroke({ color: ok ? 0x2ec4a6 : 0xef6f6c, width: 6 });
     }
     if (this.hovered !== null && state.tool.kind === "select") {
       const building = this.world.buildingAt(this.hovered.x, this.hovered.y);

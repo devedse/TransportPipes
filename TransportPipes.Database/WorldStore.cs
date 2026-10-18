@@ -225,6 +225,11 @@ public sealed class WorldStore
             world.LoadWonders(wonders.EraStartedAt, wonders.EraWonder, wonders.DistrictWonders ?? []);
         }
 
+        if (JsonSerializer.Deserialize<OutpostsState>(dbWorld.Outposts, Json) is { } outposts)
+        {
+            world.LoadOutposts(outposts.Outposts ?? [], outposts.Discoveries ?? []);
+        }
+
         world.LastTick = dbWorld.LastTick;
         world.TakeChanges();
         world.Deleted.Clear();
@@ -246,6 +251,7 @@ public sealed class WorldStore
                 Exchange = JsonSerializer.Serialize(new ExchangeState(world.ExchangeOrders.ToList(), world.Shipments.ToList()), Json),
                 Events = JsonSerializer.Serialize(new EventsState(world.Events.ToList(), world.PlannedDays.ToList()), Json),
                 Wonders = JsonSerializer.Serialize(new WondersState(world.EraStartedAt, world.EraWonder, world.DistrictWonders.Values.ToList()), Json),
+                Outposts = JsonSerializer.Serialize(new OutpostsState(world.Outposts.ToList(), world.Discoveries.ToList()), Json),
             },
         };
 
@@ -445,6 +451,7 @@ public sealed class WorldStore
                 db.Entry(snapshot.World).Property(t => t.Exchange).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Events).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Wonders).IsModified = true;
+                db.Entry(snapshot.World).Property(t => t.Outposts).IsModified = true;
             }
             else
             {
@@ -590,6 +597,8 @@ public sealed class WorldStore
     private sealed record EventsState(List<GameEvent> Events, List<string>? PlannedDays);
 
     private sealed record WondersState(DateTime EraStartedAt, Wonder? EraWonder, List<Wonder>? DistrictWonders);
+
+    private sealed record OutpostsState(List<Outpost>? Outposts, List<Discovery>? Discoveries);
 
     private sealed record CorporationData(HashSet<long> Applications, HashSet<long> Invites, CorporationGoal? Goal);
 }

@@ -133,10 +133,16 @@ export function canPlace(
     for (let dx = 0; dx < definition.size; dx++) {
       const tx = x + dx;
       const ty = y + dy;
-      if (!insideEstate(company, tx, ty)) {
-        return fail("Only on your own estate");
-      }
-      if (!isParcelUnlocked(company.unlockedParcels, parcelOf(tx - company.estateX, ty - company.estateY))) {
+      const outpost = world.outpostAt(tx, ty);
+      if (outpost !== undefined) {
+        if (outpost.owner !== company.id) {
+          return fail("Someone else's outpost");
+        }
+      } else if (!insideEstate(company, tx, ty)) {
+        return fail("Only on your own estate and outposts");
+      } else if (
+        !isParcelUnlocked(company.unlockedParcels, parcelOf(tx - company.estateX, ty - company.estateY))
+      ) {
         return fail("Buy this parcel first");
       }
       const building = world.buildingAt(tx, ty);
@@ -234,7 +240,16 @@ export function pipeCost(
     return null;
   }
   const zone = zoneAt(x, y);
-  if (zone.kind === "estate" ? !insideEstate(company, x, y) : zone.kind !== "corridor") {
+  if (
+    zone.kind === "estate"
+      ? !insideEstate(company, x, y)
+      : zone.kind !== "corridor" && zone.kind !== "wilderness"
+  ) {
+    return null;
+  }
+  // The wilderness is open to pipes, except someone else's outpost
+  const outpost = zone.kind === "wilderness" ? world.outpostAt(x, y) : undefined;
+  if (outpost !== undefined && outpost.owner !== company.id) {
     return null;
   }
   const terrain = world.terrain(x, y);

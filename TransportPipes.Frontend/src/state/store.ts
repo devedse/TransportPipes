@@ -5,6 +5,7 @@ import type {
   ChatDto,
   ChatMessageDto,
   CompanyDetailsDto,
+  OutpostCheckDto,
   CompanyDto,
   ContractsDto,
   CorporationsDto,
@@ -88,6 +89,9 @@ export interface AppState {
   corporations: CorporationsDto | null;
   companyOpen: boolean;
   companyDetails: CompanyDetailsDto | null;
+  /** A wilderness tile the player clicked: an outpost there, or the claim it would make */
+  wildTile: TilePosition | null;
+  outpostCheck: OutpostCheckDto | null;
   leaderboardOpen: boolean;
   leaderboardKind: LeaderboardKind;
   leaderboardDistrict: boolean;
@@ -150,6 +154,8 @@ export const initialState: AppState = {
   corporations: null,
   companyOpen: false,
   companyDetails: null,
+  wildTile: null,
+  outpostCheck: null,
   leaderboardOpen: false,
   leaderboardKind: "netWorth",
   leaderboardDistrict: true,
