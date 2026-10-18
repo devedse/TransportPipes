@@ -990,6 +990,40 @@ kbd {
   border-color: var(--accent);
 }
 
+/* ---------- Gates ---------- */
+
+.gate-panel {
+  position: absolute;
+  top: 82px;
+  right: var(--gap);
+  width: min(360px, calc(100vw - 24px));
+  display: grid;
+  gap: 10px;
+}
+
+.policies {
+  display: grid;
+  gap: 6px;
+}
+
+.policy {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+}
+
+.policy.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.slider {
+  width: 100%;
+  margin: 4px 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
 /* ---------- Hub ---------- */
 
 .hub-panel {

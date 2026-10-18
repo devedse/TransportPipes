@@ -333,6 +333,10 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("You don't have an estate.");
         }
+        if (definition.Kind == BuildingKind.TollMeter)
+        {
+            return CanPlaceTollMeter(company, pos);
+        }
 
         var footprint = new List<TilePos>();
         for (var dy = 0; dy < definition.Size; dy++)
@@ -385,6 +389,25 @@ public sealed partial class GameWorld
         if (definition.Placement.Forest && ForestAround(pos, definition.Size) < 3)
         {
             return CommandResult.Fail($"{definition.Name} needs a forest nearby.");
+        }
+        return CommandResult.Ok;
+    }
+
+    /// <summary>A Toll Meter goes in a corridor, in the line of one of your own pipes</summary>
+    private CommandResult CanPlaceTollMeter(Company company, TilePos pos)
+    {
+        if (WorldLayout.ZoneAt(pos.X, pos.Y).Kind != ZoneKind.Corridor)
+        {
+            return CommandResult.Fail("Toll meters go on your public pipes in the corridors.");
+        }
+        if (IsOccupied(pos))
+        {
+            return CommandResult.Fail("Something is already standing here.");
+        }
+        var ownPipes = Directions.Count(d => _conductors.TryGetValue(pos.Offset(d.X, d.Y), out var c) && c.Owner == company.Id && c.Kind == ConductorKind.Pipe);
+        if (ownPipes == 0)
+        {
+            return CommandResult.Fail("Put it in the line of one of your own corridor pipes.");
         }
         return CommandResult.Ok;
     }

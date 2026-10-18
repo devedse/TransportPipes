@@ -149,11 +149,11 @@ export class TextureBank {
     return this.atlas.get(`GreyPipe${shape}`);
   }
 
-  gate(open: boolean, alongU: boolean): BuildingTextures {
-    const key = `gate:${open}:${alongU}`;
+  gate(policy: "open" | "closed" | "contract" | "corporation", alongU: boolean): BuildingTextures {
+    const key = `gate:${policy}:${alongU}`;
     let result = this.buildingCache.get(key);
     if (result === undefined) {
-      const art = drawGate(open, alongU);
+      const art = drawGate(policy, alongU);
       result = { frames: [Texture.from(art.canvas)], size: 1, attachments: art.attachments, original: false };
       this.buildingCache.set(key, result);
     }

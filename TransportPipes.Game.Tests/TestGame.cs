@@ -62,6 +62,7 @@ internal sealed class TestGame
         ['V'] = "valve",
         ['P'] = "priorityValve",
         ['U'] = "pumpStation",
+        ['X'] = "tollMeter",
     };
 
     /// <summary>

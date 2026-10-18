@@ -7,6 +7,7 @@ import { ConnectionOverlay } from "./components/ConnectionOverlay";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { FoundCompany } from "./components/FoundCompany";
 import { GameCanvas } from "./components/GameCanvas";
+import { GatePanel } from "./components/GatePanel";
 import { HoverTip } from "./components/HoverTip";
 import { HubPanel } from "./components/HubPanel";
 import { NetworkPanel } from "./components/NetworkPanel";
@@ -50,6 +51,8 @@ function useShortcuts() {
             gameClient.setTool({ kind: "select" });
           } else if (state.buildMenuOpen) {
             setState({ buildMenuOpen: false });
+          } else if (state.selectedGate !== null) {
+            setState({ selectedGate: null });
           } else if (state.selectedNetwork !== null) {
             gameClient.selectNetwork(null);
           } else {
@@ -126,6 +129,9 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="BuildingPanel">
             <BuildingPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="GatePanel">
+            <GatePanel />
           </ErrorBoundary>
           <ErrorBoundary name="NetworkPanel">
             <NetworkPanel />

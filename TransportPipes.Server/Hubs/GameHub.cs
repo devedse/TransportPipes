@@ -283,6 +283,9 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> SetImport(long building, string resource, bool enabled) =>
         Command((world, company) => world.SetImport(company, building, resource, enabled));
 
+    public Task<CommandResultDto> SetBuildingSetting(long building, double value) =>
+        Command((world, company) => world.SetBuildingSetting(company, building, value));
+
     public Task<CommandResultDto> SetValveFilter(long building, string resource, bool enabled) =>
         Command((world, company) => world.SetValveFilter(company, building, resource, enabled));
 

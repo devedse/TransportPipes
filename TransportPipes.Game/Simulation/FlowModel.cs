@@ -89,8 +89,11 @@ public sealed class FlowMarket
     /// <summary>The highest price a company pays other companies</summary>
     public required Func<long, string, double> BuyerMaxPrice { get; init; }
 
-    /// <summary>Whether two different companies may trade (gate policies, settings)</summary>
+    /// <summary>Whether two different companies may trade (settings, gold)</summary>
     public Func<long, long, string, bool> TradeAllowed { get; init; } = (_, _, _) => true;
+
+    /// <summary>Whether two different companies may trade over this link (the gates on its path)</summary>
+    public Func<FlowLink, long, long, string, bool> LinkTradeAllowed { get; init; } = (_, _, _, _) => true;
 }
 
 public enum FlowKind

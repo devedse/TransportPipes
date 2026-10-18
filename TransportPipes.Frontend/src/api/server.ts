@@ -206,6 +206,8 @@ export class GameConnection {
     this.invoke<CommandResult>("SetImport", building, resource, enabled);
   setGatePolicy = (side: GateSide, policy: GatePolicy) =>
     this.invoke<CommandResult>("SetGatePolicy", side, policy);
+  setBuildingSetting = (building: number, value: number) =>
+    this.invoke<CommandResult>("SetBuildingSetting", building, value);
   setValveFilter = (building: number, resource: string, enabled: boolean) =>
     this.invoke<CommandResult>("SetValveFilter", building, resource, enabled);
   cheat = (what: string) => this.invoke<CommandResult>("Cheat", what);

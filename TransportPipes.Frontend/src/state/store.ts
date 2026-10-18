@@ -3,6 +3,7 @@ import { useStore } from "zustand";
 import type {
   BuildingDetailsDto,
   CompanyDto,
+  GateSide,
   MarketDto,
   NetworkDetailsDto,
   ReportDto,
@@ -42,6 +43,9 @@ export interface AppState {
   buildingDetails: BuildingDetailsDto | null;
   selectedParcel: number | null;
   selectedNetwork: number | null;
+  selectedGate: GateSide | null;
+  /** Counts district updates, so panels that read the world model render again */
+  districtVersion: number;
   networkDetails: NetworkDetailsDto | null;
   overlay: Overlay;
   hoverTile: TilePosition | null;
@@ -75,6 +79,8 @@ export const initialState: AppState = {
   buildingDetails: null,
   selectedParcel: null,
   selectedNetwork: null,
+  selectedGate: null,
+  districtVersion: 0,
   networkDetails: null,
   overlay: "none",
   hoverTile: null,

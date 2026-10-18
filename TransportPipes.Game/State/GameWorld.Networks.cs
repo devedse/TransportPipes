@@ -106,9 +106,34 @@ public sealed partial class GameWorld
         {
             return true;
         }
-        var estate = EstateAt(conductor.Pos);
-        // Corporation and contract gates open when those systems exist; until then only open gates conduct
-        return estate == null || conductor.Side is not { } side || estate.GatePolicies[side] == GatePolicy.Open;
+        // A closed gate blocks the pipe; corporation and contract gates carry it but limit who may trade through them
+        return GatePolicyAt(conductor.Pos) != GatePolicy.Closed;
+    }
+
+    /// <summary>The policy of the gate on a tile (Open when it is no gate)</summary>
+    public GatePolicy GatePolicyAt(TilePos pos)
+    {
+        if (!_conductors.TryGetValue(pos, out var conductor) || conductor.Kind != ConductorKind.Gate || conductor.Side is not { } side)
+        {
+            return GatePolicy.Open;
+        }
+        return EstateAt(pos)?.GatePolicies.GetValueOrDefault(side, GatePolicy.Open) ?? GatePolicy.Open;
+    }
+
+    /// <summary>Whether two companies may trade over a path: every gate on it has to allow their trade</summary>
+    public bool PathAllowsTrade(IReadOnlyList<TilePos> path, long seller, long buyer, string resource)
+    {
+        foreach (var tile in path)
+        {
+            switch (GatePolicyAt(tile))
+            {
+                case GatePolicy.Contract when !HasContract(seller, buyer, resource):
+                case GatePolicy.Corporation when !SameCorporation(seller, buyer):
+                case GatePolicy.Closed:
+                    return false;
+            }
+        }
+        return true;
     }
 
     private static readonly (int X, int Y)[] Directions = [(1, 0), (-1, 0), (0, 1), (0, -1)];
@@ -549,6 +574,7 @@ public sealed partial class GameWorld
         BuyerMaxPrice = (owner, resource) => Company(owner) is { } company ? BuyMaxPrice(company, resource) : HubSellPrice(network.District, resource),
         TradeAllowed = (seller, buyer, resource) =>
             Company(seller) is { } s && Company(buyer) is { Gold: > 0 } && !s.NoTrade.Contains(resource),
+        LinkTradeAllowed = (link, seller, buyer, resource) => PathAllowsTrade(link.Path, seller, buyer, resource),
     };
 
     private void Solve(Network network)
@@ -567,7 +593,7 @@ public sealed partial class GameWorld
 
         var ids = nodes.Select(t => t.Id).ToHashSet();
         var links = network.Links.Where(t => ids.Contains(t.A) && ids.Contains(t.B)).ToList();
-        network.Solution = nodes.Count < 2 ? FlowSolution.Empty : FlowSolver.Solve(nodes, links, MarketFor(network));
+        network.Solution = nodes.Count < 2 ? FlowSolution.Empty : WithTolls(network, FlowSolver.Solve(nodes, links, MarketFor(network)));
         network.NeedsSolve = false;
         Changes.Networks.Add(network.Id);
     }

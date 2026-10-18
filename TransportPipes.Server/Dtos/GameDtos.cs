@@ -138,7 +138,9 @@ public record BuildingDetailsDto(
     double? UpgradeCostMax,
     IReadOnlyList<BuildingFlowDto> Flows,
     double DemolishRefund,
-    IReadOnlyList<string> Issues);
+    IReadOnlyList<string> Issues,
+    double Setting,
+    double TollIncome);
 
 public record ToastDto(string Kind, string Text, long? Building);
 

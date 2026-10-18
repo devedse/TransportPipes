@@ -108,6 +108,27 @@ export function canPlace(
   if (lock !== null) {
     return fail(`Needs ${lock}`);
   }
+  if (definition.kind === "tollMeter") {
+    // In the line of one of your own corridor pipes
+    if (zoneAt(x, y).kind !== "corridor") {
+      return fail("Toll meters go on your pipes in the corridors");
+    }
+    if (world.isOccupied(x, y)) {
+      return fail("Something is in the way");
+    }
+    const own = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ].some(([dx, dy]) => {
+      const conductor = world.conductorAt(x + dx!, y + dy!);
+      return conductor?.kind === "pipe" && conductor.owner === company.id;
+    });
+    return own
+      ? { ok: true, reason: null, multiplier: 1 }
+      : fail("Put it in the line of your own corridor pipe");
+  }
   for (let dy = 0; dy < definition.size; dy++) {
     for (let dx = 0; dx < definition.size; dx++) {
       const tx = x + dx;

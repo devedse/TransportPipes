@@ -264,6 +264,8 @@ export interface BuildingDetailsDto {
   flows: BuildingFlowDto[];
   demolishRefund: number;
   issues: string[];
+  setting: number;
+  tollIncome: number;
 }
 
 export interface ToastDto {

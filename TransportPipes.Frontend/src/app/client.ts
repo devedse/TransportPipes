@@ -1,4 +1,11 @@
-import type { BuildingDto, CommandResult, CompanyDto, ToastDto } from "../api/contracts";
+import type {
+  BuildingDto,
+  CommandResult,
+  CompanyDto,
+  GatePolicy,
+  GateSide,
+  ToastDto,
+} from "../api/contracts";
 import { auth, fetchContent, GameConnection } from "../api/server";
 import { Content } from "../game/content";
 import type { Engine, EngineCallbacks, Tool } from "../game/Engine";
@@ -81,7 +88,10 @@ export class GameClient {
       void this.hello();
     });
     c.on("chunkChanged", (chunk) => this.world?.applyObjects(chunk));
-    c.on("districtChanged", (district) => this.world?.setDistrict(district));
+    c.on("districtChanged", (district) => {
+      this.world?.setDistrict(district);
+      setState({ districtVersion: appStore.getState().districtVersion + 1 });
+    });
     c.on("companyChanged", (company) => this.setCompany(company));
     c.on("networksChanged", (networks) => void this.refreshFlows(networks));
     c.on("marketChanged", (x, y) => {
@@ -360,6 +370,16 @@ export class GameClient {
       return;
     }
     const conductor = this.world?.conductorAt(tile.x, tile.y);
+    if (
+      conductor !== undefined &&
+      conductor.kind === "gate" &&
+      conductor.owner === state.company?.id &&
+      conductor.side !== null
+    ) {
+      this.selectNetwork(null);
+      setState({ selectedGate: conductor.side });
+      return;
+    }
     if (conductor !== undefined && conductor.network !== null) {
       this.selectNetwork(conductor.network);
       return;
@@ -425,6 +445,16 @@ export class GameClient {
       return;
     }
     setState({ networkDetails: details });
+  }
+
+  async setGatePolicy(side: GateSide, policy: GatePolicy) {
+    await this.command(this.connection.setGatePolicy(side, policy), "Gate changed");
+  }
+
+  async setBuildingSetting(building: number, value: number) {
+    if (await this.command(this.connection.setBuildingSetting(building, value))) {
+      await this.refreshDetails();
+    }
   }
 
   async setValveFilter(building: number, resource: string, enabled: boolean) {

@@ -111,7 +111,7 @@ public sealed class FlowSolver
                         foreach (var (other, link) in Neighbours(building.Id, resource))
                         {
                             var supplier = _nodes[other];
-                            if (supplier.Kind == FlowNodeKind.Building && supplier.Out.ContainsKey(resource) && Eligible(supplier, building, resource))
+                            if (supplier.Kind == FlowNodeKind.Building && supplier.Out.ContainsKey(resource) && Eligible(supplier, building, resource, link))
                             {
                                 potential += Math.Max(0, offers[(other, resource)] - allocation.SentToBuildings(other, resource)) * link.Efficiency;
                             }
@@ -137,7 +137,7 @@ public sealed class FlowSolver
                         foreach (var (other, link) in Neighbours(building.Id, resource))
                         {
                             var buyer = _nodes[other];
-                            if (buyer.Kind == FlowNodeKind.Building && buyer.In.ContainsKey(resource) && Eligible(building, buyer, resource))
+                            if (buyer.Kind == FlowNodeKind.Building && buyer.In.ContainsKey(resource) && Eligible(building, buyer, resource, link))
                             {
                                 potential += Math.Max(0, demands[(other, resource)] - allocation.Received(other, resource)) / link.Efficiency;
                             }
@@ -231,14 +231,16 @@ public sealed class FlowSolver
     }
 
     /// <summary>Whether a supplier may deliver to a consumer at all (same company, or allowed trade at an acceptable price)</summary>
-    private bool Eligible(FlowNode supplier, FlowNode consumer, string resource)
+    private bool Eligible(FlowNode supplier, FlowNode consumer, string resource, FlowLink link)
     {
         if (supplier.Owner == consumer.Owner)
         {
             return true;
         }
         var price = _market.SellerPrice(supplier.Owner, resource);
-        return _market.BuyerMaxPrice(consumer.Owner, resource) >= price - Epsilon && _market.TradeAllowed(supplier.Owner, consumer.Owner, resource);
+        return _market.BuyerMaxPrice(consumer.Owner, resource) >= price - Epsilon
+            && _market.TradeAllowed(supplier.Owner, consumer.Owner, resource)
+            && _market.LinkTradeAllowed(link, supplier.Owner, consumer.Owner, resource);
     }
 
     private readonly Dictionary<(long, string), List<(long Other, FlowLink Link)>> _neighboursByResource = new();
@@ -334,8 +336,8 @@ public sealed class FlowSolver
             var consumers = _buildings.Where(t => t.In.ContainsKey(resource) && demandLeft[(t.Id, resource)] > Epsilon).Select(t => t.Id).ToList();
 
             // 1. Within the same company: consumers behind a priority valve first
-            Share(resource, producers, consumers, (p, c) => _nodes[p].Owner == _nodes[c].Owner, FlowKind.Internal, (_, _) => 0, priorityOnly: true);
-            Share(resource, producers, consumers, (p, c) => _nodes[p].Owner == _nodes[c].Owner, FlowKind.Internal, (_, _) => 0);
+            Share(resource, producers, consumers, (p, c, _) => _nodes[p].Owner == _nodes[c].Owner, FlowKind.Internal, (_, _) => 0, priorityOnly: true);
+            Share(resource, producers, consumers, (p, c, _) => _nodes[p].Owner == _nodes[c].Owner, FlowKind.Internal, (_, _) => 0);
 
             // 2. Between companies, cheapest sellers first
             var priceLevels = producers
@@ -345,14 +347,15 @@ public sealed class FlowSolver
                 .ToList();
             foreach (var price in priceLevels)
             {
-                Share(resource, producers, consumers, (p, c) =>
+                Share(resource, producers, consumers, (p, c, link) =>
                 {
                     var seller = _nodes[p].Owner;
                     var buyer = _nodes[c].Owner;
                     return seller != buyer
                         && _market.SellerPrice(seller, resource) == price
                         && _market.BuyerMaxPrice(buyer, resource) >= price - Epsilon
-                        && _market.TradeAllowed(seller, buyer, resource);
+                        && _market.TradeAllowed(seller, buyer, resource)
+                        && _market.LinkTradeAllowed(link, seller, buyer, resource);
                 }, FlowKind.Trade, (p, _) => _market.SellerPrice(_nodes[p].Owner, resource));
             }
 
@@ -377,7 +380,7 @@ public sealed class FlowSolver
 
         // Sharing between producers and consumers of one resource: every consumer gets the same fraction of its full need,
         // and what a consumer can't use (it is held back by something else) goes to the others
-        void Share(string resource, List<long> producers, List<long> consumers, Func<long, long, bool> eligible, FlowKind kind, Func<long, long, double> price, bool priorityOnly = false)
+        void Share(string resource, List<long> producers, List<long> consumers, Func<long, long, FlowLink, bool> eligible, FlowKind kind, Func<long, long, double> price, bool priorityOnly = false)
         {
             for (var round = 0; round < 25; round++)
             {
@@ -392,7 +395,7 @@ public sealed class FlowSolver
                     var consumer = _nodes[c];
                     var fullNeed = Math.Max(need, consumer.In[resource] * consumer.MaxRate);
                     var options = Neighbours(c, resource)
-                        .Where(n => (!priorityOnly || n.Link.Priority) && offerLeft.TryGetValue((n.Other, resource), out var left) && left > Epsilon && CanUse(n.Link) && eligible(n.Other, c))
+                        .Where(n => (!priorityOnly || n.Link.Priority) && offerLeft.TryGetValue((n.Other, resource), out var left) && left > Epsilon && CanUse(n.Link) && eligible(n.Other, c, n.Link))
                         .Select(n => (P: n.Other, n.Link, Potential: Math.Min(offerLeft[(n.Other, resource)], CapacityLeft(n.Link)) * n.Link.Efficiency))
                         .Where(t => t.Potential > Epsilon)
                         .ToList();

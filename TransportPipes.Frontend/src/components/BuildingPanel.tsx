@@ -224,6 +224,29 @@ export function BuildingPanel() {
         </section>
       )}
 
+      {definition.kind === "tollMeter" && (
+        <section>
+          <h4>Toll · {(details.setting * 100).toFixed(1)}% of what passes</h4>
+          {mine && (
+            <input
+              className="slider"
+              type="range"
+              min={0}
+              max={5}
+              step={0.5}
+              value={details.setting * 100}
+              onChange={(event) =>
+                void gameClient.setBuildingSetting(building.id, Number(event.target.value) / 100)
+              }
+            />
+          )}
+          <p className="small muted">
+            Others pay it on everything flowing through this pipe. You get half (+
+            {formatAmount(details.tollIncome)} g/min), the other half disappears.
+          </p>
+        </section>
+      )}
+
       {details.pumpFactor < 1 && (
         <p className="status idle">
           Its network needs more pump stations: everything in it runs at{" "}

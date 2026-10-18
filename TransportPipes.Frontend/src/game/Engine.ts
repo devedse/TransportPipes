@@ -235,6 +235,10 @@ export class Engine {
         }
         if (change.districts) {
           this.districtsDirty = true;
+          // Gates show their policy, owners' colours their flags
+          for (const key of this.chunks.keys()) {
+            this.dirtyChunks.add(key);
+          }
         }
       }),
     );
@@ -936,8 +940,8 @@ export class Engine {
     const anchor = diagonalToScreen(conductor.x, conductor.y);
     if (conductor.kind === "gate") {
       const estate = this.world.estateAt(conductor.x, conductor.y);
-      const open = (estate?.gatePolicies[conductor.side ?? "top"] ?? "open") === "open";
-      const art = this.textures.gate(open, conductor.side === "top" || conductor.side === "bottom");
+      const policy = estate?.gatePolicies[conductor.side ?? "top"] ?? "open";
+      const art = this.textures.gate(policy, conductor.side === "top" || conductor.side === "bottom");
       const sprite = new Sprite(art.frames[0]);
       sprite.anchor.set(0, 1);
       const container = new Container();

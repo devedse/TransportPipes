@@ -49,9 +49,9 @@ if (only === null || only === "buildings") {
   for (const building of buildings) {
     show(building.id, drawBuilding(building.id, building.size, true).canvas);
   }
-  show("gate open", drawGate(true, true).canvas);
-  show("gate closed", drawGate(false, true).canvas);
-  show("gate side", drawGate(false, false).canvas);
+  show("gate open", drawGate("open", true).canvas);
+  show("gate closed", drawGate("closed", true).canvas);
+  show("gate side", drawGate("contract", false).canvas);
 }
 if (only === null || only === "hub") {
   for (const [type, size] of [

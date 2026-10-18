@@ -978,7 +978,11 @@ export function drawBuilding(type: string, size: number, withMovingParts = false
  * The gate of an estate: two posts along the estate's edge with a barrier arm, raised when the gate is open.
  * alongU: the edge runs along u (the top and bottom sides of an estate), otherwise along v.
  */
-export function drawGate(open: boolean, alongU: boolean): BuildingArt {
+export function drawGate(
+  policy: "open" | "closed" | "contract" | "corporation",
+  alongU: boolean,
+): BuildingArt {
+  const open = policy !== "closed";
   const k = new Iso(1, 110);
   const a: [number, number] = alongU ? [0.08, 0.5] : [0.5, 0.08];
   const b: [number, number] = alongU ? [0.92, 0.5] : [0.5, 0.92];
@@ -1015,7 +1019,8 @@ export function drawGate(open: boolean, alongU: boolean): BuildingArt {
     );
   }
   k.cylinder(b[0], b[1], 0.06, 64, "#c9a227", 0, "flat", "#e0be4a");
-  k.attach("blink", b[0], b[1], 72, 0.6, open ? "#3fe07a" : "#ff4040");
+  const light = { open: "#3fe07a", contract: "#f6c744", corporation: "#6cb4ee", closed: "#ff4040" }[policy];
+  k.attach("blink", b[0], b[1], 72, 0.6, light);
   return { canvas: k.canvas, size: 1, attachments: k.attachments };
 }
 

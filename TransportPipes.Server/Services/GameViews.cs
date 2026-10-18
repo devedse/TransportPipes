@@ -296,7 +296,9 @@ public static class GameViews
             affordable > 0 ? world.UpgradeCost(building, affordable) : null,
             flows,
             definition.Kind is BuildingKind.Hq or BuildingKind.Gate ? 0 : Math.Round(definition.Cost.Gold * 0.5),
-            Issues(world, building, node, network));
+            Issues(world, building, node, network),
+            building.Setting,
+            world.TollIncome(building.Id));
     }
 
     /// <summary>Why a building can't run (fully): missing suppliers or buyers on its pipes</summary>
