@@ -32,6 +32,11 @@ public sealed partial class GameWorld
         {
             slots++;
         }
+        // Legacy from earlier seasons
+        if (company.LegacyLevel >= LegacyManagerLevel)
+        {
+            slots++;
+        }
         return slots;
     }
 

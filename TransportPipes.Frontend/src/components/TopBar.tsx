@@ -72,16 +72,38 @@ export function TopBar() {
         </div>
       </div>
 
-      <button
-        className="panel top-era"
-        title="Wonders: the Era ends when the Era Wonder is finished, at the latest on its deadline"
-        onClick={() => void gameClient.openHub("wonders")}
-      >
-        <span className="era-number">Era {company.era}</span>
-        <span className="muted small">
-          {formatDuration(Math.max(0, (new Date(company.eraDeadline).getTime() - serverNow) / 1000))} left
-        </span>
-      </button>
+      {company.season.endedAt !== null ? (
+        <button
+          className="panel top-era finale"
+          title="The season is over"
+          onClick={() => void gameClient.openSeason()}
+        >
+          <span className="era-number">Season {company.season.season}</span>
+          <span className="muted small">over · results</span>
+        </button>
+      ) : company.season.finaleAt !== null ? (
+        <button
+          className="panel top-era finale"
+          title="The Space Elevator launches: the season ends"
+          onClick={() => void gameClient.openHub("wonders")}
+        >
+          <span className="era-number">🚀 Launch</span>
+          <span className="muted small">
+            in {formatDuration(Math.max(0, (new Date(company.season.finaleAt).getTime() - serverNow) / 1000))}
+          </span>
+        </button>
+      ) : (
+        <button
+          className="panel top-era"
+          title="Wonders: the Era ends when the Era Wonder is finished, at the latest on its deadline"
+          onClick={() => void gameClient.openHub("wonders")}
+        >
+          <span className="era-number">Era {company.era}</span>
+          <span className="muted small">
+            {formatDuration(Math.max(0, (new Date(company.eraDeadline).getTime() - serverNow) / 1000))} left
+          </span>
+        </button>
+      )}
 
       {company.researchPerMinute > 0 || company.researchPoints > 0 || company.currentResearch !== null ? (
         <button

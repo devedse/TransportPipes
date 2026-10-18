@@ -20,6 +20,7 @@ public sealed class WorldHost : BackgroundService
     private readonly IHubContext<GameHub, IGameClient> _hub;
     private readonly ConnectedUsers _connectedUsers;
     private readonly SocialService _social;
+    private readonly AccountService _accounts;
     private readonly TransportPipesOptions _options;
     private readonly ILogger<WorldHost> _logger;
     private readonly TimeProvider _time;
@@ -29,12 +30,13 @@ public sealed class WorldHost : BackgroundService
     private bool _saveSoon;
     private DateTime _lastSave;
 
-    public WorldHost(WorldStore store, IHubContext<GameHub, IGameClient> hub, ConnectedUsers connectedUsers, SocialService social, IOptions<TransportPipesOptions> options, ILogger<WorldHost> logger, TimeProvider time)
+    public WorldHost(WorldStore store, IHubContext<GameHub, IGameClient> hub, ConnectedUsers connectedUsers, SocialService social, AccountService accounts, IOptions<TransportPipesOptions> options, ILogger<WorldHost> logger, TimeProvider time)
     {
         _store = store;
         _hub = hub;
         _connectedUsers = connectedUsers;
         _social = social;
+        _accounts = accounts;
         _options = options.Value;
         _logger = logger;
         _time = time;
@@ -79,17 +81,8 @@ public sealed class WorldHost : BackgroundService
         try
         {
             var stopwatch = Stopwatch.StartNew();
-            var world = await _store.LoadAsync(GameContent.Default, () => Now, _options.WorldSeed, stoppingToken);
-            if (_options.StartingGold is { } startingGold)
-            {
-                world.StartingGold = startingGold;
-            }
-            world.TenantsEnabled = _options.Tenants;
-            world.EventsEnabled = _options.Events;
-            if (_options.Tenants)
-            {
-                world.EnsureTenants();
-            }
+            GameViews.SeasonBreak = TimeSpan.FromDays(_options.SeasonBreakDays);
+            var world = await LoadWorldAsync(stoppingToken);
             var away = Now - world.LastTick;
             world.Tick();
             world.TakeChanges();
@@ -116,6 +109,7 @@ public sealed class WorldHost : BackgroundService
                 {
                     await TickAsync();
                     await SaveAsync(force: false);
+                    await SeasonAsync();
                 }
                 catch (Exception ex)
                 {
@@ -125,6 +119,75 @@ public sealed class WorldHost : BackgroundService
         }
         catch (OperationCanceledException)
         {
+        }
+    }
+
+    private async Task<GameWorld> LoadWorldAsync(CancellationToken cancellationToken)
+    {
+        var world = await _store.LoadAsync(GameContent.Default, () => Now, _options.WorldSeed, cancellationToken);
+        if (_options.StartingGold is { } startingGold)
+        {
+            world.StartingGold = startingGold;
+        }
+        world.TenantsEnabled = _options.Tenants;
+        world.EventsEnabled = _options.Events;
+        if (_options.Tenants)
+        {
+            world.EnsureTenants();
+        }
+        return world;
+    }
+
+    /// <summary>
+    /// The end of a season: the results go to the players' Legacy (once), and after the break the next world opens
+    /// </summary>
+    public async Task SeasonAsync()
+    {
+        List<SeasonResult>? results = null;
+        DateTime? ended = null;
+        var season = 1;
+        await _lock.WaitAsync();
+        try
+        {
+            if (_world!.SeasonEndedAt is { } endedAt)
+            {
+                ended = endedAt;
+                season = _world.Season;
+                if (!_store.ResultsSaved)
+                {
+                    results = _world.SeasonResults.ToList();
+                }
+            }
+        }
+        finally
+        {
+            _lock.Release();
+        }
+        if (results != null)
+        {
+            await _accounts.AddLegacyAsync(results);
+            _store.ResultsSaved = true;
+            _saveSoon = true;
+            _logger.LogInformation("Season {Season} ended: Legacy for {Players} players", season, results.Count);
+        }
+        if (ended is { } end && Now >= end + GameViews.SeasonBreak)
+        {
+            await _lock.WaitAsync();
+            try
+            {
+                await _store.ResetAsync(season + 1, Now);
+                var world = await LoadWorldAsync(CancellationToken.None);
+                world.Tick();
+                world.TakeChanges();
+                _world = world;
+                _saveSoon = true;
+            }
+            finally
+            {
+                _lock.Release();
+            }
+            _logger.LogInformation("Season {Season} begins in a new world", season + 1);
+            await _hub.Clients.All.SeasonChanged();
         }
     }
 

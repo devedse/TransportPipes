@@ -9,6 +9,7 @@ import type {
   ChatMessageDto,
   CompanyDetailsDto,
   OutpostCheckDto,
+  SeasonDto,
   CompanyDto,
   ContractsDto,
   CorporationRole,
@@ -92,6 +93,7 @@ export interface ServerEvents {
   inboxChanged(unread: number): void;
   corporationChanged(): void;
   wondersChanged(): void;
+  seasonChanged(): void;
 }
 
 const EVENT_NAMES: Record<keyof ServerEvents, string> = {
@@ -106,6 +108,7 @@ const EVENT_NAMES: Record<keyof ServerEvents, string> = {
   inboxChanged: "InboxChanged",
   corporationChanged: "CorporationChanged",
   wondersChanged: "WondersChanged",
+  seasonChanged: "SeasonChanged",
 };
 
 const START_RETRY_DELAYS_MS = [0, 2000, 5000, 10000];
@@ -290,6 +293,9 @@ export class GameConnection {
   markInboxRead = () => this.invoke<void>("MarkInboxRead");
   getWonders = () => this.invoke<WondersDto | null>("GetWonders");
   getCompanyDetails = () => this.invoke<CompanyDetailsDto | null>("GetCompanyDetails");
+  startFranchise = () => this.invoke<CommandResult>("StartFranchise");
+  cancelFranchise = () => this.invoke<CommandResult>("CancelFranchise");
+  getSeason = () => this.invoke<SeasonDto>("GetSeason");
   checkOutpost = (x: number, y: number) => this.invoke<OutpostCheckDto | null>("CheckOutpost", x, y);
   claimOutpost = (x: number, y: number) => this.invoke<CommandResult>("ClaimOutpost", x, y);
   releaseOutpost = (outpost: number) => this.invoke<CommandResult>("ReleaseOutpost", outpost);

@@ -68,7 +68,44 @@ export interface CompanyDto {
   /** Finished collections (they unlock decorations) */
   collections: string[];
   outposts: OutpostDto[];
+  franchise: FranchiseDto;
+  season: SeasonInfoDto;
   serverTime: string;
+}
+
+/** The Franchise (GDD §8.7) */
+export interface FranchiseDto {
+  shares: number;
+  franchises: number;
+  sharesNow: number;
+  blocker: string | null;
+  at: string | null;
+  legacyLevel: number;
+}
+
+export interface SeasonInfoDto {
+  season: number;
+  finaleAt: string | null;
+  endedAt: string | null;
+  nextWorldAt: string | null;
+}
+
+export interface SeasonResultDto {
+  company: string;
+  netWorth: number;
+  rank: number;
+  legacy: number;
+  title: string | null;
+  you: boolean;
+}
+
+export interface SeasonDto {
+  season: number;
+  finaleAt: string | null;
+  endedAt: string | null;
+  nextWorldAt: string | null;
+  top: SeasonResultDto[];
+  you: SeasonResultDto | null;
 }
 
 export type EventKind =

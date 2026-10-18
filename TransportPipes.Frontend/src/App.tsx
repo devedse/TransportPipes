@@ -25,6 +25,7 @@ import { ParcelPanel } from "./components/ParcelPanel";
 import { PipeTierBar } from "./components/PipeTierBar";
 import { ReportDialog } from "./components/ReportDialog";
 import { ResearchPanel } from "./components/ResearchPanel";
+import { SeasonPanel } from "./components/SeasonPanel";
 import { Toasts } from "./components/Toasts";
 import { Toolbar } from "./components/Toolbar";
 import { TopBar } from "./components/TopBar";
@@ -239,6 +240,9 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="ChatPanel">
             <ChatPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="SeasonPanel">
+            <SeasonPanel />
           </ErrorBoundary>
           <ErrorBoundary name="ReportDialog">
             <ReportDialog />

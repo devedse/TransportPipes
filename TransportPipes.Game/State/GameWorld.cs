@@ -267,7 +267,8 @@ public sealed partial class GameWorld
     public static readonly (int X, int Y) HqLocal = (15, 15);
     public static readonly (int X, int Y) TradingPostLocal = (18, 15);
 
-    public Company CreateCompany(long userId, string name, string color)
+    /// <summary>A new company; Legacy from earlier seasons brings starting gold, titles and a manager slot</summary>
+    public Company CreateCompany(long userId, string name, string color, int legacyLevel = 0, IEnumerable<string>? titles = null)
     {
         var estate = FindFreeEstate();
         var now = Now;
@@ -277,7 +278,9 @@ public sealed partial class GameWorld
             UserId = userId,
             Name = name.Trim(),
             Color = color,
-            Gold = StartingGold,
+            Gold = StartingGold + LegacyGold(legacyLevel),
+            LegacyLevel = legacyLevel,
+            Titles = new HashSet<string>(titles ?? []),
             CreatedAt = now,
             LastSeenAt = now,
             District = estate.District,

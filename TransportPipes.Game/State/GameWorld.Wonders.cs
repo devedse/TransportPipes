@@ -231,6 +231,10 @@ public sealed partial class GameWorld
             }
             Changes.Markets.Add(home);
         }
+        else if (Era >= LastEra)
+        {
+            StartFinale();
+        }
         else
         {
             AdvanceEra();
@@ -332,9 +336,9 @@ public sealed partial class GameWorld
     /// <summary>The Era's deadline in a span: the next Era starts even when the Wonder isn't finished</summary>
     private IEnumerable<(DateTime At, Action Run)> EraMoments(DateTime from, DateTime to)
     {
-        if (Era < LastEra && Content.EraWonders.Count != 0 && EraStartedAt != default && EraDeadline <= to)
+        if (Content.EraWonders.Count != 0 && EraStartedAt != default && EraDeadline <= to && FinaleAt == null)
         {
-            yield return (EraDeadline > from ? EraDeadline : from, AdvanceEra);
+            yield return (EraDeadline > from ? EraDeadline : from, Era < LastEra ? AdvanceEra : StartFinale);
         }
     }
 }

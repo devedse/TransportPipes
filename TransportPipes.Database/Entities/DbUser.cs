@@ -24,6 +24,11 @@ public class DbUser
 
     public bool IsAdmin { get; set; }
 
+    /// <summary>Legacy points from earlier seasons (GDD §8.8) and the titles they brought (jsonb)</summary>
+    public int Legacy { get; set; }
+
+    public string LegacyTitles { get; set; } = "[]";
+
     public static string NormalizeUserName(string userName) => userName.Trim().ToLowerInvariant();
 
     public override string ToString() => $"{Id}:{UserName}";

@@ -87,6 +87,11 @@ public sealed class WorldStore
                 MentorRewards = settings.MentorRewards,
                 WeekStartEarnings = settings.WeekStartEarnings,
                 Likes = settings.Likes,
+                Shares = settings.Shares,
+                FranchiseAt = settings.FranchiseAt,
+                Franchises = settings.Franchises,
+                EarningsAtFranchise = settings.EarningsAtFranchise,
+                LegacyLevel = settings.LegacyLevel,
                 Titles = settings.Titles,
                 Managers = settings.Managers,
                 Achievements = settings.Achievements,
@@ -230,6 +235,12 @@ public sealed class WorldStore
             world.LoadOutposts(outposts.Outposts ?? [], outposts.Discoveries ?? []);
         }
 
+        if (JsonSerializer.Deserialize<SeasonState>(dbWorld.Season, Json) is { } season)
+        {
+            world.LoadSeason(season.Season, season.FinaleAt, season.EndedAt, season.Results ?? []);
+            ResultsSaved = season.ResultsSaved;
+        }
+
         world.LastTick = dbWorld.LastTick;
         world.TakeChanges();
         world.Deleted.Clear();
@@ -252,6 +263,7 @@ public sealed class WorldStore
                 Events = JsonSerializer.Serialize(new EventsState(world.Events.ToList(), world.PlannedDays.ToList()), Json),
                 Wonders = JsonSerializer.Serialize(new WondersState(world.EraStartedAt, world.EraWonder, world.DistrictWonders.Values.ToList()), Json),
                 Outposts = JsonSerializer.Serialize(new OutpostsState(world.Outposts.ToList(), world.Discoveries.ToList()), Json),
+                Season = JsonSerializer.Serialize(new SeasonState(world.Season, world.FinaleAt, world.SeasonEndedAt, world.SeasonResults, ResultsSaved), Json),
             },
         };
 
@@ -293,6 +305,11 @@ public sealed class WorldStore
                     MentorRewards = company.MentorRewards,
                     WeekStartEarnings = company.WeekStartEarnings,
                     Likes = company.Likes,
+                    Shares = company.Shares,
+                    FranchiseAt = company.FranchiseAt,
+                    Franchises = company.Franchises,
+                    EarningsAtFranchise = company.EarningsAtFranchise,
+                    LegacyLevel = company.LegacyLevel,
                     Titles = company.Titles,
                     Managers = company.Managers,
                     Achievements = company.Achievements,
@@ -452,6 +469,7 @@ public sealed class WorldStore
                 db.Entry(snapshot.World).Property(t => t.Events).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Wonders).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Outposts).IsModified = true;
+                db.Entry(snapshot.World).Property(t => t.Season).IsModified = true;
             }
             else
             {
@@ -582,6 +600,11 @@ public sealed class WorldStore
         public HashSet<int> MentorRewards { get; init; } = new();
         public double WeekStartEarnings { get; init; }
         public int Likes { get; init; }
+        public int Shares { get; init; }
+        public DateTime? FranchiseAt { get; init; }
+        public int Franchises { get; init; }
+        public double EarningsAtFranchise { get; init; }
+        public int LegacyLevel { get; init; }
         public HashSet<string> Titles { get; init; } = new();
         public HashSet<string> Managers { get; init; } = new();
         public HashSet<string> Achievements { get; init; } = new();
@@ -599,6 +622,54 @@ public sealed class WorldStore
     private sealed record WondersState(DateTime EraStartedAt, Wonder? EraWonder, List<Wonder>? DistrictWonders);
 
     private sealed record OutpostsState(List<Outpost>? Outposts, List<Discovery>? Discoveries);
+
+    private sealed record SeasonState(int Season, DateTime? FinaleAt, DateTime? EndedAt, List<SeasonResult>? Results, bool ResultsSaved);
+
+    /// <summary>Whether the results of the ended season went to the players' Legacy already</summary>
+    public bool ResultsSaved { get; set; }
+
+    /// <summary>
+    /// The next season: a new world with a new seed. Everything of the old world goes (also chat, inbox and
+    /// guestbooks); accounts and their Legacy stay.
+    /// </summary>
+    public async Task ResetAsync(int season, DateTime now, CancellationToken cancellationToken = default)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var world = await db.Worlds.AsTracking().SingleAsync(cancellationToken);
+        await db.Buildings.ExecuteDeleteAsync(cancellationToken);
+        await db.Conductors.ExecuteDeleteAsync(cancellationToken);
+        await db.Estates.ExecuteDeleteAsync(cancellationToken);
+        await db.Contracts.ExecuteDeleteAsync(cancellationToken);
+        await db.Corporations.ExecuteDeleteAsync(cancellationToken);
+        await db.Companies.ExecuteDeleteAsync(cancellationToken);
+        await db.TerrainOverrides.ExecuteDeleteAsync(cancellationToken);
+        await db.ChatMessages.ExecuteDeleteAsync(cancellationToken);
+        await db.InboxMessages.ExecuteDeleteAsync(cancellationToken);
+        await db.GuestbookNotes.ExecuteDeleteAsync(cancellationToken);
+        await db.Blocks.ExecuteDeleteAsync(cancellationToken);
+        world.Seed = unchecked(world.Seed * 31 + 7919 * season);
+        world.Era = 1;
+        world.CreatedAt = now;
+        world.LastTick = now;
+        world.Markets = "[]";
+        world.Exchange = "{}";
+        world.Events = "{}";
+        world.Wonders = "{}";
+        world.Outposts = "{}";
+        world.Season = JsonSerializer.Serialize(new SeasonState(season, null, null, [], false), Json);
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        _companies.Clear();
+        _estates.Clear();
+        _buildings.Clear();
+        _contracts.Clear();
+        _corporations.Clear();
+        _conductors.Clear();
+        _terrainOverrides.Clear();
+        _orphans.Clear();
+        ResultsSaved = false;
+    }
 
     private sealed record CorporationData(HashSet<long> Applications, HashSet<long> Invites, CorporationGoal? Goal);
 }

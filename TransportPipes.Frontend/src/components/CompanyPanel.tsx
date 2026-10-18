@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { gameClient } from "../app/client";
-import { formatAmount } from "../app/format";
+import { formatAmount, formatDuration } from "../app/format";
+import { useNow } from "../app/useNow";
 import type { AchievementDto, ManagerDto } from "../api/contracts";
 import { setState, useAppStore } from "../state/store";
 
@@ -64,13 +65,72 @@ function Achievement({ achievement }: { achievement: AchievementDto }) {
   );
 }
 
+/** The Franchise (GDD §8.7): sell the company to the Board for Shares, start again much faster */
+function FranchiseTab() {
+  const company = useAppStore((s) => s.company)!;
+  const serverOffset = useAppStore((s) => s.serverOffsetMs);
+  const now = useNow(1000) + serverOffset;
+  const franchise = company.franchise;
+  return (
+    <div className="franchise">
+      <div className="stat-grid">
+        <div className="stat">
+          <strong>{franchise.shares}</strong>
+          <span className="muted small">Shares: +{franchise.shares}% production</span>
+        </div>
+        <div className="stat">
+          <strong>+{franchise.sharesNow}</strong>
+          <span className="muted small">Shares a franchise gives now</span>
+        </div>
+        <div className="stat">
+          <strong>{franchise.franchises}</strong>
+          <span className="muted small">Franchises this season</span>
+        </div>
+        <div className="stat">
+          <strong>{franchise.legacyLevel}</strong>
+          <span className="muted small">Legacy level</span>
+        </div>
+      </div>
+      <p className="small">
+        Sell your company to the Board: you get Shares (the square root of what you earned since the last
+        franchise, in thousands), each +1% production for the rest of the season. You keep your land,
+        decorations, corporation, managers, outposts and hub reputation. Buildings, levels, gold and three
+        quarters of your research go. Partners get 24 hours of notice.
+      </p>
+      {franchise.at !== null ? (
+        <div className="franchise-pending">
+          <span>
+            Franchise in {formatDuration(Math.max(0, (new Date(franchise.at).getTime() - now) / 1000))}: +
+            {franchise.sharesNow} Shares
+          </span>
+          <button onClick={() => void gameClient.cancelFranchise()}>Cancel</button>
+        </div>
+      ) : (
+        <button
+          className="primary"
+          disabled={franchise.blocker !== null}
+          title={franchise.blocker ?? undefined}
+          onClick={() => void gameClient.startFranchise()}
+        >
+          Franchise for +{franchise.sharesNow} Shares
+        </button>
+      )}
+      {franchise.blocker !== null && franchise.at === null && (
+        <p className="muted small">🔒 {franchise.blocker}</p>
+      )}
+    </div>
+  );
+}
+
 /** Your company: statistics and titles, managers, achievements and collections (GDD §8.4, §8.5) */
 export function CompanyPanel() {
   const open = useAppStore((s) => s.companyOpen);
   const details = useAppStore((s) => s.companyDetails);
   const company = useAppStore((s) => s.company);
   const content = useAppStore((s) => s.content);
-  const [tab, setTab] = useState<"overview" | "managers" | "achievements" | "collections">("overview");
+  const [tab, setTab] = useState<"overview" | "managers" | "achievements" | "collections" | "franchise">(
+    "overview",
+  );
   if (!open || company === null || content === null) {
     return null;
   }
@@ -113,8 +173,13 @@ export function CompanyPanel() {
           >
             Collections
           </button>
+          <button className={tab === "franchise" ? "tab active" : "tab"} onClick={() => setTab("franchise")}>
+            Franchise
+          </button>
         </div>
-        {details === null ? (
+        {tab === "franchise" ? (
+          <FranchiseTab />
+        ) : details === null ? (
           <p className="muted">Loading…</p>
         ) : tab === "overview" ? (
           <div className="company-overview">

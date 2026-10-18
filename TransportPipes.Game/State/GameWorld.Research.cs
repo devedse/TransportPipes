@@ -141,7 +141,8 @@ public sealed partial class GameWorld
         {
             return 0;
         }
-        var bonus = CorporationOutputBonus(company, resource) + ManagerOutputBonus(company, building) + AchievementOutputBonus(company, building, resource);
+        var bonus = CorporationOutputBonus(company, resource) + ManagerOutputBonus(company, building) + AchievementOutputBonus(company, building, resource)
+            + ShareBonus(company);
         foreach (var techId in company.Researched)
         {
             if (Content.Research.TryGetValue(techId, out var tech))

@@ -6,6 +6,7 @@ import type {
   ChatMessageDto,
   CompanyDetailsDto,
   OutpostCheckDto,
+  SeasonDto,
   CompanyDto,
   ContractsDto,
   CorporationsDto,
@@ -92,6 +93,9 @@ export interface AppState {
   /** A wilderness tile the player clicked: an outpost there, or the claim it would make */
   wildTile: TilePosition | null;
   outpostCheck: OutpostCheckDto | null;
+  /** The season results, shown when the season ended */
+  season: SeasonDto | null;
+  seasonOpen: boolean;
   leaderboardOpen: boolean;
   leaderboardKind: LeaderboardKind;
   leaderboardDistrict: boolean;
@@ -156,6 +160,8 @@ export const initialState: AppState = {
   companyDetails: null,
   wildTile: null,
   outpostCheck: null,
+  season: null,
+  seasonOpen: false,
   leaderboardOpen: false,
   leaderboardKind: "netWorth",
   leaderboardDistrict: true,

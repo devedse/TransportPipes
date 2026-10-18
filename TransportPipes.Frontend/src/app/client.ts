@@ -128,6 +128,8 @@ export class GameClient {
         void this.refreshInbox();
       }
     });
+    // A new season: a new world, everything starts again
+    c.on("seasonChanged", () => location.reload());
     c.on("wondersChanged", () => {
       if (appStore.getState().hubOpen && appStore.getState().hubTab === "wonders") {
         void this.refreshWonders();
@@ -180,11 +182,18 @@ export class GameClient {
     if (this.homedCompany !== hello.company.id) {
       this.goHome();
     }
+    if (hello.company.season.endedAt !== null) {
+      void this.openSeason();
+    }
   }
 
   private setCompany(company: CompanyDto) {
     const previous = appStore.getState().company;
     setState({ company, companyAt: Date.now(), era: company.era });
+    if (company.season.endedAt !== null && previous?.season.endedAt === null) {
+      // The ceremony
+      void this.openSeason();
+    }
     if (
       previous !== null &&
       (previous.unlockedParcels !== company.unlockedParcels ||
@@ -819,6 +828,21 @@ export class GameClient {
         });
       }
     }
+  }
+
+  // ---------------------------------------------------------------- Franchise and season
+
+  async startFranchise() {
+    await this.command(this.connection.startFranchise(), "Franchise announced: it happens in 24 hours");
+  }
+
+  async cancelFranchise() {
+    await this.command(this.connection.cancelFranchise(), "Franchise cancelled");
+  }
+
+  async openSeason() {
+    const season = await this.connection.getSeason().catch(() => null);
+    setState({ season, seasonOpen: season !== null });
   }
 
   // ---------------------------------------------------------------- Outposts

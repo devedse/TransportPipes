@@ -92,4 +92,34 @@ public sealed class AccountService
         await using var db = _dbFactory.CreateDbContext();
         return await db.Users.AnyAsync(t => t.Id == userId);
     }
+
+    /// <summary>The Legacy of a user (points and titles from earlier seasons)</summary>
+    public async Task<(int Legacy, IReadOnlyList<string> Titles)> LegacyAsync(long userId)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        var user = await db.Users.FirstOrDefaultAsync(t => t.Id == userId);
+        return user == null ? (0, []) : (user.Legacy, System.Text.Json.JsonSerializer.Deserialize<List<string>>(user.LegacyTitles) ?? []);
+    }
+
+    /// <summary>Adds the results of a season to the players' Legacy</summary>
+    public async Task AddLegacyAsync(IEnumerable<TransportPipes.Game.State.SeasonResult> results)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        foreach (var result in results)
+        {
+            var user = await db.Users.AsTracking().FirstOrDefaultAsync(t => t.Id == result.UserId);
+            if (user == null)
+            {
+                continue;
+            }
+            user.Legacy += result.Legacy;
+            if (result.Title != null)
+            {
+                var titles = System.Text.Json.JsonSerializer.Deserialize<List<string>>(user.LegacyTitles) ?? [];
+                titles.Add(result.Title);
+                user.LegacyTitles = System.Text.Json.JsonSerializer.Serialize(titles);
+            }
+        }
+        await db.SaveChangesAsync();
+    }
 }

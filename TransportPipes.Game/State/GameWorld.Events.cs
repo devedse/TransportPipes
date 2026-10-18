@@ -14,6 +14,7 @@ public enum EventKind
     Discovery,
     Festival,
     EraLaunch,
+    Finale,
 }
 
 /// <summary>A temporary multiplier with a start and an end (GDD §15)</summary>
@@ -293,6 +294,7 @@ public sealed partial class GameWorld
         EventKind.Shortage => $"{ResourceName(gameEvent.Resource)} Shortage",
         EventKind.Discovery => $"{ResourceName(gameEvent.Resource)} Discovery",
         EventKind.Festival => "Festival",
+        EventKind.Finale => "Season finale: the Space Elevator launches",
         _ => $"Era {Era} launch",
     };
 
@@ -306,6 +308,7 @@ public sealed partial class GameWorld
         EventKind.Shortage => $"An urgent order for {ResourceName(gameEvent.Resource).ToLowerInvariant()} with a big reward",
         EventKind.Discovery => $"A rich {ResourceName(gameEvent.Resource).ToLowerInvariant()} deposit appears in the wilderness: claim an outpost on it",
         EventKind.Festival => "Likes count double",
+        EventKind.Finale => "The season ends with the launch: rankings, Legacy, and a new world a week later",
         _ => "+10% production for everyone",
     };
 

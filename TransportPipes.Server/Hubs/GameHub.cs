@@ -22,6 +22,7 @@ public interface IGameClient
     Task InboxChanged(int unread);
     Task CorporationChanged();
     Task WondersChanged();
+    Task SeasonChanged();
 }
 
 /// <summary>The game protocol. Every call needs a logged in user (the login cookie).</summary>
@@ -38,13 +39,15 @@ public sealed class GameHub : Hub<IGameClient>
     private readonly WorldHost _world;
     private readonly ConnectedUsers _connectedUsers;
     private readonly SocialService _social;
+    private readonly AccountService _accounts;
     private readonly TransportPipesOptions _options;
 
-    public GameHub(WorldHost world, ConnectedUsers connectedUsers, SocialService social, Microsoft.Extensions.Options.IOptions<TransportPipesOptions> options)
+    public GameHub(WorldHost world, ConnectedUsers connectedUsers, SocialService social, AccountService accounts, Microsoft.Extensions.Options.IOptions<TransportPipesOptions> options)
     {
         _world = world;
         _connectedUsers = connectedUsers;
         _social = social;
+        _accounts = accounts;
         _options = options.Value;
     }
 
@@ -110,10 +113,11 @@ public sealed class GameHub : Hub<IGameClient>
     private static CompanyDto CompanyView(GameWorld world, Company company) =>
         GameViews.Company(world, company, world.GoldPerMinute().GetValueOrDefault(company.Id), world.ResearchPerMinute().GetValueOrDefault(company.Id));
 
-    public Task<CommandResultDto> CreateCompany(string name, string color)
+    public async Task<CommandResultDto> CreateCompany(string name, string color)
     {
         var userId = UserId;
-        return _world.RunAsync(world =>
+        var (legacy, titles) = await _accounts.LegacyAsync(userId);
+        return await _world.RunAsync(world =>
         {
             if (world.CompanyOfUser(userId) != null)
             {
@@ -127,7 +131,7 @@ public sealed class GameHub : Hub<IGameClient>
             {
                 return CommandResultDto.Fail("Pick a colour.");
             }
-            var created = world.CreateCompany(userId, name, color);
+            var created = world.CreateCompany(userId, name, color, GameWorld.LegacyLevelOf(legacy), titles);
             world.EnsureOrders(created);
             return CommandResultDto.Ok;
         });
@@ -279,6 +283,20 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<CommandResultDto> DismissManager(string manager) =>
         Command((world, company) => world.DismissManager(company, manager));
+
+    // ---------------------------------------------------------------- Franchise and season
+
+    public Task<CommandResultDto> StartFranchise() =>
+        Command((world, company) => world.StartFranchise(company));
+
+    public Task<CommandResultDto> CancelFranchise() =>
+        Command((world, company) => world.CancelFranchise(company));
+
+    public Task<SeasonDto> GetSeason()
+    {
+        var userId = UserId;
+        return _world.RunAsync(world => GameViews.Season(world, userId), changesWorld: false);
+    }
 
     // ---------------------------------------------------------------- Outposts
 
@@ -535,6 +553,11 @@ public sealed class GameHub : Hub<IGameClient>
                 case "gold":
                     company.Gold += 100_000;
                     break;
+                case "earn":
+                    // A million earned (for the Franchise)
+                    company.Gold += 1_000_000;
+                    company.LifetimeEarnings += 1_000_000;
+                    break;
                 case "level":
                     world.GainXp(company, world.Content.Progression.XpForLevel(company.Level + 5) - company.Xp);
                     break;
@@ -559,6 +582,18 @@ public sealed class GameHub : Hub<IGameClient>
                     break;
                 case "era":
                     world.AdvanceEra();
+                    break;
+                case "finale":
+                    // To Era 5 and the launch countdown
+                    while (world.Era < GameWorld.LastEra)
+                    {
+                        world.AdvanceEra();
+                    }
+                    world.StartFinale();
+                    break;
+                case "endseason":
+                    world.StartFinale();
+                    world.EndSeason();
                     break;
                 case "discover":
                     // A copper Discovery in the wilderness north of your estate, 8 tiles from the district's edge

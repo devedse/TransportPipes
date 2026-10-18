@@ -67,7 +67,19 @@ public record CompanyDto(
     IReadOnlyList<string> Titles,
     IReadOnlyList<string> Collections,
     IReadOnlyList<OutpostDto> Outposts,
+    FranchiseDto Franchise,
+    SeasonInfoDto Season,
     DateTime ServerTime);
+
+/// <summary>The Franchise (GDD §8.7): Shares so far and what a franchise would give now</summary>
+public record FranchiseDto(int Shares, int Franchises, int SharesNow, string? Blocker, DateTime? At, int LegacyLevel);
+
+/// <summary>The season: the finale countdown, and when it ended the next world's opening</summary>
+public record SeasonInfoDto(int Season, DateTime? FinaleAt, DateTime? EndedAt, DateTime? NextWorldAt);
+
+public record SeasonResultDto(string Company, double NetWorth, int Rank, int Legacy, string? Title, bool You);
+
+public record SeasonDto(int Season, DateTime? FinaleAt, DateTime? EndedAt, DateTime? NextWorldAt, IReadOnlyList<SeasonResultDto> Top, SeasonResultDto? You);
 
 /// <summary>An event in the calendar (GDD §15)</summary>
 public record GameEventDto(long Id, string Kind, string Name, string Effect, DateTime StartsAt, DateTime EndsAt, string? Resource, bool Active, bool Everywhere);

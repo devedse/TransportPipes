@@ -61,6 +61,8 @@ public static class GameViews
             company.Titles.OrderBy(t => t).ToList(),
             company.Achievements.Where(t => t.StartsWith("collection:")).Select(t => t["collection:".Length..]).ToList(),
             world.OutpostsOf(company.Id).Select(t => Outpost(world, t, company.Id)).ToList(),
+            new FranchiseDto(company.Shares, company.Franchises, world.FranchiseShares(company), world.FranchiseBlocker(company), company.FranchiseAt, company.LegacyLevel),
+            SeasonInfo(world),
             world.Now);
     }
 
@@ -207,6 +209,20 @@ public static class GameViews
             }
         }
         return new ChunkObjectsDto(cx, cy, buildings, conductors, overrides, outposts, deposits);
+    }
+
+    /// <summary>The next world opens this long after the season ended</summary>
+    public static TimeSpan SeasonBreak { get; set; } = TimeSpan.FromDays(7);
+
+    public static SeasonInfoDto SeasonInfo(GameWorld world) =>
+        new(world.Season, world.FinaleAt, world.SeasonEndedAt, world.SeasonEndedAt is { } ended ? ended + SeasonBreak : null);
+
+    public static SeasonDto Season(GameWorld world, long userId)
+    {
+        SeasonResultDto View(SeasonResult result) => new(result.Company, result.NetWorth, result.Rank, result.Legacy, result.Title, result.UserId == userId);
+        var info = SeasonInfo(world);
+        var you = world.SeasonResults.FirstOrDefault(t => t.UserId == userId);
+        return new SeasonDto(info.Season, info.FinaleAt, info.EndedAt, info.NextWorldAt, world.SeasonResults.Take(20).Select(View).ToList(), you == null ? null : View(you));
     }
 
     public static OutpostDto Outpost(GameWorld world, Outpost outpost, long? viewer)

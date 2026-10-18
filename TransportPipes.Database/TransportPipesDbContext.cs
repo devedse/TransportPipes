@@ -43,6 +43,7 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
             user.Property(t => t.NormalizedUserName).HasMaxLength(100);
             user.Property(t => t.Email).HasMaxLength(256);
             user.HasIndex(t => t.NormalizedUserName).IsUnique();
+            user.Property(t => t.LegacyTitles).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
         });
 
         modelBuilder.Entity<DbWorld>(world =>
@@ -54,6 +55,7 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
             world.Property(t => t.Events).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
             world.Property(t => t.Wonders).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
             world.Property(t => t.Outposts).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
+            world.Property(t => t.Season).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
         });
 
         modelBuilder.Entity<DbCompany>(company =>

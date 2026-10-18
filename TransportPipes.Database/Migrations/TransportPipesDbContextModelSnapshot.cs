@@ -490,6 +490,15 @@ namespace TransportPipes.Database.Migrations
                     b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("Legacy")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LegacyTitles")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValueSql("'[]'::jsonb");
+
                     b.Property<string>("NormalizedUserName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -545,6 +554,12 @@ namespace TransportPipes.Database.Migrations
                         .HasDefaultValueSql("'[]'::jsonb");
 
                     b.Property<string>("Outposts")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValueSql("'{}'::jsonb");
+
+                    b.Property<string>("Season")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("jsonb")

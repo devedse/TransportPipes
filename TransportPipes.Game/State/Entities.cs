@@ -80,6 +80,17 @@ public sealed class Company : Entity
     /// <summary>Titles earned (Wonder tiers, achievements)</summary>
     public HashSet<string> Titles { get; init; } = new();
 
+    /// <summary>Franchise (GDD §8.7): Shares (+1% production each), when a franchise takes effect, how often it happened</summary>
+    public int Shares { get; set; }
+    public DateTime? FranchiseAt { get; set; }
+    public int Franchises { get; set; }
+
+    /// <summary>LifetimeEarnings at the last franchise: Shares come from what was earned since</summary>
+    public double EarningsAtFranchise { get; set; }
+
+    /// <summary>The Legacy level the owner brought from earlier seasons (a free manager slot from level 5)</summary>
+    public int LegacyLevel { get; set; }
+
     /// <summary>Hired managers (ids), achievements and collections reached (ids), and the counters behind them</summary>
     public HashSet<string> Managers { get; init; } = new();
     public HashSet<string> Achievements { get; init; } = new();
