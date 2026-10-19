@@ -12,7 +12,7 @@ How far the game in [GameDesign.md](GameDesign.md) is implemented. Updated with 
 | Connectivity | Only pipes connect; buildings never pass resources on; trades happen between buildings on the same pipe group (original rule) | Layout matters, as in the original game |
 | Content | Resources, buildings, research etc. in YAML files in `TransportPipes.Game/Content`, served to the client as JSON | Balancing without code changes, one source of truth |
 | Accounts | Cookie authentication (own users table + ASP.NET Core password hasher); SignalR uses the cookie | Reconnects don't need a login |
-| Art | Existing hand-drawn sprites where they exist; a procedural `SpriteKit` (canvas drawing in the same outlined, flat-coloured style) for all new buildings and terrain | Codex image generation is not logged in; procedural art keeps 60 buildings consistent and animated |
+| Art | Until M9: existing hand-drawn sprites plus a procedural `SpriteKit` (canvas drawing). From M9: generated art for everything (buildings, map, UI) with Codex image generation, `gpt-6.1-sol` at reasoning effort `high`; the procedural art stays as a fallback | A test on 2026-10-19 showed generated sprites far above the procedural ones, and looks are a primary goal of v1 |
 
 ## Milestones
 
@@ -66,13 +66,85 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 - ✅ Activity stages (active, resting, dormant with a Caretaker taking 10% and handing over corporation leadership, asleep after 30 days on the Quiet Isles), estates packed and unpacked with their layout, relocation once a week (an hour in transit), crates, swaps, corporation blocks (72 h), quiet districts offering a free move with a free parcel
 - ✅ Mobile layout (bottom sheets, a compact top bar and toolbar, no sideways scrolling, pinch to zoom) and moderation tools (reported chat messages, delete, mute 24 h, ban 7 days, rename companies; banned players can't log in)
 
-### M7 · Late game
+### M7 · Late game (the rest moved into the plan to v1 below)
 
 - ✅ Denser: complexes (2×2 ×5 from Era 2, 3×3 ×12 from Era 3, one shared level), tile efficiency with a leaderboard, terraforming (drain, lakes, hills with more wind, forests, seeding deposits), blueprints (drag an area to save it, a ghost to place it, built at the normal costs; shared with the corporation or on the rated board)
 - ✅ The Deep Level: Deep Lifts with a shaft below (throughput 2,000 per level), parcels dug out over hours to days (stone and ore into the storages), rock with veins of ★3–★5 metal, magma and rare earth, lantern-lit caverns, lossless pipes, Magma Tap, Vault, Crystal Grotto; the layer switch (G), deep build menu and dig panel
-- ⬜ Expeditions, branch estates, teleporters
-- ⬜ Bank (investing, insurance, bonds), District Steward elections
-- ⬜ Weekly challenges, season themes, Loady, photo mode, mastery research
+- ➡️ Teleporters, expeditions and mastery research → M8; branch estates → M8 (merged with the Franchise); Loady → M8 (as the guide) and M9 (art); photo mode and legendary looks → M9
+- ➡️ Bank, District Steward, weekly challenges, season themes → after v1
+
+## The plan to v1 (2026-10-19)
+
+The first version has to be a **fully playable, fun idle game that looks good, and is multiplayer**. Looks are one of
+the primary goals: the buildings, the map and the UI. The design may change where the loop needs it.
+
+### A critical look at the game loop
+
+| Problem | Why it matters | What we do |
+| --- | --- | --- |
+| The first session has no guide: an empty valley, 2,000 gold and many systems to discover | Idle games lose most players in the first minutes | Loady guides the first session; an always visible goal tracker (next, today, this week) |
+| Two resets (Franchise wipes the estate, the season wipes the world) | Players who like to expand lose what they built; rebuilding isn't the fun | Expansion instead of resets (decisions below) |
+| Little feedback: plain toasts, no celebration of chains, level-ups or milestones | "Number goes up" needs juice to feel good | Coin pops, level-up and chain moments, upgrade bursts, sound (M9) |
+| Too many systems at once: 9 tools, 35 panels, several bars | Cognitive overload; the good parts stay hidden | Progressive UI: tools and panels appear when they unlock; fewer, merged panels |
+| Neighbour trade (the multiplayer twist) only happens if the player finds the Neighbourhood panel | The multiplayer has to be felt early | Neighbour requests as cards with one-click Connect; other players visible on the map |
+| Balance is untested: every screenshot used cheats | Too slow feels dead, too fast leaves nothing for week 3 | A bot simulation plays days at speed; tune to the GDD §10 day-by-day targets |
+| Many late-game systems that add complexity rather than fun for a first version | Breadth before polish | Bank, Steward, challenges, gates after v1 |
+| 73 buildings, 44 techs, 24 resources | Every building will need hand-made-quality art | Review the list: drop or merge buildings that add little before the art pass |
+| The map is flat tiles with hard edges and strong lines; the UI is generic dark web panels with emoji icons | Doesn't look like a game people want to play | The art and UI redesign (M9) |
+
+### Decisions
+
+- **Expansion, not rebuilding.** The **Franchise opens a new estate** (a branch in another district, starting small
+  and growing like the first); the old estate keeps running and the Shares bonus works for all estates. This replaces
+  both the old Franchise reset and the separate branch estate feature.
+- **A persistent world.** No season wipe: a season becomes a **chapter**. After the finale come the rankings, Legacy,
+  titles and statues; then the next chapter starts a new Wonder race with a theme, while estates stay. Eras stay
+  unlocked; newcomers are paced by Company Level and research, start in new frontier districts and get the catch-up
+  help that exists (knowledge diffusion, mentors).
+- **Evolve in place** where possible: a better building replaces an older one on the same spot, pipes kept, with a
+  full refund of the old one, so an Era change feels like an upgrade, not a rebuild.
+
+### M8 · Fun first: the loop for v1 (≈ 6–9 h)
+
+- 🚧 Teleporters (Pneumatic Post, Quantum Link): game logic written, not committed yet
+- ⬜ Expansion instead of resets: the Franchise opens a new estate; persistent world with chapters; evolve in place
+- ⬜ Onboarding: Loady (the mascot) guides the first session (first chain within 5 minutes, first neighbour trade by
+  minute 15) and gives tips later; the goal tracker
+- ⬜ Progressive UI: tools and panels appear when they unlock; merge panels; one-click map actions (connect, upgrade,
+  collect)
+- ⬜ Neighbour requests as cards, other players visible on the map
+- ⬜ Expeditions (an idle timer with a surprise) and mastery research
+- ⬜ Browser notifications (storage full, research, dig, expedition back)
+- ⬜ Content review: fewer, more distinct buildings and techs
+- ⬜ Balance: a bot simulation of the first 14 days at speed, tuned to the GDD §10 targets, with a report
+
+### M9 · Looks: art and UI redesign (≈ 8–12 h plus generation time)
+
+- ⬜ Art direction (`docs/ArtDirection.md`): mood, palette, light, references, the style prompt, angle and size rules,
+  the UI kit; a few explorations to choose from
+- ⬜ Art pipeline: Codex image generation (`gpt-6.1-sol`, high) → crop, align to the footprint, scale, WebP, atlas;
+  animated parts (rotors, wheels, smoke, glow) as separate layers; procedural art as fallback
+- ⬜ Every building, with a visual evolution at the level milestones (level 100 legendary)
+- ⬜ The map: terrain with soft transitions, water, forests, mountains and deposits; hub cities with life; corridors and
+  gates; the wilderness and outposts; the Deep Level; the far zoom; softer estate borders and parcel locks
+- ⬜ Pipes and flows: pipe tiers, joints, resources visibly flowing, bottlenecks
+- ⬜ UI: a game UI kit (panels, buttons, tabs), resource and building icons, typography, the HUD, every panel, the
+  phone layout; juice (coin pops, level-ups, chains, upgrades) and sound effects
+- ⬜ Loady and character portraits (managers), logo, key art for the login screen
+- ⬜ Photo mode (hide the UI, time of day)
+
+### M10 · v1: playable, fun, good-looking (≈ 3–5 h)
+
+- ⬜ Play a fresh account at real speed (first session, day 1, week 1), note and fix what isn't fun
+- ⬜ Performance (atlases, phones), a bug bash, accessibility basics
+- ⬜ The e2e screenshot scripts move into the repository (they lived in /tmp and were lost)
+- ⬜ Merge PR #3 and release
+
+### After v1
+
+Designed (GDD §11), not needed for a fun first version: the Bank (investing, insurance, Wonder bonds), District
+Steward elections, weekly challenges, the Public Quantum Gate, Estate of the Week, chapter themes, running a cargo
+company for others, legendary skins from events.
 
 ## Design refinements made during implementation
 
@@ -127,3 +199,5 @@ Changes to [GameDesign.md](GameDesign.md) that came up while building; the desig
 | 2026-10-18 | Deep tiles are surface tiles shifted down by 969,600 (whole districts and chunks): the same tables, chunks, networks and renderer serve both layers. The dug out parcels belong to the company (a bit mask) instead of the land, so they move along with it | The tech design's "layer index" without a second set of tables |
 | 2026-10-18 | A Deep Lift is a pair: the lift on the surface and a shaft below, linked like Cargo Depots; the shaft can't be demolished, moved or upgraded on its own | One link mechanism for pylons, depots and lifts |
 | 2026-10-18 | Factories stay on the surface; the Deep Level is for mining, magma energy, storage and decoration | Keeps the lifts the bottleneck and the surface the factory floor |
+| 2026-10-19 | The Franchise opens a new estate instead of resetting the old one, and the world persists over chapters instead of a season wipe | The owner prefers expansion over rebuilding; to be built in M8 |
+| 2026-10-19 | Looks are a primary goal: generated art (Codex, `gpt-6.1-sol` high) for buildings, map and UI; v1 scope is a fun, good-looking multiplayer idle game, the rest after v1 | Owner's direction after the image test |
