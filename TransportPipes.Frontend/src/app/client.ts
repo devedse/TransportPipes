@@ -583,6 +583,7 @@ export class GameClient {
     onLayer: (deep) => setState({ deepView: deep, selectedDeepParcel: null, selectedParcel: null }),
     onPlaceBlueprint: (blueprint, x, y) => void this.buildBlueprint(blueprint, x, y),
     onZoom: (zoom) => setState({ zoom }),
+    onBack: () => this.back(),
     onMapShown: () => {
       setState({ mapShown: true });
       document.body.dataset.ready = "1";
@@ -723,6 +724,50 @@ export class GameClient {
       }
     }
     this.select(null);
+  }
+
+  /**
+   * One step back (Escape, a right-click on the map): close a window, leave photo mode, cancel a plan or a tool, then
+   * deselect
+   */
+  back() {
+    const state = appStore.getState();
+    if (
+      state.researchOpen ||
+      state.hubOpen ||
+      state.neighboursOpen ||
+      state.corporationOpen ||
+      state.leaderboardOpen ||
+      state.companyOpen ||
+      state.blueprintsOpen ||
+      state.moderationOpen
+    ) {
+      setState({ ...MODALS, buildMenuOpen: state.buildMenuOpen });
+    } else if (state.photoMode) {
+      this.setPhotoMode(false);
+    } else if (state.selectedDeepParcel !== null) {
+      setState({ selectedDeepParcel: null });
+    } else if (state.blueprintDraft !== null) {
+      setState({ blueprintDraft: null });
+    } else if (state.inboxOpen) {
+      setState({ inboxOpen: false });
+    } else if (state.visiting !== null) {
+      this.closeVisit();
+    } else if (state.wildTile !== null) {
+      this.closeWild();
+    } else if (state.plannedRoute !== null) {
+      setState({ plannedRoute: null, plannedPartner: null });
+    } else if (state.tool.kind !== "select") {
+      this.setTool({ kind: "select" });
+    } else if (state.buildMenuOpen) {
+      setState({ buildMenuOpen: false });
+    } else if (state.selectedGate !== null) {
+      setState({ selectedGate: null });
+    } else if (state.selectedNetwork !== null) {
+      this.selectNetwork(null);
+    } else {
+      this.select(null);
+    }
   }
 
   select(id: number | null) {

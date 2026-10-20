@@ -109,6 +109,8 @@ export interface EngineCallbacks {
   onLayer(deep: boolean): void;
   onPlaceBlueprint(blueprint: BlueprintDto, x: number, y: number): void;
   onZoom(scale: number): void;
+  /** A right-click without dragging: one step back (cancel the tool, deselect) */
+  onBack(): void;
   /** The map where the camera looks has been drawn for the first time (until then a loading picture covers it) */
   onMapShown(): void;
 }
@@ -609,6 +611,9 @@ export class Engine {
         this.finishToolDrag();
       } else if (!this.movedBeyondClick && this.dragButton === 0) {
         this.click(this.camera.screenToTile(this.pointerX, this.pointerY));
+      } else if (!this.movedBeyondClick && this.dragButton === 2) {
+        // Right-click: back (a right-drag pans the map)
+        this.callbacks.onBack();
       }
     };
 

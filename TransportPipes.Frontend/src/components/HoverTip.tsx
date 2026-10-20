@@ -60,16 +60,16 @@ export function HoverTip() {
       text = `${tiles.length} pipe tiles · ${formatAmount(gold)} g · release to build`;
       tone = "good";
     } else {
-      text = "Drag from a building to another to lay a pipe";
+      text = "Drag from a building to another to lay a pipe · right-click to stop";
     }
   } else if (tool.kind === "bulldoze") {
     text =
-      "Click or drag over your pipes to remove them (half the cost back); click a building to demolish it";
+      "Click or drag over your pipes to remove them (half the cost back); click a building to demolish it · right-click to stop";
   } else if (tool.kind === "move") {
-    text = placement?.ok === false ? placement.reason : "Click where it should go";
+    text = placement?.ok === false ? placement.reason : "Click where it should go · right-click to cancel";
     tone = placement?.ok === false ? "bad" : "";
   } else if (tool.kind === "blueprintArea") {
-    text = "Drag a rectangle over your estate to save it as a blueprint (Esc to stop)";
+    text = "Drag a rectangle over your estate to save it as a blueprint (right-click or Esc to stop)";
   } else if (tool.kind === "blueprint") {
     const blueprint = tool.blueprint;
     if (placement !== null && placement.ok && placement.reason === null) {
@@ -90,7 +90,7 @@ export function HoverTip() {
       forest: "Plant a forest",
       seedDeposit: `Seed ${tool.resource !== undefined ? content.resourceName(tool.resource).toLowerCase() : "a deposit"}`,
     };
-    text = `${names[tool.action] ?? tool.action}: click tiles of your estate (Esc to stop)`;
+    text = `${names[tool.action] ?? tool.action}: click tiles of your estate (right-click or Esc to stop)`;
   }
 
   if (text === null && info !== null) {

@@ -37,7 +37,7 @@ import { Toasts } from "./components/Toasts";
 import { Toolbar } from "./components/Toolbar";
 import { TopBar } from "./components/TopBar";
 import { VersionBadge } from "./components/VersionBadge";
-import { appStore, MODALS, setState, useAppStore } from "./state/store";
+import { appStore, setState, useAppStore } from "./state/store";
 
 function isTyping(target: EventTarget | null): boolean {
   return (
@@ -62,42 +62,7 @@ function useShortcuts() {
       }
       switch (event.key.toLowerCase()) {
         case "escape":
-          if (
-            state.researchOpen ||
-            state.hubOpen ||
-            state.neighboursOpen ||
-            state.corporationOpen ||
-            state.leaderboardOpen ||
-            state.companyOpen ||
-            state.blueprintsOpen ||
-            state.moderationOpen
-          ) {
-            setState({ ...MODALS, buildMenuOpen: state.buildMenuOpen });
-          } else if (state.photoMode) {
-            gameClient.setPhotoMode(false);
-          } else if (state.selectedDeepParcel !== null) {
-            setState({ selectedDeepParcel: null });
-          } else if (state.blueprintDraft !== null) {
-            setState({ blueprintDraft: null });
-          } else if (state.inboxOpen) {
-            setState({ inboxOpen: false });
-          } else if (state.visiting !== null) {
-            gameClient.closeVisit();
-          } else if (state.wildTile !== null) {
-            gameClient.closeWild();
-          } else if (state.plannedRoute !== null) {
-            setState({ plannedRoute: null, plannedPartner: null });
-          } else if (state.tool.kind !== "select") {
-            gameClient.setTool({ kind: "select" });
-          } else if (state.buildMenuOpen) {
-            setState({ buildMenuOpen: false });
-          } else if (state.selectedGate !== null) {
-            setState({ selectedGate: null });
-          } else if (state.selectedNetwork !== null) {
-            gameClient.selectNetwork(null);
-          } else {
-            gameClient.select(null);
-          }
+          gameClient.back();
           break;
         case "o": {
           const order = ["none", "deposits", "wind", "sun", "owners"] as const;
