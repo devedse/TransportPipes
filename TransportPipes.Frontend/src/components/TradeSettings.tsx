@@ -136,8 +136,8 @@ export function TradeSettings() {
           </ul>
         )}
         <p className="muted small">
-          Neighbours pay for what arrives: a pipe loses a little on every tile (a grey one 0.3%), so over a very
-          long one your trading post earns more. Better pipes lose less.
+          Neighbours pay for what arrives: a pipe loses a little on every tile (a grey one 0.3%), so over a
+          very long one your trading post earns more. Better pipes lose less.
         </p>
       </section>
 
