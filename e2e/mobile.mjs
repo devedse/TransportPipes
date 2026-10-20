@@ -1,0 +1,20 @@
+// The phone layout: node mobile.mjs <outdir>
+import { start, newPlayer } from "./lib.mjs";
+const [out = "shots/mobile"] = process.argv.slice(2);
+const { browser, page, errors, shot, cheat } = await start(out, { width: 390, height: 844 });
+await newPlayer(page, "m");
+for (const c of ["gold", "level"]) await cheat(c);
+await page.waitForTimeout(6500);
+await shot("1-hud");
+await page.evaluate(() => tp.appStore.setState({ buildMenuOpen: true }));
+await page.waitForTimeout(800);
+await shot("2-build");
+await page.evaluate(() => tp.appStore.setState({ buildMenuOpen: false }));
+const hq = await page.evaluate(() => [...tp.gameClient.world.buildings.values()].find((t) => t.type === "hq" && t.owner === tp.appStore.getState().company.id)?.id);
+await page.evaluate((id) => tp.gameClient.select(id), hq);
+await page.waitForTimeout(1200);
+await shot("3-building");
+const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+console.log("horizontal overflow:", overflow);
+console.log(errors.length ? errors.join("\n") : "no errors");
+await browser.close();

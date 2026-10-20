@@ -1,0 +1,26 @@
+// The UI theme: node ui-check.mjs <outdir>
+import { start, newPlayer } from "./lib.mjs";
+const [out = "shots/ui"] = process.argv.slice(2);
+const { browser, page, errors, shot, cheat } = await start(out);
+await newPlayer(page, "u");
+for (const c of ["gold", "level", "level"]) await cheat(c);
+await page.waitForTimeout(1500);
+await shot("1-hud");
+const hq = await page.evaluate(() => [...tp.gameClient.world.buildings.values()].find((t) => t.type === "hq" && t.owner === tp.appStore.getState().company.id)?.id);
+await page.evaluate((id) => tp.gameClient.select(id), hq);
+await page.waitForTimeout(1500);
+await shot("2-building-panel");
+await page.keyboard.press("Escape");
+await page.keyboard.press("i");
+await page.waitForTimeout(1500);
+await shot("3-company");
+await page.keyboard.press("Escape");
+await page.keyboard.press("b");
+await page.waitForTimeout(1000);
+await shot("4-build-menu");
+await page.keyboard.press("Escape");
+await page.keyboard.press("m");
+await page.waitForTimeout(1500);
+await shot("5-hub");
+console.log(errors.length ? errors.join("\n") : "no errors");
+await browser.close();
