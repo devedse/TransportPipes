@@ -1241,10 +1241,15 @@ export class Engine {
       }
       case "city": {
         // The hub town: houses, stalls and trees on the free squares (streets every 8 tiles stay open)
-        if (roll > 0.3 || !this.freeHubTile(x, y)) {
+        const frontage = this.freeHubTile(x, y);
+        if (frontage === null || roll > (frontage === "street" ? 0.85 : 0.08)) {
           return null;
         }
-        const town = ["town-house1", "town-house2", "town-house3", "town-stall", "town-tree"];
+        // Houses and shops face the streets; a tree or a stall now and then inside the blocks
+        const town =
+          frontage === "street"
+            ? ["town-house1", "town-house2", "town-house3", "town-house1", "town-house2", "town-stall"]
+            : ["town-tree", "town-stall"];
         const art = this.textures.generated(town[Math.floor(hash01((x * 37) ^ (y * 59)) * town.length)]!, 1);
         if (art === null) {
           return null;
@@ -1270,21 +1275,27 @@ export class Engine {
     }
   }
 
-  /** A hub tile that no structure stands on (or next to) and that isn't a street */
-  private freeHubTile(x: number, y: number): boolean {
+  /**
+   * A free hub tile for the town around the structures: "street" when it lies along one of the streets (every 8
+   * tiles), "inner" inside a block, null when it is a street, next to a structure or outside the hub
+   */
+  private freeHubTile(x: number, y: number): "street" | "inner" | null {
     const d = districtOf(x, y);
     const district = this.world.district(d.x, d.y);
     if (district === undefined) {
-      return false;
+      return null;
     }
     const lx = x - (district.originX + 2 + 2 * 34);
     const ly = y - (district.originY + 2 + 2 * 34);
     if (lx < 1 || ly < 1 || lx > 30 || ly > 30 || lx % 8 === 0 || ly % 8 === 0) {
-      return false;
+      return null;
     }
-    return !district.hub.some(
-      (t) => lx >= t.x - 1 && ly >= t.y - 1 && lx <= t.x + t.size && ly <= t.y + t.size,
-    );
+    if (
+      district.hub.some((t) => lx >= t.x - 1 && ly >= t.y - 1 && lx <= t.x + t.size && ly <= t.y + t.size)
+    ) {
+      return null;
+    }
+    return lx % 8 === 1 || lx % 8 === 7 || ly % 8 === 1 || ly % 8 === 7 ? "street" : "inner";
   }
 
   private drawObjects(chunk: ChunkView) {
@@ -2206,7 +2217,8 @@ export class Engine {
           structure.level < structure.stages
         ) {
           // A Wonder rises stage by stage: the finished part solid, the rest a faint plan with scaffolding
-          sprite.alpha = 0.22;
+          sprite.alpha = 0.42;
+          sprite.tint = 0x9ec4e8;
           const done = (structure.level + 0.25) / (structure.stages + 0.25);
           const source = sprite.texture;
           const visible = Math.max(1, Math.round(source.height * Math.min(1, 0.18 + done * 0.82)));

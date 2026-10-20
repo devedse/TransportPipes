@@ -656,6 +656,20 @@
    "ax": 432,
    "ay": 843,
    "attachments": []
+  },
+  "town-stall": {
+   "w": 288,
+   "h": 254,
+   "ax": 144,
+   "ay": 253,
+   "attachments": []
+  },
+  "town-tree": {
+   "w": 288,
+   "h": 272,
+   "ax": 144,
+   "ay": 271,
+   "attachments": []
   }
  },
  "rotors": {
