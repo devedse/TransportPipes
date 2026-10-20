@@ -3515,3 +3515,92 @@ kbd {
     transform: rotate(360deg);
   }
 }
+
+/* ---------------------------------------------------------------- Phone: goals, level-up, chat */
+
+@media (max-width: 720px) {
+  .goal-tracker {
+    top: 70px;
+    left: 8px;
+    width: calc(100vw - 16px);
+    gap: 6px;
+  }
+
+  .goal-tracker .goals,
+  .goal-tracker .opportunity:not(.alert) {
+    display: none;
+  }
+
+  .loady-card {
+    grid-template-columns: 52px 1fr;
+  }
+
+  .loady {
+    width: 52px;
+  }
+
+  .loady-bubble {
+    padding: 7px 10px;
+  }
+
+  .loady-bubble p {
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+  }
+
+  .level-up-card {
+    transform: translate(0, 40px);
+    padding: 14px 22px;
+    max-width: calc(100vw - 32px);
+  }
+
+  .level-up-loady {
+    width: 110px;
+    transform: translate(0, -90px) rotate(-8deg);
+  }
+
+  .level-up-burst {
+    width: 360px;
+    height: 360px;
+  }
+
+  .level-up-number {
+    font-size: 3.2rem;
+  }
+
+  /* A bottom sheet takes the corner: the chat button steps aside */
+  .app:has(.building-panel, .parcel-panel, .build-menu) .chat-toggle {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  /* The gold matters most: the company shows as its colour only */
+  .top-company > :not(.company-dot) {
+    display: none;
+  }
+
+  .top-company {
+    padding: 8px 10px;
+    flex: none;
+  }
+
+  .top-gold {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .top-gold .gold-amount {
+    white-space: nowrap;
+  }
+
+  /* Loady stands just above the toolbar, out of the toasts' way */
+  .goal-tracker {
+    top: auto;
+    bottom: 128px;
+  }
+
+  .app:has(.building-panel, .parcel-panel, .build-menu, .modal-backdrop) .goal-tracker {
+    display: none;
+  }
+}
