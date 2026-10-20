@@ -462,15 +462,15 @@
   "wonder-clockTower": {
    "r": 0.75,
    "w": 865,
-   "h": 995,
+   "h": 993,
    "ax": 432,
-   "ay": 994,
+   "ay": 992,
    "attachments": []
   },
   "wonder-copperCathedral": {
    "r": 0.75,
    "w": 865,
-   "h": 877,
+   "h": 878,
    "ax": 432,
    "ay": 877,
    "attachments": []
@@ -486,7 +486,7 @@
   "wonder-greatDynamo": {
    "r": 0.75,
    "w": 865,
-   "h": 717,
+   "h": 716,
    "ax": 432,
    "ay": 716,
    "attachments": []
@@ -547,6 +547,114 @@
    "h": 592,
    "ax": 288,
    "ay": 591,
+   "attachments": []
+  },
+  "deepLift": {
+   "w": 577,
+   "h": 570,
+   "ax": 288,
+   "ay": 569,
+   "attachments": []
+  },
+  "exchangeOffice": {
+   "w": 288,
+   "h": 234,
+   "ax": 144,
+   "ay": 233,
+   "attachments": []
+  },
+  "lab": {
+   "w": 288,
+   "h": 287,
+   "ax": 144,
+   "ay": 286,
+   "attachments": []
+  },
+  "liftShaft": {
+   "w": 577,
+   "h": 506,
+   "ax": 288,
+   "ay": 506,
+   "attachments": []
+  },
+  "marketHall": {
+   "w": 577,
+   "h": 419,
+   "ax": 288,
+   "ay": 418,
+   "attachments": []
+  },
+  "pneumaticPost": {
+   "w": 288,
+   "h": 320,
+   "ax": 144,
+   "ay": 320,
+   "attachments": []
+  },
+  "powerLinePylon": {
+   "w": 288,
+   "h": 350,
+   "ax": 144,
+   "ay": 349,
+   "attachments": []
+  },
+  "quantumLink": {
+   "w": 577,
+   "h": 495,
+   "ax": 288,
+   "ay": 495,
+   "attachments": []
+  },
+  "showroom": {
+   "w": 577,
+   "h": 399,
+   "ax": 288,
+   "ay": 399,
+   "attachments": []
+  },
+  "town-house1": {
+   "w": 288,
+   "h": 292,
+   "ax": 144,
+   "ay": 292,
+   "attachments": []
+  },
+  "town-house2": {
+   "w": 288,
+   "h": 304,
+   "ax": 144,
+   "ay": 304,
+   "attachments": []
+  },
+  "town-house3": {
+   "w": 288,
+   "h": 276,
+   "ax": 144,
+   "ay": 276,
+   "attachments": []
+  },
+  "wonder-refineryTower": {
+   "r": 0.75,
+   "w": 865,
+   "h": 867,
+   "ax": 432,
+   "ay": 867,
+   "attachments": []
+  },
+  "wonder-spaceElevator": {
+   "r": 0.75,
+   "w": 865,
+   "h": 851,
+   "ax": 432,
+   "ay": 850,
+   "attachments": []
+  },
+  "wonder-thinkingMachine": {
+   "r": 0.75,
+   "w": 865,
+   "h": 844,
+   "ax": 432,
+   "ay": 843,
    "attachments": []
   }
  },
