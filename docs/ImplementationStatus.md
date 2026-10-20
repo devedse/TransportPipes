@@ -129,22 +129,24 @@ the primary goals: the buildings, the map and the UI. The design may change wher
 - ✅ Art direction (`docs/ArtDirection.md`) from four generated direction pictures (estate, world, UI kit, Loady)
 - ✅ Art pipeline (`art/`): prompts from lists, a queue over the accounts, `process.mjs` aligns buildings to their
   plate, makes terrain seamless, places props and decals; rotors and smoke as separate parts; procedural fallback
-- 🚧 Every building: 45 of 72 so far, all reviewed (energy, extraction, processing, the HQ, storage, trading post);
-  visual evolution at the milestones still to do
-- 🚧 The map: all eleven terrain textures projected per tile with soft transitions, generated trees, peaks, bushes,
-  reeds, flowers and deposits, thinner borders and a light veil over locked parcels; hub, corridors, wilderness and
-  far zoom still to do
+- ✅ Every building has generated art (all reviewed; the gate stays procedural, its colour shows its policy), with a
+  visual evolution at the milestones: a medal with a star per milestone, the pad's edge in bronze, silver, gold,
+  copper, the owner's pennant from level 50, a golden glow and sparkles at 100
+- ✅ The map: eleven terrain textures projected per tile with soft transitions; generated trees, peaks, bushes, reeds,
+  flowers, stalagmites and deposits; the hub with generated buildings and a town of houses and shops along its
+  streets; nine Wonders rising stage by stage; a painted far view; thinner borders and a light veil over locked parcels
 - ✅ Pipes and flows: chunky shaded tubes with brass collars, per tier, flowing coloured dots
-- 🚧 UI: the teal, brass and cream theme with Fraunces and Nunito; coin pops, bursts, twinkles, the level-up
-  celebration, synthesized sounds with a mute button; generated icons are being made
-- ⬜ Loady and character portraits (managers), logo, key art for the login screen
-- ⬜ Photo mode (hide the UI, time of day)
+- ✅ UI: the teal, brass and cream theme with Fraunces and Nunito; generated icons for the tools, the top bar and all
+  24 resources; coin pops, bursts, twinkles, the level-up celebration, synthesized sounds with a mute button; the
+  phone layout checked
+- ✅ Loady (four poses), manager portraits, the logo and the key art on the title screens
+- ✅ Photo mode (F): no UI, day, golden hour, dusk or night, save as PNG
 
 ### M10 · v1: playable, fun, good-looking (≈ 3–5 h)
 
 - ⬜ Play a fresh account at real speed (first session, day 1, week 1), note and fix what isn't fun
 - ⬜ Performance (atlases, phones), a bug bash, accessibility basics
-- ⬜ The e2e screenshot scripts move into the repository (they lived in /tmp and were lost)
+- ✅ The e2e screenshot scripts are in the repository (`e2e/`)
 - ⬜ Merge PR #3 and release
 
 ### After v1
