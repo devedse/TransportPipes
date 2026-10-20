@@ -61,7 +61,7 @@ export function GoalTracker() {
           </div>
         </div>
       )}
-      {company.alerts.slice(0, 2).map((alert) => (
+      {(company.alerts ?? []).slice(0, 2).map((alert) => (
         <div key={alert.text} className="panel opportunity alert">
           <p>⚠ {alert.text}</p>
           {alert.building !== null && (

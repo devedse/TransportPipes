@@ -4,3 +4,20 @@ windMoily:
   - { kind: rotor, x: 598, y: 222 }
 smallFactory:
   - { kind: smoke, x: 322, y: 138, size: 1 }
+bigTurbine:
+  - { kind: rotor, x: 597, y: 197 }
+coalPlant:
+  - { kind: smoke, x: 565, y: 35, size: 1.4 }
+  - { kind: smoke, x: 740, y: 95, size: 1.4 }
+smelter:
+  - { kind: smoke, x: 658, y: 50, size: 1 }
+brickworks:
+  - { kind: smoke, x: 573, y: 75, size: 1 }
+steamTurbine:
+  - { kind: smoke, x: 768, y: 150, size: 1.6 }
+geothermalPlant:
+  - { kind: smoke, x: 498, y: 229, size: 1.2 }
+waterPump:
+  - { kind: smoke, x: 331, y: 304, size: 0.6 }
+lumberCamp:
+  - { kind: smoke, x: 645, y: 239, size: 0.6 }

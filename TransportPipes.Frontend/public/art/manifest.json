@@ -55,11 +55,215 @@
      "y": 39
     }
    ]
+  },
+  "bigTurbine": {
+   "w": 577,
+   "h": 731,
+   "ax": 288,
+   "ay": 731,
+   "attachments": [
+    {
+     "kind": "rotor",
+     "x": 353,
+     "y": 120
+    }
+   ]
+  },
+  "brickworks": {
+   "w": 288,
+   "h": 253,
+   "ax": 144,
+   "ay": 253,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 162,
+     "y": 3,
+     "size": 1
+    }
+   ]
+  },
+  "coalPit": {
+   "w": 288,
+   "h": 183,
+   "ax": 144,
+   "ay": 182,
+   "attachments": []
+  },
+  "coalPlant": {
+   "w": 577,
+   "h": 591,
+   "ax": 288,
+   "ay": 590,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 318,
+     "y": 16,
+     "size": 1.4
+    },
+    {
+     "kind": "smoke",
+     "x": 423,
+     "y": 52,
+     "size": 1.4
+    }
+   ]
+  },
+  "copperMine": {
+   "w": 288,
+   "h": 237,
+   "ax": 144,
+   "ay": 237,
+   "attachments": []
+  },
+  "deepMine": {
+   "w": 577,
+   "h": 581,
+   "ax": 288,
+   "ay": 580,
+   "attachments": []
+  },
+  "fusionReactor": {
+   "w": 865,
+   "h": 768,
+   "ax": 432,
+   "ay": 767,
+   "attachments": []
+  },
+  "geothermalPlant": {
+   "w": 577,
+   "h": 537,
+   "ax": 288,
+   "ay": 536,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 280,
+     "y": 118,
+     "size": 1.2
+    }
+   ]
+  },
+  "hydroWheel": {
+   "w": 288,
+   "h": 266,
+   "ax": 144,
+   "ay": 266,
+   "attachments": []
+  },
+  "ironMine": {
+   "w": 288,
+   "h": 226,
+   "ax": 144,
+   "ay": 226,
+   "attachments": []
+  },
+  "lumberCamp": {
+   "w": 288,
+   "h": 251,
+   "ax": 144,
+   "ay": 251,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 185,
+     "y": 48,
+     "size": 0.6
+    }
+   ]
+  },
+  "magmaTap": {
+   "w": 577,
+   "h": 519,
+   "ax": 288,
+   "ay": 518,
+   "attachments": []
+  },
+  "oilDerrick": {
+   "w": 288,
+   "h": 257,
+   "ax": 144,
+   "ay": 257,
+   "attachments": []
+  },
+  "quarry": {
+   "w": 577,
+   "h": 433,
+   "ax": 288,
+   "ay": 433,
+   "attachments": []
+  },
+  "rareEarthExcavator": {
+   "w": 577,
+   "h": 393,
+   "ax": 288,
+   "ay": 392,
+   "attachments": []
+  },
+  "sandDredger": {
+   "w": 288,
+   "h": 179,
+   "ax": 144,
+   "ay": 178,
+   "attachments": []
+  },
+  "smelter": {
+   "w": 288,
+   "h": 289,
+   "ax": 144,
+   "ay": 289,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 189,
+     "y": 7,
+     "size": 1
+    }
+   ]
+  },
+  "solarFarm": {
+   "w": 954,
+   "h": 528,
+   "ax": 478,
+   "ay": 527,
+   "attachments": []
+  },
+  "steamTurbine": {
+   "w": 577,
+   "h": 531,
+   "ax": 288,
+   "ay": 531,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 441,
+     "y": 47,
+     "size": 1.6
+    }
+   ]
+  },
+  "waterPump": {
+   "w": 288,
+   "h": 237,
+   "ax": 144,
+   "ay": 237,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 86,
+     "y": 50,
+     "size": 0.6
+    }
+   ]
   }
  },
  "rotors": {
   "windMoily": {
    "size": 230
+  },
+  "bigTurbine": {
+   "size": 461
   }
  },
  "terrain": {
@@ -176,6 +380,62 @@
    "h": 244,
    "ax": 77,
    "ay": 244
+  },
+  "depositIronOre": {
+   "w": 245,
+   "h": 97,
+   "ax": 123,
+   "ay": 49,
+   "decal": true
+  },
+  "depositCopperOre": {
+   "w": 245,
+   "h": 98,
+   "ax": 123,
+   "ay": 49,
+   "decal": true
+  },
+  "depositCoal": {
+   "w": 245,
+   "h": 92,
+   "ax": 123,
+   "ay": 46,
+   "decal": true
+  },
+  "depositStone": {
+   "w": 245,
+   "h": 104,
+   "ax": 123,
+   "ay": 52,
+   "decal": true
+  },
+  "depositOil": {
+   "w": 230,
+   "h": 82,
+   "ax": 115,
+   "ay": 41,
+   "decal": true
+  },
+  "depositRareEarth": {
+   "w": 230,
+   "h": 83,
+   "ax": 115,
+   "ay": 42,
+   "decal": true
+  },
+  "depositGeothermal": {
+   "w": 202,
+   "h": 108,
+   "ax": 101,
+   "ay": 54,
+   "decal": true
+  },
+  "depositMagma": {
+   "w": 245,
+   "h": 98,
+   "ax": 123,
+   "ay": 49,
+   "decal": true
   }
  }
 }
