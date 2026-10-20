@@ -388,6 +388,76 @@
      "size": 0.9
     }
    ]
+  },
+  "cargoDepot": {
+   "w": 577,
+   "h": 492,
+   "ax": 288,
+   "ay": 491,
+   "attachments": []
+  },
+  "priorityValve": {
+   "w": 288,
+   "h": 221,
+   "ax": 144,
+   "ay": 221,
+   "attachments": []
+  },
+  "pumpStation": {
+   "w": 288,
+   "h": 234,
+   "ax": 144,
+   "ay": 234,
+   "attachments": []
+  },
+  "robotWorks": {
+   "w": 865,
+   "h": 741,
+   "ax": 432,
+   "ay": 740,
+   "attachments": []
+  },
+  "silo": {
+   "w": 577,
+   "h": 531,
+   "ax": 288,
+   "ay": 531,
+   "attachments": []
+  },
+  "superconductorLab": {
+   "w": 577,
+   "h": 416,
+   "ax": 288,
+   "ay": 416,
+   "attachments": []
+  },
+  "tollMeter": {
+   "w": 288,
+   "h": 226,
+   "ax": 144,
+   "ay": 225,
+   "attachments": []
+  },
+  "valve": {
+   "w": 288,
+   "h": 239,
+   "ax": 144,
+   "ay": 239,
+   "attachments": []
+  },
+  "vault": {
+   "w": 577,
+   "h": 436,
+   "ax": 288,
+   "ay": 436,
+   "attachments": []
+  },
+  "warehouse": {
+   "w": 577,
+   "h": 477,
+   "ax": 288,
+   "ay": 476,
+   "attachments": []
   }
  },
  "rotors": {

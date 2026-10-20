@@ -72,3 +72,15 @@
 - { id: crystalObelisk, size: 1, look: "a glowing violet crystal obelisk on a stone base" }
 - { id: goldenGear, size: 1, look: "a giant golden gear standing upright on a stone base" }
 - { id: crystalGrotto, size: 1, look: "a cluster of glowing violet and cyan crystals growing from rock, for an underground cavern" }
+# The hub city (not buildings of the game: hub structures and the town around them)
+- { id: hub-marketHall, size: 3, look: "the hub's grand market hall: a big covered market of brick and iron with a glass roof, colourful stalls under its arches, banners and a clock" }
+- { id: hub-townHall, size: 3, look: "a stately town hall of pale stone with columns, a dome with a flag, wide steps and flower beds" }
+- { id: hub-exchange, size: 3, look: "a stock exchange: a grand stone building with columns and a big golden price board with arrows on its facade" }
+- { id: hub-contractBoard, size: 2, look: "a timber pavilion with a big notice board full of pinned contracts and a little bench" }
+- { id: hub-tradingHouse, size: 2, look: "a merchant's trading house: a warm brick building with a shop front, crates and sacks outside, an awning" }
+- { id: hub-park, size: 3, look: "a little town park: green lawn, a round fountain in the middle, trees, benches and flower beds, paths" }
+- { id: town-house1, size: 1, look: "a narrow cozy townhouse of red brick with a dark roof and glowing windows" }
+- { id: town-house2, size: 1, look: "a narrow cozy townhouse painted cream with a teal roof and a flower box" }
+- { id: town-house3, size: 1, look: "a small corner shop with a striped awning and a bakery sign without letters" }
+- { id: town-stall, size: 1, look: "a small market stall with fruit and vegetables under a red awning" }
+- { id: town-tree, size: 1, look: "a round tree in a square stone planter on paving" }

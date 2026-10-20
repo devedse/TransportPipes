@@ -337,6 +337,11 @@ export class TextureBank {
     return color;
   }
 
+  /** A generated sprite by its art id (town fillers and other decorations), or null */
+  generated(id: string, size: number): BuildingTextures | null {
+    return this.generatedBuilding(id, size);
+  }
+
   /** Whether there is a generated texture for a terrain */
   hasTerrainArt(type: TerrainType): boolean {
     return this.terrainImages.has(type);
@@ -502,6 +507,13 @@ export class TextureBank {
   }
 
   hub(type: string, size: number, look?: HubStructureLook): BuildingTextures {
+    // Generated art: the hub's buildings, and the Wonders (they rise stage by stage, see Engine)
+    const wonder =
+      (type === "wonderSite" || type === "eraWonderSite") && look?.variant ? `wonder-${look.variant}` : null;
+    const generated = this.generatedBuilding(wonder ?? `hub-${type}`, size);
+    if (generated !== null) {
+      return generated;
+    }
     const key = `hub:${type}:${size}:${look?.label ?? ""}:${look?.color ?? ""}:${look?.level ?? 0}:${look?.variant ?? ""}:${look?.stages ?? 0}`;
     let result = this.buildingCache.get(key);
     if (result === undefined) {

@@ -1,4 +1,4 @@
-import { AnimatedSprite, Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
+import { AnimatedSprite, Application, Container, Graphics, Rectangle, Sprite, Text, Texture } from "pixi.js";
 import type {
   BlueprintDto,
   BuildingDto,
@@ -189,6 +189,9 @@ const NEIGHBOURS: ReadonlyArray<readonly [number, number]> = [
   [0, -1],
   [0, 1],
 ];
+
+/** Buildings that sit in a pipe line (their art shows the pipe along x) */
+const IN_PIPE_KINDS = new Set(["valve", "priorityValve", "tollMeter"]);
 
 /** The generated decal of a deposit: depositIronOre for ironOre */
 function depositArt(deposit: string): string {
@@ -1217,6 +1220,21 @@ export class Engine {
         }
         return roll > 0.94 ? propSprite("flowers", 0.5, 0.5, 0.8) : null;
       }
+      case "city": {
+        // The hub town: houses, stalls and trees on the free squares (streets every 8 tiles stay open)
+        if (roll > 0.3 || !this.freeHubTile(x, y)) {
+          return null;
+        }
+        const town = ["town-house1", "town-house2", "town-house3", "town-stall", "town-tree"];
+        const art = this.textures.generated(town[Math.floor(hash01((x * 37) ^ (y * 59)) * town.length)]!, 1);
+        if (art === null) {
+          return null;
+        }
+        const sprite = new Sprite(art.frames[0]);
+        placeArt(sprite, art, footprintAnchor(x, y, 1), 1);
+        sprite.zIndex = depth + 2;
+        return sprite;
+      }
       case "beach": {
         const shore = [
           [1, 0],
@@ -1231,6 +1249,23 @@ export class Engine {
       default:
         return null;
     }
+  }
+
+  /** A hub tile that no structure stands on (or next to) and that isn't a street */
+  private freeHubTile(x: number, y: number): boolean {
+    const d = districtOf(x, y);
+    const district = this.world.district(d.x, d.y);
+    if (district === undefined) {
+      return false;
+    }
+    const lx = x - (district.originX + 2 + 2 * 34);
+    const ly = y - (district.originY + 2 + 2 * 34);
+    if (lx < 1 || ly < 1 || lx > 30 || ly > 30 || lx % 8 === 0 || ly % 8 === 0) {
+      return false;
+    }
+    return !district.hub.some(
+      (t) => lx >= t.x - 1 && ly >= t.y - 1 && lx <= t.x + t.size && ly <= t.y + t.size,
+    );
   }
 
   private drawObjects(chunk: ChunkView) {
@@ -1498,6 +1533,16 @@ export class Engine {
             sprite.anchor.set(art.placement.anchorX, art.placement.anchorY);
             sprite.scale.set(art.placement.scale);
             sprite.position.set(cell.x - anchor.x + TILE_WIDTH * cellSize, cell.y - anchor.y);
+            // A valve or toll meter is drawn in a pipe along x: mirrored when its pipe runs along y
+            if (
+              IN_PIPE_KINDS.has(definition?.kind ?? "") &&
+              (this.world.conductorAt(building.x, building.y - 1) !== undefined ||
+                this.world.conductorAt(building.x, building.y + 1) !== undefined) &&
+              this.world.conductorAt(building.x - 1, building.y) === undefined &&
+              this.world.conductorAt(building.x + 1, building.y) === undefined
+            ) {
+              sprite.scale.x *= -1;
+            }
           } else {
             sprite.anchor.set(0, 1);
             sprite.position.set(cell.x - anchor.x, cell.y - anchor.y);
@@ -2009,13 +2054,59 @@ export class Engine {
       for (const structure of district.hub) {
         const art = this.textures.hub(structure.type, structure.size, structure);
         const sprite = new Sprite(art.frames[0]);
-        sprite.anchor.set(0, 1);
         const x = hubX + structure.x;
         const y = hubY + structure.y;
         const anchor = footprintAnchor(x, y, structure.size);
         const container = new Container();
         container.position.set(anchor.x, anchor.y);
+        placeArt(sprite, art, { x: 0, y: 0 }, structure.size);
         container.addChild(sprite);
+        const wonder = structure.type === "wonderSite" || structure.type === "eraWonderSite";
+        if (
+          wonder &&
+          art.placement !== undefined &&
+          structure.stages > 0 &&
+          structure.level < structure.stages
+        ) {
+          // A Wonder rises stage by stage: the finished part solid, the rest a faint plan with scaffolding
+          sprite.alpha = 0.22;
+          const done = (structure.level + 0.25) / (structure.stages + 0.25);
+          const source = sprite.texture;
+          const visible = Math.max(1, Math.round(source.height * Math.min(1, 0.18 + done * 0.82)));
+          const solid = new Sprite(
+            new Texture({
+              source: source.source,
+              frame: new Rectangle(
+                source.frame.x,
+                source.frame.y + source.height - visible,
+                source.width,
+                visible,
+              ),
+            }),
+          );
+          solid.anchor.set(
+            art.placement.anchorX,
+            (art.placement.anchorY * source.height - (source.height - visible)) / visible,
+          );
+          solid.scale.set(art.placement.scale);
+          solid.position.copyFrom(sprite.position);
+          container.addChild(solid);
+          const scaffold = new Graphics();
+          const topY = -(visible * art.placement.scale) + 10;
+          const w = TILE_WIDTH * structure.size * 0.55;
+          for (let i = 0; i <= 6; i++) {
+            const px = TILE_WIDTH * structure.size - w + (2 * w * i) / 6;
+            scaffold.moveTo(px, topY + 40).lineTo(px, topY - 70);
+          }
+          scaffold
+            .moveTo(TILE_WIDTH * structure.size - w, topY - 30)
+            .lineTo(TILE_WIDTH * structure.size + w, topY - 30);
+          scaffold
+            .moveTo(TILE_WIDTH * structure.size - w, topY - 70)
+            .lineTo(TILE_WIDTH * structure.size + w, topY - 70);
+          scaffold.stroke({ color: 0xc9963a, width: 5, alpha: 0.9 });
+          container.addChild(scaffold);
+        }
         const hub: ObjectView = {
           display: container,
           effects: null,
