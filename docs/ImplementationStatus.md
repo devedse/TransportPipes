@@ -163,6 +163,9 @@ the primary goals: the buildings, the map and the UI. The design may change wher
 - ✅ Performance: building pictures load when they are first needed (the map waits only for its own art), hashed
   art is cached by browsers for good, the frontend is compressed; a new player on fast 4G waits 1.3 s from founding
   to the map (was 8.3 s), a returning one 0.7 s (was 3.3 s); `e2e/load.mjs` measures it
+- ✅ Pipes redesigned (the game's core): real 3D pieces rendered by `art/pipes.mjs` that join exactly, smooth bends,
+  bolted hubs, tees and inlet boxes where pipes plug into buildings, flanges and feet spaced along the runs, five tier
+  materials, glowing pellets for the flows; the drag preview shows the real pieces
 - ✅ Bug bash: all fifteen e2e scripts run without errors; fixed what they showed (forest crowns cut at the tile, the
   phone's cut gold amount and toolbar, building pictures that never replaced their plates after a second engine)
 - ✅ Accessibility basics: less motion when the system asks for it (CSS and the map's bursts and sparkles), WCAG AA
