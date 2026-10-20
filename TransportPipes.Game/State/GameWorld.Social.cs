@@ -160,12 +160,24 @@ public sealed partial class GameWorld
             rates[resource] = (rates.TryGetValue(resource, out var v) ? v : 0) + amount;
         }
 
+        // Per company on my pipes: the best pipe between one of my buildings and one of its (how much arrives, how long)
+        var links = new Dictionary<long, (double Efficiency, int Tiles)>();
         foreach (var network in Networks.Where(t => t.District == me.District))
         {
             var owners = network.Owners(this).ToHashSet();
             if (owners.Contains(me.Id))
             {
                 connected.UnionWith(owners);
+                foreach (var link in network.Links)
+                {
+                    var a = Building(link.A)?.Owner;
+                    var b = Building(link.B)?.Owner;
+                    var other = a == me.Id ? b : b == me.Id ? a : null;
+                    if (other is { } id && id != me.Id && (!links.TryGetValue(id, out var best) || link.Efficiency > best.Efficiency))
+                    {
+                        links[id] = (link.Efficiency, link.Path.Count);
+                    }
+                }
             }
             var received = new Dictionary<(long, string), double>();
             // Bought from the hub (a tenant's works): they would rather buy it from a neighbour
@@ -282,7 +294,7 @@ public sealed partial class GameWorld
                 AddShortfall(building.Owner, node.In.ToDictionary());
             }
         }
-        return new Neighbourhood(surplus, needs, shortfalls, earn, pay, connected);
+        return new Neighbourhood(surplus, needs, shortfalls, earn, pay, connected, links);
     }
 
     /// <summary>The number of companies each company trades with right now (trade and contracts)</summary>
@@ -344,7 +356,8 @@ public sealed record Neighbourhood(
     Dictionary<long, List<IReadOnlyDictionary<string, double>>> Shortfalls,
     Dictionary<long, double> Earn,
     Dictionary<long, double> Pay,
-    HashSet<long> Connected)
+    HashSet<long> Connected,
+    Dictionary<long, (double Efficiency, int Tiles)> Links)
 {
     /// <summary>Whether a company that makes these could give one of the company's buildings all it misses</summary>
     public bool CanSupply(long company, IReadOnlySet<string> made) =>

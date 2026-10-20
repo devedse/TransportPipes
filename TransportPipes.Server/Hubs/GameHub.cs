@@ -229,6 +229,14 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> SetNoTrade(string resource, bool noTrade) =>
         Command((world, company) => world.SetNoTrade(company, resource, noTrade));
 
+    public Task<CommandResultDto> SetTradeBlocked(long other, bool blocked) =>
+        Command((world, company) => world.SetTradeBlocked(company, other, blocked));
+
+    public Task<CommandResultDto> SetTradeWith(string tradeWith) =>
+        Enum.TryParse<TradeWith>(tradeWith, ignoreCase: true, out var value)
+            ? Command((world, company) => world.SetTradeWith(company, value))
+            : Task.FromResult(CommandResultDto.Fail("Unknown choice."));
+
     public Task<CommandResultDto> SetNoBuy(string resource, bool noBuy) =>
         Command((world, company) => world.SetNoBuy(company, resource, noBuy));
 

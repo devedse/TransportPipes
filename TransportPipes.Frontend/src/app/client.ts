@@ -435,6 +435,16 @@ export class GameClient {
     }
   }
 
+  async setTradeBlocked(other: number, blocked: boolean) {
+    if (await this.command(this.connection.setTradeBlocked(other, blocked))) {
+      await this.refreshNeighbours();
+    }
+  }
+
+  async setTradeWith(tradeWith: "everyone" | "corporation" | "contracts") {
+    await this.command(this.connection.setTradeWith(tradeWith));
+  }
+
   /** Who you trade with and at what prices: the Neighbours panel's trade settings */
   async openTradeSettings() {
     setState({ ...MODALS, neighboursOpen: true, neighboursTab: "trade" });

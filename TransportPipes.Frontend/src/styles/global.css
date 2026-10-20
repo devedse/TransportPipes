@@ -1037,6 +1037,98 @@ kbd {
   gap: 2px 10px;
 }
 
+/* Trade settings: who, the partners on your pipes, the gates, per resource */
+.segmented {
+  display: inline-flex;
+  border: 2px solid var(--brass);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.segmented button {
+  border: 0;
+  border-radius: 0;
+  padding: 5px 14px;
+  background: transparent;
+  box-shadow: none;
+  font-weight: 700;
+}
+
+.segmented button + button {
+  border-left: 1px solid var(--brass);
+}
+
+.segmented button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.partner-list {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.partner {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid var(--panel-border);
+}
+
+.partner.blocked {
+  opacity: 0.55;
+}
+
+.partner-name {
+  display: grid;
+  min-width: 0;
+}
+
+.partner-name .tag {
+  margin-left: 6px;
+}
+
+.partner-quality {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.partner-quality.good {
+  background: #d6eccd;
+  color: #2f6b22;
+}
+
+.partner-quality.ok {
+  background: #f3e6c4;
+  color: #7a5a10;
+}
+
+.partner-quality.far {
+  background: #f6d3cc;
+  color: #a12f1f;
+}
+
+.gate-state {
+  margin-left: auto;
+  font-weight: 600;
+  color: #a12f1f;
+}
+
+.gate-state.open {
+  color: #33761f;
+}
+
 /* Trade settings: gates and per resource selling and buying */
 .trade-settings {
   display: grid;

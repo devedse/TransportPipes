@@ -77,7 +77,8 @@ public record CompanyDto(
     MasteryDto Mastery,
     IReadOnlyList<AlertDto> Alerts,
     DateTime ServerTime,
-    ExperienceDto Experience);
+    ExperienceDto Experience,
+    string TradeWith);
 
 /// <summary>
 /// Experience: XP per minute from what the company earns now, where its XP came from (per source per item) and what
@@ -322,7 +323,12 @@ public record NeighbourDto(
     /// <summary>What each building that misses something misses (it buys only when all of it comes)</summary>
     IReadOnlyList<IReadOnlyList<string>> Shortfalls,
     double YouEarn,
-    double YouPay);
+    double YouPay,
+    /// <summary>The best pipe from your buildings to theirs: how much of what is sent arrives, and how many tiles long</summary>
+    double? LinkEfficiency,
+    int? PipeTiles,
+    /// <summary>You don't trade with them (trade settings)</summary>
+    bool Blocked);
 
 public record ContractDto(
     long Id,

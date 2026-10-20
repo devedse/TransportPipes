@@ -50,6 +50,12 @@ public sealed class Company : Entity
     /// <summary>Where its XP came from: per source (buildings, upgrades, earnings...) per item (a building type...)</summary>
     public Dictionary<string, Dictionary<string, double>> XpLog { get; init; } = new();
 
+    /// <summary>Companies this one doesn't trade with (neither sells to nor buys from)</summary>
+    public HashSet<long> TradeBlocked { get; init; } = new();
+
+    /// <summary>Who the company trades with on its pipes: everyone, its corporation, or nobody but contract partners</summary>
+    public TradeWith TradeWith { get; set; } = TradeWith.Everyone;
+
     /// <summary>Resources the company doesn't buy from other companies</summary>
     public HashSet<string> NoBuy { get; init; } = new();
 
@@ -419,3 +425,11 @@ public sealed record Expedition(int Hours, DateTime StartedAt, DateTime EndsAt);
 
 /// <summary>An estate by its district and slot (saved with the company)</summary>
 public sealed record EstateRef(int DistrictX, int DistrictY, int Slot);
+
+/// <summary>Who a company trades with on its pipes (contracts always go through)</summary>
+public enum TradeWith
+{
+    Everyone,
+    Corporation,
+    Contracts,
+}

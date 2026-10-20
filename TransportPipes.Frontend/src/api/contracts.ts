@@ -88,6 +88,8 @@ export interface CompanyDto {
     log: Record<string, Record<string, number>>;
     rules: Array<{ source: string; text: string }>;
   };
+  /** Who it trades with on its pipes */
+  tradeWith: "everyone" | "corporation" | "contracts";
 }
 
 export type ActivityStage = "active" | "resting" | "dormant" | "asleep";
@@ -732,6 +734,11 @@ export interface NeighbourDto {
   shortfalls: string[][];
   youEarn: number;
   youPay: number;
+  /** The best pipe from your buildings to theirs: how much of what is sent arrives, and how many tiles long */
+  linkEfficiency: number | null;
+  pipeTiles: number | null;
+  /** You don't trade with them */
+  blocked: boolean;
 }
 
 export interface ContractDto {

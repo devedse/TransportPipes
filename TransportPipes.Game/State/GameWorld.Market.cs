@@ -188,6 +188,54 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
+    /// <summary>Whether a company trades freely (not by contract) with another one: its partner list and choice</summary>
+    public bool TradesWith(Company company, Company other) =>
+        !company.TradeBlocked.Contains(other.Id) && company.TradeWith switch
+        {
+            TradeWith.Corporation => SameCorporation(company.Id, other.Id),
+            TradeWith.Contracts => false,
+            _ => true,
+        };
+
+    /// <summary>Stops (or starts again) trading with one company</summary>
+    public CommandResult SetTradeBlocked(long companyId, long otherId, bool blocked)
+    {
+        if (Company(companyId) is not { } company || Company(otherId) is null || otherId == companyId)
+        {
+            return CommandResult.Fail("Unknown company.");
+        }
+        if (blocked)
+        {
+            company.TradeBlocked.Add(otherId);
+        }
+        else
+        {
+            company.TradeBlocked.Remove(otherId);
+        }
+        company.Touch();
+        MarkCompanyNetworksDirty(company.Id);
+        Changes.Companies.Add(company.Id);
+        return CommandResult.Ok;
+    }
+
+    /// <summary>Who a company trades with on its pipes</summary>
+    public CommandResult SetTradeWith(long companyId, TradeWith tradeWith)
+    {
+        if (Company(companyId) is not { } company)
+        {
+            return CommandResult.Fail("Unknown company.");
+        }
+        if (tradeWith == TradeWith.Corporation && company.CorporationId == null)
+        {
+            return CommandResult.Fail("Join or found a corporation first (from Company Level 8, in the Corp panel).");
+        }
+        company.TradeWith = tradeWith;
+        company.Touch();
+        MarkCompanyNetworksDirty(company.Id);
+        Changes.Companies.Add(company.Id);
+        return CommandResult.Ok;
+    }
+
     /// <summary>Whether a company buys a resource from other companies</summary>
     public CommandResult SetNoBuy(long companyId, string resource, bool noBuy)
     {

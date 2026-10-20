@@ -100,7 +100,8 @@ public static class GameViews
             new MasteryDto(company.Mastery, world.ResearchedEverything(company), GameWorld.MasteryCost(company), GameWorld.MasteryMinutes(company), company.Mastery * GameWorld.MasteryBonus),
             world.Alerts(company).Select(t => new AlertDto(t.Text, t.Building)).ToList(),
             world.Now,
-            Experience(world, company, goldPerMinute));
+            Experience(world, company, goldPerMinute),
+            Camel(company.TradeWith));
     }
 
     private static ExperienceDto Experience(GameWorld world, Company company, double goldPerMinute)
@@ -1008,7 +1009,7 @@ public static class GameViews
     /// <summary>The companies of a district as one of them sees them: surplus, needs, trade with you</summary>
     public static List<NeighbourDto> Neighbourhood(GameWorld world, Company me)
     {
-        var (surplus, needs, shortfalls, earn, pay, connected) = world.NeighbourhoodOf(me);
+        var (surplus, needs, shortfalls, earn, pay, connected, links) = world.NeighbourhoodOf(me);
         List<ResourceRateDto> Rates(Dictionary<long, Dictionary<string, double>> map, long company) =>
             map.TryGetValue(company, out var rates)
                 ? rates.Where(t => t.Value > 0.01).OrderByDescending(t => t.Value * world.BasePrice(t.Key)).Select(t => new ResourceRateDto(t.Key, t.Value)).ToList()
@@ -1042,7 +1043,10 @@ public static class GameViews
                         ? missing.Select(m => m.Keys.Order().ToList()).DistinctBy(m => string.Join(",", m)).ToList<IReadOnlyList<string>>()
                         : [],
                     earn.GetValueOrDefault(t.Id),
-                    pay.GetValueOrDefault(t.Id));
+                    pay.GetValueOrDefault(t.Id),
+                    links.TryGetValue(t.Id, out var link) ? Math.Round(link.Efficiency, 3) : null,
+                    links.TryGetValue(t.Id, out var tiles) ? tiles.Tiles : null,
+                    me.TradeBlocked.Contains(t.Id));
             })
             .OrderBy(t => Math.Abs(t.EstateX - home.Origin.X) + Math.Abs(t.EstateY - home.Origin.Y))
             .ToList();

@@ -3,16 +3,10 @@ import type { GatePolicy } from "../api/contracts";
 import { setState, useAppStore } from "../state/store";
 
 const POLICIES: Array<{ id: GatePolicy; name: string; text: string }> = [
-  { id: "open", name: "Open", text: "Anyone in the corridor can connect and trade with you at your prices." },
   {
-    id: "contract",
-    name: "Contract only",
-    text: "The pipe goes through, but only companies with a contract can trade.",
-  },
-  {
-    id: "corporation",
-    name: "Corporation only",
-    text: "Only members of your corporation can trade through it. Corporations: from Company Level 8, found one or join one in the Corp panel.",
+    id: "open",
+    name: "Open",
+    text: "Your pipes go through: companies on them can trade with you (see Trade settings).",
   },
   { id: "closed", name: "Closed", text: "Nothing goes through: your estate is cut off on this side." },
 ];
@@ -46,6 +40,12 @@ export function GatePanel() {
       <button className="wide" onClick={() => void gameClient.openTradeSettings()}>
         ⚙ Trade settings: what you sell and buy, and at what prices
       </button>
+      {current !== "open" && current !== "closed" && (
+        <p className="muted small">
+          This gate only lets {current === "corporation" ? "your corporation" : "contract partners"} trade
+          through (an older setting). Choose who you trade with in the trade settings instead.
+        </p>
+      )}
       <div className="policies">
         {POLICIES.map((policy) => (
           <button

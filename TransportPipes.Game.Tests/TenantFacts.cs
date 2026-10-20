@@ -124,6 +124,35 @@ public class TenantFacts
     }
 
     [TestMethod]
+    public void APlayerChoosesWhoItTradesWith()
+    {
+        var game = WithTenants();
+        var player = game.NewCompany(level: 2);
+        var home = game.EstateOf(player).Origin;
+        var works = game.World.Companies.Where(t => t.IsNpc && game.World.BuildingsOf(t.Id).Any(b => b.Type == "smallFactory"))
+            .OrderBy(t => Math.Abs(game.World.EstateOf(t)!.Origin.X - home.X) + Math.Abs(game.World.EstateOf(t)!.Origin.Y - home.Y)).First();
+        var moily = game.Build(player, "windMoily");
+        ConnectToTenant(game, player, moily, works);
+        bool Trades()
+        {
+            game.World.SolveNetworks();
+            return game.World.NetworkOf(moily.Id)!.Solution.Flows.Any(t => t.Kind == FlowKind.Trade && t.From == moily.Id && game.World.Building(t.To)!.Owner == works.Id);
+        }
+        Assert.IsTrue(Trades());
+        var link = game.World.NeighbourhoodOf(player).Links[works.Id];
+        Assert.IsTrue(link.Efficiency is > 0 and < 1 && link.Tiles > 0, "how much arrives over how long a pipe");
+
+        Assert.IsTrue(game.World.SetTradeBlocked(player.Id, works.Id, true).Success);
+        Assert.IsFalse(Trades(), "not with them");
+        Assert.IsTrue(game.World.SetTradeBlocked(player.Id, works.Id, false).Success);
+        Assert.IsTrue(Trades());
+
+        Assert.IsFalse(game.World.SetTradeWith(player.Id, TradeWith.Corporation).Success, "needs a corporation");
+        Assert.IsTrue(game.World.SetTradeWith(player.Id, TradeWith.Contracts).Success);
+        Assert.IsFalse(Trades(), "contract partners only");
+    }
+
+    [TestMethod]
     public void OpeningAGateToAFarNeighbourNeverEarnsLessThanTheHub()
     {
         // A moily next to its trading post, then a long grey pipe to a works that buys energy: the pipe loses so much

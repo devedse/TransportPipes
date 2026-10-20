@@ -30,7 +30,8 @@ console.log(await page.evaluate(async () => {
   // Neighbours → Connect, like the button
   await tp.gameClient.openNeighbours();
   await new Promise((r) => setTimeout(r, 800));
-  const works = s().neighbours.find((t) => t.isNpc && /Ironworks/.test(t.name) && !t.connected);
+  // The nearest works (the list is nearest first), like the neighbour card suggests
+  const works = s().neighbours.find((t) => t.isNpc && /Ironworks|Brickworks/.test(t.name) && !t.connected);
   if (!works) return "no ironworks";
   await tp.gameClient.planConnection(works.id);
   for (let i = 0; i < 30 && s().plannedRoute === null; i++) await new Promise((r) => setTimeout(r, 300));
@@ -53,5 +54,8 @@ console.log(await page.evaluate(() => JSON.stringify(tp.appStore.getState().comp
 await page.evaluate(async () => { await tp.gameClient.openNeighbours(); });
 await page.waitForTimeout(1500);
 await shot("1-neighbours");
+await page.evaluate(async () => { await tp.gameClient.openTradeSettings(); });
+await page.waitForTimeout(1500);
+await page.locator(".neighbours-panel").screenshot({ path: `${out}/2-trade-settings.png` });
 console.log(errors.length ? errors.join("\n") : "no errors");
 await browser.close();

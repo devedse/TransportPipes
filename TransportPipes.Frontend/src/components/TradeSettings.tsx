@@ -1,5 +1,6 @@
 import { gameClient } from "../app/client";
-import type { GatePolicy, GateSide } from "../api/contracts";
+import { formatAmount } from "../app/format";
+import type { GateSide } from "../api/contracts";
 import { useAppStore } from "../state/store";
 import { PriceInput } from "./HubPanel";
 import { ResourceIcon } from "./ResourceIcon";
@@ -11,24 +12,28 @@ const SIDES: Array<{ side: GateSide; name: string }> = [
   { side: "left", name: "West" },
 ];
 
-const POLICIES: Array<{ id: GatePolicy; name: string }> = [
-  { id: "open", name: "Open: anyone" },
-  { id: "contract", name: "Contracts only" },
-  { id: "corporation", name: "Corporation only" },
-  { id: "closed", name: "Closed" },
+/** Below this share arriving, a neighbour pays less than the hub at the usual prices (1.75× the hub's price) */
+const WORTH_IT = 1 / 1.75;
+
+const TRADE_WITH: Array<{ id: "everyone" | "corporation" | "contracts"; name: string; text: string }> = [
+  { id: "everyone", name: "Everyone", text: "every company on your pipes (unless you switch it off below)" },
+  { id: "corporation", name: "My corporation", text: "only members of your corporation" },
+  { id: "contracts", name: "Contracts only", text: "nobody, except what you agreed in a contract" },
 ];
 
 /** The Company Level from which a corporation can be founded or joined (GameWorld.CorporationFoundLevel) */
 const CORPORATION_LEVEL = 8;
 
 /**
- * Who you trade with and how: your gates (who is on your pipes) and per resource whether you sell it to neighbours,
- * at what price, and whether you buy it from them, up to what price
+ * Who you trade with and how: everyone, your corporation or contract partners; each neighbour on your pipes with how
+ * long the pipe to it is and how much arrives (switch one off); your gates (open or closed); and per resource
+ * whether you sell it to neighbours, at what price, and whether you buy it, up to what price
  */
 export function TradeSettings() {
   const market = useAppStore((s) => s.market);
   const company = useAppStore((s) => s.company);
   const content = useAppStore((s) => s.content);
+  const neighbours = useAppStore((s) => s.neighbours);
   // Renders again when the district (with the gate policies) changes
   useAppStore((s) => s.districtVersion);
   if (company === null || content === null) {
@@ -51,6 +56,9 @@ export function TradeSettings() {
     (t) => mine.has(t.resource) || t.noTrade || t.noBuy || !t.yourPriceIsAuto,
   );
   const inCorporation = company.corporationId !== null;
+  const partners = neighbours
+    .filter((t) => t.connected && t.id !== company.id)
+    .sort((a, b) => (b.linkEfficiency ?? 0) - (a.linkEfficiency ?? 0));
 
   return (
     <div className="trade-settings">
@@ -61,32 +69,102 @@ export function TradeSettings() {
       </p>
 
       <section>
-        <h4>Your gates · who is on your pipes</h4>
+        <h4>Who you trade with</h4>
+        <div className="segmented">
+          {TRADE_WITH.map((option) => (
+            <button
+              key={option.id}
+              className={company.tradeWith === option.id ? "active" : ""}
+              disabled={option.id === "corporation" && !inCorporation}
+              title={
+                option.id === "corporation" && !inCorporation
+                  ? `Needs a corporation: from Company Level ${CORPORATION_LEVEL}, in the Corp panel (you're Level ${company.level})`
+                  : option.text
+              }
+              onClick={() => void gameClient.setTradeWith(option.id)}
+            >
+              {option.name}
+            </button>
+          ))}
+        </div>
+        <p className="muted small">
+          You trade with {TRADE_WITH.find((t) => t.id === company.tradeWith)?.text}. Contracts always go
+          through.
+          {!inCorporation &&
+            ` Corporations come at Company Level ${CORPORATION_LEVEL} (you're Level ${company.level}): found or join one in the Corp panel.`}
+        </p>
+      </section>
+
+      <section>
+        <h4>Your neighbours on your pipes</h4>
+        {partners.length === 0 ? (
+          <p className="muted small">
+            Nobody is on your pipes yet. Lay a pipe to a neighbour&apos;s gate: Neighbours → Connect a pipe.
+          </p>
+        ) : (
+          <ul className="partner-list">
+            {partners.map((n) => {
+              const share = n.linkEfficiency ?? 1;
+              const quality = share >= 0.8 ? "good" : share >= WORTH_IT ? "ok" : "far";
+              return (
+                <li key={n.id} className={n.blocked ? "partner blocked" : "partner"}>
+                  <span className="company-dot" style={{ background: n.color }} />
+                  <span className="partner-name">
+                    <strong>{n.name}</strong>
+                    {n.isNpc && <span className="tag">tenant</span>}
+                    <span className="muted small">
+                      {n.pipeTiles !== null ? `${n.pipeTiles} pipe tiles · ` : ""}
+                      {Math.round(share * 100)}% arrives
+                      {n.youEarn > 0.05 && ` · you earn ${formatAmount(n.youEarn)} g/min`}
+                      {n.youPay > 0.05 && ` · you pay ${formatAmount(n.youPay)} g/min`}
+                    </span>
+                  </span>
+                  <span className={`partner-quality ${quality}`}>
+                    {quality === "good" ? "close" : quality === "ok" ? "fair" : "too far: the hub pays more"}
+                  </span>
+                  <label className="switch" title={n.blocked ? "Trade with them" : "Don't trade with them"}>
+                    <input
+                      type="checkbox"
+                      checked={!n.blocked}
+                      onChange={() => void gameClient.setTradeBlocked(n.id, !n.blocked)}
+                    />
+                    <span className="switch-track" />
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <p className="muted small">
+          Neighbours pay for what arrives: over a long grey pipe (1% lost per tile) little does, and then your
+          trading post earns more. Better pipes lose less.
+        </p>
+      </section>
+
+      <section>
+        <h4>Your gates</h4>
         <div className="gate-grid">
           {SIDES.map(({ side, name }) => {
             const policy = estate?.gatePolicies[side] ?? "open";
+            const open = policy !== "closed";
             return (
               <label key={side} className="gate-row">
                 <span>{name}</span>
-                <select
-                  value={policy}
-                  onChange={(event) => void gameClient.setGatePolicy(side, event.target.value as GatePolicy)}
-                >
-                  {POLICIES.map((p) => (
-                    <option key={p.id} value={p.id} disabled={p.id === "corporation" && !inCorporation}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+                <span className={open ? "gate-state open" : "gate-state"}>{open ? "open" : "closed"}</span>
+                <span className="switch">
+                  <input
+                    type="checkbox"
+                    checked={open}
+                    onChange={() => void gameClient.setGatePolicy(side, open ? "closed" : "open")}
+                  />
+                  <span className="switch-track" />
+                </span>
               </label>
             );
           })}
         </div>
         <p className="muted small">
-          {inCorporation
-            ? "Corporation only: only members of your corporation trade through that gate."
-            : `Corporation only needs a corporation: found one or join one in the Corp panel from Company Level ${CORPORATION_LEVEL} (you're Level ${company.level}).`}{" "}
-          Contracts only: just the companies you have a contract with.
+          A closed gate cuts your pipes off on that side. Who you trade with is chosen above.
         </p>
       </section>
 
