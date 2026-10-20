@@ -16,6 +16,8 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 | --- | --- |
 | `onboarding.mjs` | A new player following Loady's first steps |
 | `right-click.mjs` | A right-click on the map steps back (deselects, puts a tool away); a right-drag still pans |
+| `gate.mjs` | Closing and opening a gate: the buildings behind it keep running |
+| `consistency.mjs` | After each kind of action (pipes, gates, upgrade, build, demolish, move) the playing tab matches a freshly loaded one (slow: a reload per action, about 5 min) |
 | `network-ids.mjs` | A selected network rebuilt three times: the selection covers every pipe, its buildings don't go idle |
 | `neighbour.mjs` | Loady's neighbour step as a player does it: pipe to the own gate, Neighbours → Connect to a works |
 | `guide.mjs` | Loady's later steps: the Storage and what it keeps, the daily orders, a step that waits for a level |

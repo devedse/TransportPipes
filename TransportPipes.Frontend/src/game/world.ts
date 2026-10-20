@@ -63,6 +63,10 @@ export class WorldModel {
   readonly districts = new Map<string, DistrictDto>();
   readonly flows = new Map<number, NetworkFlowsDto>();
   private readonly buildingsByChunk = new Map<string, Set<number>>();
+  /** The chunk whose update registered a building (and its tiles): only that chunk's next update clears them */
+  private readonly chunkOfBuilding = new Map<number, string>();
+  private readonly buildingTilesByChunk = new Map<string, number[]>();
+  private readonly tileOwner = new Map<number, string>();
   private readonly conductorsByChunk = new Map<string, Set<number>>();
   private readonly overridesByChunk = new Map<string, Set<number>>();
   private readonly tileBuilding = new Map<number, number>();
@@ -161,16 +165,22 @@ export class WorldModel {
     this.clearObjects(key);
 
     const buildingIds = new Set<number>();
+    const buildingTiles: number[] = [];
     for (const building of dto.buildings) {
       this.buildings.set(building.id, building);
+      this.chunkOfBuilding.set(building.id, key);
       buildingIds.add(building.id);
       for (let dy = 0; dy < building.size; dy++) {
         for (let dx = 0; dx < building.size; dx++) {
-          this.tileBuilding.set(tileKey(building.x + dx, building.y + dy), building.id);
+          const k = tileKey(building.x + dx, building.y + dy);
+          this.tileBuilding.set(k, building.id);
+          this.tileOwner.set(k, key);
+          buildingTiles.push(k);
         }
       }
     }
     this.buildingsByChunk.set(key, buildingIds);
+    this.buildingTilesByChunk.set(key, buildingTiles);
 
     const conductorKeys = new Set<number>();
     for (const conductor of dto.conductors) {
@@ -227,19 +237,20 @@ export class WorldModel {
       this.deposits.delete(k);
     }
     this.depositsByChunk.delete(key);
-    for (const id of this.buildingsByChunk.get(key) ?? []) {
-      const building = this.buildings.get(id);
-      if (building !== undefined) {
-        for (let dy = 0; dy < building.size; dy++) {
-          for (let dx = 0; dx < building.size; dx++) {
-            const k = tileKey(building.x + dx, building.y + dy);
-            if (this.tileBuilding.get(k) === id) {
-              this.tileBuilding.delete(k);
-            }
-          }
-        }
+    // Only what this chunk registered: a building that moved into another chunk may already be there (the chunks'
+    // updates come in any order), with tiles of its own
+    for (const k of this.buildingTilesByChunk.get(key) ?? []) {
+      if (this.tileOwner.get(k) === key) {
+        this.tileBuilding.delete(k);
+        this.tileOwner.delete(k);
       }
-      this.buildings.delete(id);
+    }
+    this.buildingTilesByChunk.delete(key);
+    for (const id of this.buildingsByChunk.get(key) ?? []) {
+      if (this.chunkOfBuilding.get(id) === key) {
+        this.buildings.delete(id);
+        this.chunkOfBuilding.delete(id);
+      }
     }
     for (const k of this.conductorsByChunk.get(key) ?? []) {
       this.conductors.delete(k);
