@@ -58,8 +58,12 @@ public sealed partial class GameWorld
         }
         if (others.Any(t => neighbourhood.CanSupply(t.Id, spare)))
         {
-            // The trade starts with the next tick
-            return null;
+            // They need it: the trade starts with the next tick, unless the pipe to them loses so much on the way
+            // that the hub pays more (the solver then keeps selling to the hub)
+            var solved = Networks.Where(t => t.Buildings.Any(b => _buildings[b].Owner == company.Id)).All(t => !t.NeedsSolve);
+            return solved
+                ? "They need what you make, but the pipe to them is so long that most of it is lost on the way: your hub pays you more. Connect to a closer neighbour, or lay better pipes (Copper loses half as much)."
+                : null;
         }
         var names = string.Join(", ", spare.Select(t => Content.Resources[t].Name.ToLowerInvariant()));
         return $"You're connected to {others[0].Name}{(others.Count > 1 ? $" and {others.Count - 1} more" : "")}, but they don't need what you have spare ({names}). Connect to a neighbour that needs it: the Neighbours panel shows what each needs.";

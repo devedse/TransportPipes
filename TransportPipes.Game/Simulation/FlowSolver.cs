@@ -276,6 +276,21 @@ public sealed class FlowSolver
                 && ((node.Kind == FlowNodeKind.Storage && node.StorageContents.Contains(resource)) || (node.Kind == FlowNodeKind.TradingPost && node.Imports.Contains(resource)));
         });
 
+    /// <summary>
+    /// Whether selling to another company over a link pays: the buyer pays for what arrives, so a long lossy pipe can
+    /// earn less than the seller's own trading post would. Only then the trade doesn't happen.
+    /// </summary>
+    private bool WorthSelling(long producer, string resource, double price, FlowLink link)
+    {
+        var node = _nodes[producer];
+        var post = Neighbours(producer, resource)
+            .Where(n => _nodes[n.Other].Owner == node.Owner && _nodes[n.Other].Kind == FlowNodeKind.TradingPost && _nodes[n.Other].Throughput > 0)
+            .Select(n => n.Link.Efficiency * (1 + _nodes[n.Other].PriceBonus))
+            .DefaultIfEmpty(0)
+            .Max();
+        return price * link.Efficiency >= _market.HubBuyPrice(resource) * post - Epsilon;
+    }
+
     /// <summary>An own storage that is not full or an own trading post the resource can reach</summary>
     private bool HasSink(FlowNode producer, string resource) =>
         Neighbours(producer.Id, resource).Any(n =>
@@ -367,7 +382,8 @@ public sealed class FlowSolver
                         && _market.SellerPrice(seller, resource) == price
                         && (_market.BuyerMaxPrice(buyer, resource) >= price - Epsilon || _market.IgnoreMaxPrice(seller, buyer))
                         && _market.TradeAllowed(seller, buyer, resource)
-                        && _market.LinkTradeAllowed(link, seller, buyer, resource);
+                        && _market.LinkTradeAllowed(link, seller, buyer, resource)
+                        && WorthSelling(p, resource, price, link);
                 }, FlowKind.Trade, (p, _) => _market.SellerPrice(_nodes[p].Owner, resource));
             }
 

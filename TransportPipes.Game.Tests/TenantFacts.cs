@@ -105,18 +105,45 @@ public class TenantFacts
         // and the hub brings them the rest
         var game = WithTenants();
         var player = game.NewCompany(level: 2);
-        var works = game.World.Companies.First(t => t.IsNpc && game.World.BuildingsOf(t.Id).Any(b => b.Type == "smallFactory"));
+        // The nearest works (a far one gets only a fraction of the energy: the hub pays more, see below)
+        var home = game.EstateOf(player).Origin;
+        var works = game.World.Companies.Where(t => t.IsNpc && game.World.BuildingsOf(t.Id).Any(b => b.Type == "smallFactory"))
+            .OrderBy(t => Math.Abs(game.World.EstateOf(t)!.Origin.X - home.X) + Math.Abs(game.World.EstateOf(t)!.Origin.Y - home.Y)).First();
+        // Not piped to its own trading post: the hub's price can't beat the trade over the long test pipe
         var moily = game.Build(player, "windMoily");
-        game.Connect(player, moily, game.TradingPost(player));
         ConnectToTenant(game, player, moily, works);
         game.World.SolveNetworks();
 
         var flows = game.World.NetworkOf(moily.Id)!.Solution.Flows;
-        Assert.IsTrue(flows.Any(t => t.Kind == FlowKind.Trade && t.From == moily.Id && game.World.Building(t.To)!.Owner == works.Id), "the works buy the moily's energy");
+        var links = game.World.NetworkOf(moily.Id)!.Links.Where(t => (t.A == moily.Id || t.B == moily.Id) && game.World.Building(t.A == moily.Id ? t.B : t.A)!.Owner == works.Id).Select(t => $"{t.Efficiency:P0} over {t.Path.Count}");
+        Assert.IsTrue(flows.Any(t => t.Kind == FlowKind.Trade && t.From == moily.Id && game.World.Building(t.To)!.Owner == works.Id), $"the works buy the moily's energy (links {string.Join(", ", links)})");
         Assert.IsTrue(flows.Any(t => t.Kind == FlowKind.Import && t.Resource == "ironOre" && game.World.Building(t.To)!.Owner == works.Id), "and import their ore");
         var neighbourhood = game.World.NeighbourhoodOf(player);
         Assert.IsTrue(neighbourhood.Needs[works.Id].ContainsKey("ironOre"), "what they import is what they'd buy from a neighbour");
         Assert.IsTrue(neighbourhood.CanSupply(works.Id, new HashSet<string> { "ironOre" }), "ore alone sells to them");
+    }
+
+    [TestMethod]
+    public void OpeningAGateToAFarNeighbourNeverEarnsLessThanTheHub()
+    {
+        // A moily next to its trading post, then a long grey pipe to a works that buys energy: the pipe loses so much
+        // on the way that the neighbour (who pays for what arrives) pays less than the hub would
+        var game = WithTenants();
+        var player = game.NewCompany(level: 2);
+        var works = game.World.Companies.Where(t => t.IsNpc && game.World.BuildingsOf(t.Id).Any(b => b.Type == "smallFactory"))
+            .OrderByDescending(t => Math.Abs(t.Slot - player.Slot)).First();
+        var moily = game.Build(player, "windMoily");
+        game.Connect(player, moily, game.TradingPost(player));
+        game.World.SolveNetworks();
+        var alone = game.World.GoldPerMinute().GetValueOrDefault(player.Id);
+
+        ConnectToTenant(game, player, moily, works);
+        game.World.SolveNetworks();
+        var connected = game.World.GoldPerMinute().GetValueOrDefault(player.Id);
+        var trades = game.World.NetworkOf(moily.Id)!.Solution.Flows.Where(t => t.Kind == FlowKind.Trade && t.From == moily.Id).ToList();
+        var efficiency = trades.Count == 0 ? 1 : trades.Sum(t => t.Delivered) / trades.Sum(t => t.Sent);
+
+        Assert.IsGreaterThanOrEqualTo(alone - 1e-6, connected, $"alone {alone:0.##} g/min, connected {connected:0.##} g/min (the trade arrives at {efficiency:P0})");
     }
 
     [TestMethod]
