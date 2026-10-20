@@ -106,30 +106,37 @@ the primary goals: the buildings, the map and the UI. The design may change wher
 
 ### M8 · Fun first: the loop for v1 (≈ 6–9 h)
 
-- 🚧 Teleporters (Pneumatic Post, Quantum Link): game logic written, not committed yet
-- ⬜ Expansion instead of resets: the Franchise opens a new estate; persistent world with chapters; evolve in place
-- ⬜ Onboarding: Loady (the mascot) guides the first session (first chain within 5 minutes, first neighbour trade by
-  minute 15) and gives tips later; the goal tracker
-- ⬜ Progressive UI: tools and panels appear when they unlock; merge panels; one-click map actions (connect, upgrade,
-  collect)
-- ⬜ Neighbour requests as cards, other players visible on the map
-- ⬜ Expeditions (an idle timer with a surprise) and mastery research
-- ⬜ Browser notifications (storage full, research, dig, expedition back)
-- ⬜ Content review: fewer, more distinct buildings and techs
-- ⬜ Balance: a bot simulation of the first 14 days at speed, tuned to the GDD §10 targets, with a report
+- ✅ Teleporters (Pneumatic Post in a district, Quantum Link anywhere with 2% loss): a sender consumes, a receiver
+  produces, networks never merge; linking in the building panel, arcs on the map
+- ✅ Expansion instead of resets: the Franchise opens a branch estate (up to three estates, Shares for good); the
+  world persists over chapters; evolve in place (the old building's gold and upgrades count, pipes stay); the
+  Recycler gives all the gold back
+- ✅ Onboarding: Loady guides the first session in nine steps with "Show me" (tool, overlay, a pulsing marker on the
+  best spot); the goal tracker (Loady's step or the next level, today, this week)
+- ✅ Progressive UI: tools appear with the level that brings them and glow until tried
+- ✅ Neighbour trade offers itself: a card for a neighbour who needs what you make, with "Connect a pipe"
+- ✅ Alerts for what holds you back: a network short of pump stations, a full trading post, a full storage
+- ✅ Expeditions (1/4/12 h, gold, deposits, decorations, eight relics with lore) and mastery research
+- ✅ Browser notifications while the game is in the background
+- ✅ Balance: a bot simulation (typical, casual, hardcore days; `TP_BALANCE=1`, reports in `docs/balance`); the XP
+  curve ramps to 4× by Level 9, so a typical player meets GDD §8.1's table (Level 10 on day 2–3, 20 in week 1, 30 in
+  week 4). It also found the stale network bug (income counted again with every pipe extension), now fixed
+- ⬜ Content review: fewer, more distinct buildings and techs (the list was checked: every building has a role; the
+  Bank waits for its features)
 
 ### M9 · Looks: art and UI redesign (≈ 8–12 h plus generation time)
 
-- ⬜ Art direction (`docs/ArtDirection.md`): mood, palette, light, references, the style prompt, angle and size rules,
-  the UI kit; a few explorations to choose from
-- ⬜ Art pipeline: Codex image generation (`gpt-6.1-sol`, high) → crop, align to the footprint, scale, WebP, atlas;
-  animated parts (rotors, wheels, smoke, glow) as separate layers; procedural art as fallback
-- ⬜ Every building, with a visual evolution at the level milestones (level 100 legendary)
-- ⬜ The map: terrain with soft transitions, water, forests, mountains and deposits; hub cities with life; corridors and
-  gates; the wilderness and outposts; the Deep Level; the far zoom; softer estate borders and parcel locks
-- ⬜ Pipes and flows: pipe tiers, joints, resources visibly flowing, bottlenecks
-- ⬜ UI: a game UI kit (panels, buttons, tabs), resource and building icons, typography, the HUD, every panel, the
-  phone layout; juice (coin pops, level-ups, chains, upgrades) and sound effects
+- ✅ Art direction (`docs/ArtDirection.md`) from four generated direction pictures (estate, world, UI kit, Loady)
+- ✅ Art pipeline (`art/`): prompts from lists, a queue over the accounts, `process.mjs` aligns buildings to their
+  plate, makes terrain seamless, places props and decals; rotors and smoke as separate parts; procedural fallback
+- 🚧 Every building: 45 of 72 so far, all reviewed (energy, extraction, processing, the HQ, storage, trading post);
+  visual evolution at the milestones still to do
+- 🚧 The map: all eleven terrain textures projected per tile with soft transitions, generated trees, peaks, bushes,
+  reeds, flowers and deposits, thinner borders and a light veil over locked parcels; hub, corridors, wilderness and
+  far zoom still to do
+- ✅ Pipes and flows: chunky shaded tubes with brass collars, per tier, flowing coloured dots
+- 🚧 UI: the teal, brass and cream theme with Fraunces and Nunito; coin pops, bursts, twinkles, the level-up
+  celebration, synthesized sounds with a mute button; generated icons are being made
 - ⬜ Loady and character portraits (managers), logo, key art for the login screen
 - ⬜ Photo mode (hide the UI, time of day)
 
