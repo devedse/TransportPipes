@@ -31,7 +31,7 @@ export function AuthScreen() {
     <div className="screen auth-screen">
       <div className="title-card">
         <h1 className="game-title">
-          Transport <span>Pipes</span>
+          <img className="game-logo" src="/art/ui/logo.webp" alt="TransportPipes" />
         </h1>
         <p className="tagline">
           Build your estate. Pipe your neighbours. Grow an empire that keeps running while you sleep.

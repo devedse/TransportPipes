@@ -183,6 +183,23 @@ async function props(source) {
   writeFileSync(MANIFEST, JSON.stringify(m, null, 1));
 }
 
+/** UI pictures: trimmed and scaled to a width (icons 112 px, portraits 192 px, the logo 960 px, key art 1920 px) */
+async function ui(source) {
+  mkdirSync(join(OUT, "ui"), { recursive: true });
+  const widths = { icon: 112, tool: 112, res: 96, ui: 112, manager: 192, logo: 960, "key-art": 1920 };
+  for (const file of readdirSync(source).filter((f) => f.endsWith(".png"))) {
+    const id = basename(file, ".png");
+    const width = Object.entries(widths).find(([prefix]) => id.startsWith(prefix))?.[1];
+    if (width === undefined) continue;
+    const image = sharp(join(source, file));
+    const trimmed = id === "key-art" ? image : image.trim({ threshold: 8 });
+    await trimmed.resize({ width, height: id === "key-art" ? undefined : width, fit: "inside" })
+      .webp({ quality: id === "key-art" ? 82 : 90, alphaQuality: 95 })
+      .toFile(join(OUT, "ui", `${id}.webp`));
+    console.log(`ui/${id}.webp`);
+  }
+}
+
 /** Loady's poses side by side in one picture: one trimmed sprite per pose */
 async function loady(source) {
   mkdirSync(join(OUT, "ui"), { recursive: true });
@@ -197,4 +214,4 @@ async function loady(source) {
 }
 
 const [kind, source] = process.argv.slice(2);
-await { buildings, terrain, props, loady }[kind](source);
+await { buildings, terrain, props, loady, ui }[kind](source);

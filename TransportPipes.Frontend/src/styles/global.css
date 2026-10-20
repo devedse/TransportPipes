@@ -2362,8 +2362,8 @@ button.liked {
 }
 
 .manager-portrait {
-  width: 46px;
-  height: 46px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -3603,4 +3603,87 @@ kbd {
   .app:has(.building-panel, .parcel-panel, .build-menu, .modal-backdrop) .goal-tracker {
     display: none;
   }
+}
+
+/* ---------------------------------------------------------------- Title screens: the key art */
+
+.screen.auth-screen,
+.screen.loading-screen,
+.found-screen,
+.screen:has(.found-panel) {
+  background:
+    linear-gradient(90deg, rgba(20, 16, 8, 0.55), rgba(20, 16, 8, 0.1) 55%, rgba(20, 16, 8, 0)),
+    url("/art/ui/key-art.webp") center / cover no-repeat,
+    #2b4a2a;
+  place-content: center start;
+  justify-items: start;
+  padding-left: max(24px, 6vw);
+}
+
+.game-logo {
+  width: min(520px, 86vw);
+  height: auto;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.45));
+}
+
+.auth-screen .tagline {
+  color: #fff4dc;
+  font-weight: 700;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+  max-width: 460px;
+}
+
+@media (max-width: 720px) {
+  .screen.auth-screen,
+  .screen:has(.found-panel) {
+    place-content: start center;
+    justify-items: center;
+    padding: 24px 16px;
+    background-position: 70% center;
+  }
+}
+
+.tool-icon img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
+}
+
+@media (max-width: 720px) {
+  .tool-icon img {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+.ui-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.chat-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.manager-portrait {
+  position: relative;
+  overflow: hidden;
+}
+
+.manager-portrait img {
+  position: absolute;
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  object-fit: cover;
+}
+
+.manager-portrait img + span {
+  visibility: hidden;
 }

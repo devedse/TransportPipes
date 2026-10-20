@@ -140,7 +140,7 @@ export function TopBar() {
           title="Inbox"
           onClick={() => (inboxOpen ? setState({ inboxOpen: false }) : void gameClient.openInbox())}
         >
-          🔔
+          <img className="ui-icon" src="/art/ui/ui-inbox.webp" alt="" />
           {unread > 0 && <span className="dot-badge">{unread > 99 ? "99+" : unread}</span>}
         </button>
         {user?.isAdmin && (
@@ -157,10 +157,10 @@ export function TopBar() {
           title="Leaderboards (L)"
           onClick={() => void gameClient.openLeaderboard()}
         >
-          🏆
+          <img className="ui-icon" src="/art/ui/ui-trophy.webp" alt="" />
         </button>
         <button className="icon-button" title="Back to my estate (H)" onClick={() => gameClient.goHome()}>
-          ⌂
+          <img className="ui-icon" src="/art/ui/ui-home.webp" alt="" />
         </button>
         {company?.branches.map((branch, i) => (
           <button

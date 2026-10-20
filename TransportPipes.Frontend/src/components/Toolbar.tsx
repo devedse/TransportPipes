@@ -13,6 +13,9 @@ const UNLOCK_LEVEL: Record<string, number> = {
 
 const SEEN_KEY = "tp.seenTools";
 
+/** The generated icon of a tool (public/art/ui/tool-*.webp) */
+const TOOL_ART: Record<string, string> = { bulldoze: "remove", corporation: "corp", blueprints: "plans" };
+
 function seenTools(): Set<string> {
   try {
     return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) ?? "[]") as string[]);
@@ -154,7 +157,9 @@ export function Toolbar() {
             t.run();
           }}
         >
-          <span className="tool-icon">{t.icon}</span>
+          <span className="tool-icon">
+            <img src={`/art/ui/tool-${TOOL_ART[t.key] ?? t.key}.webp`} alt="" />
+          </span>
           <span className="tool-label">
             {t.label}
             {"badge" in t && typeof t.badge === "number" && t.badge > 0 && (

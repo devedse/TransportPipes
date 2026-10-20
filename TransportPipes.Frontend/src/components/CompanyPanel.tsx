@@ -18,7 +18,14 @@ function ManagerCard({ manager, freeSlot }: { manager: ManagerDto; freeSlot: boo
   return (
     <div className={manager.hired ? "manager-card hired" : "manager-card"}>
       <div className="manager-portrait" style={{ background: manager.color }}>
-        {initials(manager.name)}
+        <img
+          src={`/art/ui/manager-${manager.id}.webp`}
+          alt=""
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+          }}
+        />
+        <span>{initials(manager.name)}</span>
       </div>
       <div className="manager-body">
         <strong>{manager.name}</strong>

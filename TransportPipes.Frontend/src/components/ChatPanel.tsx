@@ -59,7 +59,7 @@ export function ChatPanel() {
   if (!open) {
     return (
       <button className="panel chat-toggle" title="Chat (T)" onClick={() => void gameClient.toggleChat()}>
-        💬 Chat
+        <img className="ui-icon" src="/art/ui/ui-chat.webp" alt="" /> Chat
         {total > 0 && <span className="badge">{total}</span>}
       </button>
     );
