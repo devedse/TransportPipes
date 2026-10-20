@@ -1219,7 +1219,12 @@ export class Engine {
     const roll = hash01((x * 7121) ^ (y * 4271));
     switch (terrain) {
       case "cavern":
-        return roll < 0.03 ? tileSprite(this.textures.lantern()) : null;
+        if (roll < 0.03) {
+          return tileSprite(this.textures.lantern());
+        }
+        return roll < 0.07
+          ? propSprite("stalagmites", 0.3 + hash01(x * 7) * 0.4, 0.3 + hash01(y * 7) * 0.4, 0.8)
+          : null;
       case "forest":
         return tileSprite(this.textures.forestTile(variant) ?? this.textures.forest(variant));
       case "mountain":
