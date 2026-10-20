@@ -1225,8 +1225,18 @@ export class Engine {
         return roll < 0.07
           ? propSprite("stalagmites", 0.3 + hash01(x * 7) * 0.4, 0.3 + hash01(y * 7) * 0.4, 0.8)
           : null;
-      case "forest":
-        return tileSprite(this.textures.forestTile(variant) ?? this.textures.forest(variant));
+      case "forest": {
+        const trees = this.textures.forestTile(variant);
+        if (trees === null) {
+          return tileSprite(this.textures.forest(variant));
+        }
+        const sprite = new Sprite(trees.texture);
+        sprite.anchor.set(trees.anchorX, trees.anchorY);
+        sprite.scale.set(trees.scale);
+        sprite.position.set(anchor.x + TILE_WIDTH, anchor.y);
+        sprite.zIndex = depth;
+        return sprite;
+      }
       case "mountain":
         return (
           propSprite(variant % 2 === 0 ? "peak1" : "peak2", 0.5, 0.55) ??

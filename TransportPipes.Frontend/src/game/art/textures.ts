@@ -240,17 +240,22 @@ export class TextureBank {
 
   /**
    * A forest tile: two or three generated trees on it, composed into one sprite (one per tile keeps big forests
-   * light). Anchored like a tile: the bottom-left corner of the tile's box.
+   * light). Anchored at the bottom middle of the tile's box; drawn at the art's resolution, with room for the crowns
+   * that reach past the tile.
    */
-  forestTile(variant: number): Texture | null {
+  forestTile(variant: number): PropArt | null {
     if (!this.hasTrees || this.art === null) {
       return null;
     }
     const resolution = this.art.resolution;
-    return this.cached(`forestTile:${variant % 12}`, () => {
-      const extra = 260;
-      const canvas = createCanvas(TILE_WIDTH * 2, TILE_HEIGHT + extra);
+    const side = 80;
+    const extra = 260;
+    const width = TILE_WIDTH * 2 + side * 2;
+    const height = TILE_HEIGHT + extra;
+    const texture = this.cached(`forestTile:${variant % 12}`, () => {
+      const canvas = createCanvas(Math.ceil(width * resolution), Math.ceil(height * resolution));
       const g = canvas.getContext("2d")!;
+      g.scale(resolution, resolution);
       const spots: Array<[number, number]> = [
         [0.5, 0.25],
         [0.28, 0.5],
@@ -266,7 +271,7 @@ export class TextureBank {
         const entry = this.art!.props![tree]!;
         const image = this.propImages.get(tree)!;
         const scale = (0.75 + hash01(variant + i) * 0.35) / resolution;
-        const footX = TILE_WIDTH * 2 * u;
+        const footX = side + TILE_WIDTH * 2 * u;
         const footY = extra + TILE_HEIGHT * v;
         g.drawImage(
           image,
@@ -278,6 +283,7 @@ export class TextureBank {
       });
       return canvas;
     });
+    return { texture, anchorX: 0.5, anchorY: 1, scale: 1 / resolution };
   }
 
   /**
