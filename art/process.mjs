@@ -55,7 +55,16 @@ function measure({ data, width, height }) {
     }
   }
   const [bl, br] = rows[maxY];
-  return { minX, maxX, minY, maxY, left, right, bottomX: (bl + br) / 2 };
+  // The slab's top surface: its left and right corners are the widest row of the lower part (the topmost of them;
+  // below it the slab's side goes down)
+  const widest = Math.max(...rows.slice(minY + Math.round((maxY - minY) * 0.3), maxY + 1).map(([l, r]) => (l < 0 ? 0 : r - l)));
+  let topY = maxY;
+  for (let y = maxY; y >= minY + Math.round((maxY - minY) * 0.3); y--) {
+    const [l, r] = rows[y];
+    if (l >= 0 && r - l >= widest - 2) topY = y;
+  }
+  const [tl, tr] = rows[topY];
+  return { minX, maxX, minY, maxY, left, right, bottomX: (bl + br) / 2, top: { left: tl, right: tr, y: topY } };
 }
 
 async function buildings(source) {
@@ -77,6 +86,13 @@ async function buildings(source) {
     }
     const image = await rgba(join(source, file));
     const box = measure(image);
+    // Every building: the top surface of its plate lies on the footprint (the plate's side sinks into the ground),
+    // else the building looks lifted. docs/ArtDirection.md, check with art/fit.mjs
+    const onTop = true;
+    if (onTop) {
+      box.left = box.top.left;
+      box.right = box.top.right;
+    }
     const plate = box.right - box.left;
     // Big sprites (Wonders) are stored at a lower resolution: they would only be upscaled
     const resolution = sizes[id] >= 4 ? 0.75 : RESOLUTION;
@@ -84,9 +100,29 @@ async function buildings(source) {
     const cx = (box.left + box.right) / 2;
     const w = Math.round((box.maxX - box.minX + 1) * scale);
     const h = Math.round((box.maxY - box.minY + 1) * scale);
-    await sharp(join(source, file))
+    const resized = await sharp(join(source, file))
       .extract({ left: box.minX, top: box.minY, width: box.maxX - box.minX + 1, height: box.maxY - box.minY + 1 })
       .resize(w, h, { kernel: "lanczos3" })
+      .ensureAlpha()
+      .raw()
+      .toBuffer();
+    // Nothing below the footprint's two front edges: the plate's side would stick out over the ground in front
+    const anchorX = (cx - box.minX) * scale;
+    const anchorY = (box.top.y - box.minY) * scale + (sizes[id] * TILE * resolution) / 4;
+    const half = (sizes[id] * TILE * resolution) / 2;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        // The front edges: from the bottom corner up to the left and right corners (and level beyond them)
+        const edge = anchorY - Math.min(half, Math.abs(x - anchorX)) / 2;
+        const below = y - edge;
+        if (below > 2.5) {
+          resized[(y * w + x) * 4 + 3] = 0;
+        } else if (below > 1) {
+          resized[(y * w + x) * 4 + 3] = Math.round(resized[(y * w + x) * 4 + 3] * (2.5 - below) / 1.5);
+        }
+      }
+    }
+    await sharp(resized, { raw: { width: w, height: h, channels: 4 } })
       .webp({ quality: 88, alphaQuality: 95 })
       .toFile(join(OUT, "buildings", `${id}.webp`));
     // Where the plate's bottom corner is, in the stored sprite
@@ -95,7 +131,10 @@ async function buildings(source) {
       w,
       h,
       ax: Math.round((cx - box.minX) * scale),
-      ay: Math.round((box.maxY - box.minY) * scale),
+      // The bottom corner of the plate's top surface: half a footprint below its left and right corners
+      ay: onTop
+        ? Math.round((box.top.y - box.minY) * scale + (sizes[id] * TILE * resolution) / 4)
+        : Math.round((box.maxY - box.minY) * scale),
       attachments: (parts[id] ?? []).map((a) => ({ ...a, x: Math.round((a.x - box.minX) * scale), y: Math.round((a.y - box.minY) * scale) })),
     };
     const skew = Math.abs(box.bottomX - cx) / plate;

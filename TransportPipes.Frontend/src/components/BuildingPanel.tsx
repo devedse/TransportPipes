@@ -183,6 +183,38 @@ export function BuildingPanel() {
               : "Idle"}
         </p>
       ) : null}
+      {/* Upgrading at the top: it stays under the pointer while the rest of the panel refreshes */}
+      {mine && details.upgradeCost !== null && !underConstruction && (
+        <section className="upgrade">
+          <h4>
+            Upgrade · output +10% per level
+            {nextMilestone !== null && <span className="muted"> · level {nextMilestone} doubles it</span>}
+          </h4>
+          <div className="button-row">
+            <button
+              className="primary"
+              disabled={gold < details.upgradeCost}
+              onClick={() => void gameClient.upgrade(building.id, 1)}
+            >
+              Level {building.level + 1} · {formatAmount(details.upgradeCost)} g
+            </button>
+            {details.upgradeCost10 !== null && (
+              <button
+                disabled={gold < details.upgradeCost10}
+                onClick={() => void gameClient.upgrade(building.id, 10)}
+              >
+                +10 · {formatAmount(details.upgradeCost10)} g
+              </button>
+            )}
+            {details.maxAffordableLevels > 1 && (
+              <button onClick={() => void gameClient.upgrade(building.id, details.maxAffordableLevels)}>
+                Max +{details.maxAffordableLevels}
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
       {details.issues.length > 0 && (
         <ul className="issues">
           {details.issues.map((issue) => (
@@ -470,37 +502,6 @@ export function BuildingPanel() {
             </button>
           </h4>
           <NetworkSummary details={network} content={content} ownCompany={company?.id ?? null} />
-        </section>
-      )}
-
-      {mine && details.upgradeCost !== null && !underConstruction && (
-        <section className="upgrade">
-          <h4>
-            Upgrade · output +10% per level
-            {nextMilestone !== null && <span className="muted"> · level {nextMilestone} doubles it</span>}
-          </h4>
-          <div className="button-row">
-            <button
-              className="primary"
-              disabled={gold < details.upgradeCost}
-              onClick={() => void gameClient.upgrade(building.id, 1)}
-            >
-              Level {building.level + 1} · {formatAmount(details.upgradeCost)} g
-            </button>
-            {details.upgradeCost10 !== null && (
-              <button
-                disabled={gold < details.upgradeCost10}
-                onClick={() => void gameClient.upgrade(building.id, 10)}
-              >
-                +10 · {formatAmount(details.upgradeCost10)} g
-              </button>
-            )}
-            {details.maxAffordableLevels > 1 && (
-              <button onClick={() => void gameClient.upgrade(building.id, details.maxAffordableLevels)}>
-                Max +{details.maxAffordableLevels}
-              </button>
-            )}
-          </div>
         </section>
       )}
 

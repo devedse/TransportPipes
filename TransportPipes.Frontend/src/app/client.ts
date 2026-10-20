@@ -1038,7 +1038,7 @@ export class GameClient {
       this.select(null);
       return;
     }
-    // Its network as a whole too
+    // Its network as a whole too (a network being rebuilt, e.g. after an upgrade, keeps showing the last one)
     const network =
       details.building.network === null
         ? null
@@ -1046,7 +1046,11 @@ export class GameClient {
     if (appStore.getState().selectedBuilding !== id) {
       return;
     }
-    setState({ buildingDetails: details, buildingNetwork: network });
+    setState({
+      buildingDetails: details,
+      buildingNetwork:
+        network ?? (details.building.network === null ? null : appStore.getState().buildingNetwork),
+    });
   }
 
   /** Selects the network of the selected building (at one of its pipes, so the selection follows it) */
