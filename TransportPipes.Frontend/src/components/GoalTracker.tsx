@@ -1,5 +1,8 @@
+import { useEffect } from "react";
 import { gameClient } from "../app/client";
 import { formatAmount } from "../app/format";
+import type { NeighbourDto } from "../api/contracts";
+import type { Content } from "../game/content";
 import { useAppStore } from "../state/store";
 
 /**
@@ -10,9 +13,21 @@ export function GoalTracker() {
   const company = useAppStore((s) => s.company);
   const content = useAppStore((s) => s.content);
   const buildMenuOpen = useAppStore((s) => s.buildMenuOpen);
+  const neighbours = useAppStore((s) => s.neighbours);
+  const level = company?.level ?? 0;
+  // Neighbours come with Level 3: look for someone who needs what you make now and then
+  useEffect(() => {
+    if (level < 3) {
+      return;
+    }
+    void gameClient.refreshNeighbours();
+    const timer = window.setInterval(() => void gameClient.refreshNeighbours(), 90_000);
+    return () => clearInterval(timer);
+  }, [level]);
   if (company === null || content === null || buildMenuOpen) {
     return null;
   }
+  const opportunity = bestOpportunity(company.id, neighbours, content);
   const step = company.tutorial;
   const order = company.dailyOrders.find((t) => t.delivered < t.amount);
   const levelShare = Math.min(
@@ -42,6 +57,17 @@ export function GoalTracker() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {opportunity !== null && (
+        <div className="panel opportunity">
+          <p>
+            🤝 <strong>{opportunity.name}</strong> needs {opportunity.resource.toLowerCase()}: neighbours pay
+            more than the hub.
+          </p>
+          <button className="primary" onClick={() => void gameClient.planConnection(opportunity.id)}>
+            Connect a pipe
+          </button>
         </div>
       )}
       <ul className="goals">
@@ -81,4 +107,29 @@ export function GoalTracker() {
       </ul>
     </aside>
   );
+}
+
+/** A neighbour you aren't connected to that needs something your buildings make */
+function bestOpportunity(
+  companyId: number,
+  neighbours: NeighbourDto[],
+  content: Content,
+): { id: number; name: string; resource: string } | null {
+  const world = gameClient.world;
+  if (world === null) {
+    return null;
+  }
+  const made = new Set<string>();
+  for (const building of world.buildings.values()) {
+    if (building.owner === companyId && building.constructionEndsAt === null) {
+      Object.keys(content.building(building.type)?.out ?? {}).forEach((t) => made.add(t));
+    }
+  }
+  for (const neighbour of neighbours) {
+    const need = neighbour.connected ? undefined : neighbour.needs.find((t) => made.has(t.resource));
+    if (need !== undefined) {
+      return { id: neighbour.id, name: neighbour.name, resource: content.resourceName(need.resource) };
+    }
+  }
+  return null;
 }

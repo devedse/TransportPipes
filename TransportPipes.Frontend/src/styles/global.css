@@ -3394,3 +3394,28 @@ kbd {
 .layer-switch.deep {
   color: #24527d;
 }
+
+/* A tool that just unlocked glows until it is tried */
+.toolbar .tool.new {
+  animation: tool-new 1.4s ease-in-out infinite;
+  border-color: var(--gold);
+}
+
+@keyframes tool-new {
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(246, 199, 68, 0.75),
+      0 0 18px rgba(246, 199, 68, 0.7);
+  }
+}
+
+.opportunity {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.opportunity p {
+  margin: 0;
+  font-size: 0.85rem;
+}
