@@ -784,6 +784,7 @@ export class GameClient {
       buildingDetails: null,
       buildMenuOpen: false,
     });
+    this.engine?.setPhotoMode(on);
     if (!on) {
       this.setTimeOfDay("day");
     }
