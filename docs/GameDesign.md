@@ -553,6 +553,13 @@ Era buildings (§7) additionally need their Era.
 - Upgrade cost: ×1.15 per level. Buttons for ×1, ×10 and *Max*.
 - **Visual evolution** at the milestones (§17.3), so a level 100 Wind Moily looks legendary.
 
+### 8.2a Evolve in place
+
+A building with a successor (Wind Moily → Big Turbine, Solar Panel → Solar Farm, Small Factory → Big Factory, Storage →
+Warehouse → Silo, Trading Post → Market Hall, Lab → Research Institute, Coal Plant → Steam Turbine, Iron Mine → Deep
+Mine) evolves where it stands: the successor covers the old footprint, the old building's gold and upgrades count
+towards it, the pipes stay. With a Recycler, demolishing gives all the gold back. Growing never means tearing down.
+
 ### 8.3 Research
 
 - **Labs** turn resources into Research Points. Research takes RP and time (minutes early, a day for big techs).
@@ -593,20 +600,19 @@ Delivering daily orders and trading with your hub raises reputation (levels 1–
 
 ### 8.7 Franchise (prestige)
 
-From Company Level 25 and Era 2 you can **franchise**: sell your company to the Board.
+From Company Level 25 and Era 2 you can **franchise**: expansion, not a reset (changed for v1).
 
-- You receive **Shares** (based on the square root of everything you earned). Each Share gives +1% production,
-  permanently for the rest of the season.
-- Your estate keeps its land (parcels), decorations, corporation membership and hub reputation. Buildings, levels, gold
-  and 75% of research are reset.
-- **Fair for partners:** franchising takes 24 hours of notice, during which contracts can be finished or moved.
-- A franchise takes the company from "slow late game" back into a fast early game with a much higher speed; most
-  players franchise 2–4 times per season.
+- You cash in **Shares** (the square root of what you earned since the last franchise, in thousands; at least 10).
+  Each Share gives +1% production, for good, on every estate.
+- And you **open a new estate**: a branch in the newest district with room (the frontier), with the start parcels,
+  gates and a trading post. It grows like the first estate; nothing of what you built goes.
+- Up to three estates (the first one and two branches). Blueprints make a branch's first hours quick.
 
 ### 8.8 Eras and seasons
 
-A **season** lasts about 12 weeks and has five Eras. A new Era starts when the server Wonder in the Capital is
-finished, at the latest on the Era's deadline (so the season always finishes).
+The first **season** has five Eras. A new Era starts when the server Wonder in the Capital is finished, at the latest
+on the Era's deadline (so the season always finishes). The world is persistent (changed for v1): a season is a
+**chapter**, and the next chapter starts a new race for the Space Elevator with new rankings while every estate stays.
 
 | Era | Theme | New | Server Wonder |
 | --- | --- | --- | --- |
@@ -616,10 +622,11 @@ finished, at the latest on the Era's deadline (so the season always finishes).
 | 4 | Electronics | Rare earth, circuits, engines, robots | The Thinking Machine (circuits, robots) |
 | 5 | Space Age | Superconductors, fusion | **The Space Elevator** (season finale) |
 
-**Season finale:** the Space Elevator launch is a live event with a countdown. Afterwards the season ends with a
-ceremony (rankings, statues for the winners in the next season's Capital), every company converts its results into
-**Legacy**, and a new world opens a week later. Legacy gives account perks (starting gold, a manager, cosmetics,
-titles), never so much that new players can't compete.
+**Chapter finale:** the Space Elevator launch is a live event with a countdown. Afterwards the chapter ends with a
+ceremony (rankings, titles and statues for the winners), every company converts its results into **Legacy**, and the
+next chapter begins a day later in the same world. Legacy grows account perks (a manager slot, cosmetics, titles, and
+starting gold for new companies), never so much that newcomers can't compete; newcomers start in fresh frontier
+districts.
 
 ## 9. Multiplayer systems
 
@@ -707,7 +714,7 @@ Design rules for the first 7 days:
 | Time | What happens | Player learns / feels |
 | --- | --- | --- |
 | 0:00 | Choose a company name, colour and logo; the camera flies from the hub over the corridors into **your** estate | "This valley is mine, and there are others around me" |
-| 0:01 | Advisor *Mira from the Board* points at a sunny spot: place a **Solar Panel**, draw 3 pipe tiles to the Trading Post | Building, pipes, the hub buys |
+| 0:01 | **Loady** (the mascot) points at a sunny spot with a pulsing marker: place a **Solar Panel**, draw a pipe to the Trading Post | Building, pipes, the hub buys |
 | 0:02 | Coins pop above the Trading Post, gold ticks up | The core loop works |
 | 0:03 | Build three more panels, upgrade the first to level 5 | Upgrades are strong |
 | 0:05 | The wind overlay shows your hill: build a **Wind Moily** | Location matters |
@@ -1039,7 +1046,7 @@ Yes, players can move their whole estate.
   - *The Flood:* water levels rise over the weeks; pumps and dykes become important.
   - *The Long Winter:* frequent cold snaps, so heating demand rises.
   - *The Trade Winds:* winds change direction weekly, so the best wind spots move.
-- **Story:** each Era has a short story chapter told by *Mira from the Board* and other characters, with mysteries that
+- **Story:** each Era has a short story chapter told by Loady and other characters, with mysteries that
   expeditions slowly uncover through relics.
 - **Loady:** the smiley "LOADING" tile at the world origin becomes the game's mascot. Loady sits on the origin of
   every season's world, appears on loading screens, and hidden Loadies on the map (found by expeditions and visitors)
