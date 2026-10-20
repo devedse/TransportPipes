@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { gameClient } from "./app/client";
+import { TextureBank } from "./game/art/textures";
 import * as rules from "./game/rules";
 import { appStore } from "./state/store";
 import "@fontsource-variable/fraunces";
@@ -20,3 +21,24 @@ if (import.meta.env.DEV) {
 }
 
 void gameClient.start();
+
+// The first icons of the HUD and the map's art start loading behind the title screen
+const FIRST_ICONS = [
+  "tool-select",
+  "tool-build",
+  "tool-pipe",
+  "tool-remove",
+  "ui-gold",
+  "ui-level",
+  "ui-inbox",
+  "ui-trophy",
+  "ui-home",
+  "ui-chat",
+  "loady-wave",
+];
+window.addEventListener("load", () => {
+  for (const icon of FIRST_ICONS) {
+    new Image().src = `/art/ui/${icon}.webp`;
+  }
+  void TextureBank.load().catch(() => undefined);
+});

@@ -3,6 +3,7 @@
 //   node process.mjs terrain <source dir>     seamless textures, WebP
 // Output goes to TransportPipes.Frontend/public/art, the manifest to public/art/manifest.json.
 import sharp from "sharp";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { parse as yaml } from "yaml";
@@ -16,6 +17,21 @@ const TILE = 192;
 
 function manifest() {
   return existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, "utf8")) : { resolution: RESOLUTION, buildings: {}, rotors: {}, terrain: {} };
+}
+
+/**
+ * Writes the manifest with a content hash of every sprite: the game asks for `<path>?v=<hash>`, so browsers can keep
+ * the art for good and still get a new picture when it changes.
+ */
+function save(m) {
+  m.hashes = {};
+  for (const dir of ["buildings", "terrain", "props"]) {
+    if (!existsSync(join(OUT, dir))) continue;
+    for (const file of readdirSync(join(OUT, dir)).filter((f) => f.endsWith(".webp")).sort()) {
+      m.hashes[`${dir}/${file}`] = createHash("sha256").update(readFileSync(join(OUT, dir, file))).digest("hex").slice(0, 10);
+    }
+  }
+  writeFileSync(MANIFEST, JSON.stringify(m, null, 1));
 }
 
 async function rgba(file) {
@@ -122,7 +138,7 @@ async function buildings(source) {
       console.log(`${id}-rotor: ${size}px`);
     }
   }
-  writeFileSync(MANIFEST, JSON.stringify(m, null, 1));
+  save(m);
 }
 
 /** Toning per texture, so the ground stays calmer than the buildings on it */
@@ -162,7 +178,7 @@ async function terrain(source) {
     m.terrain[id] = { size };
     console.log(`${id}: seamless ${size}px`);
   }
-  writeFileSync(MANIFEST, JSON.stringify(m, null, 1));
+  save(m);
 }
 
 /** Props stand on the ground (anchored at their foot), decals lie on it (anchored at their middle) */
@@ -187,7 +203,7 @@ async function props(source) {
     m.props[prop.id] = prop.kind === "decal" ? { w, h, ax: Math.round(w / 2), ay: Math.round(h / 2), decal: true } : { w, h, ax: Math.round((box.bottomX - box.minX) * scale), ay: h };
     console.log(`${prop.id}: ${w}×${h}`);
   }
-  writeFileSync(MANIFEST, JSON.stringify(m, null, 1));
+  save(m);
 }
 
 /** UI pictures: trimmed and scaled to a width (icons 112 px, portraits 192 px, the logo 960 px, key art 1920 px) */
@@ -221,4 +237,5 @@ async function loady(source) {
 }
 
 const [kind, source] = process.argv.slice(2);
-await { buildings, terrain, props, loady, ui }[kind](source);
+// `node process.mjs hashes` only stamps the manifest
+await { buildings, terrain, props, loady, ui, hashes: async () => save(manifest()) }[kind](source);

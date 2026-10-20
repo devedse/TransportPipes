@@ -196,8 +196,8 @@ export function HubPanel() {
               const resource = content.resource(order.resource);
               return (
                 <div key={order.id} className={done ? "order done" : order.urgent ? "order urgent" : "order"}>
-                  <div className="order-icon" style={{ background: resource?.color }}>
-                    {resource?.icon}
+                  <div className="order-icon" style={{ borderColor: resource?.color }}>
+                    <ResourceIcon resource={order.resource} />
                   </div>
                   <div className="order-body">
                     <div className="order-title">

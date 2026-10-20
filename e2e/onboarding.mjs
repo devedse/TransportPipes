@@ -24,7 +24,8 @@ console.log(await page.evaluate(async () => {
   const post = [...w.buildings.values()].find((t) => t.owner === co.id && t.type === "tradingPost");
   if (!panel || !post) return "missing";
   await tp.gameClient.connection.cheat("finish");
-  const border = (b) => { const r = []; for (let i = -1; i <= b.size; i++) { r.push([b.x + i, b.y - 1], [b.x + i, b.y + b.size], [b.x - 1, b.y + i], [b.x + b.size, b.y + i]); } return r; };
+  // The tiles beside a building (not its corners: a pipe there would not touch it)
+  const border = (b) => { const r = []; for (let i = 0; i < b.size; i++) { r.push([b.x + i, b.y - 1], [b.x + i, b.y + b.size], [b.x - 1, b.y + i], [b.x + b.size, b.y + i]); } return r; };
   for (const [fx, fy] of border(panel)) for (const [tx, ty] of border(post)) {
     const route = tp.rules.routePipe(w, co, { x: fx, y: fy }, { x: tx, y: ty }, s.content);
     if (route) { const r = await tp.gameClient.connection.placePipes(route.flatMap((t) => [t.x, t.y]), 1); return r.error ?? `pipe ${route.length}`; }

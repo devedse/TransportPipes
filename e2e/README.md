@@ -23,3 +23,9 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 | `far.mjs` | The hub and the zoomed-out world |
 | `evolution.mjs` | Buildings at the level milestones |
 | `photo.mjs` | Photo mode at golden hour and night |
+| `beauty.mjs` | A working, decorated estate, in daylight and at golden hour |
+
+`load.mjs [fast4g|slow4g] [seconds on the title]` measures how long a new and a returning player wait on a throttled
+phone network. It needs a production build served by the server (caching and compression as in production):
+`npm run build` in TransportPipes.Frontend, then the server with
+`--webroot <absolute path to TransportPipes.Frontend/dist>`; it talks to http://localhost:5080.

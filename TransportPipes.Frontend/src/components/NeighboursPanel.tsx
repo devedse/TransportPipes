@@ -5,6 +5,7 @@ import { useNow } from "../app/useNow";
 import type { ContractDto, NeighbourDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import { setState, useAppStore } from "../state/store";
+import { ResourceIcon } from "./ResourceIcon";
 
 function Stars({ count }: { count: number }) {
   return (
@@ -35,7 +36,7 @@ function Chips({
           className={`res-chip ${kind}`}
           style={{ borderColor: content.resourceColor(r.resource) }}
         >
-          {content.resource(r.resource)?.icon} {formatAmount(r.perMinute)}{" "}
+          <ResourceIcon resource={r.resource} /> {formatAmount(r.perMinute)}{" "}
           {content.resourceName(r.resource).toLowerCase()}
         </span>
       ))}

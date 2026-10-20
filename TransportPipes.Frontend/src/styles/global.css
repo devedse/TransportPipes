@@ -242,6 +242,50 @@ kbd {
   font-size: 1.1rem;
 }
 
+/* Loady while the world loads, and over the map until it has been drawn */
+.map-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(46, 196, 166, 0.16), transparent 60%),
+    linear-gradient(180deg, #0f3640, #0a2129);
+}
+
+.loading-loady {
+  width: 120px;
+  height: auto;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+  animation: loady-bob 1.6s ease-in-out infinite;
+}
+
+.loading-text {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 1.25rem;
+  color: var(--cream);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes loady-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(3deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-loady {
+    animation: none;
+  }
+}
+
 .title-card {
   text-align: center;
   max-width: 560px;
@@ -1236,14 +1280,21 @@ select {
 }
 
 .order-icon {
-  width: 42px;
-  height: 42px;
+  width: 46px;
+  height: 46px;
   display: grid;
   place-items: center;
-  border-radius: 10px;
-  font-size: 1.3rem;
-  border: 2px solid rgba(0, 0, 0, 0.5);
-  color: #10171b;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fffaf0, #efe0bd);
+  border: 3px solid var(--brass);
+  box-shadow:
+    0 2px 0 rgba(90, 60, 20, 0.35),
+    inset 0 -2px 0 rgba(120, 90, 40, 0.18);
+}
+
+.order-icon .resource-icon {
+  width: 32px;
+  height: 32px;
 }
 
 .order-body {

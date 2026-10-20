@@ -4,6 +4,7 @@ import { formatAmount } from "../app/format";
 import type { AchievementDto, ManagerDto } from "../api/contracts";
 import { setState, useAppStore } from "../state/store";
 import { MoveTab } from "./MoveTab";
+import { ResourceIcon } from "./ResourceIcon";
 
 function initials(name: string): string {
   return name
@@ -213,7 +214,7 @@ export function CompanyPanel() {
                       className="res-chip"
                       style={{ borderColor: content.resourceColor(t.name) }}
                     >
-                      {content.resource(t.name)?.icon} {formatAmount(t.value)}{" "}
+                      <ResourceIcon resource={t.name} /> {formatAmount(t.value)}{" "}
                       {content.resourceName(t.name).toLowerCase()}
                     </span>
                   ))}

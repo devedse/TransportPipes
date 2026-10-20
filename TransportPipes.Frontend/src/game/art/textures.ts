@@ -35,6 +35,8 @@ export interface BuildingTextures {
   attachments: Attachment[];
   /** Hand-drawn sprite of the original game */
   original: boolean;
+  /** A bare ground plate while the generated picture is still loading */
+  pending?: boolean;
 }
 
 /** Original sprites by building type */
@@ -74,6 +76,8 @@ interface ArtManifest {
   rotors: Record<string, { size: number }>;
   terrain: Record<string, { size: number }>;
   props?: Record<string, { w: number; h: number; ax: number; ay: number; decal?: boolean }>;
+  /** A content hash per sprite (art/process.mjs): asked for as `<path>?v=<hash>`, so browsers can keep it */
+  hashes?: Record<string, string>;
 }
 
 /** A generated prop or decal ready to place: anchored at its foot (props) or middle (decals) */
@@ -87,6 +91,11 @@ export interface PropArt {
 const TREES = ["treeOak", "treeBirch", "treePine", "treePines", "treeBig"];
 
 const ART_URL = "/art/";
+
+/** Building pictures load when they are first needed, this many at a time */
+const ART_CONCURRENCY = 6;
+
+let shared: Promise<TextureBank> | null = null;
 
 /** A seamless terrain texture covers this many tiles in each direction */
 const TERRAIN_CELLS = 4;
@@ -107,83 +116,229 @@ export class TextureBank {
   private readonly buildingCache = new Map<string, BuildingTextures>();
   private readonly thumbnailCache = new Map<string, string>();
   private atlasImage: HTMLImageElement | null = null;
+  private readonly artRequested = new Set<string>();
+  private readonly artFailed = new Set<string>();
+  /** Pictures drawn as a placeholder (or left out) so far: the map is drawn again when they arrive */
+  private readonly awaited = new Set<string>();
+  private readonly artQueue: Array<() => Promise<void>> = [];
+  private artLoading = 0;
+  private warming = false;
+  /** Called when pictures the map waited for have arrived */
+  onArtArrived: (() => void) | null = null;
   private atlasFrames: Record<string, { frame: { x: number; y: number; w: number; h: number } }> = {};
 
-  static async load(): Promise<TextureBank> {
+  /**
+   * The textures, loaded once for the whole session: started early (on the title screen), so the map is ready sooner.
+   * Only the map's own art is waited for; the buildings' pictures come when they are first needed.
+   */
+  static load(): Promise<TextureBank> {
+    shared ??= TextureBank.create().catch((error: unknown) => {
+      shared = null;
+      throw error;
+    });
+    return shared;
+  }
+
+  private static async create(): Promise<TextureBank> {
     const bank = new TextureBank();
     const [objects, terrain] = await Promise.all([
       Assets.load<Spritesheet>(OBJECT_ATLAS_URL),
       Assets.load<Spritesheet>(TERRAIN_ATLAS_URL),
+      bank.loadArt(),
+      bank.loadThumbnailAtlas(),
     ]);
     for (const sheet of [objects, terrain]) {
       for (const [name, texture] of Object.entries(sheet.textures)) {
         bank.atlas.set(name, texture);
       }
     }
-    await bank.loadArt();
-    // For DOM thumbnails
-    try {
-      const json = (await (await fetch(OBJECT_ATLAS_URL)).json()) as { frames: TextureBank["atlasFrames"] };
-      bank.atlasFrames = json.frames;
-      const image = new Image();
-      image.src = OBJECT_ATLAS_URL.replace("combinedjson.json", "combinedimage.png");
-      await image.decode();
-      bank.atlasImage = image;
-    } catch (error) {
-      console.warn("Thumbnails of the original sprites are not available", error);
-    }
     return bank;
   }
 
-  /** The generated art, when it has been made (the procedural art stands in for everything else) */
+  /** The original sprites as an image, for DOM thumbnails */
+  private async loadThumbnailAtlas() {
+    try {
+      const json = (await (await fetch(OBJECT_ATLAS_URL)).json()) as { frames: TextureBank["atlasFrames"] };
+      this.atlasFrames = json.frames;
+      const image = new Image();
+      image.src = OBJECT_ATLAS_URL.replace("combinedjson.json", "combinedimage.png");
+      await image.decode();
+      this.atlasImage = image;
+    } catch (error) {
+      console.warn("Thumbnails of the original sprites are not available", error);
+    }
+  }
+
+  /** The generated art's manifest and the map's own art; the buildings' pictures load when they are needed */
   private async loadArt() {
     try {
       const response = await fetch(`${ART_URL}manifest.json`);
       if (!response.ok) {
         return;
       }
-      const art = (await response.json()) as ArtManifest;
-      const urls: Array<[string, string]> = [
-        ...Object.keys(art.buildings).map((id): [string, string] => [id, `${ART_URL}buildings/${id}.webp`]),
-        ...Object.keys(art.rotors).map((id): [string, string] => [
-          `${id}-rotor`,
-          `${ART_URL}buildings/${id}-rotor.webp`,
-        ]),
-      ];
-      const textures = await Promise.all(urls.map(([, url]) => Assets.load<Texture>(url).catch(() => null)));
-      urls.forEach(([key], i) => {
-        if (textures[i] !== null && textures[i] !== undefined) {
-          this.artTextures.set(key, textures[i]);
-        }
-      });
-      await Promise.all(
-        Object.keys(art.terrain).map(async (id) => {
-          const image = new Image();
-          image.src = `${ART_URL}terrain/${id}.webp`;
-          await image.decode();
-          this.terrainImages.set(id, image);
+      this.art = (await response.json()) as ArtManifest;
+      const image = async (path: string) => {
+        const element = new Image();
+        element.src = this.artUrl(path);
+        await element.decode();
+        return element;
+      };
+      await Promise.all([
+        ...Object.keys(this.art.terrain).map(async (id) => {
+          this.terrainImages.set(id, await image(`terrain/${id}.webp`));
         }),
-      );
-      await Promise.all(
-        Object.keys(art.props ?? {}).map(async (id) => {
-          const image = new Image();
-          image.src = `${ART_URL}props/${id}.webp`;
-          await image.decode();
-          this.propImages.set(id, image);
+        ...Object.keys(this.art.props ?? {}).map(async (id) => {
+          this.propImages.set(id, await image(`props/${id}.webp`));
         }),
-      );
-      this.art = art;
+      ]);
     } catch (error) {
       console.warn("The generated art could not be loaded", error);
+      this.art = null;
     }
+  }
+
+  /** A sprite's URL with its content hash */
+  private artUrl(path: string): string {
+    const hash = this.art?.hashes?.[path];
+    return hash === undefined ? `${ART_URL}${path}` : `${ART_URL}${path}?v=${hash}`;
+  }
+
+  /** Loads a building's picture (and its rotor) the first time it is needed; the latest request goes first */
+  private requestArt(id: string): void {
+    const art = this.art;
+    if (art === null || this.artRequested.has(id)) {
+      return;
+    }
+    const job = async () => {
+      const paths: Array<[string, string]> = [[id, `buildings/${id}.webp`]];
+      if (art.rotors[id] !== undefined) {
+        paths.push([`${id}-rotor`, `buildings/${id}-rotor.webp`]);
+      }
+      const textures = await Promise.all(
+        paths.map(([, path]) => Assets.load<Texture>(this.artUrl(path)).catch(() => null)),
+      );
+      paths.forEach(([key], i) => {
+        const texture = textures[i];
+        if (texture !== null && texture !== undefined) {
+          this.artTextures.set(key, texture);
+        }
+      });
+      if (!this.artTextures.has(id)) {
+        this.artFailed.add(id);
+      }
+      if (this.awaited.delete(id)) {
+        this.onArtArrived?.();
+      }
+    };
+    this.artRequested.add(id);
+    this.artQueue.unshift(job);
+    this.pumpArt();
+  }
+
+  private pumpArt() {
+    while (this.artLoading < ART_CONCURRENCY && this.artQueue.length > 0) {
+      const job = this.artQueue.shift()!;
+      this.artLoading++;
+      void job().finally(() => {
+        this.artLoading--;
+        this.pumpArt();
+      });
+    }
+  }
+
+  /** The state of a building's generated picture: there, still loading (it is asked for now), or none */
+  private artState(id: string): Texture | "loading" | null {
+    if (this.art?.buildings[id] === undefined || this.artFailed.has(id)) {
+      return null;
+    }
+    const texture = this.artTextures.get(id);
+    if (texture !== undefined) {
+      return texture;
+    }
+    this.awaited.add(id);
+    this.requestArt(id);
+    return "loading";
+  }
+
+  /**
+   * Once the map is up: the other building pictures go into the browser's cache, one by one and only while nothing
+   * else loads, so they are there without a wait later (not on a data saver)
+   */
+  async warmCache() {
+    const art = this.art;
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+    if (art === null || this.warming || connection?.saveData === true) {
+      return;
+    }
+    this.warming = true;
+    const paths = [
+      ...Object.keys(art.buildings).map((id) => [id, `buildings/${id}.webp`]),
+      ...Object.keys(art.rotors).map((id) => [id, `buildings/${id}-rotor.webp`]),
+    ];
+    for (const [id, path] of paths) {
+      while (this.artLoading > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+      if (!this.artRequested.has(id!)) {
+        await fetch(this.artUrl(path!), { priority: "low" } as RequestInit).catch(() => undefined);
+      }
+    }
+  }
+
+  /** A bare ground plate in the colours of the generated art, while a building's picture loads */
+  private placeholder(size: number): BuildingTextures {
+    const texture = this.cached(`placeholder:${size}`, () => {
+      const width = TILE_WIDTH * 2 * size;
+      const height = TILE_HEIGHT * size;
+      const edge = 8;
+      const canvas = createCanvas(width, height + edge);
+      const g = canvas.getContext("2d")!;
+      const top = () => {
+        g.beginPath();
+        g.moveTo(0, height / 2);
+        g.lineTo(width / 2, 0);
+        g.lineTo(width, height / 2);
+        g.lineTo(width / 2, height);
+        g.closePath();
+      };
+      // The plate's sides, then its top
+      g.fillStyle = "#9c8a68";
+      g.beginPath();
+      g.moveTo(0, height / 2);
+      g.lineTo(width / 2, height);
+      g.lineTo(width, height / 2);
+      g.lineTo(width, height / 2 + edge);
+      g.lineTo(width / 2, height + edge);
+      g.lineTo(0, height / 2 + edge);
+      g.closePath();
+      g.fill();
+      top();
+      g.fillStyle = "#d8c9a6";
+      g.fill();
+      g.lineWidth = 2;
+      g.strokeStyle = "rgba(90, 70, 40, 0.55)";
+      g.stroke();
+      return canvas;
+    });
+    return {
+      frames: [texture],
+      size,
+      attachments: [],
+      original: false,
+      placement: { anchorX: 0.5, anchorY: 1, scale: 1 },
+      pending: true,
+    };
   }
 
   /** The generated sprite of a building: anchored at its plate's bottom corner, attachments around it */
   private generatedBuilding(type: string, size: number): BuildingTextures | null {
     const entry = this.art?.buildings[type];
-    const texture = this.artTextures.get(type);
-    if (this.art === null || entry === undefined || texture === undefined) {
+    const texture = this.artState(type);
+    if (this.art === null || entry === undefined || texture === null) {
       return null;
+    }
+    if (texture === "loading") {
+      return this.placeholder(size);
     }
     const scale = 1 / (entry.r ?? this.art.resolution);
     // Attachments are relative to the footprint's bottom-left corner, like the procedural art
@@ -345,9 +500,10 @@ export class TextureBank {
     return color;
   }
 
-  /** A generated sprite by its art id (town fillers and other decorations), or null */
+  /** A generated sprite by its art id (town fillers and other decorations), or null (also while it loads) */
   generated(id: string, size: number): BuildingTextures | null {
-    return this.generatedBuilding(id, size);
+    const art = this.generatedBuilding(id, size);
+    return art?.pending ? null : art;
   }
 
   /** Whether there is a generated texture for a terrain */
@@ -457,7 +613,9 @@ export class TextureBank {
     let result = this.buildingCache.get(type);
     if (result === undefined) {
       result = this.createBuilding(type, size);
-      this.buildingCache.set(type, result);
+      if (result.pending !== true) {
+        this.buildingCache.set(type, result);
+      }
     }
     return result;
   }
@@ -538,8 +696,8 @@ export class TextureBank {
     if (url !== undefined) {
       return url;
     }
-    if (this.artTextures.has(type)) {
-      return `${ART_URL}buildings/${type}.webp`;
+    if (this.art?.buildings[type] !== undefined && !this.artFailed.has(type)) {
+      return this.artUrl(`buildings/${type}.webp`);
     }
     const original = ORIGINAL_SPRITES[type];
     let source: HTMLCanvasElement;

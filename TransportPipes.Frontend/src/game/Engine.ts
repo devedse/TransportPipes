@@ -108,6 +108,8 @@ export interface EngineCallbacks {
   onLayer(deep: boolean): void;
   onPlaceBlueprint(blueprint: BlueprintDto, x: number, y: number): void;
   onZoom(scale: number): void;
+  /** The map where the camera looks has been drawn for the first time (until then a loading picture covers it) */
+  onMapShown(): void;
 }
 
 const CHUNK_MARGIN = 1;
@@ -293,6 +295,12 @@ export class Engine {
   private readonly dirtyChunks = new Set<string>();
   private flowsDirty = true;
   private districtsDirty = true;
+  /** Whether the camera was sent somewhere, and the map there has been drawn */
+  private lookedAt = false;
+  private shown = false;
+  /** Building pictures that were still loading have arrived */
+  private artArrived = false;
+  private lastArtRedraw = 0;
   private flowDots: Array<{
     sprite: Sprite;
     points: Array<{ x: number; y: number }>;
@@ -360,6 +368,12 @@ export class Engine {
     this.miniLayer.visible = false;
     this.registerInput(app.canvas);
     app.ticker.add(this.update, this);
+    textures.onArtArrived = () => {
+      this.artArrived = true;
+    };
+    this.removeListeners.push(() => {
+      textures.onArtArrived = null;
+    });
     this.removeListeners.push(
       world.onChange((change) => {
         change.chunks.forEach((key) => this.dirtyChunks.add(key));
@@ -395,7 +409,9 @@ export class Engine {
     }
     app.canvas.classList.add("game-canvas");
     host.appendChild(app.canvas);
-    return new Engine(app, textures, world, callbacks);
+    const engine = new Engine(app, textures, world, callbacks);
+    setTimeout(() => void textures.warmCache(), 4000);
+    return engine;
   }
 
   get textureBank(): TextureBank {
@@ -414,6 +430,7 @@ export class Engine {
     }
     const center = tileCenter(x, y);
     this.camera.centerOn(center.x, center.y, this.app.screen.width, this.app.screen.height);
+    this.lookedAt = true;
   }
 
   zoomBy(steps: number) {
@@ -754,6 +771,26 @@ export class Engine {
       }
     }
     this.dirtyChunks.clear();
+    if (this.lookedAt && !this.shown) {
+      const tile = this.camera.screenToTile(this.app.screen.width / 2, this.app.screen.height / 2);
+      const chunk = chunkOf(tile.x, tile.y);
+      if (this.chunks.get(chunkKey(chunk.x, chunk.y))?.loaded === true) {
+        this.shown = true;
+        this.callbacks.onMapShown();
+      }
+    }
+    // Pictures that were still loading are there: the objects are drawn again (a few times a second at most)
+    if (this.artArrived && this.time - this.lastArtRedraw > 0.25) {
+      this.artArrived = false;
+      this.lastArtRedraw = this.time;
+      for (const chunk of this.chunks.values()) {
+        if (chunk.loaded) {
+          this.clearObjects(chunk);
+          this.drawObjects(chunk);
+        }
+      }
+      this.districtsDirty = true;
+    }
     if (this.districtsDirty) {
       this.districtsDirty = false;
       this.drawDistricts();

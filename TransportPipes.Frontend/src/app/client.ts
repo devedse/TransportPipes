@@ -475,6 +475,8 @@ export class GameClient {
 
   detachEngine() {
     this.engine = null;
+    setState({ mapShown: false });
+    delete document.body.dataset.ready;
   }
 
   get textures() {
@@ -578,6 +580,10 @@ export class GameClient {
     onLayer: (deep) => setState({ deepView: deep, selectedDeepParcel: null, selectedParcel: null }),
     onPlaceBlueprint: (blueprint, x, y) => void this.buildBlueprint(blueprint, x, y),
     onZoom: (zoom) => setState({ zoom }),
+    onMapShown: () => {
+      setState({ mapShown: true });
+      document.body.dataset.ready = "1";
+    },
   };
 
   private async command(promise: Promise<CommandResult>, success?: string): Promise<boolean> {

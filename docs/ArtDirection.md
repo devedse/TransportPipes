@@ -50,6 +50,11 @@ node process.mjs buildings|terrain|props <source dir>              # → Transpo
 node sheet.mjs <out.png> 360 <images...>                           # a contact sheet to review a batch
 ```
 
+Every run stamps a content hash of each sprite into the manifest (`node process.mjs hashes` does only that): the game
+asks for `<sprite>?v=<hash>`, which the server lets browsers keep for good. The game waits only for the map's own art
+(terrain and props); a building's picture loads the first time it is needed (a bare ground plate stands in for it
+meanwhile), and once the map is up the rest goes quietly into the browser's cache.
+
 The generated originals live outside the repository (`../transportpipes-art`, 1–4 MB each); only the processed WebP
 sprites and `manifest.json` are committed. Every batch is reviewed before it goes in: angle and plate, style next to
 the other art, readability at game size; anything off is generated again with a better prompt.

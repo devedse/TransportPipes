@@ -23,7 +23,6 @@ export function GameCanvas() {
         }
         engine = created;
         gameClient.attachEngine(created);
-        document.body.dataset.ready = "1";
       },
       (reason: unknown) => {
         console.error("Could not start the map", reason);

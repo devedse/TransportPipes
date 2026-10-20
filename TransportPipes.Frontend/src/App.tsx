@@ -15,6 +15,7 @@ import { ConnectionOverlay } from "./components/ConnectionOverlay";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { FoundCompany } from "./components/FoundCompany";
 import { GameCanvas } from "./components/GameCanvas";
+import { MapLoading } from "./components/MapLoading";
 import { GatePanel } from "./components/GatePanel";
 import { HoverTip } from "./components/HoverTip";
 import { HubPanel } from "./components/HubPanel";
@@ -199,10 +200,12 @@ export function App() {
   const error = useAppStore((state) => state.error);
   const content = useAppStore((state) => state.content);
   const photoMode = useAppStore((state) => state.photoMode);
+  const mapShown = useAppStore((state) => state.mapShown);
 
   return (
     <div className="app">
       {content !== null && <GameCanvas />}
+      {phase === "playing" && !mapShown && <MapLoading text="Unrolling the valley…" cover />}
       {phase === "playing" && photoMode && <PhotoBar />}
       {phase === "playing" && !photoMode && (
         <>
@@ -297,7 +300,7 @@ export function App() {
       )}
       {phase === "login" && <AuthScreen />}
       {phase === "found" && <FoundCompany />}
-      {phase === "loading" && <div className="screen loading-screen">Loading the world…</div>}
+      {phase === "loading" && <MapLoading text="Loading the world…" />}
       {phase === "error" && (
         <div className="screen">
           <div className="panel">{error}</div>

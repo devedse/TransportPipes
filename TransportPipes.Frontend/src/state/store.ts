@@ -109,6 +109,8 @@ export interface AppState {
   hintTile: { x: number; y: number; size: number } | null;
   /** Photo mode: no UI, a time of day */
   photoMode: boolean;
+  /** The map has been drawn where the camera looks (a loading picture covers it until then) */
+  mapShown: boolean;
   timeOfDay: "day" | "golden" | "dusk" | "night";
   /** A Company Level just reached: the celebration shows */
   levelUp: number | null;
@@ -189,6 +191,7 @@ export const initialState: AppState = {
   hintTile: null,
   levelUp: null,
   photoMode: false,
+  mapShown: false,
   timeOfDay: "day",
   outpostCheck: null,
   season: null,

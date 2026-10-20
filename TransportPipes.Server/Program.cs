@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using TransportPipes.Database;
 using TransportPipes.Database.Entities;
@@ -76,14 +77,27 @@ void ConfigureJson(JsonSerializerOptions options)
 builder.Services.ConfigureHttpJsonOptions(options => ConfigureJson(options.SerializerOptions));
 builder.Services.AddSignalR().AddJsonProtocol(options => ConfigureJson(options.PayloadSerializerOptions));
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
 
 var app = builder.Build();
 
 await app.Services.GetRequiredService<DatabaseInitializer>().InitializeAsync();
 
-// The frontend (TransportPipes.Frontend) is built into wwwroot by the Dockerfile
+// The frontend (TransportPipes.Frontend) is built into wwwroot by the Dockerfile. Only its files and the game's content
+// are compressed (no response with a secret in it is), and the ones with a hash in their name or URL are kept by
+// browsers for good.
+app.UseWhen(
+    context => context.Request.Path == "/api/content"
+        || (!context.Request.Path.StartsWithSegments("/api") && !context.Request.Path.StartsWithSegments(GameHub.Path)),
+    branch => branch.UseResponseCompression());
 app.UseDefaultFiles();
-app.UseStaticFiles();
+var staticFiles = new StaticFileOptions { OnPrepareResponse = context => StaticCaching.Apply(context.Context) };
+app.UseStaticFiles(staticFiles);
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -139,7 +153,7 @@ auth.MapGet("/me", async (ClaimsPrincipal user, AccountService accounts) =>
 })
     .RequireAuthorization();
 
-app.MapFallbackToFile("index.html");
+app.MapFallbackToFile("index.html", staticFiles);
 
 app.Run();
 
