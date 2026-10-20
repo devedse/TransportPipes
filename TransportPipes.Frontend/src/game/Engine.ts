@@ -99,13 +99,6 @@ export interface EngineCallbacks {
 }
 
 const CHUNK_MARGIN = 1;
-const PIPE_TINTS: Record<number, number> = {
-  1: 0xffffff,
-  2: 0xf0a060,
-  3: 0x8f9bb3,
-  4: 0xb5f0ff,
-  5: 0xc7a6ff,
-};
 
 /** Bottom-left corner (sprite anchor) of a footprint of size×size tiles with its top-left tile at (x, y) */
 export function footprintAnchor(x: number, y: number, size: number): { x: number; y: number } {
@@ -1385,11 +1378,11 @@ export class Engine {
       this.effects.add(view);
       return view;
     }
-    const texture = this.textures.pipe(this.pipeShape(conductor.x, conductor.y)) ?? Texture.WHITE;
-    const sprite = new Sprite(texture);
+    const sprite = new Sprite(
+      this.textures.styledPipe(this.pipeShape(conductor.x, conductor.y), conductor.tier),
+    );
     sprite.anchor.set(0, 1);
     sprite.position.set(anchor.x, anchor.y);
-    sprite.tint = PIPE_TINTS[conductor.tier] ?? 0xffffff;
     sprite.zIndex = (conductor.x + conductor.y) * 4 + 2;
     this.objectLayer.addChild(sprite);
     return { display: sprite, effects: null, building: null, machine: null, idle: null, progress: null };
@@ -2003,16 +1996,12 @@ export class Engine {
         traceFootprint(g, t.x, t.y, 1);
         g.fill({ color: own ? 0x6cb4ee : 0x2ec4a6, alpha: 0.35 });
         if (!own) {
-          const texture = this.textures.pipe("urdl");
-          if (texture !== undefined) {
-            const sprite = new Sprite(texture);
-            sprite.anchor.set(0, 1);
-            const anchor = diagonalToScreen(t.x, t.y);
-            sprite.position.set(anchor.x, anchor.y);
-            sprite.alpha = 0.55;
-            sprite.tint = PIPE_TINTS[tool.tier] ?? 0xffffff;
-            this.ghostLayer.addChild(sprite);
-          }
+          const sprite = new Sprite(this.textures.styledPipe("urdl", tool.tier));
+          sprite.anchor.set(0, 1);
+          const anchor = diagonalToScreen(t.x, t.y);
+          sprite.position.set(anchor.x, anchor.y);
+          sprite.alpha = 0.6;
+          this.ghostLayer.addChild(sprite);
         }
       }
       if (this.dragging && this.pipeRoute === null && this.pipeStart !== null) {
@@ -2093,16 +2082,17 @@ export class Engine {
       }
     }
     for (const pipe of blueprint.pipes) {
-      const texture = this.textures.pipe(pipeShapeOf(pipe.dx, pipe.dy, (x, y) => taken.has(tileKey(x, y))));
-      if (texture !== undefined) {
-        const sprite = new Sprite(texture);
-        sprite.anchor.set(0, 1);
-        const anchor = diagonalToScreen(origin.x + pipe.dx, origin.y + pipe.dy);
-        sprite.position.set(anchor.x, anchor.y);
-        sprite.alpha = 0.6;
-        sprite.tint = PIPE_TINTS[pipe.tier] ?? 0xffffff;
-        sprites.push(sprite);
-      }
+      const sprite = new Sprite(
+        this.textures.styledPipe(
+          pipeShapeOf(pipe.dx, pipe.dy, (x, y) => taken.has(tileKey(x, y))),
+          pipe.tier,
+        ),
+      );
+      sprite.anchor.set(0, 1);
+      const anchor = diagonalToScreen(origin.x + pipe.dx, origin.y + pipe.dy);
+      sprite.position.set(anchor.x, anchor.y);
+      sprite.alpha = 0.6;
+      sprites.push(sprite);
     }
     let fits = 0;
     let firstReason: string | null = null;
@@ -2155,16 +2145,12 @@ export class Engine {
       traceFootprint(g, t.x, t.y, 1);
       g.fill({ color: own ? 0x6cb4ee : 0x2ec4a6, alpha: 0.35 });
       if (!own) {
-        const texture = this.textures.pipe("urdl");
-        if (texture !== undefined) {
-          const sprite = new Sprite(texture);
-          sprite.anchor.set(0, 1);
-          const anchor = diagonalToScreen(t.x, t.y);
-          sprite.position.set(anchor.x, anchor.y);
-          sprite.alpha = 0.55;
-          sprite.tint = PIPE_TINTS[tier] ?? 0xffffff;
-          this.ghostLayer.addChild(sprite);
-        }
+        const sprite = new Sprite(this.textures.styledPipe("urdl", tier));
+        sprite.anchor.set(0, 1);
+        const anchor = diagonalToScreen(t.x, t.y);
+        sprite.position.set(anchor.x, anchor.y);
+        sprite.alpha = 0.6;
+        this.ghostLayer.addChild(sprite);
       }
     }
     this.ghostLayer.addChildAt(g, 0);

@@ -10,6 +10,7 @@ import {
 } from "./buildings";
 import { TILE_HEIGHT, TILE_WIDTH } from "../constants";
 import { createCanvas, hash01, type Attachment } from "./iso";
+import { drawPipe } from "./pipes";
 import {
   drawDeposit,
   drawForestTrees,
@@ -462,6 +463,11 @@ export class TextureBank {
 
   pipe(shape: string): Texture | undefined {
     return this.atlas.get(`GreyPipe${shape}`);
+  }
+
+  /** A pipe tile in the style of the generated art, for a tier (anchored like a tile, PIPE_LIFT taller) */
+  styledPipe(shape: string, tier: number): Texture {
+    return this.cached(`styledPipe:${shape}:${tier}`, () => drawPipe(shape, tier));
   }
 
   gate(policy: "open" | "closed" | "contract" | "corporation", alongU: boolean): BuildingTextures {
