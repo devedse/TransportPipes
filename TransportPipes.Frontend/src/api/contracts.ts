@@ -704,6 +704,8 @@ export interface NeighbourDto {
   connected: boolean;
   surplus: ResourceRateDto[];
   needs: ResourceRateDto[];
+  /** What each building that misses something misses: it buys only when all of it comes */
+  shortfalls: string[][];
   youEarn: number;
   youPay: number;
 }
@@ -1105,6 +1107,8 @@ export interface TutorialDto {
   amount: number;
   gold: number;
   hint: Record<string, string>;
+  /** The Company Level the step needs first (null when it can be done now) */
+  waitLevel: number | null;
 }
 
 /** Expeditions (GDD §11.3) */

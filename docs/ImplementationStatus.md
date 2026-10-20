@@ -111,8 +111,9 @@ the primary goals: the buildings, the map and the UI. The design may change wher
 - ✅ Expansion instead of resets: the Franchise opens a branch estate (up to three estates, Shares for good); the
   world persists over chapters; evolve in place (the old building's gold and upgrades count, pipes stay); the
   Recycler gives all the gold back
-- ✅ Onboarding: Loady guides the first session in nine steps with "Show me" (tool, overlay, a pulsing marker on the
-  best spot); the goal tracker (Loady's step or the next level, today, this week)
+- ✅ Onboarding: Loady guides the first sessions in eleven steps with "Show me" (tool, overlay, a pulsing marker on the
+  best spot, a panel); a step that needs a higher level says so ("At Company Level 4 … come back later"); the goal
+  tracker (Loady's step or the next level, today, this week)
 - ✅ Progressive UI: tools appear with the level that brings them and glow until tried
 - ✅ Neighbour trade offers itself: a card for a neighbour who needs what you make, with "Connect a pipe"
 - ✅ Alerts for what holds you back: a network short of pump stations, a full trading post, a full storage
@@ -144,8 +145,23 @@ the primary goals: the buildings, the map and the UI. The design may change wher
 
 ### M10 · v1: playable, fun, good-looking (≈ 3–5 h)
 
-- ⬜ Play a fresh account at real speed (first session, day 1, week 1), note and fix what isn't fun
-- ⬜ Performance (atlases, phones), a bug bash, accessibility basics
+- ✅ The first session at a human pace (`BalanceSimulation.TheFirstSession`, `docs/balance/first-session.md`): Loady's
+  first eight steps in 17 minutes (GDD §10.2's 20), then the Lab waits for Company Level 4, which the break brings
+  (§10.3). What it found and what changed:
+  - the neighbour card offered neighbours a new player can't supply (a building that misses energy *and* stone buys
+    nothing): it now offers one whose whole shortfall you make
+  - a new Storage took everything first and stopped the income for most of an hour: a storage now keeps what the
+    company needs (today's orders, the corporation goal, the next building's materials) or the share its owner
+    chose, the Trading Post sells the rest, and what it can't sell still goes into the storage
+  - Loady asked for a Level 5 parcel at minute 6 and the Lab after it: the steps follow the sessions now (a Storage
+    and a daily order in the first; the Lab, then the parcel) and say when they wait for a level
+  - daily orders and corporation goals asked for what an era unlocks but a new company can't feed (gears, oil, rare
+    earth): they ask for what the company makes and the next step of its chains
+- ⬜ Play day 1 and week 1 at a human pace the same way
+- ✅ Performance: building pictures load when they are first needed (the map waits only for its own art), hashed
+  art is cached by browsers for good, the frontend is compressed; a new player on fast 4G waits 1.3 s from founding
+  to the map (was 8.3 s), a returning one 0.7 s (was 3.3 s); `e2e/load.mjs` measures it
+- ⬜ A bug bash, accessibility basics
 - ✅ The e2e screenshot scripts are in the repository (`e2e/`)
 - ⬜ Merge PR #3 and release
 

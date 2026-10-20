@@ -724,6 +724,11 @@ public sealed class GameHub : Hub<IGameClient>
                 case "research":
                     company.ResearchPoints += 5_000;
                     break;
+                case "tutorial":
+                    // On to Loady's next step
+                    company.TutorialStep = Math.Min(company.TutorialStep + 1, world.Content.Tutorial.Count);
+                    company.Touch();
+                    break;
                 case "finish":
                     foreach (var building in world.BuildingsOf(companyId).Where(t => t.UnderConstruction).ToList())
                     {

@@ -49,23 +49,34 @@ public sealed partial class GameWorld
             return;
         }
         company.DailyOrders = [.. GenerateOrders(company), .. company.DailyOrders.Where(t => t.Urgent)];
+        // Storages keep what the new orders need
+        MarkCompanyNetworksDirty(company.Id);
         company.Touch();
         Changes.Companies.Add(company.Id);
     }
 
-    /// <summary>Resources a company can make with the buildings it has unlocked</summary>
-    private List<string> Producible(Company company) =>
-        Content.BuildingList
-            .Where(t => t.Buildable && t.Out.Count != 0 && IsUnlocked(company, t, out _))
-            .SelectMany(t => t.Out.Keys)
+    /// <summary>
+    /// What a company's orders ask for: what it makes now, and the next step of a chain it can already feed (ingots
+    /// when it makes ore and energy). Not all it has unlocked: an era unlocks buildings a new company can't feed yet.
+    /// </summary>
+    public List<string> OrderResources(Company company)
+    {
+        var made = BuildingsOf(company.Id)
+            .Where(t => !t.UnderConstruction)
+            .SelectMany(t => Content.Building(t.Type).Out.Keys)
             .Where(t => t != GameContent.ResearchPoints)
-            .Distinct()
-            .Order(StringComparer.Ordinal)
-            .ToList();
+            .ToHashSet();
+        // Processing only (more than energy goes in): extraction needs a deposit the company may not have
+        var next = Content.BuildingList
+            .Where(t => t.Buildable && t.Out.Count != 0 && t.In.Keys.Any(k => k != "energy") && t.In.Keys.All(made.Contains) && IsUnlocked(company, t, out _))
+            .SelectMany(t => t.Out.Keys)
+            .Where(t => t != GameContent.ResearchPoints);
+        return made.Concat(next).Distinct().Order(StringComparer.Ordinal).ToList();
+    }
 
     private List<DailyOrder> GenerateOrders(Company company)
     {
-        var resources = Producible(company);
+        var resources = OrderResources(company);
         if (resources.Count == 0)
         {
             resources = ["energy"];

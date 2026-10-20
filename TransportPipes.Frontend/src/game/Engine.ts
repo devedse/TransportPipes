@@ -298,6 +298,7 @@ export class Engine {
   /** Whether the camera was sent somewhere, and the map there has been drawn */
   private lookedAt = false;
   private shown = false;
+  private drawnAt: number | null = null;
   /** Building pictures that were still loading have arrived */
   private artArrived = false;
   private lastArtRedraw = 0;
@@ -368,12 +369,11 @@ export class Engine {
     this.miniLayer.visible = false;
     this.registerInput(app.canvas);
     app.ticker.add(this.update, this);
-    textures.onArtArrived = () => {
-      this.artArrived = true;
-    };
-    this.removeListeners.push(() => {
-      textures.onArtArrived = null;
-    });
+    this.removeListeners.push(
+      textures.onArtArrived(() => {
+        this.artArrived = true;
+      }),
+    );
     this.removeListeners.push(
       world.onChange((change) => {
         change.chunks.forEach((key) => this.dirtyChunks.add(key));
@@ -775,8 +775,12 @@ export class Engine {
       const tile = this.camera.screenToTile(this.app.screen.width / 2, this.app.screen.height / 2);
       const chunk = chunkOf(tile.x, tile.y);
       if (this.chunks.get(chunkKey(chunk.x, chunk.y))?.loaded === true) {
-        this.shown = true;
-        this.callbacks.onMapShown();
+        // Drawn: a moment more for the pictures of the buildings in it
+        this.drawnAt ??= this.time;
+        if (!this.textures.loadingBuildings || this.time - this.drawnAt > 3) {
+          this.shown = true;
+          this.callbacks.onMapShown();
+        }
       }
     }
     // Pictures that were still loading are there: the objects are drawn again (a few times a second at most)

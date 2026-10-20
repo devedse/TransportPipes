@@ -88,7 +88,7 @@ public static class GameViews
                 return new BranchDto(t.District.X, t.District.Y, WorldNames.District(t.District), t.Slot, t.Origin.X, t.Origin.Y, t.UnlockedParcels, cost, level);
             }).ToList(),
             world.CurrentTutorialStep(company) is { } step
-                ? new TutorialDto(company.TutorialStep, world.Content.Tutorial.Count, step.Id, step.Text, world.TutorialProgress(company, step), step.Amount, step.Gold, step.Hint)
+                ? new TutorialDto(company.TutorialStep, world.Content.Tutorial.Count, step.Id, step.Text, world.TutorialProgress(company, step), step.Amount, step.Gold, step.Hint, world.TutorialWaitLevel(company, step))
                 : null,
             new ExpeditionDto(
                 company.Expedition?.Hours,
@@ -900,115 +900,7 @@ public static class GameViews
     /// <summary>The companies of a district as one of them sees them: surplus, needs, trade with you</summary>
     public static List<NeighbourDto> Neighbourhood(GameWorld world, Company me)
     {
-        var surplus = new Dictionary<long, Dictionary<string, double>>();
-        var needs = new Dictionary<long, Dictionary<string, double>>();
-        var earn = new Dictionary<long, double>();
-        var pay = new Dictionary<long, double>();
-        var connected = new HashSet<long>();
-        void Add(Dictionary<long, Dictionary<string, double>> map, long company, string resource, double amount)
-        {
-            if (!map.TryGetValue(company, out var rates))
-            {
-                map[company] = rates = new Dictionary<string, double>();
-            }
-            rates[resource] = (rates.TryGetValue(resource, out var v) ? v : 0) + amount;
-        }
-
-        foreach (var network in world.Networks.Where(t => t.District == me.District))
-        {
-            var owners = network.Owners(world).ToHashSet();
-            if (owners.Contains(me.Id))
-            {
-                connected.UnionWith(owners);
-            }
-            var received = new Dictionary<(long, string), double>();
-            foreach (var flow in network.Solution.Flows)
-            {
-                var from = world.Building(flow.From)!.Owner;
-                var to = world.Building(flow.To)!.Owner;
-                received[(flow.To, flow.Resource)] = (received.TryGetValue((flow.To, flow.Resource), out var r) ? r : 0) + flow.Delivered;
-                if (flow.Kind == FlowKind.Sale)
-                {
-                    // Sold to the hub: they could sell it to you instead
-                    Add(surplus, from, flow.Resource, flow.Sent);
-                }
-                if (flow.Kind is FlowKind.Trade or FlowKind.Contract)
-                {
-                    var value = flow.Delivered * flow.PricePerUnit;
-                    if (from == me.Id)
-                    {
-                        earn[to] = (earn.TryGetValue(to, out var e) ? e : 0) + value;
-                    }
-                    if (to == me.Id)
-                    {
-                        pay[from] = (pay.TryGetValue(from, out var p) ? p : 0) + value;
-                    }
-                }
-            }
-            var sent = new Dictionary<(long, string), double>();
-            foreach (var flow in network.Solution.Flows)
-            {
-                sent[(flow.From, flow.Resource)] = (sent.TryGetValue((flow.From, flow.Resource), out var v) ? v : 0) + flow.Sent;
-            }
-            foreach (var id in network.Buildings)
-            {
-                if (world.Building(id) is not { } building || world.ToFlowNode(building) is not { Kind: FlowNodeKind.Building } node)
-                {
-                    continue;
-                }
-                var rate = network.Solution.Rate(id);
-                // What it could make but nobody takes: spare for a neighbour (only when it has what it needs to make it)
-                var inputsMet = node.In.All(t => (received.TryGetValue((id, t.Key), out var got) ? got : 0) >= t.Value * rate - 1e-6);
-                foreach (var (resource, amount) in node.Out)
-                {
-                    var unused = amount * node.MaxRate - (sent.TryGetValue((id, resource), out var s) ? s : 0);
-                    if (unused > 0.01 && (node.In.Count == 0 || inputsMet))
-                    {
-                        Add(surplus, building.Owner, resource, unused);
-                    }
-                }
-                // What it misses, when its product has somewhere to go (otherwise it doesn't really need it)
-                var placeable = node.Out.Count == 0 || network.Links.Any(link =>
-                {
-                    if (!link.Connects(id, link.A == id ? link.B : link.A))
-                    {
-                        return false;
-                    }
-                    var other = world.Building(link.A == id ? link.B : link.A);
-                    if (other == null)
-                    {
-                        return false;
-                    }
-                    var kind = world.Content.Building(other.Type).Kind;
-                    return (other.Owner == building.Owner && kind is BuildingKind.Storage or BuildingKind.TradingPost)
-                        || world.ToFlowNode(other) is { } n && node.Out.Keys.Any(n.In.ContainsKey);
-                });
-                if (!placeable)
-                {
-                    continue;
-                }
-                foreach (var (resource, amount) in node.In)
-                {
-                    var missing = amount * node.MaxRate - (received.TryGetValue((id, resource), out var got) ? got : 0);
-                    if (missing > 0.01)
-                    {
-                        Add(needs, building.Owner, resource, missing);
-                    }
-                }
-            }
-        }
-        // Buildings without any pipe need everything
-        foreach (var building in world.Buildings.Where(t => world.NetworkOf(t.Id) == null && !t.UnderConstruction))
-        {
-            if (world.Company(building.Owner)?.District == me.District && world.ToFlowNode(building) is { Kind: FlowNodeKind.Building } node)
-            {
-                foreach (var (resource, amount) in node.In)
-                {
-                    Add(needs, building.Owner, resource, amount);
-                }
-            }
-        }
-
+        var (surplus, needs, shortfalls, earn, pay, connected) = world.NeighbourhoodOf(me);
         List<ResourceRateDto> Rates(Dictionary<long, Dictionary<string, double>> map, long company) =>
             map.TryGetValue(company, out var rates)
                 ? rates.Where(t => t.Value > 0.01).OrderByDescending(t => t.Value * world.BasePrice(t.Key)).Select(t => new ResourceRateDto(t.Key, t.Value)).ToList()
@@ -1038,6 +930,9 @@ public static class GameViews
                     connected.Contains(t.Id),
                     Rates(surplus, t.Id),
                     Rates(needs, t.Id),
+                    shortfalls.TryGetValue(t.Id, out var missing)
+                        ? missing.Select(m => m.Keys.Order().ToList()).DistinctBy(m => string.Join(",", m)).ToList<IReadOnlyList<string>>()
+                        : [],
                     earn.GetValueOrDefault(t.Id),
                     pay.GetValueOrDefault(t.Id));
             })

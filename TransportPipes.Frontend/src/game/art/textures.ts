@@ -120,11 +120,12 @@ export class TextureBank {
   private readonly artFailed = new Set<string>();
   /** Pictures drawn as a placeholder (or left out) so far: the map is drawn again when they arrive */
   private readonly awaited = new Set<string>();
-  private readonly artQueue: Array<() => Promise<void>> = [];
+  /** Companies' buildings among them (not the hub's or decorations): the map waits a moment for these */
+  private readonly awaitedBuildings = new Set<string>();
+  private readonly artQueue: Array<{ id: string; job: () => Promise<void> }> = [];
   private artLoading = 0;
   private warming = false;
-  /** Called when pictures the map waited for have arrived */
-  onArtArrived: (() => void) | null = null;
+  private readonly artListeners = new Set<() => void>();
   private atlasFrames: Record<string, { frame: { x: number; y: number; w: number; h: number } }> = {};
 
   /**
@@ -203,10 +204,21 @@ export class TextureBank {
     return hash === undefined ? `${ART_URL}${path}` : `${ART_URL}${path}?v=${hash}`;
   }
 
-  /** Loads a building's picture (and its rotor) the first time it is needed; the latest request goes first */
-  private requestArt(id: string): void {
+  /**
+   * Loads a building's picture (and its rotor) the first time it is needed. Companies' buildings (urgent) go first,
+   * the latest first; the hub's buildings and the decorations after them.
+   */
+  private requestArt(id: string, urgent: boolean): void {
     const art = this.art;
-    if (art === null || this.artRequested.has(id)) {
+    if (art === null) {
+      return;
+    }
+    if (this.artRequested.has(id)) {
+      // Still waiting in the queue: to the front now that it is urgent
+      const queued = this.artQueue.findIndex((t) => t.id === id);
+      if (urgent && queued > 0) {
+        this.artQueue.unshift(...this.artQueue.splice(queued, 1));
+      }
       return;
     }
     const job = async () => {
@@ -226,18 +238,37 @@ export class TextureBank {
       if (!this.artTextures.has(id)) {
         this.artFailed.add(id);
       }
+      this.awaitedBuildings.delete(id);
       if (this.awaited.delete(id)) {
-        this.onArtArrived?.();
+        this.artListeners.forEach((listener) => listener());
       }
     };
     this.artRequested.add(id);
-    this.artQueue.unshift(job);
+    if (urgent) {
+      this.artQueue.unshift({ id, job });
+    } else {
+      this.artQueue.push({ id, job });
+    }
     this.pumpArt();
+  }
+
+  /**
+   * Calls the listener when pictures the map waited for have arrived; returns how to stop. One bank serves every
+   * engine of the session (a new one after a reconnect), so each engine removes only its own listener.
+   */
+  onArtArrived(listener: () => void): () => void {
+    this.artListeners.add(listener);
+    return () => this.artListeners.delete(listener);
+  }
+
+  /** Whether pictures of companies' buildings the map shows are still loading */
+  get loadingBuildings(): boolean {
+    return this.awaitedBuildings.size > 0;
   }
 
   private pumpArt() {
     while (this.artLoading < ART_CONCURRENCY && this.artQueue.length > 0) {
-      const job = this.artQueue.shift()!;
+      const { job } = this.artQueue.shift()!;
       this.artLoading++;
       void job().finally(() => {
         this.artLoading--;
@@ -247,7 +278,7 @@ export class TextureBank {
   }
 
   /** The state of a building's generated picture: there, still loading (it is asked for now), or none */
-  private artState(id: string): Texture | "loading" | null {
+  private artState(id: string, urgent: boolean): Texture | "loading" | null {
     if (this.art?.buildings[id] === undefined || this.artFailed.has(id)) {
       return null;
     }
@@ -256,7 +287,10 @@ export class TextureBank {
       return texture;
     }
     this.awaited.add(id);
-    this.requestArt(id);
+    if (urgent) {
+      this.awaitedBuildings.add(id);
+    }
+    this.requestArt(id, urgent);
     return "loading";
   }
 
@@ -331,9 +365,9 @@ export class TextureBank {
   }
 
   /** The generated sprite of a building: anchored at its plate's bottom corner, attachments around it */
-  private generatedBuilding(type: string, size: number): BuildingTextures | null {
+  private generatedBuilding(type: string, size: number, urgent = false): BuildingTextures | null {
     const entry = this.art?.buildings[type];
-    const texture = this.artState(type);
+    const texture = this.artState(type, urgent);
     if (this.art === null || entry === undefined || texture === null) {
       return null;
     }
@@ -621,7 +655,7 @@ export class TextureBank {
   }
 
   private createBuilding(type: string, size: number): BuildingTextures {
-    const generated = this.generatedBuilding(type, size);
+    const generated = this.generatedBuilding(type, size, true);
     if (generated !== null) {
       return generated;
     }

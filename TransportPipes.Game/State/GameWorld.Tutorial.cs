@@ -19,6 +19,20 @@ public sealed partial class GameWorld
             ? BuildingsOf(company.Id).Count(t => step.Stat["built:".Length..].Split('|').Contains(t.Type))
             : StatValue(company, step.Stat);
 
+    /// <summary>
+    /// The Company Level a step waits for (its building, or the next parcel, needs it), or null when it can be done
+    /// now: Loady then says to come back later instead of pointing at something locked
+    /// </summary>
+    public int? TutorialWaitLevel(Company company, TutorialStep step)
+    {
+        var level = step.Stat == "parcels"
+            ? NextParcel(company).Level
+            : step.Hint.TryGetValue("building", out var type) && Content.Buildings.TryGetValue(type, out var definition)
+                ? definition.Unlock.Level
+                : 0;
+        return level > company.Level ? level : null;
+    }
+
     /// <summary>Loady's guide (off in most tests: its gold would change the expected numbers)</summary>
     public bool TutorialEnabled { get; set; } = true;
 

@@ -371,13 +371,20 @@ public sealed class FlowSolver
                 }, FlowKind.Trade, (p, _) => _market.SellerPrice(_nodes[p].Owner, resource));
             }
 
-            // 4. Own storages: surplus goes in, shortages come out
-            ToSinks(resource, producers, node => node.Kind == FlowNodeKind.Storage && node.StorageCanAccept, FlowKind.ToStorage, null);
+            // 4. Own storages: surplus goes in (what they keep: see FlowNode.StorageWants), shortages come out
+            ToSinks(resource, producers, node => node.Kind == FlowNodeKind.Storage && node.StorageTakes(resource), FlowKind.ToStorage, null);
             FromSources(resource, consumers, node => node.Kind == FlowNodeKind.Storage && node.StorageContents.Contains(resource), FlowKind.FromStorage, null);
         }
 
         // 5. Trading posts: shared throughput over all resources
         TradingPosts();
+
+        // 6. What nobody took (the trading posts are full, or there are none) still goes into own storages, until full
+        foreach (var resource in _resources)
+        {
+            var producers = _buildings.Where(t => t.Out.ContainsKey(resource) && offerLeft[(t.Id, resource)] > Epsilon).Select(t => t.Id).ToList();
+            ToSinks(resource, producers, node => node.Kind == FlowNodeKind.Storage && node.StorageCanAccept, FlowKind.ToStorage, null);
+        }
 
         return allocation;
 

@@ -224,6 +224,34 @@ export function BuildingPanel() {
               unit=""
             />
           ))}
+          {definition.kind === "storage" && (
+            <>
+              <p className="muted small">
+                It keeps what your daily orders and your next buildings need; the rest goes on to be sold.
+                {mine && " Keep more of each resource:"}
+              </p>
+              {mine && (
+                <div className="chips">
+                  {(
+                    [
+                      [0, "What's needed"],
+                      [0.1, `${formatAmount(details.capacity * 0.1)} each`],
+                      [0.5, `${formatAmount(details.capacity * 0.5)} each`],
+                      [1, "Everything"],
+                    ] as const
+                  ).map(([share, label]) => (
+                    <button
+                      key={share}
+                      className={details.setting === share ? "chip active" : "chip"}
+                      onClick={() => void gameClient.setBuildingSetting(building.id, share)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </section>
       )}
 

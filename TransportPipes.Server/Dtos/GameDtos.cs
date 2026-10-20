@@ -88,7 +88,8 @@ public record MasteryDto(int Level, bool Available, double Cost, double Minutes,
 public record ExpeditionDto(int? Hours, DateTime? EndsAt, IReadOnlyDictionary<int, double> Costs, string? Blocker, IReadOnlyList<string> Log, IReadOnlyList<string> Relics);
 
 /// <summary>Loady's guide: the step the company is on</summary>
-public record TutorialDto(int Step, int Steps, string Id, string Text, double Progress, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint);
+/// <summary>Loady's current step; WaitLevel: the Company Level it needs first (null when it can be done now)</summary>
+public record TutorialDto(int Step, int Steps, string Id, string Text, double Progress, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint, int? WaitLevel);
 
 /// <summary>A branch estate opened by a franchise (its index for BuyParcel is its place in this list plus one)</summary>
 public record BranchDto(int DistrictX, int DistrictY, string DistrictName, int Slot, int X, int Y, int UnlockedParcels, double NextParcelCost, int NextParcelLevel);
@@ -289,6 +290,8 @@ public record NeighbourDto(
     bool Connected,
     IReadOnlyList<ResourceRateDto> Surplus,
     IReadOnlyList<ResourceRateDto> Needs,
+    /// <summary>What each building that misses something misses (it buys only when all of it comes)</summary>
+    IReadOnlyList<IReadOnlyList<string>> Shortfalls,
     double YouEarn,
     double YouPay);
 

@@ -393,7 +393,7 @@ public sealed partial class GameWorld
     private CorporationGoal NewGoal(Corporation corporation)
     {
         var members = Members(corporation).ToList();
-        var resources = members.SelectMany(Producible).Distinct().Order(StringComparer.Ordinal).ToList();
+        var resources = members.SelectMany(OrderResources).Distinct().Order(StringComparer.Ordinal).ToList();
         if (resources.Count == 0)
         {
             resources = ["energy"];

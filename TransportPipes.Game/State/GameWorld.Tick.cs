@@ -200,9 +200,15 @@ public sealed partial class GameWorld
             }
             foreach (var (resource, change) in net)
             {
+                var amount = storage.Contents.TryGetValue(resource, out var have) ? have : 0;
                 if (change < -1e-9)
                 {
-                    time = Math.Min(time, (storage.Contents.TryGetValue(resource, out var amount) ? amount : 0) / -change);
+                    time = Math.Min(time, amount / -change);
+                }
+                else if (change > 1e-9 && StorageKeep(storage, Content.Building(storage.Type), resource) - amount is > StorageEpsilon and var toKeep)
+                {
+                    // When it has what it keeps, the rest goes on to be sold
+                    time = Math.Min(time, toKeep / change);
                 }
             }
         }

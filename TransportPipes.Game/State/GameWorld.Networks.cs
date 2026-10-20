@@ -619,6 +619,46 @@ public sealed partial class GameWorld
     public double StorageCapacity(Building building, BuildingDefinition definition) =>
         definition.Capacity * Content.Progression.OutputMultiplier(building.Level);
 
+    /// <summary>
+    /// The shares of its capacity an owner can have a storage keep of each resource (<see cref="Building.Setting"/>):
+    /// 0, the default, keeps only what the company needs
+    /// </summary>
+    public static readonly double[] StorageKeepShares = [0, 0.1, 0.5, 1];
+
+    /// <summary>
+    /// How much of a resource a storage keeps before the rest goes on to the trading post: what its company needs of
+    /// it (<see cref="StorageNeed"/>), or the share of its capacity its owner chose when that is more. A storage that
+    /// kept everything would swallow a new company's income for hours.
+    /// </summary>
+    public double StorageKeep(Building storage, BuildingDefinition definition, string resource)
+    {
+        var keep = storage.Setting * StorageCapacity(storage, definition);
+        return Company(storage.Owner) is { } owner ? Math.Max(keep, StorageNeed(owner, resource)) : keep;
+    }
+
+    /// <summary>
+    /// What a company needs of a resource in its storages: what today's orders and its corporation's weekly goal still
+    /// need, and enough to build the building it can build that needs the most of it
+    /// </summary>
+    public double StorageNeed(Company company, string resource)
+    {
+        var need = OrderNeed(company, resource);
+        if (CorporationOf(company)?.Goal is { Rewarded: false } goal && goal.Resource == resource)
+        {
+            need += Math.Max(0, goal.Amount - goal.Delivered);
+        }
+        var materials = Content.BuildingList
+            .Where(t => t.Buildable && t.Cost.Materials.ContainsKey(resource) && IsUnlocked(company, t, out _))
+            .Select(t => t.Cost.Materials[resource])
+            .DefaultIfEmpty(0)
+            .Max();
+        return Math.Max(need, materials);
+    }
+
+    /// <summary>What a company's open orders of today still need of a resource</summary>
+    public double OrderNeed(Company company, string resource) =>
+        company.DailyOrders.Where(t => t.Resource == resource && !t.Done && t.ExpiresAt > Now).Sum(t => t.Amount - t.Delivered);
+
     public double TradingPostThroughput(Building building, BuildingDefinition definition) =>
         definition.Throughput * Content.Progression.OutputMultiplier(building.Level);
 
@@ -679,6 +719,9 @@ public sealed partial class GameWorld
                     Kind = FlowNodeKind.Storage,
                     StorageCanAccept = building.StoredTotal < StorageCapacity(building, definition) - StorageEpsilon,
                     StorageContents = building.Contents.Where(t => t.Value > StorageEpsilon).Select(t => t.Key).ToHashSet(),
+                    StorageWants = Content.Resources.Keys
+                        .Where(t => (building.Contents.TryGetValue(t, out var have) ? have : 0) < StorageKeep(building, definition, t) - StorageEpsilon)
+                        .ToHashSet(),
                 };
             case BuildingKind.TradingPost:
                 var company = Company(building.Owner);

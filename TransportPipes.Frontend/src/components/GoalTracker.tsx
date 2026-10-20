@@ -47,10 +47,18 @@ export function GoalTracker() {
           />
           <div className="loady-bubble">
             <p>{step.text}</p>
+            {step.waitLevel != null && (
+              <p className="loady-wait small">
+                <strong>At Company Level {step.waitLevel}.</strong> Your company keeps earning while you're
+                away: build, upgrade, or come back later.
+              </p>
+            )}
             <div className="loady-actions">
-              <button className="primary" onClick={() => gameClient.showTutorialHint()}>
-                Show me
-              </button>
+              {step.waitLevel == null && (
+                <button className="primary" onClick={() => gameClient.showTutorialHint()}>
+                  Show me
+                </button>
+              )}
               <span className="small muted">
                 {step.step + 1}/{step.steps} · +{formatAmount(step.gold)} g
               </span>
@@ -72,8 +80,8 @@ export function GoalTracker() {
       {opportunity !== null && (
         <div className="panel opportunity">
           <p>
-            🤝 <strong>{opportunity.name}</strong> needs {opportunity.resource.toLowerCase()}: neighbours pay
-            more than the hub.
+            🤝 <strong>{opportunity.name}</strong> needs {opportunity.resource}: neighbours pay more than the
+            hub.
           </p>
           <button className="primary" onClick={() => void gameClient.planConnection(opportunity.id)}>
             Connect a pipe
@@ -146,10 +154,16 @@ function bestOpportunity(
       Object.keys(content.building(building.type)?.out ?? {}).forEach((t) => made.add(t));
     }
   }
+  // A building only buys when all it misses comes: a neighbour that misses energy and stone is no use to a company
+  // that makes only energy
   for (const neighbour of neighbours) {
-    const need = neighbour.connected ? undefined : neighbour.needs.find((t) => made.has(t.resource));
-    if (need !== undefined) {
-      return { id: neighbour.id, name: neighbour.name, resource: content.resourceName(need.resource) };
+    const shortfall = neighbour.connected
+      ? undefined
+      : (neighbour.shortfalls ?? []).find((set) => set.every((t) => made.has(t)));
+    if (shortfall !== undefined) {
+      const names = shortfall.map((t) => content.resourceName(t).toLowerCase());
+      const resource = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0]!;
+      return { id: neighbour.id, name: neighbour.name, resource };
     }
   }
   return null;

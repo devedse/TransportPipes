@@ -137,25 +137,50 @@ public class GameWorldFacts
     }
 
     [TestMethod]
-    public void AStorageFillsUpFirstAndThenTheSurplusIsSold()
+    public void AStorageKeepsWhatItsCompanyNeedsAndTheRestIsSold()
     {
         var game = new TestGame();
         var company = game.NewCompany();
         var moily = game.Build(company, "windMoily");
         var storage = game.Build(company, "storage");
-        var post = game.TradingPost(company);
         game.Connect(company, moily, storage);
-        game.Connect(company, moily, post);
+        game.Connect(company, moily, game.TradingPost(company));
+        game.World.EnsureOrders(company);
+        var need = game.World.StorageNeed(company, "energy");
+        Assert.IsGreaterThan(0, need, "today's orders ask for energy");
         var gold = company.Gold;
 
-        game.Pass(10);
-        Assert.AreEqual(gold, company.Gold, "everything goes into the storage first");
-        Assert.IsGreaterThan(0, storage.Contents["energy"]);
+        game.Pass(1);
+        Assert.AreEqual(gold, company.Gold, "first into the storage, for the orders");
 
+        game.Pass(60);
+        Assert.AreEqual(need, storage.Contents["energy"], 1e-6);
+        Assert.IsGreaterThan(gold, company.Gold, "then sold");
+        Assert.AreEqual(FlowKind.Sale, game.World.NetworkOf(moily.Id)!.Solution.Flows.Single().Kind);
+
+        // Told to keep everything, it fills up
+        Assert.IsTrue(game.World.SetBuildingSetting(company.Id, storage.Id, 1).Success);
         game.Pass(60 * 24);
         Assert.AreEqual(5000, storage.Contents["energy"], 1e-6);
-        Assert.IsGreaterThan(gold, company.Gold);
-        Assert.AreEqual(FlowKind.Sale, game.World.NetworkOf(moily.Id)!.Solution.Flows.Single().Kind);
+    }
+
+    [TestMethod]
+    public void AStorageKeepsWhatTodaysOrdersAndTheBuildingsNeed()
+    {
+        var game = new TestGame();
+        var company = game.NewCompany(level: 16);
+        var storage = game.Build(company, "storage");
+        var definition = game.World.Content.Building("storage");
+        game.World.EnsureOrders(company);
+        var energy = company.DailyOrders.Where(t => t.Resource == "energy").Sum(t => t.Amount);
+        Assert.IsGreaterThan(0, energy, "a company that makes nothing yet is asked for energy");
+
+        Assert.AreEqual(energy, game.World.StorageKeep(storage, definition, "energy"), 1e-6);
+        Assert.AreEqual(500, game.World.StorageKeep(storage, definition, "bricks"), 1e-6, "enough for a Market Hall (Company Level 16)");
+        Assert.AreEqual(0, game.World.StorageKeep(storage, definition, "ironOre"), 1e-6, "nothing needs it: all of it is sold");
+
+        Assert.IsTrue(game.World.SetBuildingSetting(company.Id, storage.Id, 0.5).Success);
+        Assert.AreEqual(2500, game.World.StorageKeep(storage, definition, "ironOre"), 1e-6, "half its capacity, as its owner chose");
     }
 
     [TestMethod]

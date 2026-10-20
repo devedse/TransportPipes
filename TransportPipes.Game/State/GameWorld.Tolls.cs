@@ -71,7 +71,10 @@ public sealed partial class GameWorld
         };
     }
 
-    /// <summary>A number the owner sets on a building: the toll of a Toll Meter (0..5%)</summary>
+    /// <summary>
+    /// A number the owner sets on a building: the toll of a Toll Meter (0..5%), the share of its capacity a storage
+    /// keeps of each resource (one of <see cref="StorageKeepShares"/>; 0: what the company needs)
+    /// </summary>
     public CommandResult SetBuildingSetting(long companyId, long buildingId, double value)
     {
         if (Building(buildingId) is not { } building || building.Owner != companyId)
@@ -82,6 +85,9 @@ public sealed partial class GameWorld
         {
             case BuildingKind.TollMeter:
                 building.Setting = Math.Round(Math.Clamp(value, 0, MaxToll), 4);
+                break;
+            case BuildingKind.Storage:
+                building.Setting = StorageKeepShares.MinBy(t => Math.Abs(t - value));
                 break;
             default:
                 return CommandResult.Fail("This building has no setting.");

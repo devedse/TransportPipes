@@ -34,6 +34,15 @@ public sealed class FlowNode
     /// <summary>Storage: the resources it has some of</summary>
     public IReadOnlySet<string> StorageContents { get; init; } = new HashSet<string>();
 
+    /// <summary>
+    /// Storage: the resources it takes before the trading posts sell (it keeps less than it wants of them); null: all.
+    /// After the trading posts it takes whatever is left, until it is full.
+    /// </summary>
+    public IReadOnlySet<string>? StorageWants { get; init; }
+
+    /// <summary>Storage: whether it takes more of a resource</summary>
+    public bool StorageTakes(string resource) => StorageCanAccept && (StorageWants == null || StorageWants.Contains(resource));
+
     /// <summary>Trading post: units per minute it can sell plus import</summary>
     public double Throughput { get; init; }
 
@@ -54,6 +63,7 @@ public sealed class FlowNode
         ResearchPerMinute = ResearchPerMinute,
         StorageCanAccept = StorageCanAccept,
         StorageContents = StorageContents,
+        StorageWants = StorageWants,
         Throughput = Throughput,
         PriceBonus = PriceBonus,
         Imports = Imports,

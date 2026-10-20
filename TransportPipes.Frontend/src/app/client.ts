@@ -844,6 +844,10 @@ export class GameClient {
       void this.openNeighbours();
       return;
     }
+    if (hint.panel === "hub") {
+      void this.openHub("orders");
+      return;
+    }
     if (hint.panel === "parcel") {
       const parcel = buyableParcels(company.unlockedParcels)[0];
       if (parcel !== undefined) {
@@ -880,13 +884,20 @@ export class GameClient {
         return;
       }
       this.setTool({ kind: "build", type: hint.building });
-      // The best spot nearby for it: where it makes the most
+      // The best spot nearby for it: where it makes the most, else (a storage) close to the trading post
+      const post = [...this.world.buildings.values()].find(
+        (t) => t.owner === company.id && t.type === "tradingPost",
+      );
+      const score = (x: number, y: number, multiplier: number) =>
+        Object.keys(definition.out).length > 0 || post === undefined
+          ? multiplier
+          : -(Math.abs(x - post.x) + Math.abs(y - post.y));
       let best: { x: number; y: number; m: number } | null = null;
       for (let y = company.estateY; y < company.estateY + ESTATE_SIZE; y++) {
         for (let x = company.estateX; x < company.estateX + ESTATE_SIZE; x++) {
           const placement = canPlace(state.content, this.world, company, state.era, definition, x, y);
-          if (placement.ok && (best === null || placement.multiplier > best.m)) {
-            best = { x, y, m: placement.multiplier };
+          if (placement.ok && (best === null || score(x, y, placement.multiplier) > best.m)) {
+            best = { x, y, m: score(x, y, placement.multiplier) };
           }
         }
       }

@@ -101,6 +101,104 @@ public class BalanceSimulation
         TestContext.WriteLine(file);
     }
 
+    /// <summary>
+    /// The first session at a human pace (docs/ImplementationStatus.md, M10): a new player follows Loady, one action at
+    /// a time with time to look and think in between, then plays on alone. The report shows when each of Loady's steps
+    /// is done and where the player has to wait.
+    /// </summary>
+    [TestMethod]
+    public void TheFirstSession()
+    {
+        if (Environment.GetEnvironmentVariable("TP_BALANCE") != "1")
+        {
+            Assert.Inconclusive("Set TP_BALANCE=1 to run the balance simulation.");
+        }
+        var minutes = int.TryParse(Environment.GetEnvironmentVariable("TP_SESSION_MINUTES"), out var m) ? m : 45;
+        var game = new TestGame(seed: 4242, achievements: true, tutorial: true);
+        game.World.TenantsEnabled = true;
+        var company = game.NewCompany("Bot", gold: game.World.StartingGold);
+        // The server gives a new company today's orders
+        game.World.EnsureOrders(company);
+        var bot = new Bot(game, company);
+        var report = new StringBuilder();
+        report.AppendLine($"## The first {minutes} minutes at a human pace");
+        report.AppendLine();
+        report.AppendLine("| Time | Level | Gold | Gold/min | Loady | What happened |");
+        report.AppendLine("| --- | --- | --- | --- | --- | --- |");
+        var steps = game.World.Content.Tutorial.Count;
+        string Clock(double t)
+        {
+            var seconds = (int)Math.Round(t * 60);
+            return $"{seconds / 60}:{seconds % 60:00}";
+        }
+        // Income as of the last tick (an action re-solves the networks only on the next one)
+        var income = 0.0;
+        void Line(double t, string what) =>
+            report.AppendLine($"| {Clock(t)} | {company.Level} | {company.Gold:N0} | {income:N1} | {Math.Min(company.TutorialStep + 1, steps)}/{steps} | {what} |");
+        // Reading Loady's welcome first; then each action takes its time (choosing, placing, dragging a pipe)
+        var busyUntil = 0.5;
+        double? waitingSince = null;
+        string? waitingFor = null;
+        var lastStep = company.TutorialStep;
+        var lastLevel = company.Level;
+        const double tick = 1.0 / 6;
+        for (var t = 0.0; t < minutes; t += tick)
+        {
+            company.LastSeenAt = game.Time;
+            if (t >= busyUntil)
+            {
+                var step = game.World.CurrentTutorialStep(company);
+                // Loady first; when that can't be done yet, what a player would do meanwhile (build, upgrade)
+                var (what, seconds) = step != null ? bot.FollowLoady(step) : (null, 0);
+                if (what == null && bot.Act())
+                {
+                    (what, seconds) = (bot.TakeNotes().TrimStart(' ', '·') is { Length: > 0 } note ? note : "built or upgraded something", 20);
+                }
+                if (what != null)
+                {
+                    if (waitingSince is { } since && t - since >= 1)
+                    {
+                        Line(t, $"(waited {Clock(t - since)}{(waitingFor != null ? $" on \"{waitingFor}\"" : "")})");
+                    }
+                    waitingSince = null;
+                    Line(t, what);
+                    busyUntil = t + seconds / 60.0;
+                }
+                else if (waitingSince == null)
+                {
+                    waitingSince = t;
+                    waitingFor = step?.Id;
+                }
+            }
+            game.Pass(tick);
+            income = game.World.GoldPerMinute().GetValueOrDefault(company.Id);
+            if (company.TutorialStep != lastStep)
+            {
+                Line(t + tick, $"**Loady: {string.Join(", ", game.World.Content.Tutorial.Skip(lastStep).Take(company.TutorialStep - lastStep).Select(x => x.Id))} done**");
+                lastStep = company.TutorialStep;
+            }
+            if (company.Level != lastLevel)
+            {
+                Line(t + tick, $"**Level {company.Level}**");
+                lastLevel = company.Level;
+            }
+        }
+        var storages = game.World.BuildingsOf(company.Id).Where(t => t.Type == "storage").ToList();
+        if (storages.Count > 0)
+        {
+            report.AppendLine();
+            report.AppendLine($"Storages: {string.Join("; ", storages.Select(t => string.Join(", ", t.Contents.Select(c => $"{c.Value:N0} {c.Key}"))))}. Orders: {string.Join("; ", company.DailyOrders.Select(t => $"{t.Delivered:N0}/{t.Amount:N0} {t.Resource}"))}");
+        }
+        if (waitingSince is { } open)
+        {
+            Line(minutes, $"(waiting since {Clock(open)}{(waitingFor != null ? $" on \"{waitingFor}\"" : "")})");
+        }
+        TestContext.WriteLine(report.ToString());
+        var file = Path.Combine(AppContext.BaseDirectory, "first-session.md");
+        File.WriteAllText(file, report.ToString());
+        TestContext.WriteLine(file);
+    }
+
     private static string Time(int minutes) => minutes < 24 * 60 ? $"{minutes / 60}h{minutes % 60:00}" : $"day {minutes / (24 * 60) + 1} {minutes / 60 % 24}h";
 
     /// <summary>A sensible player: energy first, then chains, upgrades with a quick payback, parcels and research</summary>
@@ -122,12 +220,102 @@ public class BalanceSimulation
             company.LastSeenAt = game.Time;
             for (var action = 0; action < 30; action++)
             {
-                if (!TryPump() && !TryResearch() && !TryParcel() && !TryChain() && !TryUpgrade() && !TryProducer())
+                if (!Act())
                 {
                     break;
                 }
             }
             DeliverOrders();
+        }
+
+        /// <summary>One sensible thing to do, if there is one</summary>
+        public bool Act() => TryPump() || TryResearch() || TryParcel() || TryChain() || TryUpgrade() || TryProducer();
+
+        /// <summary>
+        /// What Loady says, done the way a new player would (one action, and how many seconds it takes), or null when
+        /// it can't be done yet (gold, level)
+        /// </summary>
+        public (string? What, int Seconds) FollowLoady(TutorialStep step)
+        {
+            switch (step.Id)
+            {
+                case "firstPanel":
+                    return Place("solarPanel", preferMultiplier: true, connect: false) ? ("built a Solar Panel", 30) : (null, 0);
+                case "firstSale":
+                    return ConnectAll() ? ("piped the panel to the Trading Post", 25) : (null, 0);
+                case "firstUpgrade":
+                    var panel = World.BuildingsOf(company.Id).FirstOrDefault(t => t.Type == "solarPanel" && !t.UnderConstruction);
+                    return panel != null && World.Upgrade(company.Id, panel.Id, 1).Success ? ("upgraded the panel", 10) : (null, 0);
+                case "firstMoily":
+                    return company.Gold >= Cost("windMoily") && Place("windMoily", preferMultiplier: true) ? ("built and piped a Wind Moily", 40) : (null, 0);
+                case "firstMine":
+                    if (!Unlocked("ironMine"))
+                    {
+                        return (null, 0);
+                    }
+                    return company.Gold >= Cost("ironMine") && Place("ironMine", preferMultiplier: true) ? ("built and piped an Iron Mine", 40) : (null, 0);
+                case "firstIngot":
+                    if (Count("smallFactory") > 0)
+                    {
+                        // Built: the ingot comes when the factory has ore and energy (more energy if it is short)
+                        return SpareEnergy() < 0 && company.Gold >= Cost("windMoily") && Place("windMoily", preferMultiplier: true) ? ("built a Wind Moily for the factory", 40) : (null, 0);
+                    }
+                    return Unlocked("smallFactory") && company.Gold >= Cost("smallFactory") && Place("smallFactory", preferMultiplier: false) ? ("built and piped a Small Factory", 40) : (null, 0);
+                case "firstNeighbour":
+                    return ConnectNeighbour() is { } neighbour ? ($"piped to {neighbour}", 45) : (null, 0);
+                case "firstStorage":
+                    return company.Gold >= Cost("storage") && Place("storage", preferMultiplier: false) ? ("built and piped a Storage", 30) : (null, 0);
+                case "firstOrder":
+                    var delivered = company.DailyOrders.Where(t => !t.Done).Select(t => World.DeliverOrder(company.Id, t.Id)).Count(t => t.Success);
+                    return delivered > 0 ? ($"delivered to {delivered} order(s)", 20) : (null, 0);
+                case "firstParcel":
+                    return TryParcel() ? ("bought a parcel", 20) : (null, 0);
+                case "firstResearch":
+                    if (Count("lab") == 0)
+                    {
+                        return Unlocked("lab") && company.Gold >= Cost("lab") && Place("lab", preferMultiplier: false) ? ("built and piped a Lab", 40) : (null, 0);
+                    }
+                    return company.CurrentResearch == null && TryResearch() ? (TakeNotes().TrimStart(' ', '·'), 20) : (null, 0);
+                default:
+                    return (null, 0);
+            }
+        }
+
+        /// <summary>Pipes the buildings that aren't on a pipe yet to the network</summary>
+        private bool ConnectAll()
+        {
+            var post = World.BuildingsOf(company.Id).First(t => World.Content.Building(t.Type).Kind == BuildingKind.TradingPost);
+            var network = World.Conductors.Where(t => t.Owner == company.Id && t.Kind == ConductorKind.Pipe).Select(t => t.Pos).ToHashSet();
+            var loose = World.BuildingsOf(company.Id).Where(t => t != post && World.Content.Building(t.Type).Kind != BuildingKind.Hq && !t.Border().Any(network.Contains)).ToList();
+            return loose.Count > 0 && loose.All(t => TryConnect(t, post));
+        }
+
+        /// <summary>
+        /// A pipe from the network to the nearest gate of a tenant that is short of what the company makes (what the
+        /// neighbour card in the game suggests)
+        /// </summary>
+        private string? ConnectNeighbour()
+        {
+            var post = World.BuildingsOf(company.Id).First(t => World.Content.Building(t.Type).Kind == BuildingKind.TradingPost);
+            var made = World.BuildingsOf(company.Id).SelectMany(t => World.Content.Building(t.Type).Out.Keys).ToHashSet();
+            var neighbourhood = World.NeighbourhoodOf(company);
+            var gates = World.Companies.Where(t => t.IsNpc && t.District == company.District && neighbourhood.CanSupply(t.Id, made))
+                .SelectMany(t => Enum.GetValues<GateSide>().Select(side => (Tenant: t, Outside: WorldLayout.OutsideGate(t.District, t.Slot, side))))
+                .OrderBy(t => Math.Abs(t.Outside.X - post.X) + Math.Abs(t.Outside.Y - post.Y));
+            var network = World.Conductors.Where(t => t.Owner == company.Id && t.Kind == ConductorKind.Pipe).Select(t => t.Pos).ToList();
+            foreach (var (tenant, outside) in gates.Take(6))
+            {
+                try
+                {
+                    var pipe = game.Connect(company, network, [outside]);
+                    return $"{tenant.Name} ({pipe.Count} tiles of pipe)";
+                }
+                catch (AssertFailedException)
+                {
+                    // Too far or too expensive: the next one
+                }
+            }
+            return null;
         }
 
         private bool Unlocked(string type) => World.IsUnlocked(company, World.Content.Building(type), out _);
@@ -221,7 +409,12 @@ public class BalanceSimulation
             {
                 return false;
             }
-            return World.Upgrade(company.Id, best.Building.Id, 1).Success;
+            if (!World.Upgrade(company.Id, best.Building.Id, 1).Success)
+            {
+                return false;
+            }
+            _notes.Add($"upgraded a {best.Building.Type} to level {best.Building.Level}");
+            return true;
         }
 
         /// <summary>A network short of pump stations gets one (an alert tells a player the same)</summary>
@@ -289,7 +482,7 @@ public class BalanceSimulation
         }
 
         /// <summary>Places a building close to the trading post (or where it makes the most) and pipes it to the network</summary>
-        private bool Place(string type, bool preferMultiplier)
+        private bool Place(string type, bool preferMultiplier, bool connect = true)
         {
             var definition = World.Content.Building(type);
             var estate = game.EstateOf(company);
@@ -317,7 +510,7 @@ public class BalanceSimulation
                     return false;
                 }
                 var building = World.BuildingAt(spot.Pos)!;
-                if (TryConnect(building, post))
+                if (!connect || TryConnect(building, post))
                 {
                     return true;
                 }

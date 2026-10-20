@@ -111,6 +111,22 @@ public class MarketFacts
     }
 
     [TestMethod]
+    public void OrdersAskForWhatTheCompanyMakesAndTheNextStepOfItsChains()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        // A late era unlocks buildings for everyone: a new company still can't feed them
+        game.World.Era = 5;
+        var company = game.NewCompany(level: 2);
+        CollectionAssert.AreEqual(Array.Empty<string>(), game.World.OrderResources(company), "nothing made yet (the orders ask for energy)");
+
+        game.Build(company, "windMoily");
+        CollectionAssert.AreEqual(new[] { "energy" }, game.World.OrderResources(company));
+
+        game.Build(company, "ironMine", game.Spot(company, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
+        CollectionAssert.AreEqual(new[] { "energy", "ironIngot", "ironOre" }, game.World.OrderResources(company), "ingots: the factory's inputs are made");
+    }
+
+    [TestMethod]
     public void NewOrdersArriveEveryDay()
     {
         var game = new TestGame();

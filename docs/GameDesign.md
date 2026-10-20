@@ -254,18 +254,23 @@ Every producer in a network delivers its output each minute in this order:
 3. **Other companies' consumers** in the network whose maximum price is at or above your price, divided in proportion
    to what they need. A consumer that can't use its full share (it is short of another input) leaves the rest to the
    others, so every consumer runs at the same speed unless something else holds it back.
-4. **Your storages**, until full.
+4. **Your storages**, what they keep: what your daily orders, your corporation's goal and your next building still need
+   (enough for the building you can build that needs the most of it), or more when you choose a share of the
+   storage for it (a tenth, half, everything).
 5. **Your Trading Post**, sold to the hub at the hub price.
-6. Nothing left to deliver to → the producer runs slower (**idle**) instead of wasting.
+6. **Your storages** again: whatever the Trading Post couldn't take (it is full, or there is none), until full.
+7. Nothing left to deliver to → the producer runs slower (**idle**) instead of wasting.
 
 Consumers are supplied in the mirrored order: own producers → contract partners → cheapest other company → own storage →
 hub import (only if you enabled imports on your Trading Post).
 
-You can swap steps 4 and 5 per resource ("sell first, store the rest"), and switch off step 3 per resource.
+A storage that kept everything first would swallow a new company's income for hours, so by default it keeps only what
+is needed. You can switch off step 3 per resource.
 
 > **Example.** Your two Wind Moilies make 60 ⚡/min. Your Iron Mine needs 10. IronWorks' factory next door needs 40 and
 > pays up to 2 g; your price is 1.75 g. The flow: 10 to your mine, 40 to IronWorks at 1.75 g (+70 g/min), the last 10
-> to your storage, or the hub at 1 g. Losses on the 6 pipe tiles to their gate (6%) are taken from the delivered amount.
+> to your storage if today's orders need it, else to the hub at 1 g. Losses on the 6 pipe tiles to their gate (6%) are
+> taken from the delivered amount.
 
 ### 5.4 Storage
 
