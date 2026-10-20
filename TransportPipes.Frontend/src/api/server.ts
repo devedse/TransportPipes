@@ -246,6 +246,9 @@ export class GameConnection {
   demolish = (building: number) => this.invoke<CommandResult>("Demolish", building);
   repair = (building: number) => this.invoke<CommandResult>("Repair", building);
   dig = (parcel: number) => this.invoke<CommandResult>("Dig", parcel);
+  linkTeleporter = (sender: number, receiver: number, resource: string) =>
+    this.invoke<CommandResult>("LinkTeleporter", sender, receiver, resource);
+  unlinkTeleporter = (station: number) => this.invoke<CommandResult>("UnlinkTeleporter", station);
   terraform = (x: number, y: number, action: string, resource: string | null) =>
     this.invoke<CommandResult>("Terraform", x, y, action, resource);
   move = (building: number, x: number, y: number) => this.invoke<CommandResult>("Move", building, x, y);

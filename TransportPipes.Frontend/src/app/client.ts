@@ -750,6 +750,18 @@ export class GameClient {
     }
   }
 
+  async linkTeleporter(sender: number, receiver: number, resource: string) {
+    if (await this.command(this.connection.linkTeleporter(sender, receiver, resource), "Linked")) {
+      await this.refreshDetails();
+    }
+  }
+
+  async unlinkTeleporter(station: number) {
+    if (await this.command(this.connection.unlinkTeleporter(station))) {
+      await this.refreshDetails();
+    }
+  }
+
   async setShowroomProduct(building: number, resource: string) {
     if (await this.command(this.connection.setShowroomProduct(building, resource))) {
       await this.refreshDetails();

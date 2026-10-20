@@ -1112,7 +1112,7 @@ export class Engine {
       const building = this.world.buildings.get(id);
       if (building !== undefined) {
         chunk.objects.push(this.buildingView(building, state));
-        const cables = this.cables(building, state);
+        const cables = this.cables(building, state) ?? this.teleportArc(building);
         if (cables !== null) {
           chunk.objects.push({
             display: cables,
@@ -1155,6 +1155,32 @@ export class Engine {
     container.zIndex = (outpost.x + outpost.y) * 4 - 6;
     this.objectLayer.addChild(container);
     return container;
+  }
+
+  /** A teleporter's link: a dotted arc of capsules (or light) from the sending station to the receiving one */
+  private teleportArc(sender: BuildingDto): Graphics | null {
+    const receiver = sender.link != null ? this.world.buildings.get(sender.link) : undefined;
+    if (receiver === undefined) {
+      return null;
+    }
+    const from = tileCenter(sender.x + (sender.size - 1) / 2, sender.y + (sender.size - 1) / 2);
+    const to = tileCenter(receiver.x + (receiver.size - 1) / 2, receiver.y + (receiver.size - 1) / 2);
+    const lift = Math.min(900, Math.hypot(to.x - from.x, to.y - from.y) * 0.35) + 120;
+    const cx = (from.x + to.x) / 2;
+    const cy = Math.min(from.y, to.y) - lift;
+    const quantum = sender.type === "quantumLink";
+    const g = new Graphics();
+    const steps = 28;
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps;
+      const x = (1 - t) * (1 - t) * from.x + 2 * (1 - t) * t * cx + t * t * to.x;
+      const y = (1 - t) * (1 - t) * (from.y - 60) + 2 * (1 - t) * t * cy + t * t * (to.y - 60);
+      g.circle(x, y, quantum ? 7 : 6);
+    }
+    g.fill({ color: quantum ? 0x9ad8ff : 0xd8a24a, alpha: 0.75 });
+    g.zIndex = (Math.max(sender.x + sender.y, receiver.x + receiver.y) + 2) * 4 + 3;
+    this.objectLayer.addChild(g);
+    return g;
   }
 
   /** Power line cables from a pylon to its owner's pylons in reach (each cable once, from the pylon with the lower id) */

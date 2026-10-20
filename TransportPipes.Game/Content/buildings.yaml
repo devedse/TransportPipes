@@ -634,7 +634,7 @@
   unlock: { level: 15 }
   cost: { gold: 8000 }
   buildSeconds: 300
-  description: Salvages ruins into resources.
+  description: "Takes buildings apart without waste: demolishing gives all their gold back."
 
 # ---------------------------------------------------------------- Late game
 - id: expeditionOffice
@@ -708,6 +708,8 @@
   name: Bank
   category: commerce
   kind: bank
+  # Investing, insurance and Wonder bonds come after v1 (docs/ImplementationStatus.md)
+  buildable: false
   size: 2
   unlock: { level: 35, era: 2 }
   cost: { gold: 250000, materials: { bricks: 1000 } }

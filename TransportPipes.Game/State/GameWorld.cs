@@ -701,12 +701,17 @@ public sealed partial class GameWorld
             return CommandResult.Fail("Demolish the Deep Lift on the surface.");
         }
 
+        var refund = DemolishRefund(building);
         RemoveBuilding(building);
-        company.Gold += Math.Round(definition.Cost.Gold * 0.5 * ComplexMembers(building));
+        company.Gold += refund;
         company.Touch();
         Changes.Companies.Add(company.Id);
         return CommandResult.Ok;
     }
+
+    /// <summary>Half the gold back, all of it with a Recycler (rearranging and evolving the estate costs nothing then)</summary>
+    public double DemolishRefund(Building building) =>
+        Math.Round(Content.Building(building.Type).Cost.Gold * (HasBuilding(building.Owner, BuildingKind.Recycler) ? 1 : 0.5) * ComplexMembers(building));
 
     private void RemoveBuilding(Building building)
     {
@@ -718,6 +723,11 @@ public sealed partial class GameWorld
         if (Content.Building(building.Type).Kind == BuildingKind.DeepLift && !WorldLayout.IsDeep(building.Position) && LiftPartner(building) is { } shaft)
         {
             RemoveBuilding(shaft);
+        }
+        // The other end of a teleporter stops
+        if (Content.Building(building.Type).Kind == BuildingKind.Teleporter && (TeleportReceiver(building) ?? TeleportSender(building)) is { } partner)
+        {
+            MarkNeedsSolve(partner.Id);
         }
         MarkDirty(building);
         foreach (var tile in building.Footprint())

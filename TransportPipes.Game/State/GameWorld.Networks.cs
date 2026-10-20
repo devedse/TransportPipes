@@ -598,6 +598,8 @@ public sealed partial class GameWorld
         var level = Content.Progression.OutputMultiplier(building.Level);
         switch (definition.Kind)
         {
+            case BuildingKind.Teleporter:
+                return TeleporterNode(building);
             case BuildingKind.Storage:
                 return new FlowNode
                 {
@@ -674,6 +676,7 @@ public sealed partial class GameWorld
         var links = network.Links.Where(t => ids.Contains(t.A) && ids.Contains(t.B)).ToList();
         network.Solution = nodes.Count < 2 ? FlowSolution.Empty : WithTolls(network, FlowSolver.Solve(nodes, links, MarketFor(network)));
         network.NeedsSolve = false;
+        PassTeleported(network);
         Changes.Networks.Add(network.Id);
     }
 

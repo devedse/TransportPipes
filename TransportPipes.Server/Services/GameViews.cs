@@ -180,7 +180,8 @@ public static class GameViews
         building.Level,
         building.ConstructionEndsAt,
         world.NetworkOf(building.Id)?.Id,
-        building.Damaged);
+        building.Damaged,
+        world.TeleportReceiver(building)?.Id);
 
     public static ChunkObjectsDto ChunkObjects(GameWorld world, int cx, int cy)
     {
@@ -706,12 +707,37 @@ public static class GameViews
             affordable,
             affordable > 0 ? world.UpgradeCost(building, affordable) : null,
             flows,
-            definition.Kind is BuildingKind.Hq or BuildingKind.Gate ? 0 : Math.Round(definition.Cost.Gold * 0.5),
+            definition.Kind is BuildingKind.Hq or BuildingKind.Gate ? 0 : world.DemolishRefund(building),
             Issues(world, building, node, network),
             building.Setting,
             world.TollIncome(building.Id),
             building.Damaged ? world.RepairCost(building) : null,
-            world.ComplexMembers(building));
+            world.ComplexMembers(building),
+            definition.Kind == BuildingKind.Teleporter ? Teleporter(world, building) : null);
+    }
+
+    private static TeleporterDto Teleporter(GameWorld world, Building station)
+    {
+        var receiver = world.TeleportReceiver(station);
+        var sender = receiver == null ? world.TeleportSender(station) : null;
+        var partner = receiver ?? sender;
+        var from = sender ?? station;
+        var candidates = world.BuildingsOf(station.Owner)
+            .Where(t => t.Id != station.Id && t.Type == station.Type)
+            .Select(t => new TeleporterCandidateDto(t.Id, t.X, t.Y, Math.Round(GameWorld.TeleportDistance(station, t), 1), world.TeleportLinkProblem(station, t)))
+            .OrderBy(t => t.Distance)
+            .ToList();
+        return new TeleporterDto(
+            receiver != null ? "sender" : sender != null ? "receiver" : null,
+            partner?.Id,
+            receiver != null ? station.Filter.FirstOrDefault() : sender?.Filter.FirstOrDefault(),
+            partner == null ? 0 : Math.Round(GameWorld.TeleportDistance(station, partner), 1),
+            Math.Round(world.Teleported(from), 2),
+            world.TeleportThroughput(station),
+            Math.Round(GameWorld.TeleportEnergyPerTile(station.Type) * (partner == null ? 0 : GameWorld.TeleportDistance(station, partner)), 4),
+            GameWorld.TeleportLoss(station.Type),
+            world.Content.Building(station.Type).Range ?? "district",
+            candidates);
     }
 
     /// <summary>Why a building can't run (fully): missing suppliers or buyers on its pipes</summary>

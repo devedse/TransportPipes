@@ -146,7 +146,7 @@ public record ReportDto(
 /// <summary>A full storage in the offline report, with a one-tap upgrade</summary>
 public record FullStorageDto(long Building, string Type, int Level, double Capacity, double? UpgradeCost);
 
-public record BuildingDto(long Id, string Type, long Owner, int X, int Y, int Size, int Level, DateTime? ConstructionEndsAt, int? Network, bool Damaged);
+public record BuildingDto(long Id, string Type, long Owner, int X, int Y, int Size, int Level, DateTime? ConstructionEndsAt, int? Network, bool Damaged, long? Link = null);
 
 public record ConductorDto(int X, int Y, string Kind, int Tier, long Owner, string? Side, int? Network);
 
@@ -213,7 +213,23 @@ public record BuildingDetailsDto(
     double Setting,
     double TollIncome,
     double? RepairCost,
-    int ComplexMembers);
+    int ComplexMembers,
+    TeleporterDto? Teleporter = null);
+
+/// <summary>A teleporter station (GDD §11.4): what it sends or receives, and the stations it could link to</summary>
+public record TeleporterDto(
+    string? Role,
+    long? Partner,
+    string? Resource,
+    double Distance,
+    double PerMinute,
+    double Throughput,
+    double EnergyPerUnit,
+    double Loss,
+    string Range,
+    IReadOnlyList<TeleporterCandidateDto> Candidates);
+
+public record TeleporterCandidateDto(long Id, int X, int Y, double Distance, string? Problem);
 
 public record ToastDto(string Kind, string Text, long? Building);
 

@@ -360,6 +360,14 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> ReleaseOutpost(long outpost) =>
         Command((world, company) => world.ReleaseOutpost(company, outpost));
 
+    // ---------------------------------------------------------------- Teleporters
+
+    public Task<CommandResultDto> LinkTeleporter(long sender, long receiver, string resource) =>
+        Command((world, company) => world.LinkTeleporter(company, sender, receiver, resource));
+
+    public Task<CommandResultDto> UnlinkTeleporter(long station) =>
+        Command((world, company) => world.UnlinkTeleporter(company, station));
+
     // ---------------------------------------------------------------- The Deep Level
 
     public Task<CommandResultDto> Dig(int parcel) =>

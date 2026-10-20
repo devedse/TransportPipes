@@ -270,6 +270,8 @@ export interface BuildingDto {
   network: number | null;
   /** Storm damage: half speed until repaired */
   damaged: boolean;
+  /** A teleporter that sends: the station it sends to */
+  link?: number | null;
 }
 
 export type ConductorKind = "pipe" | "gate";
@@ -455,6 +457,21 @@ export interface BuildingDetailsDto {
   repairCost: number | null;
   /** A complex: how many buildings it merged (1 for an ordinary building) */
   complexMembers: number;
+  teleporter: TeleporterDto | null;
+}
+
+/** A teleporter station (GDD §11.4) */
+export interface TeleporterDto {
+  role: "sender" | "receiver" | null;
+  partner: number | null;
+  resource: string | null;
+  distance: number;
+  perMinute: number;
+  throughput: number;
+  energyPerUnit: number;
+  loss: number;
+  range: string;
+  candidates: Array<{ id: number; x: number; y: number; distance: number; problem: string | null }>;
 }
 
 /** The kinds of WorldEventKind on the server */

@@ -131,6 +131,9 @@ export function BuildingPanel() {
       {mine && definition.kind === "terraformer" && building.constructionEndsAt === null && (
         <TerraformTools />
       )}
+      {mine && details.teleporter !== null && building.constructionEndsAt === null && (
+        <TeleporterSection details={details} />
+      )}
       {mine && definition.kind === "blueprintOffice" && building.constructionEndsAt === null && (
         <button className="primary wide" onClick={() => void gameClient.openBlueprints()}>
           📐 Blueprints (U)
@@ -403,6 +406,81 @@ const TERRAFORM: Array<{ action: TerraformAction; name: string; text: string; co
 ];
 
 /** The Terraformer (GDD §11.1): pick an action, then click the tiles of your estate */
+/** A teleporter: what it sends or receives, or linking it to another station */
+function TeleporterSection({ details }: { details: BuildingDetailsDto }) {
+  const content = useAppStore((s) => s.content)!;
+  const t = details.teleporter!;
+  const [receiver, setReceiver] = useState<number | null>(null);
+  const [resource, setResource] = useState("ironOre");
+  const id = details.building.id;
+  const resourceName = (r: string | null) => (r === null ? "" : content.resourceName(r).toLowerCase());
+  if (t.role !== null) {
+    return (
+      <section className="teleporter">
+        <h4>{t.role === "sender" ? "Sends" : "Receives"}</h4>
+        <p>
+          {t.role === "sender" ? "→" : "←"}{" "}
+          {formatAmount(t.perMinute * (t.role === "receiver" ? 1 - t.loss : 1))} {resourceName(t.resource)}
+          /min {t.role === "sender" ? "to" : "from"} the station {formatAmount(t.distance)} tiles away
+        </p>
+        <p className="muted small">
+          Up to {formatAmount(t.throughput)}/min · {t.energyPerUnit.toFixed(3)} energy per unit for the
+          distance
+          {t.loss > 0 && ` · ${Math.round(t.loss * 100)}% lost on the way`}
+        </p>
+        <button onClick={() => void gameClient.unlinkTeleporter(id)}>Unlink</button>
+      </section>
+    );
+  }
+  const options = t.candidates;
+  return (
+    <section className="teleporter">
+      <h4>Link to another station</h4>
+      {options.length === 0 ? (
+        <p className="muted small">
+          Build a second {content.building(details.building.type)?.name}{" "}
+          {t.range === "district" ? "in this district" : "anywhere"}: one sends, the other receives. Their
+          networks stay separate.
+        </p>
+      ) : (
+        <>
+          <label className="small">
+            Send to{" "}
+            <select
+              value={receiver ?? ""}
+              onChange={(e) => setReceiver(e.target.value === "" ? null : Number(e.target.value))}
+            >
+              <option value="">pick a station…</option>
+              {options.map((c) => (
+                <option key={c.id} value={c.id} disabled={c.problem !== null}>
+                  {formatAmount(c.distance)} tiles away{c.problem !== null ? ` (${c.problem})` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="small">
+            Resource{" "}
+            <select value={resource} onChange={(e) => setResource(e.target.value)}>
+              {content.dto.resourceList.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="primary"
+            disabled={receiver === null}
+            onClick={() => void gameClient.linkTeleporter(id, receiver!, resource)}
+          >
+            Link
+          </button>
+        </>
+      )}
+    </section>
+  );
+}
+
 function TerraformTools() {
   const content = useAppStore((s) => s.content)!;
   const [resource, setResource] = useState("ironOre");
