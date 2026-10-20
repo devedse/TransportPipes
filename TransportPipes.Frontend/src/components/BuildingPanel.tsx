@@ -271,6 +271,13 @@ export function BuildingPanel() {
         </section>
       )}
       {details.researchPerMinute > 0 && <p>🔬 {formatAmount(details.researchPerMinute)} research/min</p>}
+      {definition.kind === "lab" && mine && company !== null && (
+        <button className="primary wide" onClick={() => void gameClient.openResearch()}>
+          {company.currentResearch !== null
+            ? `Researching ${content.research(company.currentResearch)?.name ?? ""} · open research`
+            : "🔬 Pick a research"}
+        </button>
+      )}
 
       {details.contents !== null && details.capacity !== null && (
         <section>
@@ -429,7 +436,8 @@ export function BuildingPanel() {
 
       {details.pumpFactor < 1 && (
         <p className="status idle">
-          Its network needs more pump stations: everything in it runs at{" "}
+          Its network needs a Pump Station: a long network loses pressure, and every 50 buildings in one
+          network need a pump to keep it up. Until then everything in it runs at{" "}
           {Math.round(details.pumpFactor * 100)}%.
         </p>
       )}

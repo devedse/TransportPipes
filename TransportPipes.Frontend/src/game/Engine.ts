@@ -1137,7 +1137,8 @@ export class Engine {
         switch (this.overlay) {
           case "wind":
           case "sun": {
-            if (tile.terrain === "water" || tile.terrain === "road" || tile.terrain === "city") {
+            // Only where something can be built: forests and mountains would be hard dark squares under their trees
+            if (["water", "road", "city", "forest", "mountain"].includes(tile.terrain)) {
               break;
             }
             // Most estates are between 0.8 and 1.4: that range gets the whole scale

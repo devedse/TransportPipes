@@ -2979,6 +2979,18 @@ button.liked {
   line-height: 1.35;
 }
 
+.current-research.pick {
+  color: #8a5d00;
+  font-weight: 800;
+  animation: pick-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pick-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
 .loady-bubble p.loady-wait {
   padding: 6px 8px;
   border-radius: 8px;

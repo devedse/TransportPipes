@@ -949,6 +949,14 @@ export class GameClient {
       }
       return;
     }
+    // The Lab is there: what's left is picking a research
+    if (
+      step.id === "firstResearch" &&
+      [...this.world.buildings.values()].some((t) => t.owner === company.id && t.type === "lab")
+    ) {
+      void this.openResearch();
+      return;
+    }
     if (hint.tool === "build" && hint.building !== undefined) {
       const definition = state.content.building(hint.building);
       if (definition === undefined) {

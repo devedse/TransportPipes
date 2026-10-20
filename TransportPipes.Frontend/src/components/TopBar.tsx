@@ -124,10 +124,12 @@ export function TopBar() {
         >
           <span>🔬 {formatAmount(company.researchPoints)}</span>
           <span className="muted small">{formatRate(company.researchPerMinute)}</span>
-          {company.currentResearch !== null && content !== null && (
+          {company.currentResearch !== null && content !== null ? (
             <span className="small current-research">
               → {content.research(company.currentResearch)?.name}
             </span>
+          ) : (
+            company.researchPerMinute > 0 && <span className="small current-research pick">pick one!</span>
           )}
         </button>
       ) : null}

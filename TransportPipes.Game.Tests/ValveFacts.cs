@@ -52,17 +52,30 @@ public class ValveFacts
         Assert.AreEqual(0, solution.Rate(map[(2, 2)].Id), Tolerance, "nothing left for the other one");
     }
 
+    /// <summary>A company that can build pump stations (Company Level 9 and the research)</summary>
+    private static (TestGame Game, Company Company, Dictionary<(int X, int Y), Building> Map) SetupWithPumps(params string[] rows)
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 9);
+        company.Researched.Add("pumpStations");
+        var map = game.Map(company, game.Local(company, 1, 1), string.Join("\n", rows));
+        return (game, company, map);
+    }
+
     [TestMethod]
-    public void BigNetworksNeedPumpStations()
+    public void BigNetworksNeedPumpStationsOnceTheyCanBeBuilt()
     {
         var panels = new string('S', 60);
-        var (game, _, map) = Setup(panels, new string('+', 60) + "T", "");
+        var (before, _, beforeMap) = Setup(panels, new string('+', 60) + "T", "");
+        Assert.AreEqual(1, before.World.NetworkOf(beforeMap[(0, 0)].Id)!.PumpFactor, "no penalty for what can't be built yet");
+
+        var (game, _, map) = SetupWithPumps(panels, new string('+', 60) + "T", "");
         var network = game.World.NetworkOf(map[(0, 0)].Id)!;
 
         Assert.AreEqual(50.0 / 60, network.PumpFactor, 1e-9);
         Assert.AreEqual(60 * 5 * 50.0 / 60, network.Solution.Flows.Where(t => t.Kind == FlowKind.Sale).Sum(t => t.Delivered), Tolerance);
 
-        var (game2, _, map2) = Setup(panels, new string('+', 60) + "T", "U");
+        var (game2, _, map2) = SetupWithPumps(panels, new string('+', 60) + "T", "U");
         var network2 = game2.World.NetworkOf(map2[(0, 0)].Id)!;
         Assert.AreEqual(1, network2.PumpFactor);
         Assert.AreEqual(60 * 5 - 5, network2.Solution.Flows.Where(t => t.Kind == FlowKind.Sale).Sum(t => t.Delivered), Tolerance, "the pump uses 5 energy");

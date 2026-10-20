@@ -672,7 +672,7 @@ public sealed partial class GameWorld
         foreach (var network in _networks.Values.Where(t => t.PumpFactor < 0.999 && t.Buildings.Any(b => _buildings[b].Owner == company.Id)))
         {
             var count = network.Buildings.Count(b => _buildings[b].Owner == company.Id);
-            alerts.Add(($"A network of {count} buildings runs at {network.PumpFactor:P0}: it needs a Pump Station for every {BuildingsPerPump} buildings.",
+            alerts.Add(($"Your network of {count} buildings runs at {network.PumpFactor:P0}: a long network loses pressure, and every {BuildingsPerPump} buildings in one network need a Pump Station to keep it up. Build one anywhere on its pipes.",
                 network.Buildings.FirstOrDefault(b => _buildings[b].Owner == company.Id)));
         }
         foreach (var post in BuildingsOf(company.Id).Where(TradingPostFull))
@@ -780,7 +780,12 @@ public sealed partial class GameWorld
         var nodes = network.Buildings.Select(t => ToFlowNode(_buildings[t])).OfType<FlowNode>().ToList();
 
         // Every 50 buildings need a pump station; without enough of them everything runs slower
-        var counted = nodes.Count(t => t.Kind == FlowNodeKind.Building);
+        // Buildings of players who can build pump stations (tenants never need them, nor players before the research)
+        var pumpDefinition = Content.Buildings.GetValueOrDefault("pumpStation");
+        var needsPumps = new Dictionary<long, bool>();
+        bool NeedsPumps(long owner) => needsPumps.TryGetValue(owner, out var v) ? v
+            : needsPumps[owner] = Company(owner) is { IsNpc: false } company && pumpDefinition != null && IsUnlocked(company, pumpDefinition, out _);
+        var counted = nodes.Count(t => t.Kind == FlowNodeKind.Building && NeedsPumps(t.Owner));
         var pumps = network.Buildings.Count(t => _buildings[t] is { UnderConstruction: false } b && Content.Building(b.Type).Kind == BuildingKind.Pump);
         var allowed = BuildingsPerPump * (1 + pumps);
         network.PumpFactor = counted > allowed ? allowed / (double)counted : 1;

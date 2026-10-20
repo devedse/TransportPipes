@@ -26,8 +26,9 @@ export function NetworkPanel() {
 
       {details.pumpFactor < 1 && (
         <p className="status idle">
-          Too few pump stations: everything runs at {Math.round(details.pumpFactor * 100)}%. A network needs
-          one for every 50 buildings.
+          Too few pump stations: everything runs at {Math.round(details.pumpFactor * 100)}%. A long network
+          loses pressure: every 50 buildings in one network need a Pump Station (build it anywhere on its
+          pipes).
         </p>
       )}
 
