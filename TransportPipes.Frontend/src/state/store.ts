@@ -105,6 +105,8 @@ export interface AppState {
   blueprintDraft: { x: number; y: number; width: number; height: number } | null;
   /** A wilderness tile the player clicked: an outpost there, or the claim it would make */
   wildTile: TilePosition | null;
+  /** Where Loady suggests to build (a pulsing marker), with the footprint size */
+  hintTile: { x: number; y: number; size: number } | null;
   outpostCheck: OutpostCheckDto | null;
   /** The season results, shown when the season ended */
   season: SeasonDto | null;
@@ -179,6 +181,7 @@ export const initialState: AppState = {
   deepView: false,
   selectedDeepParcel: null,
   wildTile: null,
+  hintTile: null,
   outpostCheck: null,
   season: null,
   seasonOpen: false,

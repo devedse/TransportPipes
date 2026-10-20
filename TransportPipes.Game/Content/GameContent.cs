@@ -29,6 +29,7 @@ public sealed class GameContent
     public IReadOnlyList<ManagerDefinition> Managers { get; }
     public IReadOnlyList<AchievementDefinition> Achievements { get; }
     public IReadOnlyList<CollectionDefinition> Collections { get; }
+    public IReadOnlyList<TutorialStep> Tutorial { get; }
 
     public GameContent(
         IReadOnlyList<ResourceDefinition> resources,
@@ -39,8 +40,10 @@ public sealed class GameContent
         IReadOnlyList<WonderDefinition>? wonders = null,
         IReadOnlyList<ManagerDefinition>? managers = null,
         IReadOnlyList<AchievementDefinition>? achievements = null,
-        IReadOnlyList<CollectionDefinition>? collections = null)
+        IReadOnlyList<CollectionDefinition>? collections = null,
+        IReadOnlyList<TutorialStep>? tutorial = null)
     {
+        Tutorial = tutorial ?? [];
         Managers = managers ?? [];
         Achievements = achievements ?? [];
         Collections = collections ?? [];
@@ -91,6 +94,7 @@ public sealed class GameContent
         var wonders = Read<WondersDto>("wonders.yaml");
         var managers = Read<List<ManagerDto>>("managers.yaml").Select(t => new ManagerDefinition(t.Id, t.Name, t.Cost, t.Color, t.Automation, t.Bonus)).ToList();
         var achievements = Read<AchievementsDto>("achievements.yaml");
+        var tutorial = Read<List<TutorialDto>>("tutorial.yaml").Select(t => new TutorialStep(t.Id, t.Text, t.Stat, t.Amount, t.Gold, t.Hint)).ToList();
         return new GameContent(
             resources,
             buildings,
@@ -100,7 +104,8 @@ public sealed class GameContent
             [.. wonders.District.Select(t => t.ToDefinition()), .. wonders.Era.Select(t => t.ToDefinition())],
             managers,
             achievements.Achievements.Select(t => t.ToDefinition()).ToList(),
-            achievements.Collections.Select(t => new CollectionDefinition(t.Id, t.Name, t.Level, t.Buildings, t.Xp, t.Title, t.Description)).ToList());
+            achievements.Collections.Select(t => new CollectionDefinition(t.Id, t.Name, t.Level, t.Buildings, t.Xp, t.Title, t.Description)).ToList(),
+            tutorial);
     }
 
     private void Validate()
@@ -338,6 +343,16 @@ public sealed class GameContent
         public string Color { get; set; } = "#888888";
         public string Automation { get; set; } = "";
         public string Bonus { get; set; } = "";
+    }
+
+    private sealed class TutorialDto
+    {
+        public string Id { get; set; } = "";
+        public string Text { get; set; } = "";
+        public string Stat { get; set; } = "";
+        public double Amount { get; set; }
+        public double Gold { get; set; }
+        public Dictionary<string, string> Hint { get; set; } = new();
     }
 
     private sealed class AchievementsDto

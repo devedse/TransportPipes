@@ -106,6 +106,9 @@ public sealed class Company : Entity
     public int FreeMoves { get; set; }
     public bool MergeBonus { get; set; }
 
+    /// <summary>How far the company is with Loady's guide (an index into the tutorial steps)</summary>
+    public int TutorialStep { get; set; }
+
     /// <summary>The dug out parcels of the Deep Level (a bit per parcel; they move with the company)</summary>
     public int DeepParcels { get; set; }
 

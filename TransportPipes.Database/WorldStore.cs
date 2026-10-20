@@ -101,6 +101,7 @@ public sealed class WorldStore
                 FreeMoves = settings.FreeMoves,
                 MergeBonus = settings.MergeBonus,
                 DeepParcels = settings.DeepParcels,
+                TutorialStep = settings.TutorialStep,
                 DigParcel = settings.DigParcel,
                 DigStartedAt = settings.DigStartedAt,
                 DigEndsAt = settings.DigEndsAt,
@@ -339,6 +340,7 @@ public sealed class WorldStore
                     FreeMoves = company.FreeMoves,
                     MergeBonus = company.MergeBonus,
                     DeepParcels = company.DeepParcels,
+                    TutorialStep = company.TutorialStep,
                     DigParcel = company.DigParcel,
                     DigStartedAt = company.DigStartedAt,
                     DigEndsAt = company.DigEndsAt,
@@ -650,6 +652,7 @@ public sealed class WorldStore
         public int FreeMoves { get; init; }
         public bool MergeBonus { get; init; }
         public int DeepParcels { get; init; }
+        public int TutorialStep { get; init; }
         public int? DigParcel { get; init; }
         public DateTime? DigStartedAt { get; init; }
         public DateTime? DigEndsAt { get; init; }

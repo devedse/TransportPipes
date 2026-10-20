@@ -75,6 +75,8 @@ export interface CompanyDto {
   deep: DeepDto;
   /** Branch estates opened by franchising */
   branches: BranchDto[];
+  /** Loady's guide: the current step (null when done) */
+  tutorial: TutorialDto | null;
   serverTime: string;
 }
 
@@ -1086,4 +1088,16 @@ export interface BranchDto {
   unlockedParcels: number;
   nextParcelCost: number;
   nextParcelLevel: number;
+}
+
+/** A step of Loady's guide; the hint says what "Show me" does (tool, building, overlay, select, panel) */
+export interface TutorialDto {
+  step: number;
+  steps: number;
+  id: string;
+  text: string;
+  progress: number;
+  amount: number;
+  gold: number;
+  hint: Record<string, string>;
 }

@@ -72,6 +72,7 @@ export interface EngineState {
   serverOffsetMs: number;
   /** A wilderness tile the player looks at (an outpost or a claim), and whether that claim is possible */
   wildTile: TilePosition | null;
+  hintTile: { x: number; y: number; size: number } | null;
   outpostCheck: { error: string | null; x: number; y: number } | null;
 }
 
@@ -2051,6 +2052,14 @@ export class Engine {
       return;
     }
     const state = this.callbacks.getState();
+    if (state.hintTile !== null) {
+      // Loady's suggestion: a pulsing golden footprint
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
+      traceFootprint(g, state.hintTile.x, state.hintTile.y, state.hintTile.size);
+      g.fill({ color: 0xf6c744, alpha: 0.18 + 0.22 * pulse });
+      traceFootprint(g, state.hintTile.x, state.hintTile.y, state.hintTile.size);
+      g.stroke({ color: 0xffe08a, width: 6 + 4 * pulse, alpha: 0.95 });
+    }
     if (state.selectedNetwork !== null) {
       for (const conductor of this.world.conductors.values()) {
         if (conductor.network === state.selectedNetwork.id) {

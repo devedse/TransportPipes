@@ -13,12 +13,14 @@ import type {
 } from "../api/contracts";
 import { auth, fetchContent, GameConnection } from "../api/server";
 import { Content } from "../game/content";
-import type { Engine, EngineCallbacks, Tool } from "../game/Engine";
+import type { Engine, EngineCallbacks, Overlay, Tool } from "../game/Engine";
 import type { TilePosition } from "../game/isometric";
 import {
   buyableParcels,
   DEEP_OFFSET,
   ESTATE_SIZE,
+  PARCEL_SIZE,
+  PARCELS_PER_SIDE,
   GATE_SIDES,
   gateTiles,
   isDeep,
@@ -26,7 +28,7 @@ import {
   parcelOf,
   zoneAt,
 } from "../game/layout";
-import { newPipeTiles, ownEstateAt, ownEstates, routePipe } from "../game/rules";
+import { canPlace, newPipeTiles, ownEstateAt, ownEstates, routePipe } from "../game/rules";
 import { WorldModel } from "../game/world";
 import { appStore, initialState, MODALS, setState, toast, type HubTab } from "../state/store";
 
@@ -522,6 +524,7 @@ export class GameClient {
               },
         serverOffsetMs: state.serverOffsetMs,
         wildTile: state.wildTile,
+        hintTile: state.hintTile,
         outpostCheck: state.outpostCheck,
       };
     },
@@ -595,6 +598,7 @@ export class GameClient {
       return;
     }
     if (await this.command(this.connection.placeBuilding(type, x, y), `${name} is being built`)) {
+      setState({ hintTile: null });
       // Keep building more of the same until the player switches tools
       void this.refreshCompany();
     }
@@ -754,6 +758,79 @@ export class GameClient {
     }
   }
 
+  async skipTutorial() {
+    await this.command(this.connection.skipTutorial());
+  }
+
+  /** Loady's "Show me": the tool, the overlay and a good spot for the current step */
+  showTutorialHint() {
+    const state = appStore.getState();
+    const step = state.company?.tutorial;
+    const company = state.company;
+    if (step == null || company === null || this.world === null || state.content === null) {
+      return;
+    }
+    const hint = step.hint;
+    if (hint.overlay !== undefined) {
+      setState({ overlay: hint.overlay as Overlay });
+    }
+    if (hint.panel === "neighbours") {
+      void this.openNeighbours();
+      return;
+    }
+    if (hint.panel === "parcel") {
+      const parcel = buyableParcels(company.unlockedParcels)[0];
+      if (parcel !== undefined) {
+        const px = company.estateX + (parcel % PARCELS_PER_SIDE) * PARCEL_SIZE + PARCEL_SIZE / 2;
+        const py = company.estateY + Math.floor(parcel / PARCELS_PER_SIDE) * PARCEL_SIZE + PARCEL_SIZE / 2;
+        this.engine?.lookAt(px, py, 0.5);
+        setState({ selectedParcel: parcel, selectedParcelEstate: 0 });
+      }
+      return;
+    }
+    if (hint.select !== undefined) {
+      const own = [...this.world.buildings.values()].find(
+        (t) => t.owner === company.id && t.type === hint.select,
+      );
+      if (own !== undefined) {
+        this.engine?.lookAt(own.x, own.y, 0.8);
+        this.select(own.id);
+      }
+      return;
+    }
+    if (hint.tool === "pipe") {
+      this.setTool({ kind: "pipe", tier: 1 });
+      const post = [...this.world.buildings.values()].find(
+        (t) => t.owner === company.id && t.type === "tradingPost",
+      );
+      if (post !== undefined) {
+        this.engine?.lookAt(post.x, post.y, 0.8);
+      }
+      return;
+    }
+    if (hint.tool === "build" && hint.building !== undefined) {
+      const definition = state.content.building(hint.building);
+      if (definition === undefined) {
+        return;
+      }
+      this.setTool({ kind: "build", type: hint.building });
+      // The best spot nearby for it: where it makes the most
+      let best: { x: number; y: number; m: number } | null = null;
+      for (let y = company.estateY; y < company.estateY + ESTATE_SIZE; y++) {
+        for (let x = company.estateX; x < company.estateX + ESTATE_SIZE; x++) {
+          const placement = canPlace(state.content, this.world, company, state.era, definition, x, y);
+          if (placement.ok && (best === null || placement.multiplier > best.m)) {
+            best = { x, y, m: placement.multiplier };
+          }
+        }
+      }
+      if (best !== null) {
+        this.engine?.lookAt(best.x, best.y, 0.8);
+        setState({ hintTile: { x: best.x, y: best.y, size: definition.size } });
+      }
+    }
+  }
+
   async evolve(building: number, name: string) {
     if (await this.command(this.connection.evolve(building), `Evolving into a ${name}`)) {
       this.select(null);
@@ -858,6 +935,7 @@ export class GameClient {
     setState({
       tool,
       pipeRoute: null,
+      hintTile: null,
       buildMenuOpen: tool.kind === "build" ? appStore.getState().buildMenuOpen : false,
     });
   }

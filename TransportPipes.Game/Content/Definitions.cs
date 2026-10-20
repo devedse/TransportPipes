@@ -61,6 +61,9 @@ public sealed record BuildingUnlock(int Level, int Era, string? Research, string
 public sealed record ManagerDefinition(string Id, string Name, double Cost, string Color, string Automation, string Bonus);
 
 /// <summary>An achievement (GDD §8.5): a stat that reaches an amount</summary>
+/// <summary>A step of Loady's guide (GDD §10.2): done when the stat reaches the amount</summary>
+public sealed record TutorialStep(string Id, string Text, string Stat, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint);
+
 public sealed record AchievementDefinition(string Id, string Name, string Stat, double Amount, double Xp, double Gold, string? Title, OutputBonus? Output, string Description);
 
 /// <summary>A collection: every building of a list at a level; it unlocks a decoration</summary>

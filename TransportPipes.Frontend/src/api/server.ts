@@ -247,6 +247,7 @@ export class GameConnection {
   repair = (building: number) => this.invoke<CommandResult>("Repair", building);
   dig = (parcel: number) => this.invoke<CommandResult>("Dig", parcel);
   evolve = (building: number) => this.invoke<CommandResult>("Evolve", building);
+  skipTutorial = () => this.invoke<CommandResult>("SkipTutorial");
   linkTeleporter = (sender: number, receiver: number, resource: string) =>
     this.invoke<CommandResult>("LinkTeleporter", sender, receiver, resource);
   unlinkTeleporter = (station: number) => this.invoke<CommandResult>("UnlinkTeleporter", station);

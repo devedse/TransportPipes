@@ -72,7 +72,11 @@ public record CompanyDto(
     MovingDto Moving,
     DeepDto Deep,
     IReadOnlyList<BranchDto> Branches,
+    TutorialDto? Tutorial,
     DateTime ServerTime);
+
+/// <summary>Loady's guide: the step the company is on</summary>
+public record TutorialDto(int Step, int Steps, string Id, string Text, double Progress, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint);
 
 /// <summary>A branch estate opened by a franchise (its index for BuyParcel is its place in this list plus one)</summary>
 public record BranchDto(int DistrictX, int DistrictY, string DistrictName, int Slot, int X, int Y, int UnlockedParcels, double NextParcelCost, int NextParcelLevel);

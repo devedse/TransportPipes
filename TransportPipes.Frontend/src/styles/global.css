@@ -2764,6 +2764,133 @@ button.liked {
   color: #ffd77a;
 }
 
+/* ---------------------------------------------------------------- Goals and Loady */
+
+.goal-tracker {
+  position: absolute;
+  top: 84px;
+  left: var(--gap);
+  width: min(330px, calc(100vw - 24px));
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.goal-tracker > * {
+  pointer-events: auto;
+}
+
+.loady-card {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  align-items: end;
+  gap: 4px;
+}
+
+.loady {
+  width: 76px;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
+  animation: loady-bob 2.4s ease-in-out infinite;
+}
+
+@keyframes loady-bob {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.loady-bubble {
+  position: relative;
+  background: #fbf3df;
+  color: #2b2418;
+  border: 2px solid #c9963a;
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: var(--panel-shadow);
+}
+
+.loady-bubble::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  bottom: 18px;
+  border: 8px solid transparent;
+  border-right-color: #c9963a;
+  border-left: 0;
+}
+
+.loady-bubble p {
+  margin: 0 0 8px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.loady-bubble .muted {
+  color: #7a6a4e;
+}
+
+.loady-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.loady-actions .link {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #7a6a4e;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.goals {
+  list-style: none;
+  margin: 0;
+  padding: 8px 10px;
+  display: grid;
+  gap: 6px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  box-shadow: var(--panel-shadow);
+}
+
+.goals:empty {
+  display: none;
+}
+
+.goals li {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  gap: 2px 8px;
+  align-items: center;
+  font-size: 0.82rem;
+}
+
+.goal-label {
+  font-weight: 800;
+  color: var(--gold);
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+}
+
+.goal-bar {
+  grid-column: 2;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.goal-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #5cb83a, #9be05a);
+}
+
 @media (max-width: 720px) {
   /* A phone: nothing scrolls sideways, the map gets the room */
   html,

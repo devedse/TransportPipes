@@ -26,6 +26,7 @@ import { PipeTierBar } from "./components/PipeTierBar";
 import { ReportDialog } from "./components/ReportDialog";
 import { BlueprintPanel, BlueprintSaveDialog } from "./components/BlueprintPanel";
 import { DeepParcelPanel, DeepVignette, LayerSwitch } from "./components/DeepPanel";
+import { GoalTracker } from "./components/GoalTracker";
 import { ModerationPanel } from "./components/ModerationPanel";
 import { ResearchPanel } from "./components/ResearchPanel";
 import { SeasonPanel } from "./components/SeasonPanel";
@@ -202,6 +203,9 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="TopBar">
             <TopBar />
+          </ErrorBoundary>
+          <ErrorBoundary name="GoalTracker">
+            <GoalTracker />
           </ErrorBoundary>
           <ErrorBoundary name="BuildMenu">
             <BuildMenu />

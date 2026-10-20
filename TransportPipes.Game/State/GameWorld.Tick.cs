@@ -103,6 +103,7 @@ public sealed partial class GameWorld
         }
         Advance(now);
         CheckAchievements();
+        CheckTutorial();
     }
 
     private void CompleteConstruction(Building building)

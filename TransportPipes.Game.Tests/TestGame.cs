@@ -12,9 +12,9 @@ internal sealed class TestGame
     public DateTime Time { get; set; } = Start;
     public GameWorld World { get; }
 
-    public TestGame(int seed = 1234, GameContent? content = null, bool events = false, bool achievements = false)
+    public TestGame(int seed = 1234, GameContent? content = null, bool events = false, bool achievements = false, bool tutorial = false)
     {
-        World = new GameWorld(content ?? GameContent.Default, seed, () => Time) { EventsEnabled = events, AchievementsEnabled = achievements };
+        World = new GameWorld(content ?? GameContent.Default, seed, () => Time) { EventsEnabled = events, AchievementsEnabled = achievements, TutorialEnabled = tutorial };
     }
 
     /// <summary>The game content without location modifiers (wind, sun, richness), so every building makes its listed amount</summary>
@@ -50,7 +50,7 @@ internal sealed class TestGame
             Sprite = t.Sprite,
             Description = t.Description,
         }).ToList();
-        return new GameContent(content.ResourceList, buildings, content.PipeTiers, content.Progression, content.ResearchList, [.. content.DistrictWonders, .. content.EraWonders], content.Managers, content.Achievements, content.Collections);
+        return new GameContent(content.ResourceList, buildings, content.PipeTiers, content.Progression, content.ResearchList, [.. content.DistrictWonders, .. content.EraWonders], content.Managers, content.Achievements, content.Collections, content.Tutorial);
     }
 
     private static readonly Dictionary<char, string> MapLetters = new()
