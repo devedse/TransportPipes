@@ -1,4 +1,4 @@
-// Visual evolution: moilies at levels 1, 10, 25, 50, 75, 100. node evolution.mjs <outdir>
+// Visual evolution: moilies at levels 1, 4, 10, 25, 50, 75, 100. node evolution.mjs <outdir>
 import { start, newPlayer } from "./lib.mjs";
 const [out = "shots/evolution"] = process.argv.slice(2);
 const { browser, page, errors, shot, cheat } = await start(out);
@@ -16,7 +16,7 @@ console.log(await page.evaluate(async () => {
     }
   }
   await c.cheat("finish");
-  const levels = [1, 10, 25, 50, 75, 100];
+  const levels = [1, 4, 10, 25, 50, 75, 100];
   const results = [];
   for (const [i, p] of ids.entries()) {
     const b = [...w.buildings.values()].find((t) => t.x === p.x && t.y === p.y);

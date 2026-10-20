@@ -11,6 +11,8 @@ interface Particle {
   life: number;
   gravity: number;
   spin: number;
+  /** Grows by this factor over its life (a ring) */
+  grow: number;
 }
 
 let coinTexture: Texture | null = null;
@@ -104,6 +106,20 @@ export class Juice {
     }
   }
 
+  /** A ring that grows out of a building in a colour (a new level tier) */
+  ring(x: number, y: number, color: number, size: number) {
+    if (reducedMotion()) {
+      return;
+    }
+    for (let i = 0; i < 2; i++) {
+      const g = new Graphics();
+      g.ellipse(0, 0, 70 * size, 35 * size).stroke({ color, width: 10 - i * 4, alpha: 0.9 });
+      g.position.set(x, y);
+      this.add(g, 0, 0, 0.9 + i * 0.25, 0, 0, 1.6);
+    }
+    this.sparkle(x, y);
+  }
+
   /** A short twinkle around a building (an upgrade) */
   sparkle(x: number, y: number) {
     if (reducedMotion()) {
@@ -117,9 +133,17 @@ export class Juice {
     }
   }
 
-  private add(display: Container, vx: number, vy: number, life: number, gravity: number, spin: number) {
+  private add(
+    display: Container,
+    vx: number,
+    vy: number,
+    life: number,
+    gravity: number,
+    spin: number,
+    grow = 0,
+  ) {
     this.layer.addChild(display);
-    this.particles.push({ display, vx, vy, age: 0, life, gravity, spin });
+    this.particles.push({ display, vx, vy, age: 0, life, gravity, spin, grow });
   }
 
   update(deltaSeconds: number) {
@@ -137,7 +161,9 @@ export class Juice {
       p.display.rotation += p.spin * deltaSeconds;
       const t = p.age / p.life;
       p.display.alpha = t < 0.7 ? 1 : 1 - (t - 0.7) / 0.3;
-      if (p.age < 0.15) {
+      if (p.grow > 0) {
+        p.display.scale.set(1 + p.grow * t);
+      } else if (p.age < 0.15) {
         p.display.scale.set(0.6 + (p.age / 0.15) * 0.4);
       }
     }

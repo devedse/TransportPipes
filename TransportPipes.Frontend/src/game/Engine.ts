@@ -44,6 +44,7 @@ import {
 } from "./layout";
 import { BuildingEffects, pelletTexture } from "./render/effects";
 import { Juice } from "./render/juice";
+import { levelTier, LEVEL_TIERS, tierIndex } from "./levels";
 import { sounds } from "../app/sound";
 import { canPlace, footprintOrigin, routePipe, type Placement } from "./rules";
 import { chunkKey, type WorldModel } from "./world";
@@ -233,13 +234,6 @@ const NEIGHBOURS: ReadonlyArray<readonly [number, number]> = [
 ];
 
 /** How a building looks at its level milestones: the colour of its pad's edge */
-const MILESTONE_LOOKS = [
-  { level: 10, color: 0xb87333 },
-  { level: 25, color: 0xc0c8d0 },
-  { level: 50, color: 0xf6c744 },
-  { level: 75, color: 0xd88a4a },
-  { level: 100, color: 0xffe27a },
-];
 
 /** Buildings that sit in a pipe line (their art shows the pipe along x) */
 const IN_PIPE_KINDS = new Set(["valve", "priorityValve", "tollMeter"]);
@@ -247,6 +241,67 @@ const IN_PIPE_KINDS = new Set(["valve", "priorityValve", "tollMeter"]);
 /** The generated decal of a deposit: depositIronOre for ironOre */
 function depositArt(deposit: string): string {
   return `deposit${deposit[0]!.toUpperCase()}${deposit.slice(1)}`;
+}
+
+const badgeTextures = new Map<number, Texture>();
+
+/** A building's level badge: a shield in its tier's colour with the level on it (one texture per level) */
+function levelBadge(level: number): Texture {
+  let texture = badgeTextures.get(level);
+  if (texture !== undefined) {
+    return texture;
+  }
+  const tier = levelTier(level) ?? LEVEL_TIERS[0]!;
+  const hex = (c: number) => `#${c.toString(16).padStart(6, "0")}`;
+  const w = 62;
+  const h = 70;
+  const canvas = createCanvas(w + 8, h + 8);
+  const g = canvas.getContext("2d")!;
+  g.translate(4, 4);
+  const shield = () => {
+    g.beginPath();
+    g.moveTo(8, 0);
+    g.lineTo(w - 8, 0);
+    g.quadraticCurveTo(w, 0, w, 8);
+    g.lineTo(w, h * 0.5);
+    g.quadraticCurveTo(w, h * 0.78, w / 2, h);
+    g.quadraticCurveTo(0, h * 0.78, 0, h * 0.5);
+    g.lineTo(0, 8);
+    g.quadraticCurveTo(0, 0, 8, 0);
+    g.closePath();
+  };
+  shield();
+  const fill = g.createLinearGradient(0, 0, 0, h);
+  fill.addColorStop(0, hex(tier.light));
+  fill.addColorStop(0.45, hex(tier.color));
+  fill.addColorStop(1, hex(tier.color));
+  g.fillStyle = fill;
+  g.fill();
+  g.lineWidth = 5;
+  g.strokeStyle = "#241a0c";
+  g.stroke();
+  // A bright inner rim
+  g.save();
+  g.translate(w * 0.09, h * 0.08);
+  g.scale(0.82, 0.84);
+  shield();
+  g.restore();
+  g.lineWidth = 2;
+  g.strokeStyle = "rgba(255,255,255,0.55)";
+  g.stroke();
+  const text = String(level);
+  g.font = `900 ${text.length >= 3 ? 24 : 32}px "Nunito Variable", system-ui, sans-serif`;
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.lineJoin = "round";
+  g.lineWidth = 6;
+  g.strokeStyle = "#241a0c";
+  g.strokeText(text, w / 2, h * 0.43);
+  g.fillStyle = "#ffffff";
+  g.fillText(text, w / 2, h * 0.43);
+  texture = Texture.from(canvas);
+  badgeTextures.set(level, texture);
+  return texture;
 }
 
 function traceFootprint(g: Graphics, x: number, y: number, size: number, height = size) {
@@ -329,6 +384,8 @@ export class Engine {
   private lookedAt = false;
   private shown = false;
   private drawnAt: number | null = null;
+  /** The level tier each building was last drawn with: an upgrade into a new one flashes */
+  private readonly shownTiers = new Map<number, number>();
   /** Building pictures that were still loading have arrived */
   private artArrived = false;
   private lastArtRedraw = 0;
@@ -1782,40 +1839,37 @@ export class Engine {
         plaque.position.set(TILE_WIDTH * size, -TILE_HEIGHT / 2);
         container.addChild(plaque);
       }
-      // Visual evolution (GDD §17.3): the pad's edge in bronze, silver, gold; the owner's pennant; legendary sparkle
+      // Its level at a glance (GDD §17.3): a badge with the level in the colour of its tier, from Upgraded (grey)
+      // to Mythic (gold); from Fine (level 10) a rim around its footprint in that colour, an Epic one flies the
+      // owner's pennant, a Mythic one glows
       const attachments = [...art.attachments];
-      const milestone = MILESTONE_LOOKS.filter((t) => building.level >= t.level).pop();
-      if (milestone !== undefined && art.placement !== undefined) {
-        const edge = new Graphics();
-        edge
-          .moveTo(0, (-TILE_HEIGHT / 2) * size)
-          .lineTo(TILE_WIDTH * size, -TILE_HEIGHT * size)
-          .lineTo(TILE_WIDTH * 2 * size, (-TILE_HEIGHT / 2) * size)
-          .lineTo(TILE_WIDTH * size, 0)
-          .closePath()
-          .stroke({ color: milestone.color, width: milestone.level >= 100 ? 12 : 9, alpha: 1 });
-        container.addChildAt(edge, 0);
-        // A medal on the pad's front corner, with a star per milestone
-        const medal = new Container();
-        const disc = new Graphics()
-          .circle(0, 0, 26)
-          .fill({ color: milestone.color })
-          .stroke({ color: 0x3a2a12, width: 4 })
-          .circle(-7, -8, 8)
-          .fill({ color: 0xffffff, alpha: 0.35 });
-        const stars = new Text({
-          text: "★".repeat(MILESTONE_LOOKS.indexOf(milestone) + 1),
-          style: {
-            fontFamily: "Nunito Variable, system-ui",
-            fontSize: milestone.level >= 50 ? 14 : 20,
-            fontWeight: "900",
-            fill: "#3a2a12",
-          },
-        });
-        stars.anchor.set(0.5);
-        medal.addChild(disc, stars);
-        medal.position.set(TILE_WIDTH * size, -16);
-        container.addChild(medal);
+      const tier = levelTier(building.level);
+      if (tier !== null) {
+        const index = tierIndex(building.level);
+        if (index >= 1) {
+          const rim = (width: number, color: number, alpha: number) =>
+            new Graphics()
+              .moveTo(0, (-TILE_HEIGHT / 2) * size)
+              .lineTo(TILE_WIDTH * size, -TILE_HEIGHT * size)
+              .lineTo(TILE_WIDTH * 2 * size, (-TILE_HEIGHT / 2) * size)
+              .lineTo(TILE_WIDTH * size, 0)
+              .closePath()
+              .stroke({ color, width, alpha, join: "round" });
+          container.addChildAt(rim(10 + index * 2, tier.light, 0.4), 0);
+          container.addChildAt(rim(6, tier.color, 0.95), 1);
+        }
+        const badge = new Sprite(levelBadge(building.level));
+        badge.anchor.set(0.5, 1);
+        badge.scale.set(size === 1 ? 0.85 : size === 2 ? 1.15 : 1.4);
+        badge.position.set(TILE_WIDTH * size, -6);
+        container.addChild(badge);
+        // Into a new tier since it was drawn last: a ring in the new colour
+        const before = this.shownTiers.get(building.id);
+        if (before !== undefined && index > before && !this.far) {
+          const center = tileCenter(building.x + (size - 1) / 2, building.y + (size - 1) / 2);
+          this.juice.ring(center.x, center.y, tier.color, size);
+        }
+        this.shownTiers.set(building.id, index);
         if (building.level >= 50) {
           // The owner's pennant on a pole at the pad's left corner
           const pole = new Graphics()
@@ -1829,13 +1883,6 @@ export class Engine {
             y: -TILE_HEIGHT * size * 0.5 - 150,
             size: 1.4,
           });
-        }
-        if (building.level >= 75) {
-          for (const child of container.children) {
-            if (child instanceof Sprite) {
-              child.tint = building.level >= 100 ? 0xfff0c8 : 0xffeedd;
-            }
-          }
         }
         if (building.level >= 100) {
           attachments.push(

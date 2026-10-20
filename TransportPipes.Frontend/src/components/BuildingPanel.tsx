@@ -6,6 +6,7 @@ import type { BuildingDetailsDto, BuildingFlowDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import type { TerraformAction } from "../game/Engine";
 import { currentGold, useAppStore } from "../state/store";
+import { levelTier, nextTier } from "../game/levels";
 import { NetworkSummary } from "./NetworkSummary";
 import { ResourceIcon } from "./ResourceIcon";
 
@@ -159,6 +160,12 @@ export function BuildingPanel() {
               )}{" "}
               {/* The HQ has no levels of its own: it shows the Company Level */}
               {definition.kind === "hq" ? "" : ` · Level ${building.level}`}
+              {definition.kind !== "hq" && levelTier(building.level) !== null && (
+                <span className="tier-name" style={{ color: levelTier(building.level)!.css }}>
+                  {" "}
+                  {levelTier(building.level)!.name}
+                </span>
+              )}
               {details.locationMultiplier !== 1 &&
                 definition.modifier !== "none" &&
                 ` · spot ×${details.locationMultiplier.toFixed(2)}`}
@@ -189,6 +196,16 @@ export function BuildingPanel() {
           <h4>
             Upgrade · output +10% per level
             {nextMilestone !== null && <span className="muted"> · level {nextMilestone} doubles it</span>}
+            {nextTier(building.level) !== null && (
+              <span className="muted">
+                {" "}
+                ·{" "}
+                <span style={{ color: nextTier(building.level)!.css }}>
+                  {nextTier(building.level)!.name}
+                </span>{" "}
+                at level {nextTier(building.level)!.from}
+              </span>
+            )}
           </h4>
           <div className="button-row">
             <button

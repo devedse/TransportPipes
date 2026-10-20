@@ -2979,6 +2979,10 @@ button.liked {
   line-height: 1.35;
 }
 
+.tier-name {
+  font-weight: 800;
+}
+
 .current-research.pick {
   color: #8a5d00;
   font-weight: 800;
