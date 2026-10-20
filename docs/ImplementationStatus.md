@@ -163,7 +163,11 @@ the primary goals: the buildings, the map and the UI. The design may change wher
 - ✅ Performance: building pictures load when they are first needed (the map waits only for its own art), hashed
   art is cached by browsers for good, the frontend is compressed; a new player on fast 4G waits 1.3 s from founding
   to the map (was 8.3 s), a returning one 0.7 s (was 3.3 s); `e2e/load.mjs` measures it
-- ⬜ A bug bash, accessibility basics
+- ✅ Bug bash: all fifteen e2e scripts run without errors; fixed what they showed (forest crowns cut at the tile, the
+  phone's cut gold amount and toolbar, building pictures that never replaced their plates after a second engine)
+- ✅ Accessibility basics: less motion when the system asks for it (CSS and the map's bursts and sparkles), WCAG AA
+  contrast for the text on the cream panels, named side panels, Loady's steps announced, labelled icon buttons,
+  visible focus
 - ✅ The e2e screenshot scripts are in the repository (`e2e/`)
 - ⬜ Merge PR #3 and release
 
