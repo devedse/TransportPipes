@@ -106,6 +106,9 @@ public sealed class Company : Entity
     public int FreeMoves { get; set; }
     public bool MergeBonus { get; set; }
 
+    /// <summary>Mastery steps researched after the whole tree (+0.5% output each)</summary>
+    public int Mastery { get; set; }
+
     /// <summary>The expedition that is out (GDD §11.3)</summary>
     public Expedition? Expedition { get; set; }
 

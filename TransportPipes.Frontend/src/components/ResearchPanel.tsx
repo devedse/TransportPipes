@@ -144,6 +144,27 @@ export function ResearchPanel() {
           Labs turn energy and iron ingots into research points. Techs get cheaper the more active companies
           already have them.
         </p>
+        {company !== null && company.mastery.available && (
+          <div className="mastery">
+            <strong>
+              🎓 Mastery {company.mastery.level + 1}
+              {company.mastery.level > 0 &&
+                ` · now +${(company.mastery.bonus * 100).toFixed(1)}% on everything`}
+            </strong>
+            <span className="muted small">
+              The whole tree is done: every Mastery step makes everything 0.5% more, for good.
+            </span>
+            <button
+              className="primary"
+              disabled={company.currentResearch !== null || company.researchPoints < company.mastery.cost}
+              onClick={() => void gameClient.startResearch("mastery")}
+            >
+              {company.currentResearch === "mastery"
+                ? "Researching…"
+                : `Research · ${formatAmount(company.mastery.cost)} points, ${formatDuration(company.mastery.minutes * 60)}`}
+            </button>
+          </div>
+        )}
         <div className="research-grid">
           <div />
           {ERAS.map((era) => (

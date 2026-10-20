@@ -105,6 +105,7 @@ public sealed class WorldStore
                 Expedition = settings.Expedition,
                 ExpeditionLog = settings.ExpeditionLog,
                 Relics = settings.Relics,
+                Mastery = settings.Mastery,
                 DigParcel = settings.DigParcel,
                 DigStartedAt = settings.DigStartedAt,
                 DigEndsAt = settings.DigEndsAt,
@@ -347,6 +348,7 @@ public sealed class WorldStore
                     Expedition = company.Expedition,
                     ExpeditionLog = company.ExpeditionLog,
                     Relics = company.Relics,
+                    Mastery = company.Mastery,
                     DigParcel = company.DigParcel,
                     DigStartedAt = company.DigStartedAt,
                     DigEndsAt = company.DigEndsAt,
@@ -662,6 +664,7 @@ public sealed class WorldStore
         public Expedition? Expedition { get; init; }
         public List<string> ExpeditionLog { get; init; } = new();
         public HashSet<string> Relics { get; init; } = new();
+        public int Mastery { get; init; }
         public int? DigParcel { get; init; }
         public DateTime? DigStartedAt { get; init; }
         public DateTime? DigEndsAt { get; init; }

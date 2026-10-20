@@ -78,6 +78,7 @@ export interface CompanyDto {
   /** Loady's guide: the current step (null when done) */
   tutorial: TutorialDto | null;
   expedition: ExpeditionDto;
+  mastery: { level: number; available: boolean; cost: number; minutes: number; bonus: number };
   serverTime: string;
 }
 

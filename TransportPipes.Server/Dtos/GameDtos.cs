@@ -74,7 +74,11 @@ public record CompanyDto(
     IReadOnlyList<BranchDto> Branches,
     TutorialDto? Tutorial,
     ExpeditionDto Expedition,
+    MasteryDto Mastery,
     DateTime ServerTime);
+
+/// <summary>Mastery research after the whole tree: the level reached and the next step</summary>
+public record MasteryDto(int Level, bool Available, double Cost, double Minutes, double Bonus);
 
 /// <summary>Expeditions (GDD §11.3): the one out, what they cost, what came back, the relics found</summary>
 public record ExpeditionDto(int? Hours, DateTime? EndsAt, IReadOnlyDictionary<int, double> Costs, string? Blocker, IReadOnlyList<string> Log, IReadOnlyList<string> Relics);

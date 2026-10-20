@@ -3419,3 +3419,13 @@ kbd {
   margin: 0;
   font-size: 0.85rem;
 }
+
+.mastery {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fff3cf, #f3dfa5);
+  border: 2px solid var(--brass);
+}

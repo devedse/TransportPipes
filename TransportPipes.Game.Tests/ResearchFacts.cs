@@ -130,4 +130,28 @@ public class ResearchFacts
         Assert.IsTrue(game.World.HasResearch(company, "copperPipes"));
         Assert.IsTrue(game.World.TakeChanges().Events.Any(t => t.Kind == WorldEventKind.ResearchFinished));
     }
+
+    [TestMethod]
+    public void AfterTheWholeTreeMasteryGivesHalfAPercentPerStepForEver()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 40);
+        company.ResearchPoints = 1_000_000;
+        StringAssert.Contains(game.World.StartResearch(company.Id, GameWorld.MasteryId).Error, "whole research tree");
+        company.Researched.UnionWith(game.World.Content.ResearchList.Select(t => t.Id));
+        var cost = GameWorld.MasteryCost(company);
+
+        Assert.IsTrue(game.World.StartResearch(company.Id, GameWorld.MasteryId).Success);
+        Assert.AreEqual(1_000_000 - cost, company.ResearchPoints);
+        game.World.FinishResearch(company.Id);
+
+        Assert.AreEqual(1, company.Mastery);
+        Assert.IsGreaterThan(cost, GameWorld.MasteryCost(company), "every step costs more");
+        var moily = game.World.Content.Building("windMoily");
+        var before = game.World.OutputBonus(company, moily, "energy");
+        Assert.IsTrue(game.World.StartResearch(company.Id, GameWorld.MasteryId).Success);
+        game.World.FinishResearch(company.Id);
+        Assert.AreEqual(before + GameWorld.MasteryBonus, game.World.OutputBonus(company, moily, "energy"), 1e-9);
+    }
 }
+

@@ -97,6 +97,7 @@ public static class GameViews
                 company.Expedition == null ? world.ExpeditionBlocker(company) : null,
                 company.ExpeditionLog.Take(5).ToList(),
                 company.Relics.OrderBy(t => t).ToList()),
+            new MasteryDto(company.Mastery, world.ResearchedEverything(company), GameWorld.MasteryCost(company), GameWorld.MasteryMinutes(company), company.Mastery * GameWorld.MasteryBonus),
             world.Now);
     }
 

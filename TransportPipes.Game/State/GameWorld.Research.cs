@@ -68,11 +68,25 @@ public sealed partial class GameWorld
         return null;
     }
 
+    /// <summary>Mastery (GDD §11.6): after the whole tree, endless steps of +0.5% output keep the Labs useful</summary>
+    public const string MasteryId = "mastery";
+    public const double MasteryBonus = 0.005;
+
+    public bool ResearchedEverything(Company company) => Content.ResearchList.All(t => company.Researched.Contains(t.Id));
+
+    public static double MasteryCost(Company company) => Math.Round(20_000 * Math.Pow(1.25, company.Mastery) / 100) * 100;
+
+    public static double MasteryMinutes(Company company) => Math.Min(24 * 60, 120 + 30 * company.Mastery);
+
     public CommandResult StartResearch(long companyId, string techId)
     {
         if (Company(companyId) is not { } company)
         {
             return CommandResult.Fail("Unknown company.");
+        }
+        if (techId == MasteryId)
+        {
+            return StartMastery(company);
         }
         if (!Content.Research.TryGetValue(techId, out var tech))
         {
@@ -96,10 +110,45 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
+    private CommandResult StartMastery(Company company)
+    {
+        if (!ResearchedEverything(company))
+        {
+            return CommandResult.Fail("Mastery comes after the whole research tree.");
+        }
+        if (company.CurrentResearch != null)
+        {
+            return CommandResult.Fail("Your Labs are busy with research already.");
+        }
+        var cost = MasteryCost(company);
+        if (company.ResearchPoints < cost - 1e-9)
+        {
+            return CommandResult.Fail($"You need {cost:N0} research points. Labs make them.");
+        }
+        company.ResearchPoints -= cost;
+        company.CurrentResearch = MasteryId;
+        company.ResearchEndsAt = Now.AddMinutes(MasteryMinutes(company) * ManagerResearchFactor(company));
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        return CommandResult.Ok;
+    }
+
     private void CompleteResearch(Company company)
     {
         if (company.CurrentResearch is not { } techId)
         {
+            return;
+        }
+        if (techId == MasteryId)
+        {
+            company.Mastery++;
+            company.CurrentResearch = null;
+            company.ResearchEndsAt = null;
+            company.Touch();
+            Changes.Companies.Add(company.Id);
+            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ResearchFinished, $"Mastery {company.Mastery}: everything makes {company.Mastery * MasteryBonus:P1} more"));
+            GainXp(company, Content.Progression.XpReward("research"));
+            MarkCompanyNetworksDirty(company.Id);
             return;
         }
         company.Researched.Add(techId);
@@ -146,7 +195,7 @@ public sealed partial class GameWorld
             return 0;
         }
         var bonus = CorporationOutputBonus(company, resource) + ManagerOutputBonus(company, building) + AchievementOutputBonus(company, building, resource)
-            + ShareBonus(company);
+            + ShareBonus(company) + company.Mastery * MasteryBonus;
         foreach (var techId in company.Researched)
         {
             if (Content.Research.TryGetValue(techId, out var tech))
