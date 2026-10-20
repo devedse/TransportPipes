@@ -11,7 +11,7 @@ export function NetworkPanel() {
     return null;
   }
   return (
-    <aside className="panel network-panel">
+    <aside className="panel network-panel" aria-label="Network">
       <div className="panel-header">
         <div>
           <h3>Network</h3>

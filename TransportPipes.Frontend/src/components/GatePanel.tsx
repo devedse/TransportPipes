@@ -33,7 +33,7 @@ export function GatePanel() {
   const estate = district?.estates.find((t) => t.slot === company.slot);
   const current = estate?.gatePolicies[side] ?? "open";
   return (
-    <aside className="panel gate-panel">
+    <aside className="panel gate-panel" aria-label="Gate">
       <div className="panel-header">
         <div>
           <h3>Gate · {SIDE_NAMES[side]}</h3>

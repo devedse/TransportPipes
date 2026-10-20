@@ -42,6 +42,13 @@ function coin(): Texture {
   return coinTexture;
 }
 
+/** Players who asked their system for less motion get the coins (they tell how much), without bursts and sparkles */
+function reducedMotion(): boolean {
+  return (
+    typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
 export class Juice {
   readonly layer = new Container();
   private readonly particles: Particle[] = [];
@@ -66,11 +73,15 @@ export class Juice {
     label.position.set(20, 0);
     group.addChild(icon, label);
     group.position.set(x - 30, y);
-    this.add(group, 0, -55, 1.4, 0, 0);
+    // With less motion it fades where it is instead of rising
+    this.add(group, 0, reducedMotion() ? 0 : -55, 1.4, 0, 0);
   }
 
   /** Dust and sparkles flying off a building that just finished */
   burst(x: number, y: number, size: number) {
+    if (reducedMotion()) {
+      return;
+    }
     for (let i = 0; i < 18 + size * 8; i++) {
       const g = new Graphics();
       const sparkle = i % 3 === 0;
@@ -95,6 +106,9 @@ export class Juice {
 
   /** A short twinkle around a building (an upgrade) */
   sparkle(x: number, y: number) {
+    if (reducedMotion()) {
+      return;
+    }
     for (let i = 0; i < 10; i++) {
       const g = new Graphics();
       g.star(0, 0, 4, 10, 4).fill({ color: 0xfff3b0 });

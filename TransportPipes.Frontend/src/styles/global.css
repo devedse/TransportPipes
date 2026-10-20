@@ -67,6 +67,18 @@ input {
   outline-offset: 2px;
 }
 
+/* Less motion when the system asks for it: animations and transitions end at once */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 .muted {
   color: var(--text-muted);
 }
@@ -2885,7 +2897,7 @@ button.liked {
 }
 
 .loady-bubble .muted {
-  color: #7a6a4e;
+  color: #6b5c43;
 }
 
 .loady-actions {
@@ -2898,7 +2910,7 @@ button.liked {
   margin-left: auto;
   background: none;
   border: none;
-  color: #7a6a4e;
+  color: #6b5c43;
   text-decoration: underline;
   cursor: pointer;
   padding: 0;
@@ -3008,12 +3020,12 @@ button.liked {
 
   .top-actions {
     margin-left: auto;
-    gap: 2px;
+    gap: 0;
   }
 
   .top-actions .icon-button {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
   }
 
   .overlay-bar {
@@ -3052,9 +3064,12 @@ button.liked {
     scrollbar-width: none;
   }
 
+  /* The tools share the width (seven fit a phone; more scroll) */
   .tool {
-    flex: none;
-    padding: 6px 9px;
+    flex: 1 1 0;
+    min-width: 38px;
+    padding: 6px 4px;
+    justify-items: center;
   }
 
   .tabs {
@@ -3221,11 +3236,11 @@ button.liked {
   --panel-shadow: 0 10px 26px rgba(16, 12, 6, 0.38);
   --panel-radius: 16px;
   --text: #2b2418;
-  --text-muted: #75664c;
-  --accent: #2b7a78;
+  --text-muted: #6b5c43;
+  --accent: #236b69;
   --accent-strong: #1f5e5c;
   --accent-soft: rgba(43, 122, 120, 0.15);
-  --gold: #a87408;
+  --gold: #8a5d00;
   --warning: #b8561a;
   --error: #b83224;
   --info: #2f6fa8;
@@ -3442,7 +3457,7 @@ kbd {
 .order-check,
 .trend.up,
 .facts li.ok::before {
-  color: #3c8a24;
+  color: #33761f;
 }
 
 .layer-switch,
@@ -3640,13 +3655,14 @@ kbd {
   }
 
   .top-company {
-    padding: 8px 10px;
+    padding: 6px 7px;
     flex: none;
   }
 
+  /* The amount is never cut */
   .top-gold {
-    flex: 1 1 auto;
-    min-width: 0;
+    flex: 1 0 auto;
+    min-width: max-content;
   }
 
   .top-gold .gold-amount {

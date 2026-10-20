@@ -21,7 +21,7 @@ export function ParcelPanel() {
   const goldOk = cost !== null && gold >= cost;
 
   return (
-    <aside className="panel parcel-panel">
+    <aside className="panel parcel-panel" aria-label="Parcel">
       <div className="panel-header">
         <h3>Parcel {parcel + 1}</h3>
         <button

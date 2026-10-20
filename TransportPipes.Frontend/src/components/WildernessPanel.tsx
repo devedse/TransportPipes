@@ -20,7 +20,7 @@ export function WildernessPanel() {
   const own = outpost !== undefined && outpost.owner === company.id;
   const mine = own ? company.outposts.find((t) => t.id === outpost.id) : undefined;
   return (
-    <aside className="panel parcel-panel wild-panel">
+    <aside className="panel parcel-panel wild-panel" aria-label="Wilderness">
       <div className="panel-header">
         <h3>{outpost !== undefined ? `⛺ Outpost of ${outpost.ownerName}` : "The wilderness"}</h3>
         <button className="icon-button" title="Close (Esc)" onClick={() => gameClient.closeWild()}>

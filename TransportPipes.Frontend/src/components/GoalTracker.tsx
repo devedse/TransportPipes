@@ -39,7 +39,7 @@ export function GoalTracker() {
   return (
     <aside className="goal-tracker" aria-label="Goals">
       {step !== null && (
-        <div className="loady-card">
+        <div className="loady-card" aria-live="polite">
           <img
             className="loady"
             src={step.step === 0 ? "/art/ui/loady-wave.webp" : "/art/ui/loady-point.webp"}

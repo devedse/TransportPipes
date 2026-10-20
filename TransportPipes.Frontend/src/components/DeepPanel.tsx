@@ -60,7 +60,7 @@ export function DeepParcelPanel() {
   const digging = deep.digParcel !== null && deep.digEndsAt !== null;
   const left = digging ? (new Date(deep.digEndsAt!).getTime() - now) / 1000 : 0;
   return (
-    <aside className="panel parcel-panel deep-panel">
+    <aside className="panel parcel-panel deep-panel" aria-label="Deep Level parcel">
       <div className="panel-header">
         <h3>⛏ Deep parcel {parcel + 1}</h3>
         <button

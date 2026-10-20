@@ -77,7 +77,7 @@ export function BuildingPanel() {
   const thumbnail = gameClient.textures?.thumbnail(definition.id, definition.size);
 
   return (
-    <aside className="panel building-panel">
+    <aside className="panel building-panel" aria-label={definition.name}>
       <div className="panel-header">
         <div className="building-title">
           {thumbnail !== undefined && <img className="thumb large" src={thumbnail} alt="" />}
