@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { gameClient } from "../app/client";
+import { askForNotifications, notificationsAsked, notificationsSupported } from "../app/notifications";
 import { formatAmount } from "../app/format";
 import type { NeighbourDto } from "../api/contracts";
 import type { Content } from "../game/content";
@@ -14,6 +15,7 @@ export function GoalTracker() {
   const content = useAppStore((s) => s.content);
   const buildMenuOpen = useAppStore((s) => s.buildMenuOpen);
   const neighbours = useAppStore((s) => s.neighbours);
+  const [asked, setAsked] = useState(notificationsAsked);
   const level = company?.level ?? 0;
   // Neighbours come with Level 3: look for someone who needs what you make now and then
   useEffect(() => {
@@ -67,6 +69,17 @@ export function GoalTracker() {
           </p>
           <button className="primary" onClick={() => void gameClient.planConnection(opportunity.id)}>
             Connect a pipe
+          </button>
+        </div>
+      )}
+      {step !== null && step.step >= 2 && !asked && notificationsSupported() && (
+        <div className="panel opportunity">
+          <p>🔔 Want a note when a storage is full or research is done, while you're away?</p>
+          <button
+            className="primary"
+            onClick={() => void askForNotifications().finally(() => setAsked(true))}
+          >
+            Notify me
           </button>
         </div>
       )}

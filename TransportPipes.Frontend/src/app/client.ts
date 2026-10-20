@@ -30,6 +30,7 @@ import {
 } from "../game/layout";
 import { canPlace, newPipeTiles, ownEstateAt, ownEstates, routePipe } from "../game/rules";
 import { WorldModel } from "../game/world";
+import { notify } from "./notifications";
 import { appStore, initialState, MODALS, setState, toast, type HubTab } from "../state/store";
 
 const DETAILS_REFRESH_MS = 2000;
@@ -150,6 +151,7 @@ export class GameClient {
       }
     });
     c.on("toast", (t: ToastDto) => {
+      notify(t);
       toast(
         t.text,
         t.kind === "levelUp" ||
