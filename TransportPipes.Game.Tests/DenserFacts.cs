@@ -93,4 +93,74 @@ public class DenserFacts
         Assert.IsTrue(game.World.Terraform(company.Id, seed, TerraformAction.SeedDeposit, "ironOre").Success);
         Assert.AreEqual(2, game.World.Tile(seed).Richness);
     }
+
+    [TestMethod]
+    public void AWindMoilyEvolvesIntoABigTurbineWhereItStandsKeepingItsPipes()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 30);
+        game.World.Era = 2;
+        company.Researched.Add("bigTurbine");
+        var origin = game.Local(company, 10, 10);
+        var map = game.Map(company, origin, "W+++\n    ");
+        var moily = map[(0, 0)];
+        moily.Level = 5;
+        var plan = game.World.EvolvePlan(company, moily);
+        Assert.IsNull(plan.Problem, plan.Problem);
+        var bigTurbine = game.World.Content.Building("bigTurbine");
+        Assert.AreEqual(Math.Max(0, game.World.BuildCost(company, bigTurbine) - game.World.EvolveCredit(moily)), plan.Cost, 1e-6);
+        Assert.IsGreaterThan(game.World.Content.Building("windMoily").Cost.Gold, game.World.EvolveCredit(moily), "the upgrades count too");
+        // Its materials, in a storage
+        var storage = game.Map(company, game.Local(company, 20, 20), "O")[(0, 0)];
+        foreach (var (material, amount) in bigTurbine.Cost.Materials)
+        {
+            storage.Contents[material] = amount;
+        }
+        var gold = company.Gold;
+
+        var evolved = game.World.Evolve(company.Id, moily.Id);
+        Assert.IsTrue(evolved.Success, evolved.Error);
+
+        Assert.IsNull(game.World.Building(moily.Id));
+        var turbine = game.World.BuildingAt(origin)!;
+        Assert.AreEqual("bigTurbine", turbine.Type);
+        Assert.IsTrue(turbine.Footprint().Contains(origin), "it stands where the moily stood");
+        Assert.AreEqual(gold - plan.Cost, company.Gold, 1e-6);
+        Assert.IsNotNull(game.World.ConductorAt(origin.Offset(2, 0)), "the pipes stay");
+    }
+
+    [TestMethod]
+    public void EvolvingNeedsTheSuccessorUnlockedAndRoomAround()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 30);
+        var origin = game.Local(company, 10, 10);
+        // Hemmed in on every side
+        var map = game.Map(company, origin.Offset(-1, -1), "SSS\nSWS\nSSS");
+        var moily = map[(1, 1)];
+
+        StringAssert.Contains(game.World.EvolvePlan(company, moily).Problem, "Era");
+        game.World.Era = 2;
+        company.Researched.Add("bigTurbine");
+        StringAssert.Contains(game.World.EvolvePlan(company, moily).Problem, "Make room");
+        StringAssert.Contains(game.World.Evolve(company.Id, map[(0, 0)].Id).Error, "Era 3", "solar panels evolve into Solar Farms (Era 3)");
+    }
+
+    [TestMethod]
+    public void WithARecyclerDemolishingGivesAllTheGoldBack()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 30);
+        var moily = game.Map(company, game.Local(company, 10, 10), "W")[(0, 0)];
+        var other = game.Map(company, game.Local(company, 12, 10), "W")[(0, 0)];
+        var cost = game.World.Content.Building("windMoily").Cost.Gold;
+
+        var gold = company.Gold;
+        Assert.IsTrue(game.World.Demolish(company.Id, moily.Id).Success);
+        Assert.AreEqual(gold + Math.Round(cost * 0.5), company.Gold, 1e-6);
+        game.World.LoadBuilding(new Building { Id = game.World.NextBuildingId, Type = "recycler", Owner = company.Id, X = game.Local(company, 20, 20).X, Y = game.Local(company, 20, 20).Y });
+        gold = company.Gold;
+        Assert.IsTrue(game.World.Demolish(company.Id, other.Id).Success);
+        Assert.AreEqual(gold + cost, company.Gold, 1e-6);
+    }
 }

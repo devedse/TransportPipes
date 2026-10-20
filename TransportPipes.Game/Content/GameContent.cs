@@ -130,6 +130,10 @@ public sealed class GameContent
             {
                 CheckResource(building.Id, deposit);
             }
+            if (building.EvolvesTo is { } next && (!Buildings.TryGetValue(next, out var successor) || successor.Size < building.Size))
+            {
+                errors.Add($"{building.Id}: evolves into '{next}', which must be a building at least as big");
+            }
         }
         foreach (var pipe in PipeTiers)
         {
@@ -288,6 +292,7 @@ public sealed class GameContent
         public string? Range { get; set; }
         public int Reach { get; set; }
         public string Layer { get; set; } = "surface";
+        public string? EvolvesTo { get; set; }
         public string? Sprite { get; set; }
         public string Description { get; set; } = "";
 
@@ -319,6 +324,7 @@ public sealed class GameContent
             Range = Range,
             Reach = Reach,
             Layer = Enum.Parse<BuildingLayer>(Layer, ignoreCase: true),
+            EvolvesTo = EvolvesTo,
             Sprite = Sprite,
             Description = Description,
         };

@@ -106,6 +106,10 @@ public sealed class BuildingDefinition
     public int Reach { get; init; }
 
     public BuildingLayer Layer { get; init; }
+
+    /// <summary>The bigger, better building it can evolve into where it stands</summary>
+    public string? EvolvesTo { get; init; }
+
     public string? Sprite { get; init; }
     public string Description { get; init; } = "";
 

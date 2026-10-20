@@ -460,6 +460,8 @@ export interface BuildingDetailsDto {
   /** A complex: how many buildings it merged (1 for an ordinary building) */
   complexMembers: number;
   teleporter: TeleporterDto | null;
+  /** What it can evolve into where it stands */
+  evolve: { into: string; cost: number; problem: string | null } | null;
 }
 
 /** A teleporter station (GDD §11.4) */
@@ -580,6 +582,7 @@ export interface BuildingDefinition {
   /** Power line pylons: how far the cable reaches */
   reach: number;
   layer: "surface" | "deep" | "any";
+  evolvesTo: string | null;
   sprite: string | null;
   description: string;
 }

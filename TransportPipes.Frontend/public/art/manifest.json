@@ -1,0 +1,76 @@
+{
+ "resolution": 1.5,
+ "buildings": {
+  "hq": {
+   "w": 577,
+   "h": 477,
+   "ax": 288,
+   "ay": 476,
+   "attachments": []
+  },
+  "smallFactory": {
+   "w": 288,
+   "h": 247,
+   "ax": 144,
+   "ay": 247,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 88,
+     "y": 6,
+     "size": 1
+    }
+   ]
+  },
+  "solarPanel": {
+   "w": 288,
+   "h": 221,
+   "ax": 144,
+   "ay": 220,
+   "attachments": []
+  },
+  "storage": {
+   "w": 288,
+   "h": 226,
+   "ax": 144,
+   "ay": 226,
+   "attachments": []
+  },
+  "tradingPost": {
+   "w": 288,
+   "h": 230,
+   "ax": 144,
+   "ay": 230,
+   "attachments": []
+  },
+  "windMoily": {
+   "w": 288,
+   "h": 287,
+   "ax": 144,
+   "ay": 287,
+   "attachments": [
+    {
+     "kind": "rotor",
+     "x": 172,
+     "y": 39
+    }
+   ]
+  }
+ },
+ "rotors": {
+  "windMoily": {
+   "size": 230
+  }
+ },
+ "terrain": {
+  "beach": {
+   "size": 512
+  },
+  "grass": {
+   "size": 512
+  },
+  "water": {
+   "size": 512
+  }
+ }
+}

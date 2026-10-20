@@ -358,6 +358,9 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> ReleaseOutpost(long outpost) =>
         Command((world, company) => world.ReleaseOutpost(company, outpost));
 
+    public Task<CommandResultDto> Evolve(long building) =>
+        Command((world, company) => world.Evolve(company, building));
+
     // ---------------------------------------------------------------- Teleporters
 
     public Task<CommandResultDto> LinkTeleporter(long sender, long receiver, string resource) =>

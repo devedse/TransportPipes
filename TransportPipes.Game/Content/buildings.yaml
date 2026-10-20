@@ -13,6 +13,7 @@
   name: Solar Panel
   category: energy
   size: 1
+  evolvesTo: solarFarm
   unlock: { level: 1 }
   cost: { gold: 30 }
   buildSeconds: 10
@@ -25,6 +26,7 @@
   name: Wind Moily
   category: energy
   size: 1
+  evolvesTo: bigTurbine
   unlock: { level: 1 }
   cost: { gold: 200 }
   buildSeconds: 30
@@ -48,6 +50,7 @@
   name: Coal Plant
   category: energy
   size: 2
+  evolvesTo: steamTurbine
   unlock: { level: 14 }
   cost: { gold: 6000 }
   buildSeconds: 300
@@ -116,6 +119,7 @@
   name: Iron Mine
   category: extraction
   size: 1
+  evolvesTo: deepMine
   unlock: { level: 2 }
   cost: { gold: 600 }
   buildSeconds: 60
@@ -249,6 +253,7 @@
   name: Small Factory
   category: processing
   size: 1
+  evolvesTo: bigFactory
   unlock: { level: 2 }
   cost: { gold: 1500 }
   buildSeconds: 120
@@ -472,6 +477,7 @@
   category: logistics
   kind: storage
   size: 1
+  evolvesTo: warehouse
   layer: any
   unlock: { level: 1 }
   cost: { gold: 1000 }
@@ -485,6 +491,7 @@
   category: logistics
   kind: storage
   size: 2
+  evolvesTo: silo
   unlock: { level: 10 }
   cost: { gold: 8000 }
   buildSeconds: 300
@@ -531,6 +538,7 @@
   category: commerce
   kind: tradingPost
   size: 1
+  evolvesTo: marketHall
   unlock: { level: 1 }
   cost: { gold: 2500 }
   buildSeconds: 60
@@ -587,6 +595,7 @@
   category: company
   kind: lab
   size: 1
+  evolvesTo: researchInstitute
   unlock: { level: 4 }
   cost: { gold: 2000 }
   buildSeconds: 120

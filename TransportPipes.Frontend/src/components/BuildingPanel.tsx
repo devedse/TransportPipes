@@ -134,6 +134,28 @@ export function BuildingPanel() {
       {mine && details.teleporter !== null && building.constructionEndsAt === null && (
         <TeleporterSection details={details} />
       )}
+      {mine && details.evolve !== null && (
+        <section className="evolve">
+          <button
+            className="primary wide"
+            disabled={details.evolve.problem !== null || gold < details.evolve.cost}
+            title={details.evolve.problem ?? undefined}
+            onClick={() =>
+              void gameClient.evolve(
+                building.id,
+                content.building(details.evolve!.into)?.name ?? details.evolve!.into,
+              )
+            }
+          >
+            ⬆ Evolve into {content.building(details.evolve.into)?.name} · {formatAmount(details.evolve.cost)}{" "}
+            g
+          </button>
+          <p className="muted small">
+            {details.evolve.problem ??
+              "Built where it stands: its gold and upgrades count towards the new one, the pipes stay."}
+          </p>
+        </section>
+      )}
       {mine && definition.kind === "blueprintOffice" && building.constructionEndsAt === null && (
         <button className="primary wide" onClick={() => void gameClient.openBlueprints()}>
           📐 Blueprints (U)

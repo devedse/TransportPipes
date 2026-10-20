@@ -218,7 +218,11 @@ public record BuildingDetailsDto(
     double TollIncome,
     double? RepairCost,
     int ComplexMembers,
-    TeleporterDto? Teleporter = null);
+    TeleporterDto? Teleporter = null,
+    EvolveDto? Evolve = null);
+
+/// <summary>What a building can evolve into where it stands, what it costs and what is in the way</summary>
+public record EvolveDto(string Into, double Cost, string? Problem);
 
 /// <summary>A teleporter station (GDD §11.4): what it sends or receives, and the stations it could link to</summary>
 public record TeleporterDto(

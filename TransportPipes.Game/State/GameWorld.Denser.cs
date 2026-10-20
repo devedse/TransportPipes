@@ -233,4 +233,84 @@ public sealed partial class GameWorld
         }
         return CommandResult.Ok;
     }
+
+    // ---------------------------------------------------------------- Evolve in place
+
+    /// <summary>What a building is worth when it evolves: its gold and every upgrade bought for it</summary>
+    public double EvolveCredit(Building building)
+    {
+        var definition = Content.Building(building.Type);
+        var upgrades = 0.0;
+        for (var level = 1; level < building.Level; level++)
+        {
+            upgrades += Content.Progression.UpgradeCost(definition, level);
+        }
+        return (definition.Cost.Gold + upgrades) * ComplexMembers(building);
+    }
+
+    /// <summary>Where a building's successor would stand (covering the old footprint), or null with the reason</summary>
+    public (TilePos? At, double Cost, string? Problem) EvolvePlan(Company company, Building building)
+    {
+        var definition = Content.Building(building.Type);
+        if (definition.EvolvesTo is not { } next || !Content.Buildings.TryGetValue(next, out var target))
+        {
+            return (null, 0, "This building doesn't evolve.");
+        }
+        if (building.UnderConstruction)
+        {
+            return (null, 0, "Wait until it is built.");
+        }
+        if (ComplexMembers(building) > 1)
+        {
+            return (null, 0, "A complex doesn't evolve.");
+        }
+        if (!IsUnlocked(company, target, out var reason))
+        {
+            return (null, 0, reason);
+        }
+        var cost = Math.Max(0, BuildCost(company, target) - EvolveCredit(building));
+        var grow = target.Size - building.Size;
+        for (var dy = 0; dy >= -grow; dy--)
+        {
+            for (var dx = 0; dx >= -grow; dx--)
+            {
+                var origin = building.Position.Offset(dx, dy);
+                if (CanPlace(company, target, origin, building.Id).Success)
+                {
+                    return (origin, cost, null);
+                }
+            }
+        }
+        return (null, cost, $"Make room around it: a {target.Name} is {target.Size}×{target.Size}.");
+    }
+
+    /// <summary>
+    /// Evolves a building into its successor where it stands: the old one's gold and upgrades count towards the new
+    /// one, the pipes around it stay connected. An Era change becomes an upgrade, not a rebuild.
+    /// </summary>
+    public CommandResult Evolve(long companyId, long buildingId)
+    {
+        if (Company(companyId) is not { } company || Building(buildingId) is not { } building || building.Owner != companyId)
+        {
+            return CommandResult.Fail("That is not your building.");
+        }
+        var (at, cost, problem) = EvolvePlan(company, building);
+        if (at is not { } origin)
+        {
+            return CommandResult.Fail(problem ?? "It can't evolve here.");
+        }
+        var target = Content.Building(Content.Building(building.Type).EvolvesTo!);
+        var payment = Pay(company, cost, target.Cost.Materials);
+        if (!payment.Success)
+        {
+            return payment;
+        }
+        RemoveBuilding(building);
+        AddBuilding(company, target.Id, origin, finished: false);
+        GainXp(company, Content.Progression.XpReward("building") + (company.BuiltTypes.Add(target.Id) ? Content.Progression.XpReward("firstBuildingOfType") : 0));
+        AddStat(company, "evolved", 1);
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        return CommandResult.Ok;
+    }
 }

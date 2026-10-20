@@ -46,6 +46,7 @@ internal sealed class TestGame
             Range = t.Range,
             Reach = t.Reach,
             Layer = t.Layer,
+            EvolvesTo = t.EvolvesTo,
             Sprite = t.Sprite,
             Description = t.Description,
         }).ToList();

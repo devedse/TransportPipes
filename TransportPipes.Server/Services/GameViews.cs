@@ -718,7 +718,14 @@ public static class GameViews
             world.TollIncome(building.Id),
             building.Damaged ? world.RepairCost(building) : null,
             world.ComplexMembers(building),
-            definition.Kind == BuildingKind.Teleporter ? Teleporter(world, building) : null);
+            definition.Kind == BuildingKind.Teleporter ? Teleporter(world, building) : null,
+            definition.EvolvesTo is { } next && owner != null ? Evolve(world, owner, building, next) : null);
+    }
+
+    private static EvolveDto Evolve(GameWorld world, Company owner, Building building, string next)
+    {
+        var (_, cost, problem) = world.EvolvePlan(owner, building);
+        return new EvolveDto(next, Math.Round(cost), problem);
     }
 
     private static TeleporterDto Teleporter(GameWorld world, Building station)

@@ -754,6 +754,13 @@ export class GameClient {
     }
   }
 
+  async evolve(building: number, name: string) {
+    if (await this.command(this.connection.evolve(building), `Evolving into a ${name}`)) {
+      this.select(null);
+      void this.refreshCompany();
+    }
+  }
+
   async linkTeleporter(sender: number, receiver: number, resource: string) {
     if (await this.command(this.connection.linkTeleporter(sender, receiver, resource), "Linked")) {
       await this.refreshDetails();
