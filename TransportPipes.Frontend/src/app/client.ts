@@ -764,6 +764,15 @@ export class GameClient {
     await this.command(this.connection.startExpedition(hours), "The team sets off");
   }
 
+  /** Looks at a building and opens its panel */
+  showBuilding(id: number) {
+    const building = this.world?.buildings.get(id);
+    if (building !== undefined) {
+      this.engine?.lookAt(building.x, building.y, 0.8);
+    }
+    this.select(id);
+  }
+
   async skipTutorial() {
     await this.command(this.connection.skipTutorial());
   }

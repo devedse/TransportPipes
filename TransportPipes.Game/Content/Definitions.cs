@@ -200,6 +200,10 @@ public sealed class ProgressionSettings
     public int MaxCompanyLevel { get; init; }
     public double XpBase { get; init; }
     public double XpExponent { get; init; }
+
+    /// <summary>The curve grows to this many times from level 2 to XpRampLevel: quick first levels, then a steady pace</summary>
+    public double XpRamp { get; init; } = 1;
+    public int XpRampLevel { get; init; } = 2;
     public IReadOnlyDictionary<string, double> XpRewards { get; init; } = new Dictionary<string, double>();
     public int MaxBuildingLevel { get; init; }
     public double OutputPerLevel { get; init; }
@@ -218,7 +222,8 @@ public sealed class ProgressionSettings
     public double XpReward(string key) => XpRewards.TryGetValue(key, out var value) ? value : 0;
 
     /// <summary>Total XP needed to reach a Company Level</summary>
-    public double XpForLevel(int level) => level <= 1 ? 0 : Math.Round(XpBase * Math.Pow(level - 1, XpExponent));
+    public double XpForLevel(int level) =>
+        level <= 1 ? 0 : Math.Round(XpBase * Math.Pow(level - 1, XpExponent) * (1 + (XpRamp - 1) * Math.Clamp((level - 2.0) / Math.Max(1, XpRampLevel - 2), 0, 1)));
 
     public int LevelForXp(double xp)
     {

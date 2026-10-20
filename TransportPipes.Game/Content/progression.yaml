@@ -1,8 +1,11 @@
-# Company Level: XP needed for level n = base * (n - 1)^exponent
+# Company Level: XP needed for level n = base * (n - 1)^exponent, times a ramp from 1 (level 2) to xpRamp (xpRampLevel):
+# the first levels come quickly (GDD §10.2), then the pace settles (tuned with the balance simulation)
 companyLevel:
   maxLevel: 60
   xpBase: 100
   xpExponent: 1.7
+  xpRamp: 4
+  xpRampLevel: 9
 
 # XP rewards
 xp:

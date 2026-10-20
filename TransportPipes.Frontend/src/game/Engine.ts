@@ -219,7 +219,7 @@ interface ObjectView {
   machine: AnimatedSprite | null;
   /** The other animated members of a complex */
   machines?: AnimatedSprite[];
-  idle: Text | null;
+  idle: Container | null;
   progress: Graphics | null;
 }
 
@@ -1488,17 +1488,27 @@ export class Engine {
         definition !== undefined &&
         (Object.keys(definition.in).length > 0 || Object.keys(definition.out).length > 0)
       ) {
-        const badge = new Text({
+        // A small speech bubble: this one waits for a pipe (or for what it needs)
+        const badge = new Container();
+        const bubble = new Graphics();
+        bubble
+          .roundRect(-30, -26, 60, 44, 16)
+          .fill({ color: 0xfbf3df })
+          .stroke({ color: 0xc9963a, width: 4 });
+        bubble.poly([-8, 16, 8, 16, 0, 30]).fill({ color: 0xfbf3df }).stroke({ color: 0xc9963a, width: 4 });
+        bubble.rect(-9, 12, 18, 6).fill({ color: 0xfbf3df });
+        const icon = new Text({
           text: "zz",
           style: {
-            fontFamily: "system-ui",
-            fontSize: 40,
+            fontFamily: "Nunito Variable, system-ui",
+            fontSize: 26,
             fontWeight: "900",
-            fill: "#ffffff",
-            stroke: { color: "#17181c", width: 8 },
+            fill: "#7a6a4e",
           },
         });
-        badge.anchor.set(0.5);
+        icon.anchor.set(0.5);
+        icon.position.set(0, -4);
+        badge.addChild(bubble, icon);
         badge.position.set(TILE_WIDTH * size, -TILE_HEIGHT * size - 30);
         badge.visible = false;
         container.addChild(badge);

@@ -3429,3 +3429,10 @@ kbd {
   background: linear-gradient(180deg, #fff3cf, #f3dfa5);
   border: 2px solid var(--brass);
 }
+
+.opportunity.alert {
+  border-color: #a8561a;
+  box-shadow:
+    0 0 0 2px #e0a35a,
+    var(--panel-shadow);
+}

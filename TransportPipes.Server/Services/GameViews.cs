@@ -98,6 +98,7 @@ public static class GameViews
                 company.ExpeditionLog.Take(5).ToList(),
                 company.Relics.OrderBy(t => t).ToList()),
             new MasteryDto(company.Mastery, world.ResearchedEverything(company), GameWorld.MasteryCost(company), GameWorld.MasteryMinutes(company), company.Mastery * GameWorld.MasteryBonus),
+            world.Alerts(company).Select(t => new AlertDto(t.Text, t.Building)).ToList(),
             world.Now);
     }
 

@@ -513,6 +513,8 @@ public sealed class GameContent
             MaxCompanyLevel = CompanyLevel.MaxLevel,
             XpBase = CompanyLevel.XpBase,
             XpExponent = CompanyLevel.XpExponent,
+            XpRamp = CompanyLevel.XpRamp,
+            XpRampLevel = CompanyLevel.XpRampLevel,
             XpRewards = Xp,
             MaxBuildingLevel = BuildingLevels.MaxLevel,
             OutputPerLevel = BuildingLevels.OutputPerLevel,
@@ -535,6 +537,8 @@ public sealed class GameContent
         public int MaxLevel { get; set; } = 60;
         public double XpBase { get; set; } = 100;
         public double XpExponent { get; set; } = 1.7;
+        public double XpRamp { get; set; } = 1;
+        public int XpRampLevel { get; set; } = 2;
     }
 
     private sealed class BuildingLevelsDto

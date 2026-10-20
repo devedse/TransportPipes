@@ -622,6 +622,30 @@ public sealed partial class GameWorld
     public double TradingPostThroughput(Building building, BuildingDefinition definition) =>
         definition.Throughput * Content.Progression.OutputMultiplier(building.Level);
 
+    /// <summary>
+    /// What holds a company back right now, for the goal tracker: networks short of pump stations, full trading posts,
+    /// full storages (each with the building to look at)
+    /// </summary>
+    public List<(string Text, long? Building)> Alerts(Company company)
+    {
+        var alerts = new List<(string, long?)>();
+        foreach (var network in _networks.Values.Where(t => t.PumpFactor < 0.999 && t.Buildings.Any(b => _buildings[b].Owner == company.Id)))
+        {
+            var count = network.Buildings.Count(b => _buildings[b].Owner == company.Id);
+            alerts.Add(($"A network of {count} buildings runs at {network.PumpFactor:P0}: it needs a Pump Station for every {BuildingsPerPump} buildings.",
+                network.Buildings.FirstOrDefault(b => _buildings[b].Owner == company.Id)));
+        }
+        foreach (var post in BuildingsOf(company.Id).Where(TradingPostFull))
+        {
+            alerts.Add(($"Your {Content.Building(post.Type).Name} sells all it can: upgrade it to sell more.", post.Id));
+        }
+        if (FullStorages(company.Id).FirstOrDefault() is { } storage)
+        {
+            alerts.Add(("A storage is full: upgrade it or sell what is in it.", storage.Id));
+        }
+        return alerts;
+    }
+
     /// <summary>Whether a trading post sells as much as it can (its throughput is the bottleneck)</summary>
     public bool TradingPostFull(Building building)
     {

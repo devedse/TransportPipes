@@ -79,6 +79,8 @@ export interface CompanyDto {
   tutorial: TutorialDto | null;
   expedition: ExpeditionDto;
   mastery: { level: number; available: boolean; cost: number; minutes: number; bonus: number };
+  /** What holds the company back right now */
+  alerts: Array<{ text: string; building: number | null }>;
   serverTime: string;
 }
 

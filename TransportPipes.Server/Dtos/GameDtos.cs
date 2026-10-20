@@ -75,7 +75,11 @@ public record CompanyDto(
     TutorialDto? Tutorial,
     ExpeditionDto Expedition,
     MasteryDto Mastery,
+    IReadOnlyList<AlertDto> Alerts,
     DateTime ServerTime);
+
+/// <summary>Something that holds the company back, with the building to look at</summary>
+public record AlertDto(string Text, long? Building);
 
 /// <summary>Mastery research after the whole tree: the level reached and the next step</summary>
 public record MasteryDto(int Level, bool Available, double Cost, double Minutes, double Bonus);
