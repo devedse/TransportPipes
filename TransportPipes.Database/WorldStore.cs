@@ -73,6 +73,7 @@ public sealed class WorldStore
                 SellPrices = settings.SellPrices,
                 BuyMaxPrices = settings.BuyMaxPrices,
                 NoTrade = settings.NoTrade,
+                NoBuy = settings.NoBuy,
                 BuiltTypes = settings.BuiltTypes,
                 Researched = settings.Researched,
                 CurrentResearch = settings.CurrentResearch,
@@ -316,6 +317,7 @@ public sealed class WorldStore
                     SellPrices = company.SellPrices,
                     BuyMaxPrices = company.BuyMaxPrices,
                     NoTrade = company.NoTrade,
+                    NoBuy = company.NoBuy,
                     BuiltTypes = company.BuiltTypes,
                     Researched = company.Researched,
                     CurrentResearch = company.CurrentResearch,
@@ -632,6 +634,7 @@ public sealed class WorldStore
         public Dictionary<string, double> SellPrices { get; init; } = new();
         public Dictionary<string, double> BuyMaxPrices { get; init; } = new();
         public HashSet<string> NoTrade { get; init; } = new();
+        public HashSet<string> NoBuy { get; init; } = new();
         public HashSet<string> BuiltTypes { get; init; } = new();
         public HashSet<string> Researched { get; init; } = new();
         public string? CurrentResearch { get; init; }

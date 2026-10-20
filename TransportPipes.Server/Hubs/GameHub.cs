@@ -229,6 +229,9 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> SetNoTrade(string resource, bool noTrade) =>
         Command((world, company) => world.SetNoTrade(company, resource, noTrade));
 
+    public Task<CommandResultDto> SetNoBuy(string resource, bool noBuy) =>
+        Command((world, company) => world.SetNoBuy(company, resource, noBuy));
+
     // ---------------------------------------------------------------- Corporations
 
     public Task<CorporationsDto?> GetCorporations()

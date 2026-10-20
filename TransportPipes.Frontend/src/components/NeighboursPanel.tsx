@@ -6,6 +6,7 @@ import type { ContractDto, NeighbourDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import { setState, useAppStore } from "../state/store";
 import { ResourceIcon } from "./ResourceIcon";
+import { TradeSettings } from "./TradeSettings";
 
 function Stars({ count }: { count: number }) {
   return (
@@ -245,7 +246,13 @@ export function NeighboursPanel() {
   const contracts = useAppStore((s) => s.contracts);
   const content = useAppStore((s) => s.content);
   const company = useAppStore((s) => s.company);
-  const [tab, setTab] = useState<"neighbours" | "contracts" | "board">("neighbours");
+  const tab = useAppStore((s) => s.neighboursTab);
+  const setTab = (neighboursTab: typeof tab) => {
+    setState({ neighboursTab });
+    if (neighboursTab === "trade") {
+      void gameClient.refreshMarket();
+    }
+  };
   const [draft, setDraft] = useState<Draft | null>(null);
   if (!open || content === null || company === null) {
     return null;
@@ -292,6 +299,9 @@ export function NeighboursPanel() {
           </button>
           <button className={tab === "board" ? "tab active" : "tab"} onClick={() => setTab("board")}>
             Contract board ({contracts?.board.length ?? 0})
+          </button>
+          <button className={tab === "trade" ? "tab active" : "tab"} onClick={() => setTab("trade")}>
+            ⚙ Trade settings
           </button>
         </div>
 
@@ -373,6 +383,8 @@ export function NeighboursPanel() {
             ))}
           </div>
         )}
+
+        {tab === "trade" && <TradeSettings />}
 
         {tab === "board" && (
           <div className="contract-list">

@@ -769,7 +769,7 @@ public sealed partial class GameWorld
         SellerPrice = (owner, resource) => Company(owner) is { } company ? SellPrice(company, resource) * ShowroomFactor(company, resource) : HubSellPrice(network.District, resource),
         BuyerMaxPrice = (owner, resource) => Company(owner) is { } company ? BuyMaxPrice(company, resource) : HubSellPrice(network.District, resource),
         TradeAllowed = (seller, buyer, resource) =>
-            Company(seller) is { } s && Company(buyer) is { Gold: > 0 } && !s.NoTrade.Contains(resource),
+            Company(seller) is { } s && Company(buyer) is { Gold: > 0 } b && !s.NoTrade.Contains(resource) && !b.NoBuy.Contains(resource),
         LinkTradeAllowed = (link, seller, buyer, resource) => PathAllowsTrade(link.Path, seller, buyer, resource),
         IgnoreMaxPrice = MembersTradeFreely,
         Contracts = ActiveContracts(network.Buildings.Select(t => _buildings[t].Owner).ToHashSet()),

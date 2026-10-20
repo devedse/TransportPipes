@@ -89,6 +89,7 @@ export interface AppState {
   wonders: WondersDto | null;
   exchange: ExchangeDto | null;
   neighboursOpen: boolean;
+  neighboursTab: "neighbours" | "contracts" | "board" | "trade";
   neighbours: NeighbourDto[];
   contracts: ContractsDto | null;
   /** A pipe route the player is looking at (Connect), drawn on the map until it is built or dropped */
@@ -180,6 +181,7 @@ export const initialState: AppState = {
   wonders: null,
   exchange: null,
   neighboursOpen: false,
+  neighboursTab: "neighbours",
   neighbours: [],
   contracts: null,
   plannedRoute: null,

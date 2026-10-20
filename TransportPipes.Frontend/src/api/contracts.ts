@@ -208,6 +208,8 @@ export interface MarketResourceDto {
   pendingAt: string | null;
   yourMaxPrice: number;
   noTrade: boolean;
+  /** Not bought from other companies */
+  noBuy: boolean;
   bandLow: number;
   bandHigh: number;
   /** Market Insight: where the hub's buy price is heading */
@@ -672,6 +674,8 @@ export interface NetworkResourceDto {
   stored: number;
   fromStorage: number;
   lost: number;
+  /** What its buildings would use at full speed */
+  needed: number;
 }
 
 export interface NetworkDetailsDto {
@@ -687,6 +691,11 @@ export interface NetworkDetailsDto {
     goldPerMinute: number;
     /** What its buildings in the network make, use and sell, per minute */
     resources: Array<{ resource: string; made: number; used: number; sold: number }>;
+    /** Gold per minute: from the hub and from neighbours, paid to neighbours and to the hub */
+    hubSales: number;
+    neighbourSales: number;
+    neighbourPurchases: number;
+    hubPurchases: number;
   }>;
   resources: NetworkResourceDto[];
   bottlenecks: Array<{ a: number; b: number; capacity: number; used: number; path: number[] }>;

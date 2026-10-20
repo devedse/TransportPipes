@@ -82,6 +82,16 @@ function Directory({ data }: { data: CorporationsDto }) {
         with each other, share a treasury, build an HQ in the hub with perks for everyone and chase a goal
         every week.
       </p>
+      <ol className="corp-steps small">
+        <li>
+          Reach Company Level {data.foundLevel}
+          {company.level < data.foundLevel && (
+            <span className="muted"> (you&apos;re Level {company.level})</span>
+          )}
+        </li>
+        <li>Apply to a corporation below, or found your own for {formatAmount(data.foundCost)} gold</li>
+        <li>Set your gates to &quot;Corporation only&quot; (click a gate) to trade with members only</li>
+      </ol>
       {waitMs > 0 && (
         <p className="warning-text">
           You left a corporation recently: you can join again in {formatDuration(waitMs / 1000)}.

@@ -47,6 +47,9 @@ public sealed class Company : Entity
     /// <summary>Resources this company never sells to other companies</summary>
     public HashSet<string> NoTrade { get; init; } = new();
 
+    /// <summary>Resources the company doesn't buy from other companies</summary>
+    public HashSet<string> NoBuy { get; init; } = new();
+
     /// <summary>Building types this company has built at least once (for the first-time XP bonus)</summary>
     public HashSet<string> BuiltTypes { get; init; } = new();
 

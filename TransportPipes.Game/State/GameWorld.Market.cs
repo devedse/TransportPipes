@@ -188,6 +188,27 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
+    /// <summary>Whether a company buys a resource from other companies</summary>
+    public CommandResult SetNoBuy(long companyId, string resource, bool noBuy)
+    {
+        if (Company(companyId) is not { } company || !Content.Resources.ContainsKey(resource))
+        {
+            return CommandResult.Fail("Unknown company or resource.");
+        }
+        if (noBuy)
+        {
+            company.NoBuy.Add(resource);
+        }
+        else
+        {
+            company.NoBuy.Remove(resource);
+        }
+        company.Touch();
+        MarkCompanyNetworksDirty(company.Id);
+        Changes.Companies.Add(company.Id);
+        return CommandResult.Ok;
+    }
+
     public CommandResult SetNoTrade(long companyId, string resource, bool noTrade)
     {
         if (Company(companyId) is not { } company || !Content.Resources.ContainsKey(resource))

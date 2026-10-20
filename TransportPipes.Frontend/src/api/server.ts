@@ -237,6 +237,7 @@ export class GameConnection {
   deliverOrder = (order: number) => this.invoke<CommandResult>("DeliverOrder", order);
   setNoTrade = (resource: string, noTrade: boolean) =>
     this.invoke<CommandResult>("SetNoTrade", resource, noTrade);
+  setNoBuy = (resource: string, noBuy: boolean) => this.invoke<CommandResult>("SetNoBuy", resource, noBuy);
   startResearch = (tech: string) => this.invoke<CommandResult>("StartResearch", tech);
   placeBuilding = (type: string, x: number, y: number) =>
     this.invoke<CommandResult>("PlaceBuilding", type, x, y);

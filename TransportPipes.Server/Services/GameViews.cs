@@ -136,6 +136,7 @@ public static class GameViews
                     pending?.At,
                     world.BuyMaxPrice(company, t.Id),
                     company.NoTrade.Contains(t.Id),
+                    company.NoBuy.Contains(t.Id),
                     low,
                     high,
                     world.HubPriceHeading(company, t.Id));
@@ -840,8 +841,10 @@ public static class GameViews
 
         var resources = new Dictionary<string, double[]>();
         double[] Row(string resource) => resources.TryGetValue(resource, out var row) ? row : resources[resource] = new double[8];
-        // Per company: made, used, sold
+        // Per company: made, used, sold; and its money: hub sales, neighbour sales, neighbour purchases, hub imports
         var perOwner = new Dictionary<(long, string), double[]>();
+        var money = new Dictionary<long, double[]>();
+        double[] Money(long owner) => money.TryGetValue(owner, out var row) ? row : money[owner] = new double[4];
         double[] OwnerRow(long owner, string resource) => perOwner.TryGetValue((owner, resource), out var row) ? row : perOwner[(owner, resource)] = new double[3];
         foreach (var flow in solution.Flows)
         {
@@ -858,6 +861,20 @@ public static class GameViews
             if (from != null && flow.Kind == FlowKind.Sale)
             {
                 OwnerRow(from.Owner, flow.Resource)[2] += flow.Delivered;
+            }
+            var value = flow.Delivered * flow.PricePerUnit;
+            switch (flow.Kind)
+            {
+                case FlowKind.Sale when from != null:
+                    Money(from.Owner)[0] += value;
+                    break;
+                case FlowKind.Trade or FlowKind.Contract when from != null && to != null:
+                    Money(from.Owner)[1] += value;
+                    Money(to.Owner)[2] += value;
+                    break;
+                case FlowKind.Import when to != null:
+                    Money(to.Owner)[3] += value;
+                    break;
             }
             var row = Row(flow.Resource);
             if (Machine(flow.From))
@@ -877,6 +894,34 @@ public static class GameViews
                 case FlowKind.FromStorage: row[6] += flow.Sent; break;
             }
             row[7] += flow.Sent - flow.Delivered;
+        }
+
+        // What the buildings need of each resource: of what holds them back their full need, of the rest what they get.
+        // A factory without ore uses no energy either, but it is short of ore, not of energy: when nobody in the
+        // network makes one of its inputs, only that one counts as short.
+        var received = new Dictionary<(long, string), double>();
+        foreach (var flow in solution.Flows)
+        {
+            received[(flow.To, flow.Resource)] = received.GetValueOrDefault((flow.To, flow.Resource)) + flow.Delivered;
+        }
+        var supply = resources.ToDictionary(t => t.Key, t => t.Value[0] + t.Value[3] + t.Value[6]);
+        var needed = new Dictionary<string, double>();
+        foreach (var id in network.Buildings)
+        {
+            if (world.Building(id) is not { } b || !Machine(id) || world.ToFlowNode(b) is not { } node || node.In.Count == 0)
+            {
+                continue;
+            }
+            var full = node.In.ToDictionary(t => t.Key, t => t.Value * node.MaxRate);
+            var got = node.In.ToDictionary(t => t.Key, t => received.GetValueOrDefault((id, t.Key)));
+            var missing = full.Keys.Where(t => supply.GetValueOrDefault(t) < 1e-6).ToHashSet();
+            var ratios = full.Where(t => t.Value > 1e-9).ToDictionary(t => t.Key, t => got[t.Key] / t.Value);
+            var lowest = ratios.Count == 0 ? 1 : ratios.Values.Min();
+            foreach (var (resource, amount) in full)
+            {
+                var holdsBack = missing.Count > 0 ? missing.Contains(resource) : ratios.GetValueOrDefault(resource, 1) <= lowest + 1e-3;
+                needed[resource] = needed.GetValueOrDefault(resource) + (holdsBack ? amount : got[resource]);
+            }
         }
 
         var used = new Dictionary<FlowLink, double>(ReferenceEqualityComparer.Instance);
@@ -903,7 +948,8 @@ public static class GameViews
                 perOwner.Where(p => p.Key.Item1 == t.Id && p.Value.Any(v => v > 0.005))
                     .OrderBy(p => world.Content.Resources.TryGetValue(p.Key.Item2, out var r) ? r.Tier : 99).ThenBy(p => p.Key.Item2)
                     .Select(p => new OwnerResourceDto(p.Key.Item2, p.Value[0], p.Value[1], p.Value[2]))
-                    .ToList()))
+                    .ToList(),
+                Money(t.Id)[0], Money(t.Id)[1], Money(t.Id)[2], Money(t.Id)[3]))
             .ToList();
         var pumps = network.Buildings.Count(t => world.Building(t) is { } b && world.Content.Building(b.Type).Kind == BuildingKind.Pump);
 
@@ -914,7 +960,12 @@ public static class GameViews
             pumps,
             network.PumpFactor,
             owners,
-            resources.OrderBy(t => t.Key).Select(t => new NetworkResourceDto(t.Key, t.Value[0], t.Value[1], t.Value[2], t.Value[3], t.Value[4], t.Value[5], t.Value[6], t.Value[7])).ToList(),
+            resources
+                .Select(t => (Resource: t.Key, Row: t.Value, Needed: needed.GetValueOrDefault(t.Key)))
+                .Concat(needed.Where(t => !resources.ContainsKey(t.Key)).Select(t => (Resource: t.Key, Row: new double[8], Needed: t.Value)))
+                .OrderBy(t => world.Content.Resources.TryGetValue(t.Resource, out var r) ? r.Tier : 99).ThenBy(t => t.Resource)
+                .Select(t => new NetworkResourceDto(t.Resource, t.Row[0], t.Row[1], t.Row[2], t.Row[3], t.Row[4], t.Row[5], t.Row[6], t.Row[7], t.Needed))
+                .ToList(),
             bottlenecks);
     }
 

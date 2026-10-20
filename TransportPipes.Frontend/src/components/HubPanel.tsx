@@ -27,7 +27,7 @@ function Trend({ row }: { row: MarketResourceDto }) {
   return <span className="trend">=</span>;
 }
 
-function PriceInput({
+export function PriceInput({
   value,
   low,
   high,

@@ -247,7 +247,7 @@ export class GameClient {
   }
 
   async openNeighbours() {
-    setState({ ...MODALS, neighboursOpen: true });
+    setState({ ...MODALS, neighboursOpen: true, neighboursTab: "neighbours" });
     await this.refreshNeighbours();
   }
 
@@ -427,6 +427,18 @@ export class GameClient {
     if (await this.command(this.connection.setBuyMaxPrice(resource, price))) {
       await this.refreshMarket();
     }
+  }
+
+  async setNoBuy(resource: string, noBuy: boolean) {
+    if (await this.command(this.connection.setNoBuy(resource, noBuy))) {
+      await this.refreshMarket();
+    }
+  }
+
+  /** Who you trade with and at what prices: the Neighbours panel's trade settings */
+  async openTradeSettings() {
+    setState({ ...MODALS, neighboursOpen: true, neighboursTab: "trade" });
+    await Promise.all([this.refreshNeighbours(), this.refreshMarket()]);
   }
 
   async setNoTrade(resource: string, noTrade: boolean) {

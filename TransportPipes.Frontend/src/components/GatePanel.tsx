@@ -12,7 +12,7 @@ const POLICIES: Array<{ id: GatePolicy; name: string; text: string }> = [
   {
     id: "corporation",
     name: "Corporation only",
-    text: "Only members of your corporation can trade through it.",
+    text: "Only members of your corporation can trade through it. Corporations: from Company Level 8, found one or join one in the Corp panel.",
   },
   { id: "closed", name: "Closed", text: "Nothing goes through: your estate is cut off on this side." },
 ];
@@ -43,6 +43,9 @@ export function GatePanel() {
           ×
         </button>
       </div>
+      <button className="wide" onClick={() => void gameClient.openTradeSettings()}>
+        ⚙ Trade settings: what you sell and buy, and at what prices
+      </button>
       <div className="policies">
         {POLICIES.map((policy) => (
           <button

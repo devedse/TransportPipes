@@ -142,6 +142,7 @@ public record MarketResourceDto(
     DateTime? PendingAt,
     double YourMaxPrice,
     bool NoTrade,
+    bool NoBuy,
     double BandLow,
     double BandHigh,
     double? Heading);
@@ -261,12 +262,18 @@ public record TeleporterCandidateDto(long Id, int X, int Y, double Distance, str
 
 public record ToastDto(string Kind, string Text, long? Building);
 
-public record NetworkResourceDto(string Resource, double Produced, double Used, double Sold, double Imported, double Traded, double Stored, double FromStorage, double Lost);
+/// <summary>A resource in a network per minute; Needed: what its buildings would use at full speed</summary>
+public record NetworkResourceDto(string Resource, double Produced, double Used, double Sold, double Imported, double Traded, double Stored, double FromStorage, double Lost, double Needed);
 
 /// <summary>What one company's buildings in a network make, use and sell of a resource, per minute</summary>
 public record OwnerResourceDto(string Resource, double Made, double Used, double Sold);
 
-public record NetworkOwnerDto(long Id, string Name, string Color, double GoldPerMinute, IReadOnlyList<OwnerResourceDto> Resources);
+/// <summary>
+/// A company in a network: its gold per minute and where it comes from (sales to the hub and to neighbours) and goes
+/// (bought from neighbours, imported from the hub)
+/// </summary>
+public record NetworkOwnerDto(long Id, string Name, string Color, double GoldPerMinute, IReadOnlyList<OwnerResourceDto> Resources,
+    double HubSales, double NeighbourSales, double NeighbourPurchases, double HubPurchases);
 
 public record BottleneckDto(long A, long B, double Capacity, double Used, IReadOnlyList<int> Path);
 
