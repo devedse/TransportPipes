@@ -37,3 +37,7 @@ cementKiln:
   - { kind: smoke, x: 874, y: 403, size: 1.1 }
 refinery:
   - { kind: glow, x: 273, y: 205, size: 1, color: "#ff9a3a" }
+lamp:
+  - { kind: glow, x: 512, y: 385, size: 1.2, color: "#ffd77a" }
+engineerWorkshop:
+  - { kind: smoke, x: 366, y: 62, size: 0.8 }

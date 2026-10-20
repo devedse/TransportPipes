@@ -1,6 +1,7 @@
 import { gameClient } from "../app/client";
 import { formatAmount, formatTimeAgo, plural } from "../app/format";
 import { useAppStore } from "../state/store";
+import { ResourceIcon } from "./ResourceIcon";
 
 /** What happened while the player was away */
 export function ReportDialog() {
@@ -37,8 +38,8 @@ export function ReportDialog() {
           )}
           {sold.slice(0, 5).map(([resource, amount]) => (
             <li key={resource}>
-              <span className="flow-dot" style={{ background: content.resourceColor(resource) }} />{" "}
-              {formatAmount(amount)} {content.resourceName(resource).toLowerCase()} sold
+              <ResourceIcon resource={resource} /> {formatAmount(amount)}{" "}
+              {content.resourceName(resource).toLowerCase()} sold
             </li>
           ))}
           {report.researchDone.map((tech) => (

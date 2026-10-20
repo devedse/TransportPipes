@@ -6,6 +6,7 @@ import type { GameEventDto, MarketResourceDto } from "../api/contracts";
 import { setState, useAppStore, type HubTab } from "../state/store";
 import { WondersTab } from "./WondersTab";
 import { EVENT_ICONS, eventTime } from "../app/events";
+import { ResourceIcon } from "./ResourceIcon";
 
 function Trend({ row }: { row: MarketResourceDto }) {
   const ratio = row.buyPrice / row.basePrice;
@@ -421,8 +422,7 @@ function ExchangeTab({ serverNow }: { serverNow: number }) {
           {exchange.books.map((book) => (
             <tr key={book.resource}>
               <td>
-                <span className="flow-dot" style={{ background: content.resourceColor(book.resource) }} />{" "}
-                {content.resourceName(book.resource)}
+                <ResourceIcon resource={book.resource} /> {content.resourceName(book.resource)}
               </td>
               <td>
                 {book.bidAmount > 0 ? `${formatAmount(book.bidAmount)} @ ${book.bestBid.toFixed(2)}` : "—"}

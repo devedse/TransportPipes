@@ -2,6 +2,7 @@ import { gameClient } from "../app/client";
 import { formatAmount, formatDuration } from "../app/format";
 import type { WonderDto, WonderTier } from "../api/contracts";
 import { useAppStore } from "../state/store";
+import { ResourceIcon } from "./ResourceIcon";
 
 const TIERS: Array<{ tier: WonderTier; share: number; name: string }> = [
   { tier: "bronze", share: 0, name: "Bronze" },
@@ -41,7 +42,7 @@ function WonderCard({ wonder, era }: { wonder: WonderDto; era: number }) {
         <div className="wonder-needs">
           {wonder.needs.map((need) => (
             <div key={need.resource} className="wonder-need">
-              <span className="flow-dot" style={{ background: content.resourceColor(need.resource) }} />
+              <ResourceIcon resource={need.resource} />
               <span className="need-name">{content.resourceName(need.resource)}</span>
               <div className="meter-bar">
                 <div

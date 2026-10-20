@@ -2,6 +2,7 @@ import { gameClient } from "../app/client";
 import { formatAmount, formatDuration } from "../app/format";
 import { useNow } from "../app/useNow";
 import { useAppStore } from "../state/store";
+import { ResourceIcon } from "./ResourceIcon";
 
 /** The wilderness (GDD §4.6): an outpost, or claiming one on a rich deposit */
 export function WildernessPanel() {
@@ -28,8 +29,8 @@ export function WildernessPanel() {
       </div>
       {info !== null && info !== undefined && info.deposit !== null && info.richness > 0 && (
         <p className="small">
-          <span className="flow-dot" style={{ background: content.resourceColor(info.deposit) }} />{" "}
-          {content.resourceName(info.deposit)} deposit {"★".repeat(info.richness)}
+          <ResourceIcon resource={info.deposit} /> {content.resourceName(info.deposit)} deposit{" "}
+          {"★".repeat(info.richness)}
         </p>
       )}
       {outpost !== undefined ? (

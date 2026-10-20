@@ -10,6 +10,7 @@ import type {
   DistrictChoiceDto,
 } from "../api/contracts";
 import { setState, useAppStore } from "../state/store";
+import { ResourceIcon } from "./ResourceIcon";
 
 const COLORS = ["#2e86de", "#aa3355", "#2ec4a6", "#f6c744", "#8e44ad", "#e67e22", "#16a085", "#c0392b"];
 
@@ -232,7 +233,7 @@ function Overview({ corporation }: { corporation: CorporationDto }) {
         <div className="corp-goal">
           <div className="panel-title">Weekly goal</div>
           <div className="goal-line">
-            <span className="flow-dot" style={{ background: content.resourceColor(goal.resource) }} />
+            <ResourceIcon resource={goal.resource} />
             <strong>
               Deliver {formatAmount(goal.amount)} {content.resourceName(goal.resource).toLowerCase()}
             </strong>

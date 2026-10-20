@@ -1,6 +1,7 @@
 import { gameClient } from "../app/client";
 import { formatAmount, formatRate } from "../app/format";
 import { useAppStore } from "../state/store";
+import { ResourceIcon } from "./ResourceIcon";
 
 /** What happens in one network: who is in it, what is made, used, sold and lost, and which pipes are full */
 export function NetworkPanel() {
@@ -61,8 +62,7 @@ export function NetworkPanel() {
               {details.resources.map((r) => (
                 <tr key={r.resource}>
                   <td>
-                    <span className="flow-dot" style={{ background: content.resourceColor(r.resource) }} />{" "}
-                    {content.resourceName(r.resource)}
+                    <ResourceIcon resource={r.resource} /> {content.resourceName(r.resource)}
                   </td>
                   <td>{formatAmount(r.produced + r.imported + r.fromStorage)}</td>
                   <td>{formatAmount(r.used)}</td>

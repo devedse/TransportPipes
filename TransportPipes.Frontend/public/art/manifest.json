@@ -670,6 +670,91 @@
    "ax": 144,
    "ay": 271,
    "attachments": []
+  },
+  "blueprintOffice": {
+   "w": 288,
+   "h": 254,
+   "ax": 144,
+   "ay": 254,
+   "attachments": []
+  },
+  "engineerWorkshop": {
+   "w": 288,
+   "h": 245,
+   "ax": 144,
+   "ay": 244,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 102,
+     "y": -8,
+     "size": 0.8
+    }
+   ]
+  },
+  "expeditionOffice": {
+   "w": 288,
+   "h": 261,
+   "ax": 144,
+   "ay": 261,
+   "attachments": []
+  },
+  "flowerBed": {
+   "w": 327,
+   "h": 189,
+   "ax": 164,
+   "ay": 188,
+   "attachments": []
+  },
+  "lamp": {
+   "w": 288,
+   "h": 368,
+   "ax": 144,
+   "ay": 367,
+   "attachments": [
+    {
+     "kind": "glow",
+     "x": 144,
+     "y": 135,
+     "size": 1.2,
+     "color": "#ffd77a"
+    }
+   ]
+  },
+  "recycler": {
+   "w": 288,
+   "h": 251,
+   "ax": 144,
+   "ay": 250,
+   "attachments": []
+  },
+  "researchInstitute": {
+   "w": 577,
+   "h": 554,
+   "ax": 288,
+   "ay": 553,
+   "attachments": []
+  },
+  "terraformer": {
+   "w": 577,
+   "h": 456,
+   "ax": 288,
+   "ay": 455,
+   "attachments": []
+  },
+  "tree": {
+   "w": 288,
+   "h": 334,
+   "ax": 144,
+   "ay": 334,
+   "attachments": []
+  },
+  "weatherStation": {
+   "w": 288,
+   "h": 310,
+   "ax": 144,
+   "ay": 310,
+   "attachments": []
   }
  },
  "rotors": {

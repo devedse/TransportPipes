@@ -6,6 +6,7 @@ import type { BuildingDetailsDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import type { TerraformAction } from "../game/Engine";
 import { currentGold, useAppStore } from "../state/store";
+import { ResourceIcon } from "./ResourceIcon";
 
 const KIND_LABELS: Record<string, string> = {
   internal: "own",
@@ -30,7 +31,7 @@ function Flows({ details, content }: { details: BuildingDetailsDto; content: Con
       <ul className="flow-list">
         {details.flows.map((flow, i) => (
           <li key={i}>
-            <span className="flow-dot" style={{ background: content.resourceColor(flow.resource) }} />
+            <ResourceIcon resource={flow.resource} />
             <span>
               {flow.direction === "in" ? "from" : "to"} {partnerName(content, flow.partnerType)}
               {flow.kind === "trade" && <span className="muted"> ({flow.partnerOwner})</span>}

@@ -3,12 +3,13 @@ import { formatAmount, formatDuration } from "../app/format";
 import type { BuildingDefinition } from "../api/contracts";
 import { CATEGORY_NAMES, CATEGORY_ORDER, type Content } from "../game/content";
 import { currentGold, setState, useAppStore } from "../state/store";
+import { ResourceIcon } from "./ResourceIcon";
 
 function Recipe({ definition, content }: { definition: BuildingDefinition; content: Content }) {
   const part = (amounts: Record<string, number>) =>
     Object.entries(amounts).map(([resource, amount]) => (
       <span key={resource} className="amount">
-        <span className="flow-dot" style={{ background: content.resourceColor(resource) }} />
+        <ResourceIcon resource={resource} />
         {formatAmount(amount)} {content.resourceName(resource)}
       </span>
     ));
