@@ -109,11 +109,25 @@ public class BalanceSimulation
     [TestMethod]
     public void TheFirstSession()
     {
+        var minutes = int.TryParse(Environment.GetEnvironmentVariable("TP_SESSION_MINUTES"), out var m) ? m : 45;
+        AtAHumanPace($"The first {minutes} minutes at a human pace", "first-session.md", [(0, minutes)]);
+    }
+
+    /// <summary>
+    /// The first day at a human pace (GDD §10.2–10.3): the first session of 20 minutes, a short one after three hours,
+    /// one in the evening, one before bed, and the next morning
+    /// </summary>
+    [TestMethod]
+    public void TheFirstDay() =>
+        AtAHumanPace("The first day at a human pace (sessions at 0:00, 3:00, 10:00, 14:30 and the next morning at 24:00)", "first-day.md",
+            [(0, 20), (180, 5), (600, 20), (870, 2), (1440, 10)]);
+
+    private void AtAHumanPace(string title, string fileName, (double Start, double Minutes)[] sessions)
+    {
         if (Environment.GetEnvironmentVariable("TP_BALANCE") != "1")
         {
             Assert.Inconclusive("Set TP_BALANCE=1 to run the balance simulation.");
         }
-        var minutes = int.TryParse(Environment.GetEnvironmentVariable("TP_SESSION_MINUTES"), out var m) ? m : 45;
         var game = new TestGame(seed: 4242, achievements: true, tutorial: true);
         game.World.TenantsEnabled = true;
         var company = game.NewCompany("Bot", gold: game.World.StartingGold);
@@ -121,7 +135,7 @@ public class BalanceSimulation
         game.World.EnsureOrders(company);
         var bot = new Bot(game, company);
         var report = new StringBuilder();
-        report.AppendLine($"## The first {minutes} minutes at a human pace");
+        report.AppendLine($"## {title}");
         report.AppendLine();
         report.AppendLine("| Time | Level | Gold | Gold/min | Loady | What happened |");
         report.AppendLine("| --- | --- | --- | --- | --- | --- |");
@@ -129,72 +143,99 @@ public class BalanceSimulation
         string Clock(double t)
         {
             var seconds = (int)Math.Round(t * 60);
-            return $"{seconds / 60}:{seconds % 60:00}";
+            return seconds >= 3600 ? $"{seconds / 3600}:{seconds / 60 % 60:00}:{seconds % 60:00}" : $"{seconds / 60}:{seconds % 60:00}";
         }
         // Income as of the last tick (an action re-solves the networks only on the next one)
         var income = 0.0;
         void Line(double t, string what) =>
             report.AppendLine($"| {Clock(t)} | {company.Level} | {company.Gold:N0} | {income:N1} | {Math.Min(company.TutorialStep + 1, steps)}/{steps} | {what} |");
-        // Reading Loady's welcome first; then each action takes its time (choosing, placing, dragging a pipe)
-        var busyUntil = 0.5;
-        double? waitingSince = null;
-        string? waitingFor = null;
         var lastStep = company.TutorialStep;
         var lastLevel = company.Level;
-        const double tick = 1.0 / 6;
-        for (var t = 0.0; t < minutes; t += tick)
+        void Changes(double t)
         {
-            company.LastSeenAt = game.Time;
-            if (t >= busyUntil)
-            {
-                var step = game.World.CurrentTutorialStep(company);
-                // Loady first; when that can't be done yet, what a player would do meanwhile (build, upgrade)
-                var (what, seconds) = step != null ? bot.FollowLoady(step) : (null, 0);
-                if (what == null && bot.Act())
-                {
-                    (what, seconds) = (bot.TakeNotes().TrimStart(' ', '·') is { Length: > 0 } note ? note : "built or upgraded something", 20);
-                }
-                if (what != null)
-                {
-                    if (waitingSince is { } since && t - since >= 1)
-                    {
-                        Line(t, $"(waited {Clock(t - since)}{(waitingFor != null ? $" on \"{waitingFor}\"" : "")})");
-                    }
-                    waitingSince = null;
-                    Line(t, what);
-                    busyUntil = t + seconds / 60.0;
-                }
-                else if (waitingSince == null)
-                {
-                    waitingSince = t;
-                    waitingFor = step?.Id;
-                }
-            }
-            game.Pass(tick);
             income = game.World.GoldPerMinute().GetValueOrDefault(company.Id);
             if (company.TutorialStep != lastStep)
             {
-                Line(t + tick, $"**Loady: {string.Join(", ", game.World.Content.Tutorial.Skip(lastStep).Take(company.TutorialStep - lastStep).Select(x => x.Id))} done**");
+                Line(t, $"**Loady: {string.Join(", ", game.World.Content.Tutorial.Skip(lastStep).Take(company.TutorialStep - lastStep).Select(x => x.Id))} done**");
                 lastStep = company.TutorialStep;
             }
             if (company.Level != lastLevel)
             {
-                Line(t + tick, $"**Level {company.Level}**");
+                Line(t, $"**Level {company.Level}**");
                 lastLevel = company.Level;
             }
         }
+        const double tick = 1.0 / 6;
+        var now = 0.0;
+        for (var index = 0; index < sessions.Length; index++)
+        {
+            var (start, length) = sessions[index];
+            if (start > now)
+            {
+                // Away: the company runs on its own
+                var gold = company.Gold;
+                while (now < start)
+                {
+                    var step = Math.Min(5, start - now);
+                    game.Pass(step);
+                    now += step;
+                    Changes(now);
+                }
+                Line(now, $"(away for {Clock(start - sessions[index - 1].Start - sessions[index - 1].Minutes)}: +{company.Gold - gold:N0} gold)");
+            }
+            if (sessions.Length > 1)
+            {
+                Line(now, $"**Session {index + 1}, {length} minutes**{(game.World.CurrentTutorialStep(company) is { } current ? $" · Loady: {current.Id}{(game.World.TutorialWaitLevel(company, current) is { } wait ? $" (waits for Level {wait})" : "")}" : "")}");
+            }
+            // Reading Loady's welcome (or the report) first; then each action takes its time (choosing, placing, dragging a pipe)
+            var busyUntil = now + 0.5;
+            double? waitingSince = null;
+            string? waitingFor = null;
+            for (; now < start + length - 1e-9; now += tick)
+            {
+                company.LastSeenAt = game.Time;
+                if (now >= busyUntil)
+                {
+                    var step = game.World.CurrentTutorialStep(company);
+                    // Loady first; when that can't be done yet, what a player would do meanwhile (build, upgrade)
+                    var (what, seconds) = step != null ? bot.FollowLoady(step) : (null, 0);
+                    if (what == null && bot.Act())
+                    {
+                        (what, seconds) = (bot.TakeNotes().TrimStart(' ', '·') is { Length: > 0 } note ? note : "built or upgraded something", 20);
+                    }
+                    if (what != null)
+                    {
+                        if (waitingSince is { } since && now - since >= 1)
+                        {
+                            Line(now, $"(waited {Clock(now - since)}{(waitingFor != null ? $" on \"{waitingFor}\"" : "")})");
+                        }
+                        waitingSince = null;
+                        Line(now, what);
+                        busyUntil = now + seconds / 60.0;
+                    }
+                    else if (waitingSince == null)
+                    {
+                        waitingSince = now;
+                        waitingFor = step?.Id;
+                    }
+                }
+                game.Pass(tick);
+                Changes(now + tick);
+            }
+            if (waitingSince is { } open)
+            {
+                Line(now, $"(waiting since {Clock(open)}{(waitingFor != null ? $" on \"{waitingFor}\"" : "")})");
+            }
+        }
         var storages = game.World.BuildingsOf(company.Id).Where(t => t.Type == "storage").ToList();
+        report.AppendLine();
+        report.AppendLine($"Buildings: {string.Join(", ", game.World.BuildingsOf(company.Id).GroupBy(t => t.Type).Select(t => $"{t.Key} ×{t.Count()}"))}.");
         if (storages.Count > 0)
         {
-            report.AppendLine();
             report.AppendLine($"Storages: {string.Join("; ", storages.Select(t => string.Join(", ", t.Contents.Select(c => $"{c.Value:N0} {c.Key}"))))}. Orders: {string.Join("; ", company.DailyOrders.Select(t => $"{t.Delivered:N0}/{t.Amount:N0} {t.Resource}"))}");
         }
-        if (waitingSince is { } open)
-        {
-            Line(minutes, $"(waiting since {Clock(open)}{(waitingFor != null ? $" on \"{waitingFor}\"" : "")})");
-        }
         TestContext.WriteLine(report.ToString());
-        var file = Path.Combine(AppContext.BaseDirectory, "first-session.md");
+        var file = Path.Combine(AppContext.BaseDirectory, fileName);
         File.WriteAllText(file, report.ToString());
         TestContext.WriteLine(file);
     }

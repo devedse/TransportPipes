@@ -114,6 +114,6 @@
 | 43:30 | 3 | 1,197 | 397.5 | 10/11 | upgraded a solarPanel to level 17 |
 | 44:00 | 3 | 1,154 | 402.3 | 10/11 | upgraded a solarPanel to level 17 |
 | 44:30 | 3 | 1,094 | 407.3 | 10/11 | upgraded a windMoily to level 4 |
-| 45:00 | 3 | 1,020 | 413.0 | 10/11 | upgraded a solarPanel to level 18 |
 
+Buildings: hq ×1, tradingPost ×1, solarPanel ×4, windMoily ×2, ironMine ×1, smallFactory ×1, storage ×1.
 Storages: 297 energy. Orders: 120/120 energy; 3/150 energy; 0/150 energy

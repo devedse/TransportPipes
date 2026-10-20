@@ -157,7 +157,9 @@ the primary goals: the buildings, the map and the UI. The design may change wher
     and a daily order in the first; the Lab, then the parcel) and say when they wait for a level
   - daily orders and corporation goals asked for what an era unlocks but a new company can't feed (gears, oil, rare
     earth): they ask for what the company makes and the next step of its chains
-- ⬜ Play day 1 and week 1 at a human pace the same way
+- ✅ Day 1 at a human pace (`TheFirstDay`, `docs/balance/first-day.md`; sessions at 0:00, 3:00, 10:00, 14:30 and the
+  next morning): Level 4 comes in the first break and the Lab in session 2, the first research and Level 5 in the
+  evening, a parcel before bed, as GDD §10.3 plans; week 1 follows the bot days (`TheFirstTwoWeeks`)
 - ✅ Performance: building pictures load when they are first needed (the map waits only for its own art), hashed
   art is cached by browsers for good, the frontend is compressed; a new player on fast 4G waits 1.3 s from founding
   to the map (was 8.3 s), a returning one 0.7 s (was 3.3 s); `e2e/load.mjs` measures it
