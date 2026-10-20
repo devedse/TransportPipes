@@ -388,4 +388,26 @@ public class GameWorldFacts
 
         Assert.AreSame(networkA, game.World.NetworkOf(moilyA.Id));
     }
+
+    [TestMethod]
+    public void ExtendingANetworkWithAPipeReplacesItInsteadOfCopyingIt()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany();
+        var origin = game.Local(company, 2, 2);
+        game.Map(company, origin, "W+T");
+        game.Pass(1);
+        var income = game.World.GoldPerMinute()[company.Id];
+
+        // Three more pipe tiles, one by one, off the side of the network
+        for (var i = 1; i <= 3; i++)
+        {
+            Assert.IsTrue(game.World.PlacePipes(company.Id, [origin.Offset(1, i)]).Success);
+            game.Pass(1);
+        }
+
+        Assert.AreEqual(1, game.World.Networks.Count(t => t.Buildings.Count > 0), "one network, not a stale copy per extension");
+        Assert.AreEqual(income, game.World.GoldPerMinute()[company.Id], 1e-9, "the income is counted once");
+    }
 }
+

@@ -771,9 +771,18 @@ public static class GameViews
         {
             issues.Add("Storm damage: it works at half speed until it is repaired.");
         }
+        if (node is { Kind: FlowNodeKind.TradingPost } && network != null && world.TradingPostFull(building))
+        {
+            issues.Add($"Sells all it can ({node.Throughput:N0} a minute): upgrade it, or build a Market Hall, to sell more.");
+        }
         if (node == null || node.Kind != FlowNodeKind.Building || building.UnderConstruction)
         {
             return issues;
+        }
+        if (network != null && node.Out.Count > 0 && network.Solution.Rate(building.Id) < 0.99
+            && network.Buildings.Select(world.Building).Any(t => t != null && t.Owner == building.Owner && world.TradingPostFull(t)))
+        {
+            issues.Add("Slowed down: your trading post sells all it can. Upgrade it to sell more.");
         }
         if (network == null)
         {

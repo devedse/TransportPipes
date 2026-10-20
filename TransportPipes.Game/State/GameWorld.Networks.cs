@@ -264,6 +264,11 @@ public sealed partial class GameWorld
                 Flood(null, buildingId);
             }
         }
+        // Parts of absorbed networks that the floods didn't reach
+        if (_dirtyTiles.Count > 0 || _dirtyBuildings.Count > 0)
+        {
+            UpdateNetworks();
+        }
     }
 
     /// <summary>Creates the network that contains this tile or building</summary>
@@ -272,11 +277,17 @@ public sealed partial class GameWorld
         var network = new Network { Id = _nextNetworkId++ };
         var tiles = new Queue<TilePos>();
         var buildings = new Queue<long>();
+        // Networks the flood runs into (a new pipe tile next to an existing network): this one takes their place
+        var absorbed = new HashSet<int>();
 
         void VisitTile(TilePos tile)
         {
             if (network.Conductors.Add(tile))
             {
+                if (_networkOfTile.TryGetValue(tile, out var old) && old != network.Id)
+                {
+                    absorbed.Add(old);
+                }
                 _networkOfTile[tile] = network.Id;
                 tiles.Enqueue(tile);
             }
@@ -286,6 +297,10 @@ public sealed partial class GameWorld
         {
             if (network.Buildings.Add(id))
             {
+                if (_networkOfBuilding.TryGetValue(id, out var old) && old != network.Id)
+                {
+                    absorbed.Add(old);
+                }
                 _networkOfBuilding[id] = network.Id;
                 var building = _buildings[id];
                 if (IsConductorBuilding(building))
@@ -350,6 +365,26 @@ public sealed partial class GameWorld
                         VisitTile(border);
                     }
                 }
+            }
+        }
+
+        foreach (var id in absorbed)
+        {
+            if (!_networks.Remove(id, out var stale))
+            {
+                continue;
+            }
+            Changes.Networks.Add(id);
+            // Whatever of it the flood didn't reach is no longer connected to it: rebuilt on its own
+            foreach (var tile in stale.Conductors.Where(t => !network.Conductors.Contains(t) && _networkOfTile.GetValueOrDefault(t, -1) == id))
+            {
+                _networkOfTile.Remove(tile);
+                _dirtyTiles.Add(tile);
+            }
+            foreach (var building in stale.Buildings.Where(t => !network.Buildings.Contains(t) && _networkOfBuilding.GetValueOrDefault(t, -1) == id))
+            {
+                _networkOfBuilding.Remove(building);
+                _dirtyBuildings.Add(building);
             }
         }
 
@@ -586,6 +621,18 @@ public sealed partial class GameWorld
 
     public double TradingPostThroughput(Building building, BuildingDefinition definition) =>
         definition.Throughput * Content.Progression.OutputMultiplier(building.Level);
+
+    /// <summary>Whether a trading post sells as much as it can (its throughput is the bottleneck)</summary>
+    public bool TradingPostFull(Building building)
+    {
+        var definition = Content.Building(building.Type);
+        if (definition.Kind != BuildingKind.TradingPost || NetworkOf(building.Id) is not { } network)
+        {
+            return false;
+        }
+        var sold = network.Solution.Flows.Where(t => t.To == building.Id && t.Kind == FlowKind.Sale).Sum(t => t.Sent);
+        return sold >= TradingPostThroughput(building, definition) * 0.98;
+    }
 
     /// <summary>The building as the flow solver sees it, or null when it takes no part in flows</summary>
     public FlowNode? ToFlowNode(Building building)
