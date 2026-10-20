@@ -506,6 +506,48 @@
    "ax": 432,
    "ay": 848,
    "attachments": []
+  },
+  "hub-contractBoard": {
+   "w": 577,
+   "h": 568,
+   "ax": 288,
+   "ay": 567,
+   "attachments": []
+  },
+  "hub-exchange": {
+   "w": 865,
+   "h": 866,
+   "ax": 432,
+   "ay": 865,
+   "attachments": []
+  },
+  "hub-marketHall": {
+   "w": 865,
+   "h": 768,
+   "ax": 432,
+   "ay": 767,
+   "attachments": []
+  },
+  "hub-park": {
+   "w": 865,
+   "h": 592,
+   "ax": 432,
+   "ay": 591,
+   "attachments": []
+  },
+  "hub-townHall": {
+   "w": 865,
+   "h": 861,
+   "ax": 432,
+   "ay": 860,
+   "attachments": []
+  },
+  "hub-tradingHouse": {
+   "w": 577,
+   "h": 592,
+   "ax": 288,
+   "ay": 591,
+   "attachments": []
   }
  },
  "rotors": {
