@@ -265,7 +265,11 @@ public sealed partial class GameWorld
                     if (flow.Kind == FlowKind.Sale && Company(from.Owner) is { } seller)
                     {
                         Add(seller.Report.Sold, flow.Resource, flow.Delivered * minutes);
-                        Market(network.District).AddSold(flow.Resource, flow.Delivered * minutes);
+                        // The hub's prices follow what players sell (tenants are the background of a district)
+                        if (!seller.IsNpc)
+                        {
+                            Market(network.District).AddSold(flow.Resource, flow.Delivered * minutes);
+                        }
                         // Trading with your hub builds reputation: a point per 2,000 gold
                         var level = ReputationLevel(seller);
                         seller.HubReputation += income / 2000;

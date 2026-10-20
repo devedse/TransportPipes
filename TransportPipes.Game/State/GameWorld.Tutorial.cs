@@ -33,6 +33,38 @@ public sealed partial class GameWorld
         return level > company.Level ? level : null;
     }
 
+    /// <summary>
+    /// Why a step doesn't get done although the player did what Loady said, or null. For the neighbour step: a pipe
+    /// to a neighbour is not yet a trade (it needs something spare that they need).
+    /// </summary>
+    public string? TutorialTip(Company company, TutorialStep step)
+    {
+        if (step.Stat != "partners" || TutorialProgress(company, step) >= step.Amount)
+        {
+            return null;
+        }
+        var neighbourhood = NeighbourhoodOf(company);
+        var others = neighbourhood.Connected.Where(t => t != company.Id).Select(Company).OfType<Company>().ToList();
+        if (others.Count == 0)
+        {
+            return null;
+        }
+        var spare = neighbourhood.Surplus.TryGetValue(company.Id, out var surplus)
+            ? surplus.Where(t => t.Value > 0.01).Select(t => t.Key).ToHashSet()
+            : [];
+        if (spare.Count == 0)
+        {
+            return "You're connected, but your own buildings use everything you make. Build another Wind Moily: its spare energy sells to your neighbours.";
+        }
+        if (others.Any(t => neighbourhood.CanSupply(t.Id, spare)))
+        {
+            // The trade starts with the next tick
+            return null;
+        }
+        var names = string.Join(", ", spare.Select(t => Content.Resources[t].Name.ToLowerInvariant()));
+        return $"You're connected to {others[0].Name}{(others.Count > 1 ? $" and {others.Count - 1} more" : "")}, but they don't need what you have spare ({names}). Connect to a neighbour that needs it: the Neighbours panel shows what each needs.";
+    }
+
     /// <summary>Loady's guide (off in most tests: its gold would change the expected numbers)</summary>
     public bool TutorialEnabled { get; set; } = true;
 

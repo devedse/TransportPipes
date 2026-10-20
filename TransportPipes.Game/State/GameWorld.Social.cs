@@ -168,11 +168,17 @@ public sealed partial class GameWorld
                 connected.UnionWith(owners);
             }
             var received = new Dictionary<(long, string), double>();
+            // Bought from the hub (a tenant's works): they would rather buy it from a neighbour
+            var imported = new Dictionary<(long, string), double>();
             foreach (var flow in network.Solution.Flows)
             {
                 var from = Building(flow.From)!.Owner;
                 var to = Building(flow.To)!.Owner;
                 received[(flow.To, flow.Resource)] = (received.TryGetValue((flow.To, flow.Resource), out var r) ? r : 0) + flow.Delivered;
+                if (flow.Kind == FlowKind.Import)
+                {
+                    imported[(flow.To, flow.Resource)] = (imported.TryGetValue((flow.To, flow.Resource), out var i) ? i : 0) + flow.Delivered;
+                }
                 if (flow.Kind == FlowKind.Sale)
                 {
                     // Sold to the hub: they could sell it to you instead
@@ -233,17 +239,35 @@ public sealed partial class GameWorld
                 {
                     continue;
                 }
+                // What it misses together (nothing runs before all of it comes), and what it imports: each of those
+                // sells to it on its own (the hub brings the rest)
                 var shortfall = new Dictionary<string, double>();
+                var fromHub = new List<string>();
                 foreach (var (resource, amount) in node.In)
                 {
-                    var missing = amount * node.MaxRate - (received.TryGetValue((id, resource), out var got) ? got : 0);
+                    var hub = imported.TryGetValue((id, resource), out var bought) ? bought : 0;
+                    var missing = amount * node.MaxRate - (received.TryGetValue((id, resource), out var got) ? got : 0) + hub;
                     if (missing > 0.01)
                     {
                         Add(needs, building.Owner, resource, missing);
-                        shortfall[resource] = missing;
+                        if (hub > 0.01)
+                        {
+                            fromHub.Add(resource);
+                        }
+                        else
+                        {
+                            shortfall[resource] = missing;
+                        }
                     }
                 }
                 AddShortfall(building.Owner, shortfall);
+                if (shortfall.Count == 0)
+                {
+                    foreach (var resource in fromHub)
+                    {
+                        AddShortfall(building.Owner, new Dictionary<string, double> { [resource] = 1 });
+                    }
+                }
             }
         }
         // Buildings without any pipe need everything

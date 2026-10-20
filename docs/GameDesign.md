@@ -203,6 +203,12 @@ sell at fair prices through their open gates. They make sure:
 - the trade tutorial always has a partner;
 - small players have customers for their surplus.
 
+A tenant's works (an Ironworks, a Brickworks) import from the hub whatever no neighbour brings, so they always run: any
+one of their inputs sells to them on its own, and neighbours come first (they are cheaper than the hub). Without that, a
+works short of ore would buy no one's energy either, and a new player whose own factory uses all of its ore would have
+nothing to sell. What tenants sell to the hub doesn't move its prices (those follow the players). When a player is
+connected to a neighbour but no trade comes, Loady says why (nothing spare, or they don't need it).
+
 When a player is assigned to a tenant's estate, the tenant "moves out" (its buildings become free ruins the new owner
 can salvage).
 

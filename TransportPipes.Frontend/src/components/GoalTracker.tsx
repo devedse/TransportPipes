@@ -47,6 +47,7 @@ export function GoalTracker() {
           />
           <div className="loady-bubble">
             <p>{step.text}</p>
+            {step.tip != null && <p className="loady-wait small">{step.tip}</p>}
             {step.waitLevel != null && (
               <p className="loady-wait small">
                 <strong>At Company Level {step.waitLevel}.</strong> Your company keeps earning while you're

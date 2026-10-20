@@ -80,6 +80,64 @@ public class TenantFacts
         Assert.IsNotNull(gate);
     }
 
+    /// <summary>Pipes the player's building to a tenant's gate (the first side the corridors reach)</summary>
+    private static void ConnectToTenant(TestGame game, Company player, Building building, Company tenant)
+    {
+        foreach (var side in Enum.GetValues<GateSide>())
+        {
+            try
+            {
+                game.Connect(player, building.Border(), [WorldLayout.OutsideGate(tenant.District, tenant.Slot, side)]);
+                return;
+            }
+            catch (AssertFailedException)
+            {
+                // That side is out of reach: the next one
+            }
+        }
+        Assert.Fail($"No route to {tenant.Name}");
+    }
+
+    [TestMethod]
+    public void AWorksTenantBuysANeighboursSpareEnergyEvenWhenNobodyBringsItOre()
+    {
+        // A new player has energy to spare and no ore (its own factory takes it): the works still buy the energy,
+        // and the hub brings them the rest
+        var game = WithTenants();
+        var player = game.NewCompany(level: 2);
+        var works = game.World.Companies.First(t => t.IsNpc && game.World.BuildingsOf(t.Id).Any(b => b.Type == "smallFactory"));
+        var moily = game.Build(player, "windMoily");
+        game.Connect(player, moily, game.TradingPost(player));
+        ConnectToTenant(game, player, moily, works);
+        game.World.SolveNetworks();
+
+        var flows = game.World.NetworkOf(moily.Id)!.Solution.Flows;
+        Assert.IsTrue(flows.Any(t => t.Kind == FlowKind.Trade && t.From == moily.Id && game.World.Building(t.To)!.Owner == works.Id), "the works buy the moily's energy");
+        Assert.IsTrue(flows.Any(t => t.Kind == FlowKind.Import && t.Resource == "ironOre" && game.World.Building(t.To)!.Owner == works.Id), "and import their ore");
+        var neighbourhood = game.World.NeighbourhoodOf(player);
+        Assert.IsTrue(neighbourhood.Needs[works.Id].ContainsKey("ironOre"), "what they import is what they'd buy from a neighbour");
+        Assert.IsTrue(neighbourhood.CanSupply(works.Id, new HashSet<string> { "ironOre" }), "ore alone sells to them");
+    }
+
+    [TestMethod]
+    public void LoadySaysWhyAConnectionIsNotATradeYet()
+    {
+        var game = new TestGame(tutorial: true);
+        game.World.TenantsEnabled = true;
+        var player = game.NewCompany(level: 3);
+        var step = game.World.Content.Tutorial.First(t => t.Stat == "partners");
+        player.TutorialStep = game.World.Content.Tutorial.ToList().IndexOf(step);
+        // Connected to a tenant that makes energy and needs nothing: nobody wants the player's spare energy
+        var power = game.World.Companies.First(t => t.IsNpc && !game.World.BuildingsOf(t.Id).Any(b => b.Type == "tradingPost" || game.World.Content.Building(b.Type).In.Count > 0));
+        var moily = game.Build(player, "windMoily");
+        game.Connect(player, moily, game.TradingPost(player));
+        Assert.IsNull(game.World.TutorialTip(player, step), "not connected yet: Loady's text says what to do");
+        ConnectToTenant(game, player, moily, power);
+        game.World.SolveNetworks();
+
+        StringAssert.Contains(game.World.TutorialTip(player, step), "don't need what you have spare (energy)");
+    }
+
     [TestMethod]
     public void TenantsAnswerContractOffersRightAway()
     {

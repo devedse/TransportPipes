@@ -725,16 +725,19 @@ public sealed partial class GameWorld
                 };
             case BuildingKind.TradingPost:
                 var company = Company(building.Owner);
+                // A tenant's works buy from the hub what no neighbour brings, so they always run: any one of their
+                // inputs sells to them (a works short of ore would otherwise buy no one's energy either)
+                var tenant = company is { IsNpc: true };
                 return new FlowNode
                 {
                     Id = building.Id,
                     Owner = building.Owner,
                     Kind = FlowNodeKind.TradingPost,
-                    Throughput = TradingPostThroughput(building, definition),
+                    Throughput = tenant ? TenantThroughput : TradingPostThroughput(building, definition),
                     // Hub reputation: +1% per level above 1
                     PriceBonus = definition.PriceBonus + (company == null ? 0 : (ReputationLevel(company) - 1) * 0.01) + ManagerPriceBonus(company),
                     // Imports cost gold: a company without gold can't import
-                    Imports = company is { Gold: > 0 } ? building.Imports : new HashSet<string>(),
+                    Imports = tenant ? TenantInputs(company!) : company is { Gold: > 0 } ? building.Imports : new HashSet<string>(),
                 };
         }
         if (definition.In.Count == 0 && definition.Out.Count == 0 && definition.ResearchPerMinute <= 0)

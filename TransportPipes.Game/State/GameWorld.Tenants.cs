@@ -39,6 +39,13 @@ public sealed partial class GameWorld
         };
     }
 
+    /// <summary>A tenant's trading post is never the bottleneck</summary>
+    private const double TenantThroughput = 1_000_000;
+
+    /// <summary>What a tenant's buildings use: its trading post imports it when no neighbour brings it</summary>
+    private HashSet<string> TenantInputs(Company tenant) =>
+        BuildingsOf(tenant.Id).SelectMany(t => Content.Building(t.Type).In.Keys).ToHashSet();
+
     /// <summary>Gives every open district its tenants (for worlds that existed before tenants)</summary>
     public void EnsureTenants()
     {

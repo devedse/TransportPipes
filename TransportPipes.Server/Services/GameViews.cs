@@ -88,7 +88,7 @@ public static class GameViews
                 return new BranchDto(t.District.X, t.District.Y, WorldNames.District(t.District), t.Slot, t.Origin.X, t.Origin.Y, t.UnlockedParcels, cost, level);
             }).ToList(),
             world.CurrentTutorialStep(company) is { } step
-                ? new TutorialDto(company.TutorialStep, world.Content.Tutorial.Count, step.Id, step.Text, world.TutorialProgress(company, step), step.Amount, step.Gold, step.Hint, world.TutorialWaitLevel(company, step))
+                ? new TutorialDto(company.TutorialStep, world.Content.Tutorial.Count, step.Id, step.Text, world.TutorialProgress(company, step), step.Amount, step.Gold, step.Hint, world.TutorialWaitLevel(company, step), world.TutorialTip(company, step))
                 : null,
             new ExpeditionDto(
                 company.Expedition?.Hours,

@@ -1109,6 +1109,8 @@ export interface TutorialDto {
   hint: Record<string, string>;
   /** The Company Level the step needs first (null when it can be done now) */
   waitLevel: number | null;
+  /** Why it isn't done yet although the player did what it says */
+  tip: string | null;
 }
 
 /** Expeditions (GDD §11.3) */
