@@ -66,6 +66,8 @@ interface ArtManifest {
       h: number;
       ax: number;
       ay: number;
+      /** Its own resolution (big sprites are stored smaller) */
+      r?: number;
       attachments?: Array<{ kind: Attachment["kind"]; x: number; y: number; size?: number; color?: string }>;
     }
   >;
@@ -183,7 +185,7 @@ export class TextureBank {
     if (this.art === null || entry === undefined || texture === undefined) {
       return null;
     }
-    const scale = 1 / this.art.resolution;
+    const scale = 1 / (entry.r ?? this.art.resolution);
     // Attachments are relative to the footprint's bottom-left corner, like the procedural art
     const at = (x: number, y: number) => ({
       x: TILE_WIDTH * size + (x - entry.ax) * scale,

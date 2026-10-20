@@ -63,6 +63,10 @@ async function buildings(source) {
   const list = yaml(readFileSync(new URL("./buildings.yaml", import.meta.url), "utf8"));
   const parts = yaml(readFileSync(new URL("./attachments.yaml", import.meta.url), "utf8")) ?? {};
   const sizes = Object.fromEntries(list.map((t) => [t.id, t.size]));
+  // Wonders stand on the 6×6 Wonder sites of the hubs
+  for (const file of readdirSync(source)) {
+    if (file.startsWith("wonder-")) sizes[basename(file, ".png")] = 6;
+  }
   const m = manifest();
   mkdirSync(join(OUT, "buildings"), { recursive: true });
   for (const file of readdirSync(source).filter((f) => f.endsWith(".png"))) {
@@ -75,7 +79,9 @@ async function buildings(source) {
     const image = await rgba(join(source, file));
     const box = measure(image);
     const plate = box.right - box.left;
-    const scale = (sizes[id] * TILE * RESOLUTION) / plate;
+    // Big sprites (Wonders) are stored at a lower resolution: they would only be upscaled
+    const resolution = sizes[id] >= 4 ? 0.75 : RESOLUTION;
+    const scale = (sizes[id] * TILE * resolution) / plate;
     const cx = (box.left + box.right) / 2;
     const w = Math.round((box.maxX - box.minX + 1) * scale);
     const h = Math.round((box.maxY - box.minY + 1) * scale);
@@ -86,6 +92,7 @@ async function buildings(source) {
       .toFile(join(OUT, "buildings", `${id}.webp`));
     // Where the plate's bottom corner is, in the stored sprite
     m.buildings[id] = {
+      ...(resolution !== RESOLUTION ? { r: resolution } : {}),
       w,
       h,
       ax: Math.round((cx - box.minX) * scale),

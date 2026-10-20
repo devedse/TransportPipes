@@ -458,6 +458,54 @@
    "ax": 288,
    "ay": 476,
    "attachments": []
+  },
+  "wonder-clockTower": {
+   "r": 0.75,
+   "w": 865,
+   "h": 995,
+   "ax": 432,
+   "ay": 994,
+   "attachments": []
+  },
+  "wonder-copperCathedral": {
+   "r": 0.75,
+   "w": 865,
+   "h": 877,
+   "ax": 432,
+   "ay": 877,
+   "attachments": []
+  },
+  "wonder-grandFountain": {
+   "r": 0.75,
+   "w": 865,
+   "h": 831,
+   "ax": 432,
+   "ay": 830,
+   "attachments": []
+  },
+  "wonder-greatDynamo": {
+   "r": 0.75,
+   "w": 865,
+   "h": 717,
+   "ax": 432,
+   "ay": 716,
+   "attachments": []
+  },
+  "wonder-lighthouse": {
+   "r": 0.75,
+   "w": 865,
+   "h": 891,
+   "ax": 432,
+   "ay": 890,
+   "attachments": []
+  },
+  "wonder-observatory": {
+   "r": 0.75,
+   "w": 865,
+   "h": 849,
+   "ax": 432,
+   "ay": 848,
+   "attachments": []
   }
  },
  "rotors": {
