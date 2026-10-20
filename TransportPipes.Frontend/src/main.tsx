@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { gameClient } from "./app/client";
 import { TextureBank } from "./game/art/textures";
+import { watchForUpdates } from "./app/updates";
 import * as rules from "./game/rules";
 import { appStore } from "./state/store";
 import "@fontsource-variable/fraunces";
@@ -21,6 +22,7 @@ if (import.meta.env.DEV) {
 }
 
 void gameClient.start();
+watchForUpdates((listener) => gameClient.connection.onReconnected(listener));
 
 // The first icons of the HUD and the map's art start loading behind the title screen
 const FIRST_ICONS = [

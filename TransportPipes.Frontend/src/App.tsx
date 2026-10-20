@@ -37,6 +37,7 @@ import { Toasts } from "./components/Toasts";
 import { Toolbar } from "./components/Toolbar";
 import { TopBar } from "./components/TopBar";
 import { VersionBadge } from "./components/VersionBadge";
+import { UpdateOverlay } from "./components/UpdateOverlay";
 import { appStore, setState, useAppStore } from "./state/store";
 
 function isTyping(target: EventTarget | null): boolean {
@@ -273,6 +274,7 @@ export function App() {
       )}
       <Toasts />
       <VersionBadge />
+      <UpdateOverlay />
     </div>
   );
 }

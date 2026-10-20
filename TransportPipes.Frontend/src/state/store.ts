@@ -54,6 +54,8 @@ export interface AppState {
   era: number;
   serverOffsetMs: number;
   connectionStatus: ConnectionStatus;
+  /** A new version of the game is out: the page reloads */
+  updateAvailable: boolean;
 
   tool: Tool;
   buildMenuOpen: boolean;
@@ -147,6 +149,7 @@ export const initialState: AppState = {
   era: 1,
   serverOffsetMs: 0,
   connectionStatus: "disconnected",
+  updateAvailable: false,
   tool: { kind: "select" },
   buildMenuOpen: false,
   buildCategory: "energy",

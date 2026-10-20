@@ -254,6 +254,36 @@ kbd {
   font-size: 1.1rem;
 }
 
+/* A new version: everything greys out until the page reloads */
+.update-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: rgba(40, 44, 48, 0.72);
+  backdrop-filter: grayscale(1) blur(2px);
+}
+
+.update-card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px 32px;
+  text-align: center;
+  max-width: calc(100vw - 32px);
+}
+
+.update-card h2 {
+  margin: 0;
+  font-family: var(--font-title);
+}
+
+.update-loady {
+  width: 96px;
+  height: auto;
+}
+
 /* Loady while the world loads, and over the map until it has been drawn */
 .map-loading {
   position: absolute;
