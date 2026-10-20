@@ -1795,7 +1795,7 @@ export class Engine {
       }
     }
     if (view.idle !== null) {
-      view.idle.visible = !running;
+      view.idle.visible = !running && !this.photo;
     }
   }
 
@@ -1951,6 +1951,22 @@ export class Engine {
     }
     if (popped) {
       sounds.coin();
+    }
+  }
+
+  private photo = false;
+
+  /** Photo mode: no idle bubbles and no labels on the map */
+  setPhotoMode(on: boolean) {
+    this.photo = on;
+    this.labelLayer.visible = !on;
+    for (const view of this.effects) {
+      if (view.idle !== null && on) {
+        view.idle.visible = false;
+      }
+    }
+    if (!on) {
+      this.invalidate();
     }
   }
 
