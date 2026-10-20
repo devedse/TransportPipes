@@ -11,6 +11,7 @@ import {
 } from "pixi.js";
 import type {
   BlueprintDto,
+  BuildingDefinition,
   BuildingDto,
   CompanyDto,
   ConductorDto,
@@ -41,7 +42,7 @@ import {
   tileKey,
   zoneAt,
 } from "./layout";
-import { BuildingEffects, dotTexture } from "./render/effects";
+import { BuildingEffects, pelletTexture } from "./render/effects";
 import { Juice } from "./render/juice";
 import { sounds } from "../app/sound";
 import { canPlace, footprintOrigin, routePipe, type Placement } from "./rules";
@@ -141,34 +142,61 @@ function sunHeat(t: number): number {
   return (r << 16) | (g << 8) | b;
 }
 
-/** The pipe sprite for a tile: the sides it connects to ("urdl"); a straight piece when it connects to one side */
-function pipeShapeOf(x: number, y: number, connects: (x: number, y: number) => boolean): string {
+/** Buildings a pipe plugs into: what takes or gives resources (not decorations, the HQ or the offices) */
+const PIPE_KINDS = new Set<string>([
+  "storage",
+  "tradingPost",
+  "lab",
+  "valve",
+  "priorityValve",
+  "pump",
+  "tollMeter",
+  "cargoDepot",
+  "teleporter",
+  "deepLift",
+  "powerLine",
+]);
+
+export function takesPipes(definition: BuildingDefinition | undefined): boolean {
+  return (
+    definition !== undefined &&
+    (PIPE_KINDS.has(definition.kind) ||
+      Object.keys(definition.in).length > 0 ||
+      Object.keys(definition.out).length > 0 ||
+      definition.researchPerMinute > 0)
+  );
+}
+
+const PIPE_SIDES: Array<[string, number, number]> = [
+  ["u", 0, -1],
+  ["r", 1, 0],
+  ["d", 0, 1],
+  ["l", -1, 0],
+];
+
+/** How a pipe looks at a tile: the sides it joins (in u, r, d, l order) and the ones where it plugs into a building */
+export interface PipeLook {
+  shape: string;
+  sockets: string[];
+}
+
+function pipeLookOf(
+  x: number,
+  y: number,
+  isPipe: (x: number, y: number) => boolean,
+  isBuilding: (x: number, y: number) => boolean,
+): PipeLook {
   let shape = "";
-  let horizontal = 0;
-  let vertical = 0;
-  if (connects(x, y - 1)) {
-    shape += "u";
-    vertical++;
+  const sockets: string[] = [];
+  for (const [side, dx, dy] of PIPE_SIDES) {
+    if (isPipe(x + dx, y + dy)) {
+      shape += side;
+    } else if (isBuilding(x + dx, y + dy)) {
+      shape += side;
+      sockets.push(side);
+    }
   }
-  if (connects(x + 1, y)) {
-    shape += "r";
-    horizontal++;
-  }
-  if (connects(x, y + 1)) {
-    shape += "d";
-    vertical++;
-  }
-  if (connects(x - 1, y)) {
-    shape += "l";
-    horizontal++;
-  }
-  if (shape === "") {
-    return "urdl";
-  }
-  if (horizontal + vertical < 2) {
-    return horizontal > vertical ? "rl" : "ud";
-  }
-  return shape;
+  return { shape, sockets };
 }
 
 /** Puts a building sprite on its footprint (the bottom-left corner of the footprint's box is at `anchor`) */
@@ -1522,12 +1550,76 @@ export class Engine {
     return g;
   }
 
-  private pipeShape(x: number, y: number): string {
-    return pipeShapeOf(
+  /** Whether the building at a tile takes pipes */
+  private pipeBuildingAt(x: number, y: number): boolean {
+    const building = this.world.buildingAt(x, y);
+    return building !== undefined && takesPipes(this.callbacks.getState().content.building(building.type));
+  }
+
+  private pipeLook(x: number, y: number, extra?: (x: number, y: number) => boolean): PipeLook {
+    return pipeLookOf(
       x,
       y,
-      (tx, ty) => this.world.conductorAt(tx, ty) !== undefined || this.world.buildingAt(tx, ty) !== undefined,
+      (tx, ty) => this.world.conductorAt(tx, ty) !== undefined || (extra?.(tx, ty) ?? false),
+      (tx, ty) => this.pipeBuildingAt(tx, ty),
     );
+  }
+
+  /** A pipe tile at its anchor: the generated piece with its sockets, or the procedural pipe without generated art */
+  private pipeDisplay(x: number, y: number, tier: number, look: PipeLook): Container {
+    const anchor = diagonalToScreen(x, y);
+    const container = new Container();
+    container.position.set(anchor.x, anchor.y);
+    const piece = this.textures.pipePiece(look.shape, tier);
+    if (piece === null) {
+      const legacy =
+        look.shape.length === 0
+          ? "urdl"
+          : look.shape.length === 1
+            ? /[ud]/.test(look.shape)
+              ? "ud"
+              : "rl"
+            : look.shape;
+      const sprite = new Sprite(this.textures.styledPipe(legacy, tier));
+      sprite.anchor.set(0, 1);
+      container.addChild(sprite);
+      return container;
+    }
+    // Over the piece: a foot under every other straight tube, a flange at every third joint and where the tier
+    // changes, the sockets into buildings
+    const overlays: string[] = [];
+    if ((look.shape === "rl" || look.shape === "ud") && (x + y) % 2 === 0) {
+      overlays.push(look.shape === "rl" ? "foot-x" : "foot-y");
+    }
+    for (const [side, dx, dy] of PIPE_SIDES) {
+      if (!look.shape.includes(side) || look.sockets.includes(side)) {
+        continue;
+      }
+      const ex = dx < 0 ? x - 1 : x;
+      const ey = dy < 0 ? y - 1 : y;
+      const neighbour = this.world.conductorAt(x + dx, y + dy);
+      if (
+        (((ex + ey) % 3) + 3) % 3 === 0 ||
+        (neighbour !== undefined && neighbour.kind === "pipe" && neighbour.tier !== tier)
+      ) {
+        overlays.push(`flange-${side}`);
+      }
+    }
+    // A straight run past a building taps into it with a tee (a hub is for pipes meeting)
+    const through = look.shape.replace(look.sockets[0] ?? "", "");
+    const tee =
+      look.shape.length === 3 && look.sockets.length === 1 && (through === "ud" || through === "rl");
+    const main = tee ? `tee-${look.sockets[0]}` : look.shape;
+    for (const shape of [main, ...overlays, ...look.sockets.map((t) => `socket-${t}`)]) {
+      const art = this.textures.pipePiece(shape, tier);
+      if (art !== null) {
+        const sprite = new Sprite(art.texture);
+        sprite.position.set(art.x, art.y);
+        sprite.scale.set(art.scale);
+        container.addChild(sprite);
+      }
+    }
+    return container;
   }
 
   private conductorView(conductor: ConductorDto): ObjectView {
@@ -1540,6 +1632,13 @@ export class Engine {
       sprite.anchor.set(0, 1);
       const container = new Container();
       container.position.set(anchor.x, anchor.y);
+      // The pipe runs on through the gate, under its barrier
+      const look = this.pipeLook(conductor.x, conductor.y);
+      if (look.shape.length > 0) {
+        const pipe = this.pipeDisplay(conductor.x, conductor.y, conductor.tier, look);
+        pipe.position.set(0, 0);
+        container.addChild(pipe);
+      }
       container.addChild(sprite);
       const effects = new BuildingEffects(art.attachments, "#ffffff");
       container.addChild(effects.container);
@@ -1556,14 +1655,15 @@ export class Engine {
       this.effects.add(view);
       return view;
     }
-    const sprite = new Sprite(
-      this.textures.styledPipe(this.pipeShape(conductor.x, conductor.y), conductor.tier),
+    const pipe = this.pipeDisplay(
+      conductor.x,
+      conductor.y,
+      conductor.tier,
+      this.pipeLook(conductor.x, conductor.y),
     );
-    sprite.anchor.set(0, 1);
-    sprite.position.set(anchor.x, anchor.y);
-    sprite.zIndex = (conductor.x + conductor.y) * 4 + 2;
-    this.objectLayer.addChild(sprite);
-    return { display: sprite, effects: null, building: null, machine: null, idle: null, progress: null };
+    pipe.zIndex = (conductor.x + conductor.y) * 4 + 2;
+    this.objectLayer.addChild(pipe);
+    return { display: pipe, effects: null, building: null, machine: null, idle: null, progress: null };
   }
 
   private buildingView(building: BuildingDto, state: EngineState): ObjectView {
@@ -1933,29 +2033,26 @@ export class Engine {
     this.flowDots = [];
     const content = this.callbacks.getState().content;
     for (const network of this.world.flows.values()) {
+      const sharing = Math.max(1, network.flows.filter((t) => t.path.length >= 2 && t.delivered > 0).length);
       for (const flow of network.flows) {
         if (flow.path.length < 2 || flow.delivered <= 0) {
           continue;
         }
         // The path in pieces: a Cargo Depot route jumps far (trucks, no dots on the way)
-        const pieces: Array<Array<{ x: number; y: number }>> = [[]];
-        const from = this.world.buildings.get(flow.from);
-        const to = this.world.buildings.get(flow.to);
-        if (from !== undefined) {
-          pieces[0]!.push(this.buildingCenter(from));
-        }
+        const tiles: Array<Array<{ x: number; y: number }>> = [[]];
         for (let i = 0; i < flow.path.length; i += 2) {
           const x = flow.path[i]!;
           const y = flow.path[i + 1]!;
           if (i >= 2 && Math.max(Math.abs(x - flow.path[i - 2]!), Math.abs(y - flow.path[i - 1]!)) > 9) {
-            pieces.push([]);
+            tiles.push([]);
           }
-          const center = tileCenter(x, y);
-          pieces[pieces.length - 1]!.push({ x: center.x, y: center.y - 22 });
+          tiles[tiles.length - 1]!.push({ x, y });
         }
-        if (to !== undefined) {
-          pieces[pieces.length - 1]!.push(this.buildingCenter(to));
-        }
+        const from = this.world.buildings.get(flow.from);
+        const to = this.world.buildings.get(flow.to);
+        const pieces = tiles.map((run, index) =>
+          this.flowPoints(run, index === 0 ? from : undefined, index === tiles.length - 1 ? to : undefined),
+        );
         const color = content.resourceColor(flow.resource);
         for (const points of pieces) {
           let length = 0;
@@ -1965,13 +2062,14 @@ export class Engine {
           if (length <= 0) {
             continue;
           }
-          // More dots for bigger flows, spaced along the path
-          const spacing = Math.max(70, 260 / Math.log2(2 + flow.delivered));
-          const count = Math.max(1, Math.min(40, Math.floor(length / spacing)));
+          // Glowing pellets riding in the pipe: more for bigger flows, fewer where many flows share the pipes, spaced so
+          // the pipe stays visible
+          const spacing = Math.max(150, 420 / Math.log2(2 + flow.delivered)) * Math.sqrt(sharing);
+          const count = Math.max(1, Math.min(20, Math.floor(length / spacing)));
           for (let i = 0; i < count; i++) {
-            const sprite = new Sprite(dotTexture());
+            const sprite = new Sprite(pelletTexture());
             sprite.anchor.set(0.5);
-            sprite.scale.set(flow.kind === "sale" || flow.kind === "trade" ? 0.75 : 0.6);
+            sprite.scale.set(flow.kind === "sale" || flow.kind === "trade" ? 0.66 : 0.56);
             sprite.tint = color;
             this.flowLayer.addChild(sprite);
             this.flowDots.push({ sprite, points, length, offset: (length / count) * i, speed: 190 });
@@ -2088,6 +2186,68 @@ export class Engine {
       const center = tileCenter(building.x + (building.size - 1) / 2, building.y + (building.size - 1) / 2);
       this.juice.sparkle(center.x, center.y);
     }
+  }
+
+  /**
+   * Where the dots of a flow run along pipe tiles (ground coordinates: a tile's centre is x + 0.5): through the
+   * middle of straight pieces, around the bends like the pipes, from and to the socket of a building next to the ends
+   */
+  private flowPoints(
+    run: Array<{ x: number; y: number }>,
+    from: BuildingDto | undefined,
+    to: BuildingDto | undefined,
+  ): Array<{ x: number; y: number }> {
+    const lift = this.textures.pipeHeight;
+    const screen = (gx: number, gy: number) => {
+      const c = tileCenter(gx - 0.5, gy - 0.5);
+      return { x: c.x, y: c.y - lift };
+    };
+    // The edge of the end tile toward the building (its socket), or the building's middle when it isn't next to it
+    const socket = (tile: { x: number; y: number }, building: BuildingDto) => {
+      for (const [, dx, dy] of PIPE_SIDES) {
+        const nx = tile.x + dx;
+        const ny = tile.y + dy;
+        if (
+          nx >= building.x &&
+          ny >= building.y &&
+          nx < building.x + building.size &&
+          ny < building.y + building.size
+        ) {
+          return screen(tile.x + 0.5 + dx / 2, tile.y + 0.5 + dy / 2);
+        }
+      }
+      return this.buildingCenter(building);
+    };
+    const points: Array<{ x: number; y: number }> = [];
+    if (from !== undefined && run.length > 0) {
+      points.push(socket(run[0]!, from));
+    }
+    run.forEach((tile, i) => {
+      const before = run[i - 1];
+      const after = run[i + 1];
+      if (before !== undefined && after !== undefined && before.x !== after.x && before.y !== after.y) {
+        // A bend: around the corner between the two edges, a quarter circle of half a tile
+        const cx = tile.x + 0.5 + (before.x - tile.x + after.x - tile.x) / 2;
+        const cy = tile.y + 0.5 + (before.y - tile.y + after.y - tile.y) / 2;
+        const a0 = Math.atan2((tile.y + before.y) / 2 + 0.5 - cy, (tile.x + before.x) / 2 + 0.5 - cx);
+        let a1 = Math.atan2((tile.y + after.y) / 2 + 0.5 - cy, (tile.x + after.x) / 2 + 0.5 - cx);
+        if (a1 - a0 > Math.PI) {
+          a1 -= 2 * Math.PI;
+        } else if (a0 - a1 > Math.PI) {
+          a1 += 2 * Math.PI;
+        }
+        for (let k = 0; k <= 4; k++) {
+          const a = a0 + ((a1 - a0) * k) / 4;
+          points.push(screen(cx + 0.5 * Math.cos(a), cy + 0.5 * Math.sin(a)));
+        }
+      } else {
+        points.push(screen(tile.x + 0.5, tile.y + 0.5));
+      }
+    });
+    if (to !== undefined && run.length > 0) {
+      points.push(socket(run[run.length - 1]!, to));
+    }
+    return points;
   }
 
   private buildingCenter(building: BuildingDto): { x: number; y: number } {
@@ -2414,19 +2574,7 @@ export class Engine {
     if (tool.kind === "pipe") {
       const g = new Graphics();
       const route = this.dragging && this.pipeRoute !== null ? this.pipeRoute : [tile];
-      for (const t of route) {
-        const own = this.world.conductorAt(t.x, t.y)?.owner === state.company.id;
-        traceFootprint(g, t.x, t.y, 1);
-        g.fill({ color: own ? 0x6cb4ee : 0x2ec4a6, alpha: 0.35 });
-        if (!own) {
-          const sprite = new Sprite(this.textures.styledPipe("urdl", tool.tier));
-          sprite.anchor.set(0, 1);
-          const anchor = diagonalToScreen(t.x, t.y);
-          sprite.position.set(anchor.x, anchor.y);
-          sprite.alpha = 0.6;
-          this.ghostLayer.addChild(sprite);
-        }
-      }
+      this.drawRouteGhost(g, route, tool.tier, state.company);
       if (this.dragging && this.pipeRoute === null && this.pipeStart !== null) {
         traceFootprint(g, tile.x, tile.y, 1);
         g.fill({ color: 0xef6f6c, alpha: 0.45 });
@@ -2493,29 +2641,31 @@ export class Engine {
     const g = new Graphics();
     traceFootprint(g, origin.x, origin.y, blueprint.width, blueprint.height);
     g.stroke({ color: 0x6cb4ee, width: 5, alpha: 0.9 });
-    const sprites: Sprite[] = [];
-    // The pipes as they will look: connected to each other and to the blueprint's buildings
-    const taken = new Set(blueprint.pipes.map((t) => tileKey(t.dx, t.dy)));
+    const sprites: Container[] = [];
+    // The pipes as they will look: connected to each other and plugged into the blueprint's buildings
+    const pipes = new Set(blueprint.pipes.map((t) => tileKey(t.dx, t.dy)));
+    const plugs = new Set<number>();
     for (const item of blueprint.buildings) {
-      const size = state.content.building(item.type)?.size ?? 1;
-      for (let dy = 0; dy < size; dy++) {
-        for (let dx = 0; dx < size; dx++) {
-          taken.add(tileKey(item.dx + dx, item.dy + dy));
+      const definition = state.content.building(item.type);
+      if (!takesPipes(definition)) {
+        continue;
+      }
+      for (let dy = 0; dy < (definition?.size ?? 1); dy++) {
+        for (let dx = 0; dx < (definition?.size ?? 1); dx++) {
+          plugs.add(tileKey(item.dx + dx, item.dy + dy));
         }
       }
     }
     for (const pipe of blueprint.pipes) {
-      const sprite = new Sprite(
-        this.textures.styledPipe(
-          pipeShapeOf(pipe.dx, pipe.dy, (x, y) => taken.has(tileKey(x, y))),
-          pipe.tier,
-        ),
+      const look = pipeLookOf(
+        pipe.dx,
+        pipe.dy,
+        (x, y) => pipes.has(tileKey(x, y)),
+        (x, y) => plugs.has(tileKey(x, y)),
       );
-      sprite.anchor.set(0, 1);
-      const anchor = diagonalToScreen(origin.x + pipe.dx, origin.y + pipe.dy);
-      sprite.position.set(anchor.x, anchor.y);
-      sprite.alpha = 0.6;
-      sprites.push(sprite);
+      const ghost = this.pipeDisplay(origin.x + pipe.dx, origin.y + pipe.dy, pipe.tier, look);
+      ghost.alpha = 0.7;
+      sprites.push(ghost);
     }
     let fits = 0;
     let firstReason: string | null = null;
@@ -2563,20 +2713,32 @@ export class Engine {
   /** Ghost pipes along a route (the ones that are not there yet) */
   private drawRoute(route: TilePosition[], tier: number, company: CompanyDto) {
     const g = new Graphics();
+    this.drawRouteGhost(g, route, tier, company);
+    this.ghostLayer.addChildAt(g, 0);
+  }
+
+  /**
+   * The route's tiles, and the pipes it adds as they will look: joined to each other, to the pipes there and plugged
+   * into the buildings along it
+   */
+  private drawRouteGhost(g: Graphics, route: TilePosition[], tier: number, company: CompanyDto) {
+    const onRoute = new Set(route.map((t) => tileKey(t.x, t.y)));
     for (const t of route) {
       const own = this.world.conductorAt(t.x, t.y)?.owner === company.id;
       traceFootprint(g, t.x, t.y, 1);
       g.fill({ color: own ? 0x6cb4ee : 0x2ec4a6, alpha: 0.35 });
       if (!own) {
-        const sprite = new Sprite(this.textures.styledPipe("urdl", tier));
-        sprite.anchor.set(0, 1);
-        const anchor = diagonalToScreen(t.x, t.y);
-        sprite.position.set(anchor.x, anchor.y);
-        sprite.alpha = 0.6;
-        this.ghostLayer.addChild(sprite);
+        const ghost = this.pipeDisplay(
+          t.x,
+          t.y,
+          tier,
+          this.pipeLook(t.x, t.y, (x, y) => onRoute.has(tileKey(x, y))),
+        );
+        ghost.alpha = 0.75;
+        ghost.zIndex = (t.x + t.y) * 4 + 2;
+        this.ghostLayer.addChild(ghost);
       }
     }
-    this.ghostLayer.addChildAt(g, 0);
   }
 
   private drawHighlights() {

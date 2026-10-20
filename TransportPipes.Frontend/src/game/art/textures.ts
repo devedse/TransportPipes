@@ -1,4 +1,4 @@
-import { Assets, Texture, type Spritesheet } from "pixi.js";
+import { Assets, Rectangle, Texture, type Spritesheet } from "pixi.js";
 import type { TerrainType } from "../../api/contracts";
 import { resolveFrames } from "../spriteFrames";
 import {
@@ -78,6 +78,26 @@ interface ArtManifest {
   props?: Record<string, { w: number; h: number; ax: number; ay: number; decal?: boolean }>;
   /** A content hash per sprite (art/process.mjs): asked for as `<path>?v=<hash>`, so browsers can keep it */
   hashes?: Record<string, string>;
+  /**
+   * The pipe pieces (art/pipes.mjs): one atlas per tier; a frame is a piece trimmed out of its tile box (TILE_WIDTH ×
+   * (TILE_HEIGHT + top) world pixels, at the resolution), with where it sat in the box
+   */
+  pipes?: {
+    resolution: number;
+    top: number;
+    /** The tube's centre above the ground, in world pixels */
+    z: number;
+    tiers: number[];
+    frames: Record<string, { x: number; y: number; w: number; h: number; ox: number; oy: number }>;
+  };
+}
+
+/** A pipe piece ready to place: relative to the tile's anchor (the bottom-left corner of its box) */
+export interface PipeArt {
+  texture: Texture;
+  x: number;
+  y: number;
+  scale: number;
 }
 
 /** A generated prop or decal ready to place: anchored at its foot (props) or middle (decals) */
@@ -185,6 +205,8 @@ export class TextureBank {
         return element;
       };
       await Promise.all([
+        // Every map has pipes: the first tier comes with the map's art, the others when they are first needed
+        this.loadPipeTier(1),
         ...Object.keys(this.art.terrain).map(async (id) => {
           this.terrainImages.set(id, await image(`terrain/${id}.webp`));
         }),
@@ -693,6 +715,64 @@ export class TextureBank {
   /** A pipe tile in the style of the generated art, for a tier (anchored like a tile, PIPE_LIFT taller) */
   styledPipe(shape: string, tier: number): Texture {
     return this.cached(`styledPipe:${shape}:${tier}`, () => drawPipe(shape, tier));
+  }
+
+  private readonly pipeAtlases = new Map<number, Texture>();
+  private readonly pipeTiersLoading = new Set<number>();
+  private readonly pipePieces = new Map<string, Texture>();
+
+  private async loadPipeTier(tier: number) {
+    const pipes = this.art?.pipes;
+    if (pipes === undefined || !pipes.tiers.includes(tier) || this.pipeTiersLoading.has(tier)) {
+      return;
+    }
+    this.pipeTiersLoading.add(tier);
+    try {
+      this.pipeAtlases.set(tier, await Assets.load<Texture>(this.artUrl(`pipes/tier${tier}.webp`)));
+      this.artListeners.forEach((listener) => listener());
+    } catch (error) {
+      console.warn(`The pipes of tier ${tier} could not be loaded`, error);
+    }
+  }
+
+  /**
+   * A generated pipe piece: the sides it joins in u, r, d, l order ("" alone, "ur" a bend, "urdl" a cross), or
+   * "socket-<side>" for where it plugs into a building. A tier that is still loading shows as the first tier.
+   */
+  pipePiece(shape: string, tier: number): PipeArt | null {
+    const pipes = this.art?.pipes;
+    const frame = pipes?.frames[shape];
+    if (pipes === undefined || frame === undefined) {
+      return null;
+    }
+    if (!this.pipeAtlases.has(tier)) {
+      void this.loadPipeTier(tier);
+      tier = 1;
+    }
+    const atlas = this.pipeAtlases.get(tier);
+    if (atlas === undefined) {
+      return null;
+    }
+    const key = `${tier}:${shape}`;
+    let texture = this.pipePieces.get(key);
+    if (texture === undefined) {
+      texture = new Texture({
+        source: atlas.source,
+        frame: new Rectangle(frame.x, frame.y, frame.w, frame.h),
+      });
+      this.pipePieces.set(key, texture);
+    }
+    return {
+      texture,
+      x: frame.ox / pipes.resolution,
+      y: frame.oy / pipes.resolution - (TILE_HEIGHT + pipes.top),
+      scale: 1 / pipes.resolution,
+    };
+  }
+
+  /** How high the generated pipes' tubes run above the ground (world pixels), for the flowing dots */
+  get pipeHeight(): number {
+    return this.art?.pipes?.z ?? 22;
   }
 
   gate(policy: "open" | "closed" | "contract" | "corporation", alongU: boolean): BuildingTextures {

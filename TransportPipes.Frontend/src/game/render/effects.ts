@@ -41,17 +41,18 @@ function puffTexture(): Texture {
   });
 }
 
-export function dotTexture(): Texture {
-  return cachedTexture("dot", () => {
-    const canvas = createCanvas(32, 32);
+/** A glowing pellet of a resource in a pipe (tinted): a bright core with a soft halo */
+export function pelletTexture(): Texture {
+  return cachedTexture("pellet", () => {
+    const canvas = createCanvas(48, 48);
     const g = canvas.getContext("2d")!;
-    g.beginPath();
-    g.arc(16, 16, 12, 0, Math.PI * 2);
-    g.fillStyle = "#ffffff";
-    g.fill();
-    g.lineWidth = 3;
-    g.strokeStyle = "rgba(20,20,25,0.9)";
-    g.stroke();
+    const gradient = g.createRadialGradient(24, 24, 0, 24, 24, 23);
+    gradient.addColorStop(0, "rgba(255,255,255,1)");
+    gradient.addColorStop(0.28, "rgba(255,255,255,0.95)");
+    gradient.addColorStop(0.42, "rgba(255,255,255,0.45)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = gradient;
+    g.fillRect(0, 0, 48, 48);
     return canvas;
   });
 }

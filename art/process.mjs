@@ -3,35 +3,18 @@
 //   node process.mjs terrain <source dir>     seamless textures, WebP
 // Output goes to TransportPipes.Frontend/public/art, the manifest to public/art/manifest.json.
 import sharp from "sharp";
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { basename, join } from "node:path";
+import { OUT, manifest as load, save } from "./manifest.mjs";
 import { parse as yaml } from "yaml";
 
-const OUT = new URL("../TransportPipes.Frontend/public/art/", import.meta.url).pathname;
-const MANIFEST = join(OUT, "manifest.json");
 /** Sprites are stored at 1.5× the game's world scale, so they stay sharp when zoomed in */
 const RESOLUTION = 1.5;
 /** A tile's diamond is 192 world units wide */
 const TILE = 192;
 
 function manifest() {
-  return existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, "utf8")) : { resolution: RESOLUTION, buildings: {}, rotors: {}, terrain: {} };
-}
-
-/**
- * Writes the manifest with a content hash of every sprite: the game asks for `<path>?v=<hash>`, so browsers can keep
- * the art for good and still get a new picture when it changes.
- */
-function save(m) {
-  m.hashes = {};
-  for (const dir of ["buildings", "terrain", "props"]) {
-    if (!existsSync(join(OUT, dir))) continue;
-    for (const file of readdirSync(join(OUT, dir)).filter((f) => f.endsWith(".webp")).sort()) {
-      m.hashes[`${dir}/${file}`] = createHash("sha256").update(readFileSync(join(OUT, dir, file))).digest("hex").slice(0, 10);
-    }
-  }
-  writeFileSync(MANIFEST, JSON.stringify(m, null, 1));
+  return load({ resolution: RESOLUTION, buildings: {}, rotors: {}, terrain: {} });
 }
 
 async function rgba(file) {

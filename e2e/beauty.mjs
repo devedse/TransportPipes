@@ -1,6 +1,6 @@
-// A working, decorated estate for screenshots: node beauty.mjs <outdir>
+// A working, decorated estate for screenshots: node beauty.mjs <outdir> [zoom]
 import { start, newPlayer } from "./lib.mjs";
-const [out = "shots/beauty"] = process.argv.slice(2);
+const [out = "shots/beauty", zoom = "0.8"] = process.argv.slice(2);
 const { browser, page, errors, shot, cheat } = await start(out);
 await newPlayer(page, "w");
 for (const c of ["gold", "gold", "gold", "gold", "level", "level", "level", "level"]) await cheat(c);
@@ -38,9 +38,10 @@ console.log(await page.evaluate(async () => {
   const hq = [...w.buildings.values()].find((t) => t.owner === co().id && t.type === "hq");
   for (const [type, dx, dy] of [["tree", -2, -1], ["tree", -2, 1], ["flowerBed", -1, 3], ["lamp", 2, -1], ["fountain", -2, 3], ["tree", 3, 3]]) await near(type, hq.x + dx, hq.y + dy, 0);
   await c.cheat("finish");
-  tp.gameClient.engine.lookAt(post.x + 2, post.y, 0.8);
+  window.__look = () => tp.gameClient.engine.lookAt(post.x + 2, post.y, Number(window.__zoom));
   return placed.map((t) => t.type).join(",");
 }));
+await page.evaluate((z) => { window.__zoom = z; window.__look(); }, zoom);
 await page.waitForTimeout(8000);
 await page.evaluate(() => tp.gameClient.select(null));
 await shot("1-estate");

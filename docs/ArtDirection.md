@@ -40,6 +40,23 @@ come alive).
   ground (anchored at their foot), decals lie on it (anchored at their middle). Forest tiles get two or three trees,
   composed into one sprite per tile.
 
+## Pipes
+
+The pipes are the heart of the game, and they have to join their neighbours exactly in every combination, so they are
+not generated pictures: `art/pipes.mjs` renders them as real 3D pieces with a small raymarcher, with the camera and the
+light of the generated art (top left), soft shadows and the same dark outlines.
+
+- Chunky tubes on concrete feet; smooth bends around the tile corner; a bolted cast hub where three or four pipes
+  meet (a red valve wheel on a cross, a gauge on a T); a blind flange where a pipe ends; a tee with a welded collar
+  where a straight run taps into a building beside it; an inlet box where a pipe plugs into a building's plate.
+- Overlays drawn over the pieces where the game wants them: a brass flange at every third joint and where the tier
+  changes, a foot under every other straight tile, the inlet boxes. Each overlay hides behind the tube it belongs to.
+- Pipes plug only into buildings that take or give resources (not decorations or the HQ), and run on under gates.
+- One material per tier: painted iron, copper, blue steel, glass with a glowing core, superconductor with violet
+  bands. The flows are small glowing pellets riding along the tube, around the bends and into the sockets.
+- The pieces are rendered once per shape and shaded per tier into one atlas per tier (`public/art/pipes/`); the first
+  tier loads with the map, the others when they are first needed.
+
 ## Pipeline
 
 ```sh
@@ -47,6 +64,7 @@ cd art
 python3 make-prompts.py <batch> buildings|terrain|props <ids...>   # writes prompts/<batch>.md
 ./queue.sh <batch>...                                              # Codex, one batch after the other
 node process.mjs buildings|terrain|props <source dir>              # → TransportPipes.Frontend/public/art
+node pipes.mjs [shape]                                             # the pipe atlases (a shape: a quick look in scratch/)
 node sheet.mjs <out.png> 360 <images...>                           # a contact sheet to review a batch
 ```
 

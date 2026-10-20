@@ -18,13 +18,14 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 | `guide.mjs` | Loady's later steps: the Storage and what it keeps, the daily orders, a step that waits for a level |
 | `art-check.mjs`, `showcase.mjs` | Generated buildings on an estate (`showcase.mjs shots/x type,type,...`) |
 | `pipes.mjs` | Pipes and flowing resources |
+| `pipe-gallery.mjs` | Every pipe piece close up: runs, bends, junctions, ends, sockets into buildings, the five tiers |
 | `juice.mjs` | A finished building, coin pops and the level-up |
 | `ui-check.mjs`, `title.mjs` | The panels, the title screen and the managers |
 | `mobile.mjs` | The phone layout (390×844) |
 | `far.mjs` | The hub and the zoomed-out world |
 | `evolution.mjs` | Buildings at the level milestones |
 | `photo.mjs` | Photo mode at golden hour and night |
-| `beauty.mjs` | A working, decorated estate, in daylight and at golden hour |
+| `beauty.mjs` | A working, decorated estate, in daylight and at golden hour (`beauty.mjs shots/x 1.5` close up) |
 
 `load.mjs [fast4g|slow4g] [seconds on the title]` measures how long a new and a returning player wait on a throttled
 phone network. It needs a production build served by the server (caching and compression as in production):
