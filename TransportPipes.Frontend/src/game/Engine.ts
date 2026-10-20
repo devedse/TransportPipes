@@ -32,6 +32,8 @@ import {
   zoneAt,
 } from "./layout";
 import { BuildingEffects, dotTexture } from "./render/effects";
+import { Juice } from "./render/juice";
+import { sounds } from "../app/sound";
 import { canPlace, footprintOrigin, routePipe, type Placement } from "./rules";
 import { chunkKey, type WorldModel } from "./world";
 
@@ -260,6 +262,9 @@ export class Engine {
   private readonly flowLayer = new Container();
   private readonly ghostLayer = new Container();
   private readonly labelLayer = new Container();
+  private readonly juice = new Juice();
+  /** Seconds until the next round of coin pops */
+  private coinTimer = 2;
   private readonly chunks = new Map<string, ChunkView>();
   private readonly districtViews = new Map<string, DistrictView>();
   private readonly effects = new Set<ObjectView>();
@@ -325,6 +330,7 @@ export class Engine {
       this.objectLayer,
       this.flowLayer,
       this.ghostLayer,
+      this.juice.layer,
       this.labelLayer,
     );
     app.stage.addChild(this.worldLayer);
@@ -768,6 +774,8 @@ export class Engine {
     }
     this.drawHighlights();
     this.animate(deltaSeconds);
+    this.juice.update(deltaSeconds);
+    this.popCoins(deltaSeconds);
     this.scaleLabels();
   }
 
@@ -1711,6 +1719,71 @@ export class Engine {
           }
         }
       }
+    }
+  }
+
+  /** Every few seconds your trading posts on screen pop what they earned meanwhile */
+  private popCoins(deltaSeconds: number) {
+    this.coinTimer -= deltaSeconds;
+    if (this.coinTimer > 0) {
+      return;
+    }
+    const period = 3;
+    this.coinTimer = period;
+    const company = this.callbacks.getState().company;
+    if (company === null || this.far) {
+      return;
+    }
+    const earned = new Map<number, number>();
+    for (const network of this.world.flows.values()) {
+      for (const flow of network.flows) {
+        if (flow.kind === "sale" || flow.kind === "trade") {
+          const seller = this.world.buildings.get(flow.from);
+          // Sales pop at the trading post, trades at the building that sold
+          const at = flow.kind === "sale" ? flow.to : flow.from;
+          if (seller?.owner === company.id) {
+            earned.set(at, (earned.get(at) ?? 0) + (flow.delivered * flow.price * period) / 60);
+          }
+        }
+      }
+    }
+    const { width, height } = this.app.screen;
+    const view = this.camera.viewRect(width, height);
+    let popped = false;
+    for (const [id, amount] of earned) {
+      const building = this.world.buildings.get(id);
+      if (building === undefined || amount < 1) {
+        continue;
+      }
+      const top = tileCenter(building.x + (building.size - 1) / 2, building.y + (building.size - 1) / 2);
+      if (top.x < view.left || top.x > view.right || top.y < view.top || top.y > view.bottom) {
+        continue;
+      }
+      this.juice.coinPop(top.x, top.y - TILE_HEIGHT * building.size - 40, amount);
+      popped = true;
+    }
+    if (popped) {
+      sounds.coin();
+    }
+  }
+
+  /** A building is done: a burst and a little sound */
+  celebrate(buildingId: number) {
+    const building = this.world.buildings.get(buildingId);
+    if (building === undefined || this.far) {
+      return;
+    }
+    const center = tileCenter(building.x + (building.size - 1) / 2, building.y + (building.size - 1) / 2);
+    this.juice.burst(center.x, center.y - 30, building.size);
+    sounds.built();
+  }
+
+  /** An upgrade: a twinkle */
+  twinkle(buildingId: number) {
+    const building = this.world.buildings.get(buildingId);
+    if (building !== undefined) {
+      const center = tileCenter(building.x + (building.size - 1) / 2, building.y + (building.size - 1) / 2);
+      this.juice.sparkle(center.x, center.y);
     }
   }
 

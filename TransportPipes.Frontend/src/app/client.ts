@@ -31,6 +31,7 @@ import {
 import { canPlace, newPipeTiles, ownEstateAt, ownEstates, routePipe } from "../game/rules";
 import { WorldModel } from "../game/world";
 import { notify } from "./notifications";
+import { sounds } from "./sound";
 import { appStore, initialState, MODALS, setState, toast, type HubTab } from "../state/store";
 
 const DETAILS_REFRESH_MS = 2000;
@@ -152,6 +153,16 @@ export class GameClient {
     });
     c.on("toast", (t: ToastDto) => {
       notify(t);
+      if (t.kind === "constructionFinished" && t.building !== null) {
+        this.engine?.celebrate(t.building);
+      }
+      if (t.kind === "levelUp") {
+        const level = Number(/\d+/.exec(t.text)?.[0] ?? 0);
+        if (level > 0) {
+          setState({ levelUp: level });
+          sounds.levelUp();
+        }
+      }
       toast(
         t.text,
         t.kind === "levelUp" ||
@@ -957,6 +968,8 @@ export class GameClient {
 
   async upgrade(building: number, levels: number) {
     if (await this.command(this.connection.upgrade(building, levels))) {
+      this.engine?.twinkle(building);
+      sounds.click();
       await this.refreshDetails();
     }
   }

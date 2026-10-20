@@ -107,6 +107,8 @@ export interface AppState {
   wildTile: TilePosition | null;
   /** Where Loady suggests to build (a pulsing marker), with the footprint size */
   hintTile: { x: number; y: number; size: number } | null;
+  /** A Company Level just reached: the celebration shows */
+  levelUp: number | null;
   outpostCheck: OutpostCheckDto | null;
   /** The season results, shown when the season ended */
   season: SeasonDto | null;
@@ -182,6 +184,7 @@ export const initialState: AppState = {
   selectedDeepParcel: null,
   wildTile: null,
   hintTile: null,
+  levelUp: null,
   outpostCheck: null,
   season: null,
   seasonOpen: false,

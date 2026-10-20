@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { gameClient } from "../app/client";
+import { isMuted, setMuted } from "../app/sound";
 import { formatAmount, formatDuration, formatRate } from "../app/format";
 import { useNow } from "../app/useNow";
 import { currentGold, setState, useAppStore } from "../state/store";
@@ -180,10 +182,28 @@ export function TopBar() {
         <button className="icon-button desktop-only" title="Zoom in (+)" onClick={() => gameClient.zoomBy(1)}>
           +
         </button>
+        <MuteButton />
         <button className="icon-button" title="Log out" onClick={() => void gameClient.logout()}>
           ⎋
         </button>
       </div>
     </div>
+  );
+}
+
+/** Sounds on or off (remembered in this browser) */
+function MuteButton() {
+  const [muted, setMutedState] = useState(isMuted);
+  return (
+    <button
+      className="icon-button"
+      title={muted ? "Sounds off (click to turn on)" : "Sounds on"}
+      onClick={() => {
+        setMuted(!muted);
+        setMutedState(!muted);
+      }}
+    >
+      {muted ? "🔇" : "🔊"}
+    </button>
   );
 }

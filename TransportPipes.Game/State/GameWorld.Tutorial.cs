@@ -15,7 +15,8 @@ public sealed partial class GameWorld
     /// <summary>How far a company is with a step's goal</summary>
     public double TutorialProgress(Company company, TutorialStep step) =>
         step.Stat.StartsWith("built:", StringComparison.Ordinal)
-            ? BuildingsOf(company.Id).Count(t => t.Type == step.Stat["built:".Length..])
+            // built:solarPanel|windMoily counts any of them
+            ? BuildingsOf(company.Id).Count(t => step.Stat["built:".Length..].Split('|').Contains(t.Type))
             : StatValue(company, step.Stat);
 
     /// <summary>Loady's guide (off in most tests: its gold would change the expected numbers)</summary>

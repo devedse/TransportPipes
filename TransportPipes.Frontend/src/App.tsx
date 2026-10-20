@@ -27,6 +27,7 @@ import { ReportDialog } from "./components/ReportDialog";
 import { BlueprintPanel, BlueprintSaveDialog } from "./components/BlueprintPanel";
 import { DeepParcelPanel, DeepVignette, LayerSwitch } from "./components/DeepPanel";
 import { GoalTracker } from "./components/GoalTracker";
+import { LevelUp } from "./components/LevelUp";
 import { ModerationPanel } from "./components/ModerationPanel";
 import { ResearchPanel } from "./components/ResearchPanel";
 import { SeasonPanel } from "./components/SeasonPanel";
@@ -206,6 +207,9 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="GoalTracker">
             <GoalTracker />
+          </ErrorBoundary>
+          <ErrorBoundary name="LevelUp">
+            <LevelUp />
           </ErrorBoundary>
           <ErrorBoundary name="BuildMenu">
             <BuildMenu />

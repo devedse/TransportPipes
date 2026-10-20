@@ -3436,3 +3436,82 @@ kbd {
     0 0 0 2px #e0a35a,
     var(--panel-shadow);
 }
+
+/* ---------------------------------------------------------------- Level up */
+
+.level-up {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  z-index: 20;
+  animation: level-up-in 0.35s ease-out;
+}
+
+.level-up-burst {
+  position: absolute;
+  width: 520px;
+  height: 520px;
+  background: repeating-conic-gradient(rgba(246, 199, 68, 0.35) 0 10deg, rgba(246, 199, 68, 0) 10deg 20deg);
+  border-radius: 50%;
+  mask: radial-gradient(circle, #000 30%, transparent 70%);
+  animation: level-up-spin 6s linear infinite;
+}
+
+.level-up-loady {
+  position: absolute;
+  width: 150px;
+  transform: translate(-150px, -40px) rotate(-8deg);
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.4));
+  animation: loady-bob 1.2s ease-in-out infinite;
+}
+
+.level-up-card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 18px 34px 16px;
+  background: linear-gradient(180deg, var(--panel-bg-strong), var(--panel-bg));
+  border: 4px solid var(--frame);
+  border-radius: 20px;
+  box-shadow:
+    0 0 0 3px var(--brass),
+    0 18px 40px rgba(0, 0, 0, 0.45);
+  transform: translate(40px, 10px);
+}
+
+.level-up-title {
+  font-family: var(--font-title);
+  font-size: 1.2rem;
+  color: var(--frame);
+}
+
+.level-up-number {
+  font-family: var(--font-title);
+  font-size: 4.2rem;
+  line-height: 1;
+  color: #b8860b;
+  text-shadow: 0 3px 0 #6e4b0a;
+}
+
+.level-up-unlocks {
+  max-width: 300px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+@keyframes level-up-in {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+
+@keyframes level-up-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
