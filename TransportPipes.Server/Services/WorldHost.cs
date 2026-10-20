@@ -293,23 +293,19 @@ public sealed class WorldHost : BackgroundService
             return pushes;
         }
 
-        var chunks = changes.Tiles.Select(t => WorldLayout.ChunkOf(t.X, t.Y)).Distinct().ToList();
-        if (chunks.Count != 0)
+        var chunks = changes.Tiles.Select(t => WorldLayout.ChunkOf(t.X, t.Y)).ToHashSet();
+        // A rebuilt network has a new id: the chunks of all its pipes and buildings go out again with it (also when
+        // none of their tiles changed), else the clients keep the old id on most of its pipes
+        var rebuilt = changes.Networks.ToHashSet();
+        foreach (var network in world.Networks.Where(t => rebuilt.Contains(t.Id)))
         {
-            // Networks change when tiles change, so the network ids of the objects too
-            foreach (var networkId in changes.Networks)
+            foreach (var tile in network.Conductors)
             {
-                if (world.Networks.FirstOrDefault(t => t.Id == networkId) is { } network)
-                {
-                    foreach (var tile in network.Conductors)
-                    {
-                        var chunk = WorldLayout.ChunkOf(tile.X, tile.Y);
-                        if (!chunks.Contains(chunk))
-                        {
-                            chunks.Add(chunk);
-                        }
-                    }
-                }
+                chunks.Add(WorldLayout.ChunkOf(tile.X, tile.Y));
+            }
+            foreach (var building in network.Buildings.Select(world.Building).OfType<Building>())
+            {
+                chunks.Add(WorldLayout.ChunkOf(building.X, building.Y));
             }
         }
         foreach (var (cx, cy) in chunks)

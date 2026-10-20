@@ -166,6 +166,9 @@ the primary goals: the buildings, the map and the UI. The design may change wher
 - ✅ The neighbour step could get stuck (found in play): connected to two Ironworks, a new player sold them nothing,
   because a works only runs with all its inputs and the player's own factory used all its ore. Tenants' works now
   import what no neighbour brings, so any one of their inputs sells; Loady says why when a connection is not a trade
+- ✅ A rebuilt network kept its old id on most pipes and buildings in the clients (found in play: selecting a network
+  highlighted part of it, running buildings showed the idle bubble, until a reload): the changes now carry the new
+  ids and every chunk of the network goes out again; a selection follows its network
 - ✅ Pipes redesigned (the game's core): real 3D pieces rendered by `art/pipes.mjs` that join exactly, smooth bends,
   bolted hubs, tees and inlet boxes where pipes plug into buildings, flanges and feet spaced along the runs, five tier
   materials, glowing pellets for the flows; the drag preview shows the real pieces

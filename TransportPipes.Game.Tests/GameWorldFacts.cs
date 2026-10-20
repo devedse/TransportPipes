@@ -184,6 +184,29 @@ public class GameWorldFacts
     }
 
     [TestMethod]
+    public void TheChangesOfANewPipeCarryTheIdOfTheNetworkItRebuilt()
+    {
+        var game = new TestGame();
+        var company = game.NewCompany();
+        var moily = game.Build(company, "windMoily");
+        game.Connect(company, moily, game.TradingPost(company));
+        var network = game.World.NetworkOf(moily.Id)!;
+        var before = network.Id;
+        game.World.TakeChanges();
+
+        // One more pipe tile beside the network: it is rebuilt with a new id
+        var estate = game.EstateOf(company);
+        var tile = network.Conductors.SelectMany(TestGame.Neighbours)
+            .First(t => estate.Contains(t) && !game.World.IsOccupied(t) && game.World.Tile(t).Terrain is not (TerrainType.Mountain or TerrainType.Water));
+        Assert.IsTrue(game.World.PlacePipes(company.Id, [tile]).Success);
+        var changes = game.World.TakeChanges();
+        var after = game.World.NetworkOf(moily.Id)!.Id;
+
+        Assert.AreNotEqual(before, after);
+        Assert.Contains(after, changes.Networks, "the clients learn the new id with the pipe (else most pipes keep the old one)");
+    }
+
+    [TestMethod]
     public void ACatchUpOfADayGivesTheSameResultAsTicksEveryMinute()
     {
         TestGame Setup()

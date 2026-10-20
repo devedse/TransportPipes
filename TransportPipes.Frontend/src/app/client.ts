@@ -112,7 +112,10 @@ export class GameClient {
       setState({ districtVersion: appStore.getState().districtVersion + 1 });
     });
     c.on("companyChanged", (company) => this.setCompany(company));
-    c.on("networksChanged", (networks) => void this.refreshFlows(networks));
+    c.on("networksChanged", (networks) => {
+      this.followSelectedNetwork(networks);
+      void this.refreshFlows(networks);
+    });
     c.on("exchangeChanged", () => {
       if (appStore.getState().hubOpen) {
         void this.refreshMarket();
@@ -674,7 +677,7 @@ export class GameClient {
       return;
     }
     if (conductor !== undefined && conductor.network !== null) {
-      this.selectNetwork(conductor.network);
+      this.selectNetwork(conductor.network, tile);
       return;
     }
     const company = state.company;
@@ -737,7 +740,11 @@ export class GameClient {
     }
   }
 
-  selectNetwork(id: number | null) {
+  /** The pipe a selected network was clicked at: the selection follows the network there when it is rebuilt */
+  private networkTile: { x: number; y: number } | null = null;
+
+  selectNetwork(id: number | null, tile: { x: number; y: number } | null = null) {
+    this.networkTile = id === null ? null : (tile ?? this.networkTile);
     this.stopDetails();
     setState({
       selectedNetwork: id,
@@ -763,10 +770,28 @@ export class GameClient {
     }
     if (details === null) {
       // The network was rebuilt (a pipe changed): it has a new id
-      this.selectNetwork(null);
+      this.followSelectedNetwork([id]);
       return;
     }
     setState({ networkDetails: details });
+  }
+
+  /**
+   * A rebuilt network has a new id (its pipes come with it, before this): the selection goes on with the network at
+   * the pipe it was clicked at, or ends when that pipe is gone
+   */
+  private followSelectedNetwork(changed: number[]) {
+    const id = appStore.getState().selectedNetwork;
+    if (id === null || !changed.includes(id)) {
+      return;
+    }
+    const tile = this.networkTile;
+    const now = tile === null ? null : (this.world?.conductorAt(tile.x, tile.y)?.network ?? null);
+    if (now === null) {
+      this.selectNetwork(null);
+    } else if (now !== id) {
+      this.selectNetwork(now, tile);
+    }
   }
 
   async setGatePolicy(side: GateSide, policy: GatePolicy) {

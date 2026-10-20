@@ -101,6 +101,9 @@ public sealed partial class GameWorld
 
     public WorldChanges TakeChanges()
     {
+        // Networks are rebuilt when something asks for them: first, so a rebuild's new ids are in these changes (and
+        // the clients get the new ids of all its pipes, not only of the tiles that changed)
+        UpdateNetworks();
         var changes = Changes;
         Changes = new WorldChanges();
         return changes;

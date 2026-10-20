@@ -15,6 +15,7 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 | Script | What it shows |
 | --- | --- |
 | `onboarding.mjs` | A new player following Loady's first steps |
+| `network-ids.mjs` | A selected network rebuilt three times: the selection covers every pipe, its buildings don't go idle |
 | `neighbour.mjs` | Loady's neighbour step as a player does it: pipe to the own gate, Neighbours → Connect to a works |
 | `guide.mjs` | Loady's later steps: the Storage and what it keeps, the daily orders, a step that waits for a level |
 | `art-check.mjs`, `showcase.mjs` | Generated buildings on an estate (`showcase.mjs shots/x type,type,...`) |
