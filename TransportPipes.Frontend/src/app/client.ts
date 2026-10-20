@@ -159,8 +159,10 @@ export class GameClient {
       if (t.kind === "levelUp") {
         const level = Number(/\d+/.exec(t.text)?.[0] ?? 0);
         if (level > 0) {
+          // The celebration says it: no toast as well
           setState({ levelUp: level });
           sounds.levelUp();
+          return;
         }
       }
       toast(
