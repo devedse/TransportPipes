@@ -58,6 +58,8 @@ public sealed class GameServer : WebApplicationFactory<Program>
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:TransportPipes", ConnectionString);
         builder.UseSetting("TransportPipes:TickSeconds", "1");
+        // Loady's thank-you gold would change the expected numbers
+        builder.UseSetting("TransportPipes:Tutorial", "false");
         builder.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(Time));
     }
 

@@ -107,6 +107,9 @@ export interface AppState {
   wildTile: TilePosition | null;
   /** Where Loady suggests to build (a pulsing marker), with the footprint size */
   hintTile: { x: number; y: number; size: number } | null;
+  /** Photo mode: no UI, a time of day */
+  photoMode: boolean;
+  timeOfDay: "day" | "golden" | "dusk" | "night";
   /** A Company Level just reached: the celebration shows */
   levelUp: number | null;
   outpostCheck: OutpostCheckDto | null;
@@ -185,6 +188,8 @@ export const initialState: AppState = {
   wildTile: null,
   hintTile: null,
   levelUp: null,
+  photoMode: false,
+  timeOfDay: "day",
   outpostCheck: null,
   season: null,
   seasonOpen: false,

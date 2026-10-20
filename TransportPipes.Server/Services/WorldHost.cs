@@ -137,6 +137,7 @@ public sealed class WorldHost : BackgroundService
         }
         world.TenantsEnabled = _options.Tenants;
         world.EventsEnabled = _options.Events;
+        world.TutorialEnabled = _options.Tutorial;
         if (_options.Tenants)
         {
             world.EnsureTenants();

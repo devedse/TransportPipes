@@ -28,6 +28,7 @@ import { BlueprintPanel, BlueprintSaveDialog } from "./components/BlueprintPanel
 import { DeepParcelPanel, DeepVignette, LayerSwitch } from "./components/DeepPanel";
 import { GoalTracker } from "./components/GoalTracker";
 import { LevelUp } from "./components/LevelUp";
+import { PhotoBar } from "./components/PhotoBar";
 import { ModerationPanel } from "./components/ModerationPanel";
 import { ResearchPanel } from "./components/ResearchPanel";
 import { SeasonPanel } from "./components/SeasonPanel";
@@ -71,6 +72,8 @@ function useShortcuts() {
             state.moderationOpen
           ) {
             setState({ ...MODALS, buildMenuOpen: state.buildMenuOpen });
+          } else if (state.photoMode) {
+            gameClient.setPhotoMode(false);
           } else if (state.selectedDeepParcel !== null) {
             setState({ selectedDeepParcel: null });
           } else if (state.blueprintDraft !== null) {
@@ -150,6 +153,9 @@ function useShortcuts() {
         case "g":
           gameClient.toggleDeep();
           break;
+        case "f":
+          gameClient.setPhotoMode(!state.photoMode);
+          break;
         case "u":
           if (state.blueprintsOpen) {
             setState({ blueprintsOpen: false });
@@ -192,11 +198,13 @@ export function App() {
   const phase = useAppStore((state) => state.phase);
   const error = useAppStore((state) => state.error);
   const content = useAppStore((state) => state.content);
+  const photoMode = useAppStore((state) => state.photoMode);
 
   return (
     <div className="app">
       {content !== null && <GameCanvas />}
-      {phase === "playing" && (
+      {phase === "playing" && photoMode && <PhotoBar />}
+      {phase === "playing" && !photoMode && (
         <>
           <DeepVignette />
           <ErrorBoundary name="EventBar">

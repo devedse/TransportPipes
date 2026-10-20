@@ -1,4 +1,14 @@
-import { AnimatedSprite, Application, Container, Graphics, Rectangle, Sprite, Text, Texture } from "pixi.js";
+import {
+  AnimatedSprite,
+  Application,
+  ColorMatrixFilter,
+  Container,
+  Graphics,
+  Rectangle,
+  Sprite,
+  Text,
+  Texture,
+} from "pixi.js";
 import type {
   BlueprintDto,
   BuildingDto,
@@ -1942,6 +1952,34 @@ export class Engine {
     if (popped) {
       sounds.coin();
     }
+  }
+
+  /** Photo mode's time of day: a colour grade over the world */
+  setTimeOfDay(time: "day" | "golden" | "dusk" | "night") {
+    if (time === "day") {
+      this.worldLayer.filters = [];
+      return;
+    }
+    const filter = new ColorMatrixFilter();
+    if (time === "golden") {
+      filter.tint(0xffd9a0, false);
+      filter.saturate(0.15, true);
+      filter.brightness(1.05, true);
+    } else if (time === "dusk") {
+      filter.tint(0xd8a0c8, false);
+      filter.brightness(0.82, true);
+    } else {
+      // Moonlight: darker, cooler, a little less colour; warm lights still read
+      filter.matrix = [
+        0.5, 0.06, 0.04, 0, 0.02, 0.04, 0.55, 0.06, 0, 0.03, 0.05, 0.1, 0.72, 0, 0.08, 0, 0, 0, 1, 0,
+      ];
+    }
+    this.worldLayer.filters = [filter];
+  }
+
+  /** The world as a picture (photo mode): a PNG data URL of what is on screen */
+  async snapshot(): Promise<string> {
+    return this.app.renderer.extract.base64({ target: this.app.stage, format: "png" });
   }
 
   /** A building is done: a burst and a little sound */

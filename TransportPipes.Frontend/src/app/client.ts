@@ -775,6 +775,37 @@ export class GameClient {
     await this.command(this.connection.startExpedition(hours), "The team sets off");
   }
 
+  /** Photo mode: hides the UI; the time of day colours the world */
+  setPhotoMode(on: boolean) {
+    setState({
+      photoMode: on,
+      ...MODALS,
+      selectedBuilding: null,
+      buildingDetails: null,
+      buildMenuOpen: false,
+    });
+    if (!on) {
+      this.setTimeOfDay("day");
+    }
+  }
+
+  setTimeOfDay(time: "day" | "golden" | "dusk" | "night") {
+    setState({ timeOfDay: time });
+    this.engine?.setTimeOfDay(time);
+  }
+
+  /** Saves the picture on screen as a PNG */
+  async savePhoto() {
+    if (this.engine === null) {
+      return;
+    }
+    const url = await this.engine.snapshot();
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `transportpipes-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.png`;
+    link.click();
+  }
+
   /** Looks at a building and opens its panel */
   showBuilding(id: number) {
     const building = this.world?.buildings.get(id);

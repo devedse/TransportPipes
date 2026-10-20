@@ -182,6 +182,9 @@ export function TopBar() {
         <button className="icon-button desktop-only" title="Zoom in (+)" onClick={() => gameClient.zoomBy(1)}>
           +
         </button>
+        <button className="icon-button" title="Photo mode (F)" onClick={() => gameClient.setPhotoMode(true)}>
+          📷
+        </button>
         <MuteButton />
         <button className="icon-button" title="Log out" onClick={() => void gameClient.logout()}>
           ⎋

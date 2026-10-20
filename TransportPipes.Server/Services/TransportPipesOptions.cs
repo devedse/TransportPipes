@@ -27,6 +27,9 @@ public class TransportPipesOptions
     /// <summary>Weather and hub events (GDD §15)</summary>
     public bool Events { get; set; } = true;
 
+    /// <summary>Loady's guide for new players (GDD §10.2)</summary>
+    public bool Tutorial { get; set; } = true;
+
     /// <summary>Days between the end of a chapter (its ceremony) and the next one (GDD §8.8)</summary>
     public double SeasonBreakDays { get; set; } = 1;
 
