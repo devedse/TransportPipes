@@ -59,11 +59,24 @@ def prop_prompt(items):
             "\n\nSave every PNG into the current working directory with exactly the given file name. Make each image"
             " separately. Do not write any code.")
 
+ICON_RULES = """Rules for every icon:
+- Square 256×256 PNG with a transparent background, the object centred and filling about 80% of the square.
+- Seen slightly from above at a friendly 3/4 angle, light from the top left, a clean dark outline and soft shading:
+  the same polished, chunky game style as the buildings. One object, no text, no frame, no background shape.
+- Every icon in the set has the same size, outline weight and lighting, so they look like one family."""
+
+def icon_prompt(items):
+    lines = [f"- {t['id']}.png: {t['look']}" for t in items]
+    return (f"Use your image generation tool to create a set of game icons. Read the style and the rules first.\n\nSTYLE\n{STYLE}\n\n"
+            f"{ICON_RULES}\n\nThe icons:\n" + "\n".join(lines) +
+            "\n\nSave every PNG into the current working directory with exactly the given file name. Make each image"
+            " separately. Do not write any code.")
+
 if __name__ == '__main__':
     name, kind, *ids = sys.argv[1:]
-    source = {'buildings': 'buildings.yaml', 'terrain': 'terrain.yaml', 'props': 'props.yaml'}[kind]
+    source = {'buildings': 'buildings.yaml', 'terrain': 'terrain.yaml', 'props': 'props.yaml', 'icons': 'icons.yaml'}[kind]
     items = {t['id']: t for t in yaml.safe_load(open(source))}
     chosen = [items[i] for i in ids] if ids else list(items.values())
-    prompt = {'buildings': building_prompt, 'terrain': terrain_prompt, 'props': prop_prompt}[kind](chosen)
+    prompt = {'buildings': building_prompt, 'terrain': terrain_prompt, 'props': prop_prompt, 'icons': icon_prompt}[kind](chosen)
     open(f'prompts/{name}.md', 'w').write(prompt)
     print(f'prompts/{name}.md: {len(chosen)} {kind}')

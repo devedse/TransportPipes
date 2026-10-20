@@ -1,0 +1,41 @@
+# Icons for the UI (256×256 with a transparent background): toolbar, top bar and resources
+- { id: tool-select, look: "a pointing cursor arrow in white with a teal outline" }
+- { id: tool-build, look: "a hammer with a wooden handle and a steel head" }
+- { id: tool-pipe, look: "a grey metal pipe elbow with a brass collar" }
+- { id: tool-remove, look: "a small yellow bulldozer" }
+- { id: tool-neighbours, look: "a friendly handshake" }
+- { id: tool-corp, look: "a small office tower with a flag on top" }
+- { id: tool-hub, look: "a market stall with a red and white striped awning" }
+- { id: tool-research, look: "a glass flask with bubbling green liquid" }
+- { id: tool-plans, look: "a rolled blue blueprint with a ruler" }
+- { id: ui-chat, look: "a speech bubble" }
+- { id: ui-inbox, look: "a brass bell" }
+- { id: ui-trophy, look: "a golden trophy cup" }
+- { id: ui-home, look: "a little house with a red roof" }
+- { id: ui-gold, look: "a shiny gold coin with a crown stamped on it" }
+- { id: ui-level, look: "a golden star with a teal ribbon" }
+- { id: ui-research, look: "a blue research point: a small glowing lightbulb with a gear" }
+- { id: res-energy, look: "a yellow lightning bolt" }
+- { id: res-water, look: "a blue water drop" }
+- { id: res-ironOre, look: "a rust-red chunk of iron ore" }
+- { id: res-copperOre, look: "an orange and green chunk of copper ore" }
+- { id: res-coal, look: "a lump of shiny black coal" }
+- { id: res-stone, look: "a grey stone block" }
+- { id: res-sand, look: "a small heap of golden sand" }
+- { id: res-wood, look: "two logs" }
+- { id: res-ironIngot, look: "a silver-grey iron ingot" }
+- { id: res-copperIngot, look: "a shiny copper ingot" }
+- { id: res-bricks, look: "a small stack of red bricks" }
+- { id: res-glass, look: "a pane of light blue glass" }
+- { id: res-planks, look: "a stack of wooden planks" }
+- { id: res-steel, look: "a steel I-beam" }
+- { id: res-copperWire, look: "a spool of copper wire" }
+- { id: res-concrete, look: "a grey concrete block" }
+- { id: res-gears, look: "two interlocking steel gears" }
+- { id: res-oil, look: "a black oil barrel" }
+- { id: res-plastic, look: "a few colourful plastic pellets" }
+- { id: res-rareEarth, look: "a glowing violet crystal" }
+- { id: res-circuits, look: "a green circuit board chip" }
+- { id: res-engines, look: "a small engine block" }
+- { id: res-robots, look: "a small friendly robot" }
+- { id: res-superconductors, look: "a glowing blue superconductor ring" }

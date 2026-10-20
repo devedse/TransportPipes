@@ -21,3 +21,19 @@ waterPump:
   - { kind: smoke, x: 331, y: 304, size: 0.6 }
 lumberCamp:
   - { kind: smoke, x: 645, y: 239, size: 0.6 }
+bigFactory:
+  - { kind: smoke, x: 451, y: 109, size: 1.2 }
+  - { kind: smoke, x: 577, y: 188, size: 1.2 }
+  - { kind: smoke, x: 706, y: 266, size: 1.2 }
+steelMill:
+  - { kind: smoke, x: 706, y: 45, size: 1.3 }
+glassworks:
+  - { kind: smoke, x: 706, y: 82, size: 1 }
+machineShop:
+  - { kind: smoke, x: 761, y: 96, size: 0.9 }
+wireMill:
+  - { kind: smoke, x: 683, y: 68, size: 0.9 }
+cementKiln:
+  - { kind: smoke, x: 874, y: 403, size: 1.1 }
+refinery:
+  - { kind: glow, x: 273, y: 205, size: 1, color: "#ff9a3a" }

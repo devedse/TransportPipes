@@ -256,6 +256,138 @@
      "size": 0.6
     }
    ]
+  },
+  "assemblyPlant": {
+   "w": 865,
+   "h": 728,
+   "ax": 432,
+   "ay": 727,
+   "attachments": []
+  },
+  "bigFactory": {
+   "w": 577,
+   "h": 493,
+   "ax": 288,
+   "ay": 492,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 253,
+     "y": 6,
+     "size": 1.2
+    },
+    {
+     "kind": "smoke",
+     "x": 326,
+     "y": 52,
+     "size": 1.2
+    },
+    {
+     "kind": "smoke",
+     "x": 401,
+     "y": 97,
+     "size": 1.2
+    }
+   ]
+  },
+  "cementKiln": {
+   "w": 577,
+   "h": 547,
+   "ax": 288,
+   "ay": 546,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 498,
+     "y": 209,
+     "size": 1.1
+    }
+   ]
+  },
+  "circuitFab": {
+   "w": 577,
+   "h": 494,
+   "ax": 288,
+   "ay": 493,
+   "attachments": []
+  },
+  "glassworks": {
+   "w": 288,
+   "h": 287,
+   "ax": 144,
+   "ay": 286,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 205,
+     "y": 8,
+     "size": 1
+    }
+   ]
+  },
+  "machineShop": {
+   "w": 577,
+   "h": 509,
+   "ax": 288,
+   "ay": 509,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 431,
+     "y": 13,
+     "size": 0.9
+    }
+   ]
+  },
+  "refinery": {
+   "w": 865,
+   "h": 804,
+   "ax": 432,
+   "ay": 804,
+   "attachments": [
+    {
+     "kind": "glow",
+     "x": 226,
+     "y": 138,
+     "size": 1,
+     "color": "#ff9a3a"
+    }
+   ]
+  },
+  "sawmill": {
+   "w": 288,
+   "h": 237,
+   "ax": 144,
+   "ay": 236,
+   "attachments": []
+  },
+  "steelMill": {
+   "w": 577,
+   "h": 558,
+   "ax": 288,
+   "ay": 558,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 401,
+     "y": 14,
+     "size": 1.3
+    }
+   ]
+  },
+  "wireMill": {
+   "w": 288,
+   "h": 263,
+   "ax": 144,
+   "ay": 262,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 194,
+     "y": 3,
+     "size": 0.9
+    }
+   ]
   }
  },
  "rotors": {
