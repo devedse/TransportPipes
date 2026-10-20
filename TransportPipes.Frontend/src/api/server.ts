@@ -252,7 +252,7 @@ export class GameConnection {
   terraform = (x: number, y: number, action: string, resource: string | null) =>
     this.invoke<CommandResult>("Terraform", x, y, action, resource);
   move = (building: number, x: number, y: number) => this.invoke<CommandResult>("Move", building, x, y);
-  buyParcel = (parcel: number) => this.invoke<CommandResult>("BuyParcel", parcel);
+  buyParcel = (parcel: number, estate: number) => this.invoke<CommandResult>("BuyParcel", parcel, estate);
   setSellPrice = (resource: string, price: number | null) =>
     this.invoke<CommandResult>("SetSellPrice", resource, price);
   setBuyMaxPrice = (resource: string, price: number | null) =>
@@ -316,8 +316,8 @@ export class GameConnection {
     this.invoke<CommandResult>("ModerateMessage", message, action);
   renameCompany = (company: number, name: string) =>
     this.invoke<CommandResult>("RenameCompany", company, name);
-  startFranchise = () => this.invoke<CommandResult>("StartFranchise");
-  cancelFranchise = () => this.invoke<CommandResult>("CancelFranchise");
+  openFranchise = (districtX: number | null, districtY: number | null) =>
+    this.invoke<CommandResult>("OpenFranchise", districtX, districtY);
   getSeason = () => this.invoke<SeasonDto>("GetSeason");
   checkOutpost = (x: number, y: number) => this.invoke<OutpostCheckDto | null>("CheckOutpost", x, y);
   claimOutpost = (x: number, y: number) => this.invoke<CommandResult>("ClaimOutpost", x, y);

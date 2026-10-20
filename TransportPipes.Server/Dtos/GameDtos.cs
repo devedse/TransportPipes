@@ -71,7 +71,11 @@ public record CompanyDto(
     SeasonInfoDto Season,
     MovingDto Moving,
     DeepDto Deep,
+    IReadOnlyList<BranchDto> Branches,
     DateTime ServerTime);
+
+/// <summary>A branch estate opened by a franchise (its index for BuyParcel is its place in this list plus one)</summary>
+public record BranchDto(int DistrictX, int DistrictY, string DistrictName, int Slot, int X, int Y, int UnlockedParcels, double NextParcelCost, int NextParcelLevel);
 
 /// <summary>
 /// The Deep Level (GDD §11.2): whether there is a lift, the dug out parcels, the parcel being dug and what the next one

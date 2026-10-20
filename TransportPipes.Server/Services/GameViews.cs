@@ -82,6 +82,11 @@ public static class GameViews
                 GameWorld.DigCost(GameWorld.DugCount(company)),
                 GameWorld.DigTime(GameWorld.DugCount(company)).TotalHours,
                 WorldLayout.DeepOffset),
+            world.EstatesOf(company).Skip(1).Select(t =>
+            {
+                var (cost, level) = world.NextParcel(company, t);
+                return new BranchDto(t.District.X, t.District.Y, WorldNames.District(t.District), t.Slot, t.Origin.X, t.Origin.Y, t.UnlockedParcels, cost, level);
+            }).ToList(),
             world.Now);
     }
 

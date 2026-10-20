@@ -160,6 +160,16 @@ export function TopBar() {
         <button className="icon-button" title="Back to my estate (H)" onClick={() => gameClient.goHome()}>
           ⌂
         </button>
+        {company?.branches.map((branch, i) => (
+          <button
+            key={`${branch.districtX},${branch.districtY}`}
+            className="icon-button"
+            title={`Your branch in ${branch.districtName}`}
+            onClick={() => gameClient.goToEstate(i + 1)}
+          >
+            {i + 2}
+          </button>
+        ))}
         <button
           className="icon-button desktop-only"
           title="Zoom out (-)"

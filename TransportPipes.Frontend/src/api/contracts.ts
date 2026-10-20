@@ -73,6 +73,8 @@ export interface CompanyDto {
   season: SeasonInfoDto;
   moving: MovingDto;
   deep: DeepDto;
+  /** Branch estates opened by franchising */
+  branches: BranchDto[];
   serverTime: string;
 }
 
@@ -1068,4 +1070,17 @@ export interface DeepDto {
   nextCost: number;
   nextHours: number;
   offset: number;
+}
+
+/** A branch estate (GDD §8.7): its index for BuyParcel is its place in CompanyDto.branches plus one */
+export interface BranchDto {
+  districtX: number;
+  districtY: number;
+  districtName: string;
+  slot: number;
+  x: number;
+  y: number;
+  unlockedParcels: number;
+  nextParcelCost: number;
+  nextParcelLevel: number;
 }

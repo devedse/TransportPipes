@@ -916,9 +916,9 @@ public sealed partial class GameWorld
     }
 
     /// <summary>The cost and the Company Level needed for the next parcel</summary>
-    public (double Cost, int Level) NextParcel(Company company)
+    public (double Cost, int Level) NextParcel(Company company, Estate? estate = null)
     {
-        var estate = EstateOf(company);
+        estate ??= EstateOf(company);
         var extra = (estate?.UnlockedCount ?? 4) - Content.Progression.StartParcels.Count;
         if (extra >= Content.Progression.ParcelLevels.Count)
         {

@@ -61,6 +61,8 @@ export interface AppState {
   selectedBuilding: number | null;
   buildingDetails: BuildingDetailsDto | null;
   selectedParcel: number | null;
+  /** Which of the company's estates the selected parcel belongs to (0 is the first, then the branches) */
+  selectedParcelEstate: number;
   selectedNetwork: number | null;
   selectedGate: GateSide | null;
   /** Counts district updates, so panels that read the world model render again */
@@ -142,6 +144,7 @@ export const initialState: AppState = {
   selectedBuilding: null,
   buildingDetails: null,
   selectedParcel: null,
+  selectedParcelEstate: 0,
   selectedNetwork: null,
   selectedGate: null,
   districtVersion: 0,

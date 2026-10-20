@@ -8,6 +8,7 @@ import {
   type BuildingArt,
   type HubStructureLook,
 } from "./buildings";
+import { TILE_HEIGHT, TILE_WIDTH } from "../constants";
 import { createCanvas, type Attachment } from "./iso";
 import {
   drawDeposit,
@@ -28,6 +29,8 @@ export const TERRAIN_VARIANTS = 4;
 export interface BuildingTextures {
   frames: Texture[];
   size: number;
+  /** Generated art: the sprite's anchor is the bottom corner of its ground plate, scaled down from its resolution */
+  placement?: { anchorX: number; anchorY: number; scale: number };
   attachments: Attachment[];
   /** Hand-drawn sprite of the original game */
   original: boolean;
@@ -52,8 +55,38 @@ const ORIGINAL_TERRAIN: Partial<Record<TerrainType, string>> = {
   water: "water.png",
 };
 
-/** All textures of the game: the original atlases plus the procedural art, created once and cached */
+/** What art/process.mjs made of the generated art (public/art/manifest.json) */
+interface ArtManifest {
+  resolution: number;
+  buildings: Record<
+    string,
+    {
+      w: number;
+      h: number;
+      ax: number;
+      ay: number;
+      attachments?: Array<{ kind: Attachment["kind"]; x: number; y: number; size?: number; color?: string }>;
+    }
+  >;
+  rotors: Record<string, { size: number }>;
+  terrain: Record<string, { size: number }>;
+}
+
+const ART_URL = "/art/";
+
+/** The period of a terrain texture on screen (8 tiles across): tiles are cut out of it where they lie */
+const TERRAIN_PERIOD_X = TILE_WIDTH * 8;
+const TERRAIN_PERIOD_Y = (TILE_HEIGHT / 2) * 8;
+
+function mod(a: number, b: number): number {
+  return ((a % b) + b) % b;
+}
+
+/** All textures of the game: generated art, the original atlases and procedural art, created once and cached */
 export class TextureBank {
+  private art: ArtManifest | null = null;
+  private readonly artTextures = new Map<string, Texture>();
+  private readonly terrainImages = new Map<string, HTMLImageElement>();
   private readonly atlas = new Map<string, Texture>();
   private readonly cache = new Map<string, Texture>();
   private readonly buildingCache = new Map<string, BuildingTextures>();
@@ -72,6 +105,7 @@ export class TextureBank {
         bank.atlas.set(name, texture);
       }
     }
+    await bank.loadArt();
     // For DOM thumbnails
     try {
       const json = (await (await fetch(OBJECT_ATLAS_URL)).json()) as { frames: TextureBank["atlasFrames"] };
@@ -84,6 +118,103 @@ export class TextureBank {
       console.warn("Thumbnails of the original sprites are not available", error);
     }
     return bank;
+  }
+
+  /** The generated art, when it has been made (the procedural art stands in for everything else) */
+  private async loadArt() {
+    try {
+      const response = await fetch(`${ART_URL}manifest.json`);
+      if (!response.ok) {
+        return;
+      }
+      const art = (await response.json()) as ArtManifest;
+      const urls: Array<[string, string]> = [
+        ...Object.keys(art.buildings).map((id): [string, string] => [id, `${ART_URL}buildings/${id}.webp`]),
+        ...Object.keys(art.rotors).map((id): [string, string] => [
+          `${id}-rotor`,
+          `${ART_URL}buildings/${id}-rotor.webp`,
+        ]),
+      ];
+      const textures = await Promise.all(urls.map(([, url]) => Assets.load<Texture>(url).catch(() => null)));
+      urls.forEach(([key], i) => {
+        if (textures[i] !== null && textures[i] !== undefined) {
+          this.artTextures.set(key, textures[i]);
+        }
+      });
+      await Promise.all(
+        Object.keys(art.terrain).map(async (id) => {
+          const image = new Image();
+          image.src = `${ART_URL}terrain/${id}.webp`;
+          await image.decode();
+          this.terrainImages.set(id, image);
+        }),
+      );
+      this.art = art;
+    } catch (error) {
+      console.warn("The generated art could not be loaded", error);
+    }
+  }
+
+  /** The generated sprite of a building: anchored at its plate's bottom corner, attachments around it */
+  private generatedBuilding(type: string, size: number): BuildingTextures | null {
+    const entry = this.art?.buildings[type];
+    const texture = this.artTextures.get(type);
+    if (this.art === null || entry === undefined || texture === undefined) {
+      return null;
+    }
+    const scale = 1 / this.art.resolution;
+    // Attachments are relative to the footprint's bottom-left corner, like the procedural art
+    const at = (x: number, y: number) => ({
+      x: TILE_WIDTH * size + (x - entry.ax) * scale,
+      y: (y - entry.ay) * scale,
+    });
+    const attachments: Attachment[] = (entry.attachments ?? []).map((a) => ({
+      ...at(a.x, a.y),
+      kind: a.kind,
+      size: a.size ?? 1,
+      color: a.color,
+    }));
+    const rotor = this.artTextures.get(`${type}-rotor`);
+    if (rotor !== undefined) {
+      for (const a of attachments.filter((t) => t.kind === "rotor")) {
+        a.texture = rotor;
+        a.scale = scale;
+      }
+    }
+    return {
+      frames: [texture],
+      size,
+      attachments,
+      original: false,
+      placement: { anchorX: entry.ax / entry.w, anchorY: entry.ay / entry.h, scale },
+    };
+  }
+
+  /** A terrain tile cut out of its seamless texture where it lies, so tiles join without seams */
+  terrainAt(type: TerrainType, x: number, y: number, variant: number): Texture {
+    const image = this.terrainImages.get(type);
+    if (image === undefined) {
+      return this.terrain(type, variant);
+    }
+    const left = mod(TILE_WIDTH * (x - y), TERRAIN_PERIOD_X);
+    const top = mod((TILE_HEIGHT / 2) * (x + y) - TILE_HEIGHT, TERRAIN_PERIOD_Y);
+    return this.cached(`terrainAt:${type}:${left}:${top}`, () => {
+      const canvas = createCanvas(TILE_WIDTH * 2, TILE_HEIGHT);
+      const g = canvas.getContext("2d")!;
+      g.beginPath();
+      g.moveTo(0, TILE_HEIGHT / 2);
+      g.lineTo(TILE_WIDTH, 0);
+      g.lineTo(TILE_WIDTH * 2, TILE_HEIGHT / 2);
+      g.lineTo(TILE_WIDTH, TILE_HEIGHT);
+      g.closePath();
+      g.clip();
+      for (const dx of [0, TERRAIN_PERIOD_X]) {
+        for (const dy of [0, TERRAIN_PERIOD_Y]) {
+          g.drawImage(image, dx - left, dy - top, TERRAIN_PERIOD_X, TERRAIN_PERIOD_Y);
+        }
+      }
+      return canvas;
+    });
   }
 
   private cached(key: string, create: () => HTMLCanvasElement): Texture {
@@ -146,6 +277,10 @@ export class TextureBank {
   }
 
   private createBuilding(type: string, size: number): BuildingTextures {
+    const generated = this.generatedBuilding(type, size);
+    if (generated !== null) {
+      return generated;
+    }
     const original = ORIGINAL_SPRITES[type];
     if (original !== undefined) {
       const resolved = resolveFrames(original, (frame) => this.atlas.has(frame));
@@ -204,6 +339,9 @@ export class TextureBank {
     let url = this.thumbnailCache.get(type);
     if (url !== undefined) {
       return url;
+    }
+    if (this.artTextures.has(type)) {
+      return `${ART_URL}buildings/${type}.webp`;
     }
     const original = ORIGINAL_SPRITES[type];
     let source: HTMLCanvasElement;

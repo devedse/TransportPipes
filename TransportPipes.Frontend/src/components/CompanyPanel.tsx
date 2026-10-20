@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { gameClient } from "../app/client";
-import { formatAmount, formatDuration } from "../app/format";
-import { useNow } from "../app/useNow";
+import { formatAmount } from "../app/format";
 import type { AchievementDto, ManagerDto } from "../api/contracts";
 import { setState, useAppStore } from "../state/store";
 import { MoveTab } from "./MoveTab";
@@ -69,8 +68,6 @@ function Achievement({ achievement }: { achievement: AchievementDto }) {
 /** The Franchise (GDD §8.7): sell the company to the Board for Shares, start again much faster */
 function FranchiseTab() {
   const company = useAppStore((s) => s.company)!;
-  const serverOffset = useAppStore((s) => s.serverOffsetMs);
-  const now = useNow(1000) + serverOffset;
   const franchise = company.franchise;
   return (
     <div className="franchise">
@@ -93,32 +90,31 @@ function FranchiseTab() {
         </div>
       </div>
       <p className="small">
-        Sell your company to the Board: you get Shares (the square root of what you earned since the last
-        franchise, in thousands), each +1% production for the rest of the season. You keep your land,
-        decorations, corporation, managers, outposts and hub reputation. Buildings, levels, gold and three
-        quarters of your research go. Partners get 24 hours of notice.
+        Open a franchise: you cash in Shares (the square root of what you earned since the last franchise, in
+        thousands), each +1% production for good, and open a new estate in the newest district. It starts
+        small and grows like your first one; nothing of what you built goes. Up to three estates.
       </p>
-      {franchise.at !== null ? (
-        <div className="franchise-pending">
-          <span>
-            Franchise in {formatDuration(Math.max(0, (new Date(franchise.at).getTime() - now) / 1000))}: +
-            {franchise.sharesNow} Shares
-          </span>
-          <button onClick={() => void gameClient.cancelFranchise()}>Cancel</button>
-        </div>
-      ) : (
-        <button
-          className="primary"
-          disabled={franchise.blocker !== null}
-          title={franchise.blocker ?? undefined}
-          onClick={() => void gameClient.startFranchise()}
-        >
-          Franchise for +{franchise.sharesNow} Shares
-        </button>
+      {company.branches.length > 0 && (
+        <ul className="facts">
+          {company.branches.map((branch, i) => (
+            <li key={`${branch.districtX},${branch.districtY}`}>
+              🏡 Branch in {branch.districtName}{" "}
+              <button className="small" onClick={() => gameClient.goToEstate(i + 1)}>
+                Go there
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
-      {franchise.blocker !== null && franchise.at === null && (
-        <p className="muted small">🔒 {franchise.blocker}</p>
-      )}
+      <button
+        className="primary"
+        disabled={franchise.blocker !== null}
+        title={franchise.blocker ?? undefined}
+        onClick={() => void gameClient.openFranchise()}
+      >
+        Open a franchise · +{franchise.sharesNow} Shares and a new estate
+      </button>
+      {franchise.blocker !== null && <p className="muted small">🔒 {franchise.blocker}</p>}
     </div>
   );
 }

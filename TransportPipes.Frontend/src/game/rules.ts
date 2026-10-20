@@ -40,6 +40,44 @@ function insideEstate(company: CompanyDto, x: number, y: number): boolean {
   );
 }
 
+/** One of the company's estates: the first (index 0) or a branch */
+export interface OwnEstate {
+  index: number;
+  x: number;
+  y: number;
+  unlockedParcels: number;
+  nextParcelCost: number | null;
+  nextParcelLevel: number | null;
+}
+
+export function ownEstates(company: CompanyDto): OwnEstate[] {
+  return [
+    {
+      index: 0,
+      x: company.estateX,
+      y: company.estateY,
+      unlockedParcels: company.unlockedParcels,
+      nextParcelCost: company.nextParcelCost,
+      nextParcelLevel: company.nextParcelLevel,
+    },
+    ...(company.branches ?? []).map((t, i) => ({
+      index: i + 1,
+      x: t.x,
+      y: t.y,
+      unlockedParcels: t.unlockedParcels,
+      nextParcelCost: t.nextParcelCost,
+      nextParcelLevel: t.nextParcelLevel,
+    })),
+  ];
+}
+
+/** The company's estate a surface tile lies on */
+export function ownEstateAt(company: CompanyDto, x: number, y: number): OwnEstate | undefined {
+  return ownEstates(company).find(
+    (t) => x >= t.x && y >= t.y && x < t.x + ESTATE_SIZE && y < t.y + ESTATE_SIZE,
+  );
+}
+
 export function forestAround(world: WorldModel, x: number, y: number, size: number): number {
   let count = 0;
   for (let ty = y - 2; ty < y + size + 2; ty++) {
@@ -168,12 +206,14 @@ export function canPlace(
         if (outpost.owner !== company.id) {
           return fail("Someone else's outpost");
         }
-      } else if (!insideEstate(company, tx, ty)) {
-        return fail("Only on your own estate and outposts");
-      } else if (
-        !isParcelUnlocked(company.unlockedParcels, parcelOf(tx - company.estateX, ty - company.estateY))
-      ) {
-        return fail("Buy this parcel first");
+      } else {
+        const estate = ownEstateAt(company, tx, ty);
+        if (estate === undefined) {
+          return fail("Only on your own estates and outposts");
+        }
+        if (!isParcelUnlocked(estate.unlockedParcels, parcelOf(tx - estate.x, ty - estate.y))) {
+          return fail("Buy this parcel first");
+        }
       }
       const building = world.buildingAt(tx, ty);
       if (
@@ -277,7 +317,7 @@ export function pipeCost(
   const zone = zoneAt(x, y);
   if (
     zone.kind === "estate"
-      ? !insideEstate(company, x, y)
+      ? ownEstateAt(company, x, y) === undefined
       : zone.kind !== "corridor" && zone.kind !== "wilderness"
   ) {
     return null;

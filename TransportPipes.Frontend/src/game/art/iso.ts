@@ -18,6 +18,9 @@ export interface Attachment {
   y: number;
   size: number;
   color?: string;
+  /** Generated art: the picture of the moving part (a rotor) and its scale */
+  texture?: import("pixi.js").Texture;
+  scale?: number;
 }
 
 export function shade(hex: string, factor: number): string {

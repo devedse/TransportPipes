@@ -26,7 +26,7 @@ import {
   parcelOf,
   zoneAt,
 } from "../game/layout";
-import { newPipeTiles, routePipe } from "../game/rules";
+import { newPipeTiles, ownEstateAt, ownEstates, routePipe } from "../game/rules";
 import { WorldModel } from "../game/world";
 import { appStore, initialState, MODALS, setState, toast, type HubTab } from "../state/store";
 
@@ -666,13 +666,17 @@ export class GameClient {
       return;
     }
     if (company !== null) {
-      const lx = tile.x - company.estateX;
-      const ly = tile.y - company.estateY;
-      if (lx >= 0 && ly >= 0 && lx < ESTATE_SIZE && ly < ESTATE_SIZE) {
-        const parcel = parcelOf(lx, ly);
-        if (!isParcelUnlocked(company.unlockedParcels, parcel)) {
+      const own = ownEstateAt(company, tile.x, tile.y);
+      if (own !== undefined) {
+        const parcel = parcelOf(tile.x - own.x, tile.y - own.y);
+        if (!isParcelUnlocked(own.unlockedParcels, parcel)) {
           this.stopDetails();
-          setState({ selectedParcel: parcel, selectedBuilding: null, buildingDetails: null });
+          setState({
+            selectedParcel: parcel,
+            selectedParcelEstate: own.index,
+            selectedBuilding: null,
+            buildingDetails: null,
+          });
           return;
         }
       }
@@ -875,15 +879,37 @@ export class GameClient {
     }
   }
 
-  async buyParcel(parcel: number) {
-    if (await this.command(this.connection.buyParcel(parcel), "New land! Build on it right away.")) {
+  async buyParcel(parcel: number, estate: number) {
+    if (await this.command(this.connection.buyParcel(parcel, estate), "New land! Build on it right away.")) {
       setState({ selectedParcel: null });
     }
   }
 
-  canBuyParcel(parcel: number): boolean {
+  canBuyParcel(parcel: number, estate: number): boolean {
     const company = appStore.getState().company;
-    return company !== null && buyableParcels(company.unlockedParcels).includes(parcel);
+    const own = company === null ? undefined : ownEstates(company)[estate];
+    return own !== undefined && buyableParcels(own.unlockedParcels).includes(parcel);
+  }
+
+  /** Looks at one of the company's estates (0 is the first, then the branches) */
+  goToEstate(index: number) {
+    const company = appStore.getState().company;
+    const own = company === null ? undefined : ownEstates(company)[index];
+    if (own !== undefined) {
+      this.engine?.lookAt(own.x + ESTATE_SIZE / 2, own.y + ESTATE_SIZE / 2, 0.42);
+    }
+  }
+
+  async openFranchise() {
+    if (await this.command(this.connection.openFranchise(null, null))) {
+      // Off to the new estate
+      const company = appStore.getState().company;
+      await this.refreshCompany();
+      const after = appStore.getState().company;
+      if (after !== null && company !== null && after.branches.length > company.branches.length) {
+        this.goToEstate(after.branches.length);
+      }
+    }
   }
 
   closeReport() {
@@ -930,14 +956,6 @@ export class GameClient {
   }
 
   // ---------------------------------------------------------------- Franchise and season
-
-  async startFranchise() {
-    await this.command(this.connection.startFranchise(), "Franchise announced: it happens in 24 hours");
-  }
-
-  async cancelFranchise() {
-    await this.command(this.connection.cancelFranchise(), "Franchise cancelled");
-  }
 
   async openSeason() {
     const season = await this.connection.getSeason().catch(() => null);

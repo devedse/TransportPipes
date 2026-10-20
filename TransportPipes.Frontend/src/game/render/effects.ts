@@ -131,8 +131,11 @@ export class BuildingEffects {
     for (const a of attachments) {
       switch (a.kind) {
         case "rotor": {
-          const sprite = new Sprite(rotorTexture(Math.round(a.size * 70)));
+          const sprite = new Sprite(a.texture ?? rotorTexture(Math.round(a.size * 70)));
           sprite.anchor.set(0.5);
+          if (a.scale !== undefined) {
+            sprite.scale.set(a.scale);
+          }
           sprite.position.set(a.x, a.y);
           this.rotors.push(sprite);
           this.container.addChild(sprite);

@@ -1,18 +1,21 @@
 import { gameClient } from "../app/client";
 import { formatAmount } from "../app/format";
+import { ownEstates } from "../game/rules";
 import { currentGold, setState, useAppStore } from "../state/store";
 
 /** Buying a locked parcel of your own estate */
 export function ParcelPanel() {
   const parcel = useAppStore((state) => state.selectedParcel);
+  const estate = useAppStore((state) => state.selectedParcelEstate);
   const company = useAppStore((state) => state.company);
   const companyAt = useAppStore((state) => state.companyAt);
-  if (parcel === null || company === null) {
+  const own = company === null ? undefined : ownEstates(company)[estate];
+  if (parcel === null || company === null || own === undefined) {
     return null;
   }
-  const buyable = gameClient.canBuyParcel(parcel);
-  const cost = company.nextParcelCost;
-  const level = company.nextParcelLevel;
+  const buyable = gameClient.canBuyParcel(parcel, estate);
+  const cost = own.nextParcelCost;
+  const level = own.nextParcelLevel;
   const gold = currentGold({ company, companyAt });
   const levelOk = level !== null && company.level >= level;
   const goldOk = cost !== null && gold >= cost;
@@ -45,7 +48,7 @@ export function ParcelPanel() {
           <button
             className="primary wide"
             disabled={!levelOk || !goldOk}
-            onClick={() => void gameClient.buyParcel(parcel)}
+            onClick={() => void gameClient.buyParcel(parcel, estate)}
           >
             Buy for {formatAmount(cost)} g
           </button>

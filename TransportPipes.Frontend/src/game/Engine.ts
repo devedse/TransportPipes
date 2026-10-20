@@ -10,7 +10,7 @@ import type {
 } from "../api/contracts";
 import { createCanvas, hash01 } from "./art/iso";
 import { TERRAIN_MAP_COLORS } from "./art/terrain";
-import { TextureBank, TERRAIN_VARIANTS } from "./art/textures";
+import { TextureBank, TERRAIN_VARIANTS, type BuildingTextures } from "./art/textures";
 import { Camera, chunkIntersectsView } from "./camera";
 import { CLICK_TOLERANCE_PX, FAR_ZOOM, TILE_HEIGHT, TILE_WIDTH } from "./constants";
 import type { Content } from "./content";
@@ -160,6 +160,18 @@ function pipeShapeOf(x: number, y: number, connects: (x: number, y: number) => b
     return horizontal > vertical ? "rl" : "ud";
   }
   return shape;
+}
+
+/** Puts a building sprite on its footprint (the bottom-left corner of the footprint's box is at `anchor`) */
+function placeArt(sprite: Sprite, art: BuildingTextures, anchor: { x: number; y: number }, size: number) {
+  if (art.placement !== undefined) {
+    sprite.anchor.set(art.placement.anchorX, art.placement.anchorY);
+    sprite.scale.set(art.placement.scale);
+    sprite.position.set(anchor.x + TILE_WIDTH * size, anchor.y);
+  } else {
+    sprite.anchor.set(0, 1);
+    sprite.position.set(anchor.x, anchor.y);
+  }
 }
 
 function traceFootprint(g: Graphics, x: number, y: number, size: number, height = size) {
@@ -900,7 +912,7 @@ export class Engine {
           continue;
         }
         const variant = Math.floor(hash01((x * 73856093) ^ (y * 19349663)) * TERRAIN_VARIANTS);
-        const sprite = new Sprite(this.textures.terrain(tile.terrain, variant));
+        const sprite = new Sprite(this.textures.terrainAt(tile.terrain, x, y, variant));
         const anchor = diagonalToScreen(x, y);
         sprite.anchor.set(0, 1);
         sprite.position.set(anchor.x, anchor.y);
@@ -1315,8 +1327,16 @@ export class Engine {
               ? footprintAnchor(building.x + i, building.y + j, 1)
               : footprintAnchor(building.x, building.y, size);
           const sprite = art.frames.length > 1 ? new AnimatedSprite(art.frames) : new Sprite(art.frames[0]);
-          sprite.anchor.set(0, 1);
-          sprite.position.set(cell.x - anchor.x, cell.y - anchor.y);
+          if (art.placement !== undefined) {
+            // Generated art: anchored at the bottom corner of its plate
+            const cellSize = cells > 1 ? 1 : size;
+            sprite.anchor.set(art.placement.anchorX, art.placement.anchorY);
+            sprite.scale.set(art.placement.scale);
+            sprite.position.set(cell.x - anchor.x + TILE_WIDTH * cellSize, cell.y - anchor.y);
+          } else {
+            sprite.anchor.set(0, 1);
+            sprite.position.set(cell.x - anchor.x, cell.y - anchor.y);
+          }
           container.addChild(sprite);
           if (sprite instanceof AnimatedSprite) {
             sprite.animationSpeed = 0.2;
@@ -1839,9 +1859,7 @@ export class Engine {
       this.ghostLayer.addChild(g);
       const art = this.textures.building(definition.id, definition.size);
       const sprite = new Sprite(art.frames[0]);
-      sprite.anchor.set(0, 1);
-      const anchor = footprintAnchor(origin.x, origin.y, definition.size);
-      sprite.position.set(anchor.x, anchor.y);
+      placeArt(sprite, art, footprintAnchor(origin.x, origin.y, definition.size), definition.size);
       sprite.alpha = 0.72;
       if (!placement.ok) {
         sprite.tint = 0xff9090;
@@ -1979,9 +1997,7 @@ export class Engine {
       g.fill({ color: placement.ok ? 0x2ec4a6 : 0xef6f6c, alpha: 0.4 });
       const art = this.textures.building(definition.id, definition.size);
       const sprite = new Sprite(art.frames[0]);
-      sprite.anchor.set(0, 1);
-      const anchor = footprintAnchor(x, y, definition.size);
-      sprite.position.set(anchor.x, anchor.y);
+      placeArt(sprite, art, footprintAnchor(x, y, definition.size), definition.size);
       sprite.alpha = 0.65;
       if (!placement.ok) {
         sprite.tint = 0xff9090;
