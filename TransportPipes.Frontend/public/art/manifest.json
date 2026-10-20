@@ -71,6 +71,30 @@
   },
   "water": {
    "size": 512
+  },
+  "cavern": {
+   "size": 512
+  },
+  "city": {
+   "size": 512
+  },
+  "desert": {
+   "size": 512
+  },
+  "forest": {
+   "size": 512
+  },
+  "hills": {
+   "size": 512
+  },
+  "mountain": {
+   "size": 512
+  },
+  "road": {
+   "size": 512
+  },
+  "rock": {
+   "size": 512
   }
  }
 }

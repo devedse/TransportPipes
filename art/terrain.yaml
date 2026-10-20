@@ -1,0 +1,12 @@
+# Seamless top-down terrain textures; the game cuts isometric tiles out of them
+- { id: grass, look: "lush green meadow grass with small variations in tone, tiny clover and a few tiny flowers" }
+- { id: hills, look: "slightly drier, lighter yellow-green grass with small tufts, as on a sunny hillside" }
+- { id: forest, look: "forest floor: dark green moss, fallen leaves, small ferns and roots in deep shade" }
+- { id: beach, look: "fine golden sand with soft ripples and a few tiny shells and pebbles" }
+- { id: water, look: "clear blue lake water with soft painted ripples and light reflections, deeper blue towards no edge" }
+- { id: desert, look: "warm orange-beige desert sand with wind ripples and small dry cracks" }
+- { id: mountain, look: "grey rocky ground with cracks, gravel and small boulders" }
+- { id: road, look: "a cobblestone road surface of rounded grey and beige stones" }
+- { id: city, look: "neat square stone paving slabs of a town square in warm beige and grey" }
+- { id: rock, look: "solid dark brown-grey underground rock with cracks and mineral specks, lit dimly" }
+- { id: cavern, look: "the dug floor of an underground cavern: packed warm brown earth with pebbles, lit by lanterns" }

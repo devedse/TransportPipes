@@ -1,0 +1,6 @@
+# Animated parts of the generated buildings, in pixels of the generated (1024×1024) picture:
+# rotor = where the separate rotor spins, smoke = a chimney top, glow = a pulsing light
+windMoily:
+  - { kind: rotor, x: 598, y: 222 }
+smallFactory:
+  - { kind: smoke, x: 322, y: 138, size: 1 }

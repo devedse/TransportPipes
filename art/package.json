@@ -1,0 +1,10 @@
+{
+  "name": "transportpipes-art",
+  "private": true,
+  "type": "module",
+  "description": "Turns generated art (Codex image generation) into game sprites: crop, align to the footprint, scale, WebP",
+  "dependencies": {
+    "sharp": "0.33.5",
+    "yaml": "2.5.1"
+  }
+}

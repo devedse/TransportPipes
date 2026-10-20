@@ -1,0 +1,23 @@
+# Terrain props and ground decals. width = how wide the object is in tiles (the script scales it to that).
+# kind: prop (stands on the ground, anchored at its bottom) or decal (lies flat on a tile, anchored at its centre)
+- { id: treeOak, kind: prop, width: 0.75, look: "a round, full, leafy deciduous tree with a short trunk" }
+- { id: treeBirch, kind: prop, width: 0.6, look: "a slender birch with light yellow-green leaves and a white trunk" }
+- { id: treePine, kind: prop, width: 0.55, look: "a tall dark green pine tree" }
+- { id: treePines, kind: prop, width: 0.8, look: "a group of three pine trees of different heights" }
+- { id: treeBig, kind: prop, width: 0.95, look: "a big old oak tree with a wide crown" }
+- { id: bush, kind: prop, width: 0.45, look: "a small round green bush with a few berries" }
+- { id: flowers, kind: decal, width: 0.6, look: "a small patch of colourful wildflowers in the grass, flat on the ground" }
+- { id: reeds, kind: prop, width: 0.45, look: "a clump of reeds and cattails, as on a lake shore" }
+- { id: boulder, kind: prop, width: 0.5, look: "a small cluster of mossy grey boulders" }
+- { id: peak1, kind: prop, width: 1.0, look: "a rocky grey mountain peak filling one tile, sharp cliffs, a little snow on top" }
+- { id: peak2, kind: prop, width: 1.0, look: "a broad rocky grey mountain outcrop filling one tile, with cracks and ledges" }
+- { id: stump, kind: prop, width: 0.35, look: "an old tree stump with small mushrooms" }
+- { id: stalagmites, kind: prop, width: 0.6, look: "a few brown stalagmites growing from an underground cave floor" }
+- { id: depositIronOre, kind: decal, width: 0.85, look: "rust-red iron ore chunks scattered on the ground" }
+- { id: depositCopperOre, kind: decal, width: 0.85, look: "orange and green copper ore chunks scattered on the ground" }
+- { id: depositCoal, kind: decal, width: 0.85, look: "shiny black coal lumps scattered on the ground" }
+- { id: depositStone, kind: decal, width: 0.85, look: "pale grey quarry stones and slabs lying on the ground" }
+- { id: depositOil, kind: decal, width: 0.8, look: "a dark glossy oil seep bubbling out of the ground with a rainbow sheen" }
+- { id: depositRareEarth, kind: decal, width: 0.8, look: "small glowing violet crystals sticking out of the ground" }
+- { id: depositGeothermal, kind: decal, width: 0.7, look: "a steaming hot spring vent with orange mineral crust" }
+- { id: depositMagma, kind: decal, width: 0.85, look: "a pool of glowing orange magma with a dark cracked crust" }

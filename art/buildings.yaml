@@ -1,0 +1,74 @@
+# What every building looks like, for the generated art (docs/ArtDirection.md). size = footprint in tiles.
+# rotor: the rotating part is drawn separately (front view, centred hub) so the game can spin it.
+- { id: solarPanel, size: 1, look: "a tilted array of 2×2 dark blue solar panels on a small metal frame with a little junction box" }
+- { id: windMoily, size: 1, rotor: true, look: "a small cute white wind turbine ('moily') on a short tapered tower with a red stripe and a little nacelle, on a round concrete foot" }
+- { id: hydroWheel, size: 1, look: "a wooden water wheel in a small stone mill race with a tiny timber shed, water splashing" }
+- { id: coalPlant, size: 2, look: "a small brick coal power plant with two chimneys, a coal heap and a glowing furnace door" }
+- { id: bigTurbine, size: 2, rotor: true, look: "a tall modern white wind turbine on a slim tower with a small control hut at its foot" }
+- { id: steamTurbine, size: 2, look: "a steam power station: a hall with big turbine pipes, a cooling tower letting out steam, painted steel and brass" }
+- { id: solarFarm, size: 3, look: "a large solar farm: rows of tilted solar panels, a small inverter building and a fence" }
+- { id: geothermalPlant, size: 2, look: "a geothermal plant: a domed building over a steaming vent, insulated pipes, warm orange glow" }
+- { id: fusionReactor, size: 3, look: "a futuristic fusion reactor: a glowing blue ring torus inside a white and steel facility with antennas, clean and impressive" }
+- { id: magmaTap, size: 2, look: "a heavy riveted iron pump with pipes and valves above a pool of glowing orange magma in a stone basin, a little steam" }
+- { id: ironMine, size: 1, look: "a small iron ore mine: a timber-framed tunnel entrance in a rocky mound, rails and a mine cart full of rust-red ore" }
+- { id: copperMine, size: 1, look: "a small copper mine: a rocky mound with a timber head frame and a cart of orange-green copper ore" }
+- { id: coalPit, size: 1, look: "a small open coal pit with timber shoring, a shovel and a pile of black coal" }
+- { id: quarry, size: 2, look: "a stepped stone quarry with a small crane, cut grey stone blocks and a worker hut" }
+- { id: sandDredger, size: 1, look: "a small sand dredger: a conveyor and a hopper pouring golden sand onto a pile, by the water's edge" }
+- { id: lumberCamp, size: 1, look: "a lumber camp: a small log cabin, a stack of logs, an axe in a stump, a few pine trees" }
+- { id: waterPump, size: 1, look: "a small water pump house: a brick hut with a blue pipe and a water tank on stilts" }
+- { id: deepMine, size: 2, look: "a deep mine: a tall steel head frame with a big wheel, a brick engine house, ore wagons" }
+- { id: oilDerrick, size: 1, look: "an oil pump jack (nodding donkey) painted yellow and black on a small concrete pad with an oil barrel" }
+- { id: rareEarthExcavator, size: 2, look: "a high-tech excavator digging violet glowing rare earth crystals, a sorting machine with a conveyor" }
+- { id: smallFactory, size: 1, look: "a small brick factory with a sawtooth roof, one chimney and glowing windows, iron ingots stacked by the door" }
+- { id: smelter, size: 1, look: "a copper smelter: a brick furnace with a glowing mouth, a crucible pouring molten copper, a chimney" }
+- { id: brickworks, size: 1, look: "a brickworks: a round brick kiln with a chimney and pallets of red bricks" }
+- { id: glassworks, size: 1, look: "a glassworks: a small hall with a glowing furnace and shelves of colourful glass bottles and panes" }
+- { id: sawmill, size: 1, look: "a sawmill: an open timber shed with a big circular saw, logs going in and planks stacked out" }
+- { id: bigFactory, size: 2, look: "a big iron works: a long brick factory hall with several chimneys, a gantry crane and stacks of iron ingots" }
+- { id: steelMill, size: 2, look: "a steel mill: a blast furnace tower, a hall with glowing hot steel beams, pipes and a chimney" }
+- { id: wireMill, size: 1, look: "a wire mill: a small workshop with big spools of shiny copper wire" }
+- { id: cementKiln, size: 2, look: "a cement works: a long rotating kiln drum, a silo and bags of concrete" }
+- { id: machineShop, size: 2, look: "a machine shop: a workshop hall with big gears on the facade, a lathe visible through the open door" }
+- { id: refinery, size: 3, look: "an oil refinery: distillation towers, round storage tanks, a flare stack with a small flame, pipework" }
+- { id: circuitFab, size: 2, look: "a clean modern circuit board factory with green circuit patterns on the walls, a white clean-room hall, antennas" }
+- { id: assemblyPlant, size: 3, look: "a big assembly plant: a modern hall with a conveyor line, engines on pallets, robotic arms" }
+- { id: robotWorks, size: 3, look: "a robot factory: a futuristic hall with big windows showing robots being built, a robot statue in front" }
+- { id: superconductorLab, size: 2, look: "a superconductor lab: a white high-tech building with frosty cryogenic tanks and a glowing blue magnet ring" }
+- { id: valve, size: 1, look: "a single pipe valve: a short section of grey pipe with a big red hand wheel on top, on a tiny base" }
+- { id: priorityValve, size: 1, look: "a priority valve: a pipe section with a yellow and black striped housing and a big orange hand wheel" }
+- { id: pumpStation, size: 1, look: "a pump station: a small concrete booster pump house with a big round blue pump and pressure gauges" }
+- { id: tollMeter, size: 1, look: "a toll meter: a pipe passing through a small booth with a coin slot, a counter dial and a little barrier" }
+- { id: storage, size: 1, look: "a small storage depot: a corrugated metal shed with an open door, crates and barrels" }
+- { id: warehouse, size: 2, look: "a warehouse: a big timber and brick warehouse with loading doors, crates on pallets and a small forklift" }
+- { id: silo, size: 2, look: "storage silos: three tall round metal silos with a conveyor bridge and ladders" }
+- { id: vault, size: 2, look: "an underground vault: a huge round steel vault door set in a stone wall, gold-trimmed, glowing lamps" }
+- { id: cargoDepot, size: 2, look: "a cargo depot: a loading yard with a small truck, stacked shipping crates and a gantry" }
+- { id: powerLinePylon, size: 1, look: "a single steel lattice power line pylon with insulators on its arms (no wires)" }
+- { id: deepLift, size: 2, look: "a steel lattice mine head frame with a big rope wheel on top, ropes into a dark square shaft, a yellow lift cage, a small brick winding house with a tin roof" }
+- { id: liftShaft, size: 2, look: "the bottom of a mine shaft deep underground: a timber frame around a square opening in rock, a yellow lift cage, ropes going up, lanterns" }
+- { id: pneumaticPost, size: 1, look: "a pneumatic post station: a brass and glass tube rising from a little kiosk, a capsule in the tube" }
+- { id: quantumLink, size: 2, look: "a quantum link: a futuristic ring portal swirling with blue light on a white platform with cables" }
+- { id: gate, size: 1, look: "an estate gate: two stone pillars with a lantern each and an open iron gate" }
+- { id: tradingPost, size: 1, look: "a trading post: a small timber market stall with a striped awning, crates, sacks and a scale" }
+- { id: marketHall, size: 2, look: "a market hall: a big covered market with a glass and iron roof, stalls and banners" }
+- { id: exchangeOffice, size: 1, look: "an exchange office: a small stone building with columns and a big price board with arrows" }
+- { id: showroom, size: 2, look: "a showroom: a modern shop with big shop windows showing products on pedestals, a red carpet and spotlights" }
+- { id: hq, size: 2, look: "a company headquarters: an elegant stone and brick mansion with a green copper roof, a clock, flags and a front garden" }
+- { id: lab, size: 1, look: "a small research lab: a white building with a dome, flasks in the windows and a little antenna" }
+- { id: researchInstitute, size: 2, look: "a research institute: a big building with an observatory dome, glass labs and a satellite dish" }
+- { id: engineerWorkshop, size: 1, look: "an engineer's workshop: a small brick workshop with tools on the wall, an anvil, sparks from a grinder" }
+- { id: weatherStation, size: 1, look: "a weather station: a small white hut with an anemometer, a wind vane and a radar dish" }
+- { id: recycler, size: 1, look: "a recycler: a small yard with a claw crane over a pile of scrap metal and sorted bins" }
+- { id: expeditionOffice, size: 1, look: "an expedition office: a timber lodge with a big map on an easel, crates of supplies and a small zeppelin moored above" }
+- { id: blueprintOffice, size: 1, look: "a blueprint office: a small office with a big window, drafting tables and rolled blue plans" }
+- { id: terraformer, size: 2, look: "a big yellow construction machine with a drill arm and tracks on a patch of dug earth with rocks" }
+- { id: tree, size: 1, look: "a single round leafy tree on a tiny patch of grass" }
+- { id: flowerBed, size: 1, look: "a small flower bed with colourful flowers in a low stone edge" }
+- { id: lamp, size: 1, look: "an old cast iron street lamp with a warm glowing light" }
+- { id: fountain, size: 1, look: "a small stone fountain with splashing water" }
+- { id: statue, size: 1, look: "a bronze statue of a company founder in a suit on a stone plinth" }
+- { id: goldenMoily, size: 1, look: "a small wind turbine made of pure shining gold on a marble plinth" }
+- { id: crystalObelisk, size: 1, look: "a glowing violet crystal obelisk on a stone base" }
+- { id: goldenGear, size: 1, look: "a giant golden gear standing upright on a stone base" }
+- { id: crystalGrotto, size: 1, look: "a cluster of glowing violet and cyan crystals growing from rock, for an underground cavern" }

@@ -29,6 +29,7 @@ import {
   isDeep,
   isParcelUnlocked,
   tileKey,
+  zoneAt,
 } from "./layout";
 import { BuildingEffects, dotTexture } from "./render/effects";
 import { canPlace, footprintOrigin, routePipe, type Placement } from "./rules";
@@ -173,6 +174,30 @@ function placeArt(sprite: Sprite, art: BuildingTextures, anchor: { x: number; y:
     sprite.anchor.set(0, 1);
     sprite.position.set(anchor.x, anchor.y);
   }
+}
+
+/** Which terrain bleeds over which at a border (man-made ground keeps a crisp edge) */
+const BLEND_PRIORITY: Partial<Record<TerrainType, number>> = {
+  water: 0,
+  beach: 1,
+  desert: 2,
+  grass: 3,
+  hills: 4,
+  forest: 5,
+  mountain: 6,
+};
+
+/** The four neighbours in the order of TextureBank.terrainEdge's edges */
+const NEIGHBOURS: ReadonlyArray<readonly [number, number]> = [
+  [-1, 0],
+  [1, 0],
+  [0, -1],
+  [0, 1],
+];
+
+/** The generated decal of a deposit: depositIronOre for ironOre */
+function depositArt(deposit: string): string {
+  return `deposit${deposit[0]!.toUpperCase()}${deposit.slice(1)}`;
 }
 
 function traceFootprint(g: Graphics, x: number, y: number, size: number, height = size) {
@@ -918,6 +943,24 @@ export class Engine {
         sprite.anchor.set(0, 1);
         sprite.position.set(anchor.x, anchor.y);
         ground.addChild(sprite);
+        // Soft edges where a stronger terrain borders this one (grass over sand, sand over water)
+        const own = BLEND_PRIORITY[tile.terrain];
+        if (own !== undefined) {
+          NEIGHBOURS.forEach(([dx, dy], edge) => {
+            const other = this.world.terrain(x + dx, y + dy);
+            const priority = other === null ? undefined : BLEND_PRIORITY[other];
+            if (other === null || priority === undefined || priority <= own) {
+              return;
+            }
+            const texture = this.textures.terrainEdge(other, x, y, edge);
+            if (texture !== null) {
+              const blend = new Sprite(texture);
+              blend.anchor.set(0, 1);
+              blend.position.set(anchor.x, anchor.y);
+              ground.addChild(blend);
+            }
+          });
+        }
         if (
           tile.deposit !== null &&
           tile.richness > 0 &&
@@ -935,6 +978,18 @@ export class Engine {
           const deposit = new Sprite(texture);
           deposit.anchor.set(0, 1);
           deposit.position.set(anchor.x, anchor.y);
+          ground.addChild(deposit);
+        } else if (
+          tile.deposit !== null &&
+          tile.richness > 0 &&
+          this.textures.prop(depositArt(tile.deposit)) !== null
+        ) {
+          // Generated art: the deposit lies on the tile, bigger when richer
+          const art = this.textures.prop(depositArt(tile.deposit))!;
+          const deposit = new Sprite(art.texture);
+          deposit.anchor.set(art.anchorX, art.anchorY);
+          deposit.scale.set(art.scale * (0.62 + tile.richness * 0.09));
+          deposit.position.set(anchor.x + TILE_WIDTH, anchor.y - TILE_HEIGHT / 2);
           ground.addChild(deposit);
         } else if (tile.deposit !== null && tile.richness > 0) {
           const deposit = new Sprite(
@@ -1059,6 +1114,75 @@ export class Engine {
     this.miniLayer.addChild(sprite);
   }
 
+  /** What grows or lies on a free tile: trees, peaks, lanterns, and now and then a bush, flowers or reeds */
+  private terrainProp(terrain: TerrainType, x: number, y: number): Sprite | null {
+    const anchor = diagonalToScreen(x, y);
+    const variant = Math.floor(hash01((x * 92821) ^ (y * 68917)) * 24);
+    const depth = (x + y) * 4 + 1;
+    // A tile sprite: anchored at the bottom-left corner of the tile's box
+    const tileSprite = (texture: Texture) => {
+      const sprite = new Sprite(texture);
+      sprite.anchor.set(0, 1);
+      sprite.position.set(anchor.x, anchor.y);
+      sprite.zIndex = depth;
+      return sprite;
+    };
+    // A generated prop: its foot somewhere on the tile
+    const propSprite = (id: string, u = 0.5, v = 0.5, size = 1) => {
+      const art = this.textures.prop(id);
+      if (art === null) {
+        return null;
+      }
+      const sprite = new Sprite(art.texture);
+      sprite.anchor.set(art.anchorX, art.anchorY);
+      sprite.scale.set(art.scale * size);
+      // (u, v) inside the tile's diamond
+      sprite.position.set(
+        anchor.x + TILE_WIDTH * (1 + u - v),
+        anchor.y - TILE_HEIGHT + (TILE_HEIGHT / 2) * (u + v),
+      );
+      sprite.zIndex = depth;
+      return sprite;
+    };
+    const roll = hash01((x * 7121) ^ (y * 4271));
+    switch (terrain) {
+      case "cavern":
+        return roll < 0.03 ? tileSprite(this.textures.lantern()) : null;
+      case "forest":
+        return tileSprite(this.textures.forestTile(variant) ?? this.textures.forest(variant));
+      case "mountain":
+        return (
+          propSprite(variant % 2 === 0 ? "peak1" : "peak2", 0.5, 0.55) ??
+          tileSprite(this.textures.rocks(variant))
+        );
+      case "grass":
+      case "hills": {
+        const wild = zoneAt(x, y).kind === "wilderness";
+        if (wild && roll < 0.05) {
+          return propSprite(
+            roll < 0.025 ? "bush" : "boulder",
+            0.3 + hash01(x + y * 3) * 0.4,
+            0.3 + hash01(x * 3 + y) * 0.4,
+          );
+        }
+        return roll > 0.94 ? propSprite("flowers", 0.5, 0.5, 0.8) : null;
+      }
+      case "beach": {
+        const shore = [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ].some(([dx, dy]) => this.world.terrain(x + dx!, y + dy!) === "water");
+        return shore && roll < 0.25
+          ? propSprite("reeds", 0.4 + hash01(x * 5) * 0.2, 0.4 + hash01(y * 5) * 0.2)
+          : null;
+      }
+      default:
+        return null;
+    }
+  }
+
   private drawObjects(chunk: ChunkView) {
     const state = this.callbacks.getState();
     const x0 = chunk.cx * CHUNK_SIZE;
@@ -1068,23 +1192,13 @@ export class Engine {
     for (let y = y0; y < y0 + CHUNK_SIZE; y++) {
       for (let x = x0; x < x0 + CHUNK_SIZE; x++) {
         const terrain = this.world.terrain(x, y);
-        // The caverns are lit by a lantern here and there
-        const lantern = terrain === "cavern" && hash01((x * 7121) ^ (y * 4271)) < 0.03;
-        if ((terrain !== "forest" && terrain !== "mountain" && !lantern) || this.world.isOccupied(x, y)) {
+        if (terrain === null || this.world.isOccupied(x, y)) {
           continue;
         }
-        const variant = Math.floor(hash01((x * 92821) ^ (y * 68917)) * 24);
-        const sprite = new Sprite(
-          lantern
-            ? this.textures.lantern()
-            : terrain === "forest"
-              ? this.textures.forest(variant)
-              : this.textures.rocks(variant),
-        );
-        const anchor = diagonalToScreen(x, y);
-        sprite.anchor.set(0, 1);
-        sprite.position.set(anchor.x, anchor.y);
-        sprite.zIndex = (x + y) * 4 + 1;
+        const sprite = this.terrainProp(terrain, x, y);
+        if (sprite === null) {
+          continue;
+        }
         this.objectLayer.addChild(sprite);
         chunk.objects.push({
           display: sprite,
@@ -1701,23 +1815,24 @@ export class Engine {
           g.fill({ color, alpha: 0.35 });
         }
         traceFootprint(g, estate.x, estate.y, ESTATE_SIZE);
-        g.stroke({ color, width: far ? 60 : mine ? 14 : 10, alpha: 0.95 });
+        g.stroke({ color, width: far ? 60 : mine ? 7 : 5, alpha: far ? 0.95 : 0.75 });
       } else {
         traceFootprint(g, estate.x, estate.y, ESTATE_SIZE);
-        g.stroke({ color: 0xffffff, width: far ? 30 : 6, alpha: 0.35 });
+        g.stroke({ color: 0xffffff, width: far ? 30 : 3, alpha: 0.22 });
       }
 
-      if (!far && estate.ownerId !== null) {
-        // Parcels: locked ones are darker, with a thin grid
+      if (!far && mine) {
+        // Your locked parcels: a light veil and a thin outline
         for (let parcel = 0; parcel < PARCELS_PER_SIDE * PARCELS_PER_SIDE; parcel++) {
+          if (isParcelUnlocked(estate.unlockedParcels, parcel)) {
+            continue;
+          }
           const px = estate.x + (parcel % PARCELS_PER_SIDE) * PARCEL_SIZE;
           const py = estate.y + Math.floor(parcel / PARCELS_PER_SIDE) * PARCEL_SIZE;
           traceFootprint(g, px, py, PARCEL_SIZE);
-          if (!isParcelUnlocked(estate.unlockedParcels, parcel)) {
-            g.fill({ color: 0x0b1d24, alpha: mine ? 0.42 : 0.25 });
-            traceFootprint(g, px, py, PARCEL_SIZE);
-          }
-          g.stroke({ color, width: 3, alpha: mine ? 0.5 : 0.25 });
+          g.fill({ color: 0x1f2a1c, alpha: 0.2 });
+          traceFootprint(g, px, py, PARCEL_SIZE);
+          g.stroke({ color: 0xfff2c8, width: 2, alpha: 0.35 });
         }
       }
 

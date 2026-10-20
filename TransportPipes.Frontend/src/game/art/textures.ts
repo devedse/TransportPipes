@@ -9,7 +9,7 @@ import {
   type HubStructureLook,
 } from "./buildings";
 import { TILE_HEIGHT, TILE_WIDTH } from "../constants";
-import { createCanvas, type Attachment } from "./iso";
+import { createCanvas, hash01, type Attachment } from "./iso";
 import {
   drawDeposit,
   drawForestTrees,
@@ -70,13 +70,23 @@ interface ArtManifest {
   >;
   rotors: Record<string, { size: number }>;
   terrain: Record<string, { size: number }>;
+  props?: Record<string, { w: number; h: number; ax: number; ay: number; decal?: boolean }>;
 }
+
+/** A generated prop or decal ready to place: anchored at its foot (props) or middle (decals) */
+export interface PropArt {
+  texture: Texture;
+  anchorX: number;
+  anchorY: number;
+  scale: number;
+}
+
+const TREES = ["treeOak", "treeBirch", "treePine", "treePines", "treeBig"];
 
 const ART_URL = "/art/";
 
-/** The period of a terrain texture on screen (8 tiles across): tiles are cut out of it where they lie */
-const TERRAIN_PERIOD_X = TILE_WIDTH * 8;
-const TERRAIN_PERIOD_Y = (TILE_HEIGHT / 2) * 8;
+/** A seamless terrain texture covers this many tiles in each direction */
+const TERRAIN_CELLS = 4;
 
 function mod(a: number, b: number): number {
   return ((a % b) + b) % b;
@@ -87,6 +97,7 @@ export class TextureBank {
   private art: ArtManifest | null = null;
   private readonly artTextures = new Map<string, Texture>();
   private readonly terrainImages = new Map<string, HTMLImageElement>();
+  private readonly propImages = new Map<string, HTMLImageElement>();
   private readonly atlas = new Map<string, Texture>();
   private readonly cache = new Map<string, Texture>();
   private readonly buildingCache = new Map<string, BuildingTextures>();
@@ -149,6 +160,14 @@ export class TextureBank {
           this.terrainImages.set(id, image);
         }),
       );
+      await Promise.all(
+        Object.keys(art.props ?? {}).map(async (id) => {
+          const image = new Image();
+          image.src = `${ART_URL}props/${id}.webp`;
+          await image.decode();
+          this.propImages.set(id, image);
+        }),
+      );
       this.art = art;
     } catch (error) {
       console.warn("The generated art could not be loaded", error);
@@ -190,15 +209,86 @@ export class TextureBank {
     };
   }
 
-  /** A terrain tile cut out of its seamless texture where it lies, so tiles join without seams */
+  /** A generated prop or decal by id (null without generated art) */
+  prop(id: string): PropArt | null {
+    const entry = this.art?.props?.[id];
+    const image = this.propImages.get(id);
+    if (entry === undefined || image === undefined || this.art === null) {
+      return null;
+    }
+    const resolution = this.art.resolution;
+    return {
+      texture: this.cached(`prop:${id}`, () => {
+        const canvas = createCanvas(entry.w, entry.h);
+        canvas.getContext("2d")!.drawImage(image, 0, 0);
+        return canvas;
+      }),
+      anchorX: entry.ax / entry.w,
+      anchorY: entry.ay / entry.h,
+      scale: 1 / resolution,
+    };
+  }
+
+  /** Whether generated trees are there (forests then get them) */
+  get hasTrees(): boolean {
+    return TREES.every((t) => this.propImages.has(t));
+  }
+
+  /**
+   * A forest tile: two or three generated trees on it, composed into one sprite (one per tile keeps big forests
+   * light). Anchored like a tile: the bottom-left corner of the tile's box.
+   */
+  forestTile(variant: number): Texture | null {
+    if (!this.hasTrees || this.art === null) {
+      return null;
+    }
+    const resolution = this.art.resolution;
+    return this.cached(`forestTile:${variant % 12}`, () => {
+      const extra = 260;
+      const canvas = createCanvas(TILE_WIDTH * 2, TILE_HEIGHT + extra);
+      const g = canvas.getContext("2d")!;
+      const spots: Array<[number, number]> = [
+        [0.5, 0.25],
+        [0.28, 0.5],
+        [0.72, 0.5],
+        [0.5, 0.78],
+      ];
+      // Back to front: the spots are sorted by depth already
+      spots.forEach(([u, v], i) => {
+        if (hash01(variant * 31 + i * 7) < 0.3 && i !== 3) {
+          return;
+        }
+        const tree = TREES[Math.floor(hash01(variant * 13 + i * 5) * TREES.length)]!;
+        const entry = this.art!.props![tree]!;
+        const image = this.propImages.get(tree)!;
+        const scale = (0.75 + hash01(variant + i) * 0.35) / resolution;
+        const footX = TILE_WIDTH * 2 * u;
+        const footY = extra + TILE_HEIGHT * v;
+        g.drawImage(
+          image,
+          footX - entry.ax * scale,
+          footY - entry.ay * scale,
+          entry.w * scale,
+          entry.h * scale,
+        );
+      });
+      return canvas;
+    });
+  }
+
+  /**
+   * A terrain tile cut out of its seamless texture where it lies: a texture covers TERRAIN_CELLS × TERRAIN_CELLS tiles,
+   * and each tile maps its square cell of the texture onto its diamond (a true isometric projection), so tiles join
+   * without seams and patterns follow the grid.
+   */
   terrainAt(type: TerrainType, x: number, y: number, variant: number): Texture {
     const image = this.terrainImages.get(type);
     if (image === undefined) {
       return this.terrain(type, variant);
     }
-    const left = mod(TILE_WIDTH * (x - y), TERRAIN_PERIOD_X);
-    const top = mod((TILE_HEIGHT / 2) * (x + y) - TILE_HEIGHT, TERRAIN_PERIOD_Y);
-    return this.cached(`terrainAt:${type}:${left}:${top}`, () => {
+    const cellX = mod(x, TERRAIN_CELLS);
+    const cellY = mod(y, TERRAIN_CELLS);
+    return this.cached(`terrainAt:${type}:${cellX}:${cellY}`, () => {
       const canvas = createCanvas(TILE_WIDTH * 2, TILE_HEIGHT);
       const g = canvas.getContext("2d")!;
       g.beginPath();
@@ -208,11 +298,73 @@ export class TextureBank {
       g.lineTo(TILE_WIDTH, TILE_HEIGHT);
       g.closePath();
       g.clip();
-      for (const dx of [0, TERRAIN_PERIOD_X]) {
-        for (const dy of [0, TERRAIN_PERIOD_Y]) {
-          g.drawImage(image, dx - left, dy - top, TERRAIN_PERIOD_X, TERRAIN_PERIOD_Y);
-        }
-      }
+      // Texture pixel → screen: the cell's x axis runs down to the right, its y axis down to the left
+      const cell = image.width / TERRAIN_CELLS;
+      const a = TILE_WIDTH / cell;
+      const b = TILE_HEIGHT / 2 / cell;
+      g.setTransform(
+        a,
+        b,
+        -a,
+        b,
+        TILE_WIDTH - a * cellX * cell + a * cellY * cell,
+        -b * cellX * cell - b * cellY * cell,
+      );
+      // A little bleed over the diamond's edges hides hairline seams
+      g.drawImage(image, 0, 0);
+      return canvas;
+    });
+  }
+
+  /** Whether there is a generated texture for a terrain */
+  hasTerrainArt(type: TerrainType): boolean {
+    return this.terrainImages.has(type);
+  }
+
+  /**
+   * A soft transition: the neighbour's terrain fading in from one edge of a tile (edge 0: the tile at x-1, 1: x+1,
+   * 2: y-1, 3: y+1), drawn over the tile's own terrain
+   */
+  terrainEdge(type: TerrainType, x: number, y: number, edge: number): Texture | null {
+    const image = this.terrainImages.get(type);
+    if (image === undefined) {
+      return null;
+    }
+    const cellX = mod(x, TERRAIN_CELLS);
+    const cellY = mod(y, TERRAIN_CELLS);
+    return this.cached(`terrainEdge:${type}:${cellX}:${cellY}:${edge}`, () => {
+      const canvas = createCanvas(TILE_WIDTH * 2, TILE_HEIGHT);
+      const g = canvas.getContext("2d")!;
+      const cell = image.width / TERRAIN_CELLS;
+      const a = TILE_WIDTH / cell;
+      const b = TILE_HEIGHT / 2 / cell;
+      g.setTransform(
+        a,
+        b,
+        -a,
+        b,
+        TILE_WIDTH - a * cellX * cell + a * cellY * cell,
+        -b * cellX * cell - b * cellY * cell,
+      );
+      const x0 = cellX * cell;
+      const y0 = cellY * cell;
+      g.drawImage(image, 0, 0);
+      // Keep only a band along the edge, fading out towards the middle (in texture coordinates)
+      const reach = cell * 0.42;
+      const bands: Array<[number, number, number, number]> = [
+        [x0, y0, x0 + reach, y0],
+        [x0 + cell, y0, x0 + cell - reach, y0],
+        [x0, y0, x0, y0 + reach],
+        [x0, y0 + cell, x0, y0 + cell - reach],
+      ];
+      const [gx0, gy0, gx1, gy1] = bands[edge]!;
+      const gradient = g.createLinearGradient(gx0, gy0, gx1, gy1);
+      gradient.addColorStop(0, "rgba(0,0,0,0.92)");
+      gradient.addColorStop(0.55, "rgba(0,0,0,0.35)");
+      gradient.addColorStop(1, "rgba(0,0,0,0)");
+      g.globalCompositeOperation = "destination-in";
+      g.fillStyle = gradient;
+      g.fillRect(x0, y0, cell, cell);
       return canvas;
     });
   }
