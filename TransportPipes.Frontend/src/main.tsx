@@ -4,6 +4,8 @@ import { App } from "./App";
 import { gameClient } from "./app/client";
 import * as rules from "./game/rules";
 import { appStore } from "./state/store";
+import "@fontsource-variable/fraunces";
+import "@fontsource-variable/nunito";
 import "./styles/global.css";
 
 createRoot(document.getElementById("root")!).render(

@@ -7,8 +7,9 @@ import { currentGold, setState, useAppStore } from "../state/store";
 function Recipe({ definition, content }: { definition: BuildingDefinition; content: Content }) {
   const part = (amounts: Record<string, number>) =>
     Object.entries(amounts).map(([resource, amount]) => (
-      <span key={resource} className="amount" style={{ color: content.resourceColor(resource) }}>
-        {formatAmount(amount)} {content.resource(resource)?.icon ?? ""} {content.resourceName(resource)}
+      <span key={resource} className="amount">
+        <span className="flow-dot" style={{ background: content.resourceColor(resource) }} />
+        {formatAmount(amount)} {content.resourceName(resource)}
       </span>
     ));
   const inputs = part(definition.in);

@@ -3141,3 +3141,256 @@ button.liked {
     grid-template-columns: auto 1fr auto;
   }
 }
+
+/* ================================================================ Theme: teal, brass and cream (docs/ArtDirection.md) */
+
+:root {
+  --font-sans:
+    "Nunito Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji";
+  --font-title: "Fraunces Variable", Georgia, "Times New Roman", serif;
+  --frame: #24575a;
+  --frame-dark: #173c3f;
+  --brass: #c9963a;
+  --brass-dark: #94692a;
+  --wood: #7a4a24;
+  --cream: #f4ead3;
+  --cream-dark: #e6d7b2;
+  --panel-bg: var(--cream);
+  --panel-bg-strong: #f8f0de;
+  --panel-border: rgba(80, 60, 30, 0.2);
+  --panel-shadow: 0 10px 26px rgba(16, 12, 6, 0.38);
+  --panel-radius: 16px;
+  --text: #2b2418;
+  --text-muted: #75664c;
+  --accent: #2b7a78;
+  --accent-strong: #1f5e5c;
+  --accent-soft: rgba(43, 122, 120, 0.15);
+  --gold: #a87408;
+  --warning: #b8561a;
+  --error: #b83224;
+  --info: #2f6fa8;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.panel {
+  background: linear-gradient(180deg, var(--panel-bg-strong), var(--panel-bg));
+  border: 3px solid var(--frame);
+  box-shadow:
+    0 0 0 2px var(--brass),
+    var(--panel-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-title);
+  letter-spacing: 0.01em;
+}
+
+/* A wooden plaque for the titles of panels */
+.panel-header h2,
+.panel-header h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 4px 16px 5px;
+  color: #fff4dc;
+  background: linear-gradient(180deg, #9a6235, #6e4220);
+  border: 2px solid #4a2c14;
+  border-radius: 10px;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.22),
+    0 2px 0 rgba(0, 0, 0, 0.25);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+.panel-title {
+  color: var(--frame);
+}
+
+button {
+  color: var(--text);
+  background: linear-gradient(180deg, #f1e5c8, var(--cream-dark));
+  border: 2px solid #b99a62;
+  border-radius: 12px;
+  font-weight: 700;
+  box-shadow: inset 0 -3px 0 rgba(80, 55, 20, 0.14);
+}
+
+button:hover:not(:disabled) {
+  background: linear-gradient(180deg, #f8eed6, #ecdfbf);
+}
+
+button:active:not(:disabled) {
+  box-shadow: inset 0 2px 0 rgba(80, 55, 20, 0.18);
+}
+
+button.primary {
+  color: #fff8e6;
+  background: linear-gradient(180deg, #33908c, var(--accent-strong));
+  border: 2px solid var(--brass);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.2);
+}
+
+button.primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #3aa19c, #23706d);
+}
+
+button.danger {
+  color: #fff4ec;
+  background: linear-gradient(180deg, #d4523f, #a3291c);
+  border-color: #7a1d12;
+}
+
+/* Closing: a red round button, like the UI kit */
+button.icon-button[title^="Close"] {
+  border-radius: 999px;
+  color: #fff;
+  background: radial-gradient(circle at 35% 30%, #e0645a, #a8281d);
+  border: 2px solid #f3e2c0;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+  font-weight: 900;
+}
+
+input,
+select,
+textarea {
+  color: var(--text);
+  background: #fffaf0;
+  border: 2px solid #c7b48a;
+  border-radius: 10px;
+}
+
+.tabs .tab {
+  color: #f3ead6;
+  background: linear-gradient(180deg, #2f6f72, var(--frame-dark));
+  border: 2px solid var(--frame-dark);
+}
+
+.tabs .tab.active {
+  color: var(--text);
+  background: var(--panel-bg-strong);
+  border-color: var(--brass);
+}
+
+.badge {
+  background: var(--accent);
+  color: #fff8e6;
+}
+
+.status.running {
+  background: rgba(92, 184, 58, 0.18);
+  color: #2f6b1d;
+}
+
+.status.idle {
+  background: rgba(200, 110, 30, 0.15);
+  color: #94440f;
+}
+
+.status.building {
+  background: rgba(47, 111, 168, 0.14);
+  color: #24527d;
+}
+
+.toast {
+  color: var(--text);
+  border-left: 6px solid var(--accent);
+}
+
+.toast.error {
+  border-left-color: var(--error);
+}
+
+.toast.success,
+.toast.level {
+  border-left-color: #5cb83a;
+}
+
+.hover-tip.good {
+  color: #2f6b1d;
+}
+
+.hover-tip.bad {
+  color: var(--error);
+}
+
+/* The toolbar: cream buttons with a brass ring, the active one teal */
+.toolbar .tool {
+  border-radius: 14px;
+}
+
+.toolbar .tool.active {
+  color: #fff8e6;
+  background: linear-gradient(180deg, #33908c, var(--accent-strong));
+  border-color: var(--brass);
+}
+
+.toolbar .tool.active kbd {
+  color: #fff8e6;
+}
+
+kbd {
+  color: var(--text-muted);
+  background: rgba(80, 60, 30, 0.08);
+  border-color: rgba(80, 60, 30, 0.2);
+}
+
+.goal-label {
+  color: var(--frame);
+}
+
+.goal-bar {
+  background: rgba(80, 60, 30, 0.14);
+}
+
+/* Cards inside panels: lighter cream with a soft brass edge */
+.neighbour,
+.contract,
+.order,
+.tech,
+.corp-row,
+.corp-found,
+.corp-member,
+.corp-goal,
+.corp-card,
+.visit-stats > div,
+.guestbook-note,
+.calendar-event,
+.stat,
+.manager-card,
+.achievement,
+.collection,
+.district-row,
+.crate,
+.sleeper,
+.report-row,
+.blueprint-card {
+  background: rgba(255, 252, 242, 0.7);
+  border: 1px solid rgba(150, 115, 60, 0.32);
+  box-shadow: 0 1px 0 rgba(80, 55, 20, 0.08);
+}
+
+.gold-rate,
+.order-check,
+.trend.up,
+.facts li.ok::before {
+  color: #3c8a24;
+}
+
+.layer-switch,
+.deep-panel h3 {
+  color: #7a4a10;
+}
+
+.layer-switch.deep {
+  color: #24527d;
+}
