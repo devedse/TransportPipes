@@ -37,6 +37,7 @@ public sealed partial class GameWorld
         "corporation" => company.CorporationId != null ? 1 : 0,
         "mentees" => Mentees(company.Id),
         "parcels" => EstateOf(company)?.UnlockedCount ?? 0,
+        "estates" => EstatesOf(company).Count(),
         "level" => company.Level,
         _ => company.Stats.GetValueOrDefault(stat),
     };

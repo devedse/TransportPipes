@@ -173,42 +173,50 @@ public sealed class WorldHost : BackgroundService
         }
         if (results != null)
         {
+            Dictionary<long, int> legacy;
             try
             {
-                await _accounts.AddLegacyAsync(results);
+                legacy = await _accounts.AddLegacyAsync(results);
             }
             catch
             {
                 _store.ResultsSaved = false;
                 throw;
             }
+            // In a persistent world the companies keep going: their Legacy level grows now
+            await RunAsync(world =>
+            {
+                foreach (var (user, total) in legacy)
+                {
+                    if (world.CompanyOfUser(user) is { } company)
+                    {
+                        company.LegacyLevel = GameWorld.LegacyLevelOf(total);
+                        company.Touch();
+                    }
+                }
+            });
             _saveSoon = true;
             _logger.LogInformation("Season {Season} ended: Legacy for {Players} players", season, results.Count);
         }
         if (ended is { } end && Now >= end + GameViews.SeasonBreak)
         {
-            await _saveLock.WaitAsync();
             await _lock.WaitAsync();
             try
             {
-                // Someone else may have opened the next world meanwhile
+                // Someone else may have started the next chapter meanwhile
                 if (_world!.SeasonEndedAt != end)
                 {
                     return;
                 }
-                await _store.ResetAsync(season + 1, Now);
-                var world = await LoadWorldAsync(CancellationToken.None);
-                world.Tick();
-                world.TakeChanges();
-                _world = world;
+                _world.StartNextChapter();
+                _store.ResultsSaved = false;
                 _saveSoon = true;
             }
             finally
             {
                 _lock.Release();
-                _saveLock.Release();
             }
-            _logger.LogInformation("Season {Season} begins in a new world", season + 1);
+            _logger.LogInformation("Chapter {Season} begins", season + 1);
             await _hub.Clients.All.SeasonChanged();
         }
     }

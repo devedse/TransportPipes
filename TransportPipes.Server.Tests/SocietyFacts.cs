@@ -145,38 +145,36 @@ public class SocietyFacts
 public class SeasonServerFacts
 {
     [TestMethod]
-    public async Task AfterTheSeasonANewWorldOpensAndLegacyStays()
+    public async Task AfterTheChapterTheNextOneStartsAndTheWorldStays()
     {
         using var server = new GameServer();
         var cookie = await server.RegisterAsync("Veteran");
-        await using (var client = await server.ConnectAsync(cookie))
+        await using var client = await server.ConnectAsync(cookie);
+        await client.Command("CreateCompany", "Old Timer", "#3399ff");
+        await server.World.RunAsync(world =>
         {
-            await client.Command("CreateCompany", "Old Timer", "#3399ff");
-            await server.World.RunAsync(world =>
-            {
-                var company = world.Companies.Single(t => !t.IsNpc);
-                company.Gold = 5_000_000;
-                world.StartFinale();
-                world.EndSeason();
-            });
-            await server.World.SeasonAsync();
-            var season = await client.Invoke<SeasonDto>("GetSeason");
-            Assert.AreEqual(1, season.You!.Rank);
-            Assert.AreEqual("Season 1 Champion", season.You.Title);
-        }
+            var company = world.Companies.Single(t => !t.IsNpc);
+            company.Gold = 5_000_000;
+            world.StartFinale();
+            world.EndSeason();
+        });
+        await server.World.SeasonAsync();
+        var season = await client.Invoke<SeasonDto>("GetSeason");
+        Assert.AreEqual(1, season.You!.Rank);
+        Assert.AreEqual("Season 1 Champion", season.You.Title);
+        var before = (await client.Invoke<HelloDto>("Hello")).Company!;
 
-        // A week later: a new world
-        server.Time.Advance(TimeSpan.FromDays(7.1));
+        // A day later: the next chapter, in the same world
+        server.Time.Advance(TimeSpan.FromDays(1.1));
         await server.World.SeasonAsync();
 
-        await using var again = await server.ConnectAsync(cookie);
-        var hello = await again.Invoke<HelloDto>("Hello");
-        Assert.IsNull(hello.Company, "a fresh start");
-        await again.Command("CreateCompany", "New Start", "#3399ff");
-        var company = (await again.Invoke<HelloDto>("Hello")).Company!;
-        Assert.IsGreaterThan(2000, company.Gold, "Legacy brings starting gold");
+        var company = (await client.Invoke<HelloDto>("Hello")).Company!;
+        Assert.AreEqual(before.Id, company.Id, "the company goes on");
+        Assert.AreEqual(before.EstateX, company.EstateX);
         Assert.AreEqual(2, company.Season.Season);
+        Assert.IsNull(company.Season.EndedAt);
         Assert.IsTrue(company.Titles.Contains("Season 1 Champion"));
+        Assert.IsGreaterThan(0, company.Franchise.LegacyLevel, "Legacy grows for the company that goes on");
     }
 }
 

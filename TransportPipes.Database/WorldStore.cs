@@ -89,6 +89,7 @@ public sealed class WorldStore
                 Likes = settings.Likes,
                 Shares = settings.Shares,
                 FranchiseAt = settings.FranchiseAt,
+                Branches = settings.Branches,
                 Franchises = settings.Franchises,
                 EarningsAtFranchise = settings.EarningsAtFranchise,
                 LegacyLevel = settings.LegacyLevel,
@@ -326,6 +327,7 @@ public sealed class WorldStore
                     Likes = company.Likes,
                     Shares = company.Shares,
                     FranchiseAt = company.FranchiseAt,
+                    Branches = company.Branches,
                     Franchises = company.Franchises,
                     EarningsAtFranchise = company.EarningsAtFranchise,
                     LegacyLevel = company.LegacyLevel,
@@ -636,6 +638,7 @@ public sealed class WorldStore
         public int Likes { get; init; }
         public int Shares { get; init; }
         public DateTime? FranchiseAt { get; init; }
+        public List<EstateRef> Branches { get; init; } = new();
         public int Franchises { get; init; }
         public double EarningsAtFranchise { get; init; }
         public int LegacyLevel { get; init; }
@@ -675,50 +678,6 @@ public sealed class WorldStore
 
     /// <summary>Whether the results of the ended season went to the players' Legacy already</summary>
     public bool ResultsSaved { get; set; }
-
-    /// <summary>
-    /// The next season: a new world with a new seed. Everything of the old world goes (also chat, inbox and
-    /// guestbooks); accounts and their Legacy stay.
-    /// </summary>
-    public async Task ResetAsync(int season, DateTime now, CancellationToken cancellationToken = default)
-    {
-        await using var db = _dbFactory.CreateDbContext();
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        var world = await db.Worlds.AsTracking().SingleAsync(cancellationToken);
-        await db.Buildings.ExecuteDeleteAsync(cancellationToken);
-        await db.Conductors.ExecuteDeleteAsync(cancellationToken);
-        await db.Estates.ExecuteDeleteAsync(cancellationToken);
-        await db.Contracts.ExecuteDeleteAsync(cancellationToken);
-        await db.Corporations.ExecuteDeleteAsync(cancellationToken);
-        await db.Companies.ExecuteDeleteAsync(cancellationToken);
-        await db.TerrainOverrides.ExecuteDeleteAsync(cancellationToken);
-        await db.ChatMessages.ExecuteDeleteAsync(cancellationToken);
-        await db.InboxMessages.ExecuteDeleteAsync(cancellationToken);
-        await db.GuestbookNotes.ExecuteDeleteAsync(cancellationToken);
-        await db.Blocks.ExecuteDeleteAsync(cancellationToken);
-        world.Seed = unchecked(world.Seed * 31 + 7919 * season);
-        world.Era = 1;
-        world.CreatedAt = now;
-        world.LastTick = now;
-        world.Markets = "[]";
-        world.Exchange = "{}";
-        world.Events = "{}";
-        world.Wonders = "{}";
-        world.Outposts = "{}";
-        world.Blueprints = "[]";
-        world.Season = JsonSerializer.Serialize(new SeasonState(season, null, null, [], false), Json);
-        await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-        _companies.Clear();
-        _estates.Clear();
-        _buildings.Clear();
-        _contracts.Clear();
-        _corporations.Clear();
-        _conductors.Clear();
-        _terrainOverrides.Clear();
-        _orphans.Clear();
-        ResultsSaved = false;
-    }
 
     private sealed record CorporationData(HashSet<long> Applications, HashSet<long> Invites, CorporationGoal? Goal);
 }

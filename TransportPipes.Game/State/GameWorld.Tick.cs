@@ -37,10 +37,6 @@ public sealed partial class GameWorld
         {
             events.Add((at, long.MinValue + 6, run));
         }
-        foreach (var (at, run) in FranchiseMoments(LastTick, now).ToList())
-        {
-            events.Add((at, long.MinValue + 7, run));
-        }
         foreach (var (at, run) in SeasonMoments(LastTick, now).ToList())
         {
             events.Add((at, long.MinValue + 8, run));

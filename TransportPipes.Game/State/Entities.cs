@@ -82,7 +82,11 @@ public sealed class Company : Entity
 
     /// <summary>Franchise (GDD §8.7): Shares (+1% production each), when a franchise takes effect, how often it happened</summary>
     public int Shares { get; set; }
+    /// <summary>No longer used (a franchise used to be announced 24 hours ahead); kept for old saves</summary>
     public DateTime? FranchiseAt { get; set; }
+
+    /// <summary>Branch estates opened by franchising (the first estate is District/Slot)</summary>
+    public List<EstateRef> Branches { get; init; } = new();
     public int Franchises { get; set; }
 
     /// <summary>LifetimeEarnings at the last franchise: Shares come from what was earned since</summary>
@@ -388,3 +392,6 @@ public sealed class PackedEstate
 }
 
 public sealed record PackedPipe(int Dx, int Dy, int Tier);
+
+/// <summary>An estate by its district and slot (saved with the company)</summary>
+public sealed record EstateRef(int DistrictX, int DistrictY, int Slot);

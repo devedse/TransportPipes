@@ -4,10 +4,10 @@ namespace TransportPipes.Game.State;
 public sealed record SeasonResult(long UserId, string Company, double NetWorth, int Rank, int Legacy, string? Title);
 
 /// <summary>
-/// The season (GDD §8.8): it ends when the Space Elevator (the Era 5 Wonder) is finished or Era 5's deadline passes,
-/// after a 24 hour launch countdown. Every company's result becomes Legacy for its owner: account perks for the next
-/// seasons (more starting gold, a manager slot, titles), never so much that newcomers can't compete. The next world
-/// opens a week later (the server does that).
+/// Seasons are chapters of a persistent world (GDD §8.8, changed for v1): a chapter ends when the Space Elevator (the
+/// Era 5 Wonder) is finished or its deadline passes, after a 24 hour launch countdown. Every company's result becomes
+/// Legacy for its owner and the best get titles. Then the next chapter starts a new race for the Space Elevator; estates,
+/// Eras and everything built stay (the server starts it after a short break).
 /// </summary>
 public sealed partial class GameWorld
 {
@@ -85,15 +85,42 @@ public sealed partial class GameWorld
                 + 20 * company.Franchises
                 + Math.Max(0, 100 - 10 * i);
             var title = i < titles.Length ? titles[i] : null;
+            if (title != null)
+            {
+                company.Titles.Add(title);
+                company.Touch();
+            }
             return new SeasonResult(company.UserId, company.Name, Math.Round(t.Worth), i + 1, legacy, title);
         }).ToList();
         foreach (var result in SeasonResults)
         {
             if (CompanyOfUser(result.UserId) is { } company)
             {
-                Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder, $"The season is over! You finished #{result.Rank} and earned {result.Legacy} Legacy"));
+                Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder, $"Chapter {Season} is over! You finished #{result.Rank} and earned {result.Legacy} Legacy"));
                 Changes.Companies.Add(company.Id);
             }
+        }
+        Changes.Wonders = true;
+    }
+
+    /// <summary>The next chapter: a new race for the Space Elevator and new rankings; the world and its estates stay</summary>
+    public void StartNextChapter()
+    {
+        if (SeasonEndedAt == null)
+        {
+            return;
+        }
+        Season++;
+        FinaleAt = null;
+        SeasonEndedAt = null;
+        SeasonResults = new();
+        EraStartedAt = LastTick;
+        EraWonder = null;
+        EnsureEraWonder();
+        foreach (var company in _companies.Values.Where(t => !t.IsNpc))
+        {
+            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder, $"Chapter {Season} begins: a new race for the Space Elevator, and new rankings"));
+            Changes.Companies.Add(company.Id);
         }
         Changes.Wonders = true;
     }

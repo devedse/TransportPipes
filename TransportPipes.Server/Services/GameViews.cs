@@ -273,7 +273,7 @@ public static class GameViews
         var usable = world.BlueprintsFor(company).ToList();
         return new BlueprintsDto(
             world.HasBuilding(company.Id, BuildingKind.BlueprintOffice),
-            company.Franchises > 0,
+            false,
             GameWorld.MaxBlueprints,
             usable.Where(t => t.Owner == company.Id).OrderBy(t => t.Name).Select(View).ToList(),
             usable.Where(t => t.Owner != company.Id && t.Sharing == BlueprintSharing.Corporation).OrderBy(t => t.Name).Select(View).ToList(),

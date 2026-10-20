@@ -125,8 +125,10 @@ public sealed class AccountService
     }
 
     /// <summary>Adds the results of a season to the players' Legacy</summary>
-    public async Task AddLegacyAsync(IEnumerable<TransportPipes.Game.State.SeasonResult> results)
+    /// <summary>Adds the results to the accounts' Legacy; returns every account's new Legacy</summary>
+    public async Task<Dictionary<long, int>> AddLegacyAsync(IEnumerable<TransportPipes.Game.State.SeasonResult> results)
     {
+        var totals = new Dictionary<long, int>();
         await using var db = _dbFactory.CreateDbContext();
         foreach (var result in results)
         {
@@ -136,6 +138,7 @@ public sealed class AccountService
                 continue;
             }
             user.Legacy += result.Legacy;
+            totals[user.Id] = user.Legacy;
             if (result.Title != null)
             {
                 var titles = System.Text.Json.JsonSerializer.Deserialize<List<string>>(user.LegacyTitles) ?? [];
@@ -144,5 +147,6 @@ public sealed class AccountService
             }
         }
         await db.SaveChangesAsync();
+        return totals;
     }
 }

@@ -90,23 +90,4 @@ public class BlueprintFacts
         Assert.IsTrue(game.World.DeleteBlueprint(author.Id, blueprint.Id).Success);
         Assert.IsEmpty(game.World.Blueprints);
     }
-
-    [TestMethod]
-    public void AfterAFranchiseTheOwnBlueprintsAreRebuiltWithoutAnOffice()
-    {
-        var game = new TestGame(content: TestGame.PlainContent);
-        var company = WithOffice(game);
-        game.Map(company, game.Local(company, 2, 2), "W");
-        Assert.IsTrue(game.World.SaveBlueprint(company.Id, "Moily", game.Local(company, 2, 2), 1, 1).Success);
-        var blueprint = game.World.Blueprints.Single();
-        foreach (var building in game.World.BuildingsOf(company.Id).Where(t => t.Type is "windMoily" or "blueprintOffice").ToList())
-        {
-            Assert.IsTrue(game.World.Demolish(company.Id, building.Id).Success);
-        }
-        var spot = game.Spot(company, "windMoily");
-
-        StringAssert.Contains(game.World.BuildBlueprint(company.Id, blueprint.Id, spot).Error, "Blueprint Office");
-        company.Franchises = 1;
-        Assert.IsTrue(game.World.BuildBlueprint(company.Id, blueprint.Id, spot).Success);
-    }
 }

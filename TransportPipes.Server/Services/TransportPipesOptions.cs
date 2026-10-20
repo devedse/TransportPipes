@@ -27,8 +27,8 @@ public class TransportPipesOptions
     /// <summary>Weather and hub events (GDD §15)</summary>
     public bool Events { get; set; } = true;
 
-    /// <summary>Days between the end of a season and the next world (GDD §8.8)</summary>
-    public double SeasonBreakDays { get; set; } = 7;
+    /// <summary>Days between the end of a chapter (its ceremony) and the next one (GDD §8.8)</summary>
+    public double SeasonBreakDays { get; set; } = 1;
 
     /// <summary>
     /// The gold a new company starts with; empty means the value from the content files (progression.yaml)

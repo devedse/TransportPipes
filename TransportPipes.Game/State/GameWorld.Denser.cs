@@ -143,7 +143,7 @@ public sealed partial class GameWorld
     /// <summary>Gold per estate tile per hour: how well a company uses its land</summary>
     public double TileEfficiency(Company company, IReadOnlyDictionary<long, double>? goldPerMinute = null)
     {
-        var tiles = (EstateOf(company)?.UnlockedCount ?? 0) * WorldLayout.ParcelSize * WorldLayout.ParcelSize;
+        var tiles = EstatesOf(company).Sum(t => t.UnlockedCount) * WorldLayout.ParcelSize * WorldLayout.ParcelSize;
         var gold = (goldPerMinute ?? GoldPerMinute()).GetValueOrDefault(company.Id);
         return tiles == 0 ? 0 : Math.Round(gold * 60 / tiles, 2);
     }
@@ -163,7 +163,7 @@ public sealed partial class GameWorld
     /// <summary>Reshapes a tile of your estate with a Terraformer (GDD §11.1)</summary>
     public CommandResult Terraform(long companyId, TilePos tile, TerraformAction action, string? resource = null)
     {
-        if (Company(companyId) is not { } company || EstateOf(company) is not { } estate)
+        if (Company(companyId) is not { } company)
         {
             return CommandResult.Fail("Unknown company.");
         }
@@ -171,7 +171,7 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("Terraforming needs a Terraformer.");
         }
-        if (!estate.Contains(tile) || !estate.IsUnlocked(estate.ParcelAt(tile)))
+        if (WorldLayout.IsDeep(tile) || OwnEstateAt(company, tile) is not { } estate || !estate.IsUnlocked(estate.ParcelAt(tile)))
         {
             return CommandResult.Fail("Only on your own unlocked land.");
         }

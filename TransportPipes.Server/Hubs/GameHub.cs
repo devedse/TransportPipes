@@ -290,11 +290,9 @@ public sealed class GameHub : Hub<IGameClient>
 
     // ---------------------------------------------------------------- Franchise and season
 
-    public Task<CommandResultDto> StartFranchise() =>
-        Command((world, company) => world.StartFranchise(company));
-
-    public Task<CommandResultDto> CancelFranchise() =>
-        Command((world, company) => world.CancelFranchise(company));
+    /// <summary>Opens a franchise: a new estate, in the given district or (district null) the frontier</summary>
+    public Task<CommandResultDto> OpenFranchise(int? districtX, int? districtY) =>
+        Command((world, company) => world.OpenFranchise(company, districtX is { } x && districtY is { } y ? new DistrictCoord(x, y) : null));
 
     public Task<SeasonDto> GetSeason()
     {
@@ -853,8 +851,8 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> Move(long building, int x, int y) =>
         Command((world, company) => world.Move(company, building, new TilePos(x, y)));
 
-    public Task<CommandResultDto> BuyParcel(int parcel) =>
-        Command((world, company) => world.BuyParcel(company, parcel));
+    public Task<CommandResultDto> BuyParcel(int parcel, int estate) =>
+        Command((world, company) => world.BuyParcel(company, parcel, estate));
 
     public Task<CommandResultDto> SetSellPrice(string resource, double? price) =>
         Command((world, company) => world.SetSellPrice(company, resource, price));

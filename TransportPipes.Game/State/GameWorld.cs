@@ -459,11 +459,11 @@ public sealed partial class GameWorld
                     return CommandResult.Fail("This is someone else's outpost.");
                 }
             }
-            else if (!estate.Contains(tile))
+            else if (OwnEstateAt(company, tile) is not { } own)
             {
-                return CommandResult.Fail("You can only build on your own estate and your outposts.");
+                return CommandResult.Fail("You can only build on your own estates and your outposts.");
             }
-            else if (!estate.IsUnlocked(estate.ParcelAt(tile)))
+            else if (!own.IsUnlocked(own.ParcelAt(tile)))
             {
                 return CommandResult.Fail("This parcel is still locked. Buy it first.");
             }
@@ -865,11 +865,12 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
-    public CommandResult BuyParcel(long companyId, int parcel)
+    /// <summary>Buys a parcel of one of the company's estates (0 is the first estate, then the branches)</summary>
+    public CommandResult BuyParcel(long companyId, int parcel, int estateIndex = 0)
     {
-        if (Company(companyId) is not { } company || EstateOf(company) is not { } estate)
+        if (Company(companyId) is not { } company || EstatesOf(company).ElementAtOrDefault(estateIndex) is not { } estate)
         {
-            return CommandResult.Fail("You don't have an estate.");
+            return CommandResult.Fail("You don't have that estate.");
         }
         if (parcel is < 0 or >= WorldLayout.ParcelCount)
         {
@@ -969,7 +970,7 @@ public sealed partial class GameWorld
             {
                 case ZoneKind.Estate:
                     // Pipes may cross parcels you haven't bought yet, so every gate can be reached from the start
-                    if (!estate.Contains(tile))
+                    if (OwnEstateAt(company, tile) == null)
                     {
                         return CommandResult.Fail("You can't lay pipes on someone else's estate. Connect through the corridors.");
                     }

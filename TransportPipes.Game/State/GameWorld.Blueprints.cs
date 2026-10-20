@@ -98,7 +98,7 @@ public sealed partial class GameWorld
                 }
             }
         }
-        foreach (var conductor in _conductors.Values.Where(t => t.Owner == companyId && t.Kind == ConductorKind.Pipe && Inside(t.Pos) && InEstateOrBelow(estate, t.Pos)))
+        foreach (var conductor in _conductors.Values.Where(t => t.Owner == companyId && t.Kind == ConductorKind.Pipe && Inside(t.Pos) && OwnEstateAt(company, t.Pos) != null))
         {
             blueprint.Pipes.Add(new PackedPipe(conductor.Pos.X - from.X, conductor.Pos.Y - from.Y, conductor.Tier));
         }
@@ -122,8 +122,7 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("Unknown blueprint.");
         }
-        // After a Franchise the own blueprints come along (GDD §11.7): a fast replay without a new office first
-        if (!HasBuilding(companyId, BuildingKind.BlueprintOffice) && !(company.Franchises > 0 && blueprint.Owner == companyId))
+        if (!HasBuilding(companyId, BuildingKind.BlueprintOffice))
         {
             return CommandResult.Fail($"Building a blueprint needs a Blueprint Office (Company Level {BlueprintLevel}).");
         }
