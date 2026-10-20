@@ -109,7 +109,8 @@ public class GameWorldFacts
         Assert.AreEqual(FlowKind.Sale, sale.Kind);
         var wind = game.World.LocationMultiplier(moily, game.World.Content.Building("windMoily"));
         Assert.AreEqual(30 * wind, sale.Sent, 1e-9);
-        Assert.AreEqual(30 * wind * Math.Pow(0.99, path.Count), sale.Delivered, 1e-9, "1% loss per grey pipe tile");
+        var loss = game.World.Content.PipeTier(1).LossPerTile;
+        Assert.AreEqual(30 * wind * Math.Pow(1 - loss, path.Count), sale.Delivered, 1e-9, "the grey pipe loses a little per tile");
         Assert.AreEqual(gold + sale.Delivered * 1 * 10, company.Gold, 1e-6);
         Assert.AreEqual(sale.Delivered * 10, company.LifetimeEarnings, 1e-6);
         Assert.AreEqual(sale.Delivered * 10 / 25, company.Xp - 60, 1e-6, "one XP per 25 gold at Company Level 1");

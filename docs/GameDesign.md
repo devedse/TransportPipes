@@ -239,10 +239,13 @@ can salvage).
 
 | Pipe | Unlock | Cost per tile | Loss per tile | Throughput per connection |
 | --- | --- | --- | --- | --- |
-| Grey Pipe | Start | 2 g | 1% | 100 / min |
-| Copper Pipe | Research | 10 g + 1 copper ingot | 0.5% | 500 / min |
-| Steel Pipe | Era 2 | 40 g + 1 steel | 0.1% | 5,000 / min |
-| Glass Conduit | Era 4 | 200 g + glass, circuits | 0.02% | 50,000 / min |
+| Grey Pipe | Start | 2 g | 0.3% | 100 / min |
+| Copper Pipe | Research | 10 g + 1 copper ingot | 0.15% | 500 / min |
+| Steel Pipe | Era 2 | 40 g + 1 steel | 0.05% | 5,000 / min |
+| Glass Conduit | Era 4 | 200 g + glass, circuits | 0.01% | 50,000 / min |
+
+(Tuned in play: at 1% a grey pipe to a neighbour a hundred tiles away delivered a third, so trading only paid next
+door. At 0.3% three quarters arrive, and a neighbour pays more than the hub up to about 190 tiles.)
 | Superconductor | Era 5 | expensive | 0 | unlimited |
 
 - **Losses** are counted over the shortest pipe path between producer and consumer, so compact layouts and good trunk
@@ -275,7 +278,7 @@ is needed. You can switch off step 3 per resource.
 
 > **Example.** Your two Wind Moilies make 60 ⚡/min. Your Iron Mine needs 10. IronWorks' factory next door needs 40 and
 > pays up to 2 g; your price is 1.75 g. The flow: 10 to your mine, 40 to IronWorks at 1.75 g (+70 g/min), the last 10
-> to your storage if today's orders need it, else to the hub at 1 g. Losses on the 6 pipe tiles to their gate (6%) are
+> to your storage if today's orders need it, else to the hub at 1 g. Losses on the 6 pipe tiles to their gate (2%) are
 > taken from the delivered amount.
 
 ### 5.4 Storage
