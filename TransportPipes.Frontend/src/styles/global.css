@@ -3289,6 +3289,145 @@ button.liked {
   gap: 2px;
 }
 
+.meter-bar {
+  position: relative;
+}
+
+.meter-mark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 3px;
+  margin-left: -1px;
+  border-radius: 2px;
+  background: #241a0c;
+}
+
+/* The Company Level: XP, its pace and the time to the next level; a click shows where the XP came from */
+.top-level-wrap {
+  position: relative;
+}
+
+button.top-level {
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.level-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.xp-numbers {
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.xp-pace {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.xp-help {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.xp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.xp-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 41;
+  width: min(380px, calc(100vw - 16px));
+  max-height: 70vh;
+  overflow-y: auto;
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+}
+
+.xp-panel h3,
+.xp-panel h4,
+.xp-panel p {
+  margin: 0;
+}
+
+.xp-panel h4 {
+  margin-top: 6px;
+}
+
+.xp-sources,
+.xp-items,
+.xp-rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.xp-sources summary,
+.xp-items li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.xp-sources summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 3px 6px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.xp-sources summary::-webkit-details-marker {
+  display: none;
+}
+
+.xp-sources summary:hover,
+.xp-sources details[open] > summary {
+  background: rgba(201, 150, 58, 0.16);
+}
+
+.xp-items {
+  margin: 3px 0 6px 16px;
+  font-size: 0.82rem;
+}
+
+.xp-amount {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Dropdown options readable on every theme (the selected one was light text on light) */
+select option {
+  color: #2b2418;
+  background: #fffaf0;
+}
+
 .tier-name {
   font-weight: 800;
 }

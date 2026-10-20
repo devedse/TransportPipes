@@ -307,7 +307,7 @@ public sealed partial class GameWorld
         }
         RemoveBuilding(building);
         AddBuilding(company, target.Id, origin, finished: false);
-        GainXp(company, Content.Progression.XpReward("building") + (company.BuiltTypes.Add(target.Id) ? Content.Progression.XpReward("firstBuildingOfType") : 0));
+        GainXp(company, Content.Progression.XpReward("building") + (company.BuiltTypes.Add(target.Id) ? Content.Progression.XpReward("firstBuildingOfType") : 0), "buildings", target.Id);
         AddStat(company, "evolved", 1);
         company.Touch();
         Changes.Companies.Add(company.Id);

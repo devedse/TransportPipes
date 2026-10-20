@@ -93,7 +93,7 @@ public sealed partial class GameWorld
         {
             company.Titles.Add(title);
         }
-        GainXp(company, xp);
+        GainXp(company, xp, "achievements", name);
         company.Touch();
         Changes.Companies.Add(company.Id);
         var rewards = new List<string>();

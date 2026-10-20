@@ -75,6 +75,7 @@ public sealed class WorldStore
                 NoTrade = settings.NoTrade,
                 NoBuy = settings.NoBuy,
                 BuiltTypes = settings.BuiltTypes,
+                XpLog = settings.XpLog,
                 Researched = settings.Researched,
                 CurrentResearch = settings.CurrentResearch,
                 ResearchEndsAt = settings.ResearchEndsAt,
@@ -319,6 +320,7 @@ public sealed class WorldStore
                     NoTrade = company.NoTrade,
                     NoBuy = company.NoBuy,
                     BuiltTypes = company.BuiltTypes,
+                    XpLog = company.XpLog,
                     Researched = company.Researched,
                     CurrentResearch = company.CurrentResearch,
                     ResearchEndsAt = company.ResearchEndsAt,
@@ -636,6 +638,7 @@ public sealed class WorldStore
         public HashSet<string> NoTrade { get; init; } = new();
         public HashSet<string> NoBuy { get; init; } = new();
         public HashSet<string> BuiltTypes { get; init; } = new();
+        public Dictionary<string, Dictionary<string, double>> XpLog { get; init; } = new();
         public HashSet<string> Researched { get; init; } = new();
         public string? CurrentResearch { get; init; }
         public DateTime? ResearchEndsAt { get; init; }

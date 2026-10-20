@@ -722,7 +722,7 @@ public sealed class GameHub : Hub<IGameClient>
                     company.LifetimeEarnings += 1_000_000;
                     break;
                 case "level":
-                    world.GainXp(company, world.Content.Progression.XpForLevel(company.Level + 5) - company.Xp);
+                    world.GainXp(company, world.Content.Progression.XpForLevel(company.Level + 5) - company.Xp, "cheats", "level");
                     break;
                 case "research":
                     company.ResearchPoints += 5_000;

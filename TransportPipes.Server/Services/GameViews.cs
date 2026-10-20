@@ -99,7 +99,31 @@ public static class GameViews
                 company.Relics.OrderBy(t => t).ToList()),
             new MasteryDto(company.Mastery, world.ResearchedEverything(company), GameWorld.MasteryCost(company), GameWorld.MasteryMinutes(company), company.Mastery * GameWorld.MasteryBonus),
             world.Alerts(company).Select(t => new AlertDto(t.Text, t.Building)).ToList(),
-            world.Now);
+            world.Now,
+            Experience(world, company, goldPerMinute));
+    }
+
+    private static ExperienceDto Experience(GameWorld world, Company company, double goldPerMinute)
+    {
+        var p = world.Content.Progression;
+        var goldPerXp = p.XpReward("goldPerXp") * company.Level;
+        var rules = new List<XpRuleDto>
+        {
+            new("earnings", $"1 XP per {goldPerXp:N0} gold earned (it grows with your level)"),
+            new("buildings", $"{p.XpReward("building"):N0} XP per building, {p.XpReward("firstBuildingOfType"):N0} more for the first of its kind"),
+            new("upgrades", $"{p.XpReward("upgradeLevel"):N0} XP per level, {p.XpReward("milestone"):N0} more at levels 10, 25, 50, 75 and 100"),
+            new("parcels", $"{p.XpReward("parcel"):N0} XP per parcel"),
+            new("research", $"{p.XpReward("research"):N0} XP per research"),
+            new("orders", $"{30 + 8 * company.Level:N0} XP per daily order (it grows with your level)"),
+            new("contracts", $"{p.XpReward("contract"):N0} XP per finished contract"),
+            new("achievements", "XP for every achievement"),
+            new("corporation", "XP when your corporation reaches its weekly goal"),
+            new("likes", "10 XP per like of your estate"),
+        };
+        return new ExperienceDto(
+            Math.Max(0, goldPerMinute) / goldPerXp,
+            company.XpLog.ToDictionary(t => t.Key, t => (IReadOnlyDictionary<string, double>)t.Value.ToDictionary(i => i.Key, i => Math.Round(i.Value, 1))),
+            rules);
     }
 
     public static GameEventDto Event(GameWorld world, GameEvent gameEvent) => new(
@@ -732,7 +756,19 @@ public static class GameViews
             building.Damaged ? world.RepairCost(building) : null,
             world.ComplexMembers(building),
             definition.Kind == BuildingKind.Teleporter ? Teleporter(world, building) : null,
-            definition.EvolvesTo is { } next && owner != null ? Evolve(world, owner, building, next) : null);
+            definition.EvolvesTo is { } next && owner != null ? Evolve(world, owner, building, next) : null,
+            definition.Kind == BuildingKind.Storage ? Keep(world, building, definition, network) : null);
+    }
+
+    private static StorageKeepDto Keep(GameWorld world, Building storage, BuildingDefinition definition, Network? network)
+    {
+        var resources = storage.Contents.Keys
+            .Concat(network?.Solution.Flows.Where(t => t.To == storage.Id).Select(t => t.Resource) ?? [])
+            .Distinct();
+        var full = network != null && network.Buildings
+            .Select(world.Building)
+            .Any(t => t != null && t.Owner == storage.Owner && world.Content.Building(t.Type).Kind == BuildingKind.TradingPost && world.TradingPostFull(t));
+        return new StorageKeepDto(resources.ToDictionary(t => t, t => Math.Round(world.StorageKeep(storage, definition, t), 1)), full);
     }
 
     private static EvolveDto Evolve(GameWorld world, Company owner, Building building, string next)

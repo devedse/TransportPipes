@@ -4,6 +4,8 @@ import { isMuted, setMuted } from "../app/sound";
 import { formatAmount, formatDuration, formatRate } from "../app/format";
 import { useNow } from "../app/useNow";
 import { currentGold, setState, useAppStore } from "../state/store";
+import { levelEta } from "../app/experience";
+import { ExperiencePanel } from "./ExperiencePanel";
 
 /** Gold that counts up smoothly between server updates */
 function useLiveGold(): number {
@@ -22,6 +24,7 @@ export function TopBar() {
   const serverOffset = useAppStore((state) => state.serverOffsetMs);
   const serverNow = useNow(60000) + serverOffset;
   const gold = useLiveGold();
+  const [xpOpen, setXpOpen] = useState(false);
   if (company === null) {
     return null;
   }
@@ -61,17 +64,42 @@ export function TopBar() {
         </span>
       </div>
 
-      <div
-        className="panel top-level"
-        title={`${formatAmount(company.xp)} XP · next level at ${formatAmount(company.nextLevelXp)} XP`}
-      >
-        <div className="level-badge">{company.level}</div>
-        <div className="level-info">
-          <div className="small">Company Level</div>
-          <div className="xp-bar">
-            <div className="xp-fill" style={{ width: `${levelProgress * 100}%` }} />
+      <div className="top-level-wrap">
+        <button
+          className="panel top-level"
+          aria-expanded={xpOpen}
+          title="Experience: where it comes from"
+          onClick={() => setXpOpen((open) => !open)}
+        >
+          <div className="level-badge">{company.level}</div>
+          <div className="level-info">
+            <div className="level-line">
+              <span className="small">Company Level</span>
+              <span className="xp-numbers">
+                {formatAmount(company.xp - company.levelXp)} / {formatAmount(levelSpan)} XP
+              </span>
+            </div>
+            <div className="xp-bar">
+              <div className="xp-fill" style={{ width: `${levelProgress * 100}%` }} />
+            </div>
+            <div className="xp-pace small">
+              +{formatAmount(company.experience.perMinute)} XP/min
+              {levelEta(company) !== null && (
+                <>
+                  {" "}
+                  · Level {company.level + 1} in {formatDuration(levelEta(company)!)}
+                </>
+              )}
+              <span className="xp-help">?</span>
+            </div>
           </div>
-        </div>
+        </button>
+        {xpOpen && content !== null && (
+          <>
+            <div className="xp-backdrop" onClick={() => setXpOpen(false)} />
+            <ExperiencePanel company={company} content={content} />
+          </>
+        )}
       </div>
 
       {company.moving.arrivesAt !== null && (

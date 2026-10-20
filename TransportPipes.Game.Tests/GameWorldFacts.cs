@@ -165,6 +165,29 @@ public class GameWorldFacts
     }
 
     [TestMethod]
+    public void AStorageTakesWhatAFullTradingPostCantSellAboveWhatItKeeps()
+    {
+        // 12 moilies make 360 energy/min, the trading post sells 600 a minute of everything; with 3 more it's full
+        var game = new TestGame();
+        var company = game.NewCompany();
+        var storage = game.Build(company, "storage");
+        storage.Setting = 0.1;
+        var post = game.TradingPost(company);
+        game.Connect(company, storage, post);
+        for (var i = 0; i < 24; i++)
+        {
+            var moily = game.Build(company, "windMoily");
+            game.Connect(company, moily, post);
+        }
+        game.Pass(60);
+        var flows = game.World.NetworkOf(post.Id)!.Solution.Flows;
+        var sold = flows.Where(t => t.Kind == FlowKind.Sale).Sum(t => t.Delivered);
+        var stored = flows.Where(t => t.Kind == FlowKind.ToStorage).Sum(t => t.Delivered);
+        Console.WriteLine($"sold {sold}, stored {stored}, in storage {storage.Contents.GetValueOrDefault("energy")}");
+        Assert.IsGreaterThan(500, storage.Contents.GetValueOrDefault("energy"), "above what it keeps: the overflow of a full trading post");
+    }
+
+    [TestMethod]
     public void AStorageKeepsWhatTodaysOrdersAndTheBuildingsNeed()
     {
         var game = new TestGame();

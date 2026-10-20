@@ -32,12 +32,12 @@ public class SocialFacts
         StringAssert.Contains(game.World.ChooseMentor(mentor.Id, newcomer.Id).Error, "below Level");
         Assert.IsTrue(game.World.ChooseMentor(newcomer.Id, mentor.Id).Success);
 
-        game.World.GainXp(newcomer, game.World.Content.Progression.XpForLevel(10));
+        game.World.GainXp(newcomer, game.World.Content.Progression.XpForLevel(10), "test", "test");
 
         Assert.AreEqual(10, newcomer.Level);
         Assert.AreEqual(10_000, mentor.Gold);
         Assert.AreEqual(10_000, newcomer.Gold);
-        game.World.GainXp(newcomer, 1);
+        game.World.GainXp(newcomer, 1, "test", "test");
         Assert.AreEqual(10_000, mentor.Gold, "once per level");
     }
 

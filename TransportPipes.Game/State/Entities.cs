@@ -47,6 +47,9 @@ public sealed class Company : Entity
     /// <summary>Resources this company never sells to other companies</summary>
     public HashSet<string> NoTrade { get; init; } = new();
 
+    /// <summary>Where its XP came from: per source (buildings, upgrades, earnings...) per item (a building type...)</summary>
+    public Dictionary<string, Dictionary<string, double>> XpLog { get; init; } = new();
+
     /// <summary>Resources the company doesn't buy from other companies</summary>
     public HashSet<string> NoBuy { get; init; } = new();
 

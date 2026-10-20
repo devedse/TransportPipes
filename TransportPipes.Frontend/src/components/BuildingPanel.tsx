@@ -345,8 +345,18 @@ export function BuildingPanel() {
               amount={amount}
               max={details.capacity!}
               unit=""
+              mark={details.keep?.keeps[resource]}
+              markTitle={`It keeps ${formatAmount(details.keep?.keeps[resource] ?? 0)}`}
             />
           ))}
+          {details.keep !== null &&
+            Object.entries(details.contents).some(([r, a]) => a > (details.keep!.keeps[r] ?? 0) + 1) && (
+              <p className={details.keep.tradingPostFull ? "status idle" : "muted small"}>
+                {details.keep.tradingPostFull
+                  ? "It holds more than it keeps (the line): your trading post is full, so what it can't sell comes in here instead of going to waste. Upgrade the trading post or build another one to sell it."
+                  : "It holds more than it keeps (the line) from before: new surplus is sold, and it fills up again only when your trading post is full."}
+              </p>
+            )}
           {definition.kind === "storage" && (
             <>
               <p className="muted small">
@@ -549,12 +559,17 @@ function Meter({
   amount,
   max,
   unit = "/min",
+  mark,
+  markTitle,
 }: {
   label: string;
   color: string;
   amount: number;
   max: number;
   unit?: string;
+  /** A line on the bar (what a storage keeps) */
+  mark?: number;
+  markTitle?: string;
 }) {
   const fraction = max > 0 ? Math.min(1, amount / max) : 0;
   return (
@@ -568,6 +583,13 @@ function Meter({
       </div>
       <div className="meter-bar">
         <div className="meter-fill" style={{ width: `${fraction * 100}%`, background: color }} />
+        {mark !== undefined && mark > 0 && max > 0 && (
+          <div
+            className="meter-mark"
+            title={markTitle}
+            style={{ left: `${Math.min(100, (mark / max) * 100)}%` }}
+          />
+        )}
       </div>
     </div>
   );

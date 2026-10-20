@@ -461,7 +461,7 @@ public sealed partial class GameWorld
         {
             if (Company(id) is { } member)
             {
-                GainXp(member, 50 + 200 * amount / goal.Amount * member.Level);
+                GainXp(member, 50 + 200 * amount / goal.Amount * member.Level, "corporation", goal.Resource);
                 Changes.Events.Add(new WorldEvent(member.Id, WorldEventKind.Corporation, $"{corporation.Name} reached its weekly goal!"));
             }
         }

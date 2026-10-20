@@ -99,7 +99,7 @@ public class SocietyFacts
         await server.World.RunAsync(world =>
         {
             var company = world.Company(annCompany.Id)!;
-            world.GainXp(company, world.Content.Progression.XpForLevel(8) - company.Xp);
+            world.GainXp(company, world.Content.Progression.XpForLevel(8) - company.Xp, "test", "test");
             company.Gold += 20_000;
         });
         await ann.Command("FoundCorporation", "Pipe Guild", "pg", "#aa3355");

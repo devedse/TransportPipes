@@ -253,7 +253,7 @@ public sealed partial class GameWorld
             seller.Gold -= penalty;
             seller.ContractScore = seller.ContractScore * 0.8 + contract.Fulfillment * 0.2;
             seller.ContractsCompleted++;
-            GainXp(seller, Content.Progression.XpReward("contract"));
+            GainXp(seller, Content.Progression.XpReward("contract"), "contracts", contract.Resource);
             seller.Touch();
             var text = penalty > 0 ? $"Contract ended: {contract.Fulfillment:P0} delivered, {penalty:N0} gold penalty" : "Contract completed";
             Changes.Events.Add(new WorldEvent(seller.Id, WorldEventKind.ContractChanged, text));
@@ -262,7 +262,7 @@ public sealed partial class GameWorld
         if (Company(contract.Buyer) is { } buyer)
         {
             buyer.Gold += penalty;
-            GainXp(buyer, Content.Progression.XpReward("contract"));
+            GainXp(buyer, Content.Progression.XpReward("contract"), "contracts", contract.Resource);
             buyer.Touch();
             Changes.Events.Add(new WorldEvent(buyer.Id, WorldEventKind.ContractChanged, $"Contract ended: {contract.Fulfillment:P0} delivered"));
             buyer.Report.Contracts.Add($"Contract ended: {contract.Fulfillment:P0} delivered ({Company(contract.Seller)?.Name})");

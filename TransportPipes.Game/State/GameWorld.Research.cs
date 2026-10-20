@@ -147,7 +147,7 @@ public sealed partial class GameWorld
             company.Touch();
             Changes.Companies.Add(company.Id);
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ResearchFinished, $"Mastery {company.Mastery}: everything makes {company.Mastery * MasteryBonus:P1} more"));
-            GainXp(company, Content.Progression.XpReward("research"));
+            GainXp(company, Content.Progression.XpReward("research"), "research", "Mastery");
             MarkCompanyNetworksDirty(company.Id);
             return;
         }
@@ -160,7 +160,7 @@ public sealed partial class GameWorld
         {
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ResearchFinished, $"Research done: {tech.Name}"));
             company.Report.ResearchDone.Add(tech.Name);
-            GainXp(company, Content.Progression.XpReward("research"));
+            GainXp(company, Content.Progression.XpReward("research"), "research", tech.Name);
             if (tech.ThroughputBonus > 0)
             {
                 // The pipes of this company carry more: their links change

@@ -684,7 +684,7 @@ public sealed partial class GameWorld
         }
 
         AddBuilding(company, type, pos, finished: false);
-        GainXp(company, Content.Progression.XpReward("building") + (company.BuiltTypes.Add(type) ? Content.Progression.XpReward("firstBuildingOfType") : 0));
+        GainXp(company, Content.Progression.XpReward("building") + (company.BuiltTypes.Add(type) ? Content.Progression.XpReward("firstBuildingOfType") : 0), "buildings", type);
         return CommandResult.Ok;
     }
 
@@ -864,7 +864,7 @@ public sealed partial class GameWorld
             Changes.Tiles.Add(tile);
         }
         var milestones = Content.Progression.Milestones.Count(t => t > from && t <= building.Level);
-        GainXp(company, levels * Content.Progression.XpReward("upgradeLevel") + milestones * Content.Progression.XpReward("milestone"));
+        GainXp(company, levels * Content.Progression.XpReward("upgradeLevel") + milestones * Content.Progression.XpReward("milestone"), "upgrades", building.Type);
         return CommandResult.Ok;
     }
 
@@ -914,7 +914,7 @@ public sealed partial class GameWorld
                 Changes.Tiles.Add(estate.Origin.Offset(ox + x, oy + y));
             }
         }
-        GainXp(company, Content.Progression.XpReward("parcel"));
+        GainXp(company, Content.Progression.XpReward("parcel"), "parcels", "parcel");
         return CommandResult.Ok;
     }
 
@@ -1125,12 +1125,18 @@ public sealed partial class GameWorld
 
     // ---------------------------------------------------------------- Experience
 
-    public void GainXp(Company company, double xp)
+    /// <summary>XP for a company, recorded by where it came from (see Company.XpLog)</summary>
+    public void GainXp(Company company, double xp, string source, string item)
     {
         if (xp <= 0)
         {
             return;
         }
+        if (!company.XpLog.TryGetValue(source, out var items))
+        {
+            company.XpLog[source] = items = new Dictionary<string, double>();
+        }
+        items[item] = items.GetValueOrDefault(item) + xp;
         company.Xp += xp;
         var level = Content.Progression.LevelForXp(company.Xp);
         if (level > company.Level)

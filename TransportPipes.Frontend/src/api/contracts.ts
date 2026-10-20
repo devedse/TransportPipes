@@ -82,6 +82,12 @@ export interface CompanyDto {
   /** What holds the company back right now */
   alerts: Array<{ text: string; building: number | null }>;
   serverTime: string;
+  /** XP per minute from earnings, where the XP came from (per source per item) and what gives XP */
+  experience: {
+    perMinute: number;
+    log: Record<string, Record<string, number>>;
+    rules: Array<{ source: string; text: string }>;
+  };
 }
 
 export type ActivityStage = "active" | "resting" | "dormant" | "asleep";
@@ -470,6 +476,8 @@ export interface BuildingDetailsDto {
   teleporter: TeleporterDto | null;
   /** What it can evolve into where it stands */
   evolve: { into: string; cost: number; problem: string | null } | null;
+  /** A storage: what it keeps of each resource, and whether a full trading post sends it the rest */
+  keep: { keeps: Record<string, number>; tradingPostFull: boolean } | null;
 }
 
 /** A teleporter station (GDD §11.4) */

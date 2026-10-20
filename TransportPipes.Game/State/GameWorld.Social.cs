@@ -47,7 +47,7 @@ public sealed partial class GameWorld
         owner.Likes += factor;
         owner.Report.LikesReceived += factor;
         owner.Gold += 20 * owner.Level * factor;
-        GainXp(owner, 10 * factor);
+        GainXp(owner, 10 * factor, "likes", "likes");
         owner.Touch();
         Changes.Companies.Add(owner.Id);
         Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.Social, $"{liker.Name} likes your estate!"));

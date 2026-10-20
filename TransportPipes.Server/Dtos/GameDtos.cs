@@ -76,7 +76,16 @@ public record CompanyDto(
     ExpeditionDto Expedition,
     MasteryDto Mastery,
     IReadOnlyList<AlertDto> Alerts,
-    DateTime ServerTime);
+    DateTime ServerTime,
+    ExperienceDto Experience);
+
+/// <summary>
+/// Experience: XP per minute from what the company earns now, where its XP came from (per source per item) and what
+/// gives XP
+/// </summary>
+public record ExperienceDto(double PerMinute, IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>> Log, IReadOnlyList<XpRuleDto> Rules);
+
+public record XpRuleDto(string Source, string Text);
 
 /// <summary>Something that holds the company back, with the building to look at</summary>
 public record AlertDto(string Text, long? Building);
@@ -240,7 +249,14 @@ public record BuildingDetailsDto(
     double? RepairCost,
     int ComplexMembers,
     TeleporterDto? Teleporter = null,
-    EvolveDto? Evolve = null);
+    EvolveDto? Evolve = null,
+    StorageKeepDto? Keep = null);
+
+/// <summary>
+/// A storage: how much of each resource it keeps (its setting, or what the company needs), and whether a full trading
+/// post of its network sends it the rest (then it holds more)
+/// </summary>
+public record StorageKeepDto(IReadOnlyDictionary<string, double> Keeps, bool TradingPostFull);
 
 /// <summary>What a building can evolve into where it stands, what it costs and what is in the way</summary>
 public record EvolveDto(string Into, double Cost, string? Problem);

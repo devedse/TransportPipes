@@ -142,7 +142,7 @@ public sealed partial class GameWorld
             company.LifetimeEarnings += order.RewardGold;
             company.Report.GoldEarned += order.RewardGold;
             company.HubReputation += order.RewardReputation;
-            GainXp(company, order.RewardXp);
+            GainXp(company, order.RewardXp, "orders", order.Resource);
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.OrderCompleted, $"Order complete: +{order.RewardGold:N0} gold"));
             company.Report.OrdersCompleted++;
             AddStat(company, "orders", 1);

@@ -373,7 +373,7 @@ public sealed partial class GameWorld
             gold -= toNext * rate;
             level++;
         }
-        GainXp(company, xp);
+        GainXp(company, xp, "earnings", "gold earned");
     }
 
     private static void Add(Dictionary<string, double> totals, string resource, double amount) =>
