@@ -680,7 +680,14 @@ export interface NetworkDetailsDto {
   pipes: number;
   pumps: number;
   pumpFactor: number;
-  owners: Array<{ id: number; name: string; color: string; goldPerMinute: number }>;
+  owners: Array<{
+    id: number;
+    name: string;
+    color: string;
+    goldPerMinute: number;
+    /** What its buildings in the network make, use and sell, per minute */
+    resources: Array<{ resource: string; made: number; used: number; sold: number }>;
+  }>;
   resources: NetworkResourceDto[];
   bottlenecks: Array<{ a: number; b: number; capacity: number; used: number; path: number[] }>;
 }

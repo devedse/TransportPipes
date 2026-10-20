@@ -70,6 +70,8 @@ export interface AppState {
   /** Counts district updates, so panels that read the world model render again */
   districtVersion: number;
   networkDetails: NetworkDetailsDto | null;
+  /** The network of the selected building */
+  buildingNetwork: NetworkDetailsDto | null;
   overlay: Overlay;
   hoverTile: TilePosition | null;
   placement: Placement | null;
@@ -161,6 +163,7 @@ export const initialState: AppState = {
   selectedGate: null,
   districtVersion: 0,
   networkDetails: null,
+  buildingNetwork: null,
   overlay: "none",
   hoverTile: null,
   placement: null,

@@ -263,7 +263,10 @@ public record ToastDto(string Kind, string Text, long? Building);
 
 public record NetworkResourceDto(string Resource, double Produced, double Used, double Sold, double Imported, double Traded, double Stored, double FromStorage, double Lost);
 
-public record NetworkOwnerDto(long Id, string Name, string Color, double GoldPerMinute);
+/// <summary>What one company's buildings in a network make, use and sell of a resource, per minute</summary>
+public record OwnerResourceDto(string Resource, double Made, double Used, double Sold);
+
+public record NetworkOwnerDto(long Id, string Name, string Color, double GoldPerMinute, IReadOnlyList<OwnerResourceDto> Resources);
 
 public record BottleneckDto(long A, long B, double Capacity, double Used, IReadOnlyList<int> Path);
 

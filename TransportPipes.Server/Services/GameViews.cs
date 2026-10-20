@@ -840,8 +840,25 @@ public static class GameViews
 
         var resources = new Dictionary<string, double[]>();
         double[] Row(string resource) => resources.TryGetValue(resource, out var row) ? row : resources[resource] = new double[8];
+        // Per company: made, used, sold
+        var perOwner = new Dictionary<(long, string), double[]>();
+        double[] OwnerRow(long owner, string resource) => perOwner.TryGetValue((owner, resource), out var row) ? row : perOwner[(owner, resource)] = new double[3];
         foreach (var flow in solution.Flows)
         {
+            var from = world.Building(flow.From);
+            var to = world.Building(flow.To);
+            if (from != null && Machine(flow.From))
+            {
+                OwnerRow(from.Owner, flow.Resource)[0] += flow.Sent;
+            }
+            if (to != null && Machine(flow.To) && flow.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.Contract or FlowKind.FromStorage or FlowKind.Import)
+            {
+                OwnerRow(to.Owner, flow.Resource)[1] += flow.Delivered;
+            }
+            if (from != null && flow.Kind == FlowKind.Sale)
+            {
+                OwnerRow(from.Owner, flow.Resource)[2] += flow.Delivered;
+            }
             var row = Row(flow.Resource);
             if (Machine(flow.From))
             {
@@ -882,7 +899,11 @@ public static class GameViews
         var owners = network.Owners(world)
             .Select(world.Company)
             .OfType<Company>()
-            .Select(t => new NetworkOwnerDto(t.Id, t.Name, t.Color, solution.GoldPerMinute.TryGetValue(t.Id, out var g) ? g : 0))
+            .Select(t => new NetworkOwnerDto(t.Id, t.Name, t.Color, solution.GoldPerMinute.TryGetValue(t.Id, out var g) ? g : 0,
+                perOwner.Where(p => p.Key.Item1 == t.Id && p.Value.Any(v => v > 0.005))
+                    .OrderBy(p => world.Content.Resources.TryGetValue(p.Key.Item2, out var r) ? r.Tier : 99).ThenBy(p => p.Key.Item2)
+                    .Select(p => new OwnerResourceDto(p.Key.Item2, p.Value[0], p.Value[1], p.Value[2]))
+                    .ToList()))
             .ToList();
         var pumps = network.Buildings.Count(t => world.Building(t) is { } b && world.Content.Building(b.Type).Kind == BuildingKind.Pump);
 

@@ -2,10 +2,11 @@ import { useState } from "react";
 import { gameClient } from "../app/client";
 import { formatAmount, formatDuration } from "../app/format";
 import { useNow } from "../app/useNow";
-import type { BuildingDetailsDto } from "../api/contracts";
+import type { BuildingDetailsDto, BuildingFlowDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import type { TerraformAction } from "../game/Engine";
 import { currentGold, useAppStore } from "../state/store";
+import { NetworkSummary } from "./NetworkSummary";
 import { ResourceIcon } from "./ResourceIcon";
 
 const KIND_LABELS: Record<string, string> = {
@@ -21,28 +22,92 @@ function partnerName(content: Content, type: string): string {
   return content.building(type)?.name ?? type;
 }
 
+/** A group's partners in a few words: "Wind Moily", or "9 Iron Mines, 2 Wind Moilies" */
+function partners(content: Content, flows: BuildingFlowDto[]): string {
+  const counts = new Map<string, number>();
+  for (const flow of flows) {
+    counts.set(flow.partnerType, (counts.get(flow.partnerType) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([type, count]) =>
+      count === 1 ? partnerName(content, type) : `${count}× ${partnerName(content, type)}`,
+    )
+    .join(", ");
+}
+
+/**
+ * Where a building's resources come from and go: one row per resource (and kind), with the total, the gold and
+ * its partners; open a row for every single flow. A trading post shows how much of what it can sell it sells.
+ */
 function Flows({ details, content }: { details: BuildingDetailsDto; content: Content }) {
   if (details.flows.length === 0) {
     return null;
   }
+  const groups = new Map<string, BuildingFlowDto[]>();
+  for (const flow of details.flows) {
+    const key = `${flow.direction}:${flow.resource}:${flow.kind}`;
+    groups.set(key, [...(groups.get(key) ?? []), flow]);
+  }
+  const rows = [...groups.values()]
+    .map((flows) => ({
+      flows,
+      first: flows[0]!,
+      amount: flows.reduce((sum, t) => sum + t.amount, 0),
+      gold: flows.reduce((sum, t) => sum + t.amount * t.price, 0),
+    }))
+    .sort((a, b) => b.gold - a.gold || b.amount - a.amount);
+  const throughput = details.throughput;
+  const traded = details.flows
+    .filter((t) => t.kind === "sale" || t.kind === "import")
+    .reduce((sum, t) => sum + t.amount, 0);
+  const sales = details.flows
+    .filter((t) => t.kind === "sale")
+    .reduce((sum, t) => sum + t.amount * t.price, 0);
   return (
     <section>
       <h4>Where it goes</h4>
-      <ul className="flow-list">
-        {details.flows.map((flow, i) => (
-          <li key={i}>
-            <ResourceIcon resource={flow.resource} />
-            <span>
-              {flow.direction === "in" ? "from" : "to"} {partnerName(content, flow.partnerType)}
-              {flow.kind === "trade" && <span className="muted"> ({flow.partnerOwner})</span>}
-            </span>
-            <span className="flow-amount">
-              {formatAmount(flow.amount)} {content.resourceName(flow.resource).toLowerCase()}/min
-            </span>
-            <span className="muted flow-kind">
-              {KIND_LABELS[flow.kind]}
-              {flow.price > 0 && ` @ ${flow.price.toFixed(2)} g`}
-            </span>
+      {throughput !== null && throughput > 0 && (
+        <>
+          <Meter label="Selling" color="#c9963a" amount={traded} max={throughput} />
+          <p className="muted small">
+            {formatAmount(sales)} g/min from the hub
+            {traded >= throughput * 0.98 && " · full: upgrade it or build another to sell more"}
+          </p>
+        </>
+      )}
+      <ul className="flow-list flow-groups">
+        {rows.map(({ flows, first, amount, gold }) => (
+          <li key={`${first.direction}:${first.resource}:${first.kind}`}>
+            <details>
+              <summary>
+                <ResourceIcon resource={first.resource} />
+                <span>
+                  {first.direction === "in" ? "from" : "to"} {partners(content, flows)}
+                </span>
+                <span className="flow-amount">
+                  {formatAmount(amount)} {content.resourceName(first.resource).toLowerCase()}/min
+                </span>
+                <span className="muted flow-kind">
+                  {KIND_LABELS[first.kind]}
+                  {gold > 0 && ` · ${formatAmount(gold)} g/min`}
+                </span>
+              </summary>
+              <ul className="flow-list">
+                {flows.map((flow, i) => (
+                  <li key={i}>
+                    <span>
+                      {flow.direction === "in" ? "from" : "to"} {partnerName(content, flow.partnerType)}
+                      {flow.kind === "trade" && <span className="muted"> ({flow.partnerOwner})</span>}
+                    </span>
+                    <span className="flow-amount">{formatAmount(flow.amount)}/min</span>
+                    <span className="muted flow-kind">
+                      {flow.price > 0 && `@ ${flow.price.toFixed(2)} g`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </details>
           </li>
         ))}
       </ul>
@@ -55,6 +120,7 @@ export function BuildingPanel() {
   const content = useAppStore((state) => state.content);
   const company = useAppStore((state) => state.company);
   const companyAt = useAppStore((state) => state.companyAt);
+  const network = useAppStore((state) => state.buildingNetwork);
   const serverOffset = useAppStore((state) => state.serverOffsetMs);
   const [confirmDemolish, setConfirmDemolish] = useState(false);
   const now = useNow();
@@ -368,6 +434,18 @@ export function BuildingPanel() {
       )}
 
       <Flows details={details} content={content} />
+
+      {network !== null && (
+        <section>
+          <h4>
+            Its network ·{" "}
+            <button className="link small" onClick={() => gameClient.showBuildingNetwork()}>
+              show on the map
+            </button>
+          </h4>
+          <NetworkSummary details={network} content={content} ownCompany={company?.id ?? null} />
+        </section>
+      )}
 
       {mine && details.upgradeCost !== null && !underConstruction && (
         <section className="upgrade">

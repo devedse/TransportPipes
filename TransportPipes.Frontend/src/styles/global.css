@@ -838,6 +838,67 @@ kbd {
   font-size: 0.75rem;
 }
 
+/* Flows grouped per resource: the row is the total, opening it shows every single flow */
+.flow-groups > li {
+  display: block;
+}
+
+.flow-groups summary,
+.network-owner summary {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 2px 8px;
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+  border-radius: 8px;
+  padding: 2px 4px;
+}
+
+.flow-groups summary::-webkit-details-marker,
+.network-owner summary::-webkit-details-marker {
+  display: none;
+}
+
+.flow-groups summary:hover,
+.network-owner summary:hover {
+  background: rgba(201, 150, 58, 0.12);
+}
+
+.flow-groups details[open] > summary,
+.network-owner[open] > summary {
+  background: rgba(201, 150, 58, 0.16);
+}
+
+.flow-groups details > .flow-list {
+  margin: 4px 0 6px 30px;
+  font-size: 0.78rem;
+}
+
+.flow-groups details > .flow-list li {
+  grid-template-columns: 1fr auto;
+}
+
+.flow-groups details > .flow-list .flow-kind {
+  grid-column: 1 / span 2;
+}
+
+.network-owners {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.network-owner summary {
+  grid-template-columns: auto 1fr auto;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.network-owner > .flow-list {
+  margin: 4px 0 6px 22px;
+}
+
 .flow-amount {
   font-variant-numeric: tabular-nums;
   font-weight: 600;

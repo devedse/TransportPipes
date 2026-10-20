@@ -775,6 +775,7 @@ export class GameClient {
     setState({
       selectedBuilding: id,
       buildingDetails: null,
+      buildingNetwork: null,
       selectedParcel: null,
       selectedNetwork: null,
       networkDetails: null,
@@ -1029,7 +1030,25 @@ export class GameClient {
       this.select(null);
       return;
     }
-    setState({ buildingDetails: details });
+    // Its network as a whole too
+    const network =
+      details.building.network === null
+        ? null
+        : await this.connection.getNetwork(details.building.network).catch(() => null);
+    if (appStore.getState().selectedBuilding !== id) {
+      return;
+    }
+    setState({ buildingDetails: details, buildingNetwork: network });
+  }
+
+  /** Selects the network of the selected building (at one of its pipes, so the selection follows it) */
+  showBuildingNetwork() {
+    const network = appStore.getState().buildingDetails?.building.network ?? null;
+    if (network === null || this.world === null) {
+      return;
+    }
+    const pipe = [...this.world.conductors.values()].find((t) => t.network === network);
+    this.selectNetwork(network, pipe === undefined ? null : { x: pipe.x, y: pipe.y });
   }
 
   private async refreshCompany() {
