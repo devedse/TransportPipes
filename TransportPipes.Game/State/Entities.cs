@@ -106,6 +106,15 @@ public sealed class Company : Entity
     public int FreeMoves { get; set; }
     public bool MergeBonus { get; set; }
 
+    /// <summary>The expedition that is out (GDD §11.3)</summary>
+    public Expedition? Expedition { get; set; }
+
+    /// <summary>What the last expeditions brought back, newest first</summary>
+    public List<string> ExpeditionLog { get; init; } = new();
+
+    /// <summary>Relics found by expeditions</summary>
+    public HashSet<string> Relics { get; init; } = new();
+
     /// <summary>How far the company is with Loady's guide (an index into the tutorial steps)</summary>
     public int TutorialStep { get; set; }
 
@@ -395,6 +404,9 @@ public sealed class PackedEstate
 }
 
 public sealed record PackedPipe(int Dx, int Dy, int Tier);
+
+/// <summary>An expedition out in the wilderness</summary>
+public sealed record Expedition(int Hours, DateTime StartedAt, DateTime EndsAt);
 
 /// <summary>An estate by its district and slot (saved with the company)</summary>
 public sealed record EstateRef(int DistrictX, int DistrictY, int Slot);

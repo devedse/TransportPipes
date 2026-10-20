@@ -73,7 +73,11 @@ public record CompanyDto(
     DeepDto Deep,
     IReadOnlyList<BranchDto> Branches,
     TutorialDto? Tutorial,
+    ExpeditionDto Expedition,
     DateTime ServerTime);
+
+/// <summary>Expeditions (GDD §11.3): the one out, what they cost, what came back, the relics found</summary>
+public record ExpeditionDto(int? Hours, DateTime? EndsAt, IReadOnlyDictionary<int, double> Costs, string? Blocker, IReadOnlyList<string> Log, IReadOnlyList<string> Relics);
 
 /// <summary>Loady's guide: the step the company is on</summary>
 public record TutorialDto(int Step, int Steps, string Id, string Text, double Progress, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint);

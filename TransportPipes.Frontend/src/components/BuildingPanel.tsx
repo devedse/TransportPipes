@@ -131,6 +131,9 @@ export function BuildingPanel() {
       {mine && definition.kind === "terraformer" && building.constructionEndsAt === null && (
         <TerraformTools />
       )}
+      {mine && definition.kind === "expeditionOffice" && building.constructionEndsAt === null && (
+        <ExpeditionSection />
+      )}
       {mine && details.teleporter !== null && building.constructionEndsAt === null && (
         <TeleporterSection details={details} />
       )}
@@ -428,6 +431,51 @@ const TERRAFORM: Array<{ action: TerraformAction; name: string; text: string; co
 ];
 
 /** The Terraformer (GDD §11.1): pick an action, then click the tiles of your estate */
+/** Expeditions from the office: send a team out, see what came back */
+function ExpeditionSection() {
+  const company = useAppStore((s) => s.company)!;
+  const companyAt = useAppStore((s) => s.companyAt);
+  const serverOffset = useAppStore((s) => s.serverOffsetMs);
+  const now = useNow(1000) + serverOffset;
+  const expedition = company.expedition;
+  const gold = currentGold({ company, companyAt });
+  return (
+    <section className="expedition">
+      <h4>Expeditions</h4>
+      {expedition.endsAt !== null ? (
+        <p className="status building">
+          🧭 The team is out for {expedition.hours} h: back in{" "}
+          {formatDuration(Math.max(0, (new Date(expedition.endsAt).getTime() - now) / 1000))}
+        </p>
+      ) : (
+        <div className="button-row">
+          {Object.entries(expedition.costs).map(([hours, cost]) => (
+            <button
+              key={hours}
+              className="primary"
+              disabled={expedition.blocker !== null || gold < cost}
+              onClick={() => void gameClient.startExpedition(Number(hours))}
+            >
+              {hours} h · {formatAmount(cost)} g
+            </button>
+          ))}
+        </div>
+      )}
+      <p className="muted small">
+        Longer trips bring more luck: rich deposits in the wilderness, decorations, relics (
+        {expedition.relics.length} found).
+      </p>
+      {expedition.log.length > 0 && (
+        <ul className="facts">
+          {expedition.log.map((line, i) => (
+            <li key={i}>{line}</li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 /** A teleporter: what it sends or receives, or linking it to another station */
 function TeleporterSection({ details }: { details: BuildingDetailsDto }) {
   const content = useAppStore((s) => s.content)!;

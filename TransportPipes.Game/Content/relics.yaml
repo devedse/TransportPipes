@@ -1,0 +1,9 @@
+# Relics that expeditions bring back (GDD §11.3, §13.3): a collection with lore; all of them give a title
+- { id: brassCompass, name: The Brass Compass, lore: "It points to the nearest pipe, not to the north. Whoever made it had their priorities straight." }
+- { id: firstMoily, name: The First Moily, lore: "A tiny wooden wind turbine with 'No. 1' carved into its foot. The legend says it powered a single light bulb for forty years." }
+- { id: loadyStone, name: The Loady Stone, lore: "A smooth white stone with a smiley face. It is warm to the touch, and it seems to wink when nobody is looking." }
+- { id: cartographersMap, name: The Cartographer's Map, lore: "A map of the valleys from before the districts, with pipes drawn where no pipes are. Yet." }
+- { id: goldenValve, name: The Golden Valve, lore: "A valve of solid gold. Turning it does nothing at all, which is exactly what the guild wanted to prove." }
+- { id: oldLantern, name: The Miner's Lantern, lore: "It still glows, with no oil inside. Found deep in a cave, next to a sign that said 'Back in five minutes'." }
+- { id: wonderPlans, name: The Lost Wonder Plans, lore: "Rolled plans for a Wonder nobody has built: a tower that reaches the moon, stamped 'approved' in red." }
+- { id: crystalSeed, name: The Crystal Seed, lore: "A violet crystal shaped like a seed. Planted in a pot, it grows a little every season." }

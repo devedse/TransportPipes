@@ -102,6 +102,9 @@ public sealed class WorldStore
                 MergeBonus = settings.MergeBonus,
                 DeepParcels = settings.DeepParcels,
                 TutorialStep = settings.TutorialStep,
+                Expedition = settings.Expedition,
+                ExpeditionLog = settings.ExpeditionLog,
+                Relics = settings.Relics,
                 DigParcel = settings.DigParcel,
                 DigStartedAt = settings.DigStartedAt,
                 DigEndsAt = settings.DigEndsAt,
@@ -341,6 +344,9 @@ public sealed class WorldStore
                     MergeBonus = company.MergeBonus,
                     DeepParcels = company.DeepParcels,
                     TutorialStep = company.TutorialStep,
+                    Expedition = company.Expedition,
+                    ExpeditionLog = company.ExpeditionLog,
+                    Relics = company.Relics,
                     DigParcel = company.DigParcel,
                     DigStartedAt = company.DigStartedAt,
                     DigEndsAt = company.DigEndsAt,
@@ -653,6 +659,9 @@ public sealed class WorldStore
         public bool MergeBonus { get; init; }
         public int DeepParcels { get; init; }
         public int TutorialStep { get; init; }
+        public Expedition? Expedition { get; init; }
+        public List<string> ExpeditionLog { get; init; } = new();
+        public HashSet<string> Relics { get; init; } = new();
         public int? DigParcel { get; init; }
         public DateTime? DigStartedAt { get; init; }
         public DateTime? DigEndsAt { get; init; }

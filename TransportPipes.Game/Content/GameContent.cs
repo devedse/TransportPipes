@@ -30,6 +30,7 @@ public sealed class GameContent
     public IReadOnlyList<AchievementDefinition> Achievements { get; }
     public IReadOnlyList<CollectionDefinition> Collections { get; }
     public IReadOnlyList<TutorialStep> Tutorial { get; }
+    public IReadOnlyList<RelicDefinition> Relics { get; }
 
     public GameContent(
         IReadOnlyList<ResourceDefinition> resources,
@@ -41,9 +42,11 @@ public sealed class GameContent
         IReadOnlyList<ManagerDefinition>? managers = null,
         IReadOnlyList<AchievementDefinition>? achievements = null,
         IReadOnlyList<CollectionDefinition>? collections = null,
-        IReadOnlyList<TutorialStep>? tutorial = null)
+        IReadOnlyList<TutorialStep>? tutorial = null,
+        IReadOnlyList<RelicDefinition>? relics = null)
     {
         Tutorial = tutorial ?? [];
+        Relics = relics ?? [];
         Managers = managers ?? [];
         Achievements = achievements ?? [];
         Collections = collections ?? [];
@@ -95,6 +98,7 @@ public sealed class GameContent
         var managers = Read<List<ManagerDto>>("managers.yaml").Select(t => new ManagerDefinition(t.Id, t.Name, t.Cost, t.Color, t.Automation, t.Bonus)).ToList();
         var achievements = Read<AchievementsDto>("achievements.yaml");
         var tutorial = Read<List<TutorialDto>>("tutorial.yaml").Select(t => new TutorialStep(t.Id, t.Text, t.Stat, t.Amount, t.Gold, t.Hint)).ToList();
+        var relics = Read<List<RelicDto>>("relics.yaml").Select(t => new RelicDefinition(t.Id, t.Name, t.Lore)).ToList();
         return new GameContent(
             resources,
             buildings,
@@ -105,7 +109,8 @@ public sealed class GameContent
             managers,
             achievements.Achievements.Select(t => t.ToDefinition()).ToList(),
             achievements.Collections.Select(t => new CollectionDefinition(t.Id, t.Name, t.Level, t.Buildings, t.Xp, t.Title, t.Description)).ToList(),
-            tutorial);
+            tutorial,
+            relics);
     }
 
     private void Validate()
@@ -343,6 +348,13 @@ public sealed class GameContent
         public string Color { get; set; } = "#888888";
         public string Automation { get; set; } = "";
         public string Bonus { get; set; } = "";
+    }
+
+    private sealed class RelicDto
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Lore { get; set; } = "";
     }
 
     private sealed class TutorialDto

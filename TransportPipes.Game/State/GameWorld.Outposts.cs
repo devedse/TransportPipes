@@ -258,25 +258,8 @@ public sealed partial class GameWorld
         }
         var districts = _openDistricts.OrderBy(t => t.X).ThenBy(t => t.Y).ToList();
         var district = districts[random.Next(districts.Count)];
-        // A spot in the wilderness band around the district
-        var x0 = WorldLayout.DistrictOriginX(district.X);
-        var y0 = WorldLayout.DistrictOriginY(district.Y);
-        for (var attempt = 0; attempt < 50; attempt++)
+        if (WildSpotNear(district, random) is { } pos)
         {
-            var side = random.Next(4);
-            var along = random.Next(WorldLayout.DistrictSize);
-            var depth = 4 + random.Next(WorldLayout.WildernessWidth - 8);
-            var pos = side switch
-            {
-                0 => new TilePos(x0 + along, y0 - depth),
-                1 => new TilePos(x0 + along, y0 + WorldLayout.DistrictSize + depth - 1),
-                2 => new TilePos(x0 - depth, y0 + along),
-                _ => new TilePos(x0 + WorldLayout.DistrictSize + depth - 1, y0 + along),
-            };
-            if (WorldLayout.ZoneAt(pos.X, pos.Y).Kind != ZoneKind.Wilderness || !Generator.Tile(pos).IsBuildableTerrain || OutpostAt(pos) != null)
-            {
-                continue;
-            }
             var resources = Era >= 3 ? new[] { "oil", "rareEarth", "copperOre" } : ["copperOre", "coal", "ironOre"];
             var start = DateTime.SpecifyKind(day.AddHours(8 + random.Next(10)), DateTimeKind.Utc);
             if (start < LastTick + TimeSpan.FromHours(1))
@@ -294,8 +277,32 @@ public sealed partial class GameWorld
                 X = pos.X,
                 Y = pos.Y,
             });
-            return;
         }
+    }
+
+    /// <summary>A free, buildable spot in the wilderness band around a district (null when none was found)</summary>
+    private TilePos? WildSpotNear(DistrictCoord district, SeededRandom random)
+    {
+        var x0 = WorldLayout.DistrictOriginX(district.X);
+        var y0 = WorldLayout.DistrictOriginY(district.Y);
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            var side = random.Next(4);
+            var along = random.Next(WorldLayout.DistrictSize);
+            var depth = 4 + random.Next(WorldLayout.WildernessWidth - 8);
+            var pos = side switch
+            {
+                0 => new TilePos(x0 + along, y0 - depth),
+                1 => new TilePos(x0 + along, y0 + WorldLayout.DistrictSize + depth - 1),
+                2 => new TilePos(x0 - depth, y0 + along),
+                _ => new TilePos(x0 + WorldLayout.DistrictSize + depth - 1, y0 + along),
+            };
+            if (WorldLayout.ZoneAt(pos.X, pos.Y).Kind == ZoneKind.Wilderness && Generator.Tile(pos).IsBuildableTerrain && OutpostAt(pos) == null && DiscoveryAt(pos) == null)
+            {
+                return pos;
+            }
+        }
+        return null;
     }
 
     /// <summary>A Discovery right now (for testing)</summary>

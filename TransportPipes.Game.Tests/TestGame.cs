@@ -50,7 +50,7 @@ internal sealed class TestGame
             Sprite = t.Sprite,
             Description = t.Description,
         }).ToList();
-        return new GameContent(content.ResourceList, buildings, content.PipeTiers, content.Progression, content.ResearchList, [.. content.DistrictWonders, .. content.EraWonders], content.Managers, content.Achievements, content.Collections, content.Tutorial);
+        return new GameContent(content.ResourceList, buildings, content.PipeTiers, content.Progression, content.ResearchList, [.. content.DistrictWonders, .. content.EraWonders], content.Managers, content.Achievements, content.Collections, content.Tutorial, content.Relics);
     }
 
     private static readonly Dictionary<char, string> MapLetters = new()

@@ -77,6 +77,7 @@ export interface CompanyDto {
   branches: BranchDto[];
   /** Loady's guide: the current step (null when done) */
   tutorial: TutorialDto | null;
+  expedition: ExpeditionDto;
   serverTime: string;
 }
 
@@ -621,6 +622,7 @@ export interface ResearchDefinition {
 
 export interface GameContentDto {
   resourceList: ResourceDefinition[];
+  relics: Array<{ id: string; name: string; lore: string }>;
   buildings: BuildingDefinition[];
   pipeTiers: PipeTierDefinition[];
   research: ResearchDefinition[];
@@ -1100,4 +1102,14 @@ export interface TutorialDto {
   amount: number;
   gold: number;
   hint: Record<string, string>;
+}
+
+/** Expeditions (GDD §11.3) */
+export interface ExpeditionDto {
+  hours: number | null;
+  endsAt: string | null;
+  costs: Record<string, number>;
+  blocker: string | null;
+  log: string[];
+  relics: string[];
 }

@@ -248,6 +248,27 @@ export function CompanyPanel() {
           </div>
         ) : (
           <div className="collections">
+            <div className="collection relics">
+              <div className="collection-head">
+                <strong>Relics</strong>
+                <span className="small muted">
+                  {company.expedition.relics.length}/{content.dto.relics.length} · expeditions find them
+                </span>
+              </div>
+              <ul className="facts">
+                {content.dto.relics.map((relic) =>
+                  company.expedition.relics.includes(relic.id) ? (
+                    <li key={relic.id}>
+                      <strong>{relic.name}</strong>: <span className="muted">{relic.lore}</span>
+                    </li>
+                  ) : (
+                    <li key={relic.id} className="muted">
+                      ??? (not found yet)
+                    </li>
+                  ),
+                )}
+              </ul>
+            </div>
             {details.collections.map((collection) => (
               <div key={collection.id} className={collection.finished ? "collection done" : "collection"}>
                 <div className="collection-head">

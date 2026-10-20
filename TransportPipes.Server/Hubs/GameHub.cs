@@ -358,6 +358,9 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> ReleaseOutpost(long outpost) =>
         Command((world, company) => world.ReleaseOutpost(company, outpost));
 
+    public Task<CommandResultDto> StartExpedition(int hours) =>
+        Command((world, company) => world.StartExpedition(company, hours));
+
     public Task<CommandResultDto> SkipTutorial() =>
         Command((world, company) => world.SkipTutorial(company));
 

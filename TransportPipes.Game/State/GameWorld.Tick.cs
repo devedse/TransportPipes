@@ -49,6 +49,10 @@ public sealed partial class GameWorld
         {
             events.Add((at, long.MinValue + 10, run));
         }
+        foreach (var (at, run) in ExpeditionMoments(LastTick, now).ToList())
+        {
+            events.Add((at, long.MinValue + 11, run));
+        }
         foreach (var building in _buildings.Values.Where(t => t.ConstructionEndsAt is { } end && end <= now))
         {
             events.Add((building.ConstructionEndsAt!.Value, building.Id, () => CompleteConstruction(building)));

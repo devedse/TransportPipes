@@ -90,6 +90,13 @@ public static class GameViews
             world.CurrentTutorialStep(company) is { } step
                 ? new TutorialDto(company.TutorialStep, world.Content.Tutorial.Count, step.Id, step.Text, world.TutorialProgress(company, step), step.Amount, step.Gold, step.Hint)
                 : null,
+            new ExpeditionDto(
+                company.Expedition?.Hours,
+                company.Expedition?.EndsAt,
+                GameWorld.ExpeditionHours.ToDictionary(t => t, t => GameWorld.ExpeditionCost(company, t)),
+                company.Expedition == null ? world.ExpeditionBlocker(company) : null,
+                company.ExpeditionLog.Take(5).ToList(),
+                company.Relics.OrderBy(t => t).ToList()),
             world.Now);
     }
 
@@ -1107,6 +1114,7 @@ public static class GameViews
         Buildings = content.BuildingList,
         content.PipeTiers,
         Research = content.ResearchList,
+        content.Relics,
         Progression = new
         {
             content.Progression.MaxCompanyLevel,

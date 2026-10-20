@@ -758,6 +758,10 @@ export class GameClient {
     }
   }
 
+  async startExpedition(hours: number) {
+    await this.command(this.connection.startExpedition(hours), "The team sets off");
+  }
+
   async skipTutorial() {
     await this.command(this.connection.skipTutorial());
   }
