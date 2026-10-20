@@ -755,6 +755,64 @@
    "ax": 144,
    "ay": 310,
    "attachments": []
+  },
+  "crystalGrotto": {
+   "w": 288,
+   "h": 271,
+   "ax": 144,
+   "ay": 271,
+   "attachments": [
+    {
+     "kind": "glow",
+     "x": 144,
+     "y": 104,
+     "size": 1.4,
+     "color": "#b98cff"
+    }
+   ]
+  },
+  "crystalObelisk": {
+   "w": 288,
+   "h": 320,
+   "ax": 144,
+   "ay": 319,
+   "attachments": [
+    {
+     "kind": "glow",
+     "x": 144,
+     "y": 85,
+     "size": 1.1,
+     "color": "#c9a2ff"
+    }
+   ]
+  },
+  "fountain": {
+   "w": 288,
+   "h": 251,
+   "ax": 144,
+   "ay": 251,
+   "attachments": []
+  },
+  "goldenGear": {
+   "w": 288,
+   "h": 283,
+   "ax": 144,
+   "ay": 283,
+   "attachments": []
+  },
+  "goldenMoily": {
+   "w": 288,
+   "h": 413,
+   "ax": 144,
+   "ay": 413,
+   "attachments": []
+  },
+  "statue": {
+   "w": 288,
+   "h": 359,
+   "ax": 144,
+   "ay": 358,
+   "attachments": []
   }
  },
  "rotors": {

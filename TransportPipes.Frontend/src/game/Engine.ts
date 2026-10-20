@@ -1830,6 +1830,11 @@ export class Engine {
     const now = Date.now() + this.callbacks.getState().serverOffsetMs;
     const content = this.callbacks.getState().content;
     for (const view of this.effects) {
+      // A view whose display went with its chunk (or a redrawn hub) no longer animates
+      if (view.display.destroyed) {
+        this.effects.delete(view);
+        continue;
+      }
       view.effects?.update(deltaSeconds, this.time);
       if (view.idle !== null && view.idle.visible) {
         view.idle.alpha = 0.6 + Math.sin(this.time * 2) * 0.3;

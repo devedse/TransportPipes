@@ -41,3 +41,7 @@ lamp:
   - { kind: glow, x: 512, y: 385, size: 1.2, color: "#ffd77a" }
 engineerWorkshop:
   - { kind: smoke, x: 366, y: 62, size: 0.8 }
+crystalGrotto:
+  - { kind: glow, x: 512, y: 420, size: 1.4, color: "#b98cff" }
+crystalObelisk:
+  - { kind: glow, x: 512, y: 300, size: 1.1, color: "#c9a2ff" }
