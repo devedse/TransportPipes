@@ -1387,6 +1387,18 @@ export class Engine {
     return lx % 8 === 1 || lx % 8 === 7 || ly % 8 === 1 || ly % 8 === 7 ? "street" : "inner";
   }
 
+  /** Whether a tall prop on a tile stands in front of a pipe or a building (it covers up to two tiles behind it) */
+  private hidesSomething(x: number, y: number): boolean {
+    for (let dy = 0; dy <= 2; dy++) {
+      for (let dx = 0; dx <= 2; dx++) {
+        if ((dx !== 0 || dy !== 0) && this.world.isOccupied(x - dx, y - dy)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   private drawObjects(chunk: ChunkView) {
     const state = this.callbacks.getState();
     const x0 = chunk.cx * CHUNK_SIZE;
@@ -1402,6 +1414,10 @@ export class Engine {
         const sprite = this.terrainProp(terrain, x, y);
         if (sprite === null) {
           continue;
+        }
+        // Trees and peaks in front of a pipe or a building are see-through, so nothing hides behind them
+        if ((terrain === "forest" || terrain === "mountain") && this.hidesSomething(x, y)) {
+          sprite.alpha = 0.42;
         }
         this.objectLayer.addChild(sprite);
         chunk.objects.push({

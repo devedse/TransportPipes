@@ -42,7 +42,12 @@ export function ParcelPanel() {
       ) : (
         <>
           <ul className="facts">
-            <li className={levelOk ? "ok" : "missing"}>Company Level {level}</li>
+            <li className={levelOk ? "ok" : "missing"}>
+              Company Level {level}
+              {!levelOk && (
+                <span className="muted"> (you're Level {company.level}: the top bar shows it)</span>
+              )}
+            </li>
             <li className={goldOk ? "ok" : "missing"}>{formatAmount(cost)} gold</li>
           </ul>
           <button

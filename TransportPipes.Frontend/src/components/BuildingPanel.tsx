@@ -157,7 +157,8 @@ export function BuildingPanel() {
                   {details.ownerName}
                 </button>
               )}{" "}
-              · Level {building.level}
+              {/* The HQ has no levels of its own: it shows the Company Level */}
+              {definition.kind === "hq" ? "" : ` · Level ${building.level}`}
               {details.locationMultiplier !== 1 &&
                 definition.modifier !== "none" &&
                 ` · spot ×${details.locationMultiplier.toFixed(2)}`}
@@ -431,6 +432,23 @@ export function BuildingPanel() {
           Its network needs more pump stations: everything in it runs at{" "}
           {Math.round(details.pumpFactor * 100)}%.
         </p>
+      )}
+
+      {definition.kind === "hq" && mine && company !== null && (
+        <section>
+          <Meter
+            label={`Company Level ${company.level}`}
+            color="#c9963a"
+            amount={company.xp - company.levelXp}
+            max={company.nextLevelXp - company.levelXp}
+            unit=" XP"
+          />
+          <p className="muted small">
+            Level {company.level + 1} in {formatAmount(company.nextLevelXp - company.xp)} XP. Your company
+            gains XP from the gold it earns, new kinds of buildings, upgrades, research, parcels and daily
+            orders.
+          </p>
+        </section>
       )}
 
       <Flows details={details} content={content} />
