@@ -1088,22 +1088,71 @@ export class Engine {
     const x0 = chunk.cx * CHUNK_SIZE;
     const y0 = chunk.cy * CHUNK_SIZE;
     const offset = CHUNK_SIZE * scale;
+    const diamond = (px: number, py: number, lift = 0) => {
+      g.beginPath();
+      g.moveTo(px, py - lift);
+      g.lineTo(px + scale, py + scale / 2 - lift);
+      g.lineTo(px, py + scale - lift);
+      g.lineTo(px - scale, py + scale / 2 - lift);
+      g.closePath();
+    };
+    const ROOFS = ["#9b4a34", "#2f6f72", "#5f6b75", "#b5762f"];
+    // Back to front, so trees and roofs overlap the tiles behind them
     for (let ly = 0; ly < CHUNK_SIZE; ly++) {
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
         const x = x0 + lx;
         const y = y0 + ly;
         const terrain: TerrainType = this.world.terrain(x, y) ?? "grass";
-        const occupied = this.world.isOccupied(x, y);
         const px = offset + (lx - ly) * scale;
         const py = (lx + ly) * (scale / 2);
-        g.fillStyle = occupied ? "#2b2b30" : TERRAIN_MAP_COLORS[terrain];
-        g.beginPath();
-        g.moveTo(px, py);
-        g.lineTo(px + scale, py + scale / 2);
-        g.lineTo(px, py + scale);
-        g.lineTo(px - scale, py + scale / 2);
-        g.closePath();
+        // A painted look: every tile a little lighter or darker
+        const base = this.textures.terrainColor(terrain) ?? TERRAIN_MAP_COLORS[terrain];
+        g.fillStyle = base;
+        diamond(px, py);
         g.fill();
+        const jitter = hash01((x * 4931) ^ (y * 7703)) - 0.5;
+        g.fillStyle = jitter > 0 ? `rgba(255,255,240,${jitter * 0.16})` : `rgba(20,30,10,${-jitter * 0.2})`;
+        g.fill();
+        const building = this.world.buildingAt(x, y);
+        if (building !== undefined) {
+          // A small roofed block
+          g.fillStyle = "rgba(0,0,0,0.35)";
+          diamond(px, py);
+          g.fill();
+          g.fillStyle = ROOFS[building.id % ROOFS.length]!;
+          diamond(px, py, 3);
+          g.fill();
+          g.fillStyle = "rgba(255,255,255,0.18)";
+          g.fillRect(px - 1, py - 2, 2, 2);
+        } else if (this.world.conductorAt(x, y) !== undefined) {
+          g.fillStyle = "#8f969e";
+          diamond(px, py);
+          g.fill();
+        } else if (terrain === "forest" && hash01((x * 131) ^ (y * 197)) > 0.25) {
+          g.fillStyle = "#1f4f22";
+          g.beginPath();
+          g.arc(px, py + scale * 0.2, scale * 0.62, 0, Math.PI * 2);
+          g.fill();
+          g.fillStyle = "#3f8a35";
+          g.beginPath();
+          g.arc(px - 1, py, scale * 0.42, 0, Math.PI * 2);
+          g.fill();
+        } else if (terrain === "mountain") {
+          g.fillStyle = "#7d8288";
+          g.beginPath();
+          g.moveTo(px - scale * 0.9, py + scale * 0.7);
+          g.lineTo(px, py - scale * 0.9);
+          g.lineTo(px + scale * 0.9, py + scale * 0.7);
+          g.closePath();
+          g.fill();
+          g.fillStyle = "#eef2f4";
+          g.beginPath();
+          g.moveTo(px - scale * 0.25, py - scale * 0.3);
+          g.lineTo(px, py - scale * 0.9);
+          g.lineTo(px + scale * 0.25, py - scale * 0.3);
+          g.closePath();
+          g.fill();
+        }
       }
     }
     const sprite = new Sprite(Texture.from(canvas));
@@ -1888,13 +1937,13 @@ export class Engine {
       if (estate.ownerId !== null) {
         if (far) {
           traceFootprint(g, estate.x, estate.y, ESTATE_SIZE);
-          g.fill({ color, alpha: 0.35 });
+          g.fill({ color, alpha: 0.12 });
         }
         traceFootprint(g, estate.x, estate.y, ESTATE_SIZE);
-        g.stroke({ color, width: far ? 60 : mine ? 7 : 5, alpha: far ? 0.95 : 0.75 });
+        g.stroke({ color, width: far ? (mine ? 40 : 26) : mine ? 7 : 5, alpha: far ? 0.85 : 0.75 });
       } else {
         traceFootprint(g, estate.x, estate.y, ESTATE_SIZE);
-        g.stroke({ color: 0xffffff, width: far ? 30 : 3, alpha: 0.22 });
+        g.stroke({ color: 0xffffff, width: far ? 14 : 3, alpha: 0.22 });
       }
 
       if (!far && mine) {

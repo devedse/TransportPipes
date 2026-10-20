@@ -99,6 +99,7 @@ export class TextureBank {
   private readonly artTextures = new Map<string, Texture>();
   private readonly terrainImages = new Map<string, HTMLImageElement>();
   private readonly propImages = new Map<string, HTMLImageElement>();
+  private readonly terrainColors = new Map<string, string>();
   private readonly atlas = new Map<string, Texture>();
   private readonly cache = new Map<string, Texture>();
   private readonly buildingCache = new Map<string, BuildingTextures>();
@@ -315,6 +316,25 @@ export class TextureBank {
       g.drawImage(image, 0, 0);
       return canvas;
     });
+  }
+
+  /** The average colour of a terrain's generated texture (for the far view), or null */
+  terrainColor(type: TerrainType): string | null {
+    const cached = this.terrainColors.get(type);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const image = this.terrainImages.get(type);
+    if (image === undefined) {
+      return null;
+    }
+    const canvas = createCanvas(1, 1);
+    const g = canvas.getContext("2d")!;
+    g.drawImage(image, 0, 0, 1, 1);
+    const [r, gr, b] = g.getImageData(0, 0, 1, 1).data;
+    const color = `rgb(${r}, ${gr}, ${b})`;
+    this.terrainColors.set(type, color);
+    return color;
   }
 
   /** Whether there is a generated texture for a terrain */
