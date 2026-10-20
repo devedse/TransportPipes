@@ -190,6 +190,15 @@ const NEIGHBOURS: ReadonlyArray<readonly [number, number]> = [
   [0, 1],
 ];
 
+/** How a building looks at its level milestones: the colour of its pad's edge */
+const MILESTONE_LOOKS = [
+  { level: 10, color: 0xb87333 },
+  { level: 25, color: 0xc0c8d0 },
+  { level: 50, color: 0xf6c744 },
+  { level: 75, color: 0xd88a4a },
+  { level: 100, color: 0xffe27a },
+];
+
 /** Buildings that sit in a pipe line (their art shows the pipe along x) */
 const IN_PIPE_KINDS = new Set(["valve", "priorityValve", "tollMeter"]);
 
@@ -1574,8 +1583,82 @@ export class Engine {
         plaque.position.set(TILE_WIDTH * size, -TILE_HEIGHT / 2);
         container.addChild(plaque);
       }
-      if (art.attachments.length > 0) {
-        view.effects = new BuildingEffects(art.attachments, owner?.ownerColor ?? "#e74c3c");
+      // Visual evolution (GDD §17.3): the pad's edge in bronze, silver, gold; the owner's pennant; legendary sparkle
+      const attachments = [...art.attachments];
+      const milestone = MILESTONE_LOOKS.filter((t) => building.level >= t.level).pop();
+      if (milestone !== undefined && art.placement !== undefined) {
+        const edge = new Graphics();
+        edge
+          .moveTo(0, (-TILE_HEIGHT / 2) * size)
+          .lineTo(TILE_WIDTH * size, -TILE_HEIGHT * size)
+          .lineTo(TILE_WIDTH * 2 * size, (-TILE_HEIGHT / 2) * size)
+          .lineTo(TILE_WIDTH * size, 0)
+          .closePath()
+          .stroke({ color: milestone.color, width: milestone.level >= 100 ? 12 : 9, alpha: 1 });
+        container.addChildAt(edge, 0);
+        // A medal on the pad's front corner, with a star per milestone
+        const medal = new Container();
+        const disc = new Graphics()
+          .circle(0, 0, 26)
+          .fill({ color: milestone.color })
+          .stroke({ color: 0x3a2a12, width: 4 })
+          .circle(-7, -8, 8)
+          .fill({ color: 0xffffff, alpha: 0.35 });
+        const stars = new Text({
+          text: "★".repeat(MILESTONE_LOOKS.indexOf(milestone) + 1),
+          style: {
+            fontFamily: "Nunito Variable, system-ui",
+            fontSize: milestone.level >= 50 ? 14 : 20,
+            fontWeight: "900",
+            fill: "#3a2a12",
+          },
+        });
+        stars.anchor.set(0.5);
+        medal.addChild(disc, stars);
+        medal.position.set(TILE_WIDTH * size, -16);
+        container.addChild(medal);
+        if (building.level >= 50) {
+          // The owner's pennant on a pole at the pad's left corner
+          const pole = new Graphics()
+            .moveTo(TILE_WIDTH * 0.35, -TILE_HEIGHT * size * 0.5)
+            .lineTo(TILE_WIDTH * 0.35, -TILE_HEIGHT * size * 0.5 - 150)
+            .stroke({ color: 0x3a2a12, width: 5 });
+          container.addChild(pole);
+          attachments.push({
+            kind: "flag",
+            x: TILE_WIDTH * 0.35,
+            y: -TILE_HEIGHT * size * 0.5 - 150,
+            size: 1.4,
+          });
+        }
+        if (building.level >= 75) {
+          for (const child of container.children) {
+            if (child instanceof Sprite) {
+              child.tint = building.level >= 100 ? 0xfff0c8 : 0xffeedd;
+            }
+          }
+        }
+        if (building.level >= 100) {
+          attachments.push(
+            {
+              kind: "glow",
+              x: TILE_WIDTH * size,
+              y: -TILE_HEIGHT * size * 0.9,
+              size: 2.2 * size,
+              color: "#ffd75a",
+            },
+            {
+              kind: "spark",
+              x: TILE_WIDTH * size,
+              y: -TILE_HEIGHT * size * 1.2,
+              size: 1.2,
+              color: "#fff3b0",
+            },
+          );
+        }
+      }
+      if (attachments.length > 0) {
+        view.effects = new BuildingEffects(attachments, owner?.ownerColor ?? "#e74c3c");
         container.addChild(view.effects.container);
         this.effects.add(view);
       }
