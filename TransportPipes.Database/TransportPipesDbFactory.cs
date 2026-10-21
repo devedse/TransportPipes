@@ -19,8 +19,7 @@ public class TransportPipesDbFactory
     {
         var builder = new DbContextOptionsBuilder<TransportPipesDbContext>()
             .UseNpgsql(connectionString)
-            // The game logic was written for a micro ORM: every query returns fresh objects and all updates are
-            // executed directly in the database, so the change tracker is not used for queries.
+            // The game world lives in memory and is saved as snapshots, queries only load it
             .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
 
         if (loggerFactory != null)
@@ -34,12 +33,5 @@ public class TransportPipesDbFactory
     public TransportPipesDbContext CreateDbContext()
     {
         return new TransportPipesDbContext(_options);
-    }
-
-    public TransportDatabase CreateDatabaseWithOpenConnection()
-    {
-        var dbContext = CreateDbContext();
-        dbContext.Database.OpenConnection();
-        return new TransportDatabase(dbContext);
     }
 }

@@ -10,9 +10,6 @@ export function VersionBadge() {
   const [version, setVersion] = useState<VersionInfo | null>(null);
 
   useEffect(() => {
-    if (status !== "connected") {
-      return;
-    }
     const controller = new AbortController();
     fetchServerVersion(controller.signal).then(setVersion, () => {
       // Not important enough to bother the player, the badge just stays as it was.
@@ -25,7 +22,7 @@ export function VersionBadge() {
   }
 
   return (
-    <div className="panel hud-version" title={version.commit ? `Commit ${version.commit}` : undefined}>
+    <div className="version-badge" title={version.commit ? `Commit ${version.commit}` : undefined}>
       {formatVersion(version)}
     </div>
   );

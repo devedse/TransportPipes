@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Transport Pipes art</title>
+    <style>
+      body {
+        margin: 0;
+        background: #6fa05a;
+        font: 12px system-ui;
+        color: #fff;
+      }
+      .grid {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 8px;
+        padding: 8px;
+      }
+      figure {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      figcaption {
+        background: rgba(0, 0, 0, 0.5);
+        padding: 1px 4px;
+        border-radius: 4px;
+        margin-top: 2px;
+      }
+      canvas {
+        image-rendering: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="art" class="grid"></div>
+    <script type="module" src="/src/dev/artPreview.ts"></script>
+  </body>
+</html>

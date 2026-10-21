@@ -203,6 +203,17 @@ sell at fair prices through their open gates. They make sure:
 - the trade tutorial always has a partner;
 - small players have customers for their surplus.
 
+**Direct partners only (v1.1):** goods between two companies travel only through those two companies' estates (and
+over their own pipes), the corridors and the wilderness: never through a third company's estate. Your trade partners
+are the companies you pipe to yourself; a tenant that pipes all four of its gates no longer joins the corridors into
+one market. Pump stations count per company: only your own buildings need your pumps.
+
+A tenant's works (an Ironworks, a Brickworks) import from the hub whatever no neighbour brings, so they always run: any
+one of their inputs sells to them on its own, and neighbours come first (they are cheaper than the hub). Without that, a
+works short of ore would buy no one's energy either, and a new player whose own factory uses all of its ore would have
+nothing to sell. What tenants sell to the hub doesn't move its prices (those follow the players). When a player is
+connected to a neighbour but no trade comes, Loady says why (nothing spare, or they don't need it).
+
 When a player is assigned to a tenant's estate, the tenant "moves out" (its buildings become free ruins the new owner
 can salvage).
 
@@ -223,16 +234,23 @@ can salvage).
 
 ### 5.2 Pipes and networks
 
-- Buildings touching a pipe (or each other) are connected. Everything connected is one **network**.
+- Buildings touching a pipe are connected; buildings touching each other are not. Resources never pass *through* a
+  building: two buildings exchange resources when they touch the same pipe group. Everything connected is one
+  **network**.
+- Pipes may be laid on every parcel of your own estate, also the ones you haven't bought yet (buildings need bought
+  parcels), so every gate can be reached from the start.
 - Pipes carry every resource. (Era 2 adds **power lines** for energy only: long range, no losses, crossing water.)
 - **Pipe tiers:**
 
 | Pipe | Unlock | Cost per tile | Loss per tile | Throughput per connection |
 | --- | --- | --- | --- | --- |
-| Grey Pipe | Start | 2 g | 1% | 100 / min |
-| Copper Pipe | Research | 10 g + 1 copper ingot | 0.5% | 500 / min |
-| Steel Pipe | Era 2 | 40 g + 1 steel | 0.1% | 5,000 / min |
-| Glass Conduit | Era 4 | 200 g + glass, circuits | 0.02% | 50,000 / min |
+| Grey Pipe | Start | 2 g | 0.3% | 100 / min |
+| Copper Pipe | Research | 10 g + 1 copper ingot | 0.15% | 500 / min |
+| Steel Pipe | Era 2 | 40 g + 1 steel | 0.05% | 5,000 / min |
+| Glass Conduit | Era 4 | 200 g + glass, circuits | 0.01% | 50,000 / min |
+
+(Tuned in play: at 1% a grey pipe to a neighbour a hundred tiles away delivered a third, so trading only paid next
+door. At 0.3% three quarters arrive, and a neighbour pays more than the hub up to about 190 tiles.)
 | Superconductor | Era 5 | expensive | 0 | unlimited |
 
 - **Losses** are counted over the shortest pipe path between producer and consumer, so compact layouts and good trunk
@@ -248,19 +266,25 @@ Every producer in a network delivers its output each minute in this order:
 1. **Your own consumers** in the network (factories, labs, Wonders you feed).
 2. **Contract partners**, up to the contracted amount.
 3. **Other companies' consumers** in the network whose maximum price is at or above your price, divided in proportion
-   to what they need.
-4. **Your storages**, until full.
+   to what they need. A consumer that can't use its full share (it is short of another input) leaves the rest to the
+   others, so every consumer runs at the same speed unless something else holds it back.
+4. **Your storages**, what they keep: what your daily orders, your corporation's goal and your next building still need
+   (enough for the building you can build that needs the most of it), or more when you choose a share of the
+   storage for it (a tenth, half, everything).
 5. **Your Trading Post**, sold to the hub at the hub price.
-6. Nothing left to deliver to → the producer runs slower (**idle**) instead of wasting.
+6. **Your storages** again: whatever the Trading Post couldn't take (it is full, or there is none), until full.
+7. Nothing left to deliver to → the producer runs slower (**idle**) instead of wasting.
 
 Consumers are supplied in the mirrored order: own producers → contract partners → cheapest other company → own storage →
 hub import (only if you enabled imports on your Trading Post).
 
-You can swap steps 4 and 5 per resource ("sell first, store the rest"), and switch off step 3 per resource.
+A storage that kept everything first would swallow a new company's income for hours, so by default it keeps only what
+is needed. You can switch off step 3 per resource.
 
 > **Example.** Your two Wind Moilies make 60 ⚡/min. Your Iron Mine needs 10. IronWorks' factory next door needs 40 and
 > pays up to 2 g; your price is 1.75 g. The flow: 10 to your mine, 40 to IronWorks at 1.75 g (+70 g/min), the last 10
-> to your storage, or the hub at 1 g. Losses on the 6 pipe tiles to their gate (6%) are taken from the delivered amount.
+> to your storage if today's orders need it, else to the hub at 1 g. Losses on the 6 pipe tiles to their gate (2%) are
+> taken from the delivered amount.
 
 ### 5.4 Storage
 
@@ -548,6 +572,13 @@ Era buildings (§7) additionally need their Era.
 - Upgrade cost: ×1.15 per level. Buttons for ×1, ×10 and *Max*.
 - **Visual evolution** at the milestones (§17.3), so a level 100 Wind Moily looks legendary.
 
+### 8.2a Evolve in place
+
+A building with a successor (Wind Moily → Big Turbine, Solar Panel → Solar Farm, Small Factory → Big Factory, Storage →
+Warehouse → Silo, Trading Post → Market Hall, Lab → Research Institute, Coal Plant → Steam Turbine, Iron Mine → Deep
+Mine) evolves where it stands: the successor covers the old footprint, the old building's gold and upgrades count
+towards it, the pipes stay. With a Recycler, demolishing gives all the gold back. Growing never means tearing down.
+
 ### 8.3 Research
 
 - **Labs** turn resources into Research Points. Research takes RP and time (minutes early, a day for big techs).
@@ -588,20 +619,19 @@ Delivering daily orders and trading with your hub raises reputation (levels 1–
 
 ### 8.7 Franchise (prestige)
 
-From Company Level 25 and Era 2 you can **franchise**: sell your company to the Board.
+From Company Level 25 and Era 2 you can **franchise**: expansion, not a reset (changed for v1).
 
-- You receive **Shares** (based on the square root of everything you earned). Each Share gives +1% production,
-  permanently for the rest of the season.
-- Your estate keeps its land (parcels), decorations, corporation membership and hub reputation. Buildings, levels, gold
-  and 75% of research are reset.
-- **Fair for partners:** franchising takes 24 hours of notice, during which contracts can be finished or moved.
-- A franchise takes the company from "slow late game" back into a fast early game with a much higher speed; most
-  players franchise 2–4 times per season.
+- You cash in **Shares** (the square root of what you earned since the last franchise, in thousands; at least 10).
+  Each Share gives +1% production, for good, on every estate.
+- And you **open a new estate**: a branch in the newest district with room (the frontier), with the start parcels,
+  gates and a trading post. It grows like the first estate; nothing of what you built goes.
+- Up to three estates (the first one and two branches). Blueprints make a branch's first hours quick.
 
 ### 8.8 Eras and seasons
 
-A **season** lasts about 12 weeks and has five Eras. A new Era starts when the server Wonder in the Capital is
-finished, at the latest on the Era's deadline (so the season always finishes).
+The first **season** has five Eras. A new Era starts when the server Wonder in the Capital is finished, at the latest
+on the Era's deadline (so the season always finishes). The world is persistent (changed for v1): a season is a
+**chapter**, and the next chapter starts a new race for the Space Elevator with new rankings while every estate stays.
 
 | Era | Theme | New | Server Wonder |
 | --- | --- | --- | --- |
@@ -611,10 +641,11 @@ finished, at the latest on the Era's deadline (so the season always finishes).
 | 4 | Electronics | Rare earth, circuits, engines, robots | The Thinking Machine (circuits, robots) |
 | 5 | Space Age | Superconductors, fusion | **The Space Elevator** (season finale) |
 
-**Season finale:** the Space Elevator launch is a live event with a countdown. Afterwards the season ends with a
-ceremony (rankings, statues for the winners in the next season's Capital), every company converts its results into
-**Legacy**, and a new world opens a week later. Legacy gives account perks (starting gold, a manager, cosmetics,
-titles), never so much that new players can't compete.
+**Chapter finale:** the Space Elevator launch is a live event with a countdown. Afterwards the chapter ends with a
+ceremony (rankings, titles and statues for the winners), every company converts its results into **Legacy**, and the
+next chapter begins a day later in the same world. Legacy grows account perks (a manager slot, cosmetics, titles, and
+starting gold for new companies), never so much that newcomers can't compete; newcomers start in fresh frontier
+districts.
 
 ## 9. Multiplayer systems
 
@@ -632,12 +663,12 @@ than you produce it"). One tap starts the connect flow (§10.10).
 
 | HQ level | Perk |
 | --- | --- |
-| 1 | Corporation chat, free trade between members (no fair band) |
+| 1 | Corporation chat, free trade between members (no maximum price) |
 | 2 | +5% production of one chosen resource |
-| 3 | Shared gates: members' pipes may cross each other's corridors toll-free |
+| 3 | Shared gates: no tolls between members |
 | 4 | +1 manager slot |
-| 5 | Corporation research (one shared tech per week) |
-| 6–10 | Bigger perks, cosmetic growth of the HQ |
+| 5 | Corporation research: techs 20% cheaper for members |
+| 6–10 | The production perk grows by 1% per level, the HQ tower grows a floor per level |
 
 - **Weekly corporation goal** (e.g. deliver 50k steel to the Wonder) with rewards for everyone.
 - Roles: leader, officers, members. Applications, invites, kicks with a cool-down.
@@ -702,7 +733,7 @@ Design rules for the first 7 days:
 | Time | What happens | Player learns / feels |
 | --- | --- | --- |
 | 0:00 | Choose a company name, colour and logo; the camera flies from the hub over the corridors into **your** estate | "This valley is mine, and there are others around me" |
-| 0:01 | Advisor *Mira from the Board* points at a sunny spot: place a **Solar Panel**, draw 3 pipe tiles to the Trading Post | Building, pipes, the hub buys |
+| 0:01 | **Loady** (the mascot) points at a sunny spot with a pulsing marker: place a **Solar Panel**, draw a pipe to the Trading Post | Building, pipes, the hub buys |
 | 0:02 | Coins pop above the Trading Post, gold ticks up | The core loop works |
 | 0:03 | Build three more panels, upgrade the first to level 5 | Upgrades are strong |
 | 0:05 | The wind overlay shows your hill: build a **Wind Moily** | Location matters |
@@ -872,13 +903,17 @@ With the Deep Lift research (Era 2, Company Level 30) every estate gets a **seco
 - **Getting in:** build a **Deep Lift** (2×2) on the surface. The view switches to a lantern-lit cutaway of rock and
   caverns.
 - **Excavation instead of buying:** underground parcels are not bought, they are **dug out**. Digging takes time (hours
-  for the first parcel, days for the last ones) and produces stone and ore while it runs: a perfect idle timer.
+  for the first parcel, days for the last ones) and produces stone and ore while it runs: a perfect idle timer. The
+  first parcel is the one around a lift's shaft, the next ones lie next to dug out parcels; one dig at a time, 2 hours
+  growing ×1.3 per parcel (about four days for the last one), 30 stone and 10 ore per minute into the storages. The
+  caverns belong to the company: they move along when it moves.
 - **Different rules:** no sun or wind, but rich deep deposits of every metal (★3–★5), magma heat for energy (Magma Tap)
   and stable temperatures: underground pipes lose nothing.
 - **Underground buildings:** Deep Mine, Magma Tap, Vault (huge storage), Crystal Grotto (cosmetic glow), and later the
   Era 4 Rare Earth Excavator.
-- **Lifts move resources** between the layers; their throughput grows with their level, so the lifts become the new
-  bottleneck to optimise.
+- **Lifts move resources** between the layers; their throughput grows with their level (2,000 per level), so the lifts
+  become the new bottleneck to optimise. Factories stay on the surface: down there are the Deep Mine, Magma Tap, Vault,
+  Crystal Grotto, Rare Earth Excavator, storages, valves and pumps.
 
 ### 11.3 Wider: expeditions, outposts and a branch
 
@@ -1030,7 +1065,7 @@ Yes, players can move their whole estate.
   - *The Flood:* water levels rise over the weeks; pumps and dykes become important.
   - *The Long Winter:* frequent cold snaps, so heating demand rises.
   - *The Trade Winds:* winds change direction weekly, so the best wind spots move.
-- **Story:** each Era has a short story chapter told by *Mira from the Board* and other characters, with mysteries that
+- **Story:** each Era has a short story chapter told by Loady and other characters, with mysteries that
   expeditions slowly uncover through relics.
 - **Loady:** the smiley "LOADING" tile at the world origin becomes the game's mascot. Loady sits on the origin of
   every season's world, appears on loading screens, and hidden Loadies on the map (found by expeditions and visitors)
@@ -1215,15 +1250,16 @@ concept screens).
 
 ### 18.1 Simulation model
 
-- **Event driven, piecewise constant.** Between two events every network has constant flows, so its state at any time
-  can be computed directly. Events: construction finished, storage full or empty, contract start or end, price
-  update, event start or end, upgrade, connection change. This is how today's game already works (`LastCalculated`,
-  recalculation when a network changes) and the Actionizer queue (`DbAction.DateToBeExecuted`) becomes the world
-  scheduler.
+- **Ticks with cached flows.** The world lives in memory and runs every few seconds. Between two changes every network
+  has constant flows, so a network is only solved again when it changes: construction finished, storage full or
+  empty, a company out of gold, price update, upgrade, connection change. Within a tick these moments are handled at
+  the exact time they happen, so a catch-up of a day (after a restart) gives the same result as ticks every minute.
+  Commands are saved immediately, gold and storage contents every 30 seconds.
 - **Cumulative prices.** For each hub and resource the server keeps `C(t) = ∫ price dt`. The hub income of a network
   between `t0` and `t1` is `Σ flow × (C(t1) − C(t0))`, so price changes never require recalculating networks.
-- **Flow solver.** The current `ResourceCalculator` (requests and provisions) is extended with the flow order of §5.3,
-  prices, contracts and losses. Network size is bounded by Pump Stations.
+- **Flow solver.** A new solver (replacing the original `ResourceCalculator`, whose calculation scenarios it still
+  passes) with the flow order of §5.3, prices, storage, trading posts, losses and throughput. Network size is bounded
+  by Pump Stations.
 
 ### 18.2 Districts as shards
 

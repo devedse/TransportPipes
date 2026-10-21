@@ -1,0 +1,49 @@
+# Company Level: XP needed for level n = base * (n - 1)^exponent, times a ramp from 1 (level 2) to xpRamp (xpRampLevel):
+# the first levels come quickly (GDD §10.2), then the pace settles (tuned with the balance simulation)
+companyLevel:
+  maxLevel: 60
+  xpBase: 100
+  xpExponent: 1.7
+  xpRamp: 4
+  xpRampLevel: 9
+  # From Level 22 the curve grows on to xpLateRamp times by Level 30, so Level 30 takes about four weeks (GDD §8.1):
+  # the starter kit made the middle game quicker. Levels only ever go up, so nobody loses one.
+  xpLateRamp: 2
+  xpLateRampFrom: 22
+  xpLateRampTo: 30
+
+# XP rewards
+xp:
+  firstBuildingOfType: 50
+  building: 10
+  upgradeLevel: 2
+  milestone: 50
+  parcel: 100
+  research: 40
+  contract: 60
+  # One XP per (goldPerXp * company level) gold earned
+  goldPerXp: 25
+
+# Building levels
+buildingLevels:
+  maxLevel: 100
+  outputPerLevel: 1.10
+  costPerLevel: 1.15
+  milestones: [10, 25, 50, 75, 100]
+  # Every copy of the same building you own makes the next one more expensive
+  costPerCopy: 1.07
+
+# Estate parcels: 16 parcels of 8x8 tiles, numbered row by row (0..15).
+parcels:
+  start: [5, 6, 9, 10]
+  # Order in which the other parcels unlock and the Company Level each one needs
+  order: [1, 2, 4, 8, 7, 11, 13, 14, 0, 3, 12, 15]
+  levels: [5, 7, 12, 14, 18, 25, 30, 30, 35, 40, 45, 50]
+  firstCost: 5000
+  costFactor: 2
+
+managerSlots: { 10: 1, 20: 2, 30: 3, 45: 4, 60: 5 }
+
+startingGold: 2000
+# Selling to the hub: the hub sells at this multiple of its buy price
+hubSpread: 2.5

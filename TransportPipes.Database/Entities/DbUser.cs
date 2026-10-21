@@ -12,34 +12,28 @@ public class DbUser
     public string NormalizedUserName { get; set; } = string.Empty;
 
     /// <summary>
-    /// ASP.NET Core Identity password hash (PBKDF2). The client sends the password as typed over the (TLS) connection.
+    /// ASP.NET Core Identity password hash (PBKDF2).
     /// </summary>
     public string PasswordHash { get; set; } = string.Empty;
 
     public string Email { get; set; } = string.Empty;
 
-    public double Gold { get; set; }
+    public DateTime CreatedAt { get; set; }
+
+    public DateTime? LastLoginAt { get; set; }
+
+    public bool IsAdmin { get; set; }
+
+    /// <summary>Moderation: no chat until, no playing until</summary>
+    public DateTime? MutedUntil { get; set; }
+    public DateTime? BannedUntil { get; set; }
+
+    /// <summary>Legacy points from earlier seasons (GDD §8.8) and the titles they brought (jsonb)</summary>
+    public int Legacy { get; set; }
+
+    public string LegacyTitles { get; set; } = "[]";
 
     public static string NormalizeUserName(string userName) => userName.Trim().ToLowerInvariant();
 
-    public override string ToString()
-    {
-        return string.Format("{0}:{1}", Id, UserName);
-    }
-
-    /// <summary>
-    /// Required for Dictionary: users are equal when they have the same Id
-    /// </summary>
-    public override bool Equals(object? obj)
-    {
-        return obj is DbUser other && other.Id == Id;
-    }
-
-    /// <summary>
-    /// Required for Dictionary
-    /// </summary>
-    public override int GetHashCode()
-    {
-        return Id.GetHashCode();
-    }
+    public override string ToString() => $"{Id}:{UserName}";
 }

@@ -1,0 +1,47 @@
+# Animated parts of the generated buildings, in pixels of the generated (1024×1024) picture:
+# rotor = where the separate rotor spins, smoke = a chimney top, glow = a pulsing light
+windMoily:
+  - { kind: rotor, x: 598, y: 222 }
+smallFactory:
+  - { kind: smoke, x: 322, y: 138, size: 1 }
+bigTurbine:
+  - { kind: rotor, x: 597, y: 197 }
+coalPlant:
+  - { kind: smoke, x: 565, y: 35, size: 1.4 }
+  - { kind: smoke, x: 740, y: 95, size: 1.4 }
+smelter:
+  - { kind: smoke, x: 658, y: 50, size: 1 }
+brickworks:
+  - { kind: smoke, x: 573, y: 75, size: 1 }
+steamTurbine:
+  - { kind: smoke, x: 768, y: 150, size: 1.6 }
+geothermalPlant:
+  - { kind: smoke, x: 498, y: 229, size: 1.2 }
+waterPump:
+  - { kind: smoke, x: 331, y: 304, size: 0.6 }
+lumberCamp:
+  - { kind: smoke, x: 645, y: 239, size: 0.6 }
+bigFactory:
+  - { kind: smoke, x: 451, y: 109, size: 1.2 }
+  - { kind: smoke, x: 577, y: 188, size: 1.2 }
+  - { kind: smoke, x: 706, y: 266, size: 1.2 }
+steelMill:
+  - { kind: smoke, x: 706, y: 45, size: 1.3 }
+glassworks:
+  - { kind: smoke, x: 706, y: 82, size: 1 }
+machineShop:
+  - { kind: smoke, x: 761, y: 96, size: 0.9 }
+wireMill:
+  - { kind: smoke, x: 683, y: 68, size: 0.9 }
+cementKiln:
+  - { kind: smoke, x: 874, y: 403, size: 1.1 }
+refinery:
+  - { kind: glow, x: 273, y: 205, size: 1, color: "#ff9a3a" }
+lamp:
+  - { kind: glow, x: 512, y: 385, size: 1.2, color: "#ffd77a" }
+engineerWorkshop:
+  - { kind: smoke, x: 366, y: 62, size: 0.8 }
+crystalGrotto:
+  - { kind: glow, x: 512, y: 420, size: 1.4, color: "#b98cff" }
+crystalObelisk:
+  - { kind: glow, x: 512, y: 300, size: 1.1, color: "#c9a2ff" }

@@ -1,14 +1,11 @@
 <Solution>
   <Folder Name="/Tests/">
-    <Project Path="TransportPipes.Actionizer.Tests/TransportPipes.Actionizer.Tests.csproj" />
-    <Project Path="TransportPipes.Common.Tests/TransportPipes.Common.Tests.csproj" />
+    <Project Path="TransportPipes.Game.Tests/TransportPipes.Game.Tests.csproj" />
     <Project Path="TransportPipes.Server.Tests/TransportPipes.Server.Tests.csproj" />
     <Project Path="TransportPipes.TestsCommon/TransportPipes.TestsCommon.csproj" />
   </Folder>
-  <Project Path="TransportPipes.Actionizer/TransportPipes.Actionizer.csproj" />
-  <Project Path="TransportPipes.Calculators/TransportPipes.Calculators.csproj" />
-  <Project Path="TransportPipes.Common/TransportPipes.Common.csproj" />
   <Project Path="TransportPipes.Database/TransportPipes.Database.csproj" />
+  <Project Path="TransportPipes.Game/TransportPipes.Game.csproj" />
   <Project Path="TransportPipes.ImageCombiner/TransportPipes.ImageCombiner.csproj" />
   <Project Path="TransportPipes.Server/TransportPipes.Server.csproj" />
 </Solution>

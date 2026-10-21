@@ -1,7 +1,8 @@
 # TransportPipes
 
-An online isometric game: build wind mills, solar panels, mines, factories, storages and trading buildings, connect them
-with pipes and earn gold by trading the resources with other players and the market.
+A massively multiplayer idle game: found a company, build wind moilies, mines and factories on your own estate, connect
+them with pipes, sell to the hub city and to your neighbours, and grow while you are away. The world keeps running when
+nobody is online.
 
 The design for the full game (estates, districts, trading, Eras, the late game) is in
 [docs/GameDesign.md](docs/GameDesign.md).
@@ -26,10 +27,12 @@ follows every push. Use `latest` (or a version like `1.0.2`) to only run builds 
 | Environment variable | Default | |
 | --- | --- | --- |
 | `ConnectionStrings__TransportPipes` | | The PostgreSQL connection string (required) |
-| `TransportPipes__StartingGold` | `2000` | The gold a new player starts with |
+| `TransportPipes__StartingGold` | from `progression.yaml` (2000) | The gold a new company starts with |
+| `TransportPipes__TickSeconds` | `2` | How often the world is simulated and clients get updates |
+| `TransportPipes__SaveSeconds` | `30` | How often gold, storage contents and XP are saved (commands are saved within a tick) |
+| `TransportPipes__WorldSeed` | `20261018` | The seed of a new world (terrain, deposits); only used when the database has no world |
 | `TransportPipes__SeedTestUsers` | `false` | Creates the users `admin` and `Devedse` when there are no users yet |
 | `TransportPipes__TestUserPassword` | `a` | The password of those test users |
-| `TransportPipes__ActionizerIntervalSeconds` | `1` | How often the queued actions (building, deleting) are executed |
 
 The database is created and upgraded (EF Core migrations) when the server starts. `/health` reports whether the server
 can reach the database.
@@ -37,26 +40,31 @@ can reach the database.
 ## Architecture
 
 ```
-Browser (React + PixiJS)  <--SignalR /hubs/transport-->  TransportPipes.Server  -->  PostgreSQL
-                                                          |- TransportHub (login, chunks, build/delete)
-                                                          |- Actionizer (background service, every second)
-                                                          '- serves the frontend from wwwroot
+Browser (React + PixiJS)  --/api/auth (cookie login), /api/content-->  TransportPipes.Server  -->  PostgreSQL
+                          <--SignalR /hubs/game (chunks, commands)-->   |- GameHub
+                                                                       |- WorldHost: the world in memory, ticks,
+                                                                       |  saves snapshots, pushes changes
+                                                                       '- serves the frontend from wwwroot
 ```
 
-Players don't change the world directly: building or deleting queues an action. The Actionizer executes the actions whose
-time has come, recalculates the pipe networks ("global connections") and the gold of everyone involved, and the server
-pushes the changed chunks and incomes to the clients.
+The whole world lives in memory in `TransportPipes.Game`: estates, buildings, pipes and the networks they form. Every
+command (build, pipe, upgrade, buy a parcel) changes it directly; every tick (2 s) the world runs up to now: constructions
+finish, every network delivers its flows (solved by the flow solver only when the network changes) and companies earn
+gold and XP. A long catch-up (after a restart) gives exactly the same result as many short ticks. The `WorldStore` saves
+what changed (commands within a tick, gold and storage every 30 s) and loads the world on start.
 
 | Project | |
 | --- | --- |
-| `TransportPipes.Server` | ASP.NET Core: the SignalR hub, the Actionizer background service, serves the frontend |
-| `TransportPipes.Actionizer` | Executes the queued actions and finds the connections between buildings |
-| `TransportPipes.Calculators` | Calculates how resources flow through a connection and who earns what |
-| `TransportPipes.Database` | EF Core (PostgreSQL) entities, migrations and all queries |
-| `TransportPipes.Common` | Game data (buildings, resources, prices), terrain generation, helpers |
-| `TransportPipes.Frontend` | The browser client: React UI on top of a PixiJS isometric map (npm + Vite) |
-| `TransportPipes.ImageCombiner` | Tool that combines the building images into the sprite sheet the frontend uses |
-| `*.Tests` | MSTest; the database tests run against a real PostgreSQL in a container (Testcontainers) |
+| `TransportPipes.Game` | The game itself, without I/O: content (YAML), world layout and generation, the flow solver, the world state and its tick |
+| `TransportPipes.Database` | EF Core (PostgreSQL): users, the world snapshot (companies, estates, buildings, pipes), migrations, `WorldStore` |
+| `TransportPipes.Server` | ASP.NET Core: cookie accounts, the content endpoint, the SignalR `GameHub`, the `WorldHost`, serves the frontend |
+| `TransportPipes.Frontend` | The browser client: React UI on top of a PixiJS isometric map (npm + Vite), with procedural art for every building |
+| `TransportPipes.ImageCombiner` | Tool that combines the original building images into the sprite sheet the frontend uses |
+| `*.Tests` | MSTest; the server tests run against a real PostgreSQL in a container (Testcontainers) |
+
+The game content (resources, buildings, pipes, progression) is in YAML in
+[TransportPipes.Game/Content](TransportPipes.Game/Content) and is served to the client as JSON, so balancing needs no
+code changes. How far the design is implemented: [docs/ImplementationStatus.md](docs/ImplementationStatus.md).
 
 ## Development
 
@@ -69,7 +77,8 @@ docker compose -f compose.dev.yaml up -d
 # 2. The server on http://localhost:5080 (Development: creates the test users admin and Devedse, password "a")
 dotnet run --project TransportPipes.Server
 
-# 3. The frontend on http://localhost:5173 (proxies /hubs to the server)
+# 3. The frontend on http://localhost:5173 (proxies /hubs and /api to the server)
+#    http://localhost:5173/art.html shows all procedural building art
 cd TransportPipes.Frontend
 npm ci
 npm run dev

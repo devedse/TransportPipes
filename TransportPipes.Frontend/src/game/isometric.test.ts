@@ -54,10 +54,10 @@ describe("worldToTile", () => {
 
 describe("tileToChunk", () => {
   it("floors towards negative infinity", () => {
-    expect(tileToChunk(0, 7)).toEqual({ x: 0, y: 0 });
-    expect(tileToChunk(8, 15)).toEqual({ x: 1, y: 1 });
-    expect(tileToChunk(-1, -8)).toEqual({ x: -1, y: -1 });
-    expect(tileToChunk(-9, 3)).toEqual({ x: -2, y: 0 });
+    expect(tileToChunk(0, 31)).toEqual({ x: 0, y: 0 });
+    expect(tileToChunk(32, 63)).toEqual({ x: 1, y: 1 });
+    expect(tileToChunk(-1, -32)).toEqual({ x: -1, y: -1 });
+    expect(tileToChunk(-33, 3)).toEqual({ x: -2, y: 0 });
   });
 
   it("builds stable chunk keys", () => {

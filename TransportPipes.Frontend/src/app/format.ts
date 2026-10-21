@@ -10,8 +10,22 @@ export function formatVersion(info: { version: string; commit: string | null }):
 }
 
 export function formatDuration(seconds: number): string {
+  seconds = Math.round(seconds);
   if (seconds <= 0) {
     return "instant";
+  }
+  if (seconds >= 2 * 86400) {
+    const totalHours = Math.round(seconds / 3600);
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    return hours === 0 ? `${days} d` : `${days} d ${hours} h`;
+  }
+  if (seconds >= 3600) {
+    // Round to whole minutes first, so 1 h 59.9 min becomes 2 h (not 1 h 60 min)
+    const totalMinutes = Math.round(seconds / 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
   }
   const minutes = Math.floor(seconds / 60);
   const rest = seconds % 60;
@@ -19,4 +33,36 @@ export function formatDuration(seconds: number): string {
     return `${rest} s`;
   }
   return rest === 0 ? `${minutes} min` : `${minutes} min ${rest} s`;
+}
+
+const SUFFIXES = ["", "k", "M", "B", "T", "Qa", "Qi"];
+
+/** 950, 1,240, 12.4k, 3.21M ... */
+export function formatAmount(value: number): string {
+  const sign = value < 0 ? "-" : "";
+  const abs = Math.abs(value);
+  if (abs < 10) {
+    return sign + (Math.round(abs * 10) / 10).toLocaleString("en-US");
+  }
+  if (abs < 10_000) {
+    return sign + Math.round(abs).toLocaleString("en-US");
+  }
+  const tier = Math.min(SUFFIXES.length - 1, Math.floor(Math.log10(abs) / 3));
+  const scaled = abs / Math.pow(1000, tier);
+  const digits = scaled < 100 ? 1 : 0;
+  return `${sign}${scaled.toFixed(digits)}${SUFFIXES[tier]}`;
+}
+
+/** "+12.4/min" */
+export function formatRate(perMinute: number): string {
+  return `${perMinute >= 0 ? "+" : ""}${formatAmount(perMinute)}/min`;
+}
+
+/** "1 building", "3 buildings" */
+export function plural(count: number, one: string, many = `${one}s`): string {
+  return `${formatAmount(count)} ${count === 1 ? one : many}`;
+}
+
+export function formatTimeAgo(since: Date, now = new Date()): string {
+  return formatDuration((now.getTime() - since.getTime()) / 1000);
 }

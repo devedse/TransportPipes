@@ -1,55 +1,191 @@
 import { useEffect } from "react";
-import { gameClient } from "./app/instance";
-import { isTypingTarget, shortcutForKey } from "./app/shortcuts";
-import { BuildConfirmDialog } from "./components/BuildConfirmDialog";
+import { gameClient } from "./app/client";
+import { AuthScreen } from "./components/AuthScreen";
+import { BuildingPanel } from "./components/BuildingPanel";
 import { BuildMenu } from "./components/BuildMenu";
+import { ChatPanel } from "./components/ChatPanel";
+import { EventBar } from "./components/EventBar";
+import { CompanyPanel } from "./components/CompanyPanel";
+import { CorporationPanel } from "./components/CorporationPanel";
+import { InboxPanel } from "./components/InboxPanel";
+import { LeaderboardPanel } from "./components/LeaderboardPanel";
+import { VisitPanel } from "./components/VisitPanel";
+import { WildernessPanel } from "./components/WildernessPanel";
+import { ConnectionOverlay } from "./components/ConnectionOverlay";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { FoundCompany } from "./components/FoundCompany";
 import { GameCanvas } from "./components/GameCanvas";
-import { Hud } from "./components/Hud";
-import { LoginDialog } from "./components/LoginDialog";
-import { ConnectionOverlay, InspectorPanel, ShortcutHelp, Toasts } from "./components/Panels";
-import { appStore } from "./state/store";
+import { MapLoading } from "./components/MapLoading";
+import { GatePanel } from "./components/GatePanel";
+import { HoverTip } from "./components/HoverTip";
+import { HubPanel } from "./components/HubPanel";
+import { NeighboursPanel, PlannedRouteBanner } from "./components/NeighboursPanel";
+import { NetworkPanel } from "./components/NetworkPanel";
+import { OverlayBar } from "./components/OverlayBar";
+import { ParcelPanel } from "./components/ParcelPanel";
+import { SelectionPanel } from "./components/SelectionPanel";
+import { KeysHelp } from "./components/KeysHelp";
+import { PipeTierBar } from "./components/PipeTierBar";
+import { ReportDialog } from "./components/ReportDialog";
+import { BlueprintPanel, BlueprintSaveDialog } from "./components/BlueprintPanel";
+import { DeepParcelPanel, DeepVignette, LayerSwitch } from "./components/DeepPanel";
+import { GoalTracker } from "./components/GoalTracker";
+import { LevelUp } from "./components/LevelUp";
+import { PhotoBar } from "./components/PhotoBar";
+import { ModerationPanel } from "./components/ModerationPanel";
+import { ResearchPanel } from "./components/ResearchPanel";
+import { SeasonPanel } from "./components/SeasonPanel";
+import { Toasts } from "./components/Toasts";
+import { Toolbar } from "./components/Toolbar";
+import { TopBar } from "./components/TopBar";
+import { VersionBadge } from "./components/VersionBadge";
+import { UpdateOverlay } from "./components/UpdateOverlay";
+import { appStore, setState, useAppStore } from "./state/store";
 
-function useKeyboardShortcuts() {
+function isTyping(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  );
+}
+
+function useShortcuts() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const action = shortcutForKey(event);
-      if (action === null) {
-        return;
-      }
       const state = appStore.getState();
-      if (action.kind === "dismiss") {
-        if (state.dismissTopmost()) {
-          event.preventDefault();
-        }
-        return;
-      }
-      // Keys belong to inputs while typing, and to the dialog while one is open.
-      if (isTypingTarget(event.target) || state.pendingBuild !== null) {
-        return;
-      }
-      if (action.kind === "help") {
+      // Ctrl+A: all your buildings on screen
+      if (
+        state.phase === "playing" &&
+        !isTyping(event.target) &&
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === "a"
+      ) {
         event.preventDefault();
-        state.setShortcutHelpOpen(!state.shortcutHelpOpen);
+        gameClient.selectInView();
         return;
       }
-      if (state.user === null) {
+      if (
+        state.phase !== "playing" ||
+        isTyping(event.target) ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey
+      ) {
         return;
       }
-      event.preventDefault();
-      switch (action.kind) {
-        case "build":
-          void gameClient.buildAtHoveredTile(action.gameObjectType);
+      switch (event.key.toLowerCase()) {
+        case "escape":
+          gameClient.back();
+          break;
+        case "?":
+          setState({ keysOpen: !state.keysOpen });
+          break;
+        case "o": {
+          const order = ["none", "deposits", "wind", "sun", "owners"] as const;
+          setState({ overlay: order[(order.indexOf(state.overlay) + 1) % order.length]! });
+          break;
+        }
+        case "b":
+          setState({ buildMenuOpen: !state.buildMenuOpen });
+          break;
+        case "p":
+          gameClient.setTool({ kind: "pipe", tier: 1 });
+          break;
+        case "x":
+          gameClient.setTool({ kind: "bulldoze" });
+          break;
+        case "n":
+          if (state.neighboursOpen) {
+            setState({ neighboursOpen: false });
+          } else {
+            void gameClient.openNeighbours();
+          }
+          break;
+        case "m":
+          if (state.hubOpen) {
+            setState({ hubOpen: false });
+          } else {
+            void gameClient.openHub();
+          }
+          break;
+        case "r":
+          if (state.researchOpen) {
+            setState({ researchOpen: false });
+          } else {
+            void gameClient.openResearch();
+          }
+          break;
+        case "v":
+          gameClient.setTool({ kind: "select" });
+          break;
+        case "c":
+          if (state.corporationOpen) {
+            setState({ corporationOpen: false });
+          } else {
+            void gameClient.openCorporation();
+          }
+          break;
+        case "i":
+          if (state.companyOpen) {
+            setState({ companyOpen: false });
+          } else {
+            void gameClient.openCompany();
+          }
+          break;
+        case "g":
+          gameClient.toggleDeep();
+          break;
+        case "f":
+          gameClient.setPhotoMode(!state.photoMode);
+          break;
+        case "u":
+          // With buildings selected: upgrade them (Shift: by ten)
+          if (state.selection.length > 0) {
+            void gameClient.upgradeSelection(event.shiftKey ? 10 : 1);
+            break;
+          }
+          if (state.selectedBuilding !== null && state.buildingDetails?.upgradeCost != null) {
+            void gameClient.upgrade(state.selectedBuilding, event.shiftKey ? 10 : 1);
+          }
+          break;
+        case "y":
+          // Plans (blueprints): U upgrades
+          if (state.blueprintsOpen) {
+            setState({ blueprintsOpen: false });
+          } else {
+            void gameClient.openBlueprints();
+          }
+          break;
+        case "l":
+          if (state.leaderboardOpen) {
+            setState({ leaderboardOpen: false });
+          } else {
+            void gameClient.openLeaderboard();
+          }
+          break;
+        case "t":
+          void gameClient.toggleChat();
+          break;
+        case "h":
+          gameClient.goHome();
           break;
         case "delete":
-          void gameClient.deleteAtHoveredTile();
+          if (state.selection.length > 0 && window.confirm(`Demolish ${state.selection.length} buildings?`)) {
+            void gameClient.demolishSelection();
+          }
           break;
-        case "inspect":
-          void gameClient.inspectHoveredTile();
+        case "+":
+        case "=":
+          gameClient.zoomBy(1);
           break;
-        case "income":
-          void gameClient.calculateMyIncome();
+        case "-":
+          gameClient.zoomBy(-1);
           break;
+        default:
+          return;
       }
+      event.preventDefault();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -57,18 +193,126 @@ function useKeyboardShortcuts() {
 }
 
 export function App() {
-  useKeyboardShortcuts();
+  useShortcuts();
+  const phase = useAppStore((state) => state.phase);
+  const error = useAppStore((state) => state.error);
+  const content = useAppStore((state) => state.content);
+  const photoMode = useAppStore((state) => state.photoMode);
+  const mapShown = useAppStore((state) => state.mapShown);
+
   return (
     <div className="app">
-      <GameCanvas />
-      <Hud />
-      <BuildMenu />
-      <InspectorPanel />
-      <ShortcutHelp />
+      {content !== null && <GameCanvas />}
+      {phase === "playing" && !mapShown && <MapLoading text="Unrolling the valley…" cover />}
+      {phase === "playing" && photoMode && <PhotoBar />}
+      {phase === "playing" && !photoMode && (
+        <>
+          <DeepVignette />
+          <ErrorBoundary name="EventBar">
+            <EventBar />
+          </ErrorBoundary>
+          <ErrorBoundary name="TopBar">
+            <TopBar />
+          </ErrorBoundary>
+          <ErrorBoundary name="GoalTracker">
+            <GoalTracker />
+          </ErrorBoundary>
+          <ErrorBoundary name="LevelUp">
+            <LevelUp />
+          </ErrorBoundary>
+          <ErrorBoundary name="BuildMenu">
+            <BuildMenu />
+          </ErrorBoundary>
+          <ErrorBoundary name="BuildingPanel">
+            <BuildingPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="GatePanel">
+            <GatePanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="NetworkPanel">
+            <NetworkPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="OverlayBar">
+            <OverlayBar />
+          </ErrorBoundary>
+          <ErrorBoundary name="PipeTierBar">
+            <PipeTierBar />
+          </ErrorBoundary>
+          <ErrorBoundary name="KeysHelp">
+            <KeysHelp />
+          </ErrorBoundary>
+          <ErrorBoundary name="SelectionPanel">
+            <SelectionPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="ParcelPanel">
+            <ParcelPanel />
+            <DeepParcelPanel />
+            <LayerSwitch />
+          </ErrorBoundary>
+          <ErrorBoundary name="HoverTip">
+            <HoverTip />
+          </ErrorBoundary>
+          <ErrorBoundary name="Toolbar">
+            <Toolbar />
+          </ErrorBoundary>
+          <ErrorBoundary name="NeighboursPanel">
+            <NeighboursPanel />
+            <PlannedRouteBanner />
+          </ErrorBoundary>
+          <ErrorBoundary name="HubPanel">
+            <HubPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="ResearchPanel">
+            <ResearchPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="CompanyPanel">
+            <CompanyPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="BlueprintPanel">
+            <BlueprintPanel />
+            <BlueprintSaveDialog />
+          </ErrorBoundary>
+          <ErrorBoundary name="CorporationPanel">
+            <CorporationPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="LeaderboardPanel">
+            <LeaderboardPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="VisitPanel">
+            <VisitPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="WildernessPanel">
+            <WildernessPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="InboxPanel">
+            <InboxPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="ChatPanel">
+            <ChatPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="ModerationPanel">
+            <ModerationPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="SeasonPanel">
+            <SeasonPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="ReportDialog">
+            <ReportDialog />
+          </ErrorBoundary>
+          <ConnectionOverlay />
+        </>
+      )}
+      {phase === "login" && <AuthScreen />}
+      {phase === "found" && <FoundCompany />}
+      {phase === "loading" && <MapLoading text="Loading the world…" />}
+      {phase === "error" && (
+        <div className="screen">
+          <div className="panel">{error}</div>
+        </div>
+      )}
       <Toasts />
-      <BuildConfirmDialog />
-      <LoginDialog />
-      <ConnectionOverlay />
+      <VersionBadge />
+      <UpdateOverlay />
     </div>
   );
 }

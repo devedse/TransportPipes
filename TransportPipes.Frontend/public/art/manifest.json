@@ -1,0 +1,1384 @@
+{
+ "resolution": 1.5,
+ "buildings": {
+  "hq": {
+   "w": 577,
+   "h": 478,
+   "ax": 289,
+   "ay": 465,
+   "attachments": []
+  },
+  "smallFactory": {
+   "w": 289,
+   "h": 247,
+   "ax": 144,
+   "ay": 244,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 88,
+     "y": 6,
+     "size": 1
+    }
+   ]
+  },
+  "solarPanel": {
+   "w": 289,
+   "h": 221,
+   "ax": 144,
+   "ay": 219,
+   "attachments": []
+  },
+  "storage": {
+   "w": 289,
+   "h": 227,
+   "ax": 144,
+   "ay": 220,
+   "attachments": []
+  },
+  "tradingPost": {
+   "w": 289,
+   "h": 231,
+   "ax": 144,
+   "ay": 231,
+   "attachments": []
+  },
+  "windMoily": {
+   "w": 289,
+   "h": 288,
+   "ax": 144,
+   "ay": 284,
+   "attachments": [
+    {
+     "kind": "rotor",
+     "x": 173,
+     "y": 39
+    }
+   ]
+  },
+  "bigTurbine": {
+   "w": 578,
+   "h": 732,
+   "ax": 288,
+   "ay": 727,
+   "attachments": [
+    {
+     "kind": "rotor",
+     "x": 354,
+     "y": 120
+    }
+   ]
+  },
+  "brickworks": {
+   "w": 289,
+   "h": 254,
+   "ax": 144,
+   "ay": 237,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 162,
+     "y": 3,
+     "size": 1
+    }
+   ]
+  },
+  "coalPit": {
+   "w": 289,
+   "h": 183,
+   "ax": 144,
+   "ay": 176,
+   "attachments": []
+  },
+  "coalPlant": {
+   "w": 578,
+   "h": 592,
+   "ax": 289,
+   "ay": 587,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 319,
+     "y": 16,
+     "size": 1.4
+    },
+    {
+     "kind": "smoke",
+     "x": 424,
+     "y": 52,
+     "size": 1.4
+    }
+   ]
+  },
+  "copperMine": {
+   "w": 289,
+   "h": 237,
+   "ax": 144,
+   "ay": 231,
+   "attachments": []
+  },
+  "deepMine": {
+   "w": 578,
+   "h": 582,
+   "ax": 289,
+   "ay": 576,
+   "attachments": []
+  },
+  "fusionReactor": {
+   "w": 867,
+   "h": 769,
+   "ax": 433,
+   "ay": 709,
+   "attachments": []
+  },
+  "geothermalPlant": {
+   "w": 578,
+   "h": 538,
+   "ax": 289,
+   "ay": 522,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 280,
+     "y": 118,
+     "size": 1.2
+    }
+   ]
+  },
+  "hydroWheel": {
+   "w": 289,
+   "h": 267,
+   "ax": 144,
+   "ay": 253,
+   "attachments": []
+  },
+  "ironMine": {
+   "w": 289,
+   "h": 226,
+   "ax": 144,
+   "ay": 216,
+   "attachments": []
+  },
+  "lumberCamp": {
+   "w": 289,
+   "h": 252,
+   "ax": 144,
+   "ay": 249,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 185,
+     "y": 49,
+     "size": 0.6
+    }
+   ]
+  },
+  "magmaTap": {
+   "w": 586,
+   "h": 527,
+   "ax": 289,
+   "ay": 491,
+   "attachments": []
+  },
+  "oilDerrick": {
+   "w": 289,
+   "h": 258,
+   "ax": 145,
+   "ay": 259,
+   "attachments": []
+  },
+  "quarry": {
+   "w": 578,
+   "h": 434,
+   "ax": 289,
+   "ay": 418,
+   "attachments": []
+  },
+  "rareEarthExcavator": {
+   "w": 578,
+   "h": 394,
+   "ax": 289,
+   "ay": 371,
+   "attachments": []
+  },
+  "sandDredger": {
+   "w": 289,
+   "h": 179,
+   "ax": 144,
+   "ay": 168,
+   "attachments": []
+  },
+  "smelter": {
+   "w": 289,
+   "h": 290,
+   "ax": 144,
+   "ay": 277,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 189,
+     "y": 7,
+     "size": 1
+    }
+   ]
+  },
+  "solarFarm": {
+   "w": 867,
+   "h": 480,
+   "ax": 433,
+   "ay": 451,
+   "attachments": []
+  },
+  "steamTurbine": {
+   "w": 578,
+   "h": 532,
+   "ax": 289,
+   "ay": 527,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 442,
+     "y": 47,
+     "size": 1.6
+    }
+   ]
+  },
+  "waterPump": {
+   "w": 289,
+   "h": 238,
+   "ax": 144,
+   "ay": 236,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 87,
+     "y": 50,
+     "size": 0.6
+    }
+   ]
+  },
+  "assemblyPlant": {
+   "w": 885,
+   "h": 745,
+   "ax": 442,
+   "ay": 702,
+   "attachments": []
+  },
+  "bigFactory": {
+   "w": 578,
+   "h": 494,
+   "ax": 289,
+   "ay": 461,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 253,
+     "y": 6,
+     "size": 1.2
+    },
+    {
+     "kind": "smoke",
+     "x": 327,
+     "y": 52,
+     "size": 1.2
+    },
+    {
+     "kind": "smoke",
+     "x": 402,
+     "y": 97,
+     "size": 1.2
+    }
+   ]
+  },
+  "cementKiln": {
+   "w": 577,
+   "h": 547,
+   "ax": 288,
+   "ay": 542,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 499,
+     "y": 210,
+     "size": 1.1
+    }
+   ]
+  },
+  "circuitFab": {
+   "w": 578,
+   "h": 495,
+   "ax": 289,
+   "ay": 487,
+   "attachments": []
+  },
+  "glassworks": {
+   "w": 289,
+   "h": 287,
+   "ax": 144,
+   "ay": 290,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 206,
+     "y": 8,
+     "size": 1
+    }
+   ]
+  },
+  "machineShop": {
+   "w": 577,
+   "h": 510,
+   "ax": 288,
+   "ay": 518,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 431,
+     "y": 13,
+     "size": 0.9
+    }
+   ]
+  },
+  "refinery": {
+   "w": 866,
+   "h": 805,
+   "ax": 432,
+   "ay": 779,
+   "attachments": [
+    {
+     "kind": "glow",
+     "x": 226,
+     "y": 138,
+     "size": 1,
+     "color": "#ff9a3a"
+    }
+   ]
+  },
+  "sawmill": {
+   "w": 289,
+   "h": 237,
+   "ax": 144,
+   "ay": 227,
+   "attachments": []
+  },
+  "steelMill": {
+   "w": 578,
+   "h": 560,
+   "ax": 288,
+   "ay": 537,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 401,
+     "y": 14,
+     "size": 1.3
+    }
+   ]
+  },
+  "wireMill": {
+   "w": 289,
+   "h": 263,
+   "ax": 145,
+   "ay": 261,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 195,
+     "y": 3,
+     "size": 0.9
+    }
+   ]
+  },
+  "cargoDepot": {
+   "w": 596,
+   "h": 508,
+   "ax": 289,
+   "ay": 478,
+   "attachments": []
+  },
+  "priorityValve": {
+   "w": 289,
+   "h": 221,
+   "ax": 144,
+   "ay": 211,
+   "attachments": []
+  },
+  "pumpStation": {
+   "w": 289,
+   "h": 234,
+   "ax": 144,
+   "ay": 231,
+   "attachments": []
+  },
+  "robotWorks": {
+   "w": 867,
+   "h": 742,
+   "ax": 433,
+   "ay": 673,
+   "attachments": []
+  },
+  "silo": {
+   "w": 577,
+   "h": 532,
+   "ax": 289,
+   "ay": 515,
+   "attachments": []
+  },
+  "superconductorLab": {
+   "w": 577,
+   "h": 417,
+   "ax": 289,
+   "ay": 398,
+   "attachments": []
+  },
+  "tollMeter": {
+   "w": 289,
+   "h": 226,
+   "ax": 144,
+   "ay": 220,
+   "attachments": []
+  },
+  "valve": {
+   "w": 289,
+   "h": 239,
+   "ax": 144,
+   "ay": 224,
+   "attachments": []
+  },
+  "vault": {
+   "w": 578,
+   "h": 437,
+   "ax": 289,
+   "ay": 407,
+   "attachments": []
+  },
+  "warehouse": {
+   "w": 582,
+   "h": 481,
+   "ax": 289,
+   "ay": 453,
+   "attachments": []
+  },
+  "wonder-clockTower": {
+   "r": 0.75,
+   "w": 866,
+   "h": 994,
+   "ax": 432,
+   "ay": 1000,
+   "attachments": []
+  },
+  "wonder-copperCathedral": {
+   "r": 0.75,
+   "w": 865,
+   "h": 878,
+   "ax": 432,
+   "ay": 860,
+   "attachments": []
+  },
+  "wonder-grandFountain": {
+   "r": 0.75,
+   "w": 865,
+   "h": 831,
+   "ax": 432,
+   "ay": 774,
+   "attachments": []
+  },
+  "wonder-greatDynamo": {
+   "r": 0.75,
+   "w": 885,
+   "h": 733,
+   "ax": 433,
+   "ay": 697,
+   "attachments": []
+  },
+  "wonder-lighthouse": {
+   "r": 0.75,
+   "w": 867,
+   "h": 893,
+   "ax": 432,
+   "ay": 912,
+   "attachments": []
+  },
+  "wonder-observatory": {
+   "r": 0.75,
+   "w": 883,
+   "h": 867,
+   "ax": 450,
+   "ay": 803,
+   "attachments": []
+  },
+  "hub-contractBoard": {
+   "w": 578,
+   "h": 569,
+   "ax": 289,
+   "ay": 564,
+   "attachments": []
+  },
+  "hub-exchange": {
+   "w": 897,
+   "h": 898,
+   "ax": 432,
+   "ay": 830,
+   "attachments": []
+  },
+  "hub-marketHall": {
+   "w": 867,
+   "h": 770,
+   "ax": 433,
+   "ay": 733,
+   "attachments": []
+  },
+  "hub-park": {
+   "w": 867,
+   "h": 593,
+   "ax": 433,
+   "ay": 557,
+   "attachments": []
+  },
+  "hub-townHall": {
+   "w": 867,
+   "h": 863,
+   "ax": 433,
+   "ay": 828,
+   "attachments": []
+  },
+  "hub-tradingHouse": {
+   "w": 578,
+   "h": 593,
+   "ax": 288,
+   "ay": 591,
+   "attachments": []
+  },
+  "deepLift": {
+   "w": 578,
+   "h": 571,
+   "ax": 289,
+   "ay": 559,
+   "attachments": []
+  },
+  "exchangeOffice": {
+   "w": 289,
+   "h": 234,
+   "ax": 144,
+   "ay": 234,
+   "attachments": []
+  },
+  "lab": {
+   "w": 289,
+   "h": 287,
+   "ax": 144,
+   "ay": 287,
+   "attachments": []
+  },
+  "liftShaft": {
+   "w": 578,
+   "h": 507,
+   "ax": 289,
+   "ay": 459,
+   "attachments": []
+  },
+  "marketHall": {
+   "w": 578,
+   "h": 420,
+   "ax": 289,
+   "ay": 422,
+   "attachments": []
+  },
+  "pneumaticPost": {
+   "w": 289,
+   "h": 321,
+   "ax": 144,
+   "ay": 322,
+   "attachments": []
+  },
+  "powerLinePylon": {
+   "w": 289,
+   "h": 350,
+   "ax": 144,
+   "ay": 352,
+   "attachments": []
+  },
+  "quantumLink": {
+   "w": 578,
+   "h": 496,
+   "ax": 289,
+   "ay": 464,
+   "attachments": []
+  },
+  "showroom": {
+   "w": 578,
+   "h": 400,
+   "ax": 288,
+   "ay": 411,
+   "attachments": []
+  },
+  "town-house1": {
+   "w": 289,
+   "h": 293,
+   "ax": 144,
+   "ay": 293,
+   "attachments": []
+  },
+  "town-house2": {
+   "w": 289,
+   "h": 304,
+   "ax": 144,
+   "ay": 303,
+   "attachments": []
+  },
+  "town-house3": {
+   "w": 289,
+   "h": 277,
+   "ax": 144,
+   "ay": 275,
+   "attachments": []
+  },
+  "wonder-refineryTower": {
+   "r": 0.75,
+   "w": 867,
+   "h": 869,
+   "ax": 432,
+   "ay": 890,
+   "attachments": []
+  },
+  "wonder-spaceElevator": {
+   "r": 0.75,
+   "w": 866,
+   "h": 852,
+   "ax": 432,
+   "ay": 786,
+   "attachments": []
+  },
+  "wonder-thinkingMachine": {
+   "r": 0.75,
+   "w": 866,
+   "h": 844,
+   "ax": 432,
+   "ay": 808,
+   "attachments": []
+  },
+  "town-stall": {
+   "w": 289,
+   "h": 254,
+   "ax": 144,
+   "ay": 248,
+   "attachments": []
+  },
+  "town-tree": {
+   "w": 289,
+   "h": 272,
+   "ax": 144,
+   "ay": 272,
+   "attachments": []
+  },
+  "blueprintOffice": {
+   "w": 289,
+   "h": 255,
+   "ax": 144,
+   "ay": 250,
+   "attachments": []
+  },
+  "engineerWorkshop": {
+   "w": 289,
+   "h": 246,
+   "ax": 144,
+   "ay": 243,
+   "attachments": [
+    {
+     "kind": "smoke",
+     "x": 102,
+     "y": -8,
+     "size": 0.8
+    }
+   ]
+  },
+  "expeditionOffice": {
+   "w": 289,
+   "h": 262,
+   "ax": 144,
+   "ay": 261,
+   "attachments": []
+  },
+  "flowerBed": {
+   "w": 289,
+   "h": 167,
+   "ax": 144,
+   "ay": 148,
+   "attachments": []
+  },
+  "lamp": {
+   "w": 289,
+   "h": 368,
+   "ax": 144,
+   "ay": 368,
+   "attachments": [
+    {
+     "kind": "glow",
+     "x": 144,
+     "y": 135,
+     "size": 1.2,
+     "color": "#ffd77a"
+    }
+   ]
+  },
+  "recycler": {
+   "w": 289,
+   "h": 251,
+   "ax": 144,
+   "ay": 239,
+   "attachments": []
+  },
+  "researchInstitute": {
+   "w": 578,
+   "h": 555,
+   "ax": 289,
+   "ay": 521,
+   "attachments": []
+  },
+  "terraformer": {
+   "w": 578,
+   "h": 457,
+   "ax": 288,
+   "ay": 427,
+   "attachments": []
+  },
+  "tree": {
+   "w": 289,
+   "h": 334,
+   "ax": 144,
+   "ay": 332,
+   "attachments": []
+  },
+  "weatherStation": {
+   "w": 289,
+   "h": 311,
+   "ax": 144,
+   "ay": 313,
+   "attachments": []
+  },
+  "crystalGrotto": {
+   "w": 289,
+   "h": 271,
+   "ax": 144,
+   "ay": 254,
+   "attachments": [
+    {
+     "kind": "glow",
+     "x": 144,
+     "y": 104,
+     "size": 1.4,
+     "color": "#b98cff"
+    }
+   ]
+  },
+  "crystalObelisk": {
+   "w": 289,
+   "h": 320,
+   "ax": 144,
+   "ay": 308,
+   "attachments": [
+    {
+     "kind": "glow",
+     "x": 145,
+     "y": 85,
+     "size": 1.1,
+     "color": "#c9a2ff"
+    }
+   ]
+  },
+  "fountain": {
+   "w": 289,
+   "h": 252,
+   "ax": 145,
+   "ay": 228,
+   "attachments": []
+  },
+  "goldenGear": {
+   "w": 289,
+   "h": 284,
+   "ax": 144,
+   "ay": 280,
+   "attachments": []
+  },
+  "goldenMoily": {
+   "w": 289,
+   "h": 415,
+   "ax": 144,
+   "ay": 393,
+   "attachments": []
+  },
+  "statue": {
+   "w": 289,
+   "h": 360,
+   "ax": 144,
+   "ay": 350,
+   "attachments": []
+  }
+ },
+ "rotors": {
+  "windMoily": {
+   "size": 230
+  },
+  "bigTurbine": {
+   "size": 461
+  }
+ },
+ "terrain": {
+  "beach": {
+   "size": 512
+  },
+  "grass": {
+   "size": 512
+  },
+  "water": {
+   "size": 512
+  },
+  "cavern": {
+   "size": 512
+  },
+  "city": {
+   "size": 512
+  },
+  "desert": {
+   "size": 512
+  },
+  "forest": {
+   "size": 512
+  },
+  "hills": {
+   "size": 512
+  },
+  "mountain": {
+   "size": 512
+  },
+  "road": {
+   "size": 512
+  },
+  "rock": {
+   "size": 512
+  }
+ },
+ "props": {
+  "treeOak": {
+   "w": 216,
+   "h": 212,
+   "ax": 115,
+   "ay": 212
+  },
+  "treeBirch": {
+   "w": 173,
+   "h": 308,
+   "ax": 97,
+   "ay": 308
+  },
+  "treePine": {
+   "w": 158,
+   "h": 273,
+   "ax": 71,
+   "ay": 273
+  },
+  "treePines": {
+   "w": 230,
+   "h": 343,
+   "ax": 162,
+   "ay": 343
+  },
+  "treeBig": {
+   "w": 274,
+   "h": 241,
+   "ax": 158,
+   "ay": 241
+  },
+  "bush": {
+   "w": 130,
+   "h": 114,
+   "ax": 63,
+   "ay": 114
+  },
+  "flowers": {
+   "w": 173,
+   "h": 86,
+   "ax": 87,
+   "ay": 43,
+   "decal": true
+  },
+  "reeds": {
+   "w": 130,
+   "h": 181,
+   "ax": 64,
+   "ay": 181
+  },
+  "boulder": {
+   "w": 144,
+   "h": 136,
+   "ax": 110,
+   "ay": 136
+  },
+  "peak1": {
+   "w": 288,
+   "h": 283,
+   "ax": 141,
+   "ay": 283
+  },
+  "peak2": {
+   "w": 288,
+   "h": 234,
+   "ax": 158,
+   "ay": 234
+  },
+  "stump": {
+   "w": 101,
+   "h": 81,
+   "ax": 82,
+   "ay": 81
+  },
+  "stalagmites": {
+   "w": 173,
+   "h": 244,
+   "ax": 77,
+   "ay": 244
+  },
+  "depositIronOre": {
+   "w": 245,
+   "h": 97,
+   "ax": 123,
+   "ay": 49,
+   "decal": true
+  },
+  "depositCopperOre": {
+   "w": 245,
+   "h": 98,
+   "ax": 123,
+   "ay": 49,
+   "decal": true
+  },
+  "depositCoal": {
+   "w": 245,
+   "h": 92,
+   "ax": 123,
+   "ay": 46,
+   "decal": true
+  },
+  "depositStone": {
+   "w": 245,
+   "h": 104,
+   "ax": 123,
+   "ay": 52,
+   "decal": true
+  },
+  "depositOil": {
+   "w": 230,
+   "h": 82,
+   "ax": 115,
+   "ay": 41,
+   "decal": true
+  },
+  "depositRareEarth": {
+   "w": 230,
+   "h": 83,
+   "ax": 115,
+   "ay": 42,
+   "decal": true
+  },
+  "depositGeothermal": {
+   "w": 202,
+   "h": 108,
+   "ax": 101,
+   "ay": 54,
+   "decal": true
+  },
+  "depositMagma": {
+   "w": 245,
+   "h": 98,
+   "ax": 123,
+   "ay": 49,
+   "decal": true
+  }
+ },
+ "hashes": {
+  "buildings/assemblyPlant.webp": "21dd3b1ea4",
+  "buildings/bigFactory.webp": "9475a06afc",
+  "buildings/bigTurbine-rotor.webp": "07cd48328f",
+  "buildings/bigTurbine.webp": "4f4a608134",
+  "buildings/blueprintOffice.webp": "8c75bfdd15",
+  "buildings/brickworks.webp": "a7a4534a3f",
+  "buildings/cargoDepot.webp": "8f2b094108",
+  "buildings/cementKiln.webp": "542883e993",
+  "buildings/circuitFab.webp": "09cdeaeef7",
+  "buildings/coalPit.webp": "0d47fec5e0",
+  "buildings/coalPlant.webp": "9364828a77",
+  "buildings/copperMine.webp": "137d8b99ac",
+  "buildings/crystalGrotto.webp": "e751f73bbd",
+  "buildings/crystalObelisk.webp": "db7c7f9492",
+  "buildings/deepLift.webp": "aa42d24764",
+  "buildings/deepMine.webp": "58c91bbac1",
+  "buildings/engineerWorkshop.webp": "ac61036933",
+  "buildings/exchangeOffice.webp": "a14d2294bc",
+  "buildings/expeditionOffice.webp": "e3253f1307",
+  "buildings/flowerBed.webp": "ab698133ba",
+  "buildings/fountain.webp": "7e500990b3",
+  "buildings/fusionReactor.webp": "4db379729e",
+  "buildings/geothermalPlant.webp": "fe61403fa2",
+  "buildings/glassworks.webp": "2cc9ab0601",
+  "buildings/goldenGear.webp": "ee7f06f73f",
+  "buildings/goldenMoily.webp": "092a2c130d",
+  "buildings/hq.webp": "2d7f54b07e",
+  "buildings/hub-contractBoard.webp": "6667835653",
+  "buildings/hub-exchange.webp": "f46995f5aa",
+  "buildings/hub-marketHall.webp": "24bbf4c8aa",
+  "buildings/hub-park.webp": "5d224bc051",
+  "buildings/hub-townHall.webp": "a30572018d",
+  "buildings/hub-tradingHouse.webp": "a6c8700c61",
+  "buildings/hydroWheel.webp": "18d75c31b7",
+  "buildings/ironMine.webp": "2eced79e26",
+  "buildings/lab.webp": "7d62a0ce7d",
+  "buildings/lamp.webp": "de17a9d00e",
+  "buildings/liftShaft.webp": "d25003b9ed",
+  "buildings/lumberCamp.webp": "cf3f2ac167",
+  "buildings/machineShop.webp": "ea80dab2ea",
+  "buildings/magmaTap.webp": "0037e60779",
+  "buildings/marketHall.webp": "41f4ab75d1",
+  "buildings/oilDerrick.webp": "e2642a1a39",
+  "buildings/pneumaticPost.webp": "bf2df5af7d",
+  "buildings/powerLinePylon.webp": "391d06ecbf",
+  "buildings/priorityValve.webp": "4aa5c5647c",
+  "buildings/pumpStation.webp": "47fac191b3",
+  "buildings/quantumLink.webp": "2e091c080d",
+  "buildings/quarry.webp": "76da8e01f0",
+  "buildings/rareEarthExcavator.webp": "d5d95a3f71",
+  "buildings/recycler.webp": "7665050d6a",
+  "buildings/refinery.webp": "5827108d3e",
+  "buildings/researchInstitute.webp": "27aa907563",
+  "buildings/robotWorks.webp": "ecd37f14a7",
+  "buildings/sandDredger.webp": "6adc427a5a",
+  "buildings/sawmill.webp": "346d50daa8",
+  "buildings/showroom.webp": "c9cd4288d5",
+  "buildings/silo.webp": "83759be11a",
+  "buildings/smallFactory.webp": "4d93c6bf02",
+  "buildings/smelter.webp": "6c39f2014d",
+  "buildings/solarFarm.webp": "7f552939a3",
+  "buildings/solarPanel.webp": "51542bd24a",
+  "buildings/statue.webp": "87aa021eea",
+  "buildings/steamTurbine.webp": "faac57be4d",
+  "buildings/steelMill.webp": "a913f3f961",
+  "buildings/storage.webp": "2db646976d",
+  "buildings/superconductorLab.webp": "43e4088342",
+  "buildings/terraformer.webp": "5dd1a91cc3",
+  "buildings/tollMeter.webp": "9218358f26",
+  "buildings/town-house1.webp": "29f3b260aa",
+  "buildings/town-house2.webp": "a06e28bded",
+  "buildings/town-house3.webp": "3f8708ede1",
+  "buildings/town-stall.webp": "df261148f0",
+  "buildings/town-tree.webp": "7b50bb08cc",
+  "buildings/tradingPost.webp": "f4cbfafc85",
+  "buildings/tree.webp": "e04a97b2aa",
+  "buildings/valve.webp": "42dfc8a6a5",
+  "buildings/vault.webp": "66bac15f99",
+  "buildings/warehouse.webp": "70d734dd65",
+  "buildings/waterPump.webp": "863de8c528",
+  "buildings/weatherStation.webp": "d08f18974c",
+  "buildings/windMoily-rotor.webp": "b98b95b1f4",
+  "buildings/windMoily.webp": "83ce05103e",
+  "buildings/wireMill.webp": "eb17dec6b7",
+  "buildings/wonder-clockTower.webp": "174253b1b4",
+  "buildings/wonder-copperCathedral.webp": "a8fb514883",
+  "buildings/wonder-grandFountain.webp": "90a2336b3e",
+  "buildings/wonder-greatDynamo.webp": "251cfcdea4",
+  "buildings/wonder-lighthouse.webp": "3efb794c77",
+  "buildings/wonder-observatory.webp": "2f84bf2cae",
+  "buildings/wonder-refineryTower.webp": "f2c0f37d32",
+  "buildings/wonder-spaceElevator.webp": "5d54bb56fa",
+  "buildings/wonder-thinkingMachine.webp": "3d8ad050ff",
+  "terrain/beach.webp": "a09e0bc9dd",
+  "terrain/cavern.webp": "2ffba477f3",
+  "terrain/city.webp": "bf53cda1da",
+  "terrain/desert.webp": "41b0ca7297",
+  "terrain/forest.webp": "43dd67f8e5",
+  "terrain/grass.webp": "5bf13fdc5a",
+  "terrain/hills.webp": "de2c96f5ff",
+  "terrain/mountain.webp": "619e20afd9",
+  "terrain/road.webp": "ec9bc6ec73",
+  "terrain/rock.webp": "ec79dca188",
+  "terrain/water.webp": "2ad3abb1b8",
+  "props/boulder.webp": "29685d9af5",
+  "props/bush.webp": "36c802195e",
+  "props/depositCoal.webp": "11e2867a4d",
+  "props/depositCopperOre.webp": "a783561801",
+  "props/depositGeothermal.webp": "492bf34339",
+  "props/depositIronOre.webp": "b1dfa4a7c8",
+  "props/depositMagma.webp": "e2df827a0b",
+  "props/depositOil.webp": "947042089c",
+  "props/depositRareEarth.webp": "b9e92d4f5e",
+  "props/depositStone.webp": "3bf0e8ed4e",
+  "props/flowers.webp": "f8d22183f9",
+  "props/peak1.webp": "972f85b314",
+  "props/peak2.webp": "f4459b35ef",
+  "props/reeds.webp": "b8e6c8d0a9",
+  "props/stalagmites.webp": "143e67e378",
+  "props/stump.webp": "da34becc69",
+  "props/treeBig.webp": "ac5886dca5",
+  "props/treeBirch.webp": "31deaf5ee4",
+  "props/treeOak.webp": "0c3a213482",
+  "props/treePine.webp": "f4ef48b7c2",
+  "props/treePines.webp": "d5990822cc",
+  "pipes/tier1.webp": "1bf3a562fd",
+  "pipes/tier2.webp": "9e8d781e54",
+  "pipes/tier3.webp": "1ac680cc49",
+  "pipes/tier4.webp": "9776255d90",
+  "pipes/tier5.webp": "c0c3a11317"
+ },
+ "pipes": {
+  "resolution": 1.5,
+  "top": 56,
+  "z": 20.5765,
+  "tiers": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "frames": {
+   "": {
+    "x": 1,
+    "y": 1,
+    "w": 152,
+    "h": 136,
+    "ox": 70,
+    "oy": 74
+   },
+   "u": {
+    "x": 227,
+    "y": 1,
+    "w": 163,
+    "h": 130,
+    "ox": 104,
+    "oy": 68
+   },
+   "r": {
+    "x": 453,
+    "y": 1,
+    "w": 121,
+    "h": 114,
+    "ox": 104,
+    "oy": 93
+   },
+   "ur": {
+    "x": 679,
+    "y": 1,
+    "w": 112,
+    "h": 137,
+    "ox": 155,
+    "oy": 68
+   },
+   "d": {
+    "x": 905,
+    "y": 1,
+    "w": 142,
+    "h": 125,
+    "ox": 63,
+    "oy": 93
+   },
+   "ud": {
+    "x": 1,
+    "y": 153,
+    "w": 204,
+    "h": 150,
+    "ox": 63,
+    "oy": 68
+   },
+   "rd": {
+    "x": 227,
+    "y": 153,
+    "w": 162,
+    "h": 95,
+    "ox": 63,
+    "oy": 124
+   },
+   "urd": {
+    "x": 453,
+    "y": 153,
+    "w": 204,
+    "h": 150,
+    "ox": 63,
+    "oy": 68
+   },
+   "l": {
+    "x": 679,
+    "y": 153,
+    "w": 162,
+    "h": 130,
+    "ox": 43,
+    "oy": 68
+   },
+   "ul": {
+    "x": 905,
+    "y": 153,
+    "w": 224,
+    "h": 102,
+    "ox": 43,
+    "oy": 68
+   },
+   "rl": {
+    "x": 1,
+    "y": 305,
+    "w": 182,
+    "h": 139,
+    "ox": 43,
+    "oy": 68
+   },
+   "url": {
+    "x": 227,
+    "y": 305,
+    "w": 224,
+    "h": 141,
+    "ox": 43,
+    "oy": 68
+   },
+   "dl": {
+    "x": 453,
+    "y": 305,
+    "w": 108,
+    "h": 150,
+    "ox": 43,
+    "oy": 68
+   },
+   "udl": {
+    "x": 679,
+    "y": 305,
+    "w": 224,
+    "h": 150,
+    "ox": 43,
+    "oy": 68
+   },
+   "rdl": {
+    "x": 905,
+    "y": 305,
+    "w": 182,
+    "h": 150,
+    "ox": 43,
+    "oy": 68
+   },
+   "urdl": {
+    "x": 1,
+    "y": 457,
+    "w": 224,
+    "h": 150,
+    "ox": 43,
+    "oy": 68
+   },
+   "flange-u": {
+    "x": 227,
+    "y": 457,
+    "w": 47,
+    "h": 59,
+    "ox": 191,
+    "oy": 60
+   },
+   "socket-u": {
+    "x": 453,
+    "y": 457,
+    "w": 68,
+    "h": 94,
+    "ox": 170,
+    "oy": 45
+   },
+   "tee-u": {
+    "x": 679,
+    "y": 457,
+    "w": 224,
+    "h": 139,
+    "ox": 43,
+    "oy": 68
+   },
+   "flange-r": {
+    "x": 905,
+    "y": 457,
+    "w": 37,
+    "h": 57,
+    "ox": 191,
+    "oy": 131
+   },
+   "socket-r": {
+    "x": 1,
+    "y": 609,
+    "w": 68,
+    "h": 93,
+    "ox": 170,
+    "oy": 106
+   },
+   "tee-r": {
+    "x": 227,
+    "y": 609,
+    "w": 204,
+    "h": 150,
+    "ox": 63,
+    "oy": 68
+   },
+   "flange-d": {
+    "x": 453,
+    "y": 609,
+    "w": 37,
+    "h": 57,
+    "ox": 60,
+    "oy": 131
+   },
+   "socket-d": {
+    "x": 679,
+    "y": 609,
+    "w": 68,
+    "h": 93,
+    "ox": 50,
+    "oy": 106
+   },
+   "tee-d": {
+    "x": 905,
+    "y": 609,
+    "w": 182,
+    "h": 150,
+    "ox": 43,
+    "oy": 68
+   },
+   "flange-l": {
+    "x": 1,
+    "y": 761,
+    "w": 47,
+    "h": 59,
+    "ox": 50,
+    "oy": 60
+   },
+   "socket-l": {
+    "x": 227,
+    "y": 761,
+    "w": 68,
+    "h": 94,
+    "ox": 50,
+    "oy": 45
+   },
+   "tee-l": {
+    "x": 453,
+    "y": 761,
+    "w": 224,
+    "h": 150,
+    "ox": 43,
+    "oy": 68
+   },
+   "foot-x": {
+    "x": 679,
+    "y": 761,
+    "w": 34,
+    "h": 60,
+    "ox": 126,
+    "oy": 102
+   },
+   "foot-y": {
+    "x": 905,
+    "y": 761,
+    "w": 34,
+    "h": 60,
+    "ox": 128,
+    "oy": 102
+   }
+  }
+ }
+}

@@ -1,20 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import { gameClient } from "../app/instance";
-import { GameEngine } from "../game/GameEngine";
+import { gameClient } from "../app/client";
+import { Engine } from "../game/Engine";
 
-/** Hosts the PixiJS map; the engine lives outside React and is wired to the game client. */
+/** Hosts the PixiJS map; the engine lives outside React and is wired to the game client */
 export function GameCanvas() {
   const hostRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const host = hostRef.current;
-    if (host === null) {
+    const world = gameClient.world;
+    if (host === null || world === null) {
       return;
     }
-    let engine: GameEngine | null = null;
+    let engine: Engine | null = null;
     let cancelled = false;
-    GameEngine.create(host, gameClient.engineCallbacks).then(
+    Engine.create(host, world, gameClient.engineCallbacks).then(
       (created) => {
         if (cancelled) {
           created.destroy();
@@ -24,7 +25,7 @@ export function GameCanvas() {
         gameClient.attachEngine(created);
       },
       (reason: unknown) => {
-        console.error("Could not start the map renderer", reason);
+        console.error("Could not start the map", reason);
         if (!cancelled) {
           setError(reason instanceof Error ? reason.message : String(reason));
         }

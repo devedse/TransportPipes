@@ -1,4 +1,4 @@
-# Transport Pipes: the ASP.NET Core server (SignalR hub + Actionizer) that also serves the React/PixiJS frontend.
+# Transport Pipes: the ASP.NET Core server (game world + SignalR hub) that also serves the React/PixiJS frontend.
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
@@ -16,10 +16,8 @@ RUN npm run build
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY ["global.json", "Directory.Build.props", "Directory.Packages.props", "./"]
-COPY ["TransportPipes.Common/TransportPipes.Common.csproj", "TransportPipes.Common/"]
+COPY ["TransportPipes.Game/TransportPipes.Game.csproj", "TransportPipes.Game/"]
 COPY ["TransportPipes.Database/TransportPipes.Database.csproj", "TransportPipes.Database/"]
-COPY ["TransportPipes.Calculators/TransportPipes.Calculators.csproj", "TransportPipes.Calculators/"]
-COPY ["TransportPipes.Actionizer/TransportPipes.Actionizer.csproj", "TransportPipes.Actionizer/"]
 COPY ["TransportPipes.Server/TransportPipes.Server.csproj", "TransportPipes.Server/"]
 RUN dotnet restore "TransportPipes.Server/TransportPipes.Server.csproj"
 COPY . .

@@ -1,0 +1,771 @@
+# All buildings. Rates (in/out) are per minute at level 1.
+# kind: producer | storage | tradingPost | lab | hq | gate | valve | priorityValve | pump | tollMeter | cargoDepot
+#       | exchangeOffice | showroom | workshop | weatherStation | recycler | expeditionOffice | blueprintOffice
+#       | deepLift | bank | teleporter | terraformer | powerLine | corporationHq | decoration
+# placement.terrain: allowed terrain (default: grass, hills, forest, desert, beach)
+# placement.deposit: needs a deposit of that resource under the footprint
+# placement.shore: needs water next to the footprint
+# placement.forest: needs forest tiles within 2 tiles
+# modifier: wind | sun | richness | forest
+
+# ---------------------------------------------------------------- Energy
+- id: solarPanel
+  name: Solar Panel
+  category: energy
+  size: 1
+  evolvesTo: solarFarm
+  unlock: { level: 1 }
+  cost: { gold: 30 }
+  buildSeconds: 10
+  out: { energy: 5 }
+  modifier: sun
+  sprite: SolarPanel
+  description: Turns sunlight into a little energy. Best in deserts.
+
+- id: windMoily
+  name: Wind Moily
+  category: energy
+  size: 1
+  evolvesTo: bigTurbine
+  unlock: { level: 1 }
+  cost: { gold: 200 }
+  buildSeconds: 30
+  out: { energy: 30 }
+  modifier: wind
+  sprite: WindMoily
+  description: The trusty windmill. Build it on hills where the wind is strong.
+
+- id: hydroWheel
+  name: Hydro Wheel
+  category: energy
+  size: 1
+  unlock: { level: 6, research: hydroWheel }
+  cost: { gold: 1200 }
+  buildSeconds: 60
+  out: { energy: 40 }
+  placement: { shore: true }
+  description: A water wheel on the shore of a river or lake.
+
+- id: coalPlant
+  name: Coal Plant
+  category: energy
+  size: 2
+  evolvesTo: steamTurbine
+  unlock: { level: 14 }
+  cost: { gold: 6000 }
+  buildSeconds: 300
+  in: { coal: 10, water: 20 }
+  out: { energy: 200 }
+  description: Burns coal and water into a lot of energy.
+
+- id: bigTurbine
+  name: Big Turbine
+  category: energy
+  size: 2
+  unlock: { era: 2, research: bigTurbine }
+  cost: { gold: 20000, materials: { steel: 20 } }
+  buildSeconds: 600
+  out: { energy: 400 }
+  modifier: wind
+  description: A huge three-blade wind turbine.
+
+- id: steamTurbine
+  name: Steam Turbine
+  category: energy
+  size: 2
+  unlock: { era: 2, research: steamTurbine }
+  cost: { gold: 30000, materials: { steel: 40, concrete: 40 } }
+  buildSeconds: 900
+  in: { coal: 30, water: 40 }
+  out: { energy: 900 }
+  description: Steam power on an industrial scale.
+
+- id: solarFarm
+  name: Solar Farm
+  category: energy
+  size: 3
+  unlock: { era: 3, research: solarFarm }
+  cost: { gold: 120000, materials: { glass: 200, steel: 50 } }
+  buildSeconds: 1800
+  out: { energy: 1200 }
+  modifier: sun
+  description: Rows and rows of panels.
+
+- id: geothermalPlant
+  name: Geothermal Plant
+  category: energy
+  size: 2
+  unlock: { era: 4, research: geothermal }
+  cost: { gold: 400000, materials: { steel: 200, concrete: 200 } }
+  buildSeconds: 3600
+  in: { water: 10 }
+  out: { energy: 3000 }
+  placement: { deposit: geothermal }
+  description: Energy from the heat of the earth. Needs a geothermal vent.
+
+- id: fusionReactor
+  name: Fusion Reactor
+  category: energy
+  size: 3
+  unlock: { era: 5, research: fusion }
+  cost: { gold: 5000000, materials: { superconductors: 20, concrete: 1000 } }
+  buildSeconds: 7200
+  in: { superconductors: 1, water: 100 }
+  out: { energy: 50000 }
+  description: A small star in a box.
+
+# ---------------------------------------------------------------- Extraction
+- id: ironMine
+  name: Iron Mine
+  category: extraction
+  size: 1
+  evolvesTo: deepMine
+  unlock: { level: 2 }
+  cost: { gold: 600 }
+  buildSeconds: 60
+  in: { energy: 10 }
+  out: { ironOre: 12 }
+  placement: { deposit: ironOre }
+  modifier: richness
+  sprite: IronMine
+  description: Digs iron ore. Needs an iron deposit; more stars, more ore.
+
+- id: copperMine
+  name: Copper Mine
+  category: extraction
+  size: 1
+  unlock: { level: 5 }
+  cost: { gold: 900 }
+  buildSeconds: 60
+  in: { energy: 12 }
+  out: { copperOre: 10 }
+  placement: { deposit: copperOre }
+  modifier: richness
+  description: Digs copper ore from a copper deposit.
+
+- id: coalPit
+  name: Coal Pit
+  category: extraction
+  size: 1
+  unlock: { level: 5 }
+  cost: { gold: 700 }
+  buildSeconds: 60
+  in: { energy: 8 }
+  out: { coal: 12 }
+  placement: { deposit: coal }
+  modifier: richness
+  description: Brings coal up from a coal seam.
+
+- id: quarry
+  name: Quarry
+  category: extraction
+  size: 2
+  unlock: { level: 10 }
+  cost: { gold: 3000 }
+  buildSeconds: 120
+  in: { energy: 15 }
+  out: { stone: 20 }
+  placement: { deposit: stone }
+  modifier: richness
+  description: Cuts stone blocks from a stone deposit.
+
+- id: sandDredger
+  name: Sand Dredger
+  category: extraction
+  size: 1
+  unlock: { level: 5 }
+  cost: { gold: 500 }
+  buildSeconds: 60
+  in: { energy: 8 }
+  out: { sand: 15 }
+  placement: { terrain: [beach] }
+  description: Scoops sand from the beach.
+
+- id: lumberCamp
+  name: Lumber Camp
+  category: extraction
+  size: 1
+  unlock: { level: 5 }
+  cost: { gold: 400 }
+  buildSeconds: 60
+  in: { energy: 4 }
+  out: { wood: 10 }
+  placement: { forest: true }
+  modifier: forest
+  description: Fells and replants trees. Needs a forest nearby.
+
+- id: waterPump
+  name: Water Pump
+  category: extraction
+  size: 1
+  unlock: { level: 5 }
+  cost: { gold: 300 }
+  buildSeconds: 30
+  in: { energy: 2 }
+  out: { water: 20 }
+  placement: { shore: true }
+  description: Pumps water from a river or lake.
+
+- id: deepMine
+  name: Deep Mine
+  category: extraction
+  size: 2
+  layer: any
+  unlock: { era: 2, research: deepMining }
+  cost: { gold: 25000, materials: { steel: 30 } }
+  buildSeconds: 600
+  in: { energy: 60 }
+  out: { ironOre: 80 }
+  outFromDeposit: [ironOre, copperOre, coal]
+  placement: { deposit: anyMetal, minRichness: 3 }
+  modifier: richness
+  description: Reaches deep into a rich deposit of iron, copper or coal.
+
+- id: oilDerrick
+  name: Oil Derrick
+  category: extraction
+  size: 1
+  unlock: { era: 3 }
+  cost: { gold: 15000, materials: { steel: 20 } }
+  buildSeconds: 300
+  in: { energy: 20 }
+  out: { oil: 10 }
+  placement: { deposit: oil }
+  modifier: richness
+  description: A nodding pump jack on an oil field.
+
+- id: rareEarthExcavator
+  name: Rare Earth Excavator
+  category: extraction
+  size: 2
+  layer: any
+  unlock: { era: 4 }
+  cost: { gold: 200000, materials: { steel: 100, gears: 20 } }
+  buildSeconds: 1800
+  in: { energy: 200 }
+  out: { rareEarth: 5 }
+  placement: { deposit: rareEarth }
+  modifier: richness
+  description: Digs the violet rare earth found in outposts and the Deep Level.
+
+# ---------------------------------------------------------------- Processing
+- id: smallFactory
+  name: Small Factory
+  category: processing
+  size: 1
+  evolvesTo: bigFactory
+  unlock: { level: 2 }
+  cost: { gold: 1500 }
+  buildSeconds: 120
+  in: { energy: 20, ironOre: 12 }
+  out: { ironIngot: 6 }
+  sprite: FactorySmall
+  description: Smelts iron ore into iron ingots.
+
+- id: smelter
+  name: Smelter
+  category: processing
+  size: 1
+  unlock: { level: 6 }
+  cost: { gold: 1800 }
+  buildSeconds: 120
+  in: { energy: 20, copperOre: 10, coal: 4 }
+  out: { copperIngot: 5 }
+  description: Melts copper ore into copper ingots.
+
+- id: brickworks
+  name: Brickworks
+  category: processing
+  size: 1
+  unlock: { level: 6 }
+  cost: { gold: 1400 }
+  buildSeconds: 120
+  in: { energy: 10, stone: 10, coal: 5 }
+  out: { bricks: 10 }
+  description: Bakes stone and coal into bricks.
+
+- id: glassworks
+  name: Glassworks
+  category: processing
+  size: 1
+  unlock: { level: 7 }
+  cost: { gold: 1600 }
+  buildSeconds: 120
+  in: { energy: 25, sand: 15 }
+  out: { glass: 5 }
+  description: Melts sand into glass.
+
+- id: sawmill
+  name: Sawmill
+  category: processing
+  size: 1
+  unlock: { level: 5 }
+  cost: { gold: 800 }
+  buildSeconds: 60
+  in: { energy: 6, wood: 10 }
+  out: { planks: 8 }
+  description: Saws wood into planks.
+
+- id: bigFactory
+  name: Big Factory
+  category: processing
+  size: 2
+  unlock: { level: 12, research: bigFactory }
+  cost: { gold: 12000, materials: { bricks: 100 } }
+  buildSeconds: 600
+  in: { energy: 90, ironOre: 60 }
+  out: { ironIngot: 32 }
+  description: Iron ingots on a bigger scale.
+
+- id: steelMill
+  name: Steel Mill
+  category: processing
+  size: 2
+  unlock: { era: 2, research: steelMaking }
+  cost: { gold: 30000, materials: { bricks: 300 } }
+  buildSeconds: 900
+  in: { energy: 80, ironIngot: 20, coal: 10 }
+  out: { steel: 8 }
+  description: Turns iron and coal into steel.
+
+- id: wireMill
+  name: Wire Mill
+  category: processing
+  size: 1
+  unlock: { era: 2, research: wireDrawing }
+  cost: { gold: 12000, materials: { ironIngot: 50 } }
+  buildSeconds: 300
+  in: { energy: 30, copperIngot: 6 }
+  out: { copperWire: 10 }
+  description: Draws copper into wire.
+
+- id: cementKiln
+  name: Cement Kiln
+  category: processing
+  size: 2
+  unlock: { era: 2 }
+  cost: { gold: 15000, materials: { bricks: 200 } }
+  buildSeconds: 600
+  in: { energy: 40, stone: 20, water: 10 }
+  out: { concrete: 12 }
+  description: Burns stone and mixes it with water into concrete.
+
+- id: machineShop
+  name: Machine Shop
+  category: processing
+  size: 2
+  unlock: { era: 2 }
+  cost: { gold: 40000, materials: { steel: 50 } }
+  buildSeconds: 900
+  in: { energy: 60, steel: 6 }
+  out: { gears: 3 }
+  description: Machines steel into gears.
+
+- id: refinery
+  name: Refinery
+  category: processing
+  size: 3
+  unlock: { era: 3, research: refining }
+  cost: { gold: 250000, materials: { steel: 300, concrete: 300 } }
+  buildSeconds: 3600
+  in: { energy: 150, oil: 30, water: 20 }
+  out: { plastic: 12 }
+  description: Cracks oil into plastic.
+
+- id: circuitFab
+  name: Circuit Fab
+  category: processing
+  size: 2
+  unlock: { era: 4, research: circuits }
+  cost: { gold: 600000, materials: { steel: 200, glass: 300 } }
+  buildSeconds: 3600
+  in: { energy: 200, copperWire: 6, plastic: 4, glass: 2 }
+  out: { circuits: 2 }
+  description: Prints circuits from wire, plastic and glass.
+
+- id: assemblyPlant
+  name: Assembly Plant
+  category: processing
+  size: 3
+  unlock: { era: 4, research: assembly }
+  cost: { gold: 1500000, materials: { steel: 500, gears: 100 } }
+  buildSeconds: 7200
+  in: { energy: 400, gears: 10, circuits: 4 }
+  out: { engines: 1 }
+  description: Builds engines on an assembly line.
+
+- id: robotWorks
+  name: Robot Works
+  category: processing
+  size: 3
+  unlock: { era: 4, research: robots }
+  cost: { gold: 4000000, materials: { circuits: 100, gears: 200 } }
+  buildSeconds: 7200
+  in: { energy: 800, engines: 2, circuits: 6 }
+  out: { robots: 1 }
+  description: Robots walk out of the door.
+
+- id: superconductorLab
+  name: Superconductor Lab
+  category: processing
+  size: 2
+  unlock: { era: 5, research: superconductors }
+  cost: { gold: 10000000, materials: { circuits: 300, robots: 10 } }
+  buildSeconds: 7200
+  in: { energy: 2000, rareEarth: 4, circuits: 4 }
+  out: { superconductors: 1 }
+  description: Super cold, super valuable.
+
+# ---------------------------------------------------------------- Logistics
+- id: gate
+  name: Gate
+  category: logistics
+  kind: gate
+  size: 1
+  buildable: false
+  unlock: { level: 1 }
+  cost: { gold: 0 }
+  buildSeconds: 0
+  description: Where your pipes meet the corridor and your neighbours.
+
+- id: valve
+  name: Valve
+  category: logistics
+  kind: valve
+  size: 1
+  layer: any
+  unlock: { level: 8, research: valves }
+  cost: { gold: 500 }
+  buildSeconds: 10
+  description: A pipe piece that only lets the chosen resources through.
+
+- id: priorityValve
+  name: Priority Valve
+  category: logistics
+  kind: priorityValve
+  size: 1
+  layer: any
+  unlock: { level: 8, research: valves }
+  cost: { gold: 800 }
+  buildSeconds: 10
+  description: Decides which side of the pipe is served first.
+
+- id: pumpStation
+  name: Pump Station
+  category: logistics
+  kind: pump
+  size: 1
+  layer: any
+  unlock: { level: 9, research: pumpStations }
+  cost: { gold: 2000 }
+  buildSeconds: 60
+  in: { energy: 5 }
+  description: Every 50 buildings in a network need one pump.
+
+- id: tollMeter
+  name: Toll Meter
+  category: logistics
+  kind: tollMeter
+  size: 1
+  unlock: { level: 9 }
+  cost: { gold: 1000 }
+  buildSeconds: 30
+  description: Earns a toll on everything flowing through your public pipe.
+
+- id: storage
+  name: Storage
+  category: logistics
+  kind: storage
+  size: 1
+  evolvesTo: warehouse
+  layer: any
+  unlock: { level: 1 }
+  cost: { gold: 1000 }
+  buildSeconds: 60
+  capacity: 5000
+  sprite: Storage
+  description: Holds up to 5,000 units of any resource.
+
+- id: warehouse
+  name: Warehouse
+  category: logistics
+  kind: storage
+  size: 2
+  evolvesTo: silo
+  unlock: { level: 10 }
+  cost: { gold: 8000 }
+  buildSeconds: 300
+  capacity: 50000
+  description: Holds up to 50,000 units.
+
+- id: silo
+  name: Silo
+  category: logistics
+  kind: storage
+  size: 2
+  unlock: { era: 2, research: siloStorage }
+  cost: { gold: 60000, materials: { concrete: 200, steel: 50 } }
+  buildSeconds: 900
+  capacity: 500000
+  description: Holds up to 500,000 units.
+
+- id: cargoDepot
+  name: Cargo Depot
+  category: logistics
+  kind: cargoDepot
+  size: 2
+  unlock: { level: 12 }
+  cost: { gold: 10000 }
+  buildSeconds: 300
+  throughput: 200
+  description: Trucks connect all your Cargo Depots (estate and outposts) like a pipe without losses, 200 per minute per level. Halves Exchange cargo times.
+
+- id: powerLinePylon
+  name: Power Line Pylon
+  category: logistics
+  kind: powerLine
+  size: 1
+  unlock: { era: 2, research: powerLines }
+  cost: { gold: 300, materials: { copperWire: 2 } }
+  buildSeconds: 10
+  reach: 8
+  throughput: 5000
+  description: Carries energy (only energy) to your pylons up to 8 tiles away, without losses, also across water.
+
+# ---------------------------------------------------------------- Commerce
+- id: tradingPost
+  name: Trading Post
+  category: commerce
+  kind: tradingPost
+  size: 1
+  evolvesTo: marketHall
+  unlock: { level: 1 }
+  cost: { gold: 2500 }
+  buildSeconds: 60
+  throughput: 600
+  sprite: TradingBuilding
+  description: Sells everything that reaches it to the hub, and can buy from the hub.
+
+- id: marketHall
+  name: Market Hall
+  category: commerce
+  kind: tradingPost
+  size: 2
+  unlock: { level: 16 }
+  cost: { gold: 50000, materials: { bricks: 500 } }
+  buildSeconds: 900
+  throughput: 6000
+  priceBonus: 0.05
+  description: Ten times the trade of a Trading Post, and 5% better hub prices.
+
+- id: exchangeOffice
+  name: Exchange Office
+  category: commerce
+  kind: exchangeOffice
+  size: 1
+  unlock: { level: 12 }
+  cost: { gold: 5000 }
+  buildSeconds: 120
+  description: Access to the Exchange order book from your estate.
+
+- id: showroom
+  name: Showroom
+  category: commerce
+  kind: showroom
+  size: 2
+  unlock: { level: 20, research: showroom }
+  cost: { gold: 80000, materials: { glass: 200 } }
+  buildSeconds: 900
+  description: Players pay 10% more for one product of your choice.
+
+# ---------------------------------------------------------------- Company and civic
+- id: hq
+  name: Company HQ
+  category: company
+  kind: hq
+  size: 2
+  buildable: false
+  unlock: { level: 1 }
+  cost: { gold: 0 }
+  buildSeconds: 0
+  description: The heart of your company. It grows with your Company Level.
+
+- id: lab
+  name: Lab
+  category: company
+  kind: lab
+  size: 1
+  evolvesTo: researchInstitute
+  unlock: { level: 4 }
+  cost: { gold: 2000 }
+  buildSeconds: 120
+  in: { energy: 10, ironIngot: 2 }
+  research: 5
+  description: Turns energy and iron into research points.
+
+- id: researchInstitute
+  name: Research Institute
+  category: company
+  kind: lab
+  size: 2
+  unlock: { era: 2 }
+  cost: { gold: 50000, materials: { glass: 100, steel: 30 } }
+  buildSeconds: 1200
+  in: { energy: 100, glass: 2, steel: 1 }
+  research: 60
+  description: Serious science under a telescope dome.
+
+- id: engineerWorkshop
+  name: Engineer's Workshop
+  category: company
+  kind: workshop
+  size: 1
+  unlock: { level: 10 }
+  cost: { gold: 6000 }
+  buildSeconds: 300
+  description: One more manager slot, and repairs your storm damage when the storm is over.
+
+- id: weatherStation
+  name: Weather Station
+  category: company
+  kind: weatherStation
+  size: 1
+  unlock: { level: 18 }
+  cost: { gold: 15000 }
+  buildSeconds: 300
+  description: Shows the event calendar three days ahead instead of one, and halves the risk of storm damage.
+
+- id: recycler
+  name: Recycler
+  category: company
+  kind: recycler
+  size: 1
+  unlock: { level: 15 }
+  cost: { gold: 8000 }
+  buildSeconds: 300
+  description: "Takes buildings apart without waste: demolishing gives all their gold back."
+
+# ---------------------------------------------------------------- Late game
+- id: expeditionOffice
+  name: Expedition Office
+  category: company
+  kind: expeditionOffice
+  size: 1
+  unlock: { level: 20 }
+  cost: { gold: 20000 }
+  buildSeconds: 600
+  description: Sends expeditions into the wilderness.
+
+- id: blueprintOffice
+  name: Blueprint Office
+  category: company
+  kind: blueprintOffice
+  size: 1
+  unlock: { level: 22 }
+  cost: { gold: 25000 }
+  buildSeconds: 600
+  description: Save, rebuild and share layouts.
+
+- id: deepLift
+  name: Deep Lift
+  category: logistics
+  kind: deepLift
+  size: 2
+  unlock: { level: 30, research: deepLift }
+  cost: { gold: 150000, materials: { steel: 200 } }
+  buildSeconds: 3600
+  throughput: 2000
+  description: "The way down to the Deep Level: carries resources between the layers, more with every level."
+
+- id: liftShaft
+  name: Lift Shaft
+  category: logistics
+  kind: deepLift
+  size: 2
+  layer: deep
+  buildable: false
+  unlock: { level: 30, research: deepLift }
+  cost: { gold: 0 }
+  buildSeconds: 0
+  description: The bottom of a Deep Lift.
+
+- id: magmaTap
+  name: Magma Tap
+  category: energy
+  size: 2
+  layer: deep
+  unlock: { level: 30, research: deepLift }
+  cost: { gold: 300000, materials: { steel: 200 } }
+  buildSeconds: 3600
+  out: { energy: 2500 }
+  placement: { deposit: magma }
+  description: Energy from glowing magma, only in the Deep Level.
+
+- id: vault
+  name: Vault
+  category: logistics
+  kind: storage
+  size: 2
+  layer: deep
+  unlock: { level: 30, research: deepLift }
+  cost: { gold: 200000, materials: { concrete: 500 } }
+  buildSeconds: 1800
+  capacity: 1000000
+  description: A gigantic underground storage.
+
+- id: bank
+  name: Bank
+  category: commerce
+  kind: bank
+  # Investing, insurance and Wonder bonds come after v1 (docs/ImplementationStatus.md)
+  buildable: false
+  size: 2
+  unlock: { level: 35, era: 2 }
+  cost: { gold: 250000, materials: { bricks: 1000 } }
+  buildSeconds: 1800
+  description: Investing, insurance and Wonder bonds.
+
+- id: pneumaticPost
+  name: Pneumatic Post
+  category: logistics
+  kind: teleporter
+  size: 1
+  unlock: { era: 2, research: pneumaticPost }
+  cost: { gold: 40000, materials: { steel: 50 } }
+  buildSeconds: 900
+  throughput: 200
+  range: district
+  description: A pair of capsule stations linking two of your networks in the district.
+
+- id: terraformer
+  name: Terraformer
+  category: company
+  kind: terraformer
+  size: 2
+  unlock: { era: 3, research: terraforming }
+  cost: { gold: 500000, materials: { steel: 300 } }
+  buildSeconds: 3600
+  description: Reshapes your estate.
+
+- id: quantumLink
+  name: Quantum Link
+  category: logistics
+  kind: teleporter
+  size: 2
+  unlock: { era: 4, research: quantumLink }
+  cost: { gold: 2000000, materials: { circuits: 200, rareEarth: 50 } }
+  buildSeconds: 7200
+  throughput: 5000
+  range: world
+  description: A pair of portals linking two of your networks anywhere in the world.
+
+# ---------------------------------------------------------------- Decorations
+- { id: tree,        name: Tree,        category: decoration, kind: decoration, size: 1, unlock: { level: 1 },  cost: { gold: 20 },   buildSeconds: 1, description: "A tree. Visitors like trees." }
+- { id: flowerBed,   name: Flower Bed,  category: decoration, kind: decoration, size: 1, unlock: { level: 3 },  cost: { gold: 50 },   buildSeconds: 1, description: "Colourful flowers." }
+- { id: lamp,        name: Lamp Post,   category: decoration, kind: decoration, size: 1, unlock: { level: 5 },  cost: { gold: 80 },   buildSeconds: 1, description: "Lights up at night." }
+- { id: fountain,    name: Fountain,    category: decoration, kind: decoration, size: 1, unlock: { level: 12 }, cost: { gold: 2000 }, buildSeconds: 30, description: "A splashing fountain." }
+- { id: statue,      name: Founder Statue, category: decoration, kind: decoration, size: 1, unlock: { level: 20 }, cost: { gold: 20000 }, buildSeconds: 60, description: "A statue of the founder of your company." }
+- { id: goldenMoily,    name: Golden Moily,    category: decoration, kind: decoration, size: 1, unlock: { collection: powerOfEra1 },  cost: { gold: 5000 }, buildSeconds: 30, description: "A wind moily of pure gold, for the Power of Era 1 collection." }
+- { id: crystalObelisk, name: Crystal Obelisk, category: decoration, kind: decoration, size: 1, unlock: { collection: diggingDeep },  cost: { gold: 5000 }, buildSeconds: 30, description: "A glowing crystal, for the Digging Deep collection." }
+- { id: goldenGear,     name: Golden Gear,     category: decoration, kind: decoration, size: 1, unlock: { collection: factoryFloor }, cost: { gold: 5000 }, buildSeconds: 30, description: "A giant golden gear, for the Factory Floor collection." }
+- { id: crystalGrotto,  name: Crystal Grotto,  category: decoration, kind: decoration, size: 1, layer: deep, unlock: { level: 30, research: deepLift }, cost: { gold: 50000 }, buildSeconds: 300, description: "Glowing crystals that light up the caverns of the Deep Level." }

@@ -1,0 +1,402 @@
+# Research (GDD §8.3). Labs make research points (RP); a tech costs RP and takes time.
+# Knowledge diffusion: a tech is up to 50% cheaper when more active companies already have it.
+# Unlocks: buildings and pipe tiers name the tech they need (unlock.research / research).
+# effects: bonuses for the company that has the tech
+#   output: { targets: ["building:smelter"], amount: 0.25 }   +25% output of matching buildings (quote the targets)
+#   targets: modifier:wind | modifier:sun | building:<id> | category:<category> | resource:<resource>
+#   throughput: { amount: 0.5 }                +50% throughput of your pipes
+#   bandWidth: { amount: 0.1 }                 your prices may go 10% further outside the fair band (Economy)
+#   managerSlots: { amount: 1 }                one more manager slot
+
+# ---------------------------------------------------------------- Era 1
+- id: betterBearings
+  name: Better Bearings
+  branch: energy
+  era: 1
+  cost: 150
+  minutes: 5
+  effects: [{ output: { targets: ["modifier:wind"], amount: 0.25 } }]
+  description: Smoother wind moilies. +25% output of everything that runs on wind.
+
+- id: solarTracking
+  name: Solar Tracking
+  branch: energy
+  era: 1
+  cost: 150
+  minutes: 5
+  effects: [{ output: { targets: ["modifier:sun"], amount: 0.25 } }]
+  description: Panels follow the sun. +25% output of everything that runs on sunlight.
+
+- id: hydroWheel
+  name: Hydro Wheel
+  branch: energy
+  era: 1
+  cost: 250
+  minutes: 10
+  description: Unlocks the Hydro Wheel, steady energy from a river or lake.
+
+- id: oreWashing
+  name: Ore Washing
+  branch: industry
+  era: 1
+  cost: 200
+  minutes: 10
+  effects: [{ output: { targets: ["resource:ironOre", "resource:copperOre", "resource:coal"], amount: 0.1 } }]
+  description: Cleaner ore from the same rock. +10% iron ore, copper ore and coal.
+
+- id: doubleFurnace
+  name: Double Furnace
+  branch: industry
+  era: 1
+  cost: 300
+  minutes: 15
+  requires: [oreWashing]
+  effects: [{ output: { targets: ["building:smallFactory", "building:smelter", "building:bigFactory"], amount: 0.15 } }]
+  description: A second furnace in every factory. +15% output of factories and smelters.
+
+- id: bigFactory
+  name: Big Factory
+  branch: industry
+  era: 1
+  cost: 500
+  minutes: 20
+  requires: [doubleFurnace]
+  description: Unlocks the Big Factory, five times a Small Factory on four tiles.
+
+- id: copperPipes
+  name: Copper Pipes
+  branch: logistics
+  era: 1
+  cost: 200
+  minutes: 10
+  description: Unlocks Copper Pipes, half the losses and five times the throughput of grey pipes.
+
+- id: valves
+  name: Valves
+  branch: logistics
+  era: 1
+  cost: 300
+  minutes: 15
+  requires: [copperPipes]
+  description: Unlocks Valves (only chosen resources pass) and Priority Valves (served first).
+
+- id: pumpStations
+  name: Pump Stations
+  branch: logistics
+  era: 1
+  cost: 400
+  minutes: 20
+  requires: [valves]
+  description: Unlocks Pump Stations. A network needs one for every 50 buildings.
+
+- id: contracts2
+  name: Contracts II
+  branch: economy
+  era: 1
+  cost: 400
+  minutes: 20
+  description: Longer contracts and more of them at the same time.
+
+- id: marketInsight
+  name: Market Insight
+  branch: economy
+  era: 1
+  cost: 300
+  minutes: 15
+  description: See where the hub prices are heading.
+
+- id: haggling
+  name: Haggling
+  branch: economy
+  era: 1
+  cost: 350
+  minutes: 15
+  requires: [marketInsight]
+  effects: [{ bandWidth: { amount: 0.1 } }]
+  description: Your prices for neighbours may go 10% further than the fair band.
+
+# ---------------------------------------------------------------- Era 2
+- id: powerLines
+  name: Power Lines
+  branch: energy
+  era: 2
+  cost: 2000
+  minutes: 45
+  description: Unlocks Power Line Pylons, energy over long distances without losses.
+
+- id: bigTurbine
+  name: Big Turbine
+  branch: energy
+  era: 2
+  cost: 2500
+  minutes: 60
+  requires: [betterBearings]
+  description: Unlocks the Big Turbine.
+
+- id: steamTurbine
+  name: Steam Turbine
+  branch: energy
+  era: 2
+  cost: 3000
+  minutes: 60
+  description: Unlocks the Steam Turbine.
+
+- id: steelMaking
+  name: Steel Making
+  branch: industry
+  era: 2
+  cost: 2500
+  minutes: 60
+  requires: [bigFactory]
+  description: Unlocks the Steel Mill.
+
+- id: complexes
+  name: Complexes
+  branch: industry
+  era: 2
+  cost: 3000
+  minutes: 90
+  requires: [bigFactory]
+  description: Four identical 1×1 buildings in a square merge into a 2×2 complex with the output of five.
+
+- id: wireDrawing
+  name: Wire Drawing
+  branch: industry
+  era: 2
+  cost: 2000
+  minutes: 45
+  description: Unlocks the Wire Mill.
+
+- id: deepMining
+  name: Deep Mining
+  branch: industry
+  era: 2
+  cost: 3500
+  minutes: 90
+  requires: [oreWashing]
+  description: Unlocks the Deep Mine for rich deposits.
+
+- id: steelPipes
+  name: Steel Pipes
+  branch: logistics
+  era: 2
+  cost: 3000
+  minutes: 60
+  requires: [copperPipes]
+  description: Unlocks Steel Pipes.
+
+- id: siloStorage
+  name: Silos
+  branch: logistics
+  era: 2
+  cost: 2500
+  minutes: 60
+  description: Unlocks the Silo, half a million units of storage.
+
+- id: trains
+  name: Trains
+  branch: logistics
+  era: 2
+  cost: 4000
+  minutes: 120
+  description: Cargo Depots ship by train, faster and twice as much.
+
+- id: showroom
+  name: Showroom
+  branch: economy
+  era: 2
+  cost: 2500
+  minutes: 60
+  description: Unlocks the Showroom.
+
+- id: futures
+  name: Futures
+  branch: economy
+  era: 2
+  cost: 3000
+  minutes: 90
+  requires: [contracts2]
+  description: Contracts up to 30 days instead of 7, a fixed price far into the future.
+
+# ---------------------------------------------------------------- Era 3
+- id: solarFarm
+  name: Solar Farm
+  branch: energy
+  era: 3
+  cost: 12000
+  minutes: 180
+  requires: [solarTracking]
+  description: Unlocks the Solar Farm.
+
+- id: refining
+  name: Refining
+  branch: industry
+  era: 3
+  cost: 15000
+  minutes: 240
+  description: Unlocks the Refinery.
+
+- id: plastics
+  name: Plastics
+  branch: industry
+  era: 3
+  cost: 12000
+  minutes: 180
+  requires: [refining]
+  effects: [{ output: { targets: ["building:refinery"], amount: 0.25 } }]
+  description: Better catalysts. +25% Refinery output.
+
+- id: megaComplexes
+  name: Mega Complexes
+  branch: industry
+  era: 3
+  cost: 15000
+  minutes: 240
+  requires: [complexes]
+  description: Nine identical 1×1 buildings in a square merge into a 3×3 mega complex with the output of twelve.
+
+- id: pipelinePressure
+  name: Pipeline Pressure
+  branch: logistics
+  era: 3
+  cost: 15000
+  minutes: 240
+  requires: [steelPipes]
+  effects: [{ throughput: { amount: 0.5 } }]
+  description: +50% throughput of all your pipes.
+
+- id: globalExchange
+  name: Global Exchange
+  branch: economy
+  era: 3
+  cost: 15000
+  minutes: 240
+  description: Trade on the Exchange with every hub.
+
+# ---------------------------------------------------------------- Era 4
+- id: geothermal
+  name: Geothermal
+  branch: energy
+  era: 4
+  cost: 50000
+  minutes: 480
+  description: Unlocks the Geothermal Plant.
+
+- id: circuits
+  name: Circuits
+  branch: industry
+  era: 4
+  cost: 50000
+  minutes: 480
+  description: Unlocks the Circuit Fab.
+
+- id: assembly
+  name: Assembly
+  branch: industry
+  era: 4
+  cost: 60000
+  minutes: 600
+  requires: [circuits]
+  description: Unlocks the Assembly Plant.
+
+- id: robots
+  name: Robots
+  branch: industry
+  era: 4
+  cost: 80000
+  minutes: 720
+  requires: [assembly]
+  description: Unlocks Robot Works.
+
+- id: glassConduit
+  name: Glass Conduit
+  branch: logistics
+  era: 4
+  cost: 60000
+  minutes: 600
+  requires: [pipelinePressure]
+  description: Unlocks Glass Conduits.
+
+- id: automation
+  name: Automation
+  branch: logistics
+  era: 4
+  cost: 50000
+  minutes: 480
+  effects: [{ managerSlots: { amount: 1 } }]
+  description: One more manager slot.
+
+- id: brand
+  name: Brand
+  branch: economy
+  era: 4
+  cost: 40000
+  minutes: 480
+  description: Your company name on the hub billboards.
+
+# ---------------------------------------------------------------- Era 5
+- id: fusion
+  name: Fusion
+  branch: energy
+  era: 5
+  cost: 250000
+  minutes: 1440
+  description: Unlocks the Fusion Reactor.
+
+- id: superconductors
+  name: Superconductors
+  branch: industry
+  era: 5
+  cost: 250000
+  minutes: 1440
+  requires: [robots]
+  description: Unlocks the Superconductor Lab.
+
+- id: superconductorPipes
+  name: Superconductor Pipes
+  branch: logistics
+  era: 5
+  cost: 300000
+  minutes: 1440
+  requires: [glassConduit, superconductors]
+  description: Unlocks Superconductor pipes, no losses at all.
+
+# ---------------------------------------------------------------- Late game (GDD §11)
+- id: deepLift
+  name: The Deep Level
+  branch: industry
+  era: 1
+  level: 30
+  cost: 5000
+  minutes: 120
+  requires: [bigFactory]
+  description: Unlocks the Deep Lift to build under your estate, and the Magma Tap and Vault down there.
+
+- id: pneumaticPost
+  name: Pneumatic Post
+  branch: logistics
+  era: 2
+  level: 30
+  cost: 8000
+  minutes: 180
+  requires: [pumpStations]
+  description: Unlocks the Pneumatic Post, a teleporter between your estates.
+
+- id: terraforming
+  name: Terraforming
+  branch: industry
+  era: 3
+  level: 35
+  cost: 20000
+  minutes: 300
+  description: Unlocks the Terraformer, which changes terrain.
+
+- id: quantumLink
+  name: Quantum Link
+  branch: logistics
+  era: 4
+  level: 40
+  cost: 80000
+  minutes: 720
+  requires: [pneumaticPost]
+  description: Unlocks the Quantum Link, a big teleporter.

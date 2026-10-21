@@ -1,0 +1,6 @@
+# Pipe tiers. Loss is per tile, throughput is per producer -> consumer connection per minute.
+- { id: grey,           name: Grey Pipe,       tier: 1, era: 1, gold: 2,   materials: {},                         lossPerTile: 0.003,  throughput: 100 }
+- { id: copper,         name: Copper Pipe,     tier: 2, era: 1, gold: 10,  materials: { copperIngot: 1 },        lossPerTile: 0.0015, throughput: 500, research: copperPipes }
+- { id: steel,          name: Steel Pipe,      tier: 3, era: 2, gold: 40,  materials: { steel: 1 },              lossPerTile: 0.0005, throughput: 5000, research: steelPipes }
+- { id: glass,          name: Glass Conduit,   tier: 4, era: 4, gold: 200, materials: { glass: 2, circuits: 1 }, lossPerTile: 0.0001, throughput: 50000, research: glassConduit }
+- { id: superconductor, name: Superconductor,  tier: 5, era: 5, gold: 2000, materials: { superconductors: 1 },   lossPerTile: 0,      throughput: 1000000000, research: superconductorPipes }

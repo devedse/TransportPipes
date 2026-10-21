@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
-    <ProjectReference Include="..\TransportPipes.Actionizer\TransportPipes.Actionizer.csproj" />
+    <ProjectReference Include="..\TransportPipes.Database\TransportPipes.Database.csproj" />
   </ItemGroup>
 
   <ItemGroup>
