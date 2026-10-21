@@ -36,8 +36,9 @@ public sealed class WorldHost : BackgroundService
     private bool _saveSoon;
     private DateTime _lastSave;
 
-    public WorldHost(WorldStore store, IHubContext<GameHub, IGameClient> hub, ConnectedUsers connectedUsers, SocialService social, AccountService accounts, IOptions<TransportPipesOptions> options, ILogger<WorldHost> logger, TimeProvider time)
+    public WorldHost(WorldStore store, IHubContext<GameHub, IGameClient> hub, ConnectedUsers connectedUsers, SocialService social, AccountService accounts, IOptions<TransportPipesOptions> options, ILogger<WorldHost> logger, TimeProvider time, PlaytestLog? playtestLog = null)
     {
+        _playtestLog = playtestLog;
         _store = store;
         _hub = hub;
         _connectedUsers = connectedUsers;
@@ -51,6 +52,15 @@ public sealed class WorldHost : BackgroundService
     public Task Ready => _ready.Task;
 
     private DateTime Now => _time.GetUtcNow().UtcDateTime;
+
+    private readonly PlaytestLog? _playtestLog;
+
+    /// <summary>Saves the world now (the playtest director, before a snapshot of the database)</summary>
+    public async Task SaveNowAsync()
+    {
+        await Ready;
+        await SaveAsync(force: true);
+    }
 
     /// <summary>Runs something on the world (a command or a query) and sends the changes it caused to the clients</summary>
     public async Task<T> RunAsync<T>(Func<GameWorld, T> action, bool changesWorld = true)
@@ -302,6 +312,7 @@ public sealed class WorldHost : BackgroundService
     private List<Func<Task>> CollectPushes(GameWorld world)
     {
         var changes = world.TakeChanges();
+        _playtestLog?.Write(world, changes.Events);
         var pushes = new List<Func<Task>>();
         if (changes.IsEmpty)
         {

@@ -4,6 +4,7 @@ import { App } from "./App";
 import { gameClient } from "./app/client";
 import { TextureBank } from "./game/art/textures";
 import { watchForUpdates } from "./app/updates";
+import * as layout from "./game/layout";
 import * as rules from "./game/rules";
 import { appStore } from "./state/store";
 import "@fontsource-variable/fraunces";
@@ -17,8 +18,8 @@ createRoot(document.getElementById("root")!).render(
 );
 
 if (import.meta.env.DEV) {
-  // For the end-to-end scripts and the console
-  Object.assign(window, { tp: { gameClient, appStore, rules } });
+  // For the end-to-end scripts, the playtest's driver and the console
+  Object.assign(window, { tp: { gameClient, appStore, rules, layout } });
 }
 
 void gameClient.start();

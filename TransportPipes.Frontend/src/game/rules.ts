@@ -1,4 +1,4 @@
-import type { BuildingDefinition, CompanyDto, EstateDto } from "../api/contracts";
+import type { BuildingDefinition, BuildingDto, CompanyDto, EstateDto } from "../api/contracts";
 import type { Content } from "./content";
 import { DEEP_OFFSET, ESTATE_SIZE, isDeep, isParcelUnlocked, parcelOf, zoneAt } from "./layout";
 import type { WorldModel } from "./world";
@@ -309,7 +309,45 @@ export function pipeCost(
   return terrain === "water" ? 3 : 1;
 }
 
-/** The cheapest pipe route between two tiles (A*), or null when there is none within the search limit */
+/** A building a pipe can't go through (not one of your own valves or gates), at this tile */
+function blockingBuilding(
+  world: WorldModel,
+  company: CompanyDto,
+  x: number,
+  y: number,
+  content?: Content,
+): BuildingDto | undefined {
+  const building = world.buildingAt(x, y);
+  return building !== undefined && !isOwnConductor(world, company, x, y, content) ? building : undefined;
+}
+
+/** Whether a tile is next to a building's footprint (a pipe there connects it) */
+function touches(building: BuildingDto, x: number, y: number): boolean {
+  const insideX = x >= building.x && x < building.x + building.size;
+  const insideY = y >= building.y && y < building.y + building.size;
+  return (
+    (insideX && (y === building.y - 1 || y === building.y + building.size)) ||
+    (insideY && (x === building.x - 1 || x === building.x + building.size))
+  );
+}
+
+function around(building: BuildingDto): Array<{ x: number; y: number }> {
+  const tiles: Array<{ x: number; y: number }> = [];
+  for (let i = 0; i < building.size; i++) {
+    tiles.push(
+      { x: building.x + i, y: building.y - 1 },
+      { x: building.x + i, y: building.y + building.size },
+      { x: building.x - 1, y: building.y + i },
+      { x: building.x + building.size, y: building.y + i },
+    );
+  }
+  return tiles;
+}
+
+/**
+ * The cheapest pipe route between two tiles (A*), or null when there is none within the search limit. A route that
+ * starts or ends on a building ("drag from the panel to your Trading Post") goes from or to the free tiles around it.
+ */
 export function routePipe(
   world: WorldModel,
   company: CompanyDto,
@@ -318,15 +356,28 @@ export function routePipe(
   content?: Content,
   limit = 4000,
 ): Array<{ x: number; y: number }> | null {
+  const startBuilding = blockingBuilding(world, company, from.x, from.y, content);
+  const endBuilding = blockingBuilding(world, company, to.x, to.y, content);
+  if (startBuilding !== undefined && startBuilding.id === endBuilding?.id) {
+    return null;
+  }
+  const starts =
+    startBuilding !== undefined
+      ? around(startBuilding).filter((t) => pipeCost(world, company, t.x, t.y, content) !== null)
+      : pipeCost(world, company, from.x, from.y, content) !== null
+        ? [from]
+        : [];
   if (
-    pipeCost(world, company, from.x, from.y, content) === null ||
-    pipeCost(world, company, to.x, to.y, content) === null
+    starts.length === 0 ||
+    (endBuilding === undefined && pipeCost(world, company, to.x, to.y, content) === null)
   ) {
     return null;
   }
+  const isGoal = (x: number, y: number) =>
+    endBuilding !== undefined ? touches(endBuilding, x, y) : x === to.x && y === to.y;
   const key = (x: number, y: number) => `${x},${y}`;
-  const open: Array<{ x: number; y: number; f: number }> = [{ ...from, f: 0 }];
-  const cost = new Map<string, number>([[key(from.x, from.y), 0]]);
+  const open: Array<{ x: number; y: number; f: number }> = starts.map((t) => ({ x: t.x, y: t.y, f: 0 }));
+  const cost = new Map<string, number>(starts.map((t) => [key(t.x, t.y), 0]));
   const previous = new Map<string, { x: number; y: number }>();
   const heuristic = (x: number, y: number) => (Math.abs(x - to.x) + Math.abs(y - to.y)) * 0.15;
   let visited = 0;
@@ -339,7 +390,7 @@ export function routePipe(
     }
     const current = open.splice(best, 1)[0]!;
     visited++;
-    if (current.x === to.x && current.y === to.y) {
+    if (isGoal(current.x, current.y)) {
       const path = [{ x: current.x, y: current.y }];
       let k = key(current.x, current.y);
       while (previous.has(k)) {

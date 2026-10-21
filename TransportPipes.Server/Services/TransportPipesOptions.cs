@@ -56,4 +56,14 @@ public class TransportPipesOptions
 
     /// <summary>How many guests (players without an account yet) one address may start a day</summary>
     public int GuestsPerAddressPerDay { get; set; } = 5;
+
+    /// <summary>
+    /// A playtest server (docs/playtest-design.html): a clock the director moves, the /playtest calls (with
+    /// <see cref="PlaytestToken"/>) and a log of every world event in <see cref="PlaytestDataDir"/>. Never in production.
+    /// </summary>
+    public bool Playtest { get; set; }
+
+    public string PlaytestToken { get; set; } = "";
+
+    public string PlaytestDataDir { get; set; } = "playtest-data";
 }

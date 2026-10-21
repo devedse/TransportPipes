@@ -30,7 +30,21 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
-builder.Services.AddSingleton(TimeProvider.System);
+var playtest = builder.Configuration.GetSection(TransportPipesOptions.SectionName).Get<TransportPipesOptions>() is { Playtest: true } options
+    ? options
+    : null;
+if (playtest != null)
+{
+    // The director's clock: one for the world, the logins and everything else
+    var clock = new PlaytestClock(Path.Combine(playtest.PlaytestDataDir, "clock.json"));
+    builder.Services.AddSingleton(clock);
+    builder.Services.AddSingleton<TimeProvider>(clock);
+    builder.Services.AddSingleton<PlaytestLog>();
+}
+else
+{
+    builder.Services.AddSingleton(TimeProvider.System);
+}
 builder.Services.AddSingleton(services => new TransportPipesDbFactory(connectionString, services.GetRequiredService<ILoggerFactory>()));
 builder.Services.AddDbContext<TransportPipesDbContext>(options => options.UseNpgsql(connectionString));
 builder.Services.AddSingleton<IPasswordHasher<DbUser>, PasswordHasher<DbUser>>();
@@ -112,6 +126,10 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapHub<GameHub>(GameHub.Path);
+if (playtest != null)
+{
+    app.MapPlaytest(playtest);
+}
 app.MapHealthChecks("/health");
 app.MapGet("/api/version", () => AppVersion.Current);
 
