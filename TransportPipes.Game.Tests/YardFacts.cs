@@ -60,6 +60,111 @@ public class YardFacts
         Assert.AreEqual(goldB + 10 * (oreSales - paid), b.Gold, 1e-6, "B pays the player price for what leaves the Yard for it");
     }
 
+    /// <summary>
+    /// A's Wind Moily piped to its gate and (unless gateOnly) its trading post; B, next door, has a Small Factory piped
+    /// to its gate and post but no iron ore, so it can't use the energy it seems to lack (run 1's Lab trap, small)
+    /// </summary>
+    private static (TestGame Game, Company A, Company B, Building Moily, Building Factory) StuckBuyer(bool withB = true, bool gateOnly = false)
+    {
+        // Lossless pipes: what A's own pipes lose on the longer way to its gate is its own (not the floor's business)
+        var game = new TestGame(content: TestGame.LosslessContent);
+        var a = game.NewCompany("A");
+        var moily = game.Build(a, "windMoily");
+        game.ConnectToGate(a, moily);
+        if (!gateOnly)
+        {
+            game.Connect(a, moily, game.TradingPost(a));
+        }
+        var b = game.NewCompany("B", level: 2);
+        Building factory = null!;
+        if (withB)
+        {
+            factory = game.Build(b, "smallFactory");
+            game.ConnectToGate(b, factory);
+            game.Connect(b, factory, game.TradingPost(b));
+        }
+        game.World.SolveNetworks();
+        return (game, a, b, moily, factory);
+    }
+
+    [TestMethod]
+    public void SellingThroughTheYardNeverPaysLessThanTheHub()
+    {
+        double GoldOfA(bool withB)
+        {
+            var (game, a, _, _, _) = StuckBuyer(withB);
+            game.Pass(5);
+            var before = a.Gold;
+            game.Pass(60);
+            return a.Gold - before;
+        }
+
+        var alone = GoldOfA(withB: false);
+        var besideTheStuckBuyer = GoldOfA(withB: true);
+        Assert.IsTrue(alone > 0);
+        Assert.IsTrue(besideTheStuckBuyer >= alone * 0.999, $"next to a buyer that takes nothing A still earns its hub's worth ({besideTheStuckBuyer:F1} against {alone:F1})");
+    }
+
+    [TestMethod]
+    public void WhatTheBuyerDoesntTakeIsPaidAtTheSellersHubPrice()
+    {
+        var (game, a, b, _, _) = StuckBuyer();
+        game.Pass(5);
+        var floor = game.World.StatValue(a, "yardFloor");
+        var untaken = game.World.StatValue(a, "yardUntaken");
+        game.Pass(10);
+        var units = game.World.StatValue(a, "yardUntaken") - untaken;
+        var gold = game.World.StatValue(a, "yardFloor") - floor;
+
+        Assert.IsTrue(units > 1, "the stuck factory takes nothing of what the Yard brings it (run 1's bug, still in the matching)");
+        Assert.AreEqual(units * game.World.HubBuyPrice(a, "energy"), gold, 1e-6, "conservation: the seller gets its hub price for what wasn't taken");
+        Assert.AreEqual(0, game.World.StatValue(a, "yardPaid"), "nobody took it, so no player paid");
+        Assert.AreEqual(0, game.World.StatValue(b, "boughtFromPlayers"));
+    }
+
+    [TestMethod]
+    public void TheFloorIsCappedByWhatWouldHaveGoneToTheHub()
+    {
+        // A's moily reaches only its gate: what it makes for the Yard would never have been sold at the hub
+        var (game, a, _, _, _) = StuckBuyer(gateOnly: true);
+        game.Pass(15);
+
+        Assert.IsTrue(game.World.StatValue(a, "yardUntaken") > 1, "the Yard still sends it to the stuck factory");
+        Assert.AreEqual(0, game.World.StatValue(a, "yardFloor"), "no gold for goods that had no way to the hub");
+    }
+
+    [TestMethod]
+    public void GoldIsConservedThroughTheYard()
+    {
+        var (game, a, b, _, mine) = Neighbours();
+        game.Pass(5);
+        double Paid() => game.World.StatValue(a, "yardPaid");
+        var paid = Paid();
+        var taken = game.World.NetworkOf(mine.Id)!.GateFlows.Where(t => t.Import).Sum(t => t.Sent);
+        var goldB = b.Gold;
+        var ownB = game.World.NetworkOf(mine.Id)!.Solution.GoldPerMinute[b.Id];
+        game.Pass(10);
+
+        Assert.AreEqual(taken * game.World.PlayerPrice("energy") * 10, Paid() - paid, 1e-6, "A gets what B's buildings took, at the player price");
+        Assert.AreEqual(goldB + 10 * ownB, b.Gold, 1e-6, "and B paid exactly that (its network's rate already counts it)");
+        Assert.AreEqual(0, game.World.StatValue(a, "yardFloor"), 1e-9, "the mine takes all it was matched");
+    }
+
+    [TestMethod]
+    public void TheFloorNeverPaysTheProjectTwice()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        game.World.ProjectsEnabled = true;
+        var a = game.NewCompany("A");
+        var moily = game.Build(a, "windMoily");
+        game.ConnectToGate(a, moily);
+        game.Connect(a, moily, game.TradingPost(a));
+        game.Pass(30);
+
+        Assert.IsTrue(game.World.StatValue(a, "projectGold") > 0, "the Foundation takes A's energy and pays for it");
+        Assert.AreEqual(0, game.World.StatValue(a, "yardFloor"), "what the project took is paid by the project only");
+    }
+
     [TestMethod]
     public void WhenTwoYardPipesMeetBothSeeTheHandshake()
     {

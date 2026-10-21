@@ -20,6 +20,11 @@ internal sealed class TestGame
     /// <summary>The game content without location modifiers (wind, sun, richness), so every building makes its listed amount</summary>
     public static GameContent PlainContent { get; } = CreatePlainContent();
 
+    /// <summary>PlainContent whose pipes lose nothing (so how long a pipe is doesn't matter)</summary>
+    public static GameContent LosslessContent { get; } = new(PlainContent.ResourceList, PlainContent.BuildingList, PlainContent.PipeTiers.Select(t => t with { LossPerTile = 0 }).ToList(),
+        PlainContent.Progression, PlainContent.ResearchList, [.. PlainContent.DistrictWonders, .. PlainContent.EraWonders], PlainContent.Managers, PlainContent.Achievements,
+        PlainContent.Collections, PlainContent.Tutorial, PlainContent.Relics);
+
     private static GameContent CreatePlainContent()
     {
         var content = GameContent.Default;

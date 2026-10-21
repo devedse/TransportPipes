@@ -52,6 +52,15 @@ public sealed partial class GameWorld
         /// <summary>The last matching: how much of what this estate sends to which buyer (it arrives the round after)</summary>
         public Dictionary<(EstateKey Buyer, string Resource), double> Matched { get; set; } = new();
 
+        /// <summary>The last matching: the share of what this estate's Yard sales took that would have gone to its hub</summary>
+        public Dictionary<string, double> HubShare { get; set; } = new();
+
+        /// <summary>
+        /// Of what the Yard brings (Import), per minute from each seller: the part that would have gone to the seller's hub.
+        /// What the buyer doesn't take of it is paid to the seller at its own hub price (the floor, F1).
+        /// </summary>
+        public Dictionary<(string Resource, int PriceClass), Dictionary<long, double>> HubBound { get; set; } = new();
+
         public bool IsEmpty => Export.Count == 0 && Import.Count == 0 && Matched.Count == 0;
     }
 
@@ -183,7 +192,7 @@ public sealed partial class GameWorld
     /// </summary>
     private void SettleGateFlows(Network network, double minutes, Dictionary<long, double> earnings)
     {
-        CountUntaken(network, minutes);
+        SettleUntaken(network, minutes, earnings);
         foreach (var flow in network.GateFlows)
         {
             if (!_buildings.TryGetValue(flow.Building, out var building) || Company(building.Owner) is not { } owner)
@@ -231,10 +240,12 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// Measures what the Yard brought to this network's gates and nobody took (its sellers sent it, and it was lost on
-    /// the way): per seller, the units sent to its buyers and the units they didn't take
+    /// What the Yard brought to this network's gates and the buyer didn't take (F1, the floor): its sellers sent it, so
+    /// what would have gone to their hub is paid at their own hub price, booked as a hub sale. The rest of it (what a
+    /// Storage kept, or a building made only for the Yard) is lost on the way, and the next round sends less. Also counts
+    /// the measures: per seller, the units sent to its buyers and the units they didn't take.
     /// </summary>
-    private void CountUntaken(Network network, double minutes)
+    private void SettleUntaken(Network network, double minutes, Dictionary<long, double> earnings)
     {
         foreach (var gate in network.Gates)
         {
@@ -252,16 +263,42 @@ public sealed partial class GameWorld
                 }
                 var taken = network.GateFlows.Where(t => t.Import && t.Estate == key && t.Resource == resource && t.PriceClass == priceClass).Sum(t => t.Sent);
                 var untaken = Math.Max(0, total - taken);
+                var hubBound = terms.HubBound.GetValueOrDefault((resource, priceClass));
                 foreach (var (sellerId, amount) in sources)
                 {
-                    if (Company(sellerId) is { IsNpc: false } seller)
+                    if (Company(sellerId) is not { IsNpc: false } seller)
                     {
-                        AddStat(seller, "yardSent", amount * minutes);
-                        AddStat(seller, "yardUntaken", untaken * minutes * amount / total);
+                        continue;
+                    }
+                    AddStat(seller, "yardSent", amount * minutes);
+                    AddStat(seller, "yardUntaken", untaken * minutes * amount / total);
+                    // Its share of what wasn't taken (in the same proportion as it is paid for what was), as far as it would have gone to its hub
+                    var units = untaken * minutes * Math.Min(amount, hubBound?.GetValueOrDefault(sellerId) ?? 0) / total;
+                    if (units > 1e-12 && !seller.Asleep)
+                    {
+                        BookHubSale(seller, resource, units, units * HubBuyPrice(seller, resource), earnings, "yardFloor");
                     }
                 }
             }
         }
+    }
+
+    /// <summary>Gold a company gets for goods as if it had sold them at its hub: its report, its Hub Order and its reputation count them</summary>
+    private void BookHubSale(Company seller, string resource, double units, double gold, Dictionary<long, double> earnings, string stat)
+    {
+        seller.Gold += gold;
+        earnings[seller.Id] = earnings.GetValueOrDefault(seller.Id) + gold;
+        AddStat(seller, stat, gold);
+        Add(seller.Report.Sold, resource, units);
+        HubMarketOf(seller, seller.District).AddSold(resource, units);
+        var level = ReputationLevel(seller);
+        seller.HubReputation += gold / 2000;
+        if (ReputationLevel(seller) != level)
+        {
+            MarkCompanyNetworksDirty(seller.Id);
+        }
+        seller.Touch();
+        Changes.Companies.Add(seller.Id);
     }
 
     /// <summary>Whether the Yard brings something to one of this network's gates</summary>
@@ -288,6 +325,14 @@ public sealed partial class GameWorld
 
         /// <summary>What it sent through its gate last round, per resource</summary>
         public Dictionary<string, double> Sent { get; } = new();
+
+        /// <summary>Of its spare as measured (before anything is matched): the part that goes (or went) to its hub</summary>
+        public Dictionary<string, double> HubSpare { get; } = new();
+        public Dictionary<string, double> SpareMeasured { get; } = new();
+
+        /// <summary>The share of its spare of a good that would go to its hub</summary>
+        public double HubShare(string resource) =>
+            SpareMeasured.GetValueOrDefault(resource) is > 1e-12 and var spare ? Math.Min(1, HubSpare.GetValueOrDefault(resource) / spare) : 0;
     }
 
     /// <summary>The residents of a station whose Yard gate is connected, with what they have spare and lack</summary>
@@ -315,6 +360,10 @@ public sealed partial class GameWorld
             }
             var member = new YardMember { Key = KeyOf(estate), Company = company, Network = network };
             Measure(member);
+            foreach (var (resource, amount) in member.Spare)
+            {
+                member.SpareMeasured[resource] = amount;
+            }
             members.Add(member);
         }
         return members;
@@ -349,6 +398,7 @@ public sealed partial class GameWorld
             if (flow.Kind == FlowKind.Sale && ToGate(flow.From, flow.Resource) is > 0 and var out_)
             {
                 Add(member.Spare, flow.Resource, flow.Sent * out_);
+                Add(member.HubSpare, flow.Resource, flow.Sent * out_);
             }
             else if (flow.Kind == FlowKind.Import && ToGate(flow.To, flow.Resource) is > 0 and var in_)
             {
@@ -366,6 +416,11 @@ public sealed partial class GameWorld
             {
                 Add(member.Spare, flow.Resource, flow.Delivered);
                 Add(member.Sent, flow.Resource, flow.Delivered);
+                if (ReachesOwnPost(network, flow.Building, flow.Resource))
+                {
+                    // Without the Yard it would go to the hub
+                    Add(member.HubSpare, flow.Resource, flow.Delivered);
+                }
             }
         }
         foreach (var node in network.Nodes.Where(t => t.Kind == FlowNodeKind.Building && t.Id > 0))
@@ -408,6 +463,14 @@ public sealed partial class GameWorld
                 }
             }
         }
+    }
+
+    /// <summary>Whether a building's pipes reach a trading post of its owner that can sell this good</summary>
+    private static bool ReachesOwnPost(Network network, long building, string resource)
+    {
+        var owner = network.Nodes.FirstOrDefault(t => t.Id == building)?.Owner;
+        var posts = network.Nodes.Where(t => t.Kind == FlowNodeKind.TradingPost && t.Owner == owner && t.Throughput > 0).Select(t => t.Id).ToHashSet();
+        return posts.Count > 0 && network.Links.Any(t => t.Allows(resource) && ((t.A == building && posts.Contains(t.B)) || (t.B == building && posts.Contains(t.A))));
     }
 
     /// <summary>Whether a seller's goods may go to a buyer: their trade settings, Blocks, and the buyer's gold</summary>
@@ -613,6 +676,15 @@ public sealed partial class GameWorld
                         import[(resource, priceClass)] = sources = new Dictionary<long, double>();
                     }
                     sources[seller.Company.Id] = sources.GetValueOrDefault(seller.Company.Id) + matched * ratio;
+                    if (!seller.Company.IsNpc && old.HubShare.GetValueOrDefault(resource) is > 0 and var hubShare)
+                    {
+                        var bound = TermsOf(buyerKey).HubBound;
+                        if (!bound.TryGetValue((resource, priceClass), out var bySeller))
+                        {
+                            bound[(resource, priceClass)] = bySeller = new Dictionary<long, double>();
+                        }
+                        bySeller[seller.Company.Id] = bySeller.GetValueOrDefault(seller.Company.Id) + matched * ratio * hubShare;
+                    }
                 }
             }
         }
@@ -653,6 +725,7 @@ public sealed partial class GameWorld
                     var terms = TermsOf(sellerKey);
                     terms.Export[resource] = terms.Export.GetValueOrDefault(resource) + amount;
                     terms.Matched[(buyerKey, resource)] = terms.Matched.GetValueOrDefault((buyerKey, resource)) + amount;
+                    terms.HubShare[resource] = byKey[sellerKey].HubShare(resource);
                     Add(byKey[sellerKey].Spare, resource, -amount);
                 }
             }
@@ -706,6 +779,8 @@ public sealed partial class GameWorld
             {
                 // Within the tolerance: the network keeps solving with what it has; what was matched still counts
                 before.Matched = after.Matched;
+                before.HubShare = after.HubShare;
+                before.HubBound = after.HubBound;
             }
         }
         _couplingInterval = changed ? CouplingInterval : TimeSpan.FromTicks(Math.Min(MaxCouplingInterval.Ticks, _couplingInterval.Ticks * 2));
