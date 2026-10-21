@@ -26,6 +26,8 @@ const metrics = lines(path.join(RUN_DIR, "metrics.jsonl"));
 const events = lines(path.join(RUN_DIR, "server", "events.jsonl"));
 const groupChat = lines(path.join(RUN_DIR, "group.jsonl"));
 const findings = JSON.parse(read(path.join(RUN_DIR, "findings.json"), "{}"));
+const costs = new Map(JSON.parse(read(path.join(RUN_DIR, "costs.json"), "[]")).map((t) => [`${t.player}|${t.session}`, t]));
+const directorSummary = read(path.join(RUN_DIR, "director-summary.md"), "");
 const day1 = new Date(story.day1 ?? new Date(new Date(metrics[0]?.now ?? Date.now()).getTime() - 20 * 3600e3).toISOString()).getTime();
 const dayOf = (iso) => (new Date(iso).getTime() - day1) / 86400e3 + 1;
 const when = (iso) => {
@@ -112,16 +114,20 @@ async function image(file) {
   if (!source) return null;
   if (!images.has(source)) {
     const meta = await sharp(source).metadata();
-    const width = Math.min(meta.width ?? 960, meta.width && meta.width < 600 ? 420 : 960);
-    const buffer = await sharp(source).resize({ width }).jpeg({ quality: 62 }).toBuffer();
-    images.set(source, { id: `img${images.size}`, data: `data:image/jpeg;base64,${buffer.toString("base64")}`, name: path.basename(source) });
+    const width = Math.min(meta.width ?? 800, meta.width && meta.width < 600 ? 390 : 800);
+    const buffer = await sharp(source).resize({ width }).webp({ quality: 62 }).toBuffer();
+    images.set(source, { id: `img${images.size}`, data: `data:image/webp;base64,${buffer.toString("base64")}`, name: path.basename(source) });
   }
   return images.get(source).id;
 }
-const shotPaths = (text) => [...String(text ?? "").matchAll(/(\/[^\s`)\]]+\.(?:jpg|png))/g)].map((m) => m[1]);
+/** The screenshots a text names (absolute, or relative to the player's folder like shots/small/…jpg) */
+const shotPaths = (text, dir) => [...String(text ?? "").matchAll(/((?:\/|shots\/)[^\s`)\],;]+\.(?:jpg|png))/g)]
+  .map((m) => (m[1].startsWith("/") ? m[1] : path.join(dir, m[1])));
 async function figure(file, caption, cls = "") {
   const id = await image(file);
-  return id ? `<figure class="${cls}"><img data-img="${id}" alt="${esc(caption)}" loading="lazy"><figcaption>${esc(caption)}</figcaption></figure>` : "";
+  if (!id) return "";
+  // Thumbnails beside a text need no caption of their own
+  return `<figure class="${cls}"><img data-img="${id}" alt="${esc(caption)}">${cls.includes("thumb") ? "" : `<figcaption>${esc(caption)}</figcaption>`}</figure>`;
 }
 
 // ---------------------------------------------------------------------------------------------- text
@@ -130,51 +136,91 @@ async function figure(file, caption, cls = "") {
 function md(text) {
   const inline = (t) => esc(t)
     .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+    .replace(/(^|[^\w*])\*(?!\s)([^*]+?)\*(?!\w)/g, "$1<i>$2</i>")
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\[#(\d+)\]/g, '<span class="ref">#$1</span>')
     .replace(/(\/[^\s<]+\/shots\/small\/)([^\s<]+\.jpg)/g, '<span class="shotref">$2</span>');
+  // Blocks are separated by blank lines; a block's lines join into one paragraph, a list item's into one item
   const out = [];
   let list = null;
+  let para = [];
+  const flushPara = () => {
+    if (para.length) out.push(`<p>${inline(para.join(" "))}</p>`);
+    para = [];
+  };
+  const flushList = () => {
+    if (list) out.push(`<ul>${list.map((t) => `<li>${inline(t)}</li>`).join("")}</ul>`);
+    list = null;
+  };
   for (const raw of String(text ?? "").split("\n")) {
     const line = raw.trimEnd();
     const item = line.match(/^\s*(?:[-*]|\d+\.)\s+(.*)$/);
     if (item) {
-      if (!list) { list = []; }
-      list.push(`<li>${inline(item[1])}</li>`);
-      continue;
+      flushPara();
+      list ??= [];
+      list.push(item[1]);
+    } else if (line.trim() === "") {
+      flushPara();
+      flushList();
+    } else if (list && /^\s+/.test(raw)) {
+      list[list.length - 1] += " " + line.trim();
+    } else {
+      flushList();
+      para.push(line.trim());
     }
-    if (list) { out.push(`<ul>${list.join("")}</ul>`); list = null; }
-    if (line.trim() === "") continue;
-    out.push(`<p>${inline(line)}</p>`);
   }
-  if (list) out.push(`<ul>${list.join("")}</ul>`);
+  flushPara();
+  flushList();
   return out.join("");
 }
 
 const pill = (status) => {
   const s = String(status ?? "").toLowerCase();
-  const cls = s === "kept" || s === "yes" ? "good" : s === "late" || s === "partly" || s === "maybe" ? "warn" : s === "missed" || s === "no" ? "bad" : "info";
+  const cls = s === "kept" || s === "yes" ? "good" : s === "late" || s === "partly" || s === "maybe" || s === "medium" ? "warn" : s === "missed" || s === "no" || s === "high" ? "bad" : "info";
   return `<span class="pill ${cls}">${esc(status ?? "—")}</span>`;
 };
 const dot = (p) => `<span class="key" style="background:${p.color}"></span>`;
 
 // ---------------------------------------------------------------------------------------------- the series
 
+/** One line per player of a number from the samples (a field, or a function of a sample's player) */
 function series(field) {
+  const value = typeof field === "function" ? field : (c) => Number(c[field] ?? 0);
   return players.filter((p) => p.company).map((p) => ({
     id: p.id,
     name: p.name,
     color: p.color,
     points: metrics.map((m) => {
       const c = m.players.find((t) => t.id === p.company.id);
-      return c ? [Number(dayOf(m.now).toFixed(4)), Number(c[field] ?? 0)] : null;
+      return c ? [Number(dayOf(m.now).toFixed(4)), value(c)] : null;
     }).filter(Boolean),
   })).filter((s) => s.points.length > 0);
 }
+/** Gold earned a minute between samples (lifetime earnings: hub, Yard, orders and rewards), over at least an hour */
+function earnedSeries() {
+  return players.filter((p) => p.company).map((p) => {
+    const points = [];
+    let last = null;
+    for (const m of metrics) {
+      const c = m.players.find((t) => t.id === p.company.id);
+      if (!c) continue;
+      const t = new Date(m.now).getTime();
+      if (last && t - last.t >= 3600e3) {
+        points.push([Number(dayOf(m.now).toFixed(4)), Math.max(0, (c.earned - last.earned) / ((t - last.t) / 60000))]);
+        last = { t, earned: c.earned };
+      } else if (!last) {
+        last = { t, earned: c.earned };
+      }
+    }
+    return { id: p.id, name: p.name, color: p.color, points };
+  }).filter((s) => s.points.length > 0);
+}
+
 const charts = {
   level: { title: "Company Level", unit: "", series: series("level") },
-  gpm: { title: "Income (gold a minute)", unit: " g/min", series: series("goldPerMinute") },
-  neighbour: { title: "Paid by neighbours through the Yard (gold a minute)", unit: " g/min", series: series("neighbourIncome") },
+  earned: { title: "What they really earned (gold a minute, from their lifetime earnings)", unit: " g/min", series: earnedSeries() },
+  gpm: { title: "What the top bar showed (hub sales, gold a minute)", unit: " g/min", series: series("goldPerMinute") },
+  neighbour: { title: "What the Yard matched to sell to neighbours (gold a minute; not all of it was paid — see the bugs)", unit: " g/min", series: series("neighbourIncome") },
   buildings: { title: "Buildings", unit: "", series: series("buildings") },
 };
 const sessionMarks = sessions.map((s) => ({ player: s.player, color: playerOf(s.player).color, start: dayOf(s.start), end: dayOf(s.end), label: s.session }));
@@ -186,7 +232,7 @@ async function storySection() {
   for (const s of sessions) {
     const p = playerOf(s.player);
     const f = s.diary.front;
-    const keyShots = shotPaths(s.diary.sections["Key screenshots"]);
+    const keyShots = shotPaths(s.diary.sections["Key screenshots"], path.join(RUN_DIR, s.player));
     const noteShots = s.notes.map((t) => t.shot).filter(Boolean);
     const all = [...new Set([...keyShots, ...noteShots])].slice(0, 6);
     const lineOf = (file) => (s.diary.sections["Key screenshots"] ?? "").split("\n").find((t) => t.includes(path.basename(file)))?.replace(/.*?\.jpg`?\s*[—–-]*\s*/, "") ?? "";
@@ -208,11 +254,19 @@ async function storySection() {
   return parts.join("\n");
 }
 
+/** "Cleo · d06-1400 #177 · max-lab": whose screen, which session and action, and the player's label */
+function shotCaption(file) {
+  const id = ORDER.find((t) => file.includes(`${path.sep}${t}${path.sep}`));
+  const m = path.basename(file).match(/^(d\d+-\d+)-0*(\d+)-(.+)\.(?:jpg|png)$/);
+  const who = id ? playerOf(id)?.name ?? id : "";
+  return m ? `${who} · ${m[1]} #${m[2]} · ${m[3].replace(/-/g, " ")}` : `${who} · ${path.basename(file)}`;
+}
+
 async function findingList(items, kind) {
   const out = [];
   for (const item of items ?? []) {
     const figs = [];
-    for (const file of (item.shots ?? []).slice(0, 3)) figs.push(await figure(file, item.title));
+    for (const file of (item.shots ?? []).slice(0, 3)) figs.push(await figure(file, shotCaption(file)));
     const who = (item.players ?? []).map((id) => playerOf(id)).filter(Boolean).map((p) => `${dot(p)}${esc(p.name)}`).join(" ");
     out.push(`<div class="finding ${kind}">
       <div class="finding-head">${item.severity ? pill(item.severity) : ""}<h3>${esc(item.title)}</h3>${who ? `<span class="who">${who}</span>` : ""}</div>
@@ -230,9 +284,44 @@ async function promisesTable() {
   for (const p of findings.promises) {
     const figs = [];
     for (const file of (p.shots ?? []).slice(0, 2)) figs.push(await figure(file, p.promise, "thumb"));
-    rows.push(`<tr><td class="nowrap"><b>${esc(p.when)}</b></td><td>${esc(p.promise)}</td><td>${pill(p.status)}</td><td>${esc(p.evidence)}${figs.join("")}</td></tr>`);
+    rows.push(`<tr><td class="nowrap"><b>${esc(p.when)}</b></td><td>${esc(p.promise)}</td><td>${pill(p.status)}</td><td>${md(p.evidence)}${figs.join("")}</td></tr>`);
   }
   return `<div class="scroll"><table><tr><th>When</th><th>The design promises</th><th></th><th>What happened</th></tr>${rows.join("")}</table></div>`;
+}
+
+/** Who played when: a row per player, a mark per session, and the moments that mattered */
+function calendar() {
+  const last = Math.max(2, ...sessions.map((t) => dayOf(t.end)), ...metrics.map((m) => dayOf(m.now)));
+  const days = Math.ceil(last);
+  const W = 1000, L = 70, R = 14, rowH = 30, T = 26;
+  const H = T + players.length * rowH + 40;
+  const X = (d) => L + ((d - 1) / days) * (W - L - R);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Who played when">`;
+  for (let d = 1; d <= days + 1; d += days > 20 ? 7 : 1) {
+    svg += `<line x1="${X(d)}" x2="${X(d)}" y1="${T - 6}" y2="${H - 34}" stroke="rgba(80,60,30,.12)"/><text x="${X(d)}" y="${H - 18}" font-size="12" text-anchor="middle" fill="#6b5c43">day ${d}</text>`;
+  }
+  // Moments: the first finished stage, the Era changing, a player falling asleep
+  const moments = [];
+  const firstFinished = metrics.find((m) => m.players.some((p) => (p.projectFinished ?? []).length > 0));
+  if (firstFinished) moments.push([dayOf(firstFinished.now), "Foundation built"]);
+  for (let i = 1; i < metrics.length; i++) if (metrics[i].era !== metrics[i - 1].era) moments.push([dayOf(metrics[i].now), `Era ${metrics[i].era}`]);
+  for (const p of players.filter((t) => t.company)) {
+    const asleep = metrics.find((m) => m.players.find((c) => c.id === p.company.id)?.asleep);
+    if (asleep) moments.push([dayOf(asleep.now), `${p.name} asleep`]);
+  }
+  moments.forEach(([d, label], i) => {
+    svg += `<line x1="${X(d)}" x2="${X(d)}" y1="${T - 10}" y2="${H - 34}" stroke="#94692a" stroke-width="1.5"/><text x="${X(d) + 4}" y="${T - 12 + (i % 2) * 0}" font-size="11" fill="#94692a">${esc(label)}</text>`;
+  });
+  players.forEach((p, i) => {
+    const y = T + i * rowH + rowH / 2;
+    svg += `<text x="${L - 10}" y="${y + 4}" font-size="13" text-anchor="end" fill="#2b2418">${esc(p.name)}</text>`;
+    for (const t of p.sessions) {
+      const x0 = X(dayOf(t.start));
+      const w = Math.max(6, X(dayOf(t.end)) - x0);
+      svg += `<rect x="${x0}" y="${y - 8}" width="${w}" height="16" rx="4" fill="${p.color}"><title>${esc(p.name)} · ${esc(when(t.start))} · ${t.actions} actions · ${t.stuck} stuck</title></rect>`;
+    }
+  });
+  return `${svg}</svg>`;
 }
 
 function scoresTable() {
@@ -240,9 +329,10 @@ function scoresTable() {
     const p = playerOf(s.player);
     const f = s.diary.front;
     const cell = (v) => `<td class="num c${esc(v)}">${esc(v ?? "—")}</td>`;
-    return `<tr><td>${dot(p)}${esc(p.name)}</td><td class="nowrap">${esc(when(s.start))}</td>${cell(f.clarity)}${cell(f.fun)}${cell(f.together ?? f.alive)}<td>${pill(f.come_back_tomorrow)}</td><td class="num">${s.actions}</td><td class="num">${s.stuck}</td><td class="num">${s.shots}</td></tr>`;
+    const cost = costs.get(`${s.player}|${s.session}`);
+    return `<tr><td>${dot(p)}${esc(p.name)}</td><td class="nowrap">${esc(when(s.start))}</td>${cell(f.clarity)}${cell(f.fun)}${cell(f.together ?? f.alive)}<td>${pill(f.come_back_tomorrow)}</td><td class="num">${s.actions}</td><td class="num">${s.stuck}</td><td class="num">${s.shots}</td><td class="num">${cost ? `${Math.round(cost.tokens / 1000)}k` : ""}</td><td class="num">${cost ? (cost.seconds / 60).toFixed(1) : ""}</td></tr>`;
   });
-  return `<div class="scroll"><table class="scores-table"><tr><th>Player</th><th>Session</th><th>Clarity</th><th>Fun</th><th>Together / alive</th><th>Tomorrow?</th><th>Actions</th><th>Stuck</th><th>Shots</th></tr>${rows.join("")}</table></div>`;
+  return `<div class="scroll"><table class="scores-table"><tr><th>Player</th><th>Session</th><th>Clarity</th><th>Fun</th><th>Together / alive</th><th>Tomorrow?</th><th>Actions</th><th>Stuck</th><th>Shots</th><th>Tokens</th><th>Agent min</th></tr>${rows.join("")}</table></div>`;
 }
 
 function groupSection() {
@@ -305,6 +395,15 @@ const body = `
 </section>
 
 <section class="page">
+  <h2>How the playtest ran</h2>
+  ${md(directorSummary)}
+  <h3>Who played when</h3>
+  <p class="muted small">One row per player, one mark per session (hover for details); brass lines are the moments
+  that mattered.</p>
+  <div class="calendar">${calendar()}</div>
+</section>
+
+<section class="page">
   <h2>The design's promises</h2>
   <p>Each moment the design promises something (docs/multiplayer-design.html §17), checked against the logs, the events
   and the screenshots. The players never saw these.</p>
@@ -316,6 +415,7 @@ const body = `
   <p>Sampled from the server every six game hours and at every session's start and end. The shaded bands are the
   players' sessions. Hover a chart for the values; the table under each chart has them all.</p>
   <div class="chart" data-chart="level"></div>
+  <div class="chart" data-chart="earned"></div>
   <div class="chart" data-chart="gpm"></div>
   <div class="chart" data-chart="neighbour"></div>
   <div class="chart" data-chart="buildings"></div>
@@ -340,6 +440,12 @@ const body = `
 <section class="page">
   <h2>How it looks</h2>
   ${await findingList(findings.looks, "look")}
+</section>
+
+<section class="page">
+  <h2>What came from the playtest itself</h2>
+  <p>Trouble that the setup caused (the driver, the AI's aiming by tile numbers, the clock jumping), not the game.</p>
+  ${(findings.artifacts ?? []).map((a) => `<div class="callout"><strong>${esc(a.title)}</strong>${md(a.what)}</div>`).join("") || '<p class="muted">None noted.</p>'}
 </section>
 
 <section class="page">
@@ -443,6 +549,7 @@ figcaption { font-size:.8rem; color:var(--muted); margin-top:4px; }
 blockquote { margin:0; background:var(--cream); border-radius:12px; padding:14px 16px; font-family:Fraunces, Georgia, serif; font-size:1.02rem; }
 blockquote p { margin:0 0 6px; } cite { font-family:Nunito, sans-serif; font-style:normal; font-size:.84rem; color:var(--muted); }
 .rec { display:flex; gap:14px; margin-bottom:14px; } .rec .n { flex:none; width:32px; height:32px; border-radius:50%; background:var(--teal); color:#fff; display:grid; place-items:center; font-weight:800; }
+.calendar svg { width:100%; height:auto; display:block; }
 .chart { margin:8px 0 26px; } .chart h3 { margin-bottom:6px; } .chart svg { width:100%; height:auto; display:block; overflow:visible; }
 .chart .legend { display:flex; flex-wrap:wrap; gap:6px 16px; font-size:.86rem; margin:4px 0 6px; }
 .chart .legend span { display:inline-flex; align-items:center; gap:6px; } .chart .legend i { width:16px; height:3px; border-radius:2px; display:inline-block; }
@@ -466,22 +573,29 @@ document.addEventListener("click", (e) => {
 const tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; document.body.append(tip);
 const fmt = (v, unit) => (Math.abs(v) >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + "K" : v.toFixed(v < 10 && v % 1 !== 0 ? 1 : 0)) + unit;
 const dayLabel = (d) => { const day = Math.floor(d); const m = Math.round((d - day) * 1440); return "day " + day + " " + String(Math.floor(m / 60) % 24).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
-function niceMax(v) { if (v <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(v))); for (const s of [1, 2, 2.5, 5, 10]) if (s * p >= v) return s * p; return 10 * p; }
+/** Clean axis steps (1, 2, 2.5, 5 × 10ⁿ; whole numbers for whole-number data) and the top they reach */
+function axis(max, whole) {
+  if (max <= 0) return { top: 1, step: whole ? 1 : 0.25 };
+  const raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(raw)));
+  let step = [1, 2, 2.5, 5, 10].map((s) => s * p).find((s) => s >= raw);
+  if (whole) step = Math.max(1, Math.ceil(step));
+  return { top: Math.ceil(max / step) * step, step };
+}
 function draw(el) {
   const chart = DATA.charts[el.dataset.chart];
   if (!chart || chart.series.length === 0) { el.innerHTML = "<h3>" + (chart ? chart.title : "") + "</h3><p class='muted'>No data.</p>"; return; }
   const W = 1000, H = 300, L = 56, R = 96, T = 10, B = 30;
   const all = chart.series.flatMap((s) => s.points);
   const x0 = Math.min(...all.map((p) => p[0])), x1 = Math.max(...all.map((p) => p[0]), x0 + 0.1);
-  const yMax = niceMax(Math.max(...all.map((p) => p[1])) * 1.05);
+  const { top: yMax, step: yStep } = axis(Math.max(...all.map((p) => p[1])), all.every((p) => Number.isInteger(p[1])));
   const X = (x) => L + ((x - x0) / (x1 - x0)) * (W - L - R), Y = (y) => T + (1 - y / yMax) * (H - T - B);
   let svg = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + chart.title + '">';
   for (const m of DATA.sessionMarks) {
     if (m.end < x0 || m.start > x1) continue;
     svg += '<rect x="' + X(m.start) + '" y="' + T + '" width="' + Math.max(2, X(m.end) - X(m.start)) + '" height="' + (H - T - B) + '" fill="' + m.color + '" opacity="0.10"></rect>';
   }
-  for (let i = 0; i <= 4; i++) {
-    const v = (yMax * i) / 4, y = Y(v);
+  for (let v = 0; v <= yMax + 1e-9; v += yStep) {
+    const y = Y(v);
     svg += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '" stroke="rgba(80,60,30,.12)" stroke-width="1"></line>';
     svg += '<text x="' + (L - 8) + '" y="' + (y + 4) + '" text-anchor="end" font-size="12" fill="#6b5c43">' + fmt(v, "") + "</text>";
   }

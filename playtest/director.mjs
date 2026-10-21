@@ -4,6 +4,7 @@
 //   node playtest/director.mjs server start|stop     the playtest server (:5090, from playtest/bin)
 //   node playtest/director.mjs now                   the game's time and the clock's rate
 //   node playtest/director.mjs advance <hours> [step]  moves the clock on in steps (default 6 h), sampling after each
+//   node playtest/director.mjs goto <day> <HH:MM> [step]  moves the clock on to that story time (story.json's day 1)
 //   node playtest/director.mjs pause | resume [rate]  stops the clock between sessions (0.01), runs it during them
 //   node playtest/director.mjs sample [label]        one sample of every player's numbers (metrics.jsonl)
 //   node playtest/director.mjs snapshot <name>       the world saved and its database copied (to replay from)
@@ -102,9 +103,19 @@ switch (cmd) {
   case "resume":
     console.log(await call("POST", "rate", { rate: Number(args[0] ?? 1) }));
     break;
+  case "goto":
   case "advance": {
     let left = Number(args[0]);
-    const step = Number(args[1] ?? 6);
+    let step = Number(args[1] ?? 6);
+    if (cmd === "goto") {
+      const story = JSON.parse(readFileSync(path.join(RUN_DIR, "story.json"), "utf8"));
+      const [hh, mm] = args[1].split(":").map(Number);
+      const target = new Date(story.day1).getTime() + ((Number(args[0]) - 1) * 24 + hh + mm / 60) * 3600e3;
+      const { now } = await call("GET", "now");
+      left = (target - new Date(now).getTime()) / 3600e3;
+      step = Number(args[2] ?? 6);
+      if (left < 0) throw new Error(`The story is past day ${args[0]} ${args[1]} already (${now}).`);
+    }
     while (left > 1e-6) {
       const hours = Math.min(step, left);
       await call("POST", "advance", { hours });

@@ -143,6 +143,28 @@ public static class PlaytestEndpoints
         });
 
         group.MapGet("/companies", (WorldHost host) => host.RunAsync(Companies, changesWorld: false));
+
+        // A company's networks as the solver sees them: what every building could make and needs, how fast it runs,
+        // and where every unit went (for finding out why a building starves)
+        group.MapGet("/networks/{companyId:long}", (long companyId, WorldHost host) => host.RunAsync(world =>
+            world.Networks.Where(n => n.Buildings.Any(id => world.Building(id)?.Owner == companyId)).Select(n => new
+            {
+                id = n.Id,
+                nodes = n.Nodes.Select(t => new
+                {
+                    t.Id,
+                    type = world.Building(t.Id)?.Type,
+                    t.Owner,
+                    kind = t.Kind.ToString(),
+                    t.In,
+                    t.Out,
+                    t.MaxRate,
+                    rate = n.Solution.Rate(t.Id),
+                }),
+                flows = n.Solution.Flows.Select(f => new { f.From, f.To, f.Resource, f.Sent, f.Delivered, kind = f.Kind.ToString(), f.PricePerUnit }),
+                gateFlows = n.GateFlows,
+                links = n.Links.Select(l => new { l.A, l.B, l.Efficiency, l.Capacity, l.Resources }),
+            }).ToList(), changesWorld: false));
     }
 
     /// <summary>The players (and how many Houses), with what the report draws</summary>

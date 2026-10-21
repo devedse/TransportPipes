@@ -26,7 +26,14 @@ function playerConfig(name) {
 }
 
 const executablePath = process.env.CHROMIUM ?? `${process.env.HOME}/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome`;
-const browser = await chromium.launch({ executablePath, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
+const browser = await chromium.launch({ executablePath, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"], handleSIGTERM: false, handleSIGINT: false });
+// Stopping the driver frees its port at once (it is restarted between sessions)
+for (const signal of ["SIGTERM", "SIGINT"]) {
+  process.on(signal, () => {
+    setTimeout(() => process.exit(0), 3000).unref();
+    browser.close().finally(() => process.exit(0));
+  });
+}
 
 /** @type {Map<string, any>} the players with an open browser */
 const players = new Map();
@@ -70,6 +77,35 @@ async function open(name, session, url) {
     // Copied links can be pasted into the group chat (the clipboard command)
     permissions: ["clipboard-read", "clipboard-write"],
   });
+  // Many browsers share four cores and draw WebGL in software: the game draws at about 12 frames a second (the
+  // screenshots look the same; animations are slower)
+  await context.addInitScript(() => {
+    // Each callback waits its own 80 ms (one shared "last frame" starved every callback but the first)
+    const raf = window.requestAnimationFrame.bind(window);
+    const caf = window.cancelAnimationFrame.bind(window);
+    const live = new Map();
+    let next = 1;
+    window.requestAnimationFrame = (callback) => {
+      const id = next++;
+      const asked = performance.now();
+      const step = (t) => {
+        if (t - asked < 80) {
+          live.set(id, raf(step));
+          return;
+        }
+        live.delete(id);
+        callback(t);
+      };
+      live.set(id, raf(step));
+      return id;
+    };
+    window.cancelAnimationFrame = (id) => {
+      if (live.has(id)) {
+        caf(live.get(id));
+        live.delete(id);
+      }
+    };
+  });
   const page = await context.newPage();
   const player = { name, session, context, page, dir, config, errors: [], reported: 0, n: lines(path.join(dir, "actions.jsonl")).length, shots: 0 };
   page.on("pageerror", (e) => player.errors.push(`page error: ${e.message}`));
@@ -102,7 +138,14 @@ async function end(player) {
 
 /** What a person reads: the page's text and controls as a tree, without the map (that is the canvas) */
 async function screenText(player) {
-  let text = await player.page.locator("body").ariaSnapshot({ timeout: 8000 });
+  let text;
+  try {
+    text = await player.page.locator("body").ariaSnapshot({ timeout: 25000 });
+  } catch {
+    // A busy page (the machine is loaded): once more
+    await player.page.waitForTimeout(2000);
+    text = await player.page.locator("body").ariaSnapshot({ timeout: 25000 });
+  }
   if (player.config.skim) {
     // Skimming: only the first words of each text
     text = text.replace(/("?)([^"\n]{70})[^"\n]{10,}("?)/g, (_, a, keep, b) => `${a}${keep}…${b}`);
@@ -271,15 +314,16 @@ async function tapAt(player, p) {
 
 const ROLES = ["button", "link", "tab", "radio", "checkbox", "menuitem", "option", "switch", "combobox", "textbox"];
 
-async function clickLabel(player, label) {
+async function clickLabel(player, label, nth = 1) {
   const page = player.page;
   for (const exact of [true, false]) {
     for (const role of ROLES) {
       const found = page.getByRole(role, { name: label, exact });
       const count = await found.count();
+      let seen = 0;
       for (let i = 0; i < count; i++) {
         const item = found.nth(i);
-        if (await item.isVisible()) {
+        if ((await item.isVisible()) && ++seen === nth) {
           if (player.config.device === "phone") await item.tap({ timeout: 5000 });
           else await item.click({ timeout: 5000 });
           return `Clicked the ${role} "${label}".`;
@@ -340,8 +384,11 @@ async function group(player, text) {
   const read = existsSync(readFile) ? Number(readFileSync(readFile, "utf8")) : 0;
   writeFileSync(readFile, String(all.length));
   if (all.length === 0) return "The group chat is empty.";
-  return all.slice(-30).map((m, i, shown) => {
-    const index = all.length - shown.length + i;
+  // What's new, with the few messages before it (like scrolling up a little in a messenger)
+  const from = Math.max(0, Math.min(read, all.length - 1) - 4);
+  const older = from > 0 ? `(${from} older messages above)\n` : "";
+  return older + all.slice(from).map((m, i) => {
+    const index = from + i;
     return `${index >= read ? "NEW " : "    "}[${(m.game ?? m.at).slice(0, 16).replace("T", " ")}] ${m.from}: ${m.text}`;
   }).join("\n");
 }
@@ -353,7 +400,7 @@ const HELP = `Commands (node playtest/pt.mjs <you> <command> …):
   look [--shot] [label]       what is on the screen, as text; --shot also takes a screenshot (open it with Read)
   shot <label>                a screenshot of a key moment (kept for the report)
   map [--sun|--wind] [r] [x y]  the map around the middle of the screen (or around x y), with tile numbers
-  click "<label>"             click a button, tab, link or text by what it says
+  click "<label>" [--nth 2]   click a button, tab, link or text by what it says (--nth: the 2nd, 3rd… of that name)
   tile <x> <y>                click (or tap) the map on that tile
   rclick <x> <y>              right-click the map on that tile
   hover <x> <y>               move the mouse over that tile (to see what the game shows there)
@@ -374,7 +421,7 @@ function parse(args) {
   for (let i = 0; i < args.length; i++) {
     if (args[i].startsWith("--")) {
       const key = args[i].slice(2);
-      if (key === "channel") { flags.channel = args[++i]; } else { flags[key] = true; }
+      if (key === "channel" || key === "nth") { flags[key] = args[++i]; } else { flags[key] = true; }
     } else {
       rest.push(args[i]);
     }
@@ -400,10 +447,11 @@ async function run(name, cmd, args) {
       const at = rest.length >= 2 ? { x: Number(rest[rest.length - 2]), y: Number(rest[rest.length - 1]) } : null;
       return map(player, { radius: Math.min(Math.max(radius || 14, 4), 24), overlay: flags.sun ? "sun" : flags.wind ? "wind" : null, at });
     }
-    case "click": return (await clickLabel(player, rest.join(" "))) + "\n\n" + (await look(player, {}));
+    case "click": return (await clickLabel(player, rest.join(" "), Number(flags.nth ?? 1))) + "\n\n" + (await look(player, {}));
     case "tile":
     case "rclick": {
       const { points: [p], moved } = await tilePoints(player, [{ x: num(0), y: num(1) }]);
+      if (!p.free) return `Tile (${num(0)},${num(1)}) is under a panel or off your screen even after moving the view: close a panel or move the map first.\n\n${await look(player, {})}`;
       if (cmd === "rclick") await player.page.mouse.click(p.x, p.y, { button: "right" });
       else await tapAt(player, p);
       return `${moved ? "(The view moved to the tile first.) " : ""}${cmd === "rclick" ? "Right-clicked" : "Clicked"} tile (${num(0)},${num(1)}).\n\n${await look(player, {})}`;
@@ -415,13 +463,29 @@ async function run(name, cmd, args) {
     }
     case "drag": {
       const { points: [a, b], moved } = await tilePoints(player, [{ x: num(0), y: num(1) }, { x: num(2), y: num(3) }]);
-      await player.page.mouse.move(a.x, a.y);
-      await player.page.mouse.down();
-      for (let i = 1; i <= 12; i++) {
-        await player.page.mouse.move(a.x + ((b.x - a.x) * i) / 12, a.y + ((b.y - a.y) * i) / 12);
-        await player.page.waitForTimeout(25);
+      if (!a.free || !b.free) {
+        return `Tile (${!a.free ? `${num(0)},${num(1)}` : `${num(2)},${num(3)}`}) is under a panel or off your screen even after moving the view: close a panel, zoom out or move the map first.\n\n${await look(player, {})}`;
       }
-      await player.page.mouse.up();
+      if (player.config.device === "phone") {
+        // A finger, as a phone sends it
+        player.cdp ??= await player.context.newCDPSession(player.page);
+        const touch = (type, x, y) => player.cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] });
+        await touch("touchStart", a.x, a.y);
+        await player.page.waitForTimeout(120);
+        for (let i = 1; i <= 12; i++) {
+          await touch("touchMove", a.x + ((b.x - a.x) * i) / 12, a.y + ((b.y - a.y) * i) / 12);
+          await player.page.waitForTimeout(25);
+        }
+        await touch("touchEnd");
+      } else {
+        await player.page.mouse.move(a.x, a.y);
+        await player.page.mouse.down();
+        for (let i = 1; i <= 12; i++) {
+          await player.page.mouse.move(a.x + ((b.x - a.x) * i) / 12, a.y + ((b.y - a.y) * i) / 12);
+          await player.page.waitForTimeout(25);
+        }
+        await player.page.mouse.up();
+      }
       return `${moved ? "(The view moved.) " : ""}Dragged from (${num(0)},${num(1)}) to (${num(2)},${num(3)}).\n\n${await look(player, {})}`;
     }
     case "fill": return (await fill(player, rest[0], rest.slice(1).join(" "))) + "\n\n" + (await look(player, {}));
@@ -477,6 +541,8 @@ async function handle(name, cmd, args) {
       ms: Date.now() - started, shot: after.lastShot ?? null, errors: fresh, out: text.slice(0, 4000),
     }) + "\n");
     after.lastShot = null;
+    // The login is kept after every command, so a restarted driver loses nobody's (guest) account
+    if (players.has(after.name)) await after.context.storageState({ path: path.join(after.dir, "storage.json") }).catch(() => {});
   }
   return { ok, text };
 }
