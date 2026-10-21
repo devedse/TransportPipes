@@ -135,6 +135,16 @@ public sealed class Company : Entity
     public DateTime? LoneCardAt { get; set; }
     public bool LoneCard { get; set; }
 
+    /// <summary>Goods whose spare goes to the station's project before the Yard (v1.2 §7)</summary>
+    public HashSet<string> ProjectFirst { get; set; } = new();
+
+    /// <summary>The Plan board (v1.2 §12): what the company pinned it makes and needs</summary>
+    public HashSet<string> PinMakes { get; set; } = new();
+    public HashSet<string> PinNeeds { get; set; } = new();
+
+    /// <summary>What it asked its station for (v1.2 §12)</summary>
+    public List<CompanyAsk> Asks { get; set; } = new();
+
     /// <summary>A stranger in a crew's station is on probation for its first 14 days (v1.2 §6)</summary>
     public DateTime? ProbationUntil { get; set; }
 

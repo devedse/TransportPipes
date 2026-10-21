@@ -58,6 +58,7 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
             world.Property(t => t.Blueprints).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
             world.Property(t => t.Crews).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
             world.Property(t => t.Links).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
+            world.Property(t => t.Projects).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
         });
 
         modelBuilder.Entity<DbCompany>(company =>

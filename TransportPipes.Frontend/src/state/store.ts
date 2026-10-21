@@ -28,6 +28,7 @@ import type {
   LinksDto,
   MapLinkDto,
   ReturnDto,
+  ProjectDto,
   CrewViewDto,
   HeldSeatDto,
   InviteDto,
@@ -83,7 +84,8 @@ export interface AppState {
   yardOpen: boolean;
   yard: YardDto | null;
   /** The Yard panel's tab: your station, or your links to other stations */
-  yardTab: "yard" | "links";
+  yardTab: "yard" | "links" | "project";
+  project: ProjectDto | null;
   /** The way back after an absence: three screens before the report */
   welcomeBack: ReturnDto | null;
   links: LinksDto | null;
@@ -199,6 +201,7 @@ export const initialState: AppState = {
   yardOpen: false,
   yard: null,
   yardTab: "yard",
+  project: null,
   welcomeBack: null,
   links: null,
   mapLinks: [],

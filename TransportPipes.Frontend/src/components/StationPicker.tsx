@@ -220,6 +220,18 @@ export function StationPicker({
             <div className="plaque">
               {selectedStation.name} · {selectedStation.small ? "small station" : "station"}
             </div>
+            {selectedStation.project !== null && (
+              <div className="muted small">🏗 {selectedStation.project}</div>
+            )}
+            {((selectedStation.makes?.length ?? 0) > 0 || (selectedStation.needs?.length ?? 0) > 0) && (
+              <div className="muted small">
+                📌{" "}
+                {[
+                  ...(selectedStation.makes ?? []).map((t) => `makes ${t}`),
+                  ...(selectedStation.needs ?? []).map((t) => `needs ${t}`),
+                ].join(" · ")}
+              </div>
+            )}
             {selectedStation.crewName !== null && (
               <div className="muted small">Home of {selectedStation.crewName}</div>
             )}

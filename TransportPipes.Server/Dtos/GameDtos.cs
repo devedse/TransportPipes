@@ -562,7 +562,11 @@ public record BlueprintsDto(bool HasOffice, bool CanRebuild, int Max, IReadOnlyL
 
 /// <summary>A resident of a station: whether its pipes reach its Yard gate, what it has spare (goes to the hub) and lacks</summary>
 /// <summary>A resident of a station; House is a House's kind (reliable, collector, grower, neighbourInNeed), StandIn the House standing in for an asleep player</summary>
-public record YardResidentDto(long Id, string Name, string Color, int Level, bool IsNpc, int Slot, bool Connected, string? Activity, IReadOnlyList<ResourceRateDto> Spare, IReadOnlyList<ResourceRateDto> Lacks, bool Blocked, string? House, string? StandIn);
+public record YardResidentDto(long Id, string Name, string Color, int Level, bool IsNpc, int Slot, bool Connected, string? Activity, IReadOnlyList<ResourceRateDto> Spare, IReadOnlyList<ResourceRateDto> Lacks, bool Blocked, string? House, string? StandIn,
+    IReadOnlyList<string> Makes, IReadOnlyList<string> Needs, IReadOnlyList<AskDto> Asks);
+
+/// <summary>An Ask (v1.2 §12): a good asked of the station, how much came, until when, whether it renews itself</summary>
+public record AskDto(string Resource, double Amount, double Got, DateTime Until, bool Renew, double PerMinute);
 
 /// <summary>One of your trades through the Yard: with whom, what, how much per minute, which way, at what price</summary>
 public record YardTradeDto(long Partner, string PartnerName, string Resource, double PerMinute, bool Selling, double Price);
@@ -605,7 +609,8 @@ public record SeatDto(
     bool HeldForYou);
 
 /// <summary>A station on the picker: its seats, how lively it is, whether strangers may settle</summary>
-public record StationDto(int DistrictX, int DistrictY, int Index, string Name, bool Small, bool Open, int Free, int Lively, IReadOnlyList<SeatDto> Seats, string? CrewName, int X0, int Y0, int X1, int Y1);
+public record StationDto(int DistrictX, int DistrictY, int Index, string Name, bool Small, bool Open, int Free, int Lively, IReadOnlyList<SeatDto> Seats, string? CrewName, int X0, int Y0, int X1, int Y1, string? Project = null,
+    IReadOnlyList<string>? Makes = null, IReadOnlyList<string>? Needs = null);
 
 public record SeatRefDto(int DistrictX, int DistrictY, int Slot);
 
@@ -697,3 +702,26 @@ public record LinkPlanDto(int Length, double Efficiency, double Throughput, doub
 
 /// <summary>A link on the map: its route (x, y pairs) along the corridors</summary>
 public record MapLinkDto(long Id, string Resource, int Tier, bool Flowing, long Seller, long Buyer, IReadOnlyList<int> Route);
+
+/// <summary>
+/// A station's project (v1.2 §12): the stage, its basket (with the keystone nobody here makes), who helped (the ring of
+/// colours, as shares, never a list of who didn't), what the finished stages give every seat, and your own part
+/// </summary>
+public record ProjectDto(
+    string Station,
+    string Stage,
+    int StageIndex,
+    IReadOnlyList<string> Stages,
+    IReadOnlyList<ProjectGoodDto> Basket,
+    IReadOnlyList<ProjectHelperDto> Helpers,
+    double Bonus,
+    IReadOnlyList<string> FoundryChains,
+    DateTime? OpensAt,
+    double YourCredit,
+    double YourAllowance,
+    IReadOnlyList<string> ProjectFirst,
+    string Line);
+
+public record ProjectGoodDto(string Resource, double Target, double Delivered, bool Keystone, bool MadeHere);
+
+public record ProjectHelperDto(string Color, double Share, bool You);

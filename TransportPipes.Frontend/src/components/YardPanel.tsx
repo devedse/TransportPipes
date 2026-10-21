@@ -4,6 +4,8 @@ import type { ResourceRateDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import { setState, useAppStore } from "../state/store";
 import { LinksTab } from "./LinksTab";
+import { PlanBoard } from "./PlanBoard";
+import { ProjectTab } from "./ProjectTab";
 import { ResourceIcon } from "./ResourceIcon";
 
 function Rates({ rates, content, kind }: { rates: ResourceRateDto[]; content: Content; kind: string }) {
@@ -88,6 +90,14 @@ export function YardPanel() {
         </button>
         <button
           role="tab"
+          aria-selected={tab === "project"}
+          className={tab === "project" ? "tab active" : "tab"}
+          onClick={() => void gameClient.openProject()}
+        >
+          Project
+        </button>
+        <button
+          role="tab"
           aria-selected={tab === "links"}
           className={tab === "links" ? "tab active" : "tab"}
           onClick={() => void gameClient.openLinks()}
@@ -97,6 +107,8 @@ export function YardPanel() {
       </div>
       {tab === "links" ? (
         <LinksTab />
+      ) : tab === "project" ? (
+        <ProjectTab />
       ) : yard === null ? (
         <p className="muted">Loading…</p>
       ) : (
@@ -149,6 +161,19 @@ export function YardPanel() {
                       {r.blocked ? " · blocked" : ""}
                     </span>
                   </div>
+                  {(r.makes.length > 0 || r.needs.length > 0 || r.asks.length > 0) && r.id !== company.id && (
+                    <div className="resident-pins small">
+                      📌{" "}
+                      {[
+                        ...r.makes.map((t) => `makes ${content.resourceName(t).toLowerCase()}`),
+                        ...r.needs.map((t) => `needs ${content.resourceName(t).toLowerCase()}`),
+                        ...r.asks.map(
+                          (t) =>
+                            `asks for ${formatAmount(t.amount - t.got)} ${content.resourceName(t.resource).toLowerCase()}`,
+                        ),
+                      ].join(" · ")}
+                    </div>
+                  )}
                   {r.connected && (
                     <div className="resident-rates small">
                       <span className="muted">Spare</span>{" "}
@@ -161,6 +186,9 @@ export function YardPanel() {
               ))}
             </ul>
           </section>
+          {yard.residents.find((t) => t.id === company.id) !== undefined && (
+            <PlanBoard me={yard.residents.find((t) => t.id === company.id)!} />
+          )}
           {yard.totals.length > 0 && (
             <section>
               <h4>Through the Yard</h4>

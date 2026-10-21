@@ -1203,7 +1203,7 @@ export class GameClient {
   /** Opens the Yard panel (your station, its residents, your trades with them) */
   async openYard() {
     this.selectNetwork(null);
-    setState({ yardOpen: true });
+    setState({ yardOpen: true, yardTab: "yard" });
     await this.refreshYard();
   }
 
@@ -1217,6 +1217,25 @@ export class GameClient {
     this.selectNetwork(null);
     setState({ yardOpen: true, yardTab: "links" });
     await this.refreshLinks();
+  }
+
+  /** The Yard panel on its Project tab: the station's project, its basket and who helped */
+  async openProject() {
+    this.selectNetwork(null);
+    setState({ yardOpen: true, yardTab: "project" });
+    await this.refreshProject();
+  }
+
+  /** A Yard command (pins, Asks); the panel follows */
+  async yardCommand(promise: Promise<CommandResult>, success?: string): Promise<boolean> {
+    const ok = await this.command(promise, success);
+    await this.refreshYard();
+    return ok;
+  }
+
+  async refreshProject() {
+    const project = await this.connection.getProject().catch(() => null);
+    setState({ project });
   }
 
   async refreshLinks() {

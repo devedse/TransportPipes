@@ -507,9 +507,35 @@ public sealed partial class GameWorld
             .OrderBy(t => t.District.X).ThenBy(t => t.District.Y).ThenBy(t => t.Index);
         var byStation = stations.Select(t => (Station: t, Members: YardMembers(t))).ToList();
         var all = byStation.SelectMany(t => t.Members).ToDictionary(t => t.Key);
-        foreach (var (_, members) in byStation)
+        foreach (var (station, members) in byStation)
         {
             var byKey = members.ToDictionary(t => t.Key);
+            // What was sent to the station's project arrives now, in the shares it was matched
+            if (ProjectsEnabled && members.Any(t => !t.Company.IsNpc))
+            {
+                var project = ProjectOf(station);
+                project.Incoming = new Dictionary<long, Dictionary<string, double>>();
+                foreach (var seller in members)
+                {
+                    if (!project.Matched.TryGetValue(seller.Company.Id, out var goods) || !_gateTerms.TryGetValue(seller.Key, out var sent))
+                    {
+                        continue;
+                    }
+                    foreach (var (good, amount) in goods)
+                    {
+                        var exported = sent.Export.GetValueOrDefault(good);
+                        var ratio = exported <= 1e-12 ? 0 : Math.Min(1, seller.Sent.GetValueOrDefault(good) / exported);
+                        if (amount * ratio > 1e-9)
+                        {
+                            if (!project.Incoming.TryGetValue(seller.Company.Id, out var incoming))
+                            {
+                                project.Incoming[seller.Company.Id] = incoming = new Dictionary<string, double>();
+                            }
+                            incoming[good] = amount * ratio;
+                        }
+                    }
+                }
+            }
             // What sellers sent last round arrives now, in the shares they were matched (less when they sent less)
             foreach (var seller in members)
             {
@@ -536,22 +562,62 @@ public sealed partial class GameWorld
             }
         }
 
+        // Asks: what was brought last round arrives, and the residents' spare goes to their neighbours' Asks first
+        foreach (var (_, members) in byStation)
+        {
+            DeliverAsks(members);
+            MatchAsks(members, TermsOf);
+        }
+
         // Links between stations: what they brought arrives, then they take their share before the Yards
         TimeSpan? limit = null;
         DeliverLinks(all, TermsOf, ref limit);
         MatchLinks(all, TermsOf);
 
-        foreach (var (_, members) in byStation)
+        foreach (var (station, members) in byStation)
         {
-            if (members.Count < 2)
+            var project = ProjectsEnabled && members.Any(t => !t.Company.IsNpc) ? ProjectOf(station) : null;
+            var toProject = new Dictionary<(EstateKey Seller, string Resource), double>();
+            void Send(Dictionary<(EstateKey Seller, string Resource), double> sent)
             {
-                continue;
+                foreach (var (key, amount) in sent)
+                {
+                    toProject[key] = toProject.GetValueOrDefault(key) + amount;
+                }
             }
-            foreach (var ((sellerKey, buyerKey, resource), amount) in MatchYard(members))
+            // A seller's "project first" goods go to the project before the Yard
+            if (project != null)
             {
-                var terms = TermsOf(sellerKey);
-                terms.Export[resource] = terms.Export.GetValueOrDefault(resource) + amount;
-                terms.Matched[(buyerKey, resource)] = terms.Matched.GetValueOrDefault((buyerKey, resource)) + amount;
+                Send(MatchProject(project, members, first: true));
+            }
+            if (members.Count >= 2)
+            {
+                var byKey = members.ToDictionary(t => t.Key);
+                foreach (var ((sellerKey, buyerKey, resource), amount) in MatchYard(members))
+                {
+                    var terms = TermsOf(sellerKey);
+                    terms.Export[resource] = terms.Export.GetValueOrDefault(resource) + amount;
+                    terms.Matched[(buyerKey, resource)] = terms.Matched.GetValueOrDefault((buyerKey, resource)) + amount;
+                    Add(byKey[sellerKey].Spare, resource, -amount);
+                }
+            }
+            // Then the project takes what the residents left
+            if (project != null)
+            {
+                Send(MatchProject(project, members, first: false));
+                project.Matched = new Dictionary<long, Dictionary<string, double>>();
+                var byKey = members.ToDictionary(t => t.Key);
+                foreach (var ((sellerKey, resource), amount) in toProject)
+                {
+                    var terms = TermsOf(sellerKey);
+                    terms.Export[resource] = terms.Export.GetValueOrDefault(resource) + amount;
+                    var seller = byKey[sellerKey].Company.Id;
+                    if (!project.Matched.TryGetValue(seller, out var goods))
+                    {
+                        project.Matched[seller] = goods = new Dictionary<string, double>();
+                    }
+                    goods[resource] = goods.GetValueOrDefault(resource) + amount;
+                }
             }
         }
 

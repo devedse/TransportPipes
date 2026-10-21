@@ -1,0 +1,306 @@
+using TransportPipes.Game.Content;
+using TransportPipes.Game.World;
+
+namespace TransportPipes.Game.State;
+
+/// <summary>
+/// An Ask (v1.2 §12): a company asks its station for an amount of a good for 12–72 hours; the neighbours fill it
+/// whenever they play (their spare goes to it first, at the one player price, into the asker's storages), and at the
+/// deadline a House fills what is left at 2.0 × base, so an Ask always closes. It can renew itself.
+/// </summary>
+public sealed class CompanyAsk
+{
+    public required string Resource { get; init; }
+    public double Amount { get; set; }
+    public double Got { get; set; }
+    public double FromHouse { get; set; }
+    public DateTime Until { get; set; }
+    public double Hours { get; init; }
+    public bool Renew { get; set; }
+
+    /// <summary>Per minute until the next round: who brings what (it arrives and is paid in the meantime), and what the last round matched</summary>
+    public Dictionary<long, double> Incoming { get; set; } = new();
+    public Dictionary<long, double> Matched { get; set; } = new();
+
+    public double Left => Math.Max(0, Amount - Got);
+}
+
+public sealed partial class GameWorld
+{
+    public const double AskMinHours = 12;
+    public const double AskMaxHours = 72;
+    public const int MaxAsks = 3;
+    private const double AskHousePrice = 2.0;
+
+    // ---------------------------------------------------------------- The Plan board
+
+    /// <summary>Pins a good on the station's Plan board: "I make X" or "I need Y" (one tap each, again to take it off)</summary>
+    public CommandResult SetPin(long companyId, string resource, bool need, bool on)
+    {
+        if (Company(companyId) is not { } company || !Content.Resources.ContainsKey(resource))
+        {
+            return CommandResult.Fail("Unknown good.");
+        }
+        var pins = need ? company.PinNeeds : company.PinMakes;
+        if (on)
+        {
+            if (pins.Count >= 6)
+            {
+                return CommandResult.Fail("Six pins at most.");
+            }
+            pins.Add(resource);
+        }
+        else
+        {
+            pins.Remove(resource);
+        }
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        return CommandResult.Ok;
+    }
+
+    /// <summary>The station's Plan board: what its players pinned they make and need</summary>
+    public (HashSet<string> Makes, HashSet<string> Needs) PlanBoard(StationRef station)
+    {
+        var makes = new HashSet<string>();
+        var needs = new HashSet<string>();
+        foreach (var seat in BigStation(station).SelectMany(StationSeats))
+        {
+            if (Estate(seat.District, seat.Slot)?.OwnerId is { } owner && Company(owner) is { IsNpc: false } company)
+            {
+                makes.UnionWith(company.PinMakes);
+                needs.UnionWith(company.PinNeeds);
+            }
+        }
+        return (makes, needs);
+    }
+
+    /// <summary>The players (not Houses) of a (big) station</summary>
+    public List<Company> StationPlayers(StationRef station) =>
+        BigStation(station).SelectMany(StationSeats)
+            .Select(t => Estate(t.District, t.Slot)?.OwnerId is { } o ? Company(o) : null)
+            .OfType<Company>()
+            .Where(t => !t.IsNpc)
+            .ToList();
+
+    // ---------------------------------------------------------------- Asks
+
+    public CommandResult Ask(long companyId, string resource, double amount, double hours, bool renew)
+    {
+        if (Company(companyId) is not { } company || !Content.Resources.TryGetValue(resource, out var definition))
+        {
+            return CommandResult.Fail("Unknown good.");
+        }
+        if (definition.Era > Era)
+        {
+            return CommandResult.Fail($"{definition.Name} comes in a later Era.");
+        }
+        if (amount <= 0 || double.IsNaN(amount))
+        {
+            return CommandResult.Fail("Choose an amount.");
+        }
+        if (company.Asks.Any(t => t.Resource == resource))
+        {
+            return CommandResult.Fail($"You ask for {definition.Name.ToLowerInvariant()} already.");
+        }
+        if (company.Asks.Count >= MaxAsks)
+        {
+            return CommandResult.Fail($"At most {MaxAsks} Asks at a time.");
+        }
+        if (StorageRoom(company.Id) < amount)
+        {
+            return CommandResult.Fail("Your storages haven't room for that much.");
+        }
+        // Gold for the worst case: a House brings it all at the deadline
+        var worst = amount * BasePrice(resource) * AskHousePrice;
+        if (company.Gold < worst)
+        {
+            return CommandResult.Fail($"Keep {worst:N0} gold for it: a House fills what's left at the deadline.");
+        }
+        hours = Math.Clamp(hours, AskMinHours, AskMaxHours);
+        company.Asks.Add(new CompanyAsk { Resource = resource, Amount = amount, Until = LastTick.AddHours(hours), Hours = hours, Renew = renew });
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        WakeCoupling();
+        if (EstateOf(company) is { } estate)
+        {
+            foreach (var neighbour in StationPlayers(estate.Station).Where(t => t.Id != company.Id))
+            {
+                Changes.Events.Add(new WorldEvent(neighbour.Id, WorldEventKind.Neighbour,
+                    $"{company.Name} asks the station for {amount:N0} {definition.Name.ToLowerInvariant()}: your spare goes there first"));
+            }
+        }
+        return CommandResult.Ok;
+    }
+
+    public CommandResult CancelAsk(long companyId, string resource)
+    {
+        if (Company(companyId) is not { } company || company.Asks.FirstOrDefault(t => t.Resource == resource) is not { } ask)
+        {
+            return CommandResult.Fail("No such Ask.");
+        }
+        company.Asks.Remove(ask);
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        WakeCoupling();
+        return CommandResult.Ok;
+    }
+
+    /// <summary>The free room in a company's storages</summary>
+    public double StorageRoom(long companyId) =>
+        _buildings.Values.Where(t => t.Owner == companyId && !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Storage)
+            .Sum(t => Math.Max(0, StorageCapacity(t, Content.Building(t.Type)) - t.StoredTotal));
+
+    /// <summary>Puts goods into a company's storages; returns how much fitted</summary>
+    private double PutInStorages(long companyId, string resource, double amount)
+    {
+        var left = amount;
+        foreach (var storage in _buildings.Values.Where(t => t.Owner == companyId && !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Storage).OrderBy(t => t.Id))
+        {
+            var put = Math.Min(StorageCapacity(storage, Content.Building(storage.Type)) - storage.StoredTotal, left);
+            if (put <= 1e-9)
+            {
+                continue;
+            }
+            storage.Contents[resource] = storage.Contents.GetValueOrDefault(resource) + put;
+            storage.Touch();
+            MarkNeedsSolve(storage.Id);
+            left -= put;
+        }
+        return amount - left;
+    }
+
+    /// <summary>
+    /// The Asks' share of a station's round (v1.2 §7: contracts, then Asks, then links and the Yard): the residents' spare
+    /// goes first to what their neighbours asked for, at the one player price
+    /// </summary>
+    private void MatchAsks(List<YardMember> members, Func<EstateKey, GateTerms> termsOf)
+    {
+        var askers = members.Where(t => !t.Company.IsNpc && !t.Company.Asleep && t.Company.Asks.Count > 0).ToList();
+        foreach (var asker in askers)
+        {
+            foreach (var ask in asker.Company.Asks)
+            {
+                ask.Matched = new Dictionary<long, double>();
+                // In an hour at most what is left, never more than its storages hold
+                var lacks = Math.Min(ask.Left, StorageRoom(asker.Company.Id)) / 60;
+                foreach (var seller in members.Where(t => t != asker && !t.Company.IsNpc && !t.Company.Asleep && t.Spare.GetValueOrDefault(ask.Resource) > 1e-9
+                             && YardTradeAllowed(t.Company, asker.Company, ask.Resource)).OrderBy(t => t.Company.Id))
+                {
+                    if (lacks <= 1e-9)
+                    {
+                        break;
+                    }
+                    var amount = Math.Min(seller.Spare[ask.Resource], lacks);
+                    Add(seller.Spare, ask.Resource, -amount);
+                    lacks -= amount;
+                    ask.Matched[seller.Company.Id] = amount;
+                    var terms = termsOf(seller.Key);
+                    terms.Export[ask.Resource] = terms.Export.GetValueOrDefault(ask.Resource) + amount;
+                }
+            }
+        }
+    }
+
+    /// <summary>What the last round matched for the Asks arrives now (less when a seller sent less)</summary>
+    private void DeliverAsks(List<YardMember> members)
+    {
+        var byCompany = members.GroupBy(t => t.Company.Id).ToDictionary(t => t.Key, t => t.First());
+        foreach (var asker in members.Where(t => t.Company.Asks.Count > 0))
+        {
+            foreach (var ask in asker.Company.Asks)
+            {
+                ask.Incoming = new Dictionary<long, double>();
+                foreach (var (sellerId, amount) in ask.Matched)
+                {
+                    if (!byCompany.TryGetValue(sellerId, out var seller) || !_gateTerms.TryGetValue(seller.Key, out var sent))
+                    {
+                        continue;
+                    }
+                    var exported = sent.Export.GetValueOrDefault(ask.Resource);
+                    var ratio = exported <= 1e-12 ? 0 : Math.Min(1, seller.Sent.GetValueOrDefault(ask.Resource) / exported);
+                    if (amount * ratio > 1e-9)
+                    {
+                        ask.Incoming[sellerId] = amount * ratio;
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>What the neighbours brought goes into the asker's storages and is paid (the one player price)</summary>
+    private void SettleAsks(double minutes)
+    {
+        foreach (var asker in _companies.Values.Where(t => t.Asks.Count > 0))
+        {
+            foreach (var ask in asker.Asks)
+            {
+                foreach (var (sellerId, perMinute) in ask.Incoming)
+                {
+                    if (Company(sellerId) is not { } seller)
+                    {
+                        continue;
+                    }
+                    var units = PutInStorages(asker.Id, ask.Resource, Math.Min(perMinute * minutes, ask.Left));
+                    if (units <= 1e-9)
+                    {
+                        continue;
+                    }
+                    var gold = units * PlayerPrice(ask.Resource);
+                    ask.Got += units;
+                    asker.Gold -= gold;
+                    seller.Gold += gold;
+                    seller.Report.GoldEarned += gold;
+                    Add(seller.Report.Sold, ask.Resource, units);
+                    GainXpFromEarnings(seller, gold);
+                    seller.Touch();
+                    asker.Touch();
+                    Changes.Companies.Add(seller.Id);
+                    Changes.Companies.Add(asker.Id);
+                }
+            }
+        }
+    }
+
+    /// <summary>The moments Asks reach their deadline</summary>
+    private IEnumerable<(DateTime At, Action Run)> AskMoments(DateTime from, DateTime to)
+    {
+        foreach (var company in _companies.Values.Where(t => t.Asks.Count > 0).OrderBy(t => t.Id))
+        {
+            foreach (var ask in company.Asks.Where(t => t.Until <= to).ToList())
+            {
+                yield return (ask.Until, () => CloseAsk(company, ask));
+            }
+        }
+    }
+
+    /// <summary>The deadline: a House fills what is left at 2.0 × base (as far as the storages hold it); the Ask closes, or renews itself</summary>
+    private void CloseAsk(Company company, CompanyAsk ask)
+    {
+        if (!company.Asks.Contains(ask))
+        {
+            return;
+        }
+        var name = Content.Resources[ask.Resource].Name.ToLowerInvariant();
+        var neighbours = ask.Got;
+        if (ask.Left > 1e-6)
+        {
+            var units = PutInStorages(company.Id, ask.Resource, ask.Left);
+            var gold = units * BasePrice(ask.Resource) * AskHousePrice;
+            company.Gold -= gold;
+            ask.Got += units;
+            ask.FromHouse += units;
+        }
+        company.Asks.Remove(ask);
+        Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Neighbour, ask.FromHouse > 0
+            ? $"Your Ask for {name} closed: your neighbours brought {neighbours:N0}, a House the other {ask.FromHouse:N0}"
+            : $"Your Ask for {name} closed: your neighbours brought all {neighbours:N0}"));
+        if (ask.Renew && StorageRoom(company.Id) >= ask.Amount && company.Gold >= ask.Amount * BasePrice(ask.Resource) * AskHousePrice)
+        {
+            company.Asks.Add(new CompanyAsk { Resource = ask.Resource, Amount = ask.Amount, Until = LastTick.AddHours(ask.Hours), Hours = ask.Hours, Renew = true });
+        }
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        WakeCoupling();
+    }
+}

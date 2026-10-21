@@ -356,6 +356,21 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> DismissConsolidation() =>
         Command((world, company) => world.DismissConsolidation(company));
 
+    public Task<CommandResultDto> SetPin(string resource, bool need, bool on) =>
+        Command((world, company) => world.SetPin(company, resource, need, on));
+
+    public Task<CommandResultDto> Ask(string resource, double amount, double hours, bool renew) =>
+        Command((world, company) => world.Ask(company, resource, amount, hours, renew));
+
+    public Task<CommandResultDto> CancelAsk(string resource) =>
+        Command((world, company) => world.CancelAsk(company, resource));
+
+    public Task<ProjectDto?> GetProject() =>
+        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Project(world, company) : null, changesWorld: false);
+
+    public Task<CommandResultDto> SetProjectFirst(string resource, bool first) =>
+        Command((world, company) => world.SetProjectFirst(company, resource, first));
+
     public Task<CommandResultDto> Tend(long friendId) =>
         Command((world, company) => world.Tend(company, friendId));
 
@@ -981,6 +996,13 @@ public sealed class GameHub : Hub<IGameClient>
                     company.LastSeenAt = world.Now.AddDays(-10);
                     company.Report.Since = company.LastSeenAt;
                     company.Touch();
+                    break;
+                case "project":
+                    // The station's project: its stage is delivered now
+                    if (world.EstateOf(company) is { } home)
+                    {
+                        world.FinishStageNow(home.Station);
+                    }
                     break;
                 case "isles":
                     // Asleep, and the hold over: the estate waits on the Quiet Isles

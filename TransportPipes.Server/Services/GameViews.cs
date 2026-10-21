@@ -448,6 +448,22 @@ public static class GameViews
                 structures.Add(new HubStructureDto("corporationHq", structure.X + HqLots[i].X, structure.Y + HqLots[i].Y, 3, corporation.Tag, corporation.Color, corporation.HqLevel, corporation.Id));
             }
         }
+        // The stations' projects (v1.2 §12): in the top corner of each Yard, the current stage rising with its basket
+        var hub = WorldLayout.HubOrigin(district);
+        foreach (var station in WorldLayout.Stations(district))
+        {
+            if (world.ExistingProject(station) is not { } project || world.BigStation(station)[0] != station)
+            {
+                continue;
+            }
+            var yard = WorldLayout.Yard(station);
+            var stage = project.Stage == ProjectStage.Done ? ProjectStage.Landmark : project.Stage;
+            var target = project.Basket.Sum(t => t.Value * world.BasePrice(t.Key));
+            var done = project.Stage == ProjectStage.Done || target <= 0 ? 100
+                : (int)Math.Floor(100 * project.Basket.Sum(t => Math.Min(t.Value, project.Delivered.GetValueOrDefault(t.Key)) * world.BasePrice(t.Key)) / target);
+            structures.Add(new HubStructureDto($"project-{Camel(stage)}", yard.X0 - hub.X, yard.Y0 - hub.Y, 4,
+                $"{GameWorld.StageName(stage)} · {WorldNames.Station(station)}", Level: Math.Min(100, done), Stages: 100));
+        }
         return structures;
     }
 
@@ -1091,7 +1107,10 @@ public static class GameViews
             yard.X0,
             yard.Y0,
             yard.X1,
-            yard.Y1);
+            yard.Y1,
+            ProjectLine(world, station),
+            world.PlanBoard(station).Makes.Order().ToList(),
+            world.PlanBoard(station).Needs.Order().ToList());
     }
 
     private static SeatRefDto Ref(EstateKey seat) => new(seat.District.X, seat.District.Y, seat.Slot);
@@ -1326,6 +1345,66 @@ public static class GameViews
             company.Crates.Count,
             fromIsles ? Landing(world, company) : []);
 
+    public static AskDto Ask(CompanyAsk ask) =>
+        new(ask.Resource, ask.Amount, ask.Got, ask.Until, ask.Renew, ask.Incoming.Values.Sum());
+
+    /// <summary>The station's project as its residents see it</summary>
+    public static ProjectDto? Project(GameWorld world, Company me)
+    {
+        if (world.EstateOf(me) is not { } estate)
+        {
+            return null;
+        }
+        var project = world.ProjectOf(estate.Station);
+        var made = world.StationMakes(estate.Station);
+        var total = project.Credit.Values.Sum();
+        var helpers = project.Credit.Where(t => t.Value > 0 && world.Company(t.Key) != null)
+            .OrderByDescending(t => t.Value)
+            .Select(t => new ProjectHelperDto(world.Company(t.Key)!.Color, total <= 0 ? 0 : t.Value / total, t.Key == me.Id))
+            .ToList();
+        string Name(string resource) => world.Content.Resources.TryGetValue(resource, out var r) ? r.Name.ToLowerInvariant() : resource;
+        var opens = project.Stage == ProjectStage.FoundryHall ? project.StartedAt + TimeSpan.FromDays(14) : (DateTime?)null;
+        var keystone = project.Keystone;
+        var line = project.Stage == ProjectStage.Done
+            ? "Every stage stands: the station's Landmark is finished."
+            : opens is { } at && at > world.Now
+                ? $"The Foundry Hall opens in {Span(at - world.Now)}: until then the station grows."
+                : keystone != null && !made.Contains(keystone) && project.Delivered.GetValueOrDefault(keystone) < project.Basket.GetValueOrDefault(keystone)
+                    ? $"Wanted by the {GameWorld.StageName(project.Stage)}: {Name(keystone)}. Nobody here makes it yet."
+                    : $"The {GameWorld.StageName(project.Stage)} takes your spare at the hub's full price: pipe it to your Yard gate.";
+        return new ProjectDto(
+            WorldNames.Station(estate.Station),
+            GameWorld.StageName(project.Stage),
+            (int)project.Stage,
+            Enum.GetValues<ProjectStage>().Where(t => t != ProjectStage.Done).Select(GameWorld.StageName).ToList(),
+            project.Basket.OrderBy(t => t.Key == keystone ? 1 : 0).ThenBy(t => t.Key)
+                .Select(t => new ProjectGoodDto(t.Key, t.Value, Math.Min(t.Value, project.Delivered.GetValueOrDefault(t.Key)), t.Key == keystone, made.Contains(t.Key))).ToList(),
+            helpers,
+            world.ProjectBonus(project),
+            project.FoundryChains,
+            opens,
+            project.Credit.GetValueOrDefault(me.Id),
+            project.Allowance.GetValueOrDefault(me.Id),
+            me.ProjectFirst.Order().ToList(),
+            line);
+    }
+
+    /// <summary>The project's stage and progress for a station card in the picker</summary>
+    private static string? ProjectLine(GameWorld world, StationRef station)
+    {
+        if (world.ExistingProject(station) is not { } project)
+        {
+            return null;
+        }
+        if (project.Stage == ProjectStage.Done)
+        {
+            return "Landmark finished";
+        }
+        var target = project.Basket.Sum(t => t.Value * world.BasePrice(t.Key));
+        var done = project.Basket.Sum(t => Math.Min(t.Value, project.Delivered.GetValueOrDefault(t.Key)) * world.BasePrice(t.Key));
+        return $"{GameWorld.StageName(project.Stage)} · {(target <= 0 ? 0 : 100 * done / target):0}%";
+    }
+
     /// <summary>Whether a company sells a good to the hub (some of its buildings reach a Trading Post)</summary>
     private static bool HubTakes(GameWorld world, Company me, string resource) =>
         world.BuildingsOf(me.Id).Any(b => world.NetworkOf(b.Id)?.Solution.Flows.Any(f => f.From == b.Id && f.Kind == FlowKind.Sale && f.Resource == resource) == true);
@@ -1375,7 +1454,9 @@ public static class GameViews
             connected,
             residents.Select(t => new YardResidentDto(t.Company.Id, t.Company.Name, t.Company.Color, t.Company.Level, t.Company.IsNpc, t.Slot, t.Connected,
                 t.Company.IsNpc ? null : Camel(world.ActivityOf(t.Company)), Rates(t.Spare), Rates(t.Lacks), me.TradeBlocked.Contains(t.Company.Id),
-                t.Company.House is { } kind ? Camel(kind) : null, t.Company.StandIn?.Name)).ToList(),
+                t.Company.House is { } kind ? Camel(kind) : null, t.Company.StandIn?.Name,
+                t.Company.PinMakes.Order().ToList(), t.Company.PinNeeds.Order().ToList(),
+                t.Company.Asks.Select(Ask).ToList())).ToList(),
             yours,
             world.YardTotals(station).Select(t => new ResourceRateDto(t.Key, t.Value)).OrderByDescending(t => t.PerMinute).ToList(),
             line);

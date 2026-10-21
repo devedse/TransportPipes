@@ -284,8 +284,18 @@ stay); name + password accounts only (guests on a hidden account they can keep);
   (a stranger in a station a crew fills: away five days in its first two weeks, packed with nothing lost, its old
   seat the first landing card). e2e `return.mjs`. Not in this version: e-mail (the in-game report only), the five
   stills of the estate, the Era jump kit, the "Back!" ribbon and the Houses' postcard
-- ⬜ 6 · The station's project (Foundation … Landmark, recipes and keystones, baskets, credit, bonuses), Asks, the Plan
-  board
+- ✅ 6 · The station's project: Foundation → Water Tower → Workshop → Foundry Hall → Landmark, one per (big) station,
+  a buyer in the Yard after the residents and Houses (or before them for a seller's "project first" goods) at the
+  hub's full price; the Foundation's fixed basket (15 minutes of a Level-3 player's energy and iron ore), later stages
+  three goods of the stage's tier (two the station is at home with, the keystone nobody makes, +20% credit; a tier up
+  when the station is at home with every good), sized by the delivering residents (6 h of T(L) each, the Foundry Hall
+  9 h for at least two, opening on day 14; the Landmark half their summed T(L) for 6 h); what each delivers is two
+  hours of T(L) a day at most, banked for three days; credit as a ring of colours; bonuses for every seat (+3%, +3%,
+  +4%, the Foundry Hall +10% on the station's two most-traded chains, the Landmark's heirloom); the project in the
+  corner of the Yard, rising with its basket. T(L) is a table in progression.yaml. The Plan board (pins on the Yard
+  panel and the picker's station card) and Asks (12–72 h, into the asker's storages at the player price, a House
+  fills the rest at 2.0 × base at the deadline, renewable). e2e `project.mjs`. The Landmark is a basket, not yet a
+  sustained flow with a tank
 - ⬜ 7 · The long game: crew trunks, public trunks, outposts feeding the Yard, Discoveries with markers, leagues by
   stage, Wonders sized like baskets, Era Wonder tiers
 - ⬜ 8 · The first evening with four browsers (e2e), balance runs, docs

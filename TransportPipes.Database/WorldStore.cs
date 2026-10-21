@@ -105,6 +105,10 @@ public sealed class WorldStore
                 LoneCardAt = settings.LoneCardAt,
                 LoneCard = settings.LoneCard,
                 ProbationUntil = settings.ProbationUntil,
+                ProjectFirst = settings.ProjectFirst ?? new HashSet<string>(),
+                PinMakes = settings.PinMakes ?? new HashSet<string>(),
+                PinNeeds = settings.PinNeeds ?? new HashSet<string>(),
+                Asks = settings.Asks ?? new List<CompanyAsk>(),
                 DistinctDays = settings.DistinctDays,
                 LastPlayedDay = settings.LastPlayedDay,
                 TradeWith = settings.TradeWith,
@@ -294,6 +298,10 @@ public sealed class WorldStore
         {
             world.LoadLink(link);
         }
+        foreach (var project in JsonSerializer.Deserialize<List<StationProject>>(dbWorld.Projects, Json) ?? [])
+        {
+            world.LoadProject(project);
+        }
 
         if (JsonSerializer.Deserialize<SeasonState>(dbWorld.Season, Json) is { } season)
         {
@@ -346,6 +354,7 @@ public sealed class WorldStore
                 Blueprints = JsonSerializer.Serialize(world.Blueprints.ToList(), Json),
                 Crews = JsonSerializer.Serialize(world.Crews.ToList(), Json),
                 Links = JsonSerializer.Serialize(world.Links.ToList(), Json),
+                Projects = JsonSerializer.Serialize(world.Projects.ToList(), Json),
             },
         };
 
@@ -390,6 +399,10 @@ public sealed class WorldStore
                     LoneCardAt = company.LoneCardAt,
                     LoneCard = company.LoneCard,
                     ProbationUntil = company.ProbationUntil,
+                    ProjectFirst = company.ProjectFirst,
+                    PinMakes = company.PinMakes,
+                    PinNeeds = company.PinNeeds,
+                    Asks = company.Asks,
                     DistinctDays = company.DistinctDays,
                     LastPlayedDay = company.LastPlayedDay,
                     TradeWith = company.TradeWith,
@@ -593,6 +606,7 @@ public sealed class WorldStore
                 db.Entry(snapshot.World).Property(t => t.Blueprints).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Crews).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Links).IsModified = true;
+                db.Entry(snapshot.World).Property(t => t.Projects).IsModified = true;
             }
             else
             {
@@ -726,6 +740,10 @@ public sealed class WorldStore
         public DateTime? LoneCardAt { get; init; }
         public bool LoneCard { get; init; }
         public DateTime? ProbationUntil { get; init; }
+        public HashSet<string>? ProjectFirst { get; init; }
+        public HashSet<string>? PinMakes { get; init; }
+        public HashSet<string>? PinNeeds { get; init; }
+        public List<CompanyAsk>? Asks { get; init; }
         public int DistinctDays { get; init; }
         public int LastPlayedDay { get; init; }
         public TradeWith TradeWith { get; init; } = TradeWith.Everyone;

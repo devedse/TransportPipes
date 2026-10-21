@@ -32,6 +32,9 @@ public class DbWorld
     /// <summary>Links between companies' Yard gates, with their tanks (jsonb)</summary>
     public string Links { get; set; } = "[]";
 
+    /// <summary>The stations' projects: stage, basket, deliveries and credit (jsonb)</summary>
+    public string Projects { get; set; } = "[]";
+
     /// <summary>Saved and shared layouts (jsonb)</summary>
     public string Blueprints { get; set; } = "[]";
 

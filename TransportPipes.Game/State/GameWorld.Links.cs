@@ -634,12 +634,12 @@ public sealed partial class GameWorld
             {
                 // The next round comes before the tank runs dry
                 var minutes = link.Tank / drain;
-                var until = TimeSpan.FromMinutes(Math.Max(CouplingInterval.TotalMinutes, minutes));
+                var until = TimeSpan.FromMinutes(Math.Clamp(minutes, CouplingInterval.TotalMinutes, MaxCouplingInterval.TotalMinutes));
                 limit = limit is { } l && l < until ? l : until;
             }
             else if (link.TankChange > 1e-9 && link.TankSize > link.Tank)
             {
-                var until = TimeSpan.FromMinutes(Math.Max(CouplingInterval.TotalMinutes, (link.TankSize - link.Tank) / link.TankChange));
+                var until = TimeSpan.FromMinutes(Math.Clamp((link.TankSize - link.Tank) / link.TankChange, CouplingInterval.TotalMinutes, MaxCouplingInterval.TotalMinutes));
                 limit = limit is { } l && l < until ? l : until;
             }
             if (link.Rate <= 1e-9)

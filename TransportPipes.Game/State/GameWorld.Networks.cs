@@ -797,7 +797,7 @@ public sealed partial class GameWorld
         {
             return null;
         }
-        var location = LocationMultiplier(building, definition) * EventOutputFactor(building, definition) * WonderOutputFactor(building);
+        var location = LocationMultiplier(building, definition) * EventOutputFactor(building, definition) * WonderOutputFactor(building) * ProjectOutputFactor(building, definition);
         // A complex works like five (twelve) buildings
         var complex = ComplexFactor(ComplexMembers(building));
         var owner = Company(building.Owner);

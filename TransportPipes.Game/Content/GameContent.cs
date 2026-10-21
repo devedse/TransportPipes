@@ -550,6 +550,7 @@ public sealed class GameContent
         public double MoveCooldownMinutes { get; set; } = 5;
         public double MoveFlightMinutes { get; set; } = 1;
         public double MoveCostPerLevel { get; set; }
+        public Dictionary<int, double> TypicalIncome { get; set; } = new();
 
         public TogetherSettings ToSettings() => new()
         {
@@ -563,6 +564,7 @@ public sealed class GameContent
             MoveCooldownMinutes = MoveCooldownMinutes,
             MoveFlightMinutes = MoveFlightMinutes,
             MoveCostPerLevel = MoveCostPerLevel,
+            TypicalIncome = TypicalIncome,
         };
     }
 

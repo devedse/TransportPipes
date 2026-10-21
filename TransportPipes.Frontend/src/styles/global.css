@@ -5409,3 +5409,128 @@ button.link.danger {
   color: #2e7d4a;
   font-weight: 700;
 }
+
+/* The station's project (v1.2 §12) */
+.project-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+}
+
+.project-stages li {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-muted);
+}
+
+.project-stages li.done {
+  background: rgba(46, 157, 106, 0.18);
+  color: #1f6b47;
+}
+
+.project-stages li.current {
+  background: var(--accent);
+  color: #fff8e8;
+  font-weight: 700;
+}
+
+.project-basket {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.project-basket li {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.project-basket li.keystone {
+  outline: 2px solid #c9963a;
+}
+
+.basket-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.basket-head .grow {
+  flex: 1;
+}
+
+.project-helpers {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.helper-ring .ring-track {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.1);
+  stroke-width: 7;
+}
+
+/* The Plan board and Asks (v1.2 §12) */
+.plan-board {
+  display: grid;
+  gap: 6px;
+}
+
+.pins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pin {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.pin.makes {
+  border-color: #2e9d6a;
+}
+
+.pin.needs {
+  border-color: #d08a2a;
+}
+
+.ask-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ask-row .grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.ask-form {
+  display: grid;
+  grid-template-columns: 1fr 80px 70px;
+  gap: 6px;
+  align-items: center;
+}
+
+.ask-form .check,
+.ask-form button {
+  grid-column: span 3;
+}
+
+.resident-pins {
+  color: var(--text-muted);
+}

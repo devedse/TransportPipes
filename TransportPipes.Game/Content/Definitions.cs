@@ -226,6 +226,9 @@ public sealed class TogetherSettings
     public double MoveFlightMinutes { get; init; } = 1;
     public double MoveCostPerLevel { get; init; }
 
+    /// <summary>T(L): the typical income per minute at a Company Level (anchors, linear between them) for baskets and allowances</summary>
+    public IReadOnlyDictionary<int, double> TypicalIncome { get; init; } = new Dictionary<int, double>();
+
     /// <summary>The Hub Order is grace × this for every company: the multiplier above the quietest threshold that fits</summary>
     public double GraceFor(int activeCompanies) =>
         QuietGrace.OrderBy(t => t.Below).FirstOrDefault(t => activeCompanies < t.Below)?.Factor ?? 1;

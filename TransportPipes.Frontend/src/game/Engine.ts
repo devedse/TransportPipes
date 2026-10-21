@@ -2831,7 +2831,11 @@ export class Engine {
         container.position.set(anchor.x, anchor.y);
         placeArt(sprite, art, { x: 0, y: 0 }, structure.size);
         container.addChild(sprite);
-        const wonder = structure.type === "wonderSite" || structure.type === "eraWonderSite";
+        // Wonders and the stations' projects rise stage by stage
+        const wonder =
+          structure.type === "wonderSite" ||
+          structure.type === "eraWonderSite" ||
+          structure.type.startsWith("project-");
         if (
           wonder &&
           art.placement !== undefined &&

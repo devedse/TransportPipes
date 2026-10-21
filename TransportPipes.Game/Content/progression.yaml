@@ -68,3 +68,6 @@ together:
   moveCooldownMinutes: 5
   moveFlightMinutes: 1
   moveCostPerLevel: 0
+  # T(L): the typical income per minute at a Company Level (gold), from the typical balance run; linear between the
+  # anchors. Sizes the station project's baskets (6 h of it per delivering resident) and what each may deliver a day
+  typicalIncome: { 1: 150, 2: 220, 3: 240, 4: 370, 5: 770, 13: 1930, 22: 3050, 26: 3770, 30: 4830, 32: 4930, 40: 6000, 60: 8000 }

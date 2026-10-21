@@ -1258,6 +1258,20 @@ export interface YardResidentDto {
   house: "reliable" | "collector" | "grower" | "neighbourInNeed" | null;
   /** The House standing in for an asleep player */
   standIn: string | null;
+  /** The Plan board's pins: what it makes and needs (v1.2 §12) */
+  makes: string[];
+  needs: string[];
+  asks: AskDto[];
+}
+
+/** An Ask: a good asked of the station, how much came, until when */
+export interface AskDto {
+  resource: string;
+  amount: number;
+  got: number;
+  until: string;
+  renew: boolean;
+  perMinute: number;
 }
 
 /** One of your trades through the Yard: with whom, what, how much per minute, which way, at what price */
@@ -1327,6 +1341,11 @@ export interface StationDto {
   y0: number;
   x1: number;
   y1: number;
+  /** The project's stage and progress ("Water Tower · 40%") */
+  project: string | null;
+  /** The Plan board: what its players pinned they make and need */
+  makes: string[] | null;
+  needs: string[] | null;
 }
 
 export interface SeatRefDto {
@@ -1531,4 +1550,38 @@ export interface MapLinkDto {
   seller: number;
   buyer: number;
   route: number[];
+}
+
+/**
+ * A station's project (v1.2 §12): the stage, its basket (with the keystone nobody here makes), who helped (shares, as a
+ * ring of colours), what the finished stages give every seat, and your own part
+ */
+export interface ProjectDto {
+  station: string;
+  stage: string;
+  stageIndex: number;
+  stages: string[];
+  basket: ProjectGoodDto[];
+  helpers: ProjectHelperDto[];
+  bonus: number;
+  foundryChains: string[];
+  opensAt: string | null;
+  yourCredit: number;
+  yourAllowance: number;
+  projectFirst: string[];
+  line: string;
+}
+
+export interface ProjectGoodDto {
+  resource: string;
+  target: number;
+  delivered: number;
+  keystone: boolean;
+  madeHere: boolean;
+}
+
+export interface ProjectHelperDto {
+  color: string;
+  share: number;
+  you: boolean;
 }
