@@ -163,9 +163,12 @@ public sealed class FlowSolver
         // ------------------------------------------------ Consistency phase: rates only go down
         Allocation final = null!;
         var converged = false;
+        var nudged = false;
+        var rounds = 0;
         for (var iteration = 0; iteration < 500; iteration++)
         {
             final = AllocateAtRates(rates);
+            rounds++;
 
             var changed = false;
             foreach (var building in _buildings)
@@ -193,7 +196,16 @@ public sealed class FlowSolver
                     // cycle (two buildings waiting for each other) become zero
                     var reduced = rate * factor * (1 - 1e-12);
                     rates[building.Id] = reduced < MinRate ? 0 : reduced;
-                    changed = true;
+                    // Shares between many consumers pass rounding errors around forever: a change of less than a
+                    // ten-millionth is kept but needs no other round (it took 500 rounds in a 25-factory network)
+                    if (factor < 1 - 1e-7 || rates[building.Id] == 0)
+                    {
+                        changed = true;
+                    }
+                    else
+                    {
+                        nudged = true;
+                    }
                 }
             }
 
@@ -204,12 +216,15 @@ public sealed class FlowSolver
             }
         }
 
-        if (!converged)
+        if (!converged || nudged)
         {
-            // Should not happen; make sure the flows at least belong to the final rates
+            // The flows belong to the final rates
             final = AllocateAtRates(rates);
+            rounds++;
         }
-        return BuildSolution(rates, final);
+        var solution = BuildSolution(rates, final);
+        solution.Rounds = rounds;
+        return solution;
     }
 
     private Allocation AllocateAtRates(Dictionary<long, double> rates)

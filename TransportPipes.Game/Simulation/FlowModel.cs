@@ -147,6 +147,9 @@ public sealed class FlowSolution
     public required IReadOnlyDictionary<long, double> Rates { get; init; }
     public required IReadOnlyList<Flow> Flows { get; init; }
 
+    /// <summary>How many allocations the consistency phase took (a measure of how hard the network was to solve)</summary>
+    public int Rounds { get; set; }
+
     /// <summary>Gold per minute per company (hub sales and trades minus imports and purchases)</summary>
     public required IReadOnlyDictionary<long, double> GoldPerMinute { get; init; }
 
