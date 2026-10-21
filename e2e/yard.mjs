@@ -1,7 +1,7 @@
 // Two players in one station trade through their Yard (v1.2 §7): A's Wind Moily and B's Iron Mine, each piped to their
 // Yard gate with the Yard panel's "Plan the pipe" button. B's mine should get A's energy at the player price, and the
 // Yard panel should show it: node yard.mjs <outdir>
-import { start, newPlayer } from "./lib.mjs";
+import { start, newPlayer, settle, emptySeats, moveTo } from "./lib.mjs";
 const [out = "shots/yard"] = process.argv.slice(2);
 
 const a = await start(out);
@@ -12,62 +12,8 @@ await newPlayer(b.page, "yb");
 await b.cheat("gold");
 await b.cheat("level");
 // In a busy world they may land apart: both move to the two first seats of a station nobody lives in
-const empty = await a.page.evaluate(async () => {
-  const c = tp.gameClient.connection;
-  const own = (await c.getStations(null, null)).ownStation;
-  const dto = await c.getStations(own.districtX, own.districtY);
-  const station = dto.stations.find((t) => t.seats.some((s) => s.slot === own.slot));
-  return station.seats.filter((s) => s.state === "free" || s.state === "house").map((s) => ({ districtX: own.districtX, districtY: own.districtY, slot: s.slot }));
-});
-for (const [player, seat] of [[a, empty[0]], [b, empty[1]]]) {
-  const moved = await player.page.evaluate(async (seat) => {
-    const c = tp.gameClient.connection;
-    const result = await c.relocateTo(seat);
-    if (!result.success) return result.error;
-    await c.cheat("arrive");
-    // The camera follows the estate; its chunks load there
-    for (let i = 0; i < 40 && ![...tp.gameClient.world.buildings.values()].some((t) => t.owner === tp.appStore.getState().company.id && t.type === "tradingPost"); i++) await new Promise((r) => setTimeout(r, 250));
-    return `seat ${seat.slot}`;
-  }, seat);
-  console.log("moved to", moved);
-}
-
-/** Builds a building near the trading post (or on a deposit), pipes it to the post and plans and lays the pipe to the Yard gate */
-async function settle(player, type, deposit) {
-  return player.page.evaluate(async ({ type, deposit }) => {
-    const c = tp.gameClient.connection;
-    const w = tp.gameClient.world;
-    const s = () => tp.appStore.getState();
-    const co = () => s().company;
-    const post = [...w.buildings.values()].find((t) => t.owner === co().id && t.type === "tradingPost");
-    const definition = s().content.building(type);
-    const ok = (x, y) => tp.rules.canPlace(s().content, w, co(), s().era, definition, x, y).ok;
-    let spot = null;
-    for (let r = 2; r < 12 && !spot; r++)
-      for (let dy = -r; dy <= r && !spot; dy++)
-        for (let dx = -r; dx <= r && !spot; dx++)
-          if (ok(post.x + dx, post.y + dy) && (!deposit || w.tile(post.x + dx, post.y + dy)?.deposit === deposit)) spot = { x: post.x + dx, y: post.y + dy };
-    if (!spot) return `no spot for ${type}`;
-    const placed = await c.placeBuilding(type, spot.x, spot.y);
-    if (!placed.success) return placed.error;
-    await c.cheat("finish");
-    const border = (b) => [[b.x, b.y - 1], [b.x, b.y + 1], [b.x - 1, b.y], [b.x + 1, b.y]];
-    let toPost = null;
-    for (const [fx, fy] of border(spot)) {
-      const route = tp.rules.routePipe(w, co(), { x: fx, y: fy }, { x: post.x - 1, y: post.y }, s().content);
-      if (route && (await c.placePipes(route.flatMap((t) => [t.x, t.y]), 1)).success) { toPost = route.length; break; }
-    }
-    await new Promise((r) => setTimeout(r, 1500));
-    // The Yard panel's button: plan the pipe to the gate, then build it
-    await tp.gameClient.openYard();
-    await tp.gameClient.planYardPipe();
-    for (let i = 0; i < 30 && s().plannedRoute === null; i++) await new Promise((r) => setTimeout(r, 300));
-    const planned = s().plannedRoute?.length ?? null;
-    if (planned !== null) await tp.gameClient.buildPlannedRoute();
-    await new Promise((r) => setTimeout(r, 1500));
-    return JSON.stringify({ type, spot, toPost, planned, slot: co().slot });
-  }, { type, deposit });
-}
+const [seatA, seatB] = await emptySeats(a.page, 2);
+console.log("moved to", await moveTo(a, seatA), await moveTo(b, seatB));
 
 console.log("A", await settle(a, "windMoily"));
 console.log("B", await settle(b, "ironMine", "ironOre"));

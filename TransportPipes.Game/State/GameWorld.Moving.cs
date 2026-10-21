@@ -291,6 +291,7 @@ public sealed partial class GameWorld
             estate = FindFreeEstate();
         }
         Unpack(company, estate);
+        RerouteLinks(company);
         Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Neighbour, company.Crates.Count == 0
             ? "Your estate has landed in its new spot"
             : $"Your estate has landed; {company.Crates.Count} buildings didn't fit and wait in crates"));
@@ -299,7 +300,9 @@ public sealed partial class GameWorld
     /// <summary>Ends what ties a company to its neighbours: contracts and Exchange orders</summary>
     private void EndTradeOf(Company company)
     {
-        foreach (var contract in _contracts.Values.Where(t => t.IsOpen && (t.Seller == company.Id || t.Buyer == company.Id)).ToList())
+        // A contract that runs over a link goes on (the link takes the new way); one through the Yard ends
+        foreach (var contract in _contracts.Values.Where(t => t.IsOpen && (t.Seller == company.Id || t.Buyer == company.Id)
+                     && LinkBetween(t.Seller, t.Buyer, t.Resource) == null).ToList())
         {
             contract.State = ContractState.Ended;
             ContractChanged(contract);

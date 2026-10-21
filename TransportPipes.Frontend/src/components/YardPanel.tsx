@@ -3,6 +3,7 @@ import { formatAmount } from "../app/format";
 import type { ResourceRateDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import { setState, useAppStore } from "../state/store";
+import { LinksTab } from "./LinksTab";
 import { ResourceIcon } from "./ResourceIcon";
 
 function Rates({ rates, content, kind }: { rates: ResourceRateDto[]; content: Content; kind: string }) {
@@ -39,11 +40,14 @@ const ACTIVITY: Record<string, string> = {
 export function YardPanel() {
   const open = useAppStore((state) => state.yardOpen);
   const yard = useAppStore((state) => state.yard);
+  const tab = useAppStore((state) => state.yardTab);
+  const links = useAppStore((state) => state.links);
   const content = useAppStore((state) => state.content);
   const company = useAppStore((state) => state.company);
   if (!open || content === null || company === null) {
     return null;
   }
+  const waiting = links?.links.filter((t) => t.state === "offered" && !t.youOffered).length ?? 0;
   return (
     <aside className="panel yard-panel" aria-label="Yard">
       <div className="panel-header">
@@ -54,11 +58,38 @@ export function YardPanel() {
             everybody
           </div>
         </div>
-        <button className="icon-button" title="Close (Esc)" onClick={() => setState({ yardOpen: false })}>
+        <button
+          className="icon-button"
+          title="Close (Esc)"
+          onClick={() => setState({ yardOpen: false, focusLink: null })}
+        >
           ×
         </button>
       </div>
-      {yard === null ? (
+      <div className="tabs" role="tablist">
+        <button
+          role="tab"
+          aria-selected={tab === "yard"}
+          className={tab === "yard" ? "tab active" : "tab"}
+          onClick={() => {
+            setState({ yardTab: "yard", focusLink: null });
+            void gameClient.refreshYard();
+          }}
+        >
+          Yard
+        </button>
+        <button
+          role="tab"
+          aria-selected={tab === "links"}
+          className={tab === "links" ? "tab active" : "tab"}
+          onClick={() => void gameClient.openLinks()}
+        >
+          Links{waiting > 0 && <span className="badge">{waiting}</span>}
+        </button>
+      </div>
+      {tab === "links" ? (
+        <LinksTab />
+      ) : yard === null ? (
         <p className="muted">Loading…</p>
       ) : (
         <>
@@ -127,7 +158,7 @@ export function YardPanel() {
           )}
           <span className="button-row">
             <button onClick={() => void gameClient.openTradeSettings()}>⚙ Trade settings</button>
-            <button onClick={() => void gameClient.openNeighbours()}>Everyone in the district</button>
+            <button onClick={() => void gameClient.openLinks()}>🔗 Links to other stations</button>
             <button onClick={() => void gameClient.openCrew()}>👥 Crew</button>
           </span>
         </>

@@ -416,6 +416,16 @@ public sealed class WorldHost : BackgroundService
         {
             pushes.Add(() => _hub.Clients.Group(GameHub.UserGroup(userId)).CrewChanged());
         }
+
+        // Links: both ends hear about it, and every map draws them again
+        foreach (var userId in changes.Links.Select(world.Company).OfType<Company>().Select(t => t.UserId).Where(online.Contains).Distinct().ToList())
+        {
+            pushes.Add(() => _hub.Clients.Group(GameHub.UserGroup(userId)).LinksChanged());
+        }
+        if (changes.Links.Count > 0)
+        {
+            pushes.Add(() => _hub.Clients.All.MapLinksChanged());
+        }
         return pushes;
     }
 

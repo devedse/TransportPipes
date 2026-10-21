@@ -67,9 +67,10 @@ public sealed partial class GameWorld
             {
                 return CommandResult.Fail("Choose another company.");
             }
-            if (!CanDeliver(company, partner))
+            var (from, to) = selling ? (company.Id, partner.Id) : (partner.Id, company.Id);
+            if (!CanDeliver(company, partner) && LinkBetween(from, to, resource) == null)
             {
-                return CommandResult.Fail($"{partner.Name} doesn't live in your station: contracts go through the Yard.");
+                return CommandResult.Fail($"{partner.Name} doesn't live in your station: link your gates for {Content.Resources[resource].Name.ToLowerInvariant()} first, or contract through the Yard.");
             }
         }
         var seller = selling ? company.Id : partner?.Id ?? 0;
@@ -161,6 +162,7 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("You made this offer yourself.");
         }
+        var fromBoard = contract.Seller == 0 || contract.Buyer == 0;
         if (contract.Seller == 0)
         {
             if (Company(contract.Proposer)?.District != company.District)
@@ -185,10 +187,29 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("You already have a contract with them for this.");
         }
+        // The goods need a way: the Yard of a station both live in, or a link
+        if (Company(contract.Seller) is { } from && Company(contract.Buyer) is { } to && !CanDeliver(from, to)
+            && LinkBetween(from.Id, to.Id, contract.Resource) == null)
+        {
+            var other = from.Id == companyId ? to : from;
+            if (fromBoard)
+            {
+                // Back on the board for someone who can deliver
+                if (contract.Seller == companyId)
+                {
+                    contract.Seller = 0;
+                }
+                else
+                {
+                    contract.Buyer = 0;
+                }
+            }
+            return CommandResult.Fail($"{other.Name} doesn't live in your station: link your gates for {Content.Resources[contract.Resource].Name.ToLowerInvariant()} first.");
+        }
         // Nobody can promise more than they can make: a contract nobody could meet would only pay penalties
         if (Company(contract.Seller) is { } promiser && contract.Rate > PromisableRate(promiser, contract.Resource, contract.Id) + 1e-9)
         {
-            if (contract.Seller == companyId)
+            if (fromBoard && contract.Seller == companyId)
             {
                 contract.Seller = 0;
             }

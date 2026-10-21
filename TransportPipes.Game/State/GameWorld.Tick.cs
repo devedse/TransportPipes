@@ -53,6 +53,10 @@ public sealed partial class GameWorld
         {
             events.Add((at, long.MinValue + 11, run));
         }
+        foreach (var (at, run) in LinkMoments(LastTick, now).ToList())
+        {
+            events.Add((at, long.MinValue + 12, run));
+        }
         foreach (var company in _companies.Values.Where(t => t.PendingBlocks.Count != 0))
         {
             foreach (var (other, at) in company.PendingBlocks.Where(t => t.Value <= now).ToList())
@@ -169,6 +173,7 @@ public sealed partial class GameWorld
         }
         SolveNetworks();
         ExpectContracts(minutes);
+        CountLinkDeliveries(minutes);
         foreach (var network in _networks.Values.OrderBy(t => t.Id).ToList())
         {
             AdvanceNetwork(network, minutes);

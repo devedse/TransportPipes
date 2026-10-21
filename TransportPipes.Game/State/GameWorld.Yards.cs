@@ -488,9 +488,10 @@ public sealed partial class GameWorld
             .Select(t => BigStation(t.Station)[0])
             .Distinct()
             .OrderBy(t => t.District.X).ThenBy(t => t.District.Y).ThenBy(t => t.Index);
-        foreach (var station in stations)
+        var byStation = stations.Select(t => (Station: t, Members: YardMembers(t))).ToList();
+        var all = byStation.SelectMany(t => t.Members).ToDictionary(t => t.Key);
+        foreach (var (_, members) in byStation)
         {
-            var members = YardMembers(station);
             var byKey = members.ToDictionary(t => t.Key);
             // What sellers sent last round arrives now, in the shares they were matched (less when they sent less)
             foreach (var seller in members)
@@ -516,6 +517,15 @@ public sealed partial class GameWorld
                     sources[seller.Company.Id] = sources.GetValueOrDefault(seller.Company.Id) + matched * ratio;
                 }
             }
+        }
+
+        // Links between stations: what they brought arrives, then they take their share before the Yards
+        TimeSpan? limit = null;
+        DeliverLinks(all, TermsOf, ref limit);
+        MatchLinks(all, TermsOf);
+
+        foreach (var (_, members) in byStation)
+        {
             if (members.Count < 2)
             {
                 continue;
@@ -556,6 +566,11 @@ public sealed partial class GameWorld
             }
         }
         _couplingInterval = changed ? CouplingInterval : TimeSpan.FromTicks(Math.Min(MaxCouplingInterval.Ticks, _couplingInterval.Ticks * 2));
+        if (limit is { } until && _couplingInterval > until)
+        {
+            // A tank runs dry or fills up before then
+            _couplingInterval = until;
+        }
     }
 
     private static bool TermsChanged(GateTerms before, GateTerms after)
@@ -665,49 +680,65 @@ public sealed partial class GameWorld
     public double YardPrice(Company me, Company partner, string resource, bool selling) =>
         selling ? SettlementPrice(me, partner, resource) : SettlementPrice(partner, me, resource);
 
-    /// <summary>What goes through a station's Yard per minute, by resource</summary>
+    /// <summary>What goes through a station's Yard per minute, by resource (between its residents, not over links)</summary>
     public Dictionary<string, double> YardTotals(StationRef station)
     {
         var totals = new Dictionary<string, double>();
+        var home = BigStation(station)[0];
         foreach (var slot in BigStation(station).SelectMany(StationSeats).Select(t => t.Slot))
         {
             if (_gateTerms.TryGetValue(new EstateKey(station.District, slot), out var terms))
             {
                 foreach (var ((resource, _), sources) in terms.Import)
                 {
-                    Add(totals, resource, sources.Values.Sum());
+                    Add(totals, resource, sources.Where(t => LivesIn(t.Key, home)).Sum(t => t.Value) - LinkImports(new EstateKey(station.District, slot), resource, home));
                 }
             }
         }
-        return totals;
+        return totals.Where(t => t.Value > 1e-9).ToDictionary();
     }
 
-    /// <summary>What a company's estate sends to and gets from its station's residents per minute, by partner and resource</summary>
+    /// <summary>Whether a company lives in a (big) station</summary>
+    private bool LivesIn(long companyId, StationRef home) =>
+        Company(companyId) is { } company && EstateOf(company) is { } estate && BigStation(estate.Station)[0] == home;
+
+    /// <summary>What links from residents of the same station bring an estate (counted as links, not as the Yard)</summary>
+    private double LinkImports(EstateKey buyer, string resource, StationRef home) =>
+        _links.Values.Where(t => t.Rate > 0 && t.Resource == resource && LivesIn(t.Seller, home)
+                && Estate(buyer.District, buyer.Slot)?.OwnerId == t.Buyer)
+            .Sum(t => t.Rate);
+
+    /// <summary>What a company's estate sends to and gets from its station's residents per minute, by partner and resource (links aside)</summary>
     public IReadOnlyList<(long Partner, string Resource, double PerMinute, bool Selling)> YardTrades(Estate estate)
     {
         var trades = new List<(long, string, double, bool)>();
         var key = KeyOf(estate);
-        if (_gateTerms.TryGetValue(key, out var terms))
+        var home = BigStation(estate.Station)[0];
+        double OverLink(long seller, long buyer, string resource) => LinkBetween(seller, buyer, resource)?.Rate ?? 0;
+        if (_gateTerms.TryGetValue(key, out var terms) && estate.OwnerId is { } me)
         {
             foreach (var ((resource, _), sources) in terms.Import)
             {
-                foreach (var (seller, amount) in sources)
+                foreach (var (seller, amount) in sources.Where(t => LivesIn(t.Key, home)))
                 {
-                    trades.Add((seller, resource, amount, false));
+                    if (amount - OverLink(seller, me, resource) > 1e-9)
+                    {
+                        trades.Add((seller, resource, amount - OverLink(seller, me, resource), false));
+                    }
                 }
             }
         }
         foreach (var (otherKey, other) in _gateTerms.Where(t => t.Key != key))
         {
-            if (Estate(otherKey.District, otherKey.Slot)?.OwnerId is not { } buyer)
+            if (Estate(otherKey.District, otherKey.Slot)?.OwnerId is not { } buyer || !LivesIn(buyer, home))
             {
                 continue;
             }
             foreach (var ((resource, _), sources) in other.Import)
             {
-                if (estate.OwnerId is { } owner && sources.TryGetValue(owner, out var amount))
+                if (estate.OwnerId is { } owner && sources.TryGetValue(owner, out var amount) && amount - OverLink(owner, buyer, resource) > 1e-9)
                 {
-                    trades.Add((buyer, resource, amount, true));
+                    trades.Add((buyer, resource, amount - OverLink(owner, buyer, resource), true));
                 }
             }
         }

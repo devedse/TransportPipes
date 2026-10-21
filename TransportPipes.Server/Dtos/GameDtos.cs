@@ -618,3 +618,49 @@ public record CrewViewDto(CrewDto? Crew, IReadOnlyList<string> Emblems);
 
 /// <summary>Founding a crew with friends: the seats held for them, each with its code</summary>
 public record FoundCrewResultDto(bool Success, string? Error, IReadOnlyList<HeldSeatDto> Holds);
+
+/// <summary>
+/// A link (v1.2 §7) as one of its ends sees it: the good, the partner, the flow, the tank at the buyer's gate, the notice,
+/// and one state line that always says what happens
+/// </summary>
+public record LinkDto(
+    long Id,
+    long PartnerId,
+    string PartnerName,
+    string PartnerColor,
+    string Resource,
+    bool YouSell,
+    bool YouOffered,
+    /// <summary>offered, active, paused</summary>
+    string State,
+    int Tier,
+    int Length,
+    double Efficiency,
+    double Throughput,
+    double Price,
+    double Need,
+    double Rate,
+    double Tank,
+    double TankSize,
+    double Delivered,
+    DateTime? NoticeAt,
+    bool NoticeEnds,
+    bool NoticeYours,
+    bool CanResume,
+    DateTime? OfferEndsAt,
+    /// <summary>good, info, warn</summary>
+    string Tone,
+    string Line,
+    IReadOnlyList<int> Route);
+
+public record LinkSuggestionDto(long PartnerId, string PartnerName, string PartnerColor, string Station, string Resource, bool YouSell, double PerMinute, int Length, double Efficiency);
+
+public record LinksDto(IReadOnlyList<LinkDto> Links, IReadOnlyList<LinkSuggestionDto> Suggestions, int Max, IReadOnlyList<LinkPartnerDto> Partners);
+
+/// <summary>Someone a link could go to (players outside your station)</summary>
+public record LinkPartnerDto(long Id, string Name, string Color, int Level, string Station);
+
+public record LinkPlanDto(int Length, double Efficiency, double Throughput, double Gold, IReadOnlyList<ResourceRateDto> Materials, string? Error, IReadOnlyList<int> Route);
+
+/// <summary>A link on the map: its route (x, y pairs) along the corridors</summary>
+public record MapLinkDto(long Id, string Resource, int Tier, bool Flowing, long Seller, long Buyer, IReadOnlyList<int> Route);

@@ -567,6 +567,12 @@ namespace TransportPipes.Database.Migrations
                     b.Property<DateTime>("LastTick")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Links")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValueSql("'[]'::jsonb");
+
                     b.Property<string>("Outposts")
                         .IsRequired()
                         .ValueGeneratedOnAdd()

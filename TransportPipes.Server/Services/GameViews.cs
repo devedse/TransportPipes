@@ -1164,6 +1164,129 @@ public static class GameViews
             GameWorld.MaxCrewSize), GameWorld.CrewEmblems);
     }
 
+    /// <summary>A duration as a state line says it: "45 min", "1 h 40 min", "2 days"</summary>
+    private static string Span(TimeSpan span) =>
+        span.TotalMinutes < 1 ? "a moment"
+        : span.TotalHours < 1 ? $"{Math.Ceiling(span.TotalMinutes):0} min"
+        : span.TotalHours < 24 ? (span.Minutes == 0 ? $"{(int)span.TotalHours} h" : $"{(int)span.TotalHours} h {span.Minutes} min")
+        : $"{Math.Round(span.TotalDays):0} days";
+
+    private static string PerMinute(double rate) => rate >= 100 ? $"{rate:N0}" : rate >= 10 ? $"{rate:0.#}" : $"{rate:0.##}";
+
+    private static IReadOnlyList<int> Flat(IEnumerable<TilePos> route) => route.SelectMany(t => new[] { t.X, t.Y }).ToList();
+
+    /// <summary>One line that says what a link does now, and why when nothing flows (v1.2 §7: no pipe ends in silence)</summary>
+    private static (string Tone, string Line) LinkLine(GameWorld world, Link link, Company me)
+    {
+        var partner = world.Company(link.Partner(me.Id));
+        var name = partner?.Name ?? "Your partner";
+        var good = world.Content.Resources.TryGetValue(link.Resource, out var r) ? r.Name.ToLowerInvariant() : link.Resource;
+        var selling = link.Seller == me.Id;
+        var price = world.PlayerPrice(link.Resource);
+        var tank = world.TankNow(link);
+        var tankTime = link.Need > 1e-9 && tank > 1e-6 ? Span(TimeSpan.FromMinutes(tank / link.Need)) : null;
+        if (link.State == LinkState.Offered)
+        {
+            var left = Span(link.CreatedAt + GameWorld.LinkOfferLifetime - world.Now);
+            return link.OfferedBy == me.Id
+                ? ("info", $"Waiting for {name} to accept (the offer stays {left} more; the pipe is refunded if they don't)")
+                : ("info", selling ? $"{name} would like to buy your {good} at {price:0.##} g: accept to start" : $"{name} offers you their {good} at {price:0.##} g: accept to start");
+        }
+        if (link.State == LinkState.Paused)
+        {
+            var by = link.PausedBy == me.Id ? "you" : name;
+            return ("warn", !selling && tankTime != null
+                ? $"Paused by {by}: nothing flows; your tank keeps {tankTime} of it"
+                : $"Paused by {by}: nothing flows. {(link.PausedBy == me.Id ? "Resume it when you like" : "They resume it")}");
+        }
+        var notice = link.NoticeAt is { } at
+            ? $" · {(link.NoticeEnds ? "ends" : "pauses")} in {Span(at - world.Now)} ({(link.NoticeBy == me.Id ? "your notice" : $"{name}'s notice")})"
+            : "";
+        var resting = partner != null && world.ActivityOf(partner) != Activity.Active ? $" {name} is resting; this link keeps delivering." : "";
+        var (tone, line) = link.Flow switch
+        {
+            LinkFlow.Live => ("good", selling
+                ? $"{name} buys {PerMinute(link.Rate)} {good}/min at {price:0.##} g"
+                : $"You buy {PerMinute(link.Rate)} {good}/min from {name} at {price:0.##} g"),
+            LinkFlow.Capped => ("info", $"The pipe is full at {PerMinute(link.Rate)}/min: the rest goes to the Yard and the hub. A better pipe carries more"),
+            LinkFlow.NotNeeded => ("info", selling
+                ? $"{name} needs no {good} right now: yours goes to the Yard and the hub"
+                : $"You need no {good} right now: the link waits"),
+            LinkFlow.SellerShort => ("warn", selling
+                ? $"You have less {good} spare than {name} needs{(link.Rate > 0 ? $" ({PerMinute(link.Rate)}/min arrives)" : "")}: make more, or their tank runs dry"
+                : tankTime != null
+                    ? $"{name} has less spare than you need: your tank gives {tankTime} more"
+                    : $"{name} has no {good} spare right now: the Yard and the hub fill in"),
+            LinkFlow.NotConnected => ("warn", world.EstateOf(me) is not { } estate || world.GateNetwork(estate) == null
+                ? "Pipe your network to your Yard gate: the link starts there"
+                : !selling && tankTime != null
+                    ? $"{name}'s Yard gate isn't piped: your tank gives {tankTime} more"
+                    : $"{name} hasn't piped their Yard gate yet (or is on the way)"),
+            LinkFlow.NotAllowed => ("warn", "Nothing flows: a Block, a trade setting, or a buyer out of gold"),
+            _ => ("info", ""),
+        };
+        return (tone, line + "." + resting + notice);
+    }
+
+    public static LinkDto Link(GameWorld world, Link link, Company me)
+    {
+        var partner = world.Company(link.Partner(me.Id));
+        var (tone, line) = LinkLine(world, link, me);
+        return new LinkDto(
+            link.Id,
+            link.Partner(me.Id),
+            partner?.Name ?? "?",
+            partner?.Color ?? "#999999",
+            link.Resource,
+            link.Seller == me.Id,
+            link.OfferedBy == me.Id,
+            Camel(link.State),
+            link.Tier,
+            link.Length,
+            world.LinkEfficiency(link),
+            world.LinkThroughput(link),
+            world.PlayerPrice(link.Resource),
+            link.Need,
+            link.Rate,
+            world.TankNow(link),
+            link.TankSize,
+            link.Delivered,
+            link.NoticeAt,
+            link.NoticeEnds,
+            link.NoticeBy == me.Id,
+            link.State == LinkState.Paused ? link.PausedBy == me.Id || link.PausedBy == null : link.NoticeAt != null && link.NoticeBy == me.Id,
+            link.State == LinkState.Offered ? link.CreatedAt + GameWorld.LinkOfferLifetime : null,
+            tone,
+            line,
+            Flat(link.Route));
+    }
+
+    /// <summary>Your links, who a link would suit, and whom you could link with</summary>
+    public static LinksDto Links(GameWorld world, Company me)
+    {
+        var home = world.EstateOf(me) is { } estate ? world.BigStation(estate.Station)[0] : (StationRef?)null;
+        var partners = world.Companies
+            .Where(t => !t.IsNpc && t.Id != me.Id && !t.Asleep && world.EstateOf(t) is { } e && world.BigStation(e.Station)[0] != home)
+            .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(t => new LinkPartnerDto(t.Id, t.Name, t.Color, t.Level, WorldNames.Station(world.EstateOf(t)!.Station)))
+            .ToList();
+        return new LinksDto(
+            world.LinksOf(me.Id).OrderBy(t => t.State == LinkState.Offered && t.OfferedBy != me.Id ? 0 : 1).ThenBy(t => t.Id).Select(t => Link(world, t, me)).ToList(),
+            world.LinkSuggestions(me).Select(t => new LinkSuggestionDto(t.Partner.Id, t.Partner.Name, t.Partner.Color,
+                WorldNames.Station(world.EstateOf(t.Partner)!.Station), t.Resource, t.Selling, t.PerMinute, t.Length, world.LinkEfficiency(1, t.Length))).ToList(),
+            GameWorld.MaxLinksPerEstate,
+            partners);
+    }
+
+    public static LinkPlanDto LinkPlan(GameWorld world, GameWorld.LinkPlan plan) =>
+        new(plan.Length, plan.Efficiency, plan.Throughput, plan.Gold, plan.Materials.Select(t => new ResourceRateDto(t.Key, t.Value)).ToList(), plan.Error, Flat(plan.Route));
+
+    /// <summary>Every link on the map (offers aren't laid yet)</summary>
+    public static IReadOnlyList<MapLinkDto> MapLinks(GameWorld world) =>
+        world.Links.Where(t => t.State != LinkState.Offered)
+            .Select(t => new MapLinkDto(t.Id, t.Resource, t.Tier, t.Rate > 0, t.Seller, t.Buyer, Flat(t.Route)))
+            .ToList();
+
     /// <summary>The player's station and its Yard</summary>
     public static YardDto? Yard(GameWorld world, Company me)
     {

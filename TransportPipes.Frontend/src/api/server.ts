@@ -1,5 +1,8 @@
 import { HubConnectionBuilder, LogLevel, type HubConnection } from "@microsoft/signalr";
 import type {
+  LinkPlanDto,
+  LinksDto,
+  MapLinkDto,
   NextStepDto,
   AuthResult,
   BlueprintSharing,
@@ -120,6 +123,8 @@ export interface ServerEvents {
   wondersChanged(): void;
   seasonChanged(): void;
   crewChanged(): void;
+  linksChanged(): void;
+  mapLinksChanged(): void;
 }
 
 const EVENT_NAMES: Record<keyof ServerEvents, string> = {
@@ -136,6 +141,8 @@ const EVENT_NAMES: Record<keyof ServerEvents, string> = {
   wondersChanged: "WondersChanged",
   seasonChanged: "SeasonChanged",
   crewChanged: "CrewChanged",
+  linksChanged: "LinksChanged",
+  mapLinksChanged: "MapLinksChanged",
 };
 
 const START_RETRY_DELAYS_MS = [0, 2000, 5000, 10000];
@@ -288,6 +295,17 @@ export class GameConnection {
   getMarket = () => this.invoke<MarketDto | null>("GetMarket");
   getNeighbourhood = () => this.invoke<NeighbourDto[]>("GetNeighbourhood");
   getYard = () => this.invoke<YardDto | null>("GetYard");
+  getLinks = () => this.invoke<LinksDto | null>("GetLinks");
+  planLink = (partnerId: number, resource: string, selling: boolean, tier: number) =>
+    this.invoke<LinkPlanDto | null>("PlanLink", partnerId, resource, selling, tier);
+  offerLink = (partnerId: number, resource: string, selling: boolean, tier: number) =>
+    this.invoke<CommandResult>("OfferLink", partnerId, resource, selling, tier);
+  acceptLink = (id: number) => this.invoke<CommandResult>("AcceptLink", id);
+  declineLink = (id: number) => this.invoke<CommandResult>("DeclineLink", id);
+  endLink = (id: number, end: boolean) => this.invoke<CommandResult>("EndLink", id, end);
+  resumeLink = (id: number) => this.invoke<CommandResult>("ResumeLink", id);
+  upgradeLink = (id: number, tier: number) => this.invoke<CommandResult>("UpgradeLink", id, tier);
+  getMapLinks = () => this.invoke<MapLinkDto[]>("GetMapLinks");
   getExchange = () => this.invoke<ExchangeDto | null>("GetExchange");
   placeExchangeOrder = (resource: string, selling: boolean, amount: number, price: number) =>
     this.invoke<CommandResult>("PlaceExchangeOrder", resource, selling, amount, price);

@@ -24,6 +24,12 @@ public interface IGameClient
     Task WondersChanged();
     Task SeasonChanged();
     Task CrewChanged();
+
+    /// <summary>Your links changed (an offer, an answer, a notice, the end)</summary>
+    Task LinksChanged();
+
+    /// <summary>A link somewhere was laid, rerouted or removed: the map draws them again</summary>
+    Task MapLinksChanged();
 }
 
 /// <summary>The game protocol. Every call needs a logged in user (the login cookie).</summary>
@@ -327,6 +333,35 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<YardDto?> GetYard() =>
         _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Yard(world, company) : null, changesWorld: false);
+
+    // ---------------------------------------------------------------- Links (v1.2 §7)
+
+    public Task<LinksDto?> GetLinks() =>
+        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Links(world, company) : null, changesWorld: false);
+
+    public Task<LinkPlanDto?> PlanLink(long partnerId, string resource, bool selling, int tier) =>
+        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.LinkPlan(world, world.PlanLink(company.Id, partnerId, resource, selling, tier)) : null, changesWorld: false);
+
+    public Task<CommandResultDto> OfferLink(long partnerId, string resource, bool selling, int tier) =>
+        Command((world, company) => world.OfferLink(company, partnerId, resource, selling, tier).Result);
+
+    public Task<CommandResultDto> AcceptLink(long linkId) =>
+        Command((world, company) => world.AcceptLink(company, linkId));
+
+    public Task<CommandResultDto> DeclineLink(long linkId) =>
+        Command((world, company) => world.DeclineLink(company, linkId));
+
+    public Task<CommandResultDto> EndLink(long linkId, bool end) =>
+        Command((world, company) => world.EndLink(company, linkId, end));
+
+    public Task<CommandResultDto> ResumeLink(long linkId) =>
+        Command((world, company) => world.ResumeLink(company, linkId));
+
+    public Task<CommandResultDto> UpgradeLink(long linkId, int tier) =>
+        Command((world, company) => world.UpgradeLink(company, linkId, tier));
+
+    public Task<IReadOnlyList<MapLinkDto>> GetMapLinks() =>
+        _world.RunAsync(GameViews.MapLinks, changesWorld: false);
 
     public Task<IReadOnlyList<NeighbourDto>> GetNeighbourhood() =>
         _world.RunAsync<IReadOnlyList<NeighbourDto>>(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Neighbourhood(world, company) : [], changesWorld: false);

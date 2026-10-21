@@ -25,6 +25,8 @@ import type {
   ResearchStateDto,
   UserInfo,
   YardDto,
+  LinksDto,
+  MapLinkDto,
   CrewViewDto,
   HeldSeatDto,
   InviteDto,
@@ -79,6 +81,12 @@ export interface AppState {
   /** The Yard panel: your station, its residents and your trades with them */
   yardOpen: boolean;
   yard: YardDto | null;
+  /** The Yard panel's tab: your station, or your links to other stations */
+  yardTab: "yard" | "links";
+  links: LinksDto | null;
+  /** Every link on the map, and the one the Links tab points at */
+  mapLinks: MapLinkDto[];
+  focusLink: number | null;
   /** Counts district updates, so panels that read the world model render again */
   districtVersion: number;
   networkDetails: NetworkDetailsDto | null;
@@ -187,6 +195,10 @@ export const initialState: AppState = {
   selectedNetwork: null,
   yardOpen: false,
   yard: null,
+  yardTab: "yard",
+  links: null,
+  mapLinks: [],
+  focusLink: null,
   districtVersion: 0,
   networkDetails: null,
   buildingNetwork: null,

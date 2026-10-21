@@ -132,6 +132,37 @@ public class GameServerFacts
         Assert.AreEqual(started.Holds[0].Slot, home.Company!.Slot);
     }
 
+    [TestMethod]
+    public async Task ALinkIsOfferedAcceptedAndDrawnThroughTheHub()
+    {
+        using var server = new GameServer();
+        await using var ana = await server.ConnectAsync(await server.RegisterAsync("Ana"));
+        await using var ben = await server.ConnectAsync(await server.RegisterAsync("Ben"));
+        // The start screen's picker opens the first district
+        await ana.Invoke<StationsDto>("GetStations", null, null);
+        await ana.Command("CreateCompany", "Ana Pipes", "#3399ff", 0, 0, 0, null);
+        await ben.Command("CreateCompany", "Ben Works", "#ff9933", 0, 0, 3, null);
+        var benId = (await ben.Invoke<HelloDto>("Hello")).Company!.Id;
+
+        var plan = await ana.Invoke<LinkPlanDto>("PlanLink", benId, "coal", true, 1);
+        Assert.IsNull(plan.Error);
+        Assert.IsGreaterThan(0, plan.Length);
+        await ana.Command("OfferLink", benId, "coal", true, 1);
+
+        var offers = await ben.Invoke<LinksDto>("GetLinks");
+        var offer = offers.Links.Single();
+        Assert.AreEqual("offered", offer.State);
+        Assert.IsFalse(offer.YouSell);
+        Assert.AreEqual("Ana Pipes", offer.PartnerName);
+        StringAssert.Contains(offer.Line, "accept");
+        Assert.IsEmpty(await ana.Invoke<IReadOnlyList<MapLinkDto>>("GetMapLinks"), "an offer isn't laid yet");
+
+        await ben.Command("AcceptLink", offer.Id);
+        Assert.AreEqual("active", (await ana.Invoke<LinksDto>("GetLinks")).Links.Single().State);
+        var drawn = await ana.Invoke<IReadOnlyList<MapLinkDto>>("GetMapLinks");
+        Assert.AreEqual(plan.Route.Count, drawn.Single().Route.Count, "the map draws the route that was planned");
+    }
+
     /// <summary>A spot next to the trading post for a pipe and a wind moily behind it</summary>
     private static Task<(TilePos Pipe, TilePos Moily)> SpotNextToTradingPost(GameServer server, long userId) =>
         server.World.RunAsync(world =>

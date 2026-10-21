@@ -248,8 +248,15 @@ stay); name + password accounts only (guests on a hidden account they can keep);
   crew; guests keep their estate with a name and password (asked at Levels 3, 6 and 10, and in the company panel);
   moves to a chosen seat (free, a minute in the air, 5 minutes between moves, both configurable); Block. e2e
   `crew.mjs` plays Ana, Ben and Cleo
-- ⬜ 3 · Links between stations (auto-routed through the corridors, tank, notice, fallback, state line), contracts and
-  the Exchange at the one price
+- ✅ 3 · Links between stations: one good from one company's Yard gate to another's outside its station, on a pipe
+  routed through the corridors (and the wilderness between districts; at most two turns), loss per tile by pipe tier,
+  the offerer pays the pipe (refunded when an offer lapses after three days or is declined), at most 12 links an
+  estate and 5 offers an hour; a two-hour tank at the buyer's gate fills from the seller's spare and covers when it
+  stops, a pause or the end comes with an hour's notice, what a link doesn't bring the Yard and the hub do, and every
+  link has one state line; matched after contracts and before the Yard, damped like the Yard; links take the new way
+  when an estate moves; contracts between stations run over a link (and survive a move); the Links tab in the Yard
+  panel (offers, state lines, tanks, who a link would suit), links drawn on the map as covered channels with the goods
+  moving along them. The Exchange already trades at the one price. e2e `links.mjs`
 - ⬜ 4 · Houses (NPC companies in the stations, House prices, one 25% cap), stand-ins for whoever sleeps, small mode,
   frozen districts
 - ⬜ 5 · Absence and return: holds, asleep in place, the keep-the-seat card, tending, the three return screens,

@@ -5216,3 +5216,119 @@ button.link.danger {
   border-radius: 10px;
   background: rgba(201, 150, 58, 0.12);
 }
+
+/* Links (v1.2 §7): one card per link, its state line, the tank at the buyer's gate */
+.link-list,
+.link-suggestions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.link-card {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.5);
+  border-left: 4px solid #9fb7b6;
+}
+
+.link-card.good {
+  border-left-color: #2e9d6a;
+}
+
+.link-card.warn {
+  border-left-color: #d08a2a;
+}
+
+.link-card.focus {
+  outline: 2px solid #f5c45a;
+}
+
+.link-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.link-head .grow,
+.link-suggestion .grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.link-arrow {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.link-line {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: var(--accent-soft);
+}
+
+.link-line.warn {
+  background: #fff1cc;
+}
+
+.link-line.info {
+  background: rgba(35, 107, 105, 0.08);
+}
+
+.link-tank {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.tank-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.tank-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #3aa19c, #6cd1c6);
+}
+
+.link-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.new-link {
+  display: grid;
+  gap: 8px;
+}
+
+.link-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.link-form select:first-child {
+  grid-column: 1 / -1;
+}
+
+.link-card button.link,
+.link-suggestion button.link {
+  background: none;
+  border: none;
+  box-shadow: none;
+}

@@ -16,6 +16,7 @@ import type {
   CompanyDto,
   ConductorDto,
   DistrictDto,
+  MapLinkDto,
   OutpostDto,
   TerrainType,
 } from "../api/contracts";
@@ -94,6 +95,9 @@ export interface EngineState {
   wildTile: TilePosition | null;
   hintTile: { x: number; y: number; size: number } | null;
   outpostCheck: { error: string | null; x: number; y: number } | null;
+  /** Links between stations (v1.2 §7), drawn as covered channels along the corridors, and the one the Links tab shows */
+  mapLinks: MapLinkDto[];
+  focusLink: number | null;
 }
 
 export interface EngineCallbacks {
@@ -440,6 +444,19 @@ export class Engine {
   private readonly overlayLayer = new Container();
   private overlay: Overlay = "none";
   private readonly highlightLayer = new Graphics();
+  /** Links: their channels (drawn when they change) and the goods moving along the flowing ones */
+  private readonly linkLayer = new Graphics();
+  private readonly linkPulse = new Graphics();
+  private drawnLinks: MapLinkDto[] | null = null;
+  private drawnFocus: number | null = null;
+  private drawnWidth = 0;
+  private linkPaths: Array<{
+    points: Array<{ x: number; y: number }>;
+    length: number;
+    color: string;
+    mine: boolean;
+  }> = [];
+  private linkTime = 0;
   private readonly objectLayer = new Container({ sortableChildren: true });
   private readonly flowLayer = new Container();
   private readonly ghostLayer = new Container();
@@ -528,6 +545,8 @@ export class Engine {
       this.miniLayer,
       this.overlayLayer,
       this.estateLayer,
+      this.linkLayer,
+      this.linkPulse,
       this.highlightLayer,
       this.objectLayer,
       this.flowLayer,
@@ -591,6 +610,17 @@ export class Engine {
 
   get scale(): number {
     return this.camera.scale;
+  }
+
+  /** Shows a rectangle of tiles whole (a link's route): centred, zoomed to fit with a margin */
+  lookAtArea(x0: number, y0: number, x1: number, y1: number) {
+    const span = Math.max(1, x1 - x0 + (y1 - y0));
+    const scale = Math.min(
+      0.42,
+      this.app.screen.width / (span * TILE_WIDTH * 1.3),
+      this.app.screen.height / (span * (TILE_HEIGHT / 2) * 1.3),
+    );
+    this.lookAt((x0 + x1) / 2, (y0 + y1) / 2, scale);
   }
 
   /** Centres the view on a tile */
@@ -1220,6 +1250,7 @@ export class Engine {
       this.drawGhost();
     }
     this.drawHighlights();
+    this.drawLinks(deltaSeconds);
     this.animate(deltaSeconds);
     this.juice.update(deltaSeconds);
     this.popCoins(deltaSeconds);
@@ -3160,6 +3191,111 @@ export class Engine {
         ghost.zIndex = (t.x + t.y) * 4 + 2;
         this.ghostLayer.addChild(ghost);
       }
+    }
+  }
+
+  /**
+   * Links between stations: a covered channel along the corridors in the colour of the good (side by side where several
+   * share a corridor), yours brighter, and the goods moving along the ones that flow
+   */
+  private drawLinks(deltaSeconds: number) {
+    const state = this.callbacks.getState();
+    // Zoomed out the channels get wider, so they stay visible on the far map
+    const width = Math.max(1, 0.25 / this.camera.scale);
+    const widthStep = Math.round(Math.log2(width) * 2);
+    if (
+      state.mapLinks !== this.drawnLinks ||
+      state.focusLink !== this.drawnFocus ||
+      widthStep !== this.drawnWidth
+    ) {
+      this.drawnLinks = state.mapLinks;
+      this.drawnFocus = state.focusLink;
+      this.drawnWidth = widthStep;
+      const w = 2 ** (widthStep / 2);
+      const g = this.linkLayer;
+      g.clear();
+      this.linkPaths = [];
+      // Side by side: each link gets a lane on the segments it shares with others
+      const lanes = new Map<string, number>();
+      const myId = state.company?.id ?? -1;
+      const ordered = [...state.mapLinks].sort((a, b) => a.id - b.id);
+      for (const link of ordered) {
+        const corners: Array<{ x: number; y: number }> = [];
+        for (let i = 0; i + 1 < link.route.length; i += 2) {
+          corners.push({ x: link.route[i]!, y: link.route[i + 1]! });
+        }
+        const points: Array<{ x: number; y: number }> = [];
+        corners.forEach((c, i) => {
+          // Corridor corners are the first tile of a two-wide corridor: the channel runs in its middle, in its own lane.
+          // The gates are tiles of their own (their middle), and the turn under the Yard keeps its gate's line.
+          const last = corners.length - 1;
+          const gate = i <= 1 ? corners[0]! : i >= last - 1 ? corners[last]! : null;
+          const next = corners[Math.min(last, i + 1)]!;
+          const before = corners[Math.max(0, i - 1)]!;
+          const along = c.x === next.x && c.y !== next.y ? next : before;
+          const key = `${Math.min(c.x, along.x)},${Math.min(c.y, along.y)},${Math.max(c.x, along.x)},${Math.max(c.y, along.y)}`;
+          const lane = lanes.get(key) ?? 0;
+          lanes.set(key, lane + 1);
+          const offset = i === 0 || i === last ? 0 : [0, -0.45, 0.45, -0.8, 0.8][lane % 5]!;
+          const u = gate !== null && c.x === gate.x ? c.x + 0.5 : c.x + 1 + (c.x === along.x ? offset : 0);
+          const v = gate !== null && c.y === gate.y ? c.y + 0.5 : c.y + 1 + (c.y === along.y ? offset : 0);
+          const p = diagonalToScreen(u, v);
+          points.push({ x: p.x + TILE_WIDTH, y: p.y - TILE_HEIGHT });
+        });
+        const length = points.reduce(
+          (sum, p, i) => (i === 0 ? 0 : sum + Math.hypot(p.x - points[i - 1]!.x, p.y - points[i - 1]!.y)),
+          0,
+        );
+        const mine = link.seller === myId || link.buyer === myId;
+        const focus = link.id === state.focusLink;
+        const color = state.content.resourceColor(link.resource);
+        this.linkPaths.push({ points, length, color, mine: mine && link.flowing });
+        const trace = () => points.forEach((p, i) => (i === 0 ? g.moveTo(p.x, p.y) : g.lineTo(p.x, p.y)));
+        if (focus) {
+          trace();
+          g.stroke({ color: 0xffe08a, width: 64 * w, alpha: 0.55, cap: "round", join: "round" });
+        }
+        // The channel's cover (dark stone), then the good's colour in its slot
+        trace();
+        g.stroke({
+          color: 0x2b2a26,
+          width: 34 * w,
+          alpha: mine || focus ? 0.85 : 0.45,
+          cap: "round",
+          join: "round",
+        });
+        trace();
+        g.stroke({ color, width: 14 * w, alpha: mine || focus ? 1 : 0.55, cap: "round", join: "round" });
+      }
+    }
+    // The goods on their way: a few bright beads gliding from seller to buyer
+    this.linkTime += deltaSeconds;
+    const pulse = this.linkPulse;
+    pulse.clear();
+    if (this.far) {
+      return;
+    }
+    for (const path of this.linkPaths) {
+      if (!path.mine || path.length <= 0) {
+        continue;
+      }
+      const spacing = 420;
+      const shift = (this.linkTime * 160) % spacing;
+      for (let d = shift; d < path.length; d += spacing) {
+        let rest = d;
+        for (let i = 1; i < path.points.length; i++) {
+          const a = path.points[i - 1]!;
+          const b = path.points[i]!;
+          const segment = Math.hypot(b.x - a.x, b.y - a.y);
+          if (rest <= segment) {
+            const t = segment === 0 ? 0 : rest / segment;
+            pulse.circle(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, 11);
+            break;
+          }
+          rest -= segment;
+        }
+      }
+      pulse.fill({ color: 0xfff6d8, alpha: 0.95 });
     }
   }
 

@@ -1394,3 +1394,87 @@ export interface CrewBadgeDto {
   color2: string;
   members: number;
 }
+
+/**
+ * A link (v1.2 §7) as one of its ends sees it: the good, the partner, the flow, the tank at the buyer's gate, the
+ * notice, and one state line that always says what happens
+ */
+export interface LinkDto {
+  id: number;
+  partnerId: number;
+  partnerName: string;
+  partnerColor: string;
+  resource: string;
+  youSell: boolean;
+  youOffered: boolean;
+  state: "offered" | "active" | "paused";
+  tier: number;
+  length: number;
+  /** The share of what is sent that arrives (the pipe's loss over the route) */
+  efficiency: number;
+  throughput: number;
+  price: number;
+  /** Per minute: what the buyer needs from the link, what reaches it */
+  need: number;
+  rate: number;
+  tank: number;
+  tankSize: number;
+  delivered: number;
+  noticeAt: string | null;
+  noticeEnds: boolean;
+  noticeYours: boolean;
+  canResume: boolean;
+  offerEndsAt: string | null;
+  tone: "good" | "info" | "warn";
+  line: string;
+  /** The route's corners as x, y pairs */
+  route: number[];
+}
+
+export interface LinkSuggestionDto {
+  partnerId: number;
+  partnerName: string;
+  partnerColor: string;
+  station: string;
+  resource: string;
+  youSell: boolean;
+  perMinute: number;
+  length: number;
+  efficiency: number;
+}
+
+export interface LinkPartnerDto {
+  id: number;
+  name: string;
+  color: string;
+  level: number;
+  station: string;
+}
+
+export interface LinksDto {
+  links: LinkDto[];
+  suggestions: LinkSuggestionDto[];
+  max: number;
+  partners: LinkPartnerDto[];
+}
+
+export interface LinkPlanDto {
+  length: number;
+  efficiency: number;
+  throughput: number;
+  gold: number;
+  materials: ResourceRateDto[];
+  error: string | null;
+  route: number[];
+}
+
+/** A link on the map: its route (x, y pairs) along the corridors */
+export interface MapLinkDto {
+  id: number;
+  resource: string;
+  tier: number;
+  flowing: boolean;
+  seller: number;
+  buyer: number;
+  route: number[];
+}

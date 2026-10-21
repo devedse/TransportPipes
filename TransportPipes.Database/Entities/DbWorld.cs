@@ -29,6 +29,9 @@ public class DbWorld
     /// <summary>Crews, their held seats and invite links (jsonb)</summary>
     public string Crews { get; set; } = "[]";
 
+    /// <summary>Links between companies' Yard gates, with their tanks (jsonb)</summary>
+    public string Links { get; set; } = "[]";
+
     /// <summary>Saved and shared layouts (jsonb)</summary>
     public string Blueprints { get; set; } = "[]";
 

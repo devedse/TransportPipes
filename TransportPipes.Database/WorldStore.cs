@@ -278,6 +278,10 @@ public sealed class WorldStore
         {
             world.LoadCrew(crew);
         }
+        foreach (var link in JsonSerializer.Deserialize<List<Link>>(dbWorld.Links, Json) ?? [])
+        {
+            world.LoadLink(link);
+        }
 
         if (JsonSerializer.Deserialize<SeasonState>(dbWorld.Season, Json) is { } season)
         {
@@ -329,6 +333,7 @@ public sealed class WorldStore
                 Season = JsonSerializer.Serialize(new SeasonState(world.Season, world.FinaleAt, world.SeasonEndedAt, world.SeasonResults, ResultsSaved), Json),
                 Blueprints = JsonSerializer.Serialize(world.Blueprints.ToList(), Json),
                 Crews = JsonSerializer.Serialize(world.Crews.ToList(), Json),
+                Links = JsonSerializer.Serialize(world.Links.ToList(), Json),
             },
         };
 
@@ -563,6 +568,7 @@ public sealed class WorldStore
                 db.Entry(snapshot.World).Property(t => t.Season).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Blueprints).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Crews).IsModified = true;
+                db.Entry(snapshot.World).Property(t => t.Links).IsModified = true;
             }
             else
             {

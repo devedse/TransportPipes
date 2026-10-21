@@ -28,6 +28,7 @@ public enum WorldEventKind
     Wonder,
     Achievement,
     Crew,
+    Link,
 }
 
 /// <summary>Something a player should hear about (a toast in the client)</summary>
@@ -45,6 +46,8 @@ public sealed class WorldChanges
     public HashSet<long> Contracts { get; } = new();
     public HashSet<long> Corporations { get; } = new();
     public HashSet<long> Crews { get; } = new();
+    /// <summary>Companies whose links were offered, changed or ended</summary>
+    public HashSet<long> Links { get; } = new();
 
     /// <summary>Districts whose hub changed (a Wonder grew)</summary>
     public HashSet<DistrictCoord> Districts { get; } = new();
@@ -55,7 +58,7 @@ public sealed class WorldChanges
     public bool Blueprints { get; set; }
     public List<WorldEvent> Events { get; } = new();
 
-    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Contracts.Count == 0 && Corporations.Count == 0 && Crews.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && !Outposts && !Blueprints && Events.Count == 0;
+    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Contracts.Count == 0 && Corporations.Count == 0 && Crews.Count == 0 && Links.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && !Outposts && !Blueprints && Events.Count == 0;
 }
 
 /// <summary>

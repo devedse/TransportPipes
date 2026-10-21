@@ -244,6 +244,12 @@ export class GameClient {
         void this.refreshCrew();
       }
     });
+    c.on("linksChanged", () => {
+      if (appStore.getState().yardOpen && appStore.getState().yardTab === "links") {
+        void this.refreshLinks();
+      }
+    });
+    c.on("mapLinksChanged", () => void this.loadMapLinks());
     c.on("corporationChanged", () => {
       if (appStore.getState().corporationOpen) {
         void this.refreshCorporations();
@@ -301,6 +307,7 @@ export class GameClient {
     }
     this.setCompany(hello.company);
     setState({ phase: "playing" });
+    void this.loadMapLinks();
     if (this.homedCompany !== hello.company.id) {
       this.goHome();
     }
@@ -755,6 +762,8 @@ export class GameClient {
         wildTile: state.wildTile,
         hintTile: state.hintTile,
         outpostCheck: state.outpostCheck,
+        mapLinks: state.mapLinks,
+        focusLink: state.focusLink,
       };
     },
     canRequest: () => this.connection.status === "connected" && appStore.getState().phase === "playing",
@@ -1200,6 +1209,43 @@ export class GameClient {
   async refreshYard() {
     const yard = await this.connection.getYard().catch(() => null);
     setState({ yard });
+  }
+
+  /** The Yard panel on its Links tab: your links to other stations, offers, and who a link would suit */
+  async openLinks() {
+    this.selectNetwork(null);
+    setState({ yardOpen: true, yardTab: "links" });
+    await this.refreshLinks();
+  }
+
+  async refreshLinks() {
+    const links = await this.connection.getLinks().catch(() => null);
+    setState({ links });
+  }
+
+  /** A link command; the panel and the map follow */
+  async linkCommand(promise: Promise<CommandResult>, success?: string): Promise<boolean> {
+    const ok = await this.command(promise, success);
+    await this.refreshLinks();
+    return ok;
+  }
+
+  async loadMapLinks() {
+    const mapLinks = await this.connection.getMapLinks().catch(() => null);
+    if (mapLinks !== null) {
+      setState({ mapLinks });
+    }
+  }
+
+  /** Shows a link's route whole: the camera fits it, the map draws it bright */
+  showLink(route: number[], id: number) {
+    if (route.length < 4 || this.engine === null) {
+      return;
+    }
+    const xs = route.filter((_, i) => i % 2 === 0);
+    const ys = route.filter((_, i) => i % 2 === 1);
+    setState({ focusLink: id });
+    this.engine.lookAtArea(Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys));
   }
 
   async setBuildingSetting(building: number, value: number) {
