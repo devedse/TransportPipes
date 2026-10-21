@@ -208,6 +208,11 @@ public static class PlaytestEndpoints
                 hubGold = company.Stats.GetValueOrDefault("hubGold"),
                 npcGold = company.Stats.GetValueOrDefault("npcGold"),
                 projectGold = company.Stats.GetValueOrDefault("projectGold"),
+                // Every building that doesn't run fully, and why (IdleReason): the digest finds when each started
+                idle = world.BuildingsOf(company.Id).Select(b => (Building: b, Reason: world.IdleReasonOf(b)))
+                    .Where(t => t.Reason.Cause != IdleCause.None)
+                    .Select(t => new { id = t.Building.Id, type = t.Building.Type, cause = t.Reason.Cause.ToString(), resource = t.Reason.Resource, other = t.Reason.Other })
+                    .ToList(),
                 buildings = world.BuildingsOf(company.Id).Count(),
                 parcels = estate?.UnlockedCount ?? 0,
                 tutorialStep = company.TutorialStep,
