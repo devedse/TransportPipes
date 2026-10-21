@@ -8,9 +8,10 @@ import type {
   CorporationRole,
   LeaderboardKind,
   NextStepDto,
+  SeatRefDto,
   ToastDto,
 } from "../api/contracts";
-import { auth, fetchContent, GameConnection } from "../api/server";
+import { auth, fetchContent, fetchInvite, GameConnection } from "../api/server";
 import { Content } from "../game/content";
 import type { ClickModifiers, Engine, EngineCallbacks, Overlay, Tool } from "../game/Engine";
 import type { TilePosition } from "../game/isometric";
@@ -41,6 +42,23 @@ import { sounds } from "./sound";
 import { appStore, initialState, MODALS, setState, toast, type HubTab } from "../state/store";
 
 const DETAILS_REFRESH_MS = 2000;
+const INVITE_KEY = "tp.invite";
+const GUEST_KEY = "tp.guest";
+
+/** The hidden account of a guest, kept by the browser */
+function readGuest(): { userName: string; password: string } | null {
+  try {
+    const raw = localStorage.getItem(GUEST_KEY);
+    return raw === null ? null : (JSON.parse(raw) as { userName: string; password: string });
+  } catch {
+    return null;
+  }
+}
+
+/** The address a friend opens to move into a seat (or join the crew) */
+export function inviteLink(code: string, seat: boolean): string {
+  return `${location.origin}/?${seat ? "seat" : "crew"}=${encodeURIComponent(code)}`;
+}
 
 /** Connects the server, the world model, the map engine and the UI state */
 export class GameClient {
@@ -59,13 +77,82 @@ export class GameClient {
       setState({ phase: "error", error: `The game server can't be reached (${String(error)}).` });
       return;
     }
-    const user = await auth.me().catch(() => null);
+    await this.readInvite();
+    let user = await auth.me().catch(() => null);
+    if (user === null) {
+      // A guest whose cookie is gone: the browser still has its hidden account
+      const guest = readGuest();
+      if (guest !== null) {
+        const result = await auth.login(guest.userName, guest.password).catch(() => null);
+        user = result?.success === true ? result.user : null;
+      }
+    }
     if (user === null) {
       setState({ phase: "login" });
       return;
     }
     setState({ user });
     await this.connect();
+  }
+
+  /** A seat code (?seat=) or crew link (?crew=) in the address: what it opens */
+  private async readInvite() {
+    const params = new URLSearchParams(location.search);
+    const code = params.get("seat") ?? params.get("crew") ?? sessionStorage.getItem(INVITE_KEY);
+    if (code === null || code.trim() === "") {
+      return;
+    }
+    sessionStorage.setItem(INVITE_KEY, code);
+    const dto = await fetchInvite(code).catch(() => null);
+    if (dto?.valid === true) {
+      setState({ invite: { code, dto } });
+    } else {
+      sessionStorage.removeItem(INVITE_KEY);
+    }
+  }
+
+  /** The invite is used (or the player chose another way to start) */
+  forgetInvite() {
+    sessionStorage.removeItem(INVITE_KEY);
+    setState({ invite: null });
+    if (location.search !== "") {
+      history.replaceState(null, "", location.pathname);
+    }
+  }
+
+  /** Plays right away without an account: a hidden one the browser keeps (an account can come later) */
+  async playAsGuest(): Promise<string | null> {
+    const result = await auth.guest();
+    if (!result.success || result.user === null || result.password === null) {
+      return result.error ?? "That didn't work.";
+    }
+    try {
+      localStorage.setItem(
+        GUEST_KEY,
+        JSON.stringify({ userName: result.user.userName, password: result.password }),
+      );
+    } catch {
+      // Private browsing: the cookie still works for this visit
+    }
+    setState({ user: result.user });
+    await this.connect();
+    return null;
+  }
+
+  /** A guest keeps the estate: a name and a password of its own */
+  async keepEstate(userName: string, password: string, email: string): Promise<string | null> {
+    const result = await auth.keep(userName, password, email);
+    if (!result.success || result.user === null) {
+      return result.error ?? "That didn't work.";
+    }
+    try {
+      localStorage.removeItem(GUEST_KEY);
+    } catch {
+      // Nothing kept
+    }
+    setState({ user: result.user, keepOpen: false });
+    toast(`Your estate is yours: log in as ${result.user.userName} anywhere.`, "success", 7000);
+    return null;
   }
 
   async login(userName: string, password: string): Promise<string | null> {
@@ -152,6 +239,11 @@ export class GameClient {
         void this.refreshWonders();
       }
     });
+    c.on("crewChanged", () => {
+      if (appStore.getState().crewOpen) {
+        void this.refreshCrew();
+      }
+    });
     c.on("corporationChanged", () => {
       if (appStore.getState().corporationOpen) {
         void this.refreshCorporations();
@@ -224,6 +316,15 @@ export class GameClient {
     if (company.season.endedAt !== null && previous?.season.endedAt === null) {
       // The ceremony
       void this.openSeason();
+    }
+    if (
+      previous !== null &&
+      previous.id === company.id &&
+      (previous.estateX !== company.estateX || previous.estateY !== company.estateY)
+    ) {
+      // The estate moved: the camera follows it to its new seat (where it lands)
+      this.engine?.invalidate();
+      this.goHome();
     }
     if (
       previous !== null &&
@@ -490,14 +591,88 @@ export class GameClient {
     }
   }
 
-  async foundCompany(name: string, color: string): Promise<string | null> {
-    const result = await this.connection.createCompany(name, color);
+  /** A new company on a chosen seat (or the one a friend's code holds, or the one the game suggests) */
+  async foundCompany(
+    name: string,
+    color: string,
+    seat: SeatRefDto | null = null,
+    code: string | null = null,
+  ): Promise<string | null> {
+    const result = await this.connection.createCompany(name, color, seat, code);
     if (!result.success) {
       return result.error ?? "That didn't work.";
+    }
+    if (code !== null) {
+      this.forgetInvite();
     }
     await this.hello();
     toast(`Welcome, ${name}! Your estate is ready.`, "success", 7000);
     return null;
+  }
+
+  /** Start with friends: your company and a crew, with the station's other seats held for them */
+  async startWithFriends(
+    name: string,
+    color: string,
+    crewName: string,
+    emblem: string,
+    crewColor: string,
+    crewColor2: string,
+    seat: SeatRefDto,
+    holdSeats: number,
+  ): Promise<string | null> {
+    const result = await this.connection.startWithFriends(
+      name,
+      color,
+      crewName,
+      emblem,
+      crewColor,
+      crewColor2,
+      seat,
+      holdSeats,
+    );
+    if (!result.success) {
+      return result.error ?? "That didn't work.";
+    }
+    setState({ shareCodes: result.holds });
+    await this.hello();
+    return null;
+  }
+
+  // ---------------------------------------------------------------- Crews
+
+  async openCrew() {
+    setState({ ...MODALS, crewOpen: true });
+    await this.refreshCrew();
+  }
+
+  async refreshCrew() {
+    const crew = await this.connection.getCrew().catch(() => null);
+    setState({ crew });
+  }
+
+  /** A crew command, then the crew panel again */
+  async crewCommand(run: Promise<CommandResult>, done?: string): Promise<boolean> {
+    const ok = await this.command(run, done);
+    await this.refreshCrew();
+    return ok;
+  }
+
+  async foundCrew(name: string, emblem: string, color: string, color2: string, holdSeats: number) {
+    const result = await this.connection.foundCrew(name, emblem, color, color2, holdSeats);
+    if (!result.success) {
+      toast(result.error ?? "That didn't work.", "error");
+      return;
+    }
+    setState({ shareCodes: result.holds.length > 0 ? result.holds : null });
+    await this.refreshCrew();
+  }
+
+  /** Moves to another seat (a free one, or one your crew holds for you) */
+  async relocateTo(seat: SeatRefDto) {
+    if (await this.command(this.connection.relocateTo(seat), "Up, up and away: your estate is on its way")) {
+      setState({ companyOpen: false });
+    }
   }
 
   // ---------------------------------------------------------------- Engine
@@ -1501,12 +1676,6 @@ export class GameClient {
   }
 
   // ---------------------------------------------------------------- Moving (GDD §12)
-
-  async relocate(x: number, y: number) {
-    if (await this.command(this.connection.relocate(x, y), "Up, up and away: your estate lands in an hour")) {
-      setState({ companyOpen: false });
-    }
-  }
 
   async scrapCrate(crate: number) {
     await this.command(this.connection.scrapCrate(crate), "Scrapped for 75% of its cost");

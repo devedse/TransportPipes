@@ -16,6 +16,7 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 | --- | --- |
 | `onboarding.mjs` | A new player following Loady's first steps |
 | `yard.mjs` | Two neighbours in one station, each piped to their Yard gate with the Yard panel's button: one's energy goes to the other's mine at the player price (two browsers; the `yard` cheat runs the Yards' rounds now) |
+| `crew.mjs` | Start with friends: Ana founds a crew from the start screen and keeps three seats, Ben opens his seat link on a phone and moves in as a guest, Cleo joins with the crew link and lands next door; Ana's crew panel, Ben's keep note and a move to another seat (three browsers) |
 | `right-click.mjs` | A right-click on the map steps back (deselects, puts a tool away); a right-drag still pans |
 | `advisor.mjs` | The Next steps card on a real estate: its three steps, Show me on the first, an upgrade done from the card |
 | `chapter2.mjs` | Loady's second chapter above the advisor, the level roadmap in the XP panel, the level-up card with what the level brings |

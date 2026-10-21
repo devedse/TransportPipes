@@ -10,6 +10,16 @@ export interface UserInfo {
   id: number;
   userName: string;
   isAdmin: boolean;
+  /** Plays without an account yet (the browser keeps its hidden name and password) */
+  isGuest: boolean;
+}
+
+/** A guest's account: the browser keeps its name and password, so the estate isn't lost with the cookie */
+export interface GuestResult {
+  success: boolean;
+  error: string | null;
+  user: UserInfo | null;
+  password: string | null;
 }
 
 export interface AuthResult {
@@ -88,6 +98,8 @@ export interface CompanyDto {
   };
   /** Who it trades with on its pipes */
   tradeWith: "everyone" | "corporation" | "contracts";
+  /** The company's crew (v1.2 §6) */
+  crew: CrewBadgeDto | null;
 }
 
 export type ActivityStage = "active" | "resting" | "dormant" | "asleep";
@@ -1240,4 +1252,145 @@ export interface YardDto {
   /** What goes through the Yard per minute */
   totals: ResourceRateDto[];
   line: string;
+}
+
+// ---------------------------------------------------------------- Crews and seats (v1.2 §4–6)
+
+export type SeatState = "free" | "house" | "held" | "taken" | "you";
+
+/** A seat of a station as the picker shows it */
+export interface SeatDto {
+  slot: number;
+  estateX: number;
+  estateY: number;
+  primary: string;
+  secondary: string | null;
+  state: SeatState;
+  ownerId: number | null;
+  ownerName: string | null;
+  ownerColor: string | null;
+  ownerLevel: number;
+  /** For strangers: lively, some days or resting */
+  activity: string | null;
+  crewName: string | null;
+  heldForYou: boolean;
+}
+
+export interface StationDto {
+  districtX: number;
+  districtY: number;
+  index: number;
+  name: string;
+  small: boolean;
+  /** Strangers may settle (a station where one crew lives in or holds 3+ seats is closed) */
+  open: boolean;
+  free: number;
+  lively: number;
+  seats: SeatDto[];
+  crewName: string | null;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+export interface SeatRefDto {
+  districtX: number;
+  districtY: number;
+  slot: number;
+}
+
+export interface StationsDto {
+  districtX: number;
+  districtY: number;
+  district: string;
+  stations: StationDto[];
+  /** The seats the game suggests for each way of starting */
+  neighbours: SeatRefDto;
+  ownStation: SeatRefDto;
+  friends: SeatRefDto;
+  /** The open districts, nearest the Capital first */
+  districts: DistrictRefDto[];
+}
+
+export interface DistrictRefDto {
+  districtX: number;
+  districtY: number;
+  name: string;
+}
+
+/** What a seat code or crew link opens */
+export interface InviteDto {
+  valid: boolean;
+  crewName: string | null;
+  emblem: string | null;
+  color: string | null;
+  color2: string | null;
+  from: string | null;
+  station: StationDto | null;
+  /** The seat a seat code keeps */
+  slot: number | null;
+  seatCode: boolean;
+  /** An old crew link: a member lets you in */
+  needsApproval: boolean;
+  /** A company name nobody uses yet */
+  name: string | null;
+}
+
+export interface CrewMemberDto {
+  id: number;
+  name: string;
+  color: string;
+  level: number;
+  activity: string | null;
+  station: string;
+  slot: number;
+  you: boolean;
+}
+
+export interface HeldSeatDto {
+  code: string;
+  districtX: number;
+  districtY: number;
+  slot: number;
+  primary: string;
+  secondary: string | null;
+  until: string;
+}
+
+export interface CrewDto {
+  id: number;
+  name: string;
+  emblem: string;
+  color: string;
+  color2: string;
+  members: CrewMemberDto[];
+  holds: HeldSeatDto[];
+  inviteCode: string;
+  inviteOpenUntil: string;
+  requests: CrewMemberDto[];
+  stationOpen: boolean;
+  stationClosed: boolean;
+  maxSize: number;
+}
+
+export interface CrewViewDto {
+  crew: CrewDto | null;
+  emblems: string[];
+}
+
+export interface FoundCrewResultDto {
+  success: boolean;
+  error: string | null;
+  holds: HeldSeatDto[];
+}
+
+/** A company's crew as the top bar and the map show it */
+export interface CrewBadgeDto {
+  id: number;
+  name: string;
+  emblem: string;
+  color: string;
+  color2: string;
+  members: number;
 }

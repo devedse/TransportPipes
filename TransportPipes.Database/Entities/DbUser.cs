@@ -24,6 +24,9 @@ public class DbUser
 
     public bool IsAdmin { get; set; }
 
+    /// <summary>A guest (v1.2 §5): played without an account yet; keeping the estate turns it into a normal account</summary>
+    public bool IsGuest { get; set; }
+
     /// <summary>Moderation: no chat until, no playing until</summary>
     public DateTime? MutedUntil { get; set; }
     public DateTime? BannedUntil { get; set; }

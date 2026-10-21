@@ -53,4 +53,7 @@ public class TransportPipesOptions
     /// Allows the Cheat hub method (gold, levels, research points, finishing constructions) for testing. Never in production.
     /// </summary>
     public bool Cheats { get; set; }
+
+    /// <summary>How many guests (players without an account yet) one address may start a day</summary>
+    public int GuestsPerAddressPerDay { get; set; } = 5;
 }

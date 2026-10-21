@@ -5,7 +5,6 @@ import { setState, useAppStore } from "../state/store";
 /** Tools appear when they are useful: the Company Level that brings them (GDD §10.1, "one new toy per day") */
 const UNLOCK_LEVEL: Record<string, number> = {
   hub: 2,
-  neighbours: 3,
   research: 4,
   corporation: 8,
   blueprints: 22,
@@ -63,7 +62,7 @@ export function Toolbar() {
   const content = useAppStore((state) => state.content);
   const researchOpen = useAppStore((state) => state.researchOpen);
   const hubOpen = useAppStore((state) => state.hubOpen);
-  const neighboursOpen = useAppStore((state) => state.neighboursOpen);
+  const yardOpen = useAppStore((state) => state.yardOpen);
   const corporationOpen = useAppStore((state) => state.corporationOpen);
   const invites = useAppStore(
     (state) =>
@@ -108,11 +107,11 @@ export function Toolbar() {
     },
     {
       key: "neighbours",
-      label: "Neighbours",
+      label: "Station",
       icon: "🤝",
       hotkey: "N",
-      active: neighboursOpen,
-      run: () => (neighboursOpen ? setState({ neighboursOpen: false }) : void gameClient.openNeighbours()),
+      active: yardOpen,
+      run: () => (yardOpen ? setState({ yardOpen: false }) : void gameClient.openYard()),
     },
     {
       key: "corporation",

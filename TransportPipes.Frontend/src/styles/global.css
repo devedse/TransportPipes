@@ -4865,3 +4865,354 @@ kbd {
     display: none;
   }
 }
+
+/* ---------------------------------------------------------------- Starting, crews and invites (v1.2 §4–6) */
+
+.found-panel.wide {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+
+.found-panel .panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.start-ways .way {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  padding: 12px 14px;
+}
+
+.start-ways .way strong {
+  font-size: 1.1rem;
+}
+
+.play-now {
+  width: min(400px, calc(100vw - 32px));
+  display: grid;
+  gap: 6px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+}
+
+button.big {
+  font-size: 1.2rem;
+  padding: 12px;
+}
+
+.station-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.picker-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.picker-body {
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .picker-body {
+    grid-template-columns: 1fr;
+  }
+
+  .map-column {
+    max-width: 240px;
+    justify-self: center;
+  }
+}
+
+.map-column {
+  display: grid;
+  gap: 6px;
+}
+
+.district-map {
+  width: 100%;
+  height: auto;
+  background: #c9b58b;
+  border-radius: 10px;
+}
+
+.district-map .hub {
+  fill: #b5844a;
+}
+
+.district-map .seat {
+  fill: #8fbf7a;
+  stroke: rgba(0, 0, 0, 0.25);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+.district-map .seat.house {
+  fill: #ddd2bf;
+}
+
+.district-map .seat.held {
+  fill: #f0d79a;
+}
+
+.district-map .seat.can {
+  opacity: 1;
+  cursor: pointer;
+}
+
+.district-map .seat.in-station {
+  stroke: #173c3f;
+  stroke-width: 2;
+  opacity: 1;
+}
+
+.district-map .seat.chosen {
+  stroke: #fff;
+  stroke-width: 4;
+}
+
+.district-map .yard-mark {
+  fill: #c9963a;
+  stroke: #5b3d14;
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.district-map .yard-mark.in-station {
+  fill: #f5c45a;
+  stroke: #173c3f;
+  stroke-width: 2;
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  color: var(--text-muted);
+}
+
+.map-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  vertical-align: -1px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+}
+
+.map-legend i.free {
+  background: #8fbf7a;
+}
+
+.map-legend i.house {
+  background: #ddd2bf;
+}
+
+.map-legend i.held {
+  background: #f0d79a;
+}
+
+.district-map .home-mark {
+  fill: #fff8e8;
+  stroke: #173c3f;
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.district-map .home-mark.you {
+  fill: #173c3f;
+  stroke: #fff8e8;
+}
+
+.map-legend i.player {
+  background: #fff8e8;
+  border: 1.5px solid #173c3f;
+  border-radius: 50%;
+}
+
+.map-legend i.yard {
+  background: #c9963a;
+  transform: rotate(45deg) scale(0.85);
+}
+
+.station-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.station-card .plaque {
+  font-family: var(--font-title);
+  font-weight: 700;
+}
+
+.seat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.seat-list li.chosen {
+  font-weight: 700;
+}
+
+.seat-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.seat-row.chosen {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.seat-row .grow {
+  flex: 1;
+}
+
+.seat-row .dot,
+.crew-members .dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.crew-fields {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.emblems {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.emblem {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 1.2rem;
+}
+
+.emblem.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.crew-colors {
+  display: grid;
+  gap: 6px;
+}
+
+.crew-banner {
+  padding: 8px 12px;
+  border-radius: 10px;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  font-size: 1.05rem;
+}
+
+.crew-panel,
+.share-panel,
+.keep-panel {
+  width: min(560px, calc(100vw - 24px));
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.crew-panel h2,
+.share-panel h2,
+.keep-panel h2 {
+  font-family: var(--font-title);
+}
+
+.crew-members,
+.held-seats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.held-seats li {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.held-seats .code {
+  font-family: ui-monospace, monospace;
+  letter-spacing: 0.08em;
+}
+
+button.crew-chip {
+  border: none;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  margin-left: 6px;
+  padding: 0 8px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.keep-link {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+button.link.danger {
+  color: var(--error);
+  background: none;
+  border: none;
+  box-shadow: none;
+  justify-self: start;
+}
+
+.held-seats button.link,
+.crew-panel button.link,
+.found-panel button.link {
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+
+/* A guest's reminder in the company panel: keep the estate */
+.keep-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 2px dashed #c9963a;
+  border-radius: 10px;
+  background: rgba(201, 150, 58, 0.12);
+}

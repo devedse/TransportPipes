@@ -25,6 +25,9 @@ import type {
   ResearchStateDto,
   UserInfo,
   YardDto,
+  CrewViewDto,
+  HeldSeatDto,
+  InviteDto,
 } from "../api/contracts";
 import type { ConnectionStatus } from "../api/server";
 import type { Content } from "../game/content";
@@ -106,6 +109,15 @@ export interface AppState {
   plannedPartner: number | null;
 
   corporationOpen: boolean;
+  /** Your crew (v1.2 §6): its members, held seats with their codes, its invite link */
+  crewOpen: boolean;
+  crew: CrewViewDto | null;
+  /** The seat code or crew link this visit came with, and what it opens */
+  invite: { code: string; dto: InviteDto } | null;
+  /** The codes of the seats held for friends right after starting with them (the share screen) */
+  shareCodes: HeldSeatDto[] | null;
+  /** The form that turns a guest into an account */
+  keepOpen: boolean;
   corporations: CorporationsDto | null;
   companyOpen: boolean;
   companyDetails: CompanyDetailsDto | null;
@@ -200,6 +212,11 @@ export const initialState: AppState = {
   plannedRoute: null,
   plannedPartner: null,
   corporationOpen: false,
+  crewOpen: false,
+  crew: null,
+  invite: null,
+  shareCodes: null,
+  keepOpen: false,
   corporations: null,
   companyOpen: false,
   companyDetails: null,
@@ -240,6 +257,7 @@ export const MODALS = {
   hubOpen: false,
   neighboursOpen: false,
   corporationOpen: false,
+  crewOpen: false,
   leaderboardOpen: false,
   companyOpen: false,
   blueprintsOpen: false,

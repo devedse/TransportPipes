@@ -133,6 +133,7 @@ export function CompanyPanel() {
   const details = useAppStore((s) => s.companyDetails);
   const company = useAppStore((s) => s.company);
   const content = useAppStore((s) => s.content);
+  const user = useAppStore((s) => s.user);
   const [tab, setTab] = useState<
     "overview" | "managers" | "achievements" | "collections" | "franchise" | "move"
   >("overview");
@@ -196,6 +197,14 @@ export function CompanyPanel() {
           <p className="muted">Loading…</p>
         ) : tab === "overview" ? (
           <div className="company-overview">
+            {user?.isGuest === true && (
+              <div className="keep-note">
+                <span>You play as a guest: only this browser knows your estate.</span>
+                <button className="primary" onClick={() => setState({ keepOpen: true })}>
+                  Keep my estate
+                </button>
+              </div>
+            )}
             <div className="stat-grid">
               {details.stats.map((stat) => (
                 <div key={stat.name} className="stat">

@@ -125,9 +125,11 @@ export function YardPanel() {
               <Rates rates={yard.totals} content={content} kind="surplus" />
             </section>
           )}
-          <button className="wide" onClick={() => void gameClient.openTradeSettings()}>
-            ⚙ Trade settings: what you sell and buy, and who with
-          </button>
+          <span className="button-row">
+            <button onClick={() => void gameClient.openTradeSettings()}>⚙ Trade settings</button>
+            <button onClick={() => void gameClient.openNeighbours()}>Everyone in the district</button>
+            <button onClick={() => void gameClient.openCrew()}>👥 Crew</button>
+          </span>
         </>
       )}
     </aside>

@@ -238,8 +238,16 @@ stay); name + password accounts only (guests on a hidden account they can keep);
   gate (the buyer's own pipe loss is its own), Houses after players within one 25% cap, contracts first; the Yards
   round once a minute while terms move and less often when they don't (16 minutes at most). Typical balance: Level
   30 on day 25 (was day 24 with the hub paying up to 1.25×); e2e `yard.mjs` plays two neighbours
-- ⬜ 2 · Crews and choosing where you live: crews 1–8, seat codes, guest move-in, Start with friends / Find me
-  neighbours / A station of my own, the station picker, moves (cooldown, free, short flight), Block
+- ✅ 2 · Crews and choosing where you live: crews of up to 8 (name filter, 40 emblems, two colours, nobody can be
+  removed, a free move when you leave once a month), seats kept for friends with a code each (28 days, lapsing when
+  nobody in the crew plays for two weeks), stations a crew fills closed to strangers unless it opens them, a crew
+  spread over a corner station and the small one next to it trades in one Yard; the start screen's three ways (Find
+  me neighbours, Start with friends, A station of my own) on a station picker (the district's seats, Yards and
+  players); a friend's link opens the invite screen and moves in as a guest with two taps (a free company name
+  ready; inside chat apps' browsers the account comes with the second tap), the crew link settles you next to the
+  crew; guests keep their estate with a name and password (asked at Levels 3, 6 and 10, and in the company panel);
+  moves to a chosen seat (free, a minute in the air, 5 minutes between moves, both configurable); Block. e2e
+  `crew.mjs` plays Ana, Ben and Cleo
 - ⬜ 3 · Links between stations (auto-routed through the corridors, tank, notice, fallback, state line), contracts and
   the Exchange at the one price
 - ⬜ 4 · Houses (NPC companies in the stations, House prices, one 25% cap), stand-ins for whoever sleeps, small mode,

@@ -84,25 +84,49 @@ public sealed partial class GameWorld
             _ => true,
         };
 
-    /// <summary>Stops (or starts again) trading with one company (Block, v1.2 §6)</summary>
+    /// <summary>
+    /// Stops (or starts again) trading with one company (Block, v1.2 §6): private, and after an hour's notice (what is
+    /// on its way still arrives); unblocking is right away
+    /// </summary>
     public CommandResult SetTradeBlocked(long companyId, long otherId, bool blocked)
     {
-        if (Company(companyId) is not { } company || Company(otherId) is null || otherId == companyId)
+        if (Company(companyId) is not { } company || Company(otherId) is not { } other || otherId == companyId)
         {
             return CommandResult.Fail("Unknown company.");
         }
         if (blocked)
         {
-            company.TradeBlocked.Add(otherId);
+            if (!company.TradeBlocked.Contains(otherId))
+            {
+                company.PendingBlocks[otherId] = LastTick + NoticePeriod;
+            }
         }
         else
         {
             company.TradeBlocked.Remove(otherId);
+            company.PendingBlocks.Remove(otherId);
+            MarkTradeDirty(company.Id);
         }
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        return CommandResult.Ok;
+    }
+
+    /// <summary>A block's notice is over: no more trade between the two</summary>
+    private void ApplyBlock(Company company, long otherId)
+    {
+        if (!company.PendingBlocks.Remove(otherId))
+        {
+            return;
+        }
+        company.TradeBlocked.Add(otherId);
         company.Touch();
         MarkTradeDirty(company.Id);
         Changes.Companies.Add(company.Id);
-        return CommandResult.Ok;
+        if (Company(otherId) is { IsNpc: false } other)
+        {
+            Changes.Events.Add(new WorldEvent(other.Id, WorldEventKind.Neighbour, $"{company.Name} now trades its spare with others"));
+        }
     }
 
     /// <summary>Who a company trades with</summary>

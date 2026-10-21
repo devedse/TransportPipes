@@ -23,6 +23,7 @@ public interface IGameClient
     Task CorporationChanged();
     Task WondersChanged();
     Task SeasonChanged();
+    Task CrewChanged();
 }
 
 /// <summary>The game protocol. Every call needs a logged in user (the login cookie).</summary>
@@ -90,7 +91,7 @@ public sealed class GameHub : Hub<IGameClient>
         var userId = UserId;
         var user = new UserInfo(userId, UserName);
         var (isAdmin, _, _) = await _accounts.ModerationAsync(userId);
-        user = user with { IsAdmin = isAdmin };
+        user = user with { IsAdmin = isAdmin, IsGuest = await _accounts.IsGuestAsync(userId) };
         var hello = await _world.RunAsync(world =>
         {
             var company = world.CompanyOfUser(userId);
@@ -106,6 +107,7 @@ public sealed class GameHub : Hub<IGameClient>
                 company.Touch();
             }
             company.LastSeenAt = world.Now;
+            world.CountPlayDay(company);
             // Back from the Quiet Isles
             world.WakeUp(company);
             world.EnsureOrders(company);
@@ -117,10 +119,15 @@ public sealed class GameHub : Hub<IGameClient>
     private static CompanyDto CompanyView(GameWorld world, Company company) =>
         GameViews.Company(world, company, world.GoldPerMinute().GetValueOrDefault(company.Id), world.ResearchPerMinute().GetValueOrDefault(company.Id));
 
-    public async Task<CommandResultDto> CreateCompany(string name, string color)
+    /// <summary>
+    /// A new company on a seat the player chose (or the one the game suggests: next to active players), or on the seat
+    /// a friend's code holds for it (it joins the friend's crew)
+    /// </summary>
+    public async Task<CommandResultDto> CreateCompany(string name, string color, int? districtX, int? districtY, int? slot, string? code)
     {
         var userId = UserId;
         var (legacy, titles) = await _accounts.LegacyAsync(userId);
+        var guest = await _accounts.IsGuestAsync(userId);
         return await _world.RunAsync(world =>
         {
             if (world.CompanyOfUser(userId) != null)
@@ -135,11 +142,76 @@ public sealed class GameHub : Hub<IGameClient>
             {
                 return CommandResultDto.Fail("Pick a colour.");
             }
-            var created = world.CreateCompany(userId, name, color, GameWorld.LegacyLevelOf(legacy), titles);
+            var seat = districtX is { } x && districtY is { } y && slot is { } s ? new EstateKey(new DistrictCoord(x, y), s) : (EstateKey?)null;
+            if (seat is { } chosen && code == null && !world.SeatFree(chosen))
+            {
+                return CommandResultDto.Fail("Someone took that seat a moment ago: pick another one.");
+            }
+            seat ??= code == null ? world.SuggestSeat(Placement.Neighbours) : null;
+            var created = world.CreateCompany(userId, name, color, GameWorld.LegacyLevelOf(legacy), titles, seat, code);
+            created.IsGuest = guest;
+            world.CountPlayDay(created);
             world.EnsureOrders(created);
             return CommandResultDto.Ok;
         });
     }
+
+    /// <summary>Start with friends: a company on the seat the player picked and a crew, with the station's other seats held for friends</summary>
+    public async Task<FoundCrewResultDto> StartWithFriends(string name, string color, string crewName, string emblem, string crewColor, string crewColor2, int districtX, int districtY, int slot, int holdSeats)
+    {
+        var created = await CreateCompany(name, color, districtX, districtY, slot, null);
+        if (!created.Success)
+        {
+            return new FoundCrewResultDto(false, created.Error, []);
+        }
+        return await FoundCrew(crewName, emblem, crewColor, crewColor2, holdSeats);
+    }
+
+    /// <summary>The stations of a district for the picker (the suggested one when none is given)</summary>
+    public Task<StationsDto> GetStations(int? districtX, int? districtY) =>
+        _world.RunAsync(world =>
+        {
+            var company = world.CompanyOfUser(UserId);
+            return GameViews.Stations(world, company, districtX is { } x && districtY is { } y ? new DistrictCoord(x, y) : null);
+        });
+
+    public Task<CrewViewDto?> GetCrew() =>
+        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Crew(world, company) : null, changesWorld: false);
+
+    public Task<FoundCrewResultDto> FoundCrew(string name, string emblem, string color, string color2, int holdSeats) =>
+        _world.RunAsync(world =>
+        {
+            if (world.CompanyOfUser(UserId) is not { } company)
+            {
+                return new FoundCrewResultDto(false, "Found your company first.", []);
+            }
+            var (result, crew) = world.FoundCrew(company.Id, name, emblem, color, color2, holdSeats);
+            return new FoundCrewResultDto(result.Success, result.Error, crew?.Holds.Select(t => GameViews.Held(world, t)).ToList() ?? []);
+        });
+
+    public Task<CommandResultDto> JoinCrew(string code) =>
+        Command((world, company) => world.JoinCrew(company, code));
+
+    public Task<CommandResultDto> LeaveCrew() =>
+        Command((world, company) => world.LeaveCrew(company));
+
+    public Task<CommandResultDto> AcceptJoinRequest(long applicant) =>
+        Command((world, company) => world.AcceptJoinRequest(company, applicant));
+
+    public Task<CommandResultDto> RenewInvite() =>
+        Command((world, company) => world.RenewInvite(company));
+
+    public Task<CommandResultDto> HoldSeats(int count) =>
+        Command((world, company) => world.HoldSeatsFor(company, count));
+
+    public Task<CommandResultDto> ReleaseHold(string code) =>
+        Command((world, company) => world.ReleaseHold(company, code));
+
+    public Task<CommandResultDto> SetStationOpen(bool open) =>
+        Command((world, company) => world.SetStationOpen(company, open));
+
+    public Task<CommandResultDto> RelocateTo(int districtX, int districtY, int slot) =>
+        Command((world, company) => world.RelocateTo(company, new EstateKey(new DistrictCoord(districtX, districtY), slot)));
 
     private static bool IsColor(string color) =>
         color.Length == 7 && color[0] == '#' && color.Skip(1).All(Uri.IsHexDigit);
@@ -395,9 +467,6 @@ public sealed class GameHub : Hub<IGameClient>
                     district == me.District);
             }).ToList();
         }, changesWorld: false);
-
-    public Task<CommandResultDto> Relocate(int x, int y) =>
-        Command((world, company) => world.Relocate(company, new DistrictCoord(x, y)));
 
     public Task<CommandResultDto> PlaceCrate(int crate, int x, int y) =>
         Command((world, company) => world.PlaceCrate(company, crate, new TilePos(x, y)));

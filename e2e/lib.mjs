@@ -16,7 +16,7 @@ export async function start(out, { width = 1600, height = 1000, touch = false } 
   return { browser, page, errors, shot, cheat };
 }
 
-export async function newPlayer(page, prefix = "p") {
+export async function newPlayer(page, prefix = "p", way = "Find me neighbours") {
   const user = `${prefix}${Date.now() % 100000}`;
   for (let i = 0; i < 40; i++) { try { await page.goto(`${process.env.BASE_URL ?? "http://localhost:5173"}/`); await page.waitForSelector(".auth-panel", { timeout: 15000 }); break; } catch { await page.waitForTimeout(1000); } }
   await page.click("text=New player");
@@ -24,7 +24,9 @@ export async function newPlayer(page, prefix = "p") {
   await page.fill("input[type=password]", "secret123");
   await page.click("button[type=submit]");
   await page.waitForSelector(".found-panel", { timeout: 30000 });
-  await page.fill(".found-panel input", `${user} Works`);
+  await page.click(`text=${way}`);
+  await page.waitForSelector(".seat-row.chosen", { timeout: 30000 });
+  await page.fill(".found-panel input[minlength='3']", `${user} Works`);
   await page.click(".found-panel button[type=submit]");
   await page.waitForSelector(".top-bar", { timeout: 30000 });
   await page.waitForTimeout(3000);

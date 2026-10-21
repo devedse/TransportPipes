@@ -37,6 +37,12 @@ import type {
   ToastDto,
   UserInfo,
   YardDto,
+  CrewViewDto,
+  FoundCrewResultDto,
+  GuestResult,
+  InviteDto,
+  SeatRefDto,
+  StationsDto,
 } from "./contracts";
 
 export const HUB_URL = "/hubs/game";
@@ -70,12 +76,26 @@ export const auth = {
   },
   login: (userName: string, password: string) =>
     postJson<AuthResult>("/api/auth/login", { userName, password }),
+  /** Plays without an account first: a hidden account the browser keeps */
+  guest: () => postJson<GuestResult>("/api/auth/guest", {}),
+  /** A guest keeps the estate: a name and a password of its own */
+  keep: (userName: string, password: string, email: string) =>
+    postJson<AuthResult>("/api/auth/keep", { userName, password, email }),
   register: (userName: string, password: string, email: string) =>
     postJson<AuthResult>("/api/auth/register", { userName, password, email }),
   async logout(): Promise<void> {
     await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
   },
 };
+
+/** What a seat code or crew link opens (no login needed) */
+export async function fetchInvite(code: string): Promise<InviteDto> {
+  const response = await fetch(`/api/invite/${encodeURIComponent(code)}`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`GET /api/invite failed with ${response.status}`);
+  }
+  return (await response.json()) as InviteDto;
+}
 
 export async function fetchContent(): Promise<GameContentDto> {
   const response = await fetch("/api/content", { cache: "no-store" });
@@ -99,6 +119,7 @@ export interface ServerEvents {
   corporationChanged(): void;
   wondersChanged(): void;
   seasonChanged(): void;
+  crewChanged(): void;
 }
 
 const EVENT_NAMES: Record<keyof ServerEvents, string> = {
@@ -114,6 +135,7 @@ const EVENT_NAMES: Record<keyof ServerEvents, string> = {
   corporationChanged: "CorporationChanged",
   wondersChanged: "WondersChanged",
   seasonChanged: "SeasonChanged",
+  crewChanged: "CrewChanged",
 };
 
 const START_RETRY_DELAYS_MS = [0, 2000, 5000, 10000];
@@ -208,7 +230,53 @@ export class GameConnection {
   }
 
   hello = () => this.invoke<HelloDto>("Hello");
-  createCompany = (name: string, color: string) => this.invoke<CommandResult>("CreateCompany", name, color);
+  createCompany = (name: string, color: string, seat: SeatRefDto | null, code: string | null) =>
+    this.invoke<CommandResult>(
+      "CreateCompany",
+      name,
+      color,
+      seat?.districtX ?? null,
+      seat?.districtY ?? null,
+      seat?.slot ?? null,
+      code,
+    );
+  startWithFriends = (
+    name: string,
+    color: string,
+    crewName: string,
+    emblem: string,
+    crewColor: string,
+    crewColor2: string,
+    seat: SeatRefDto,
+    holdSeats: number,
+  ) =>
+    this.invoke<FoundCrewResultDto>(
+      "StartWithFriends",
+      name,
+      color,
+      crewName,
+      emblem,
+      crewColor,
+      crewColor2,
+      seat.districtX,
+      seat.districtY,
+      seat.slot,
+      holdSeats,
+    );
+  getStations = (districtX: number | null, districtY: number | null) =>
+    this.invoke<StationsDto>("GetStations", districtX, districtY);
+  getCrew = () => this.invoke<CrewViewDto | null>("GetCrew");
+  foundCrew = (name: string, emblem: string, color: string, color2: string, holdSeats: number) =>
+    this.invoke<FoundCrewResultDto>("FoundCrew", name, emblem, color, color2, holdSeats);
+  joinCrew = (code: string) => this.invoke<CommandResult>("JoinCrew", code);
+  leaveCrew = () => this.invoke<CommandResult>("LeaveCrew");
+  acceptJoinRequest = (applicant: number) => this.invoke<CommandResult>("AcceptJoinRequest", applicant);
+  renewInvite = () => this.invoke<CommandResult>("RenewInvite");
+  holdSeats = (count: number) => this.invoke<CommandResult>("HoldSeats", count);
+  releaseHold = (code: string) => this.invoke<CommandResult>("ReleaseHold", code);
+  setStationOpen = (open: boolean) => this.invoke<CommandResult>("SetStationOpen", open);
+  relocateTo = (seat: SeatRefDto) =>
+    this.invoke<CommandResult>("RelocateTo", seat.districtX, seat.districtY, seat.slot);
   getChunks = (pairs: number[]) => this.invoke<ChunkDto[]>("GetChunks", pairs);
   unwatch = (pairs: number[]) => this.invoke<void>("Unwatch", pairs);
   getDistrict = (x: number, y: number) => this.invoke<DistrictDto>("GetDistrict", x, y);
@@ -326,7 +394,6 @@ export class GameConnection {
   getWonders = () => this.invoke<WondersDto | null>("GetWonders");
   getCompanyDetails = () => this.invoke<CompanyDetailsDto | null>("GetCompanyDetails");
   getDistricts = () => this.invoke<DistrictChoiceDto[]>("GetDistricts");
-  relocate = (x: number, y: number) => this.invoke<CommandResult>("Relocate", x, y);
   placeCrate = (crate: number, x: number, y: number) => this.invoke<CommandResult>("PlaceCrate", crate, x, y);
   scrapCrate = (crate: number) => this.invoke<CommandResult>("ScrapCrate", crate);
   proposeSwap = (other: number) => this.invoke<CommandResult>("ProposeSwap", other);

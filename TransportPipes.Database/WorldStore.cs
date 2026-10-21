@@ -89,6 +89,12 @@ public sealed class WorldStore
                 NoTrade = settings.NoTrade,
                 NoBuy = settings.NoBuy,
                 TradeBlocked = settings.TradeBlocked,
+                PendingBlocks = settings.PendingBlocks,
+                CrewId = settings.CrewId,
+                LeftCrewAt = settings.LeftCrewAt,
+                IsGuest = settings.IsGuest,
+                DistinctDays = settings.DistinctDays,
+                LastPlayedDay = settings.LastPlayedDay,
                 TradeWith = settings.TradeWith,
                 BuiltTypes = settings.BuiltTypes,
                 XpLog = settings.XpLog,
@@ -268,6 +274,10 @@ public sealed class WorldStore
         }
 
         world.LoadBlueprints(JsonSerializer.Deserialize<List<Blueprint>>(dbWorld.Blueprints, Json) ?? []);
+        foreach (var crew in JsonSerializer.Deserialize<List<Crew>>(dbWorld.Crews, Json) ?? [])
+        {
+            world.LoadCrew(crew);
+        }
 
         if (JsonSerializer.Deserialize<SeasonState>(dbWorld.Season, Json) is { } season)
         {
@@ -318,6 +328,7 @@ public sealed class WorldStore
                     world.Surveyed.Select(t => new SurveyedRow(t.District.X, t.District.Y, t.Slot)).ToList()), Json),
                 Season = JsonSerializer.Serialize(new SeasonState(world.Season, world.FinaleAt, world.SeasonEndedAt, world.SeasonResults, ResultsSaved), Json),
                 Blueprints = JsonSerializer.Serialize(world.Blueprints.ToList(), Json),
+                Crews = JsonSerializer.Serialize(world.Crews.ToList(), Json),
             },
         };
 
@@ -346,6 +357,12 @@ public sealed class WorldStore
                     NoTrade = company.NoTrade,
                     NoBuy = company.NoBuy,
                     TradeBlocked = company.TradeBlocked,
+                    PendingBlocks = company.PendingBlocks,
+                    CrewId = company.CrewId,
+                    LeftCrewAt = company.LeftCrewAt,
+                    IsGuest = company.IsGuest,
+                    DistinctDays = company.DistinctDays,
+                    LastPlayedDay = company.LastPlayedDay,
                     TradeWith = company.TradeWith,
                     BuiltTypes = company.BuiltTypes,
                     XpLog = company.XpLog,
@@ -545,6 +562,7 @@ public sealed class WorldStore
                 db.Entry(snapshot.World).Property(t => t.Outposts).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Season).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Blueprints).IsModified = true;
+                db.Entry(snapshot.World).Property(t => t.Crews).IsModified = true;
             }
             else
             {
@@ -662,6 +680,12 @@ public sealed class WorldStore
         public HashSet<string> NoTrade { get; init; } = new();
         public HashSet<string> NoBuy { get; init; } = new();
         public HashSet<long> TradeBlocked { get; init; } = new();
+        public Dictionary<long, DateTime> PendingBlocks { get; init; } = new();
+        public long? CrewId { get; init; }
+        public DateTime? LeftCrewAt { get; init; }
+        public bool IsGuest { get; init; }
+        public int DistinctDays { get; init; }
+        public int LastPlayedDay { get; init; }
         public TradeWith TradeWith { get; init; } = TradeWith.Everyone;
         public HashSet<string> BuiltTypes { get; init; } = new();
         public Dictionary<string, Dictionary<string, double>> XpLog { get; init; } = new();

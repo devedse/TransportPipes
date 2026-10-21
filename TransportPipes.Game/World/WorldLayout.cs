@@ -255,6 +255,16 @@ public static class WorldLayout
     public static IEnumerable<StationRef> Stations(DistrictCoord district) =>
         Enumerable.Range(0, StationsPerDistrict).Select(t => new StationRef(district, t));
 
+    /// <summary>The corner stations next to a small station (a crew of 5–8 joins them into one big station)</summary>
+    public static IReadOnlyList<int> CornersNextTo(int smallStation) => smallStation switch
+    {
+        4 => [0, 1],
+        5 => [2, 3],
+        6 => [0, 2],
+        7 => [1, 3],
+        _ => [],
+    };
+
     /// <summary>The first corridor tile between two blocks along an axis (the corridor after block b)</summary>
     private static int CorridorAfter(int block) => CorridorWidth + block * BlockPitch + EstateSize;
 

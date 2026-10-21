@@ -42,6 +42,9 @@ public sealed class Company : Entity
     /// <summary>Companies this one doesn't trade with (neither sells to nor buys from)</summary>
     public HashSet<long> TradeBlocked { get; init; } = new();
 
+    /// <summary>Blocks that take effect after the notice period (an hour: the partner's tank covers it), by company</summary>
+    public Dictionary<long, DateTime> PendingBlocks { get; init; } = new();
+
     /// <summary>Who the company trades with on its pipes: everyone, its corporation, or nobody but contract partners</summary>
     public TradeWith TradeWith { get; set; } = TradeWith.Everyone;
 
@@ -57,6 +60,17 @@ public sealed class Company : Entity
     /// <summary>The tech being researched now, and when it is done</summary>
     public string? CurrentResearch { get; set; }
     public DateTime? ResearchEndsAt { get; set; }
+
+    /// <summary>The crew this company is in (v1.2 §6), and when it last left one (an extra free move once a month)</summary>
+    public long? CrewId { get; set; }
+    public DateTime? LeftCrewAt { get; set; }
+
+    /// <summary>A guest: the player hasn't made an account yet (counts as new for every rule against alts)</summary>
+    public bool IsGuest { get; set; }
+
+    /// <summary>On how many different days the company played, and the last one (days since 1970)</summary>
+    public int DistinctDays { get; set; }
+    public int LastPlayedDay { get; set; }
 
     /// <summary>The corporation this company is in, and its role there</summary>
     public long? CorporationId { get; set; }

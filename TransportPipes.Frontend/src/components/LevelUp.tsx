@@ -1,7 +1,19 @@
 import { useEffect } from "react";
 import { gameClient } from "../app/client";
 import { levelUnlocks } from "../app/roadmap";
-import { setState, useAppStore } from "../state/store";
+import { appStore, setState, useAppStore } from "../state/store";
+
+/** The levels at which a guest is asked to keep the estate (v1.2 §5): the evening it starts to matter */
+const KEEP_AT = [3, 6, 10];
+
+/** Closes the celebration; a guest who reached a keep level then sees the keep card */
+function close(level: number) {
+  const guest = appStore.getState().user?.isGuest === true;
+  setState({
+    levelUp: null,
+    keepOpen: guest && KEEP_AT.includes(level) ? true : appStore.getState().keepOpen,
+  });
+}
 
 /** The moment a Company Level is reached: Loady cheers, and what the level brings (GDD §10.1, "visible growth") */
 export function LevelUp() {
@@ -13,7 +25,7 @@ export function LevelUp() {
     if (level === null) {
       return;
     }
-    const timer = window.setTimeout(() => setState({ levelUp: null }), 5200);
+    const timer = window.setTimeout(() => close(level), 5200);
     return () => clearTimeout(timer);
   }, [level]);
   if (level === null || content === null || company === null) {
@@ -25,7 +37,7 @@ export function LevelUp() {
     <div className="level-up" role="status">
       <div className="level-up-burst" aria-hidden="true" />
       <img src="/art/ui/loady-cheer.webp" alt="" className="level-up-loady" />
-      <div className="level-up-card" onClick={() => setState({ levelUp: null })}>
+      <div className="level-up-card" onClick={() => close(level)}>
         <span className="level-up-title">Company Level</span>
         <strong className="level-up-number">{level}</strong>
         {unlocked.length > 0 && (

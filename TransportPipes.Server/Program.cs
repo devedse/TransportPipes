@@ -4,9 +4,11 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using TransportPipes.Database;
 using TransportPipes.Database.Entities;
 using TransportPipes.Game.Content;
@@ -20,6 +22,13 @@ var connectionString = builder.Configuration.GetConnectionString("TransportPipes
     ?? throw new InvalidOperationException("Configure the database with the ConnectionStrings__TransportPipes environment variable (or ConnectionStrings:TransportPipes in appsettings).");
 
 builder.Services.Configure<TransportPipesOptions>(builder.Configuration.GetSection(TransportPipesOptions.SectionName));
+// The server runs behind a proxy: the player's address is the one it forwards (the guest limit counts per address)
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(services => new TransportPipesDbFactory(connectionString, services.GetRequiredService<ILoggerFactory>()));
@@ -85,6 +94,7 @@ builder.Services.AddResponseCompression(options =>
 });
 
 var app = builder.Build();
+app.UseForwardedHeaders();
 
 await app.Services.GetRequiredService<DatabaseInitializer>().InitializeAsync();
 
@@ -116,8 +126,11 @@ static async Task<UserInfo> SignInAsync(HttpContext context, DbUser user)
         [new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), new Claim(ClaimTypes.Name, user.UserName)],
         CookieAuthenticationDefaults.AuthenticationScheme);
     await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity), new AuthenticationProperties { IsPersistent = true });
-    return new UserInfo(user.Id, user.UserName, user.IsAdmin);
+    return new UserInfo(user.Id, user.UserName, user.IsAdmin, user.IsGuest);
 }
+
+// Playing without an account first (v1.2 §5): a few guests a day per address, so nobody makes an army of them
+var guestsToday = new System.Collections.Concurrent.ConcurrentDictionary<string, (DateOnly Day, int Count)>();
 
 auth.MapPost("/register", async (RegisterRequest request, AccountService accounts, HttpContext context) =>
 {
@@ -139,6 +152,43 @@ auth.MapPost("/login", async (LoginRequest request, AccountService accounts, Htt
         : new AuthResult(true, null, await SignInAsync(context, user));
 });
 
+auth.MapPost("/guest", async (AccountService accounts, HttpContext context, TimeProvider time, IOptions<TransportPipesOptions> options) =>
+{
+    var address = context.Connection.RemoteIpAddress?.ToString() ?? "?";
+    var today = DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime);
+    var count = guestsToday.AddOrUpdate(address, (today, 1), (_, t) => t.Day == today ? (today, t.Count + 1) : (today, 1));
+    if (count.Count > options.Value.GuestsPerAddressPerDay)
+    {
+        return new GuestResult(false, "Too many new players from here today: log in, or make an account.", null, null);
+    }
+    var (user, password) = await accounts.CreateGuestAsync();
+    return new GuestResult(true, null, await SignInAsync(context, user), password);
+});
+
+auth.MapPost("/keep", async (KeepRequest request, ClaimsPrincipal principal, AccountService accounts, WorldHost world, HttpContext context) =>
+{
+    var id = long.Parse(principal.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    var (user, error) = await accounts.KeepAsync(id, request.UserName ?? "", request.Password ?? "", request.Email);
+    if (user == null)
+    {
+        return new AuthResult(false, error, null);
+    }
+    await world.RunAsync(w =>
+    {
+        if (w.CompanyOfUser(id) is { } company)
+        {
+            company.IsGuest = false;
+            company.Touch();
+        }
+    });
+    return new AuthResult(true, null, await SignInAsync(context, user));
+})
+    .RequireAuthorization();
+
+// What a seat code or crew link opens, for someone who isn't playing yet
+app.MapGet("/api/invite/{code}", (string code, WorldHost world) =>
+    world.RunAsync(w => GameViews.Invite(w, code), changesWorld: false));
+
 auth.MapPost("/logout", async (HttpContext context) =>
 {
     await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
@@ -149,7 +199,7 @@ auth.MapGet("/me", async (ClaimsPrincipal user, AccountService accounts) =>
 {
     var id = long.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
     var (isAdmin, _, _) = await accounts.ModerationAsync(id);
-    return new UserInfo(id, user.FindFirstValue(ClaimTypes.Name) ?? "", isAdmin);
+    return new UserInfo(id, user.FindFirstValue(ClaimTypes.Name) ?? "", isAdmin, await accounts.IsGuestAsync(id));
 })
     .RequireAuthorization();
 

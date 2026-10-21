@@ -53,6 +53,13 @@ public sealed partial class GameWorld
         {
             events.Add((at, long.MinValue + 11, run));
         }
+        foreach (var company in _companies.Values.Where(t => t.PendingBlocks.Count != 0))
+        {
+            foreach (var (other, at) in company.PendingBlocks.Where(t => t.Value <= now).ToList())
+            {
+                events.Add((at, -company.Id, () => ApplyBlock(company, other)));
+            }
+        }
         foreach (var building in _buildings.Values.Where(t => t.ConstructionEndsAt is { } end && end <= now))
         {
             events.Add((building.ConstructionEndsAt!.Value, building.Id, () => CompleteConstruction(building)));

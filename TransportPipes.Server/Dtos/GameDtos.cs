@@ -5,13 +5,19 @@ namespace TransportPipes.Server.Dtos;
 
 public record VersionInfo(string Version, string? Commit);
 
-public record UserInfo(long Id, string UserName, bool IsAdmin = false);
+public record UserInfo(long Id, string UserName, bool IsAdmin = false, bool IsGuest = false);
 
 public record LoginRequest(string UserName, string Password);
 
 public record RegisterRequest(string UserName, string Password, string? Email);
 
 public record AuthResult(bool Success, string? Error, UserInfo? User);
+
+/// <summary>A guest's account: the browser keeps its name and password, so the estate isn't lost with the cookie</summary>
+public record GuestResult(bool Success, string? Error, UserInfo? User, string? Password);
+
+/// <summary>A guest keeps the estate: a name and a password of its own</summary>
+public record KeepRequest(string UserName, string Password, string? Email);
 
 public record CommandResultDto(bool Success, string? Error)
 {
@@ -76,7 +82,11 @@ public record CompanyDto(
     IReadOnlyList<AlertDto> Alerts,
     DateTime ServerTime,
     ExperienceDto Experience,
-    string TradeWith);
+    string TradeWith,
+    CrewBadgeDto? Crew);
+
+/// <summary>A company's crew as the top bar and the map show it</summary>
+public record CrewBadgeDto(long Id, string Name, string Emblem, string Color, string Color2, int Members);
 
 /// <summary>
 /// Experience: XP per minute from what the company earns now, where its XP came from (per source per item) and what
@@ -551,3 +561,60 @@ public record YardDto(
     IReadOnlyList<YardTradeDto> Yours,
     IReadOnlyList<ResourceRateDto> Totals,
     string Line);
+
+/// <summary>A seat of a station as the picker shows it: its land, and who lives there (or that it is free, held, warmed by a House)</summary>
+public record SeatDto(
+    int Slot,
+    int EstateX,
+    int EstateY,
+    string Primary,
+    string? Secondary,
+    /// <summary>free, house (a House keeps it warm: you can take it), held (kept for a crew's friend), taken, you</summary>
+    string State,
+    long? OwnerId,
+    string? OwnerName,
+    string? OwnerColor,
+    int OwnerLevel,
+    /// <summary>For strangers: lively, some days or resting (never a count of days)</summary>
+    string? Activity,
+    string? CrewName,
+    bool HeldForYou);
+
+/// <summary>A station on the picker: its seats, how lively it is, whether strangers may settle</summary>
+public record StationDto(int DistrictX, int DistrictY, int Index, string Name, bool Small, bool Open, int Free, int Lively, IReadOnlyList<SeatDto> Seats, string? CrewName, int X0, int Y0, int X1, int Y1);
+
+public record SeatRefDto(int DistrictX, int DistrictY, int Slot);
+
+/// <summary>The stations of a district for the picker, with the seats the game suggests for each way of starting</summary>
+public record StationsDto(int DistrictX, int DistrictY, string District, IReadOnlyList<StationDto> Stations, SeatRefDto Neighbours, SeatRefDto OwnStation, SeatRefDto Friends, IReadOnlyList<DistrictRefDto> Districts);
+
+public record DistrictRefDto(int DistrictX, int DistrictY, string Name);
+
+/// <summary>What a seat code or crew link opens: the crew, who invites, the station and (for a seat code) the seat kept</summary>
+public record InviteDto(bool Valid, string? CrewName, string? Emblem, string? Color, string? Color2, string? From, StationDto? Station, int? Slot, bool SeatCode, bool NeedsApproval, string? Name);
+
+public record CrewMemberDto(long Id, string Name, string Color, int Level, string? Activity, string Station, int Slot, bool You);
+
+public record HeldSeatDto(string Code, int DistrictX, int DistrictY, int Slot, string Primary, string? Secondary, DateTime Until);
+
+/// <summary>Your crew: its members, the seats it keeps for friends (with their codes), its invite link and who asked to join</summary>
+public record CrewDto(
+    long Id,
+    string Name,
+    string Emblem,
+    string Color,
+    string Color2,
+    IReadOnlyList<CrewMemberDto> Members,
+    IReadOnlyList<HeldSeatDto> Holds,
+    string InviteCode,
+    DateTime InviteOpenUntil,
+    IReadOnlyList<CrewMemberDto> Requests,
+    bool StationOpen,
+    bool StationClosed,
+    int MaxSize);
+
+/// <summary>The crew panel: your crew (or none), and the emblems to choose from</summary>
+public record CrewViewDto(CrewDto? Crew, IReadOnlyList<string> Emblems);
+
+/// <summary>Founding a crew with friends: the seats held for them, each with its code</summary>
+public record FoundCrewResultDto(bool Success, string? Error, IReadOnlyList<HeldSeatDto> Holds);

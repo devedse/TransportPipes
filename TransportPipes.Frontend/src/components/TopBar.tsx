@@ -6,6 +6,7 @@ import { useNow } from "../app/useNow";
 import { currentGold, setState, useAppStore } from "../state/store";
 import { levelEta } from "../app/experience";
 import { ExperiencePanel } from "./ExperiencePanel";
+import { emblemIcon } from "../app/crews";
 
 /** Gold that counts up smoothly between server updates */
 function useLiveGold(): number {
@@ -62,6 +63,21 @@ export function TopBar() {
         <div>
           <div className="company-name">
             {company.name}
+            {company.crew !== null && (
+              <button
+                className="crew-chip small-tag"
+                title="Your crew"
+                style={{
+                  background: `linear-gradient(90deg, ${company.crew.color} 50%, ${company.crew.color2} 50%)`,
+                }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void gameClient.openCrew();
+                }}
+              >
+                {emblemIcon(company.crew.emblem)} {company.crew.name}
+              </button>
+            )}
             {company.corporationTag !== null && (
               <button
                 className="corp-tag small-tag"
@@ -72,7 +88,33 @@ export function TopBar() {
               </button>
             )}
           </div>
-          <div className="muted small">{user?.userName}</div>
+          <div className="muted small">
+            {user?.isGuest === true ? (
+              <button
+                className="link small keep-link"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setState({ keepOpen: true });
+                }}
+              >
+                Keep my estate
+              </button>
+            ) : (
+              user?.userName
+            )}
+            {company.crew === null && (
+              <button
+                className="link small"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void gameClient.openCrew();
+                }}
+              >
+                {" "}
+                · play with friends
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

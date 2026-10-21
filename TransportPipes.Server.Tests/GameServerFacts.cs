@@ -67,8 +67,8 @@ public class GameServerFacts
         var hello = await client.Invoke<HelloDto>("Hello");
         Assert.IsNull(hello.Company);
 
-        Assert.IsFalse((await client.Invoke<CommandResultDto>("CreateCompany", "X", "#ff0000")).Success, "too short");
-        await client.Command("CreateCompany", "Pipe Dreams", "#3399ff");
+        Assert.IsFalse((await client.Invoke<CommandResultDto>("CreateCompany", "X", "#ff0000", null, null, null, null)).Success, "too short");
+        await client.Command("CreateCompany", "Pipe Dreams", "#3399ff", null, null, null, null);
 
         hello = await client.Invoke<HelloDto>("Hello");
         Assert.AreEqual("Pipe Dreams", hello.Company!.Name);
@@ -84,6 +84,52 @@ public class GameServerFacts
         Assert.AreEqual(WorldLayout.ChunkSize * WorldLayout.ChunkSize, Convert.FromBase64String(chunks.Single().Terrain!).Length);
         var district = await client.Invoke<DistrictDto>("GetDistrict", hello.Company.DistrictX, hello.Company.DistrictY);
         Assert.AreEqual("Pipe Dreams", district.Estates.Single(t => t.Slot == hello.Company.Slot).OwnerName);
+    }
+
+    [TestMethod]
+    public async Task AFriendOpensASeatLinkPlaysAsAGuestAndKeepsTheEstate()
+    {
+        using var server = new GameServer();
+        await using var ana = await server.ConnectAsync(await server.RegisterAsync("Ana"));
+        var stations = await ana.Invoke<StationsDto>("GetStations", null, null);
+        var started = await ana.Invoke<FoundCrewResultDto>("StartWithFriends", "Ana Pipes", "#3399ff", "Kettle & Co.", "kettle", "#236b69", "#c9963a",
+            stations.Friends.DistrictX, stations.Friends.DistrictY, stations.Friends.Slot, 3);
+        Assert.IsTrue(started.Success, started.Error);
+        Assert.HasCount(3, started.Holds);
+        var code = started.Holds[0].Code;
+
+        // The link shows the crew and the seat before the friend has an account
+        var http = server.CreateClient();
+        var invite = await http.GetFromJsonAsync<InviteDto>($"/api/invite/{code}", GameServer.Json);
+        Assert.IsTrue(invite!.Valid);
+        Assert.AreEqual("Kettle & Co.", invite.CrewName);
+        Assert.AreEqual(started.Holds[0].Slot, invite.Slot);
+
+        // "Move in": a guest, then the company on the kept seat
+        var guest = await http.PostAsync("/api/auth/guest", null);
+        var result = await guest.Content.ReadFromJsonAsync<GuestResult>(GameServer.Json);
+        Assert.IsTrue(result!.Success, result.Error);
+        var cookie = guest.Headers.GetValues("Set-Cookie").Select(t => t.Split(';')[0]).Single(t => t.StartsWith("transportpipes="));
+        await using (var ben = await server.ConnectAsync(cookie))
+        {
+            Assert.IsTrue((await ben.Invoke<HelloDto>("Hello")).User.IsGuest);
+            await ben.Command("CreateCompany", invite.Name!, "#236b69", null, null, null, code);
+            var hello = await ben.Invoke<HelloDto>("Hello");
+            Assert.AreEqual(started.Holds[0].Slot, hello.Company!.Slot);
+            Assert.AreEqual("Kettle & Co.", hello.Company.Crew!.Name);
+        }
+
+        // Keeping the estate: a name and a password of its own, and the guest is a player like any other
+        var keep = new HttpRequestMessage(HttpMethod.Post, "/api/auth/keep") { Content = JsonContent.Create(new KeepRequest("Ben", "secret123", null), options: GameServer.Json) };
+        keep.Headers.Add("Cookie", cookie);
+        var kept = await (await http.SendAsync(keep)).Content.ReadFromJsonAsync<AuthResult>(GameServer.Json);
+        Assert.IsTrue(kept!.Success, kept.Error);
+        var (login, again) = await server.LoginAsync("Ben", "secret123");
+        Assert.IsTrue(login.Success);
+        await using var back = await server.ConnectAsync(again);
+        var home = await back.Invoke<HelloDto>("Hello");
+        Assert.IsFalse(home.User.IsGuest);
+        Assert.AreEqual(started.Holds[0].Slot, home.Company!.Slot);
     }
 
     /// <summary>A spot next to the trading post for a pipe and a wind moily behind it</summary>
@@ -111,7 +157,7 @@ public class GameServerFacts
         using var server = new GameServer();
         await using var client = await server.ConnectAsync(await server.RegisterAsync("Builder"));
         var hello = await client.Invoke<HelloDto>("Hello");
-        await client.Command("CreateCompany", "Breezy", "#33cc66");
+        await client.Command("CreateCompany", "Breezy", "#33cc66", null, null, null, null);
         var (pipe, moily) = await SpotNextToTradingPost(server, hello.User.Id);
         // Watching the chunk: updates of it are pushed
         var (cx, cy) = WorldLayout.ChunkOf(moily.X, moily.Y);
@@ -153,7 +199,7 @@ public class GameServerFacts
                 cookie = await server.RegisterAsync("Keeper");
                 await using var client = await server.ConnectAsync(cookie);
                 var hello = await client.Invoke<HelloDto>("Hello");
-                await client.Command("CreateCompany", "Keepers & Co", "#aa66ff");
+                await client.Command("CreateCompany", "Keepers & Co", "#aa66ff", null, null, null, null);
                 TilePos pipe;
                 (pipe, moily) = await SpotNextToTradingPost(server, hello.User.Id);
                 await client.Command("PlaceBuilding", "windMoily", moily.X, moily.Y);

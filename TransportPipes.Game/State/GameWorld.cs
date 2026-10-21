@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using TransportPipes.Game.Content;
 using TransportPipes.Game.World;
 
@@ -26,6 +27,7 @@ public enum WorldEventKind
     Calendar,
     Wonder,
     Achievement,
+    Crew,
 }
 
 /// <summary>Something a player should hear about (a toast in the client)</summary>
@@ -42,6 +44,7 @@ public sealed class WorldChanges
     public HashSet<DistrictCoord> Markets { get; } = new();
     public HashSet<long> Contracts { get; } = new();
     public HashSet<long> Corporations { get; } = new();
+    public HashSet<long> Crews { get; } = new();
 
     /// <summary>Districts whose hub changed (a Wonder grew)</summary>
     public HashSet<DistrictCoord> Districts { get; } = new();
@@ -52,7 +55,7 @@ public sealed class WorldChanges
     public bool Blueprints { get; set; }
     public List<WorldEvent> Events { get; } = new();
 
-    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Contracts.Count == 0 && Corporations.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && !Outposts && !Blueprints && Events.Count == 0;
+    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Contracts.Count == 0 && Corporations.Count == 0 && Crews.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && !Outposts && !Blueprints && Events.Count == 0;
 }
 
 /// <summary>
@@ -256,8 +259,8 @@ public sealed partial class GameWorld
             for (var slot = 0; slot < WorldLayout.EstatesPerDistrict; slot++)
             {
                 var estate = _estates[(district, slot)];
-                // Corporation blocks are kept for their members
-                if (estate.OwnerId == null && (estate.ReservedFor == null || estate.ReservedUntil <= LastTick))
+                // Corporation blocks are kept for their members, held seats for their crew's friends
+                if (estate.OwnerId == null && (estate.ReservedFor == null || estate.ReservedUntil <= LastTick) && SeatFree(KeyOf(estate)))
                 {
                     return estate;
                 }
@@ -265,7 +268,7 @@ public sealed partial class GameWorld
             for (var slot = 0; slot < WorldLayout.EstatesPerDistrict; slot++)
             {
                 var estate = _estates[(district, slot)];
-                if (estate.OwnerId is { } owner && Company(owner) is { IsNpc: true })
+                if (estate.OwnerId is { } owner && Company(owner) is { IsNpc: true } && SeatFree(KeyOf(estate)))
                 {
                     EvictTenant(estate);
                     return estate;
@@ -275,11 +278,11 @@ public sealed partial class GameWorld
         throw new InvalidOperationException("The world is infinite, this can't happen.");
     }
 
-    /// <summary>A seat for a newcomer: free, or kept warm by a tenant who moves out (null when someone lives there)</summary>
-    private Estate? TakeSeat(EstateKey seat)
+    /// <summary>A seat for a newcomer: free, or kept warm by a tenant who moves out (null when it isn't free for them)</summary>
+    private Estate? TakeSeat(EstateKey seat, string? code = null)
     {
         OpenDistrict(seat.District);
-        if (Estate(seat.District, seat.Slot) is not { } estate)
+        if (Estate(seat.District, seat.Slot) is not { } estate || !SeatFree(seat, null, code))
         {
             return null;
         }
@@ -312,6 +315,32 @@ public sealed partial class GameWorld
         return null;
     }
 
+    private static readonly string[] NameIdeas =
+    [
+        "Brass & Kettle", "Copperleaf Co.", "Steam & Sons", "Valve Street Works", "Gaslight Pipes",
+        "Ironfern Co.", "Bellows & Bolt", "Lantern Lane Co.", "Cogwheel Pipes", "Riverbend Works",
+    ];
+
+    /// <summary>A company name nobody uses yet, for a newcomer who moves in with two taps: its land's name, or a pleasant one</summary>
+    public string FreeCompanyName(EstateKey? seat = null)
+    {
+        var land = seat is { } chosen ? Regex.Replace(Generator.Estate(chosen.District, chosen.Slot).Primary.ToString(), "(?<=[a-z])(?=[A-Z])", " ") : null;
+        string[] ideas = land != null
+            ? [$"{land} Co.", $"{land} Works", $"{land} Pipes", $"{land} & Sons"]
+            : [.. NameIdeas.Skip((int)(NextCompanyId % NameIdeas.Length)), .. NameIdeas.Take((int)(NextCompanyId % NameIdeas.Length))];
+        for (var n = 1; ; n++)
+        {
+            foreach (var idea in ideas)
+            {
+                var name = n == 1 ? idea : $"{idea} {n}";
+                if (CompanyNameError(name) == null)
+                {
+                    return name;
+                }
+            }
+        }
+    }
+
     public static readonly (int X, int Y) HqLocal = (15, 15);
     public static readonly (int X, int Y) TradingPostLocal = (18, 15);
 
@@ -319,9 +348,20 @@ public sealed partial class GameWorld
     /// A new company, on a seat it chose (when that is free, or a House keeps it warm) or the first free one; Legacy from
     /// earlier seasons brings starting gold, titles and a manager slot
     /// </summary>
-    public Company CreateCompany(long userId, string name, string color, int legacyLevel = 0, IEnumerable<string>? titles = null, EstateKey? seat = null)
+    public Company CreateCompany(long userId, string name, string color, int legacyLevel = 0, IEnumerable<string>? titles = null, EstateKey? seat = null, string? code = null)
     {
-        var estate = seat is { } chosen && TakeSeat(chosen) is { } free ? free : FindFreeEstate();
+        // A seat code brings the newcomer to the seat its crew holds for it, a crew link next to the crew
+        var held = code != null ? HoldByCode(code) : null;
+        var linked = held == null && code != null ? CrewByInvite(code) : null;
+        if (held is { } invite)
+        {
+            seat = invite.Hold.Seat;
+        }
+        else if (linked != null)
+        {
+            seat = SeatNearCrew(linked, code!);
+        }
+        var estate = seat is { } chosen && TakeSeat(chosen, code) is { } free ? free : FindFreeEstate();
         var now = Now;
         var company = new Company
         {
@@ -357,6 +397,16 @@ public sealed partial class GameWorld
         AddBuilding(company, "hq", estate.Origin.Offset(HqLocal.X, HqLocal.Y), finished: true);
         AddBuilding(company, "tradingPost", estate.Origin.Offset(TradingPostLocal.X, TradingPostLocal.Y), finished: true);
         company.BuiltTypes.Clear();
+        if (held is { } joined && HoldOn(joined.Hold.Seat) is not null && KeyOf(estate) == joined.Hold.Seat && CrewMembers(joined.Crew).Count() < MaxCrewSize)
+        {
+            company.CrewId = joined.Crew.Id;
+            RemoveHold(joined.Crew, joined.Hold);
+            AnnounceArrival(joined.Crew, company);
+        }
+        else if (linked != null)
+        {
+            JoinCrew(company.Id, code!);
+        }
         if (SurveysEnabled)
         {
             Survey(estate);

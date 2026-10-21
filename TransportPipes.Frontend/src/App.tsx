@@ -17,6 +17,8 @@ import { FoundCompany } from "./components/FoundCompany";
 import { GameCanvas } from "./components/GameCanvas";
 import { MapLoading } from "./components/MapLoading";
 import { YardPanel } from "./components/YardPanel";
+import { CrewPanel, ShareCodes } from "./components/CrewPanel";
+import { InviteInGame, KeepEstate } from "./components/KeepEstate";
 import { HoverTip } from "./components/HoverTip";
 import { HubPanel } from "./components/HubPanel";
 import { NeighboursPanel, PlannedRouteBanner } from "./components/NeighboursPanel";
@@ -96,10 +98,17 @@ function useShortcuts() {
           gameClient.setTool({ kind: "bulldoze" });
           break;
         case "n":
-          if (state.neighboursOpen) {
-            setState({ neighboursOpen: false });
+          if (state.yardOpen) {
+            setState({ yardOpen: false });
           } else {
-            void gameClient.openNeighbours();
+            void gameClient.openYard();
+          }
+          break;
+        case "k":
+          if (state.crewOpen) {
+            setState({ crewOpen: false });
+          } else {
+            void gameClient.openCrew();
           }
           break;
         case "m":
@@ -225,6 +234,12 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="BuildingPanel">
             <BuildingPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="CrewPanel">
+            <CrewPanel />
+            <ShareCodes />
+            <KeepEstate />
+            <InviteInGame />
           </ErrorBoundary>
           <ErrorBoundary name="YardPanel">
             <YardPanel />

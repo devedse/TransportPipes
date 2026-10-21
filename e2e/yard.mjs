@@ -11,6 +11,26 @@ const b = await start(out);
 await newPlayer(b.page, "yb");
 await b.cheat("gold");
 await b.cheat("level");
+// In a busy world they may land apart: both move to the two first seats of a station nobody lives in
+const empty = await a.page.evaluate(async () => {
+  const c = tp.gameClient.connection;
+  const own = (await c.getStations(null, null)).ownStation;
+  const dto = await c.getStations(own.districtX, own.districtY);
+  const station = dto.stations.find((t) => t.seats.some((s) => s.slot === own.slot));
+  return station.seats.filter((s) => s.state === "free" || s.state === "house").map((s) => ({ districtX: own.districtX, districtY: own.districtY, slot: s.slot }));
+});
+for (const [player, seat] of [[a, empty[0]], [b, empty[1]]]) {
+  const moved = await player.page.evaluate(async (seat) => {
+    const c = tp.gameClient.connection;
+    const result = await c.relocateTo(seat);
+    if (!result.success) return result.error;
+    await c.cheat("arrive");
+    // The camera follows the estate; its chunks load there
+    for (let i = 0; i < 40 && ![...tp.gameClient.world.buildings.values()].some((t) => t.owner === tp.appStore.getState().company.id && t.type === "tradingPost"); i++) await new Promise((r) => setTimeout(r, 250));
+    return `seat ${seat.slot}`;
+  }, seat);
+  console.log("moved to", moved);
+}
 
 /** Builds a building near the trading post (or on a deposit), pipes it to the post and plans and lays the pipe to the Yard gate */
 async function settle(player, type, deposit) {

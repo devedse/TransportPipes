@@ -31,9 +31,9 @@ public sealed partial class GameWorld
     /// <summary>The stars (1..5) of a company's contract reputation: five only for (nearly) everything delivered</summary>
     public static int ContractStars(Company company) => Math.Clamp((int)Math.Floor(1 + 4 * company.ContractScore + 1e-9), 1, 5);
 
-    /// <summary>Whether two companies' goods can reach each other: they live in the same station</summary>
+    /// <summary>Whether two companies' goods can reach each other: they live in the same (big) station</summary>
     public bool CanDeliver(Company a, Company b) =>
-        EstatesOf(a).Select(t => t.Station).Intersect(EstatesOf(b).Select(t => t.Station)).Any();
+        EstatesOf(a).Select(t => BigStation(t.Station)[0]).Intersect(EstatesOf(b).Select(t => BigStation(t.Station)[0])).Any();
 
     /// <summary>
     /// Proposes a contract: selling (you deliver) or buying (you receive), to one company or, without a partner, to

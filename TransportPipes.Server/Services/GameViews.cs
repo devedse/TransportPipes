@@ -100,7 +100,10 @@ public static class GameViews
             world.Alerts(company).Select(t => new AlertDto(t.Text, t.Building)).ToList(),
             world.Now,
             Experience(world, company, goldPerMinute),
-            Camel(company.TradeWith));
+            Camel(company.TradeWith),
+            world.CrewOf(company) is { } crew
+                ? new CrewBadgeDto(crew.Id, crew.NameHidden ? $"Crew {crew.Id}" : crew.Name, crew.Emblem, crew.Color, crew.Color2, world.CrewMembers(crew).Count())
+                : null);
     }
 
     private static ExperienceDto Experience(GameWorld world, Company company, double goldPerMinute)
@@ -1033,6 +1036,132 @@ public static class GameViews
             })
             .OrderBy(t => Math.Abs(t.EstateX - home.Origin.X) + Math.Abs(t.EstateY - home.Origin.Y))
             .ToList();
+    }
+
+    /// <summary>How lively a stranger looks on the picker: never a count of days</summary>
+    private static string ActivityBucket(GameWorld world, Company company) =>
+        world.Now - company.LastSeenAt < TimeSpan.FromDays(1) ? "lively" : world.Now - company.LastSeenAt < TimeSpan.FromDays(7) ? "some days" : "resting";
+
+    public static SeatDto Seat(GameWorld world, EstateKey seat, Company? me)
+    {
+        var estate = world.Estate(seat.District, seat.Slot);
+        var origin = WorldLayout.EstateOrigin(seat.District, seat.Slot);
+        var profile = world.Generator.Estate(seat.District, seat.Slot);
+        var owner = estate?.OwnerId is { } id ? world.Company(id) : null;
+        var hold = world.HoldOn(seat);
+        var state = owner != null && owner.Id == me?.Id ? "you"
+            : owner is { IsNpc: false } ? "taken"
+            : hold != null ? "held"
+            : owner is { IsNpc: true } ? "house"
+            : "free";
+        return new SeatDto(
+            seat.Slot,
+            origin.X,
+            origin.Y,
+            Camel(profile.Primary),
+            profile.Secondary is { } secondary ? Camel(secondary) : null,
+            state,
+            owner?.Id,
+            owner?.Name,
+            owner?.Color,
+            owner?.Level ?? 0,
+            owner is { IsNpc: false } && owner.Id != me?.Id ? ActivityBucket(world, owner) : null,
+            hold?.Crew.Name ?? (owner?.CrewId is { } crew ? world.Crew(crew)?.Name : null),
+            hold != null && me?.CrewId == hold.Value.Crew.Id);
+    }
+
+    public static StationDto Station(GameWorld world, StationRef station, Company? me)
+    {
+        var yard = WorldLayout.Yard(station);
+        var seats = GameWorld.StationSeats(station).Select(t => Seat(world, t, me)).ToList();
+        var crews = seats.Where(t => t.CrewName != null).GroupBy(t => t.CrewName).OrderByDescending(t => t.Count()).FirstOrDefault();
+        return new StationDto(
+            station.District.X,
+            station.District.Y,
+            station.Index,
+            WorldNames.Station(station),
+            station.IsSmall,
+            world.StationOpenToStrangers(station, me),
+            GameWorld.StationSeats(station).Count(t => world.SeatFree(t, me)),
+            seats.Count(t => t.Activity == "lively"),
+            seats,
+            crews?.Count() >= 2 ? crews.Key : null,
+            yard.X0,
+            yard.Y0,
+            yard.X1,
+            yard.Y1);
+    }
+
+    private static SeatRefDto Ref(EstateKey seat) => new(seat.District.X, seat.District.Y, seat.Slot);
+
+    /// <summary>The stations of a district for the picker (the suggested one's district when none is given)</summary>
+    public static StationsDto Stations(GameWorld world, Company? me, DistrictCoord? district, int level = 1)
+    {
+        var neighbours = world.SuggestSeat(Placement.Neighbours, me?.Level ?? level, 1, me);
+        var own = world.SuggestSeat(Placement.OwnStation, me?.Level ?? level, 1, me);
+        var friends = world.SuggestSeat(Placement.Friends, me?.Level ?? level, 4, me);
+        var shown = district ?? neighbours.District;
+        return new StationsDto(
+            shown.X,
+            shown.Y,
+            WorldNames.District(shown),
+            WorldLayout.Stations(shown).Select(t => Station(world, t, me)).ToList(),
+            Ref(neighbours),
+            Ref(own),
+            Ref(friends),
+            world.OpenDistricts.OrderBy(t => Math.Abs(t.X) + Math.Abs(t.Y)).Select(t => new DistrictRefDto(t.X, t.Y, WorldNames.District(t))).ToList());
+    }
+
+    /// <summary>What a code opens (the invite screen of someone who isn't playing yet)</summary>
+    public static InviteDto Invite(GameWorld world, string code)
+    {
+        if (world.HoldByCode(code) is { } held)
+        {
+            var from = world.CrewMembers(held.Crew).FirstOrDefault(t => t.Id == held.Crew.Founder) ?? world.CrewMembers(held.Crew).FirstOrDefault();
+            var station = WorldLayout.StationOf(held.Hold.Seat.District, held.Hold.Seat.Slot);
+            return new InviteDto(true, held.Crew.Name, held.Crew.Emblem, held.Crew.Color, held.Crew.Color2, from?.Name, Station(world, station, null), held.Hold.Slot, true, false, world.FreeCompanyName(held.Hold.Seat));
+        }
+        if (world.CrewByInvite(code) is { } crew)
+        {
+            var from = world.CrewMembers(crew).FirstOrDefault();
+            var home = from != null && world.EstateOf(from) is { } estate ? estate.Station : (StationRef?)null;
+            return new InviteDto(true, crew.Name, crew.Emblem, crew.Color, crew.Color2, from?.Name, home is { } h ? Station(world, h, null) : null, null, false,
+                world.Now - crew.InviteCodeAt > GameWorld.InviteOpenFor, world.FreeCompanyName());
+        }
+        return new InviteDto(false, null, null, null, null, null, null, null, false, false, null);
+    }
+
+    public static HeldSeatDto Held(GameWorld world, SeatHold hold)
+    {
+        var profile = world.Generator.Estate(hold.Seat.District, hold.Seat.Slot);
+        return new HeldSeatDto(GameWorld.ShowCode(hold.Code), hold.DistrictX, hold.DistrictY, hold.Slot, Camel(profile.Primary), profile.Secondary is { } secondary ? Camel(secondary) : null, hold.Until);
+    }
+
+    public static CrewViewDto Crew(GameWorld world, Company me)
+    {
+        if (world.CrewOf(me) is not { } crew)
+        {
+            return new CrewViewDto(null, GameWorld.CrewEmblems);
+        }
+        CrewMemberDto Member(Company t) =>
+            new(t.Id, t.Name, t.Color, t.Level, t.Id == me.Id ? null : ActivityBucket(world, t),
+                world.EstateOf(t) is { } estate ? WorldNames.Station(estate.Station) : "on the way", t.Slot, t.Id == me.Id);
+        var home = world.EstateOf(me)?.Station;
+        var closed = home is { } station && !world.StationOpenToStrangers(station);
+        return new CrewViewDto(new CrewDto(
+            crew.Id,
+            crew.NameHidden ? $"Crew {crew.Id}" : crew.Name,
+            crew.Emblem,
+            crew.Color,
+            crew.Color2,
+            world.CrewMembers(crew).Select(Member).ToList(),
+            crew.Holds.Select(t => Held(world, t)).ToList(),
+            GameWorld.ShowCode(crew.InviteCode),
+            crew.InviteCodeAt + GameWorld.InviteOpenFor,
+            crew.JoinRequests.Select(world.Company).OfType<Company>().Select(Member).ToList(),
+            home is { } h && crew.OpenStations.Contains($"{h.District.X},{h.District.Y},{h.Index}"),
+            closed,
+            GameWorld.MaxCrewSize), GameWorld.CrewEmblems);
     }
 
     /// <summary>The player's station and its Yard</summary>

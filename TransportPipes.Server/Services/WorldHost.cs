@@ -404,6 +404,18 @@ public sealed class WorldHost : BackgroundService
         {
             pushes.Add(() => _hub.Clients.Group(GameHub.UserGroup(userId)).CorporationChanged());
         }
+
+        // Crews: their members, and who asked to join
+        var crewUsers = changes.Crews
+            .SelectMany(id => world.Crew(id) is { } crew ? world.CrewMembers(crew).Concat(crew.JoinRequests.Select(world.Company).OfType<Company>()) : [])
+            .Select(t => t.UserId)
+            .Where(online.Contains)
+            .Distinct()
+            .ToList();
+        foreach (var userId in crewUsers)
+        {
+            pushes.Add(() => _hub.Clients.Group(GameHub.UserGroup(userId)).CrewChanged());
+        }
         return pushes;
     }
 

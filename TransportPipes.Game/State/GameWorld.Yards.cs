@@ -247,9 +247,9 @@ public sealed partial class GameWorld
     private List<YardMember> YardMembers(StationRef station)
     {
         var members = new List<YardMember>();
-        foreach (var slot in WorldLayout.StationSlots(station.Index))
+        foreach (var seat in BigStation(station).SelectMany(StationSeats))
         {
-            if (Estate(station.District, slot) is not { OwnerId: { } ownerId } estate || Company(ownerId) is not { } company
+            if (Estate(seat.District, seat.Slot) is not { OwnerId: { } ownerId } estate || Company(ownerId) is not { } company
                 || company.Packed != null || company.Asleep || GateNetwork(estate) is not { } network)
             {
                 continue;
@@ -482,9 +482,10 @@ public sealed partial class GameWorld
         var newTerms = new Dictionary<EstateKey, GateTerms>();
         GateTerms TermsOf(EstateKey key) => newTerms.TryGetValue(key, out var t) ? t : newTerms[key] = new GateTerms();
 
+        // A big station matches once, from its corner station
         var stations = _estates.Values
             .Where(t => t.OwnerId != null)
-            .Select(t => t.Station)
+            .Select(t => BigStation(t.Station)[0])
             .Distinct()
             .OrderBy(t => t.District.X).ThenBy(t => t.District.Y).ThenBy(t => t.Index);
         foreach (var station in stations)
@@ -640,7 +641,7 @@ public sealed partial class GameWorld
         SolveNetworks();
         var members = YardMembers(station).ToDictionary(t => t.Key.Slot);
         var residents = new List<YardResident>();
-        foreach (var slot in WorldLayout.StationSlots(station.Index))
+        foreach (var slot in BigStation(station).SelectMany(StationSeats).Select(t => t.Slot))
         {
             if (Estate(station.District, slot)?.OwnerId is not { } owner || Company(owner) is not { } company)
             {
@@ -668,7 +669,7 @@ public sealed partial class GameWorld
     public Dictionary<string, double> YardTotals(StationRef station)
     {
         var totals = new Dictionary<string, double>();
-        foreach (var slot in WorldLayout.StationSlots(station.Index))
+        foreach (var slot in BigStation(station).SelectMany(StationSeats).Select(t => t.Slot))
         {
             if (_gateTerms.TryGetValue(new EstateKey(station.District, slot), out var terms))
             {

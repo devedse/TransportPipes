@@ -114,7 +114,8 @@ public class TenantFacts
         Assert.IsTrue(Trades());
 
         Assert.IsTrue(game.World.SetTradeBlocked(player.Id, works.Id, true).Success);
-        Assert.IsFalse(Trades(), "not with them");
+        game.Pass(60);
+        Assert.IsFalse(Trades(), "not with them, after an hour's notice");
         Assert.IsTrue(game.World.SetTradeBlocked(player.Id, works.Id, false).Success);
         Assert.IsTrue(Trades());
 
