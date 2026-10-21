@@ -191,6 +191,8 @@ public sealed partial class GameWorld
             }
             if (!flow.Import)
             {
+                CountDiscovery(building, flow.Sent * minutes);
+                owner.EraOutput += flow.Sent * minutes * BasePrice(flow.Resource);
                 Add(owner.Report.Produced, flow.Resource, flow.Sent * minutes);
                 AddStat(owner, $"produced:{flow.Resource}", flow.Sent * minutes);
                 continue;
@@ -510,6 +512,11 @@ public sealed partial class GameWorld
         foreach (var (station, members) in byStation)
         {
             var byKey = members.ToDictionary(t => t.Key);
+            // What was matched for far markets leaves the gates now
+            if (TrunksEnabled)
+            {
+                DeliverTrunks(members);
+            }
             // What was sent to the station's project arrives now, in the shares it was matched
             if (ProjectsEnabled && members.Any(t => !t.Company.IsNpc))
             {
@@ -618,6 +625,11 @@ public sealed partial class GameWorld
                     }
                     goods[resource] = goods.GetValueOrDefault(resource) + amount;
                 }
+            }
+            // What is still spare can go beyond the own hub (public trunks, the Port, the crew's trunks)
+            if (TrunksEnabled)
+            {
+                MatchTrunks(members, TermsOf);
             }
         }
 

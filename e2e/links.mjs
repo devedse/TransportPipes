@@ -1,7 +1,7 @@
 // A link between two stations (v1.2 §7): A (a Wind Moily) and B (an Iron Mine that needs energy) live in two stations
 // nobody else lives in. A's Links tab suggests B; A offers the link, B accepts it, the Yards' rounds run, and both see
 // it flow, with the link drawn along the corridors on the map: node links.mjs <outdir>
-import { start, newPlayer, settle, emptySeats, moveTo } from "./lib.mjs";
+import { start, newPlayer, settle, emptySeats, moveTo, clearKit } from "./lib.mjs";
 const [out = "shots/links"] = process.argv.slice(2);
 const fail = (why) => { console.log("FAIL", why); process.exitCode = 1; };
 
@@ -17,6 +17,8 @@ await b.cheat("level");
 const [seatA] = await emptySeats(a.page, 1);
 const [seatB] = await emptySeats(a.page, 1, [seatA.station]);
 console.log("moved to", await moveTo(a, seatA), await moveTo(b, seatB));
+// A House's starter kit would give B's mine its energy: B starts from an empty estate
+console.log("kit cleared", await clearKit(b));
 console.log("A", await settle(a, "windMoily"));
 console.log("B", await settle(b, "ironMine", "ironOre"));
 await a.cheat("yard");

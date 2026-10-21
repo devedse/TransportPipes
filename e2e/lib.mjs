@@ -99,3 +99,14 @@ export async function moveTo(player, seat) {
     return `seat ${seat.slot}`;
   }, seat);
 }
+
+/** Demolishes a player's starter kit (a House's buildings on its seat), so the test starts from an empty estate */
+export async function clearKit(player) {
+  return player.page.evaluate(async () => {
+    const c = tp.gameClient.connection;
+    const me = tp.appStore.getState().company.id;
+    const kit = [...tp.gameClient.world.buildings.values()].filter((t) => t.owner === me && t.type !== "hq" && t.type !== "tradingPost");
+    for (const b of kit) await c.demolish(b.id);
+    return kit.length;
+  });
+}

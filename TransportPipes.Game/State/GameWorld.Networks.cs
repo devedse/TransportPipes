@@ -125,7 +125,7 @@ public sealed partial class GameWorld
         }
     }
 
-    private void MarkCompanyNetworksDirty(long companyId)
+    public void MarkCompanyNetworksDirty(long companyId)
     {
         foreach (var building in BuildingsOf(companyId).ToList())
         {

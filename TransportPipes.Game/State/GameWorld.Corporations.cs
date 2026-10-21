@@ -469,6 +469,7 @@ public sealed partial class GameWorld
 
     private void NewWeek()
     {
+        RegroupLeagues();
         foreach (var corporation in _corporations.Values)
         {
             corporation.Goal = NewGoal(corporation);

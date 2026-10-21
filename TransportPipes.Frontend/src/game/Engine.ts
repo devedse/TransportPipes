@@ -3253,6 +3253,46 @@ export class Engine {
         const mine = link.seller === myId || link.buyer === myId;
         const focus = link.id === state.focusLink;
         const color = state.content.resourceColor(link.resource);
+        if (link.kind === "trunk") {
+          // A crew's trunk: a wide steel channel, each paid segment in its payer's colour
+          const trace = () => points.forEach((p, i) => (i === 0 ? g.moveTo(p.x, p.y) : g.lineTo(p.x, p.y)));
+          trace();
+          g.stroke({
+            color: 0x3c4148,
+            width: 46 * w,
+            alpha: link.flowing ? 0.9 : 0.45,
+            cap: "round",
+            join: "round",
+          });
+          const total = length;
+          const colors = link.colors ?? [];
+          colors.forEach((c, i) => {
+            const from = (i / Math.max(1, link.needed)) * total;
+            const to = ((i + 1) / Math.max(1, link.needed)) * total;
+            let walked = 0;
+            for (let k = 1; k < points.length; k++) {
+              const a = points[k - 1]!;
+              const b = points[k]!;
+              const segment = Math.hypot(b.x - a.x, b.y - a.y);
+              const s0 = Math.max(from, walked);
+              const s1 = Math.min(to, walked + segment);
+              if (s1 > s0 && segment > 0) {
+                g.moveTo(
+                  a.x + ((b.x - a.x) * (s0 - walked)) / segment,
+                  a.y + ((b.y - a.y) * (s0 - walked)) / segment,
+                );
+                g.lineTo(
+                  a.x + ((b.x - a.x) * (s1 - walked)) / segment,
+                  a.y + ((b.y - a.y) * (s1 - walked)) / segment,
+                );
+              }
+              walked += segment;
+            }
+            g.stroke({ color: c, width: 18 * w, alpha: 0.95, cap: "butt" });
+          });
+          this.linkPaths.push({ points, length, color: "#c9d3dc", mine: mine && link.flowing });
+          continue;
+        }
         this.linkPaths.push({ points, length, color, mine: mine && link.flowing });
         const trace = () => points.forEach((p, i) => (i === 0 ? g.moveTo(p.x, p.y) : g.lineTo(p.x, p.y)));
         if (focus) {

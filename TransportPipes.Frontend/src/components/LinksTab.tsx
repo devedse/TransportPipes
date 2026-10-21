@@ -6,6 +6,7 @@ import type { LinkDto, LinkPlanDto, LinkSuggestionDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import { useAppStore } from "../state/store";
 import { ResourceIcon } from "./ResourceIcon";
+import { TrunksSection } from "./TrunksSection";
 
 /** How much of what is sent arrives, as players read it */
 function arrives(efficiency: number): string {
@@ -359,6 +360,7 @@ export function LinksTab() {
           </ul>
         </section>
       )}
+      <TrunksSection trunks={links.trunks} />
       <section>
         <h4>New link</h4>
         {links.partners.length === 0 ? (

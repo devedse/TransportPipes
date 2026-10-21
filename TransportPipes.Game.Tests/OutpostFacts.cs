@@ -89,6 +89,28 @@ public class OutpostFacts
     }
 
     [TestMethod]
+    public void AnOutpostFeedsTheYardThroughTheCargoDepots()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 15);
+        var neighbour = game.NewCompany("Neighbour", level: 2);
+        var mine = game.Build(neighbour, "ironMine", game.Spot(neighbour, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
+        game.ConnectToGate(neighbour, mine);
+        game.Connect(neighbour, mine, game.TradingPost(neighbour));
+        var spot = Claimable(game, company);
+        Assert.IsTrue(game.World.ClaimOutpost(company.Id, spot).Success);
+        game.Map(company, spot.Offset(1, 1), "WC");
+        var depot = game.Build(company, "cargoDepot");
+        game.ConnectToGate(company, depot);
+
+        game.Pass(3);
+
+        var trades = game.World.YardTrades(game.EstateOf(neighbour));
+        Assert.IsTrue(trades.Any(t => !t.Selling && t.Partner == company.Id && t.Resource == "energy"),
+            "the outpost's energy reaches the station's Yard: the neighbour's mine buys it");
+    }
+
+    [TestMethod]
     public void PipesCrossTheWildernessButNotSomeoneElsesOutpost()
     {
         var game = new TestGame();
@@ -120,5 +142,39 @@ public class OutpostFacts
         Assert.AreEqual("copperOre", game.World.Tile(pos).Deposit);
         Assert.AreEqual(5, game.World.Tile(pos).Richness);
         Assert.AreEqual(("copperOre", 5), game.World.DepositOverride(pos));
+    }
+    [TestMethod]
+    public void EveryStationThatBringsSomethingOutOfADiscoveryInItsFirst72HoursGetsItsMarker()
+    {
+        var game = new TestGame();
+        var company = game.NewCompany(level: 15);
+        var x0 = WorldLayout.DistrictOriginX(company.District.X);
+        var y0 = WorldLayout.DistrictOriginY(company.District.Y);
+        var pos = Enumerable.Range(6, 16).Select(d => new TilePos(x0 + 40, y0 - d))
+            .First(t => WorldLayout.ZoneAt(t.X, t.Y).Kind == ZoneKind.Wilderness && game.World.Generator.Tile(t).IsBuildableTerrain);
+        game.World.StartDiscovery(pos, "copperOre");
+        var origin = Enumerable.Range(0, 64).Select(i => pos.Offset(-(i % 8), -(i / 8))).First(t => game.World.OutpostBlocker(company, t) == null);
+        Assert.IsTrue(game.World.ClaimOutpost(company.Id, origin).Success);
+        var mine = game.Build(company, "copperMine", Enumerable.Range(0, 64).Select(i => origin.Offset(i % 8, i / 8))
+            .First(t => game.World.CanPlace(company, game.World.Content.Building("copperMine"), t).Success && game.World.Tile(t).Deposit == "copperOre"));
+        var storage = game.Build(company, "storage", Enumerable.Range(0, 64).Select(i => origin.Offset(i % 8, i / 8))
+            .First(t => game.World.CanPlace(company, game.World.Content.Building("storage"), t).Success && Math.Abs(t.X - mine.Position.X) + Math.Abs(t.Y - mine.Position.Y) >= 3));
+        game.Connect(company, mine, storage);
+        var moily = game.Build(company, "windMoily", Enumerable.Range(0, 64).Select(i => origin.Offset(i % 8, i / 8))
+            .First(t => game.World.CanPlace(company, game.World.Content.Building("windMoily"), t).Success));
+        game.Connect(company, moily, mine);
+
+        game.Pass(60);
+
+        var discovery = game.World.Discoveries.Single();
+        var (stations, top) = game.World.DiscoveryMarks(discovery);
+        Assert.AreEqual(game.World.BigStation(game.EstateOf(company).Station)[0], stations.Single(), "its marker");
+        Assert.AreEqual(company.Id, top.Single().Id, "named among the three who brought most");
+        var marked = discovery.Marks.Values.Single();
+        game.Pass(72 * 60);
+        var after = discovery.Marks.Values.Single();
+        game.Pass(60);
+        Assert.AreEqual(after, discovery.Marks.Values.Single(), 1e-9, "after 72 hours nothing more counts");
+        Assert.IsGreaterThan(marked, after);
     }
 }

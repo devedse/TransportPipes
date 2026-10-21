@@ -104,6 +104,8 @@ export interface CompanyDto {
   tailwind: number;
   /** The lone-human card waits: nobody else in the station played lately */
   loneCard: boolean;
+  /** The league it plays in this week (v1.2 §13; none in small mode) */
+  league: number | null;
 }
 
 export type ActivityStage = "active" | "resting" | "dormant" | "asleep";
@@ -921,7 +923,7 @@ export interface CorporationsDto {
 }
 
 export type LeaderboardKind =
-  "netWorth" | "income" | "weeklyEarnings" | "level" | "partners" | "likes" | "efficiency";
+  "netWorth" | "income" | "weeklyEarnings" | "level" | "partners" | "likes" | "efficiency" | "league";
 
 export interface LeaderboardEntryDto {
   company: number;
@@ -1301,6 +1303,7 @@ export interface YardDto {
   /** What goes through the Yard per minute */
   totals: ResourceRateDto[];
   line: string;
+  discoveries: DiscoveryDto[];
 }
 
 // ---------------------------------------------------------------- Crews and seats (v1.2 §4–6)
@@ -1529,6 +1532,44 @@ export interface LinksDto {
   suggestions: LinkSuggestionDto[];
   max: number;
   partners: LinkPartnerDto[];
+  trunks: TrunksDto;
+}
+
+/** Beyond your own hub (v1.2 §13): far sales, your crew's trunks, where a new one could go */
+export interface TrunksDto {
+  sales: RemoteSaleDto[];
+  crew: TrunkDto[];
+  targets: TrunkTargetDto[];
+  segmentGold: number;
+  segmentMaterials: ResourceRateDto[];
+  canBuild: boolean;
+  blocker: string | null;
+}
+
+export interface RemoteSaleDto {
+  resource: string;
+  market: string;
+  perMinute: number;
+  price: number;
+  public: boolean;
+}
+
+export interface TrunkDto {
+  id: number;
+  target: string;
+  length: number;
+  segments: number;
+  needed: number;
+  colors: string[];
+  built: boolean;
+  efficiency: number;
+}
+
+export interface TrunkTargetDto {
+  districtX: number | null;
+  districtY: number | null;
+  port: boolean;
+  name: string;
 }
 
 export interface LinkPlanDto {
@@ -1550,6 +1591,10 @@ export interface MapLinkDto {
   seller: number;
   buyer: number;
   route: number[];
+  /** A link between two companies, or a crew's trunk (its paid segments in their payers' colours) */
+  kind: "link" | "trunk";
+  colors: string[] | null;
+  needed: number;
 }
 
 /**
@@ -1584,4 +1629,16 @@ export interface ProjectHelperDto {
   color: string;
   share: number;
   you: boolean;
+}
+
+/** A Discovery: where, until when its markers are given, which stations got one, the three who brought most */
+export interface DiscoveryDto {
+  resource: string;
+  x: number;
+  y: number;
+  near: string;
+  markingEnds: string;
+  stations: string[];
+  top: string[];
+  yourStation: boolean;
 }

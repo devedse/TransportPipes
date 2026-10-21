@@ -5534,3 +5534,33 @@ button.link.danger {
 .resident-pins {
   color: var(--text-muted);
 }
+
+/* Trunks (v1.2 §13) */
+.trunk-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.trunk-list li {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.trunk-segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.trunk-segments span {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.12);
+}

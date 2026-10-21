@@ -1,7 +1,7 @@
 // Two players in one station trade through their Yard (v1.2 §7): A's Wind Moily and B's Iron Mine, each piped to their
 // Yard gate with the Yard panel's "Plan the pipe" button. B's mine should get A's energy at the player price, and the
 // Yard panel should show it: node yard.mjs <outdir>
-import { start, newPlayer, settle, emptySeats, moveTo } from "./lib.mjs";
+import { start, newPlayer, settle, emptySeats, moveTo, clearKit } from "./lib.mjs";
 const [out = "shots/yard"] = process.argv.slice(2);
 
 const a = await start(out);
@@ -14,6 +14,8 @@ await b.cheat("level");
 // In a busy world they may land apart: both move to the two first seats of a station nobody lives in
 const [seatA, seatB] = await emptySeats(a.page, 2);
 console.log("moved to", await moveTo(a, seatA), await moveTo(b, seatB));
+// A House's starter kit would give B's mine its energy: B starts from an empty estate
+console.log("kit cleared", await clearKit(b));
 
 console.log("A", await settle(a, "windMoily"));
 console.log("B", await settle(b, "ironMine", "ironOre"));

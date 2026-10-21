@@ -84,6 +84,14 @@ public class WonderFacts
         for (var stage = 0; stage < stages; stage++)
         {
             var needs = wonder.Required.ToDictionary(t => t.Key, t => t.Value);
+            if (stage == stages - 1)
+            {
+                // The tiers are a share of each one's own Era output: Big delivers a fifth of it, Small a fiftieth
+                double Worth(Dictionary<string, double> goods) => goods.Sum(t => t.Value * game.World.BasePrice(t.Key));
+                var smallLast = Worth(needs.ToDictionary(t => t.Key, t => Math.Min(5, t.Value)));
+                small.EraOutput = (wonder.Contributions.GetValueOrDefault(small.Id) + smallLast) * 50;
+                big.EraOutput = (wonder.Contributions.GetValueOrDefault(big.Id) + Worth(needs)) * 5;
+            }
             Stocked(game, small, needs.ToDictionary(t => t.Key, t => Math.Min(5, t.Value)));
             Assert.IsTrue(game.World.DeliverToWonder(small.Id, eraWonder: true).Success);
             Stocked(game, big, needs);

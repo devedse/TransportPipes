@@ -45,8 +45,6 @@ public sealed partial class GameWorld
     public static readonly DistrictCoord Capital = new(0, 0);
     public static readonly TimeSpan EraLength = TimeSpan.FromDays(21);
     public const int LastEra = 5;
-    private const int WonderBaseCompanies = 8;
-    private const int WonderMinCompanies = 3;
 
     private readonly Dictionary<DistrictCoord, Wonder> _districtWonders = new();
 
@@ -85,7 +83,7 @@ public sealed partial class GameWorld
             var index = (int)(Noise.Hash(Generator.Seed, 5003, district.X, district.Y) % (ulong)Content.DistrictWonders.Count);
             var definition = Content.DistrictWonders[index];
             wonder = new Wonder { Type = definition.Id, District = district };
-            wonder.Required = StageRequirements(definition, 0, ActiveCompanies(district));
+            wonder.Required = StageRequirements(definition, 0, district);
             _districtWonders[district] = wonder;
         }
         return wonder;
@@ -100,7 +98,7 @@ public sealed partial class GameWorld
         }
         if (EraWonder == null && Content.EraWonders.FirstOrDefault(t => t.Era == Era) is { } definition)
         {
-            EraWonder = new Wonder { Type = definition.Id, Required = StageRequirements(definition, 0, ActiveCompaniesEverywhere()) };
+            EraWonder = new Wonder { Type = definition.Id, Required = StageRequirements(definition, 0, null) };
         }
     }
 
@@ -110,11 +108,24 @@ public sealed partial class GameWorld
         return _companies.Values.Count(t => !t.IsNpc && t.LastSeenAt >= since);
     }
 
-    private static Dictionary<string, double> StageRequirements(WonderDefinition definition, int stage, int activeCompanies)
+    /// <summary>
+    /// A Wonder stage sized like a project's basket (v1.2 §13): six hours of T(L) for every active player of the district
+    /// (everywhere for the Era Wonder), at least one, in the stage's own mix of goods, so a district of one human still
+    /// finishes its stage
+    /// </summary>
+    private Dictionary<string, double> StageRequirements(WonderDefinition definition, int stage, DistrictCoord? district)
     {
-        var scale = Math.Max(WonderMinCompanies, activeCompanies) / (double)WonderBaseCompanies;
-        return definition.Stages[stage].ToDictionary(t => t.Key, t => Math.Round(t.Value * scale / 10) * 10);
+        var people = _companies.Values.Where(t => !t.IsNpc && IsActive(t) && (district == null || t.District == district)).ToList();
+        var worth = people.Count > 0
+            ? people.Sum(t => WonderHours * 60 * TypicalIncome(t.Level))
+            : WonderHours * 60 * TypicalIncome(5);
+        var goods = definition.Stages[stage];
+        var base_ = goods.Sum(t => t.Value * BasePrice(t.Key));
+        var scale = base_ <= 0 ? 1 : worth / base_;
+        return goods.ToDictionary(t => t.Key, t => Math.Max(10, Math.Round(t.Value * scale / 10) * 10));
     }
+
+    private const double WonderHours = 6;
 
     // ---------------------------------------------------------------- Perks
 
@@ -205,7 +216,7 @@ public sealed partial class GameWorld
             : _companies.Values.Where(t => !t.IsNpc);
         if (wonder.Stage < definition.Stages.Count)
         {
-            wonder.Required = StageRequirements(definition, wonder.Stage, wonder.District is { } d ? ActiveCompanies(d) : ActiveCompaniesEverywhere());
+            wonder.Required = StageRequirements(definition, wonder.Stage, wonder.District);
             foreach (var company in everyone)
             {
                 Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder, $"{definition.Name}: stage {wonder.Stage} of {definition.Stages.Count} is built!"));
@@ -270,8 +281,9 @@ public sealed partial class GameWorld
         {
             return (0, WonderTier.None);
         }
-        var share = mine / total;
-        return (share, share >= 0.1 ? WonderTier.Diamond : share >= 0.04 ? WonderTier.Gold : share >= 0.01 ? WonderTier.Silver : WonderTier.Bronze);
+        // v1.2 §13: the share of your own Era output you delivered, so a small company counts as much as a big one
+        var share = mine / Math.Max(1, company.EraOutput);
+        return (share, share >= 0.15 ? WonderTier.Diamond : share >= 0.07 ? WonderTier.Gold : share >= 0.03 ? WonderTier.Silver : share >= 0.01 ? WonderTier.Bronze : WonderTier.None);
     }
 
     public static double TierReward(WonderTier tier, int era) => era * tier switch
@@ -311,6 +323,11 @@ public sealed partial class GameWorld
 
         Era++;
         EraStartedAt = LastTick;
+        // The tiers of the next Era Wonder are a share of what each makes in that Era
+        foreach (var company in _companies.Values)
+        {
+            company.EraOutput = 0;
+        }
         EraWonder = null;
         EnsureEraWonder();
         foreach (var company in _companies.Values.Where(t => !t.IsNpc))

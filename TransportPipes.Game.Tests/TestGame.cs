@@ -207,8 +207,10 @@ internal sealed class TestGame
 
     private bool CanPipe(Company company, TilePos tile)
     {
+        // Pipes go on the company's own estate and through the wilderness (its outposts there too)
         var zone = WorldLayout.ZoneAt(tile.X, tile.Y);
-        if (zone.Kind != ZoneKind.Estate || !EstateOf(company).Contains(tile))
+        if (zone.Kind == ZoneKind.Wilderness ? World.OutpostAt(tile) is { } outpost && outpost.Owner != company.Id
+            : zone.Kind != ZoneKind.Estate || !EstateOf(company).Contains(tile))
         {
             return false;
         }

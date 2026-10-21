@@ -1,4 +1,5 @@
 import { gameClient } from "../app/client";
+import { useNow } from "../app/useNow";
 import { formatAmount } from "../app/format";
 import type { ResourceRateDto } from "../api/contracts";
 import type { Content } from "../game/content";
@@ -54,6 +55,8 @@ export function YardPanel() {
   const links = useAppStore((state) => state.links);
   const content = useAppStore((state) => state.content);
   const company = useAppStore((state) => state.company);
+  const serverOffset = useAppStore((state) => state.serverOffsetMs);
+  const now = useNow(60000) + serverOffset;
   if (!open || content === null || company === null) {
     return null;
   }
@@ -188,6 +191,36 @@ export function YardPanel() {
           </section>
           {yard.residents.find((t) => t.id === company.id) !== undefined && (
             <PlanBoard me={yard.residents.find((t) => t.id === company.id)!} />
+          )}
+          {yard.discoveries.length > 0 && (
+            <section>
+              <h4>🚩 Discoveries</h4>
+              {yard.discoveries.map((d) => {
+                const open = new Date(d.markingEnds).getTime() > now;
+                return (
+                  <div key={`${d.x},${d.y}`} className="discovery small">
+                    <div>
+                      <ResourceIcon resource={d.resource} /> A rich{" "}
+                      {content.resourceName(d.resource).toLowerCase()} deposit near {d.near}{" "}
+                      <button
+                        className="link small"
+                        onClick={() => gameClient.engine?.lookAt(d.x, d.y, 0.35)}
+                      >
+                        show
+                      </button>
+                    </div>
+                    <div className="muted">
+                      {open
+                        ? "Every station whose players bring something out of it in its first three days gets its marker."
+                        : "Its markers are given."}{" "}
+                      {d.yourStation && "Your station has one. "}
+                      {d.stations.length > 0 && `Marked: ${d.stations.join(", ")}.`}
+                      {d.top.length > 0 && ` Most brought: ${d.top.join(", ")}.`}
+                    </div>
+                  </div>
+                );
+              })}
+            </section>
           )}
           {yard.totals.length > 0 && (
             <section>

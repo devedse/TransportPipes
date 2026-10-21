@@ -135,6 +135,12 @@ public sealed class Company : Entity
     public DateTime? LoneCardAt { get; set; }
     public bool LoneCard { get; set; }
 
+    /// <summary>The league it plays in this week (null: none, in small mode or before three days of play)</summary>
+    public int? League { get; set; }
+
+    /// <summary>The worth (base prices) of what it made this Era: the Era Wonder's tiers are a share of it (v1.2 §13)</summary>
+    public double EraOutput { get; set; }
+
     /// <summary>Goods whose spare goes to the station's project before the Yard (v1.2 §7)</summary>
     public HashSet<string> ProjectFirst { get; set; } = new();
 

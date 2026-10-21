@@ -296,8 +296,17 @@ stay); name + password accounts only (guests on a hidden account they can keep);
   panel and the picker's station card) and Asks (12–72 h, into the asker's storages at the player price, a House
   fills the rest at 2.0 × base at the deadline, renewable). e2e `project.mjs`. The Landmark is a basket, not yet a
   sustained flow with a tank
-- ⬜ 7 · The long game: crew trunks, public trunks, outposts feeding the Yard, Discoveries with markers, leagues by
-  stage, Wonders sized like baskets, Era Wonder tiers
+- ✅ 7 · The long game: beyond the own hub, public copper trunks join every hub to its open neighbours and the Port
+  for everyone (2% fee that leaves the game, copper's loss over the distance); a company whose hub pays less than the
+  full price sends part of its spare to the best far market, split so both Hub Orders pay alike (a second hub about
+  √2 for a split volume good), the Port taking any amount of tier-2+ goods at 0.6 × base; crew trunks of steel to a
+  hub or the Port, built in 10-tile segments any member pays (2 h of T(L), 300 steel, 100 concrete; from Era 2), no
+  fee, public when the whole crew sleeps, drawn on the map in the payers' colours; outposts feed the Yard through
+  their Cargo Depots; Discoveries every four days (announced a day ahead, a week long) with a marker for every station
+  that brings something out in the first 72 hours and the three who brought most named; leagues of about 25 at a
+  similar stage by the week's earnings, drawn every week, champions titled (verified companies only, off in small
+  mode); Wonder stages sized like baskets (6 h of T(L) per active player of the district, everyone for the Era
+  Wonder); Era Wonder tiers by the share of your own Era output (Bronze 1%, Silver 3%, Gold 7%, Diamond 15%)
 - ⬜ 8 · The first evening with four browsers (e2e), balance runs, docs
 
 ### After v1

@@ -149,6 +149,7 @@ public sealed class WorldHost : BackgroundService
         world.TenantsEnabled = _options.Tenants;
         world.QuietGraceEnabled = true;
         world.ProjectsEnabled = true;
+        world.TrunksEnabled = true;
         world.EventsEnabled = _options.Events;
         world.TutorialEnabled = _options.Tutorial;
         world.SurveysEnabled = _options.Surveys;

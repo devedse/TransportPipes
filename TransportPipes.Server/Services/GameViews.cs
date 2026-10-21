@@ -105,7 +105,8 @@ public static class GameViews
                 ? new CrewBadgeDto(crew.Id, crew.NameHidden ? $"Crew {crew.Id}" : crew.Name, crew.Emblem, crew.Color, crew.Color2, world.CrewMembers(crew).Count())
                 : null,
             company.Tailwind,
-            company.LoneCard);
+            company.LoneCard,
+            company.League);
     }
 
     private static ExperienceDto Experience(GameWorld world, Company company, double goldPerMinute)
@@ -638,7 +639,7 @@ public static class GameViews
 
     public static LeaderboardDto Leaderboard(GameWorld world, Company viewer, LeaderboardKind kind, bool district)
     {
-        var all = world.Leaderboard(kind, district ? viewer.District : null, int.MaxValue);
+        var all = world.Leaderboard(kind, district ? viewer.District : null, int.MaxValue, viewer.League);
         LeaderboardEntryDto View(LeaderboardEntry entry) => new(entry.Company, entry.Name, entry.Color, entry.Value, entry.Rank, entry.Company == viewer.Id);
         var you = all.FirstOrDefault(t => t.Company == viewer.Id);
         return new LeaderboardDto(Camel(kind), district, all.Take(50).Select(View).ToList(), you != null ? View(you) : null);
@@ -1307,7 +1308,37 @@ public static class GameViews
             world.LinkSuggestions(me).Select(t => new LinkSuggestionDto(t.Partner.Id, t.Partner.Name, t.Partner.Color,
                 WorldNames.Station(world.EstateOf(t.Partner)!.Station), t.Resource, t.Selling, t.PerMinute, t.Length, world.LinkEfficiency(1, t.Length))).ToList(),
             GameWorld.MaxLinksPerEstate,
-            partners);
+            partners,
+            Trunks(world, me));
+    }
+
+    private static string MarketName(RemoteMarket market) => market.Port ? "the Port" : $"{WorldNames.District(market.Hub!.Value)}'s hub";
+
+    public static TrunksDto Trunks(GameWorld world, Company me)
+    {
+        var sales = world.RemoteSales(me)
+            .Select(t => new RemoteSaleDto(t.Resource, MarketName(t.Market), t.PerMinute, t.Price, t.Market.Trunk == null || t.Market.Fee > 0))
+            .ToList();
+        var crew = world.CrewOf(me);
+        var trunks = crew == null ? [] : world.TrunksOf(crew).Select(t => new TrunkDto(
+            t.Id,
+            t.Port ? "the Port" : $"{WorldNames.District(t.Hub!.Value)}'s hub",
+            t.Length,
+            t.Segments.Count,
+            t.SegmentsNeeded,
+            t.Segments.Select(c => world.Company(c)?.Color ?? "#888888").ToList(),
+            t.Built,
+            Math.Pow(1 - world.Content.PipeTier(3).LossPerTile, t.Length))).ToList();
+        var targets = world.OpenDistricts.Where(t => t != me.District)
+            .OrderBy(t => Math.Abs(t.X - me.District.X) + Math.Abs(t.Y - me.District.Y))
+            .Select(t => new TrunkTargetDto(t.X, t.Y, false, $"{WorldNames.District(t)}'s hub"))
+            .Append(new TrunkTargetDto(null, null, true, "the Port"))
+            .ToList();
+        var blocker = crew == null ? "Trunks are for crews: found one with your friends first."
+            : world.Content.Resources.TryGetValue("steel", out var steel) && steel.Era > world.Era ? "Trunks are steel: they come with Era 2."
+            : null;
+        return new TrunksDto(sales, trunks, targets, world.TrunkSegmentGold(me),
+            GameWorld.TrunkSegmentCost.Select(t => new ResourceRateDto(t.Key, t.Value)).ToList(), blocker == null, blocker);
     }
 
     public static LinkPlanDto LinkPlan(GameWorld world, GameWorld.LinkPlan plan) =>
@@ -1317,6 +1348,9 @@ public static class GameViews
     public static IReadOnlyList<MapLinkDto> MapLinks(GameWorld world) =>
         world.Links.Where(t => t.State != LinkState.Offered)
             .Select(t => new MapLinkDto(t.Id, t.Resource, t.Tier, t.Rate > 0, t.Seller, t.Buyer, Flat(t.Route)))
+            // The crews' trunks: steel, their segments in their payers' colours
+            .Concat(world.Trunks.Select(t => new MapLinkDto(-t.Id, "steel", 3, t.Built, world.Crew(t.Crew) is { } c ? world.CrewMembers(c).FirstOrDefault()?.Id ?? 0 : 0, 0,
+                Flat(t.Route), "trunk", t.Segments.Select(s => world.Company(s)?.Color ?? "#888888").ToList(), t.SegmentsNeeded)))
             .ToList();
 
     /// <summary>The lone-human card's stations (and the Move tab's "livelier stations"): where active players live and a seat is free</summary>
@@ -1461,7 +1495,22 @@ public static class GameViews
                 t.Company.Asks.Select(Ask).ToList())).ToList(),
             yours,
             world.YardTotals(station).Select(t => new ResourceRateDto(t.Key, t.Value)).OrderByDescending(t => t.PerMinute).ToList(),
-            line);
+            line,
+            Discoveries(world, station));
+    }
+
+    /// <summary>The Discoveries of the last week: where they are, their markers</summary>
+    private static IReadOnlyList<DiscoveryDto> Discoveries(GameWorld world, StationRef station)
+    {
+        var home = world.BigStation(station)[0];
+        return world.Discoveries.Where(t => world.Now - t.FoundAt < TimeSpan.FromDays(7)).OrderByDescending(t => t.FoundAt).Select(t =>
+        {
+            var (stations, top) = world.DiscoveryMarks(t);
+            return new DiscoveryDto(t.Resource, t.X, t.Y, WorldNames.District(WorldLayout.DistrictOf(t.X, t.Y)), t.FoundAt + GameWorld.DiscoveryMarking,
+                stations.Select(WorldNames.Station).ToList(),
+                top.Select(c => world.EstateOf(c) is { } e ? $"{c.Name} ({WorldNames.Station(e.Station)})" : c.Name).ToList(),
+                stations.Contains(home));
+        }).ToList();
     }
 
     public static ContractDto Contract(GameWorld world, Contract contract)

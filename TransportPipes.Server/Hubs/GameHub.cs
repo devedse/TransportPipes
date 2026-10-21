@@ -410,6 +410,12 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> UpgradeLink(long linkId, int tier) =>
         Command((world, company) => world.UpgradeLink(company, linkId, tier));
 
+    public Task<CommandResultDto> StartTrunk(int? districtX, int? districtY, bool port) =>
+        Command((world, company) => world.StartTrunk(company, districtX is { } x && districtY is { } y ? new DistrictCoord(x, y) : null, port).Result);
+
+    public Task<CommandResultDto> BuildTrunkSegment(long trunkId) =>
+        Command((world, company) => world.BuildTrunkSegment(company, trunkId));
+
     public Task<IReadOnlyList<MapLinkDto>> GetMapLinks() =>
         _world.RunAsync(GameViews.MapLinks, changesWorld: false);
 

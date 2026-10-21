@@ -4,11 +4,12 @@ import type { WonderDto, WonderTier } from "../api/contracts";
 import { useAppStore } from "../state/store";
 import { ResourceIcon } from "./ResourceIcon";
 
+/** The Era Wonder's tiers (v1.2 §13): a share of your own Era output, so a small company counts as much as a big one */
 const TIERS: Array<{ tier: WonderTier; share: number; name: string }> = [
-  { tier: "bronze", share: 0, name: "Bronze" },
-  { tier: "silver", share: 0.01, name: "Silver" },
-  { tier: "gold", share: 0.04, name: "Gold" },
-  { tier: "diamond", share: 0.1, name: "Diamond" },
+  { tier: "bronze", share: 0.01, name: "Bronze" },
+  { tier: "silver", share: 0.03, name: "Silver" },
+  { tier: "gold", share: 0.07, name: "Gold" },
+  { tier: "diamond", share: 0.15, name: "Diamond" },
 ];
 
 function WonderCard({ wonder, era }: { wonder: WonderDto; era: number }) {
@@ -86,8 +87,8 @@ function WonderCard({ wonder, era }: { wonder: WonderDto; era: number }) {
       </div>
       {wonder.isEra && (
         <div className="muted small">
-          Builders get a reward when the next Era starts: Bronze for any part, Silver from 1%, Gold from 4%,
-          Diamond from 10% of the Wonder.
+          Builders get a reward when the next Era starts, by the share of their own output this Era they
+          brought: Bronze from 1%, Silver from 3%, Gold from 7%, Diamond from 15%.
         </div>
       )}
       {wonder.topBuilders.length > 0 && (

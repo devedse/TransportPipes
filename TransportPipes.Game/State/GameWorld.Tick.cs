@@ -182,6 +182,7 @@ public sealed partial class GameWorld
         SettleStandIns(minutes);
         SettleProjects(minutes);
         SettleAsks(minutes);
+        SettleTrunks(minutes);
         foreach (var network in _networks.Values.OrderBy(t => t.Id).ToList())
         {
             AdvanceNetwork(network, minutes);
@@ -310,6 +311,8 @@ public sealed partial class GameWorld
                 && Content.Building(from.Type).Kind is not (BuildingKind.Storage or BuildingKind.TradingPost)
                 && Company(from.Owner) is { } producer)
             {
+                CountDiscovery(from, flow.Sent * minutes);
+                producer.EraOutput += flow.Sent * minutes * BasePrice(flow.Resource);
                 Add(producer.Report.Produced, flow.Resource, flow.Sent * minutes);
                 AddStat(producer, $"produced:{flow.Resource}", flow.Sent * minutes);
             }

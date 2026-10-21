@@ -31,7 +31,14 @@ public sealed class Outpost
 }
 
 /// <summary>A rich deposit a Discovery event put in the wilderness</summary>
-public sealed record Discovery(int X, int Y, string Resource, DateTime FoundAt);
+public sealed record Discovery(int X, int Y, string Resource, DateTime FoundAt)
+{
+    /// <summary>Per station ("x,y,index"): what its players brought out of the deposit in its first 72 hours (its marker)</summary>
+    public Dictionary<string, double> Marks { get; init; } = new();
+
+    /// <summary>The same per company (the three who bring most are named on it)</summary>
+    public Dictionary<long, double> ByCompany { get; init; } = new();
+}
 
 /// <summary>
 /// Outposts and the wilderness (GDD §4.6): claims on rare deposits between the districts, from Company Level 15, at most
@@ -249,10 +256,15 @@ public sealed partial class GameWorld
 
     // ---------------------------------------------------------------- Discoveries
 
-    /// <summary>Every two weeks or so a rich deposit appears in the wilderness next to an open district</summary>
+    /// <summary>
+    /// Every four days a rich deposit appears in the wilderness next to an open district (v1.2 §13), announced a day
+    /// ahead and lasting a week; every station whose players bring something out of it in its first 72 hours gets its
+    /// marker, so being online when it is announced decides nothing
+    /// </summary>
     private void PlanDiscovery(DateTime day, SeededRandom random)
     {
-        if (_openDistricts.Count == 0 || random.NextDouble() >= 1 / 14.0)
+        var dayNumber = (long)(day - DateTime.UnixEpoch).TotalDays;
+        if (_openDistricts.Count == 0 || dayNumber % DiscoveryEveryDays != 0)
         {
             return;
         }
@@ -272,7 +284,7 @@ public sealed partial class GameWorld
                 Kind = EventKind.Discovery,
                 District = null,
                 StartsAt = start,
-                EndsAt = start.AddHours(24),
+                EndsAt = start.AddDays(7),
                 Resource = resources[random.Next(resources.Length)],
                 X = pos.X,
                 Y = pos.Y,
@@ -304,6 +316,39 @@ public sealed partial class GameWorld
         }
         return null;
     }
+
+    public const int DiscoveryEveryDays = 4;
+    public static readonly TimeSpan DiscoveryMarking = TimeSpan.FromHours(72);
+
+    /// <summary>What a building on a Discovery made counts for its owner's station (in the deposit's first 72 hours)</summary>
+    private void CountDiscovery(Building building, double units)
+    {
+        if (_discoveries.Count == 0 || units <= 0)
+        {
+            return;
+        }
+        foreach (var discovery in _discoveries)
+        {
+            if (LastTick - discovery.FoundAt > DiscoveryMarking
+                || Math.Abs(building.Position.X - discovery.X) > DiscoveryRadius + 3 || Math.Abs(building.Position.Y - discovery.Y) > DiscoveryRadius + 3)
+            {
+                continue;
+            }
+            if (Company(building.Owner) is not { IsNpc: false } owner || EstateOf(owner) is not { } estate)
+            {
+                continue;
+            }
+            var station = ProjectKey(BigStation(estate.Station)[0]);
+            discovery.Marks[station] = discovery.Marks.GetValueOrDefault(station) + units;
+            discovery.ByCompany[owner.Id] = discovery.ByCompany.GetValueOrDefault(owner.Id) + units;
+            Changes.Outposts = true;
+        }
+    }
+
+    /// <summary>A Discovery's markers: the stations that brought something out of it, and the three companies that brought most</summary>
+    public (List<StationRef> Stations, List<Company> Top) DiscoveryMarks(Discovery discovery) =>
+        (discovery.Marks.Where(t => t.Value > 0).OrderByDescending(t => t.Value).Select(t => StationOfKey(t.Key)).ToList(),
+         discovery.ByCompany.OrderByDescending(t => t.Value).Select(t => Company(t.Key)).OfType<Company>().Take(3).ToList());
 
     /// <summary>A Discovery right now (for testing)</summary>
     public GameEvent StartDiscovery(TilePos pos, string resource)

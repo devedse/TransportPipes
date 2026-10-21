@@ -13,6 +13,9 @@ public enum LeaderboardKind
     Partners,
     Likes,
     Efficiency,
+
+    /// <summary>Your league (v1.2 §13): about 25 companies at a similar stage, by what they earned this week</summary>
+    League,
 }
 
 public sealed record LeaderboardEntry(long Company, string Name, string Color, double Value, int Rank);
@@ -234,7 +237,7 @@ public sealed partial class GameWorld
     public int Mentees(long mentorId) => _companies.Values.Count(t => t.MentorId == mentorId);
 
     /// <summary>The top companies (players only), of one district or of the whole world</summary>
-    public List<LeaderboardEntry> Leaderboard(LeaderboardKind kind, DistrictCoord? district, int count = 50)
+    public List<LeaderboardEntry> Leaderboard(LeaderboardKind kind, DistrictCoord? district, int count = 50, int? league = null)
     {
         Dictionary<long, double>? income = kind == LeaderboardKind.Income ? GoldPerMinute() : null;
         var partners = kind == LeaderboardKind.Partners ? PartnerCounts() : null;
@@ -242,14 +245,14 @@ public sealed partial class GameWorld
         {
             LeaderboardKind.NetWorth => NetWorth(company),
             LeaderboardKind.Income => (income!.GetValueOrDefault(company.Id)) * 60,
-            LeaderboardKind.WeeklyEarnings => company.LifetimeEarnings - company.WeekStartEarnings,
+            LeaderboardKind.WeeklyEarnings or LeaderboardKind.League => company.LifetimeEarnings - company.WeekStartEarnings,
             LeaderboardKind.Level => company.Xp,
             LeaderboardKind.Partners => partners!.GetValueOrDefault(company.Id),
             LeaderboardKind.Efficiency => TileEfficiency(company, income ??= GoldPerMinute()),
             _ => company.Likes,
         };
         return _companies.Values
-            .Where(t => !t.IsNpc && (district == null || t.District == district))
+            .Where(t => !t.IsNpc && (district == null || t.District == district) && (kind != LeaderboardKind.League || (league != null && t.League == league)))
             .Select(t => (Company: t, Value: Value(t)))
             .OrderByDescending(t => t.Value).ThenBy(t => t.Company.Id)
             .Take(count)

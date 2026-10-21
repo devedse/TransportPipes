@@ -109,6 +109,8 @@ public sealed class WorldStore
                 PinMakes = settings.PinMakes ?? new HashSet<string>(),
                 PinNeeds = settings.PinNeeds ?? new HashSet<string>(),
                 Asks = settings.Asks ?? new List<CompanyAsk>(),
+                League = settings.League,
+                EraOutput = settings.EraOutput,
                 DistinctDays = settings.DistinctDays,
                 LastPlayedDay = settings.LastPlayedDay,
                 TradeWith = settings.TradeWith,
@@ -302,6 +304,10 @@ public sealed class WorldStore
         {
             world.LoadProject(project);
         }
+        foreach (var trunk in JsonSerializer.Deserialize<List<Trunk>>(dbWorld.Trunks, Json) ?? [])
+        {
+            world.LoadTrunk(trunk);
+        }
 
         if (JsonSerializer.Deserialize<SeasonState>(dbWorld.Season, Json) is { } season)
         {
@@ -355,6 +361,7 @@ public sealed class WorldStore
                 Crews = JsonSerializer.Serialize(world.Crews.ToList(), Json),
                 Links = JsonSerializer.Serialize(world.Links.ToList(), Json),
                 Projects = JsonSerializer.Serialize(world.Projects.ToList(), Json),
+                Trunks = JsonSerializer.Serialize(world.Trunks.ToList(), Json),
             },
         };
 
@@ -403,6 +410,8 @@ public sealed class WorldStore
                     PinMakes = company.PinMakes,
                     PinNeeds = company.PinNeeds,
                     Asks = company.Asks,
+                    League = company.League,
+                    EraOutput = company.EraOutput,
                     DistinctDays = company.DistinctDays,
                     LastPlayedDay = company.LastPlayedDay,
                     TradeWith = company.TradeWith,
@@ -607,6 +616,7 @@ public sealed class WorldStore
                 db.Entry(snapshot.World).Property(t => t.Crews).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Links).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Projects).IsModified = true;
+                db.Entry(snapshot.World).Property(t => t.Trunks).IsModified = true;
             }
             else
             {
@@ -744,6 +754,8 @@ public sealed class WorldStore
         public HashSet<string>? PinMakes { get; init; }
         public HashSet<string>? PinNeeds { get; init; }
         public List<CompanyAsk>? Asks { get; init; }
+        public int? League { get; init; }
+        public double EraOutput { get; init; }
         public int DistinctDays { get; init; }
         public int LastPlayedDay { get; init; }
         public TradeWith TradeWith { get; init; } = TradeWith.Everyone;

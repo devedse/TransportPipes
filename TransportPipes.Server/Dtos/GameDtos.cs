@@ -106,7 +106,9 @@ public record CompanyDto(
     /// <summary>The XP multiplier while far behind the people you live with (v1.2 §10)</summary>
     double Tailwind,
     /// <summary>The lone-human card waits: nobody else in the station played lately</summary>
-    bool LoneCard);
+    bool LoneCard,
+    /// <summary>The league it plays in this week (null: none)</summary>
+    int? League);
 
 /// <summary>A company's crew as the top bar and the map show it</summary>
 public record CrewBadgeDto(long Id, string Name, string Emblem, string Color, string Color2, int Members);
@@ -588,7 +590,11 @@ public record YardDto(
     IReadOnlyList<YardResidentDto> Residents,
     IReadOnlyList<YardTradeDto> Yours,
     IReadOnlyList<ResourceRateDto> Totals,
-    string Line);
+    string Line,
+    IReadOnlyList<DiscoveryDto> Discoveries);
+
+/// <summary>A Discovery (v1.2 §13): where, until when its markers are given, which stations got one, the three who brought most</summary>
+public record DiscoveryDto(string Resource, int X, int Y, string Near, DateTime MarkingEnds, IReadOnlyList<string> Stations, IReadOnlyList<string> Top, bool YourStation);
 
 /// <summary>A seat of a station as the picker shows it: its land, and who lives there (or that it is free, held, warmed by a House)</summary>
 public record SeatDto(
@@ -693,7 +699,25 @@ public record LinkDto(
 
 public record LinkSuggestionDto(long PartnerId, string PartnerName, string PartnerColor, string Station, string Resource, bool YouSell, double PerMinute, int Length, double Efficiency);
 
-public record LinksDto(IReadOnlyList<LinkDto> Links, IReadOnlyList<LinkSuggestionDto> Suggestions, int Max, IReadOnlyList<LinkPartnerDto> Partners);
+public record LinksDto(IReadOnlyList<LinkDto> Links, IReadOnlyList<LinkSuggestionDto> Suggestions, int Max, IReadOnlyList<LinkPartnerDto> Partners, TrunksDto Trunks);
+
+/// <summary>
+/// Beyond your own hub (v1.2 §13): what goes to far markets now, your crew's trunks, and where a new one could go
+/// </summary>
+public record TrunksDto(
+    IReadOnlyList<RemoteSaleDto> Sales,
+    IReadOnlyList<TrunkDto> Crew,
+    IReadOnlyList<TrunkTargetDto> Targets,
+    double SegmentGold,
+    IReadOnlyList<ResourceRateDto> SegmentMaterials,
+    bool CanBuild,
+    string? Blocker);
+
+public record RemoteSaleDto(string Resource, string Market, double PerMinute, double Price, bool Public);
+
+public record TrunkDto(long Id, string Target, int Length, int Segments, int Needed, IReadOnlyList<string> Colors, bool Built, double Efficiency);
+
+public record TrunkTargetDto(int? DistrictX, int? DistrictY, bool Port, string Name);
 
 /// <summary>Someone a link could go to (players outside your station)</summary>
 public record LinkPartnerDto(long Id, string Name, string Color, int Level, string Station);
@@ -701,7 +725,7 @@ public record LinkPartnerDto(long Id, string Name, string Color, int Level, stri
 public record LinkPlanDto(int Length, double Efficiency, double Throughput, double Gold, IReadOnlyList<ResourceRateDto> Materials, string? Error, IReadOnlyList<int> Route);
 
 /// <summary>A link on the map: its route (x, y pairs) along the corridors</summary>
-public record MapLinkDto(long Id, string Resource, int Tier, bool Flowing, long Seller, long Buyer, IReadOnlyList<int> Route);
+public record MapLinkDto(long Id, string Resource, int Tier, bool Flowing, long Seller, long Buyer, IReadOnlyList<int> Route, string Kind = "link", IReadOnlyList<string>? Colors = null, int Needed = 0);
 
 /// <summary>
 /// A station's project (v1.2 §12): the stage, its basket (with the keystone nobody here makes), who helped (the ring of

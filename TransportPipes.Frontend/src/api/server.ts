@@ -324,6 +324,9 @@ export class GameConnection {
   resumeLink = (id: number) => this.invoke<CommandResult>("ResumeLink", id);
   upgradeLink = (id: number, tier: number) => this.invoke<CommandResult>("UpgradeLink", id, tier);
   getMapLinks = () => this.invoke<MapLinkDto[]>("GetMapLinks");
+  startTrunk = (districtX: number | null, districtY: number | null, port: boolean) =>
+    this.invoke<CommandResult>("StartTrunk", districtX, districtY, port);
+  buildTrunkSegment = (id: number) => this.invoke<CommandResult>("BuildTrunkSegment", id);
   getExchange = () => this.invoke<ExchangeDto | null>("GetExchange");
   placeExchangeOrder = (resource: string, selling: boolean, amount: number, price: number) =>
     this.invoke<CommandResult>("PlaceExchangeOrder", resource, selling, amount, price);

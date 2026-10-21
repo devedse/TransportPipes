@@ -35,6 +35,9 @@ public class DbWorld
     /// <summary>The stations' projects: stage, basket, deliveries and credit (jsonb)</summary>
     public string Projects { get; set; } = "[]";
 
+    /// <summary>The crews' trunks to other hubs and the Port, with who paid each segment (jsonb)</summary>
+    public string Trunks { get; set; } = "[]";
+
     /// <summary>Saved and shared layouts (jsonb)</summary>
     public string Blueprints { get; set; } = "[]";
 
