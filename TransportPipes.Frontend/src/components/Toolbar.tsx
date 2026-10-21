@@ -144,7 +144,7 @@ export function Toolbar() {
       key: "blueprints",
       label: "Plans",
       icon: "📐",
-      hotkey: "U",
+      hotkey: "Y",
       active: blueprintsOpen || tool.kind === "blueprint" || tool.kind === "blueprintArea",
       run: () => (blueprintsOpen ? setState({ blueprintsOpen: false }) : void gameClient.openBlueprints()),
     },

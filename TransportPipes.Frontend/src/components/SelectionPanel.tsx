@@ -53,6 +53,9 @@ export function SelectionPanel() {
   }
   // A quarter of the gold to start with: the slider never starts at everything
   const spend = Math.min(budget ?? niceAmount(gold / 4), gold);
+  const hasBlueprintOffice = [...(gameClient.world?.buildings.values() ?? [])].some(
+    (t) => t.owner === company.id && t.type === "blueprintOffice" && t.constructionEndsAt === null,
+  );
 
   return (
     <aside className="panel building-panel selection-panel" aria-label="Selection">
@@ -156,6 +159,20 @@ export function SelectionPanel() {
       </section>
 
       <div className="button-row footer-row">
+        {hasBlueprintOffice && (
+          <button
+            title="The rectangle around the selection becomes a blueprint draft"
+            onClick={() => {
+              const left = Math.min(...buildings.map((t) => t.x));
+              const top = Math.min(...buildings.map((t) => t.y));
+              const right = Math.max(...buildings.map((t) => t.x + t.size));
+              const bottom = Math.max(...buildings.map((t) => t.y + t.size));
+              setState({ blueprintDraft: { x: left, y: top, width: right - left, height: bottom - top } });
+            }}
+          >
+            Save as blueprint
+          </button>
+        )}
         {confirm ? (
           <>
             <button className="danger" onClick={() => void gameClient.demolishSelection()}>

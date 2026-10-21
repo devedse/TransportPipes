@@ -147,8 +147,10 @@ function useShortcuts() {
           }
           if (state.selectedBuilding !== null && state.buildingDetails?.upgradeCost != null) {
             void gameClient.upgrade(state.selectedBuilding, event.shiftKey ? 10 : 1);
-            break;
           }
+          break;
+        case "y":
+          // Plans (blueprints): U upgrades
           if (state.blueprintsOpen) {
             setState({ blueprintsOpen: false });
           } else {

@@ -278,7 +278,7 @@ export function BuildingPanel() {
       )}
       {mine && definition.kind === "blueprintOffice" && building.constructionEndsAt === null && (
         <button className="primary wide" onClick={() => void gameClient.openBlueprints()}>
-          📐 Blueprints (U)
+          📐 Blueprints (Y)
         </button>
       )}
       {mine && details.repairCost !== null && (
