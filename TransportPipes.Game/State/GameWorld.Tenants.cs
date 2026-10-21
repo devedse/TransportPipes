@@ -15,7 +15,10 @@ public enum HouseKind
     /// <summary>A producer that grows with the station's players</summary>
     Grower,
 
-    /// <summary>Works short of one good: they buy it only from the station (the Yard panel says what they need)</summary>
+    /// <summary>
+    /// Works short of one good the station's players make: they buy it only from the station (the Yard panel says what
+    /// they need), and sell what they make at their trading post. The good is chosen again every day.
+    /// </summary>
     NeighbourInNeed,
 }
 
@@ -52,9 +55,7 @@ public sealed partial class GameWorld
         HouseKind.Collector => slot % 2 == 0
             ? new TenantPlan("Ironworks", "#8e9aaf", ["smallFactory", "smallFactory"], true)
             : new TenantPlan("Brickworks", "#b5655a", ["brickworks", "brickworks"], true),
-        HouseKind.NeighbourInNeed => slot % 2 == 0
-            ? new TenantPlan("Sawmill", "#a07850", ["sawmill", "sawmill", "windMoily"], false)
-            : new TenantPlan("Glassworks", "#6ab0b8", ["glassworks", "windMoily", "windMoily"], false),
+        HouseKind.NeighbourInNeed => NeedPlan("energy"),
         _ => specialty switch
         {
             EstateSpecialty.WindyHeights => new TenantPlan("Power", "#d4b84a", ["windMoily", "windMoily", "windMoily"], false),
@@ -66,6 +67,76 @@ public sealed partial class GameWorld
             _ => new TenantPlan("Stone", "#9a9a90", ["quarry", "windMoily", "windMoily"], false),
         },
     };
+
+    /// <summary>The goods a Neighbour in need can be short of, the one it prefers first</summary>
+    private static readonly string[] NeighbourNeeds = ["sand", "wood", "ironOre", "energy"];
+
+    /// <summary>A Neighbour in need's works for the good it is short of (it has everything else, and a trading post for what it makes)</summary>
+    private static TenantPlan NeedPlan(string need) => need switch
+    {
+        "sand" => new TenantPlan("Glassworks", "#6ab0b8", ["glassworks", "windMoily", "windMoily"], true),
+        "wood" => new TenantPlan("Sawmill", "#a07850", ["sawmill", "sawmill", "windMoily"], true),
+        "ironOre" => new TenantPlan("Ironworks", "#8e9aaf", ["smallFactory", "smallFactory", "windMoily", "windMoily"], true),
+        _ => new TenantPlan("Iron Mines", "#7a8290", ["ironMine", "ironMine", "smallFactory"], true),
+    };
+
+    /// <summary>The good a Neighbour in need's works are short of, from its buildings</summary>
+    private string? NeedOf(Company house)
+    {
+        var types = BuildingsOf(house.Id).Select(t => t.Type).ToHashSet();
+        return types.Contains("glassworks") ? "sand"
+            : types.Contains("sawmill") ? "wood"
+            : types.Contains("ironMine") ? "energy"
+            : types.Contains("smallFactory") ? "ironOre"
+            : null;
+    }
+
+    /// <summary>What a Neighbour in need should be short of: a good the station's active players make now (the first they make of sand, wood, iron ore and energy)</summary>
+    private string NeighbourNeed(StationRef station)
+    {
+        var made = BigStation(station).SelectMany(StationSeats)
+            .Select(t => Estate(t.District, t.Slot)?.OwnerId is { } owner ? Company(owner) : null)
+            .OfType<Company>()
+            .Where(t => !t.IsNpc && !t.Asleep && IsActive(t))
+            .SelectMany(t => BuildingsOf(t.Id))
+            .Where(t => !t.UnderConstruction)
+            .SelectMany(t => Content.Building(t.Type).Out.Keys)
+            .ToHashSet();
+        return NeighbourNeeds.FirstOrDefault(made.Contains) ?? "energy";
+    }
+
+    /// <summary>
+    /// A Neighbour in need's works fit what its station's players make (F1.5): when it is short of a good nobody here
+    /// makes, or has no trading post (Houses from before), its works are built again for a good they do make
+    /// </summary>
+    private void RefreshNeighbourInNeed(Company house, Estate estate)
+    {
+        var need = NeighbourNeed(estate.Station);
+        var hasPost = BuildingsOf(house.Id).Any(t => Content.Building(t.Type).Kind == BuildingKind.TradingPost);
+        if (NeedOf(house) == need && hasPost)
+        {
+            return;
+        }
+        foreach (var building in BuildingsOf(house.Id).Where(t => Content.Building(t.Type).Kind is BuildingKind.Producer or BuildingKind.TradingPost).ToList())
+        {
+            RemoveBuilding(building);
+        }
+        var plan = NeedPlan(need);
+        var name = $"{WorldNames.District(estate.District)} {plan.Name}";
+        if (_companies.Values.Any(t => t.Id != house.Id && string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            name = $"{name} {(char)('A' + estate.Slot % 26)}";
+        }
+        house.Name = name;
+        house.Color = plan.Color;
+        house.Touch();
+        Changes.Companies.Add(house.Id);
+        foreach (var type in plan.Buildings.Append("tradingPost"))
+        {
+            AddHouseBuilding(house, estate, type, house.Level);
+        }
+        MarkTradeDirty(house.Id);
+    }
 
     /// <summary>A tenant's trading post is never the bottleneck</summary>
     private const double TenantThroughput = 1_000_000;
@@ -98,6 +169,13 @@ public sealed partial class GameWorld
         {
             CreateTenants(district);
         }
+        foreach (var house in _companies.Values.Where(t => t.House == HouseKind.NeighbourInNeed).ToList())
+        {
+            if (EstateOf(house) is { } estate)
+            {
+                RefreshNeighbourInNeed(house, estate);
+            }
+        }
     }
 
     /// <summary>The seats of a district that get a House: the usual few, and in small mode or when a crew holds it every free seat</summary>
@@ -123,7 +201,7 @@ public sealed partial class GameWorld
     {
         var profile = Generator.Estate(estate.District, estate.Slot);
         var kind = KindFor(index);
-        var plan = PlanFor(profile.Primary, kind, estate.Slot);
+        var plan = kind == HouseKind.NeighbourInNeed ? NeedPlan(NeighbourNeed(estate.Station)) : PlanFor(profile.Primary, kind, estate.Slot);
         var name = $"{WorldNames.District(estate.District)} {plan.Name}";
         if (_companies.Values.Any(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)))
         {
@@ -347,6 +425,10 @@ public sealed partial class GameWorld
                 building.Touch();
                 MarkDirty(building.Position);
                 Changes.Tiles.Add(building.Position);
+            }
+            if (house.House == HouseKind.NeighbourInNeed)
+            {
+                RefreshNeighbourInNeed(house, estate);
             }
             if (house.House == HouseKind.Grower)
             {

@@ -43,6 +43,62 @@ public class TenantFacts
     }
 
     [TestMethod]
+    public void ANeighbourInNeedTakesOnlyWhatItNeeds()
+    {
+        var game = WithTenants();
+        // Slot 15 shares the south-west station with the Neighbour in need in slot 14
+        var player = game.NewCompany(slot: 15);
+        var house = TenantIn(game, 14);
+        Assert.AreEqual(HouseKind.NeighbourInNeed, house.House);
+        Assert.IsTrue(game.World.BuildingsOf(house.Id).Any(t => t.Type == "tradingPost"), "its works sell what they make");
+        StringAssert.Contains(house.Name, "Iron Mines", "the station's players make only energy: it is short of energy");
+
+        var moily = game.Build(player, "windMoily");
+        game.ConnectToGate(player, moily);
+        game.Connect(player, moily, game.TradingPost(player));
+        game.Pass(10);
+        var sold = game.World.StatValue(player, "npcGold");
+        var sent = game.World.StatValue(player, "yardSent");
+        var untaken = game.World.StatValue(player, "yardUntaken");
+        game.Pass(30);
+
+        var units = game.World.StatValue(player, "yardSent") - sent;
+        Assert.IsTrue(units > 10, "the House buys the player's energy");
+        Assert.IsTrue(game.World.StatValue(player, "yardUntaken") - untaken < 0.05 * units, "and takes what it was matched");
+        Assert.AreEqual(units * game.World.HouseBuyPrice(player, "energy"), game.World.StatValue(player, "npcGold") - sold, units * 0.01, "paid the House price for what it took");
+    }
+
+    [TestMethod]
+    public void ANeighbourInNeedIsShortOfWhatTheStationMakes()
+    {
+        var game = WithTenants();
+        var player = game.NewCompany(level: 10, slot: 15);
+        var house = TenantIn(game, 14);
+        var lumber = game.Build(player, "lumberCamp", game.Spot(player, "lumberCamp"));
+        game.ConnectToGate(player, lumber);
+
+        game.Pass(24 * 60);
+
+        StringAssert.Contains(house.Name, "Sawmill", "a day later its works want the station's wood");
+        Assert.IsTrue(game.World.BuildingsOf(house.Id).Any(t => t.Type == "sawmill"));
+        Assert.IsTrue(game.World.BuildingsOf(house.Id).Any(t => t.Type == "tradingPost"));
+    }
+
+    [TestMethod]
+    public void AnOldNeighbourInNeedGetsItsPostAtStartup()
+    {
+        var game = WithTenants();
+        game.NewCompany(slot: 15);
+        var house = TenantIn(game, 14);
+        var post = game.World.BuildingsOf(house.Id).Single(t => t.Type == "tradingPost");
+        Assert.IsTrue(game.World.Demolish(house.Id, post.Id).Success, "a House from before the fix: no post");
+
+        game.World.EnsureTenants();
+
+        Assert.IsTrue(game.World.BuildingsOf(house.Id).Any(t => t.Type == "tradingPost"));
+    }
+
+    [TestMethod]
     public void OutsideSmallModeOnlyTheUsualSeatsGetHouses()
     {
         var game = new TestGame();
