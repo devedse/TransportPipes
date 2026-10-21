@@ -19,11 +19,14 @@ const ICONS: Record<NextStepDto["kind"], string> = {
 
 const COLLAPSED_KEY = "tp.nextStepsCollapsed";
 
+/** Collapsed as the player left it; on a phone it starts as one line, so the map stays in view */
 function readCollapsed() {
+  const phone = typeof window !== "undefined" && window.matchMedia?.("(max-width: 720px)").matches === true;
   try {
-    return localStorage.getItem(COLLAPSED_KEY) === "1";
+    const stored = localStorage.getItem(COLLAPSED_KEY);
+    return stored === null ? phone : stored === "1";
   } catch {
-    return false;
+    return phone;
   }
 }
 

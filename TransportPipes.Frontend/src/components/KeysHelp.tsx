@@ -13,6 +13,11 @@ const MOUSE: Array<[string, string]> = [
   ["Wheel", "zoom (also + and −, two fingers)"],
 ];
 
+const TOUCH: Array<[string, string]> = [
+  ["One finger", "move the map; a tap selects"],
+  ["Two fingers", "zoom"],
+];
+
 const KEYS: Array<[string, string]> = [
   ["V · B · P · X", "select · build · pipe · remove"],
   ["U · Shift + U", "upgrade the selection (or the building) by one · by ten"],
@@ -40,7 +45,7 @@ export function KeysHelp() {
         </button>
       </div>
       <dl>
-        {[...MOUSE, ...KEYS].map(([key, text]) => (
+        {[...MOUSE, ...TOUCH, ...KEYS].map(([key, text]) => (
           <div key={key} className="keys-row">
             <dt>{key}</dt>
             <dd>{text}</dd>

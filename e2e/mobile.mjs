@@ -14,6 +14,17 @@ const hq = await page.evaluate(() => [...tp.gameClient.world.buildings.values()]
 await page.evaluate((id) => tp.gameClient.select(id), hq);
 await page.waitForTimeout(1200);
 await shot("3-building");
+// Chapter 2 and the advisor: the guidance stays short, the map in view
+await page.evaluate(() => tp.gameClient.select(null));
+for (let i = 0; i < 11; i++) await cheat("tutorial");
+await page.evaluate(() => tp.gameClient.refreshNextSteps());
+await page.waitForTimeout(1500);
+await shot("4-chapter2");
+const guidance = await page.evaluate(() => Math.round(document.querySelector(".goal-tracker")?.getBoundingClientRect().height ?? 0));
+console.log(`guidance ${guidance} px of ${844}:`, guidance <= 240 ? "ok" : "FAIL too tall");
+await page.keyboard.press("Shift+?");
+await page.waitForTimeout(400);
+await shot("5-keys");
 const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
 console.log("horizontal overflow:", overflow);
 console.log(errors.length ? errors.join("\n") : "no errors");

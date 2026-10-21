@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { gameClient } from "../app/client";
 import { setState, useAppStore } from "../state/store";
 
@@ -34,6 +34,29 @@ function rememberSeen(seen: Set<string>) {
 
 /** The tools at the bottom of the screen */
 export function Toolbar() {
+  const bar = useRef<HTMLDivElement>(null);
+  // Toasts stay above the toolbar however wide it gets: its top, measured from the bottom of the screen
+  useEffect(() => {
+    const element = bar.current;
+    if (element === null) {
+      return;
+    }
+    const update = () => {
+      const top = element.getBoundingClientRect().top;
+      document.documentElement.style.setProperty(
+        "--toolbar-clear",
+        `${Math.round(window.innerHeight - top + 8)}px`,
+      );
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    window.addEventListener("resize", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  });
   const tool = useAppStore((state) => state.tool);
   const keysOpen = useAppStore((state) => state.keysOpen);
   const buildMenuOpen = useAppStore((state) => state.buildMenuOpen);
@@ -137,7 +160,7 @@ export function Toolbar() {
 
   const shown = tools.filter((t) => level >= (UNLOCK_LEVEL[t.key] ?? 1));
   return (
-    <div className="panel toolbar" role="toolbar">
+    <div ref={bar} className="panel toolbar" role="toolbar">
       {shown.map((t) => (
         <button
           key={t.key}
