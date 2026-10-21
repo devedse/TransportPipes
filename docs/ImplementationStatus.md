@@ -182,8 +182,12 @@ the primary goals: the buildings, the map and the UI. The design may change wher
 - ✅ v1.1 · Loady's chapter 2 (eight goals from copper ingots to bricks, done on day 2 when following Loady and the
   advisor) and the level roadmap (what the next levels bring and whether your land can use it, in the XP panel and
   the level-up card)
-- ⬜ v1.1 · painting rows and areas with the build tool
-- ⬜ v1.1 · screen rules: a big window over the inspector without closing it, the phone check
+- ✅ v1.1 · painting with the build tool: a drag builds a row (Shift an area) where the building fits, as far as the
+  gold goes, with ghosts and the total cost; the selection panel says what the selection makes together; the
+  toolbar's ? lists the mouse and the keys
+- ✅ v1.1 · screen rules: big windows dim everything and leave the inspector as it was; toasts stay above the toolbar
+  and left of the inspector; on phones the guidance is one line plus Loady (159 px of 844)
+- ⬜ v1.1 · touch: a long press to start a box selection or to paint (the design's touch row)
 - ⬜ Follow-ups seen while building v1.1: in a network of 19 factories the solver leaves some ore and energy to the
   hub while factories run short (each producer–consumer pair has its own pipe capacity); following the advisor the
   first days go about a day faster than the balance plan (run `TheFirstTwoWeeks` with an advisor profile)
