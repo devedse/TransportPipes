@@ -288,6 +288,25 @@ public class GameWorldFacts
     }
 
     [TestMethod]
+    public void TheIncomeIsRightStraightAfterAnUpgrade()
+    {
+        var game = new TestGame();
+        var company = game.NewCompany();
+        var moily = game.Build(company, "windMoily");
+        game.Connect(company, moily, game.TradingPost(company));
+        game.Pass(1);
+        var before = game.World.GoldPerMinute()[company.Id];
+
+        // No tick between the upgrade and the read (run 1's "+0/min" right after a command)
+        Assert.IsTrue(game.World.Upgrade(company.Id, moily.Id, 1).Success);
+        var straightAfter = game.World.GoldPerMinute()[company.Id];
+        game.Pass(1);
+
+        Assert.IsTrue(straightAfter > before, "the upgrade shows at once");
+        Assert.AreEqual(game.World.GoldPerMinute()[company.Id], straightAfter, 1e-9, "the same rate as after a tick");
+    }
+
+    [TestMethod]
     public void ParcelsAreBoughtNextToYourLandWhenYourLevelIsHighEnough()
     {
         var game = new TestGame();

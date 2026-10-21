@@ -900,9 +900,10 @@ public sealed partial class GameWorld
         return network.Links.Where(t => ids.Contains(t.A) && ids.Contains(t.B)).ToList();
     }
 
-    /// <summary>Gold per minute of every company over all its networks</summary>
+    /// <summary>Gold per minute of every company over all its networks (solved first: a rate is never one command old)</summary>
     public Dictionary<long, double> GoldPerMinute()
     {
+        SolveNetworks();
         var total = new Dictionary<long, double>();
         foreach (var network in Networks)
         {
@@ -914,9 +915,10 @@ public sealed partial class GameWorld
         return total;
     }
 
-    /// <summary>Research points per minute of every company</summary>
+    /// <summary>Research points per minute of every company (solved first)</summary>
     public Dictionary<long, double> ResearchPerMinute()
     {
+        SolveNetworks();
         var total = new Dictionary<long, double>();
         foreach (var network in Networks)
         {
