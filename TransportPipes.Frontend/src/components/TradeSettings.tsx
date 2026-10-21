@@ -63,9 +63,9 @@ export function TradeSettings() {
   return (
     <div className="trade-settings">
       <p className="trade-intro">
-        Neighbours on your pipes buy what your buildings don't use, and sell you what they lack, at the
-        seller&apos;s price. A trade only happens when it pays you more than the hub: a long pipe loses so
-        much on the way that the hub pays more.
+        Your partners are the companies you laid a pipe to: goods travel only through your estate, the
+        corridors and theirs, never through someone else&apos;s. Partners buy what your buildings don&apos;t
+        use and sell you what they lack, at the seller&apos;s price, when it pays more than the hub.
       </p>
 
       <section>
@@ -96,10 +96,12 @@ export function TradeSettings() {
       </section>
 
       <section>
-        <h4>Your neighbours on your pipes</h4>
+        <h4>Your trade partners</h4>
         {partners.length === 0 ? (
           <p className="muted small">
-            Nobody is on your pipes yet. Lay a pipe to a neighbour&apos;s gate: Neighbours → Connect a pipe.
+            No partners yet. Lay a pipe to a neighbour&apos;s gate: Neighbours → Connect a pipe. Only
+            companies you pipe to yourself are partners: goods never travel through someone else&apos;s
+            estate.
           </p>
         ) : (
           <ul className="partner-list">

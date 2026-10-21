@@ -123,6 +123,71 @@ public class TenantFacts
         Assert.IsTrue(neighbourhood.CanSupply(works.Id, new HashSet<string> { "ironOre" }), "ore alone sells to them");
     }
 
+    /// <summary>Pipes a building to a tenant's gate on one side, or any side but one</summary>
+    private static GateSide ConnectToTenantSide(TestGame game, Company player, Building building, Company tenant, GateSide? not = null)
+    {
+        foreach (var side in Enum.GetValues<GateSide>().Where(t => t != not))
+        {
+            try
+            {
+                game.Connect(player, building.Border(), [WorldLayout.OutsideGate(tenant.District, tenant.Slot, side)]);
+                return side;
+            }
+            catch (AssertFailedException)
+            {
+                // Out of reach: the next side
+            }
+        }
+        Assert.Fail($"No route to {tenant.Name}");
+        return default;
+    }
+
+    [TestMethod]
+    public void GoodsNeverTravelThroughAThirdCompanysEstate()
+    {
+        // A sells energy; C's mine needs it. Both are piped to a works tenant, on different sides: one network through
+        // the tenant's estate, but A and C are not each other's partners
+        var game = WithTenants();
+        var a = game.NewCompany("A", level: 2);
+        var c = game.NewCompany("C", level: 2);
+        var works = game.World.Companies.First(t => t.IsNpc && game.World.BuildingsOf(t.Id).Any(b => b.Type == "smallFactory"));
+        var moily = game.Build(a, "windMoily");
+        var mine = game.Build(c, "ironMine", game.Spot(c, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
+        var side = ConnectToTenantSide(game, a, moily, works);
+        ConnectToTenantSide(game, c, mine, works, not: side);
+        game.World.SolveNetworks();
+
+        Assert.AreSame(game.World.NetworkOf(moily.Id), game.World.NetworkOf(mine.Id), "one network through the tenant's estate");
+        var flows = game.World.NetworkOf(moily.Id)!.Solution.Flows;
+        Assert.IsFalse(flows.Any(t => t.From == moily.Id && t.To == mine.Id), "A doesn't sell to C through the tenant");
+        Assert.IsTrue(flows.Any(t => t.Kind == FlowKind.Trade && t.From == moily.Id && game.World.Building(t.To)!.Owner == works.Id), "A sells to the tenant");
+        foreach (var network in game.World.Networks)
+        {
+            foreach (var link in network.Links)
+            {
+                var owners = new[] { game.World.Building(link.A)!.Owner, game.World.Building(link.B)!.Owner };
+                Assert.IsTrue(link.Path.All(t => game.World.EstateOwnerAt(t) is not { } owner || owners.Contains(owner) || owners.Contains(game.World.ConductorAt(t)?.Owner ?? -1)), "a route only crosses its two owners' estates");
+            }
+        }
+        var neighbourhood = game.World.NeighbourhoodOf(a);
+        Assert.IsFalse(neighbourhood.Connected.Contains(c.Id), "C is not A's partner");
+        Assert.IsTrue(neighbourhood.Connected.Contains(works.Id));
+    }
+
+    [TestMethod]
+    public void PumpStationsCountPerCompany()
+    {
+        // A neighbour's buildings never slow your estate down
+        var game = WithTenants();
+        var player = game.NewCompany(level: 9);
+        player.Researched.Add("pumpStations");
+        var works = game.World.Companies.First(t => t.IsNpc && game.World.BuildingsOf(t.Id).Any(b => b.Type == "smallFactory"));
+        var moily = game.Build(player, "windMoily");
+        ConnectToTenant(game, player, moily, works);
+        game.World.SolveNetworks();
+        Assert.AreEqual(1, game.World.NetworkOf(moily.Id)!.PumpFactorOf(player.Id));
+    }
+
     [TestMethod]
     public void APlayerChoosesWhoItTradesWith()
     {

@@ -203,6 +203,11 @@ sell at fair prices through their open gates. They make sure:
 - the trade tutorial always has a partner;
 - small players have customers for their surplus.
 
+**Direct partners only (v1.1):** goods between two companies travel only through those two companies' estates (and
+over their own pipes), the corridors and the wilderness: never through a third company's estate. Your trade partners
+are the companies you pipe to yourself; a tenant that pipes all four of its gates no longer joins the corridors into
+one market. Pump stations count per company: only your own buildings need your pumps.
+
 A tenant's works (an Ironworks, a Brickworks) import from the hub whatever no neighbour brings, so they always run: any
 one of their inputs sells to them on its own, and neighbours come first (they are cheaper than the hub). Without that, a
 works short of ore would buy no one's energy either, and a new player whose own factory uses all of its ore would have

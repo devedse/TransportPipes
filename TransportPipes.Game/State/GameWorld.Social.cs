@@ -167,7 +167,7 @@ public sealed partial class GameWorld
             var owners = network.Owners(this).ToHashSet();
             if (owners.Contains(me.Id))
             {
-                connected.UnionWith(owners);
+                // Partners are the companies with a route to one of my buildings (no route crosses a third estate)
                 foreach (var link in network.Links)
                 {
                     var a = Building(link.A)?.Owner;
@@ -294,6 +294,8 @@ public sealed partial class GameWorld
                 AddShortfall(building.Owner, node.In.ToDictionary());
             }
         }
+        connected.UnionWith(links.Keys);
+        connected.Add(me.Id);
         return new Neighbourhood(surplus, needs, shortfalls, earn, pay, connected, links);
     }
 

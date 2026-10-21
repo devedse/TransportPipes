@@ -744,7 +744,7 @@ public static class GameViews
             definition.Kind == BuildingKind.TradingPost ? world.TradingPostThroughput(building, definition) : null,
             definition.Kind == BuildingKind.TradingPost ? building.Imports.OrderBy(t => t).ToList() : null,
             definition.Kind is BuildingKind.Valve or BuildingKind.Showroom ? building.Filter.OrderBy(t => t).ToList() : null,
-            network?.PumpFactor ?? 1,
+            network?.PumpFactorOf(building.Owner) ?? 1,
             upgradable ? world.UpgradeCost(building, 1) : null,
             upgradable ? world.UpgradeCost(building, Math.Min(10, maxLevels)) : null,
             affordable,
@@ -869,7 +869,8 @@ public static class GameViews
         return issues;
     }
 
-    public static NetworkDetailsDto NetworkDetails(GameWorld world, Network network)
+    /// <summary>A network as a company sees it (its own pump stations and speed)</summary>
+    public static NetworkDetailsDto NetworkDetails(GameWorld world, Network network, long? viewer = null)
     {
         var solution = network.Solution;
         var isMachine = new Dictionary<long, bool>();
@@ -988,14 +989,14 @@ public static class GameViews
                     .ToList(),
                 Money(t.Id)[0], Money(t.Id)[1], Money(t.Id)[2], Money(t.Id)[3]))
             .ToList();
-        var pumps = network.Buildings.Count(t => world.Building(t) is { } b && world.Content.Building(b.Type).Kind == BuildingKind.Pump);
+        var pumps = network.Buildings.Count(t => world.Building(t) is { } b && (viewer == null || b.Owner == viewer) && world.Content.Building(b.Type).Kind == BuildingKind.Pump);
 
         return new NetworkDetailsDto(
             network.Id,
             network.Buildings.Count(t => world.Building(t) is { } b && !world.Content.Building(b.Type).IsConductor),
             network.Conductors.Count,
             pumps,
-            network.PumpFactor,
+            viewer is { } me ? network.PumpFactorOf(me) : network.PumpFactor,
             owners,
             resources
                 .Select(t => (Resource: t.Key, Row: t.Value, Needed: needed.GetValueOrDefault(t.Key)))

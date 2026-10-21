@@ -163,8 +163,9 @@ the primary goals: the buildings, the map and the UI. The design may change wher
 - ✅ Performance: building pictures load when they are first needed (the map waits only for its own art), hashed
   art is cached by browsers for good, the frontend is compressed; a new player on fast 4G waits 1.3 s from founding
   to the map (was 8.3 s), a returning one 0.7 s (was 3.3 s); `e2e/load.mjs` measures it
-- ⬜ Rethink trade between estates: today one open gate joins a whole district into one network. Proposal with
-  options and a recommendation (estates are islands, neighbours are linked gate to gate): `docs/TradingRethink.md`
+- ✅ v1.1 design (`docs/v1.1-design.html`): the plan below comes from the play day
+- ✅ v1.1 · direct partners only: no route crosses a third company's estate, so you trade with the companies you piped
+  to yourself; pump stations per company (`docs/TradingRethink.md` has the full islands model for later)
 - ✅ Fair trade for now (found in play): a trade only happens when it beats the own trading post (long lossy pipes
   earned less), trade settings with partners per company (pipe length, how much arrives, a switch), who you trade
   with (everyone, corporation, contracts), gates open or closed, buying can be switched off per resource

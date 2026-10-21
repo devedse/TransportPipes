@@ -183,8 +183,13 @@ public sealed class GameHub : Hub<IGameClient>
             return world.Networks.Where(t => wanted.Contains(t.Id)).Select(t => GameViews.Flows(world, t)).ToList();
         }, changesWorld: false);
 
-    public Task<NetworkDetailsDto?> GetNetwork(int id) =>
-        _world.RunAsync(world => world.Networks.FirstOrDefault(t => t.Id == id) is { } network ? GameViews.NetworkDetails(world, network) : null, changesWorld: false);
+    public Task<NetworkDetailsDto?> GetNetwork(int id)
+    {
+        var userId = UserId;
+        return _world.RunAsync(world => world.Networks.FirstOrDefault(t => t.Id == id) is { } network
+            ? GameViews.NetworkDetails(world, network, world.CompanyOfUser(userId)?.Id)
+            : null, changesWorld: false);
+    }
 
     public Task<BuildingDetailsDto?> GetBuilding(long id) =>
         _world.RunAsync(world => world.Building(id) is { } building ? GameViews.BuildingDetails(world, building) : null, changesWorld: false);
