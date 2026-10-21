@@ -1,0 +1,1088 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Playing Together</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --teal: #24575a; --teal-dark: #173c3f; --accent: #236b69; --brass: #c9963a; --brass-dark: #94692a;
+  --cream: #f4ead3; --cream-strong: #fbf5e7; --paper: #fffaf0; --ink: #2b2418; --muted: #6b5c43;
+  --green: #33761f; --red: #a12f1f; --gold: #8a5d00; --line: rgba(80, 60, 30, 0.18);
+  --good-bg: #d6eccd; --bad-bg: #f6d3cc; --warn-bg: #f3e6c4;
+}
+* { box-sizing: border-box; }
+html { background: #e9dfc6; }
+body { margin: 0; font-family: Nunito, system-ui, sans-serif; color: var(--ink); line-height: 1.55; background: #e9dfc6; }
+.page { max-width: 1040px; margin: 24px auto; padding: 48px 56px; background: var(--paper); border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(40, 30, 10, 0.18); border: 1px solid var(--line); break-after: page; }
+@media (max-width: 720px) { .page { margin: 12px 8px; padding: 24px 16px; border-radius: 12px; } }
+h1, h2, h3 { font-family: Fraunces, Georgia, serif; color: var(--teal-dark); line-height: 1.2; }
+h1 { font-size: 2.6rem; margin: 0 0 8px; }
+h2 { font-size: 1.9rem; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 3px solid var(--brass); }
+h3 { font-size: 1.25rem; margin: 26px 0 8px; }
+h4 { margin: 18px 0 6px; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+p { margin: 0 0 12px; }
+.kicker { text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; color: var(--brass-dark); font-size: 0.85rem; }
+.lead { font-size: 1.15rem; }
+.muted { color: var(--muted); }
+.small { font-size: 0.88rem; }
+figure { margin: 16px 0 20px; }
+figure img { width: 100%; border-radius: 12px; border: 1px solid var(--line); display: block; }
+figcaption { font-size: 0.88rem; color: var(--muted); margin-top: 6px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+@media (max-width: 720px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 0.92rem; }
+th { text-align: left; background: var(--cream); color: var(--teal-dark); padding: 7px 10px; font-weight: 800; }
+td { padding: 7px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+tr.hl td { background: #fbefd4; }
+.callout { padding: 14px 18px; border-radius: 12px; background: var(--cream); border-left: 6px solid var(--brass); margin: 14px 0; }
+.callout.decision { border-left-color: var(--accent); background: #e4efe9; }
+.callout.problem { border-left-color: var(--red); background: #f8e7e2; }
+.callout strong:first-child { display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; margin-bottom: 4px; }
+.pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 0.78rem; font-weight: 800; }
+.pill.good { background: var(--good-bg); color: var(--green); }
+.pill.bad { background: var(--bad-bg); color: var(--red); }
+.pill.warn { background: var(--warn-bg); color: var(--gold); }
+.pill.info { background: #dde9f3; color: #24507a; }
+.toc { columns: 2; gap: 32px; padding-left: 20px; }
+.toc li { margin-bottom: 4px; break-inside: avoid; }
+@media (max-width: 720px) { .toc { columns: 1; } }
+.cover { background: linear-gradient(160deg, #1f4d50 0%, #24575a 55%, #2f6b66 100%); color: #fff; }
+.cover h1 { color: #fff; font-size: 3rem; }
+.cover .kicker { color: #f2d27a; }
+.cover .lead { color: #f4ead3; }
+.themes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 26px; }
+@media (max-width: 720px) { .themes { grid-template-columns: 1fr; } }
+.theme { background: rgba(255,255,255,0.1); border: 1px solid rgba(242,210,122,0.5); border-radius: 12px; padding: 12px 14px; }
+.theme b { color: #f2d27a; display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; }
+.theme span { color: #f4ead3; font-size: 0.9rem; }
+
+/* Mockups in the game's style */
+.mock { background: #6f9a48 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><path d="M0 10 L20 0 L40 10 L20 20Z" fill="none" stroke="rgba(0,0,0,0.06)"/></svg>');
+  border-radius: 14px; padding: 18px; position: relative; overflow: hidden; border: 1px solid var(--line); }
+.gpanel { background: var(--cream); border: 3px solid var(--teal); border-radius: 14px; box-shadow: 0 6px 16px rgba(0,0,0,0.28);
+  padding: 12px 14px; color: var(--ink); font-size: 0.86rem; }
+.gpanel h5 { margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-size: 1rem; color: var(--teal-dark); }
+.plaque { display: inline-block; background: linear-gradient(#8a5a2e, #6e4421); color: #fff6df; font-family: Fraunces, Georgia, serif;
+  padding: 3px 12px; border-radius: 8px; border: 2px solid #4a2c12; font-weight: 800; margin-bottom: 6px; }
+.gbtn { display: inline-block; background: linear-gradient(#2f7f7c, #236b69); color: #fff; border-radius: 9px; padding: 5px 12px;
+  font-weight: 800; border: 2px solid #c9963a; font-size: 0.82rem; }
+.gbtn.ghost { background: #fffaf0; color: var(--teal-dark); }
+.row { display: flex; align-items: center; gap: 8px; }
+.row + .row { margin-top: 6px; }
+.grow { flex: 1; }
+.bar { height: 8px; border-radius: 4px; background: rgba(0,0,0,0.1); overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--accent); }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+.icon { width: 22px; text-align: center; flex: none; }
+.rank { width: 22px; height: 22px; border-radius: 50%; background: var(--brass); color: #fff; display: grid; place-items: center;
+  font-weight: 800; font-size: 0.8rem; flex: none; }
+.step-done { color: var(--green); font-weight: 800; }
+.kbd { display: inline-block; min-width: 22px; padding: 0 6px; border-radius: 6px; border: 1px solid #a89a7c; border-bottom-width: 3px;
+  background: #fffdf6; font-family: ui-monospace, monospace; font-size: 0.82rem; text-align: center; }
+.zone { position: absolute; border: 2px dashed rgba(255,255,255,0.85); border-radius: 10px; color: #fff; font-weight: 800;
+  font-size: 0.8rem; padding: 6px 8px; background: rgba(23,60,63,0.55); }
+.diagram { width: 100%; height: auto; display: block; }
+code { background: var(--cream); padding: 1px 5px; border-radius: 5px; font-size: 0.88em; }
+.footer { text-align: center; color: var(--muted); font-size: 0.85rem; margin: 10px auto 40px; }
+
+/* Playing together: extra pieces */
+.phones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+@media (max-width: 720px) { .phones { grid-template-columns: 1fr; } }
+.phone { background: #1d2b2c; border-radius: 22px; padding: 10px; box-shadow: 0 6px 16px rgba(0,0,0,0.25); }
+.phone .screen { background: #6f9a48; border-radius: 14px; min-height: 230px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.phone .cap { color: #f4ead3; font-size: 0.8rem; text-align: center; margin-top: 6px; }
+.scores td.win { font-weight: 800; color: var(--green); }
+.agent { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: start; margin-bottom: 10px; }
+.agent .av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 1.1rem; background: var(--cream); border: 2px solid var(--brass); }
+.wild { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 720px) { .wild { grid-template-columns: 1fr; } }
+.wild div { background: var(--cream); border-radius: 10px; padding: 10px 12px; font-size: 0.88rem; border: 1px solid var(--line); }
+.wild b { display: block; font-family: Fraunces, Georgia, serif; color: var(--teal-dark); }
+.verdict { font-size: 0.8rem; font-weight: 800; }
+.words span { display: inline-block; margin: 2px 4px 2px 0; padding: 2px 10px; border-radius: 999px; background: var(--cream); border: 1px solid var(--brass); font-weight: 800; }
+@media (max-width: 720px) { table { display: block; overflow-x: auto; } }
+.layers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 4px; }
+@media (max-width: 720px) { .layers { grid-template-columns: 1fr 1fr; } }
+.layers div { background: var(--c); border: 2px solid var(--b); border-radius: 14px; padding: 12px 14px; font-size: 0.9rem; }
+.layers b { display: block; font-family: Fraunces, Georgia, serif; color: var(--teal-dark); font-size: 1.05rem; margin-bottom: 4px; }
+.figure2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; margin: 14px 0; }
+@media (max-width: 720px) { .figure2 { grid-template-columns: 1fr; } }
+.legend { font-size: 0.88rem; }
+.legend h4 { margin: 0 0 8px; color: var(--teal-dark); }
+.legend p { margin: 0 0 8px; }
+.legend ul { margin: 0; padding-left: 18px; }
+.legend li { margin-bottom: 5px; }
+.sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; }
+</style>
+</head>
+<body>
+
+<section class="page cover">
+  <div class="kicker">TransportPipes · multiplayer design · v1.2</div>
+  <h1>Playing together</h1>
+  <p class="lead">How three friends who join tonight play together, how a lonely player is never alone, what happens when
+  people stop and come back, and how it holds from the first minute to the next chapter. One full design, decided by a
+  team of six design agents in five rounds of brainstorm, sparring, exams, defence and a final review.</p>
+  <div class="themes">
+    <div class="theme"><b>Stations</b><span>Four seats around a small shared Yard (or a small station of two). You choose
+    where you live on a map that shows who's there and what the land holds.</span></div>
+    <div class="theme"><b>Crews</b><span>The people who chose each other, 1–8 friends from Level 1. An invite is a held
+    seat; a friend moves in next to you in two taps, even when nobody is online.</span></div>
+    <div class="theme"><b>The Yard</b><span>Lay your own pipe to it and your spare goes to the neighbours whose buildings
+    need it, at one fixed price. Everyone else: two-ended links you can see.</span></div>
+    <div class="theme"><b>Houses</b><span>Labelled NPC companies fill every gap (empty seats, friends not here yet,
+    people who left) so nobody is ever stuck, and never pretend to be people.</span></div>
+    <div class="theme"><b>Absence costs nobody</b><span>Resting, a caretaker, a stand-in, a held seat. Nothing breaks
+    for the friends who stay, and the way back takes a minute.</span></div>
+    <div class="theme"><b>The long game</b><span>The station's project, crew trunks to far hubs, Discoveries,
+    leagues of 25, and a world that carries into the next chapter.</span></div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>Contents</h2>
+  <div class="grid2">
+    <ol class="toc">
+      <li>What the design must take into account</li>
+      <li>The design in one page</li>
+      <li>Words and definitions</li>
+      <li>Places and choosing where you live</li>
+      <li>Three friends tonight: the first 20 minutes</li>
+      <li>Crews</li>
+      <li>The Yard and links</li>
+      <li>Prices and the money rules</li>
+      <li>Houses and stand-ins</li>
+      <li>Absence, sleep and the way back</li>
+      <li>Newcomers, lonely players and small servers</li>
+    </ol>
+    <ol class="toc" start="12">
+      <li>Doing things together: the project, asks, tending</li>
+      <li>The long game and the next chapter</li>
+      <li>The start area (your question)</li>
+      <li>Performance</li>
+      <li>The twelve decisions</li>
+      <li>The hard cases, played through</li>
+      <li>Migrating the testers' world</li>
+      <li>Build plan</li>
+      <li>What must never happen</li>
+      <li>What we'll measure</li>
+      <li>Appendix: how this design was made, what other games taught, the wild ideas, the rival concepts and the final review</li>
+    </ol>
+  </div>
+  <div class="callout">
+    <strong>Found along the way, and already fixed</strong>
+    The economy agent found a live exploit while reading the code: contracts had no limit on the amount per minute, and
+    tenants accepted any fair price, so a buying contract for 1,000,000 ingots a minute paid its buyer a shortfall
+    penalty of 440,640,000 gold after one day (reproduced in a game test). Fixed in <code>9621766</code>: a seller can
+    promise only what its buildings make, and a penalty never takes gold below zero. The lonely-player agent found three
+    things the code does today that this design removes: <code>Sleep()</code> ends every contract with a sleeping
+    player, <code>WakeUp()</code> drops a returner on the first free seat, and the quiet-district check skips districts
+    with fewer than 4 players.
+  </div>
+</section>
+
+<section class="page">
+  <h2>1 · What the design must take into account</h2>
+  <p class="lead">Before anyone brainstormed, we wrote down what every idea is scored against. The owner's core
+  principle: <b>it should be fun to play with three friends that join</b>, ideally choosing a station or position; it
+  must work for lonely players, for players who stop, and in the early and the late game.</p>
+  <table>
+    <tr><th>#</th><th>Point</th><th>What it means</th></tr>
+    <tr><td>1</td><td>Friends together</td><td>Three friends who start together are neighbours from minute one, see each other, help each other and have something to decide together. A friend a week later can still join them.</td></tr>
+    <tr><td>2</td><td>Choosing where you live</td><td>A player chooses a position with the information to choose well (who lives there, how active, what the land holds), with a sensible default.</td></tr>
+    <tr><td>3</td><td>The lonely player</td><td>Someone alone gets a complete game and a world that doesn't feel empty. Solo is never a handicap that makes them quit.</td></tr>
+    <tr><td>4</td><td>Players who stop</td><td>Most leave after days or weeks. No holes, dead partners, broken chains or blocked land; a returner can come back.</td></tr>
+    <tr><td>5</td><td>The early game</td><td>Playing together is easy to understand and immediately useful; nobody can hurt a newcomer; no dependency on others to progress.</td></tr>
+    <tr><td>6</td><td>The late game</td><td>Cooperation grows (bigger projects, longer logistics) and keeps veterans interested, with friendly competition.</td></tr>
+    <tr><td>7</td><td>Asynchronous idle play</td><td>Nothing needs two players online; an idle partner never stalls you.</td></tr>
+    <tr><td>8</td><td>Fair and safe</td><td>No griefing, blocking, leeching or gold funnelling; veterans can't crush newcomers.</td></tr>
+    <tr><td>9</td><td>Clear</td><td>You can always see who you play with, what goes where and why, ideally on the map.</td></tr>
+    <tr><td>10</td><td>Pipes are the heart</td><td>Playing together is expressed through pipes and logistics.</td></tr>
+    <tr><td>11</td><td>Scale and performance</td><td>Works with 5 players and with 2,000; no district-wide mega-networks.</td></tr>
+    <tr><td>12</td><td>Chapters, no wipe</td><td>Works across chapters and migrates the testers' world.</td></tr>
+    <tr><td>13</td><td>Social glue</td><td>Recognition, shared goals, identity, a reason to invite.</td></tr>
+    <tr><td>14</td><td>Buildable</td><td>Ships in steps, each one playable.</td></tr>
+  </table>
+  <h3>The veto rules</h3>
+  <p>The guardian of lonely players turned the list into rules that can veto any idea. Every rule in this document
+  passes them:</p>
+  <ul>
+    <li><b>Every partner can be replaced:</b> no pipe ends nowhere; a link with no flow always says why.</li>
+    <li><b>Solo is a full game:</b> a player without human partners earns 85–90% of a crewed one, and nothing needs a number of humans.</li>
+    <li><b>Nothing needs two players online:</b> offers wait 72 h, deadlines at least 12 h, nothing rewards being online at one moment.</li>
+    <li><b>Absence costs nobody else:</b> at most 5% of a partner's income on any day, at most the solo gap in the long
+    run, no lost multipliers, no bigger baskets. Nobody is moved without their own tap, except an asleep estate (30+
+    days) into safety and a stranger on probation in a crew's station (§6).</li>
+    <li><b>NPCs are honest:</b> labelled everywhere, never on leaderboards, at most 25% of any shared goal.</li>
+    <li><b>Nudges vanish when nobody is there:</b> every push towards others switches off where there are no others.</li>
+  </ul>
+</section>
+
+<section class="page">
+  <h2>2 · The design in one page</h2>
+  <p class="lead">You live in a <b>station</b>: four estates around a small shared <b>Yard</b>. You pick it on a map
+  that shows who lives there and what the land holds; friends come along as a <b>crew</b> and an invite is a held seat.
+  Lay your own pipe to the Yard and your spare goods go to the neighbours whose buildings need them, at one fixed price,
+  while your factories buy their spare the same way; what nobody needs goes to the hub as before. Everyone else you
+  reach with <b>links</b>: two-ended pipes you can see, between two named companies. Empty seats, friends not yet here
+  and people who left are run by labelled NPC <b>Houses</b>, so nobody is ever stuck. Your station builds its
+  <b>project</b> together, and later your crew lays trunk lines in its colours to far hubs.</p>
+  <h3>Five words in the first hour</h3>
+  <p class="words"><span>station</span><span>crew</span><span>Yard</span><span>House</span><span>project</span>
+  and in the first week <span>link</span><span>Ask</span><span>tend</span><span>resting</span><span>Block</span><span>league</span>.
+  A two-seat place is shown as a "small station"; the House ⚙ badge explains itself the first time.</p>
+  <div class="layers">
+    <div style="--c:#e4efe9;--b:#236b69"><b>Where you live</b>A station of 4 seats, or a small one of 2. You choose it, and you can move once a week.</div>
+    <div style="--c:#fbefd4;--b:#c9963a"><b>Who you play with</b>A crew of 1–8 friends from Level 1, one banner. No wallet, no votes; leave in one tap.</div>
+    <div style="--c:#dde9f3;--b:#24507a"><b>How goods move</b>The Yard: your station, one fixed price. Links: two named ends, anyone else. Never a merged network.</div>
+    <div style="--c:#f8e7e2;--b:#a12f1f"><b>Built together</b>The station's project, crew trunks, Discoveries, Wonders and leagues. Credit is your own share.</div>
+  </div>
+  <h3>Six rules every feature follows</h3>
+  <ol>
+    <li><b>Together makes you better, never stuck, guilty or prey.</b> Playing with people adds about 10–15%, never access.</li>
+    <li><b>Absence costs others at most a small, announced step:</b> a sleeping partner's trades keep running at their old terms, then glide to NPC terms with notice, never more than 5% in a day.</li>
+    <li><b>Nobody presses a button that feels like kicking a friend.</b> No votes, no removal, no release.</li>
+    <li><b>Every choice can be undone or recovered from:</b> moving, leaving, a link; a lapsed seat comes back as the first landing card whenever it is still free.</li>
+    <li><b>Contact between players is positive only:</b> help, trade, thanks; never taking or breaking.</li>
+    <li><b>Every zero has a sentence,</b> and every push towards others switches off where there are none.</li>
+  </ol>
+</section>
+
+<section class="page">
+  <h2>3 · Words and definitions</h2>
+  <p>One definition each, used everywhere in this document and in the code.</p>
+  <table>
+    <tr><th>Word</th><th>Meaning</th></tr>
+    <tr><td><b>Active</b> (a lit seat)</td><td>The owner opened the game in the last 3 days. Automatic trade, pipe deliveries and the caretaker's work never count. Used for placement, quiet grace, leagues, the lone-human card, Tailwind's median and holds.</td></tr>
+    <tr><td>Lit windows</td><td>The picture only: the owner played in the last 24 h.</td></tr>
+    <tr><td>Away · resting · dormant · asleep</td><td>Days since the last session: 3–14 resting, 14–30 dormant (the caretaker), 30+ asleep.</td></tr>
+    <tr><td>Delivering resident</td><td>Active, and delivered at least 30 minutes of their own output to the station's project in the last 3 days. Only for basket sizes.</td></tr>
+    <tr><td>Verified company</td><td>Has an account (e-mail, Google or Apple; one per e-mail) and 3 distinct days of play. Only verified companies size a project, fund a trunk segment or count in a league.</td></tr>
+    <tr><td>Same device</td><td>Two accounts that used the same browser id (a random id the game keeps in the browser) in the last 30 days, or logged in from the same IP address on the same day. A second signal next to the account, never the only one; a false match only costs basket sizing and the stand-in's old price, never anything a player has.</td></tr>
+    <tr><td>T(L)</td><td>The typical income per minute at Company Level L: a fixed table in <code>progression.yaml</code> from today's typical balance run (Level 5: 770 · 13: 1,930 · 22: 3,050 · 26: 3,770 · 30: 4,830 · 32: 4,930). Never re-measured. Every "hour of income" in this document means 1 h of T(L) at your level.</td></tr>
+    <tr><td>Station · small station</td><td>A corner 2×2 group of a district (4 seats) or an arm pair (2 seats), each around its Yard.</td></tr>
+    <tr><td>Yard · Yard gate</td><td>The station's shared plaza; your gate is where your pipe joins it.</td></tr>
+    <tr><td>Crew</td><td>1–8 companies that chose each other: a name, an emblem, colours.</td></tr>
+    <tr><td>Link</td><td>A trade between two named companies on a two-ended pipe.</td></tr>
+    <tr><td>House ⚙ · stand-in</td><td>An NPC company. A stand-in is the House that runs an asleep estate's trades.</td></tr>
+    <tr><td>Project</td><td>The station's shared building: Foundation, Water Tower, Workshop, Foundry Hall, Landmark.</td></tr>
+    <tr><td>Hub Order</td><td>How much of a good the hub takes from you at full price (§8).</td></tr>
+    <tr><td>Chapter</td><td>The game's 12 weeks of five Eras, ending with the Space Elevator; the world carries on into the next chapter.</td></tr>
+    <tr><td>Quiet Isles</td><td>Where packed estates wait, with nothing lost (exists today).</td></tr>
+    <tr><td>Small mode</td><td>A server with fewer than 50 active companies (§11).</td></tr>
+  </table>
+</section>
+
+<section class="page">
+  <h2>4 · Places and choosing where you live</h2>
+  <p>Nothing on the map moves and no tester loses land. Each district stays a 5×5 grid around its hub: the four corner
+  2×2 groups become <b>stations</b> of four seats and the four pairs on the arms become <b>small stations</b> of two
+  (still 24 seats). Each has its Yard at the inner corridor crossing.</p>
+  <div class="figure2">
+    <div><svg class="diagram" viewBox="0 0 470 470" role="img" aria-label="A district: four stations, four small stations and the hub">
+      <style>.lab{font-family:Nunito,sans-serif;font-size:13px;font-weight:800;fill:#173c3f}</style>
+      <rect x="10" y="10" width="450" height="450" rx="10" fill="#c9b58b"/>
+      <rect x="18" y="18" width="80" height="80" rx="6" fill="#8fbf7a"/><rect x="106" y="18" width="80" height="80" rx="6" fill="#8fbf7a"/>
+      <rect x="18" y="106" width="80" height="80" rx="6" fill="#8fbf7a"/><rect x="106" y="106" width="80" height="80" rx="6" fill="#8fbf7a"/>
+      <rect x="282" y="18" width="80" height="80" rx="6" fill="#e3b25a"/><rect x="370" y="18" width="80" height="80" rx="6" fill="#e3b25a"/>
+      <rect x="282" y="106" width="80" height="80" rx="6" fill="#e3b25a"/><rect x="370" y="106" width="80" height="80" rx="6" fill="#e3b25a"/>
+      <rect x="18" y="282" width="80" height="80" rx="6" fill="#7fb0c9"/><rect x="106" y="282" width="80" height="80" rx="6" fill="#7fb0c9"/>
+      <rect x="18" y="370" width="80" height="80" rx="6" fill="#7fb0c9"/><rect x="106" y="370" width="80" height="80" rx="6" fill="#7fb0c9"/>
+      <rect x="282" y="282" width="80" height="80" rx="6" fill="#c99ac2"/><rect x="370" y="282" width="80" height="80" rx="6" fill="#c99ac2"/>
+      <rect x="282" y="370" width="80" height="80" rx="6" fill="#c99ac2"/><rect x="370" y="370" width="80" height="80" rx="6" fill="#c99ac2"/>
+      <rect x="194" y="18" width="80" height="80" rx="6" fill="#f0d79a"/><rect x="194" y="106" width="80" height="80" rx="6" fill="#f0d79a"/>
+      <rect x="282" y="194" width="80" height="80" rx="6" fill="#f0d79a"/><rect x="370" y="194" width="80" height="80" rx="6" fill="#f0d79a"/>
+      <rect x="194" y="282" width="80" height="80" rx="6" fill="#ddd2bf"/><rect x="194" y="370" width="80" height="80" rx="6" fill="#ddd2bf"/>
+      <rect x="18" y="194" width="80" height="80" rx="6" fill="#ddd2bf"/><rect x="106" y="194" width="80" height="80" rx="6" fill="#ddd2bf"/>
+      <rect x="194" y="194" width="80" height="80" rx="6" fill="#b5844a"/><text class="lab" x="216" y="238" fill="#fff">HUB</text>
+      <g fill="#f2d27a" stroke="#94692a" stroke-width="2">
+        <rect x="92" y="92" width="20" height="20" rx="3"/><rect x="356" y="92" width="20" height="20" rx="3"/>
+        <rect x="92" y="356" width="20" height="20" rx="3"/><rect x="356" y="356" width="20" height="20" rx="3"/>
+        <rect x="226" y="92" width="16" height="20" rx="3"/><rect x="226" y="356" width="16" height="20" rx="3"/>
+        <rect x="92" y="226" width="20" height="16" rx="3"/><rect x="356" y="226" width="20" height="16" rx="3"/>
+      </g>
+      <path d="M356 102 L242 102" stroke="#236b69" stroke-width="5" stroke-dasharray="10 6"/>
+      <path d="M366 112 L366 226" stroke="#236b69" stroke-width="5" stroke-dasharray="10 6"/>
+      <text class="lab" x="300" y="60">NE station</text>
+      <text class="lab" x="203" y="60">N small</text>
+      <text class="lab" x="380" y="260">E small</text>
+    </svg></div>
+    <div class="legend">
+      <h4>How a district is used</h4>
+      <p><span class="sw" style="background:#8fbf7a"></span>A <b>station</b>: 4 seats around a Yard.</p>
+      <p><span class="sw" style="background:#ddd2bf"></span>A <b>small station</b>: 2 seats around a small Yard, for couples and for anyone who wants fewer neighbours.</p>
+      <p><span class="sw" style="background:#f2d27a;border:2px solid #94692a"></span>A <b>Yard</b> at the corridor crossing (its layout is below).</p>
+      <p><span class="sw" style="background:#e3b25a"></span>A <b>crew of 7–8</b>: the NE station and both its small stations (N and E), joined by game-drawn crew pipes (dashed) into one big station with one Yard pool and one project. A crew of 5–6 takes the station and one small station.</p>
+      <p>A new district opens when the open ones are 60% lit or held, or when a crew starting with friends finds no station with enough free seats. New players fill the free seats of one district before the next gets any.</p>
+      <p>Districts with no lit seat freeze: no simulation, nothing lost; they wake when someone lands.</p>
+    </div>
+  </div>
+  <h3>The Yard's layout</h3>
+  <p>A Yard is 10×10 tiles: the 2×2 corridor crossing, the four 2×4 corridor arms and a 4×4 corner of each of the four
+  estates (16 of a corner parcel's 64 tiles, 1.6% of the estate; corner parcels unlock only at Levels 35–50). Corridor
+  tiles stay corridor: links pass under the Yard in covered channels. One corner holds the sockets (one per seat), one the
+  notice board and the start of the ring pipe, and the two opposite corners the project, which grows from a 4×4
+  Foundation to a Landmark across both with an arch over the crossing. Nobody builds in the Yard. Your <b>Yard gate</b>
+  is on the edge of your start area nearest the Yard; the game draws a gate strip from it across your locked corner
+  parcel to your socket, so at minute 12 you lay only 8–16 tiles of your own pipe. Every Yard picture is made for these
+  footprints and checked with <code>fit.mjs</code>.</p>
+  <h3>The picker</h3>
+  <p>Three buttons on the start screen: <b>Start with friends</b> (a crew in 15 seconds, then a share sheet),
+  <b>Find me neighbours</b> (the default) and <b>A station of my own</b> (Houses fill the other seats). A first-time
+  player's cards show only who lives there, the free seats with their land, and one button:</p>
+  <div class="mock">
+    <div class="grid3">
+      <div class="gpanel"><div class="plaque">Ashford NE · station</div>
+        <div class="row"><span class="dot" style="background:#e0533c"></span><span class="grow"><b>Mo</b> · Lv 14 · lively</span></div>
+        <div class="row"><span class="dot" style="background:#7c7c7c"></span><span class="grow">Bertha's Copperworks <b>⚙ House</b></span></div>
+        <div class="row"><span class="icon">🌾</span><span class="grow"><b>Free:</b> Riverside · sand ★5, water ★4</span></div>
+        <div class="row"><span class="icon">⛏️</span><span class="grow"><b>Free:</b> Copper Gulch · copper ★5, coal ★4</span></div>
+        <div class="row" style="margin-top:8px"><span class="gbtn">Settle here</span></div></div>
+      <div class="gpanel"><div class="plaque">Ashford N · small station</div>
+        <div class="row"><span class="icon">💑</span><span class="grow">Two seats, both free</span></div>
+        <div class="row"><span class="icon">☀️</span><span class="grow">Sunny Flats · sun ★5, stone ★4</span></div>
+        <div class="row"><span class="icon">🌲</span><span class="grow">Pine Ridge · wood ★5, water ★4</span></div>
+        <div class="row"><span class="icon">🏙️</span><span class="grow">Next to the hub</span></div>
+        <div class="row" style="margin-top:8px"><span class="gbtn">Settle here</span></div></div>
+      <div class="gpanel"><div class="plaque">Start with friends</div>
+        <div class="row"><span class="dot" style="background:#236b69"></span><span class="grow">Kettle &amp; Co. · 4 friends</span></div>
+        <div class="row"><span class="icon">📍</span><span class="grow">Pick a station with 4 free seats</span></div>
+        <div class="row"><span class="icon">🏡</span><span class="grow">You land on your seat at once</span></div>
+        <div class="row"><span class="icon">🎟️</span><span class="grow">Each friend gets a seat code and picks their own seat</span></div>
+        <div class="row" style="margin-top:8px"><span class="gbtn">Choose a station</span></div></div>
+    </div>
+  </div>
+  <ul>
+    <li><b>From your second visit</b> the cards also show links waiting for a seat, the project's stage and Houses' goods.</li>
+    <li><b>Strangers see activity as buckets</b> ("lively", "some days", "resting"), never "0 of 7 days" next to a name.</li>
+    <li><b>"Find me neighbours"</b> seats you in the station with the most active humans within 10 levels of you; ties
+    go to a waiting link, then to a House that makes a good you lack. Never an all-NPC station while a station with an
+    active human has a free seat.</li>
+    <li><b>Moving</b> is free in your first 3 days, then free once a week (an hour in transit, as today). A crew moves as
+    a block: the first member's tap reserves seats for the whole crew for 7 days, and each member moves with their own
+    tap. Leaving a crew gives one extra free move, at most once per 30 days.</li>
+    <li><b>The lone-human card</b> comes on the 5th day on which you are the only active resident, at most once every 30
+    days: up to 3 livelier stations; the crew's name, credit and heirlooms move along. After that it's a button.</li>
+    <li><b>The consolidation card</b> comes once, when at least two members are active and more than half of the crew is
+    asleep: "Move to a fresh station together?" It works like a crew move. The asleep friends' holds move too: their
+    estates (already asleep) are packed and their held seats point to the new station, so "Your seat" on their return
+    is next to their friends.</li>
+  </ul>
+</section>
+
+<section class="page">
+  <h2>5 · Three friends tonight: the first 20 minutes</h2>
+  <p>The first thing we build. Nobody waits for anybody, and nothing in the first evening needs two people online.</p>
+  <div class="phones">
+    <div class="phone"><div class="screen">
+      <div class="gpanel"><h5>Ana invites you to Kettle &amp; Co.</h5>
+        <div class="row"><span class="icon">🏡</span><span class="grow">Ashford NE, next to Ana. Pick your seat:</span></div>
+        <div class="row"><span class="icon">⛏️</span><span class="grow"><b>Copper Gulch</b> · copper ★5, coal ★4 ✓</span></div>
+        <div class="row"><span class="icon">🌾</span><span class="grow">Riverside · sand ★5, water ★4</span></div>
+        <div class="row" style="margin-top:8px"><span class="gbtn">Move in</span></div></div>
+    </div><div class="cap">Tap 1 · Ana's suggestion is preselected</div></div>
+    <div class="phone"><div class="screen">
+      <div class="gpanel"><h5>Your company</h5>
+        <div class="row"><span class="grow">Name: <b>Dev's Copper</b> (change it any time)</span></div>
+        <div class="row"><span class="dot" style="background:#236b69"></span><span class="dot" style="background:#c9963a"></span><span class="grow">Crew colours, your own shade</span></div>
+        <div class="row" style="margin-top:8px"><span class="gbtn">Done</span></div></div>
+      <div class="gpanel" style="font-size:0.78rem">Inside WhatsApp or Discord this screen also asks for an account (Google, Apple or e-mail), because their browsers forget guests.</div>
+    </div><div class="cap">Tap 2 · about 30 seconds in, on your own estate</div></div>
+    <div class="phone"><div class="screen">
+      <div class="gpanel"><h5>Good morning, Ana</h5>
+        <div class="row"><span class="icon">🎈</span><span class="grow"><b>Dev moved in next door</b> (Copper Gulch)</span></div>
+        <div class="row"><span class="icon">🤝</span><span class="grow">Your Yard pipes met: Handshake!</span></div>
+        <div class="row"><span class="icon">🪙</span><span class="grow">Your energy now sells to Dev's mine at 1.75</span></div></div>
+    </div><div class="cap">Ana's next first screen, whenever Ana plays</div></div>
+  </div>
+  <table>
+    <tr><th>Minute</th><th>What happens</th></tr>
+    <tr><td>0</td><td>Ana taps <b>Start with friends</b>: crew name, emblem, two colours. Ana picks a station, lands at once on the chosen seat, and the share sheet opens with one seat code per friend. Every other seat shows the crew's colours, and a House ⚙ keeps it warm.</td></tr>
+    <tr><td>1–3</td><td>Ben and Cleo open their codes. <b>Move in</b> shows the station's free seats with their land, Ana's suggestion preselected; <b>Done</b> (the name is filled in) is tap 2. Each balloon lands the moment its friend taps; landings in the same minute play together. Dev's code waits for whenever Dev comes.</td></tr>
+    <tr><td>3–12</td><td>Loady's first goals, each on their own: panels, pipes, the first sale.</td></tr>
+    <tr><td>12</td><td>Loady: "Lay a pipe from your network to your Yard gate" (8–16 tiles, paid by the tutorial). At the same moment the station's first project, the <b>Foundation</b>, starts buying energy and iron ore at the hub's full price, so your first Yard pipe carries something at once, even when you are the only one there. The <b>Handshake</b> plays when your pipe and a friend's are both connected, now or whenever the second one connects; the first to connect sees it on their next first screen.</td></tr>
+    <tr><td>12–20</td><td>Spare that a friend's buildings need sells to them at 1.75 × base. The Yard panel says it in one line: "Ben's mine buys your energy at 1.75", or "Nobody here needs energy yet: the Foundation and the hub take it".</td></tr>
+    <tr><td>about 20</td><td>The Foundation completes when about 15 minutes of one player's output has arrived, sooner with more. Everyone in the station gets +3% production for the chapter, and a ring of colours shows who helped. The Water Tower card appears: "Wanted: iron ingots, sand, and glass. Nobody here makes glass yet." That is the crew's first decision: who builds the glass chain?</td></tr>
+  </table>
+  <div class="callout"><strong>Cleo plays two hours later, with the others offline</strong>Everything above still
+  works for Cleo: the seat code works without anyone online, Cleo's own pipe gets its Handshake with Ana's, the Yard
+  buys at once. Nothing in the first evening needs two people online.</div>
+</section>
+
+<section class="page">
+  <h2>6 · Crews</h2>
+  <ul>
+    <li><b>Founding</b> takes 15 seconds from Level 1: a name, one of 40 emblems, two colours. No crew levels to grind,
+    <b>no shared wallet</b>. Crew and company names pass a word filter, and anyone can report one; three reports from
+    different stations hide the name ("Company 4127") until it is reviewed.</li>
+    <li><b>Size 1–8.</b> 2 → a small station; 3–4 → a station; 5–6 → a station and one of its small stations; 7–8 → a
+    station and both. The crew pipes between them are drawn by the game, <b>lose nothing and carry the Yard's tier</b>,
+    so the friends in the small stations are full members of one big station. Beyond 8: a corporation, which stays as
+    it is (the 30-player layer).</li>
+    <li><b>Seat codes.</b> Every held seat has its own code, and the share sheet always sends one, so an invited friend
+    moves in at any time with nobody online. The general crew link (for friends without a held seat) needs a member's
+    tap after 24 h, so a link posted publicly can't hand a stranger a friend's seat.</li>
+    <li><b>Seats held for friends who haven't arrived</b> stay held while any member played in the last 14 days, up to
+    28 days, warmed by a House. Nobody taps "renew".</li>
+    <li><b>Leaving</b> is one tap and changes no price; you keep your seat and estate and simply become a neighbour.</li>
+    <li><b>Nobody can be removed.</b> No votes. Anyone can privately <b>Block</b> any company: the Yard stops trading
+    between those two after 1 hour (covered by the tank), and gifts, asks and messages between them stop. The other side
+    reads "X now trades its spare with others". If companies that made up more than half of your Yard trade last week
+    have blocked you, you get one card: "Your goods sell better elsewhere: move for free to one of these stations that
+    need them". Nobody learns who blocked.</li>
+    <li><b>A station where one crew lives in or holds 3 or more seats is closed to strangers</b> by default. Any active
+    member can open or close it; closing never moves anyone who already lives there.</li>
+    <li><b>Probation</b> applies only to a stranger who takes a free seat in a station where a crew lives in or holds 2
+    or more seats: away 5 days in a row within their first 14, the estate is packed to the Quiet Isles with nothing
+    lost, its trades pass to a stand-in at once, and on return the old seat is the first landing card if it is still
+    free. Everywhere else a newcomer's absence follows the normal timeline (§10).</li>
+    <li><b>Seeing each other:</b> crew colours on roofs, gate flags and pipe stripes; one morning report and the notice
+    board carry the crew's news, naming goods and totals, never a person ("the crew's copper saved the crew 840 g/h").</li>
+  </ul>
+  <div class="callout"><strong>Friends who fall out (day 10)</strong>Ben leaves the crew in one tap; no prices change and
+  Ben's credit stays Ben's. Ana blocks Ben; the Yard keeps trading with everyone else. Either may move for free. No vote,
+  no announcement, no kick.</div>
+</section>
+
+<section class="page">
+  <h2>7 · The Yard and links: how goods move between players</h2>
+  <div class="figure2">
+    <div><svg class="diagram" viewBox="0 0 580 400" role="img" aria-label="A Yard between four estates">
+      <style>.lab{font-family:Nunito,sans-serif;font-size:13px;font-weight:800;fill:#173c3f}.sm{font-family:Nunito,sans-serif;font-size:12px;fill:#2b2418}</style>
+      <rect x="10" y="10" width="560" height="380" rx="12" fill="#c9b58b"/>
+      <rect x="20" y="20" width="250" height="170" rx="8" fill="#8fbf7a"/><text class="lab" x="40" y="45">Ana · Windy Heights</text>
+      <rect x="310" y="20" width="250" height="170" rx="8" fill="#8fbf7a"/><text class="lab" x="330" y="45">Ben · Coal Valley</text>
+      <rect x="20" y="210" width="250" height="170" rx="8" fill="#8fbf7a"/><text class="lab" x="40" y="370">Cleo · Riverside</text>
+      <rect x="310" y="210" width="250" height="170" rx="8" fill="#8fbf7a"/><text class="lab" x="330" y="370">Dev · Copper Gulch (day 8)</text>
+      <rect x="230" y="150" width="120" height="100" rx="8" fill="#f2d27a" stroke="#94692a" stroke-width="3"/>
+      <text class="lab" x="263" y="172">THE YARD</text>
+      <rect x="250" y="182" width="80" height="26" rx="5" fill="#fffaf0" stroke="#236b69" stroke-width="2"/><text class="sm" x="257" y="200">4 sockets</text>
+      <rect x="258" y="214" width="64" height="26" rx="5" fill="#a12f1f"/><text class="sm" x="266" y="232" fill="#fff">project</text>
+      <path d="M150 120 L150 165 L250 165" stroke="#e0533c" stroke-width="7" fill="none"/>
+      <path d="M430 120 L430 165 L330 165" stroke="#2d6fb4" stroke-width="7" fill="none"/>
+      <path d="M150 290 L150 235 L250 235" stroke="#33761f" stroke-width="7" fill="none"/>
+      <path d="M430 290 L430 235 L330 235" stroke="#8a5d00" stroke-width="7" fill="none"/>
+      <rect x="125" y="100" width="50" height="24" rx="4" fill="#fffaf0"/><text class="sm" x="132" y="117">Yard gate</text>
+    </svg></div>
+    <div class="legend">
+      <h4>How the Yard works</h4>
+      <ul>
+        <li>You lay your own pipe from your network to your Yard gate: that's your consent.</li>
+        <li><b>The Yard is not a buyer.</b> It matches residents: what one resident's buildings lack is filled from another resident's spare, at 1.75 × the hub's base price, both ways. Spare that nobody needs right now goes on down your flow order (the project, storage, the hub). The Yard never holds stock and never creates a price for goods nobody wants.</li>
+        <li>Under the hood it's the teleporter: one buyer and one seller inside each estate's own network. No network ever crosses a gate. At most 8 sockets.</li>
+        <li>Your pipe's tier is its capacity per connection, all goods together: grey 100/min, copper 500, steel 5,000. Your own pipe's loss is yours: a seller is paid for what reaches the Yard.</li>
+        <li>The ring pipe around the Yard belongs to the station: one stripe per seat in its crew's colours (Houses grey), growing lamps, arches and the Landmark with the project.</li>
+      </ul>
+    </div>
+  </div>
+  <h3>Who gets what when a good is short</h3>
+  <ul>
+    <li><b>Buyers:</b> usual buyers first (each buyer's share of this good over the last 7 days, crew or not), then crew
+    mates, then new demand in proportion to need. A usual share shrinks by at most 10% a week, so nobody's factory loses
+    its supply overnight because a neighbour built more.</li>
+    <li><b>Sellers,</b> when there is more spare than need: usual sellers first (their 7-day share), then crew mates,
+    then in proportion to spare.</li>
+    <li><b>Houses</b> in the station take part at House prices (§9) and always come after humans.</li>
+  </ul>
+  <h3>The Yard panel: your own flows, the station's totals</h3>
+  <div class="mock"><div class="grid2">
+    <div class="gpanel"><div class="plaque">Ashford NE · Yard</div>
+      <div class="row"><span class="dot" style="background:#e0533c"></span><span class="grow">You sold: 31,000 energy · to Ben, Cleo, Dev</span></div>
+      <div class="row"><span class="dot" style="background:#e0533c"></span><span class="grow">You bought: 12,400 coal · from Ben</span></div>
+      <div class="row"><span class="icon">📦</span><span class="grow">Station this week: 210k goods, 9 kinds</span></div>
+      <div class="row"><span class="icon">🏗️</span><span class="grow">Water Tower · missing: glass</span></div>
+      <div class="row"><span class="icon">📌</span><span class="grow">Plan board: Cleo makes sand · needs coal</span></div></div>
+    <div class="gpanel"><div class="plaque">Link · Ana → Dara</div>
+      <div class="row"><span class="grow">Coal · 1,200/h · 1.75 · arrives 94%</span></div>
+      <div class="row"><span class="grow">Tank at Dara's gate</span><span class="bar" style="width:90px"><span style="width:70%"></span></span></div>
+      <div class="row"><span class="pill good">Live</span><span class="grow">Dara buys 1,200 coal/h at 1.75</span></div>
+      <div class="row"><span class="pill info">Resting</span><span class="grow">Dara is resting; this link keeps delivering</span></div>
+      <div class="row"><span class="pill warn">Stand-in</span><span class="grow">Old Pete ⚙ keeps buying; terms glide from 3 Nov</span></div>
+      <div class="row"><span class="pill bad">Capped</span><span class="grow">Your pipe is full: the rest goes to the Yard and the hub</span></div></div>
+  </div></div>
+  <p class="small">Other members' flows to each other are not listed, so the panel is never a list of who didn't
+  deliver.</p>
+  <h3>Links: everyone outside your station</h3>
+  <ul>
+    <li>A link joins <b>exactly two named companies</b>, gate to gate, and is never transitive. Goods never cross a third
+    company's estate. Links are auto-routed through the corridors and drawn as bundles; nobody owns a corridor tile, so
+    nobody can block one.</li>
+    <li>You offer a link; the other side accepts with one tap (offers wait 72 h; Houses accept at once). At most 5
+    offers an hour, at most 12 links per estate.</li>
+    <li>Every link has a <b>2-hour tank</b> at the buyer's gate, a <b>1-hour notice</b> for pauses, a <b>fallback</b>
+    (the Yard, then the hub) and <b>one state line</b>, so no pipe ever ends in silence.</li>
+    <li>Loss is the pipe's: grey 0.3% a tile, copper 0.15%, steel 0.05%, so distance and better pipes matter.</li>
+    <li><b>Flow order</b> for a producer's spare: own consumers → contracts → open Asks → links → the Yard (residents) →
+    the project → storage keeps → hub. A "project first" switch per good puts the project ahead of the Yard.</li>
+    <li>A coupling is re-sent at most once a minute and only when it moves more than 1%, so rings of estates settle in a
+    few rounds instead of rippling (the lesson of the 500-round solve).</li>
+  </ul>
+</section>
+
+<section class="page">
+  <h2>8 · Prices and the money rules</h2>
+  <p class="lead">"Players pay each other one fair price; the hub always buys, less for floods; Houses help a little."
+  Prices are multiples of the hub's base price of the good.</p>
+  <svg class="diagram" viewBox="0 0 980 210" role="img" aria-label="The price ladder">
+    <style>.sm{font-family:Nunito,sans-serif;font-size:13px;fill:#2b2418}.lab{font-family:Nunito,sans-serif;font-size:13px;font-weight:800;fill:#173c3f}</style>
+    <line x1="60" y1="100" x2="940" y2="100" stroke="#94692a" stroke-width="4"/>
+    <line x1="148" y1="100" x2="412" y2="100" stroke="#24507a" stroke-width="10" stroke-linecap="round" opacity="0.35"/>
+    <g class="sm">
+      <circle cx="148" cy="100" r="7" fill="#24507a"/><text x="136" y="130">0.25</text><text x="100" y="150">hub, for big floods</text>
+      <circle cx="271" cy="100" r="7" fill="#8a5d00"/><text x="261" y="80">0.6</text><text x="238" y="60" class="lab">the Port</text>
+      <circle cx="412" cy="100" r="9" fill="#24507a"/><text x="400" y="130">1.0</text><text x="352" y="150">hub, within your</text><text x="352" y="166">Hub Order</text>
+      <circle cx="500" cy="100" r="8" fill="#7c7c7c"/><text x="478" y="80">≤ 1.25</text><text x="440" y="60" class="lab">House buys</text>
+      <circle cx="676" cy="100" r="13" fill="#236b69"/><text x="662" y="80">1.75</text><text x="560" y="60" class="lab">every price between players</text>
+      <circle cx="764" cy="100" r="8" fill="#7c7c7c"/><text x="752" y="130">2.0</text><text x="720" y="150">House sells</text>
+      <circle cx="940" cy="100" r="9" fill="#24507a"/><text x="925" y="130">2.5</text><text x="880" y="150">hub sells</text>
+    </g>
+  </svg>
+  <table>
+    <tr><th>Rule</th><th>Value</th><th>Why</th></tr>
+    <tr><td><b>One player price</b></td><td>1.75 × base, both ways: the Yard, links, contracts and the Exchange</td><td>Friends never haggle; they decide who makes what. Strangers can't be fleeced, newcomers can't be lowballed, and no price funnels gold to an alt.</td></tr>
+    <tr><td><b>The Hub Order</b></td><td>Today's price curve, made personal: per company and per hub, the hub pays base × clamp(√(D ÷ your sold rate), 0.25, 1.0), where D is the hub's demand per company for that good (× 1.5 per Era after the first, × quiet grace) and your sold rate is your own one-hour average. The bar shows D: up to it you get the full price, beyond it every extra unit earns less.</td><td>Nobody's sales move anybody else's price, so nobody can crash a newcomer's market. The balance runs are single-company, so they already play this curve: the level pacing stays as tuned. A second hub pays √2 on a split volume good, which makes trunks worth it (§13).</td></tr>
+    <tr><td>Quiet grace</td><td>D ×2 while the server has fewer than 50 active companies, ×4 below 10. Never per district.</td><td>A push towards others vanishes when there are none, and nobody is paid for settling away from people.</td></tr>
+    <tr><td>The Port</td><td>0.6 × base for any tier-2+ good, no limit, reached only by pipe</td><td>The valve for very big producers: it beats the hub only once you sell about 2.8× your Hub Order there.</td></tr>
+    <tr><td>Houses</td><td>Buy at 1.25 × the price the hub pays you for that good right now (never above 1.25 × base); sell at 2.0 × base</td><td>Always a little better than the hub, always worse than a friend. New gold from Houses is at most 0.25 × 25% ≈ 6% of what the hub pays you.</td></tr>
+    <tr><td>Gold between players</td><td>Never directly; only as the price of goods really made</td><td>An alt is worth at most one partner's Yard trade.</td></tr>
+    <tr><td>Corporation donations</td><td>At most 1 h of T(L) at the donor's level a day; they go to the corporation, never to a player</td><td>The economy exam found ~69% of an alt's gold could move through today's Exchange band and donations.</td></tr>
+    <tr><td>Housewarming</td><td>One crate per crew mate, at most 1 h of the giver's own production, only to a player below Level 10 in their first 48 h</td><td>A warm welcome without a funnel.</td></tr>
+    <tr><td>Contracts</td><td>Promise only what you make (done). A seller who hasn't played for 72 h before a shortfall is absent: the contract pauses (the buyer's tank and fallback cover it) and is never charged. No shortfall clauses below Level 6</td><td>A holiday never costs money, logging out never beats delivering, and a newcomer can't be trapped.</td></tr>
+  </table>
+  <p><b>Solo parity:</b> a solo player sells to Houses at 1.25 × their own hub price and buys from them at 2.0; a crewed
+  player sells to friends at 1.75 and buys at 1.75, as much as the friends' buildings draw. The target is a gap of
+  <b>10–15%</b>: worth inviting a friend, never worth quitting over. The balance runs measure it when Houses ship
+  (step 4), and the Houses' volume is tuned to hit it.</p>
+</section>
+
+<section class="page">
+  <h2>9 · Houses and stand-ins: the NPC companies</h2>
+  <p>Today's tenants become <b>Houses</b>: named NPC companies with a portrait and a <b>⚙ badge</b>, their card saying
+  "House (NPC)". One system fills every gap: empty seats, seats held for friends, and the trades of people who sleep.</p>
+  <table>
+    <tr><th>Rule</th><th>Value</th></tr>
+    <tr><td>Kinds</td><td>Reliable, Grower, Collector, Neighbour in need. No "Rival": contact is positive only.</td></tr>
+    <tr><td>Strength</td><td>Building levels = the median level of the station's active humans − 3 (at least 5). Tier 1–3 goods (tier 3 only from Era 2), never 4–5.</td></tr>
+    <tr><td>Prices</td><td>Buy at 1.25 × the price the hub pays you (never above 1.25 × base), sell at 2.0 × base.</td></tr>
+    <tr><td><b>One total cap</b></td><td>Houses buy only what their works use. All NPCs together (Houses, stand-ins, Ask fills) buy at most <b>25% of a company's output</b> of a good and sell at most 25% of its need. When the cap is full, an expired Ask is filled by the hub at 2.5 and still closes.</td></tr>
+    <tr><td>Honesty</td><td>Never on a leaderboard, never more than 25% of any shared goal, at most one letter a day. They always send a returner one welcome postcard.</td></tr>
+    <tr><td>Warming a seat</td><td>When a human arrives, the House leaves a starter kit (3–5 buildings at level ≤ 5) and hands over its links, then moves out with a note.</td></tr>
+  </table>
+  <h3>When someone sleeps: the stand-in</h3>
+  <p>From day 30 an asleep estate produces and earns nothing (as on the Quiet Isles today), whether it is held in place or
+  packed. Its trades (links, contracts and its Yard flows) pass that minute to a <b>stand-in House</b>, announced to
+  every partner on day 23, so there is no day on which they stop. The gold of a stand-in's trades is NPC gold: it is
+  removed from the game, never the owner's. The rules are split by direction, so the friend who stays isn't hurt and an
+  alt can't farm it:</p>
+  <ul>
+    <li><b>When the partner buys from the stand-in:</b> 100% of the sleeper's 14-day median, at the old price, for 14
+    days; then the volume falls 10% a week while the price stays. The partner pays what it paid before; this side makes
+    no gold (it's a sink), so it sits outside the 25% cap.</li>
+    <li><b>When the partner sells to the stand-in:</b> the old price for 7 days if the sleeper is a crew member with 5+
+    distinct days of play on a different device; then, for everyone, the price glides over 14 days to House terms, and
+    the volume above the 25% cap moves to the Yard and the hub over the same 14 days. Never more than 5% of the partner's
+    income in one day.</li>
+  </ul>
+  <div class="callout"><strong>The fake-quitter farm, closed</strong>An alt that builds demand for a week and then
+  "quits" used to mint 15–25 million gold (up to 4.5 days of its owner's income, by the economy exam). Now the alt has to
+  buy at 1.75 with its own gold first, the stand-in buys inside one 25% cap that doesn't stack with more alts, and the
+  old price lasts 7 days: at most about 1¾ days of income per 44-day cycle (5 days played, 30 away, the handover) per
+  verified account. The friend who stays keeps over 90% of their income through a handover.</div>
+</section>
+
+<section class="page">
+  <h2>10 · Absence, sleep and the way back</h2>
+  <svg class="diagram" viewBox="0 0 980 165" role="img" aria-label="The absence timeline">
+    <style>.sm{font-family:Nunito,sans-serif;font-size:12px;fill:#2b2418}.lab{font-family:Nunito,sans-serif;font-size:13px;font-weight:800;fill:#173c3f}</style>
+    <rect x="40" y="60" width="30" height="40" fill="#8fbf7a"/><rect x="70" y="60" width="110" height="40" fill="#cfe3b9"/>
+    <rect x="180" y="60" width="160" height="40" fill="#f0d79a"/><rect x="340" y="60" width="600" height="40" fill="#dde9f3"/>
+    <text class="lab" x="44" y="50">play</text><text class="lab" x="80" y="50">resting · 100%</text>
+    <text class="lab" x="186" y="50">caretaker · 10% fee</text><text class="lab" x="350" y="50">asleep: a stand-in runs the trades · a crew member's seat is held to day 90</text>
+    <g class="sm">
+      <line x1="40" y1="100" x2="40" y2="118" stroke="#2b2418"/><text x="36" y="132">0</text>
+      <line x1="70" y1="100" x2="70" y2="118" stroke="#2b2418"/><text x="66" y="132">3</text>
+      <line x1="180" y1="100" x2="180" y2="118" stroke="#2b2418"/><text x="172" y="132">14</text>
+      <line x1="270" y1="100" x2="270" y2="118" stroke="#2b2418"/><text x="262" y="132">23</text><text x="214" y="150">partners get 7 days' notice</text>
+      <line x1="340" y1="100" x2="340" y2="118" stroke="#2b2418"/><text x="332" y="132">30</text>
+      <line x1="870" y1="100" x2="870" y2="118" stroke="#2b2418"/><text x="862" y="132">83</text><text x="760" y="150">card: keep the seat?</text>
+      <line x1="940" y1="100" x2="940" y2="118" stroke="#2b2418"/><text x="925" y="132">90</text>
+    </g>
+  </svg>
+  <table>
+    <tr><th>Days away</th><th>The estate</th><th>The crew sees</th><th>Partners read</th></tr>
+    <tr><td>0–3</td><td>runs</td><td>nothing</td><td>Live</td></tr>
+    <tr><td>3–14 · resting</td><td>runs at 100% and earns in full</td><td>a sleeping cat on the HQ steps</td><td>"Ben is resting; Ben's coal keeps coming"</td></tr>
+    <tr><td>14–30 · dormant</td><td>the caretaker (exists) runs it for a 10% fee, renews contracts; never builds, spends or demolishes</td><td>ivy; you can tend it</td><td>"Ben's caretaker keeps this link"</td></tr>
+    <tr><td>30+ · asleep, crew member</td><td>stays in place, produces and earns nothing; the stand-in runs its trades (§9); the seat is held to day 90</td><td>a balloon on the Yard fence</td><td>Stand-in, then House terms</td></tr>
+    <tr><td>30+ · asleep, no crew</td><td>packed to the Quiet Isles; the stand-in runs its trades; the seat is reserved to day 37</td><td>—</td><td>Stand-in, then House terms</td></tr>
+  </table>
+  <ul>
+    <li><b>Holds end by themselves.</b> Nobody can release a hold, so there is no button that sends a friend away. Seven
+    days before a hold ends, every active crew member gets one card: "Keep Ben's seat 60 more days?" (the first answer
+    counts, once). Without an answer it ends: the estate travels safely to the Quiet Isles and a House warms the seat.
+    All holds lapse when no crew member has been active for 14 days.</li>
+    <li><b>Seats of players without a crew</b> are reserved to day 37. After that a House warms them, and placement gives
+    such a seat to a newcomer only when it is the last free seat in its station, so the lonely don't lose their one
+    neighbour first.</li>
+    <li><b>Absence costs nobody else.</b> A basket is sized when its stage starts and counts only delivering residents,
+    so a friend who stops makes the next basket smaller even while their estate keeps trading. Nothing anyone sets (not
+    even a Block) changes a basket.</li>
+    <li><b>The code fixes come first:</b> <code>Sleep()</code> hands trades to the stand-in instead of ending them,
+    <code>WakeUp()</code> shows landing cards instead of the first free seat, and the quiet-district check counts active
+    seats, not players.</li>
+    <li><b>A message budget:</b> the in-game morning report and at most one e-mail a day in a window the player picks (no
+    web push in this version); to an absent player at most 3 messages in all, each with something good, never a
+    countdown.</li>
+  </ul>
+  <h3>The way back: three screens, one minute</h3>
+  <div class="mock"><div class="grid3">
+    <div class="gpanel"><h5>While you were away</h5>
+      <div class="row"><span class="icon">🪙</span><span class="grow">Your estate earned 79M (the caretaker took 10% from day 14)</span></div>
+      <div class="row"><span class="icon">💛</span><span class="grow">Your crew tended your estate on 17 days</span></div>
+      <div class="row"><span class="icon">🏗️</span><span class="grow">Your station finished the Workshop</span></div>
+      <div class="row"><span class="icon">🖼️</span><span class="grow">Five pictures of your estate</span></div></div>
+    <div class="gpanel"><h5>Your estate is safe</h5>
+      <div class="row"><span class="icon">🏡</span><span class="grow">Where you left it; your seat was held</span></div>
+      <div class="row"><span class="icon">🔗</span><span class="grow">Your links are back on their old terms: Ana reads "Ben is back"</span></div>
+      <div class="row"><span class="icon">🎁</span><span class="grow">Era jump kit: the chains you missed</span></div></div>
+    <div class="gpanel"><h5>Where do you land?</h5>
+      <div class="row"><span class="gbtn">Your seat · 0 crates</span></div>
+      <div class="row"><span class="gbtn ghost">Next to your crew · 3 crates</span></div>
+      <div class="row"><span class="gbtn ghost">A lively station · 3 crates</span></div>
+      <div class="row"><span class="gbtn ghost">The Frontier · 3 crates</span></div></div>
+  </div></div>
+  <p>Your seat is preselected when it was held or is still free. Every link a stand-in took over comes back to you on its
+  old terms the moment you land; nothing to accept. Then the Era jump kit, a "Back!" ribbon for 7 days, a welcome
+  postcard from the station's Houses, and <b>Tailwind</b>: XP × min(2.5, 1 + (the active median level of your crew, else
+  your station, else your district − your level) ÷ 10), while you are more than 5 levels below that median. The same
+  rule helps late friends and newcomers, in every chapter.</p>
+</section>
+
+<section class="page">
+  <h2>11 · Newcomers, lonely players and small servers</h2>
+  <h3>The newcomer in week 3</h3>
+  <ul>
+    <li>"Find me neighbours" seats the newcomer next to active humans, or in the <b>Frontier</b>: the newest open
+    district, offered only when it has at least 3 active seats of players who started in the last 14 days (it never opens
+    a district by itself).</li>
+    <li>Everything the veterans' buildings lack sells at 1.75 from minute 12; there is no other price, so nobody can
+    lowball a newcomer. Credit in the project is a share of your <b>own</b> output, so 20% of a Level-6 output counts as
+    much as 20% of a Level-30 one.</li>
+    <li>The personal Hub Order means no veteran's flood lowers the newcomer's hub price.</li>
+    <li>Tailwind ×2.5 in week 3, an Era jump kit, and a league of 25 at the newcomer's own stage, which a newcomer can win.</li>
+  </ul>
+  <h3>The lonely player, at 3 a.m. on a quiet server</h3>
+  <ul>
+    <li>Placement seats Mia next to an active human, Jo (never an all-NPC station while a human has a free seat). Mia's
+    sand sells to Jo's Glassworks through the Yard in minute 12, while Jo sleeps.</li>
+    <li>Houses fill the other seats, clearly labelled, at prices worse than a friend's: Mia gets a full game, 85–90% of a
+    crewed player's income, and no pretence. Mia's project basket is sized for Mia alone, and Houses deliver up to a
+    quarter of it.</li>
+    <li>On a server of 5: quiet grace ×4, public copper trunks to the next hubs and the Port, and the district map shows
+    who was here today, never how few are online now.</li>
+    <li>On a server shrinking from 200 to 20: placement fills the liveliest districts, the lone-human and consolidation
+    cards bring people together, crews move as a block, empty districts freeze.</li>
+  </ul>
+  <h3>Small mode: the testers' server</h3>
+  <p>Below 50 active companies: new players fill one district first; leagues and Discovery brackets are off; Houses fill
+  every empty seat; quiet grace ×2 (×4 below 10). The measures of §21 are read from talking to every tester, not from
+  percentages.</p>
+  <h3>Visible life without being online together</h3>
+  <p>Lit windows on estates played in the last day, pellets in their sellers' colours in the Yard, the notice board's
+  daily line, postcards, and "usually here: evenings" on banners. Contact is cheap and positive: tend a friend's estate,
+  ask for a good, pin what you make on the Plan board.</p>
+</section>
+
+<section class="page">
+  <h2>12 · Doing things together: the project, asks and tending</h2>
+  <h3>The station's project</h3>
+  <p>Each station builds one project over the chapter: <b>Foundation</b> → <b>Water Tower</b> → <b>Workshop</b> →
+  <b>Foundry Hall</b> → <b>Landmark</b>. The project is a buyer in the Yard: it takes what its basket lacks from the
+  residents' spare and pays the hub's full price (1.0 × base), so delivering never loses money and needs no button.</p>
+  <table>
+    <tr><th>Rule</th><th>Value</th><th>Why</th></tr>
+    <tr><td>Foundation</td><td>A fixed basket: 15 minutes of a Level-3 player's output of energy and iron ore, whatever the number of residents</td><td>The first shared moment fits one evening, alone or together.</td></tr>
+    <tr><td>Recipes</td><td>Every later stage asks for three goods: two from the station's home goods and at least one that no seat has as a home good (the <b>keystone</b>, +20% credit)</td><td>The station's shared decision of the week: "Wanted by the Water Tower: glass. Nobody here makes it yet."</td></tr>
+    <tr><td>Basket size</td><td>The sum over delivering residents (§3) of 6 h × T(their level), at least one; Houses, stand-ins and same-device accounts never count. Houses deliver on their own, at most 25%</td><td>A friend who stops, an idle alt or a House never makes the basket bigger; a solo player's basket is sized for one.</td></tr>
+    <tr><td>Credit</td><td>Your share of your own output delivered, at most 2 h of your output a day, bankable for 3 days</td><td>A small or busy player matters as much; a whale can't carry it; missing a day costs nothing.</td></tr>
+    <tr><td>Bonuses</td><td>For every seat in the station, delivered or not: Foundation +3% production, Water Tower +3%, Workshop +4%, Foundry Hall +10% on the station's two most-traded chains</td><td>No head count, no list of who didn't deliver: a ring of colours shows who helped.</td></tr>
+    <tr><td>Foundry Hall</td><td>Opens on day 14, sized so that 2 delivering residents finish it by day 18–19</td><td>Growth in week 3 (§13).</td></tr>
+    <tr><td>Landmark</td><td>A sustained flow worth half the summed T(L) of the delivering residents for 6 hours; it starts by itself when the project's tank holds an hour, and pauses, never fails</td><td>The big moment without an appointment. It belongs to the station and stays when people move; every resident who delivered to it gets its heirloom.</td></tr>
+  </table>
+  <h3>Asks, the Plan board and tending</h3>
+  <ul>
+    <li><b>Ask for…</b> a good, for 12–72 h (72 by default). Crew mates and neighbours fill it whenever they play; at the
+    deadline a House fills what's left at 2.0 (the hub at 2.5 when the NPC cap is full), so an Ask always closes. An Ask
+    can renew itself ("Cleo's Glassworks always gets my spare sand first").</li>
+    <li><b>The Plan board</b> on the Yard fence: each resident pins "I make X" and "I need Y" with one tap per good. Pins
+    show on the station's card in the picker, so the next player can see what the station is missing.</li>
+    <li><b>Tending:</b> once a day, a one-tap favour on a friend's estate; it banks for 3 days and shows when they come
+    back ("your crew tended your estate on 17 days", never who). It carries no stat bonus, so it can't be farmed.</li>
+  </ul>
+</section>
+
+<section class="page">
+  <h2>13 · The long game and the next chapter</h2>
+  <p>The balance runs show income flat from day 14 to 21 (+2%). The long game makes growth come from crossing borders:
+  logistics, the game's heart. Recomputed by the economy reviewer, the pieces below give a crew about +15–25% from day 14
+  to 21, and a solo player on public trunks +10–20%.</p>
+  <table>
+    <tr><th>When</th><th>What</th></tr>
+    <tr><td>Week 2</td><td>Era recipes re-wire the Yard; the personal Hub Order makes one-product estates look outward.</td></tr>
+    <tr><td>Week 3</td><td><b>Crew trunks</b> to a second hub (its own Hub Order: a split volume good earns about +39%), the Port and outposts, whose ore feeds the Yard. The <b>Foundry Hall</b> (+10% on two chains) lands by day 18–19. <b>Discoveries</b> every 4 days, announced 24 h ahead and lasting at least 7 days.</td></tr>
+    <tr><td>Week 4</td><td>The Landmark; the District Wonder and the Era Wonder, fed by trunks, with stages sized like the project's baskets, so a district of one human still finishes its stage. Era Wonder tiers by the share of your own Era output delivered: Bronze 1%, Silver 3%, Gold 7%, Diamond 15%.</td></tr>
+    <tr><td>Competition</td><td>Leagues of about 25 companies at a similar stage, regrouped weekly with no demotion (off in small mode). Every station that pipes to a Discovery within 72 h gets its marker; the three that deliver most in those 72 hours, per stage bracket, are named on it, so being online when it is announced decides nothing.</td></tr>
+  </table>
+  <h3>Trunk lines</h3>
+  <ul>
+    <li>A <b>crew trunk</b> is a steel pipe along the public corridor to another hub, the Port or an outpost, built in
+    10-tile segments: any member pays a segment (2 h of T(L) at their level, plus 300 steel and 100 concrete), shown in
+    their colour. Pump houses every 25 tiles are part of it.</li>
+    <li>It carries the crew members' own goods and their links. No tolls, no rented lanes, no upkeep. Like links, trunks
+    are bundles: no corridor tile is ever owned, and a parallel trunk is always possible.</li>
+    <li><b>Public copper trunks</b> join every hub to its neighbours and the Port, for everyone, at a 2% fee that is
+    removed from the game, so a solo player always reaches far markets. When every member of a crew is asleep, its trunk
+    becomes public.</li>
+  </ul>
+  <h3>The next chapter</h3>
+  <p>Everything persists: crews, estates, stations, trunks, held seats, Legacy. The Landmark becomes an heirloom; the
+  project restarts with a new recipe; leagues and Discoveries start again; a Homecoming week, a fresh Frontier, and an
+  opt-in move for a whole crew.</p>
+</section>
+
+<section class="page">
+  <h2>14 · The start area (your question)</h2>
+  <p class="lead">"Multiple patches in the starting area: isn't it a little too small then?" We measured it on 24
+  generated estates after the surveyors.</p>
+  <table>
+    <tr><th>The 4 start parcels (16×16 = 256 tiles)</th><th>Tiles</th></tr>
+    <tr><td>Free open land</td><td><b>225</b> on average (214–230)</td></tr>
+    <tr><td>Deposits (iron 3×3 + the 2×2 copper, coal and stone patches)</td><td>about 20 (8%)</td></tr>
+    <tr><td>Water (a pond)</td><td>about 5</td></tr>
+    <tr><td>HQ and trading post</td><td>5</td></tr>
+  </table>
+  <p>So in tiles it isn't too small: the patches use 8% of the start land, and the first-day simulation builds about 10
+  buildings there. But the instinct behind the question is right: <b>when everything is already in the first 16×16,
+  there's no reason to look beyond it</b>, and estates all look alike, which makes trading with neighbours pointless.</p>
+  <div class="callout decision"><strong>Decision</strong>Keep the 32×32 estate and the 16×16 start area with the
+  surveyors' small ★2 patches, so the first hour works alone and nobody depends on a friend for their first Smelter.
+  For <b>new estates</b>, the seat's two rich <b>home goods</b> (★5 and ★4, for example copper ★5 and coal ★4 at Copper
+  Gulch) lie in the <b>first two parcels you can buy</b> (Level 5 and 7), visible from minute one behind the fence. That
+  gives the first two purchases a purpose, makes estates differ (so the Yard has something to trade and the project's
+  recipes something to ask for), and lets a role appear once players understand chains. Existing estates keep their
+  land; their specialties count as home goods.
+  <br><i>Change it if:</i> the median time to the first parcel exceeds a day, or <code>TheFirstDay</code> reaches Level 10
+  later than day 2.</div>
+</section>
+
+<section class="page">
+  <h2>15 · Performance</h2>
+  <ul>
+    <li><b>No network crosses a gate.</b> Every estate solves on its own; the district mega-network (68 buildings and
+    1,050 pipe tiles in one tester's game, 380 ms a solve) can't come back.</li>
+    <li>The Yard pool, links and trunks are teleporter-style terms filled from the last solve: the cost grows with
+    estates + links + pool members, not with the district.</li>
+    <li>Couplings are damped (re-sent at most once a minute, only above 1% change), so a ring of estates settles in at
+    most 5 rounds.</li>
+    <li>Asleep estates are not simulated; stand-ins and Houses are supply tables updated every 15 minutes. Districts
+    with no lit seat freeze.</li>
+    <li>Wonders, leagues and the notice board are ledgers.</li>
+    <li>Caps: 8 Yard sockets, 12 links per estate.</li>
+  </ul>
+  <p><i>Change it if:</i> a Yard solve exceeds 5 ms at 8 members, or a re-solve exceeds 20 ms on the biggest tester
+  estate (then cap links at 8).</p>
+</section>
+
+<section class="page">
+  <h2>16 · The twelve decisions</h2>
+  <table>
+    <tr><th>#</th><th>Question</th><th>Decision</th><th>What would change it</th></tr>
+    <tr><td>1</td><td>Do strangers share the Yard?</td><td><b>Yes</b>, by laying their own pipe; usual buyers first in a shortage; a private Block. Closed by default where one crew lives in or holds 3+ seats.</td><td>If mixed-station players can't name their buyers, or fewer than half the strangers keep their Yard pipe a week: strangers pair by mutual handshake on the same engine.</td></tr>
+    <tr><td>2</td><td>Group size</td><td>Stations of 4, small stations of 2, crews of 1–8 (a station and its small stations as one big station, with lossless crew pipes); corporations beyond.</td><td>More than 20% of crews at 5+: new districts get 6-seat stations.</td></tr>
+    <tr><td>3</td><td>What is shared?</td><td>The Yard pool (a matcher between residents, never a buyer, at most 8) and the project. Never a merged network.</td><td>Testers say goods "disappear into the Yard": the Yard panel shows explicit pairs.</td></tr>
+    <tr><td>4</td><td>Direct trade or transit?</td><td>Direct between two named companies, never across a third estate; crew trunks carry only the crew's own goods and links; public copper trunks for everyone at a 2% fee.</td><td>Fewer than 1 trunk per 3 active crews by week 4: segments cheaper, outposts earlier.</td></tr>
+    <tr><td>5</td><td>Prices</td><td>One player price, 1.75; the personal √ Hub Order; Houses 1.25 × your hub price / 2.0; the Port 0.6; goods only, never gold.</td><td>Solo vs crewed gap outside 10–15%: tune the Houses' volume.</td></tr>
+    <tr><td>6</td><td>NPCs</td><td>Houses with a ⚙ badge, one total 25% cap, stand-ins split by direction, the old price 7 days for crew members with 5+ days.</td><td>New gold from NPCs above 6% of all faucets, or a friend who stays below 90% of their income 30 days after a handover.</td></tr>
+    <tr><td>7</td><td>Absence</td><td>3 / 14 / 23 / 30 days; a crew member's seat held to day 90, one "keep 60 more days?" card, no release; no-crew seats reserved to day 37; all holds lapse after 14 days with nobody active.</td><td>Held seats above 25% of seats in stations with an active human: holds to day 60.</td></tr>
+    <tr><td>8</td><td>Choosing a position</td><td>The picker with "Find me neighbours" as default, seat codes with your own seat choice, weekly moves, the lone-human and consolidation cards.</td><td>More than 30% of newcomers move within 3 days (cards don't tell enough), or more than 30% of solos pick "a station of my own".</td></tr>
+    <tr><td>9</td><td>The testers' world</td><td>Migrates in place, no wipe, nobody moves (§18).</td><td>More than 5% of testers have buildings on the Yard corners: Yards only in new districts.</td></tr>
+    <tr><td>10</td><td>The start area</td><td>Keep 16×16 and the starter patches; home goods in parcels 5 and 7 for new estates (§14).</td><td>First parcel later than a day, or Level 10 later than day 2.</td></tr>
+    <tr><td>11</td><td>The late game</td><td>The project's stages with the Foundry Hall in week 3, crew trunks to second hubs, Discoveries, leagues, Wonders sized like baskets; everything persists into the next chapter.</td><td>Crewed income grows less than 15% from day 14 to 21: outposts and trunks earlier.</td></tr>
+    <tr><td>12</td><td>Performance</td><td>Estates solve alone; damped teleporter terms; asleep estates not simulated; frozen districts (§15).</td><td>A Yard solve above 5 ms at 8 members.</td></tr>
+  </table>
+</section>
+
+<section class="page">
+  <h2>17 · The hard cases, played through</h2>
+  <table>
+    <tr><th>Case</th><th>How it goes</th></tr>
+    <tr><td><b>a.</b> Three friends tonight; Dev on day 8; Ben quits on day 3 and comes back on day 36</td><td>By minute 3 they live together, each on a chosen seat, Dev's seat held by a code and warmed by a House. Minute 12 the Foundation buys and the Handshakes play; minute 20 the Foundation is done and the crew decides who builds glass. Ben's last session is day 3: Ben's estate keeps delivering at 100% (resting), and from the next stage the baskets no longer count Ben. Ana tends the estate. Dev arrives on day 8 with a seat code nobody had to answer, gets the House's starter kit and links, and brings the copper the crew lacked, with Tailwind. On day 33 (30 days after Ben's last session) the estate sleeps in place and a stand-in keeps its trades at the old prices; on day 36 Ben lands back in the held seat in a minute, the links come back by themselves: "your crew tended your estate on 17 days".</td></tr>
+    <tr><td><b>b.</b> Solo on a server of 5; a server shrinking from 200 to 20</td><td>Small mode. Placement seats Mia beside Jo; Mia's sand sells to Jo's Glassworks in minute 12 while Jo sleeps. Houses fill the rest, quiet grace ×4, the basket is sized for Mia alone, public trunks reach the Port: 85–90% of a crewed income. From 200 to 20: placement into the liveliest districts, the lone-human and consolidation cards, crews moving as a block, frozen districts.</td></tr>
+    <tr><td><b>c.</b> A newcomer in week 3</td><td>A station with active humans, or the Frontier when it has 3+ new players; 1.75 for everything the veterans' buildings lack; nobody's flood lowers the newcomer's hub price; Tailwind ×2.5; credit by own share; a league of the newcomer's stage.</td></tr>
+    <tr><td><b>d.</b> A griefer with two alts</td><td>Nothing can be owned, blocked or wrecked (corridors, seats, the Yard). One player price, so no price funnel; no gold gifts; donations capped; a fake quit pays at most 1¾ days per 44-day cycle inside one cap; unverified accounts don't size a project; probation packs a squatter in a crew's station; offers are capped at 5 an hour; anyone can Block the griefer or move away for free.</td></tr>
+    <tr><td><b>e.</b> Two friends fall out on day 10</td><td>Leave in one tap, Block in private, the Yard stops trading between them after an hour's notice, a free move. No vote, no announcement.</td></tr>
+    <tr><td><b>f.</b> A group of 7</td><td>"Start with friends" picks a station and both its small stations in a district with room (or opens one): one big station, one Yard pool, one project, one seat held for the 8th.</td></tr>
+    <tr><td><b>g.</b> Week 4 and the next chapter</td><td>The Landmark, crew trunks, Discoveries and the Wonders; everything persists, the Landmark becomes an heirloom, the project restarts with a new recipe.</td></tr>
+    <tr><td><b>h.</b> The testers' world</td><td>§18.</td></tr>
+  </table>
+</section>
+
+<section class="page">
+  <h2>18 · Migrating the testers' world</h2>
+  <p>No wipe and nobody moves. Dry-run on a copy of the database first, with a snapshot to roll back to. Each item runs in
+  the build step named after it (§19).</p>
+  <ol>
+    <li><b>Stop the dead pipe</b> (step 1): <code>Sleep()</code> keeps trades running under today's caretaker (and from
+    step 4 hands them to a stand-in); <code>WakeUp()</code> shows the landing cards; the quiet-district check counts
+    active seats.</li>
+    <li><b>Links first</b> (step 2): every human pair with flow in the last 7 days gets a link between their nearest
+    gates; then other corridor pipe chains between two gates become links, and the rest are refunded. Networks stop at
+    gates. Contracts are re-priced to 1.75; toll meters are removed with a refund; teleporter pairs become links.</li>
+    <li><b>The Hub Order</b> (step 2) replaces the global price reaction, with a balance run first.</li>
+    <li><b>Stations and small stations</b> (step 3) are drawn over the existing districts. Yards take only the 4×4 corner
+    of each corner parcel (16 of its 64 tiles, unlocked at Levels 35–50): anything found there goes into a crate, the 16
+    tiles are refunded at the parcel's price per tile, and the rest stays the owner's. We expect zero or one tester.</li>
+    <li><b>Each estate gets its Yard gate</b> (step 3), and Loady shows one card: "Your Yard is ready. Connect?"</li>
+    <li><b>Tenants become Houses</b> (step 4) and keep their trades on House terms.</li>
+    <li><b>No automatic crews</b> (step 1): one card each, "You traded most with X and Y last week: found a crew?"
+    Corporations stay as they are; a franchise keeps its own seat.</li>
+    <li><b>An income guarantee</b> after each step that changes trade: anyone whose income over the next 7 days is under
+    95% of their 7-day average before it has the difference paid for those 7 days.</li>
+    <li><b>One "what changed" screen</b> per step and a free move for anyone who prefers elsewhere.</li>
+  </ol>
+</section>
+
+<section class="page">
+  <h2>19 · Build plan</h2>
+  <p>Friends first, each step deployable and playable on its own, each ending with an e2e script that plays §5 with four
+  browsers and a balance run. The final review doubled the first estimate: it had no art and left out guest accounts,
+  link routing and the accounting.</p>
+  <table>
+    <tr><th>Step</th><th>What ships</th><th>Builds on</th><th>Days</th></tr>
+    <tr class="hl"><td>1</td><td><b>Friends tonight:</b> crews from Level 1, Start with friends, seat codes with your own seat choice, guest move-in (in-app browsers, one guest per device a day), held seats warmed by today's tenants, a crew placed into one corner 2×2 group of today's map (the future station), "Dev moved in next door", the picker (people and land), names filter and report; the <code>Sleep()</code> / <code>WakeUp()</code> / quiet-district fixes</td><td>Corporations, relocation, Quiet Isles, tenants</td><td>5</td></tr>
+    <tr><td>2</td><td><b>Links and the bank:</b> networks stop at gates, auto-routed corridor bundles, offers, the one player price, tanks, notice, fallback, state lines, damping, the link migration; the personal Hub Order with quiet grace and the T(L) table; the Port at 0.6</td><td>Teleporters, trade settings, hub market</td><td>6</td></tr>
+    <tr><td>3</td><td><b>Stations, the Yard and the Foundation:</b> geometry, the Yard footprint, gates and gate strips, the matching pool with the shortage order, the Yard panel, the Handshake, the ring pipe, the Foundation's fixed basket and bonus, the corner migration. <b>Art:</b> Yard ground, sockets, notice board, ring pipe, Foundation, through <code>process.mjs</code> and <code>fit.mjs</code></td><td>District layout, crates</td><td>7</td></tr>
+    <tr><td>4</td><td><b>Houses and stand-ins:</b> kinds, prices, the one total cap with its accounting, starter kits, stand-ins split by direction, placement, frozen districts, small mode; the solo-parity balance run</td><td>Tenants</td><td>4</td></tr>
+    <tr><td>5</td><td><b>Absence and return:</b> holds that end by themselves with the one card, crew moves and consolidation, tending, the message budget (e-mail), the three return screens (five stills from daily snapshots), landing cards with crate counts, Tailwind, narrow probation</td><td>Caretaker, offline report</td><td>5</td></tr>
+    <tr><td>6</td><td><b>The project and Asks:</b> stages with recipes and the keystone, baskets and credit, the project as a Yard buyer, the bonuses, the Landmark, the Plan board, Asks with the House and hub fill, the ring pipe's lamps and arches. <b>Art:</b> four more stages</td><td>Wonder code</td><td>5</td></tr>
+    <tr><td>7</td><td><b>Contracts and the Exchange:</b> the one price there, the absent-seller pause, donation caps, housewarming</td><td>Contracts, Exchange</td><td>2</td></tr>
+    <tr><td>8</td><td><b>The long game:</b> crew trunks by segments, public trunks, outposts feeding the Yard, Discoveries with markers, leagues by stage, Wonders sized like baskets, Era Wonder tiers</td><td>Outposts, leaderboards</td><td>7</td></tr>
+  </table>
+  <p><b>About 41 days.</b> After step 1 (5 days) three friends live together on today's map; after step 3 their first
+  evening of §5 works completely; after step 4 the lonely player is never alone.</p>
+  <p><b>Cut from this version</b> (back in if testers ask): the Station Cup, Supplier of the week, the Crew Lens, Hosts,
+  Friend and Premium prices, trunk tolls and rented lanes, web push, a timelapse video, standing orders (an Ask renews
+  itself instead) and a separate "not with" switch (Block does it).</p>
+</section>
+
+<section class="page">
+  <h2>20 · What must never happen</h2>
+  <div class="grid2">
+    <ul>
+      <li>A pipe that carries nothing and says nothing.</li>
+      <li>A reward that needs two players online, or counts how many humans showed up.</li>
+      <li>Anyone gaining from someone else's absence.</li>
+      <li>A vote, a kick, a release, or a list of who didn't deliver.</li>
+      <li>A leaver blocking a seat, a corridor or a friend for longer than the rules say.</li>
+    </ul>
+    <ul>
+      <li>An NPC pretending to be a person, or on a leaderboard.</li>
+      <li>Gold moving between players other than as the price of goods really made.</li>
+      <li>A newcomer as prey: lowballed, trapped in a contract, outcompeted in a league.</li>
+      <li>A return that starts with a mess, a scolding or a debt.</li>
+      <li>Pressure in notifications; more than one message a day.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="page">
+  <h2>21 · What we'll measure, and what would change the design</h2>
+  <p>In the first test week after each step (in small mode, by talking to every tester):</p>
+  <table>
+    <tr><th>Measure</th><th>Target</th><th>If not</th></tr>
+    <tr><td>Invite to playing next to your friend</td><td>≤ 60 s, ≤ 3 taps</td><td>Simplify the move-in further</td></tr>
+    <tr><td>Active players living with another active human on day 14</td><td>≥ 60%</td><td>Earlier lone-human and consolidation cards</td></tr>
+    <tr><td>Solo income vs crewed</td><td>85–90%</td><td>Tune the Houses' volume</td></tr>
+    <tr><td>Share of output traded between humans</td><td>15–30%</td><td>Tune the player price or the Hub Order</td></tr>
+    <tr><td>Players who can name who buys their goods</td><td>≥ 3 of every 4 asked</td><td>Show the Yard as explicit pairs</td></tr>
+    <tr><td>Crews that made a recipe's keystone themselves</td><td>≥ half</td><td>Clearer "Wanted" cards</td></tr>
+    <tr><td>Crewed income growth day 14 → 21</td><td>≥ 15%</td><td>Outposts and trunks earlier, Discoveries more often</td></tr>
+    <tr><td>Level 30 (typical)</td><td>week 3–4</td><td>Re-tune T(L) and the Hub Order's D</td></tr>
+    <tr><td>New gold from NPCs</td><td>≤ 6% of all faucets</td><td>Houses buy at 1.15 × your hub price</td></tr>
+    <tr><td>Income of the friend who stays, 30 days after a handover</td><td>≥ 90% of before</td><td>The old price for crew members from 3 days</td></tr>
+    <tr><td>Players packed by probation who never return</td><td>≤ 20%</td><td>Probation only in fully crewed stations</td></tr>
+    <tr><td>Asks that closed at their deadline</td><td>100%</td><td>The hub always fills the rest</td></tr>
+    <tr><td>Held seats in lively stations</td><td>≤ 25%</td><td>Holds to day 60</td></tr>
+    <tr><td>A Yard solve at 8 members</td><td>≤ 5 ms</td><td>Fewer sockets or links</td></tr>
+  </table>
+</section>
+
+<section class="page">
+  <h2>Appendix A · How this design was made</h2>
+  <p>Six agents, each with one point of view, worked in five rounds. One of them got no context about the game at all,
+  so it couldn't inherit our assumptions; in the last round a seventh read the result cold.</p>
+  <div class="grid2">
+    <div>
+      <div class="agent"><div class="av">🎲</div><div><b>The idea thrower.</b> As wild as possible: 47 ideas, from estates
+      as train cars to sky islands.</div></div>
+      <div class="agent"><div class="av">🧑‍🤝‍🧑</div><div><b>The friends-first designer.</b> Ana, Ben and Cleo start tonight,
+      Dev next week: the whole experience around them.</div></div>
+      <div class="agent"><div class="av">🕯️</div><div><b>The guardian of the lonely and the leavers.</b> The solo player
+      at 3 a.m., the friend whose friends quit, the returner; the veto rules.</div></div>
+    </div>
+    <div>
+      <div class="agent"><div class="av">⚖️</div><div><b>The economy and long-game designer.</b> Interdependence,
+      prices, exploits; recomputed every number from the balance runs and the code.</div></div>
+      <div class="agent"><div class="av">📚</div><div><b>The psychologist and game historian.</b> What about 25 games
+      did right and wrong, and what players feel.</div></div>
+      <div class="agent"><div class="av">🔭</div><div><b>The outsider.</b> No context, no files: only the core question
+      and the owner's principles.</div></div>
+    </div>
+  </div>
+  <table>
+    <tr><th>Round</th><th>What happened</th></tr>
+    <tr><td>1 · Brainstorm</td><td>Everyone alone, wild first. Four of six (including the outsider, who knew nothing about the game) independently arrived at <b>a small group of four around a shared place</b>.</td></tr>
+    <tr><td>2 · Sparring</td><td>Everyone read everyone, attacked the 5 weakest ideas with failure stories, stole the 5 best, challenged the convergence ("is it groupthink?") and played their revised design through six hard cases.</td></tr>
+    <tr><td>3 · Champions and exams</td><td>Three rival concepts got a champion each and a full spec with every open question decided. The other three wrote exams: 18–20 tests each with pass/fail numbers.</td></tr>
+    <tr><td>4 · Verdicts and defence</td><td>The examiners graded all three specs; the champions answered every attack, conceded where it landed and revised. The first draft of this document merged the result.</td></tr>
+    <tr><td>5 · The final review</td><td>The economy, lonely-player and outsider agents examined the draft against their exams, and a new agent read it with no context. About 95 findings; every one is answered in this version.</td></tr>
+  </table>
+  <h3>What the final review changed</h3>
+  <table>
+    <tr><th>Found</th><th>By</th><th>Now</th></tr>
+    <tr><td>The Yard could be read as a buyer of all surplus at 1.75: an unlimited faucet</td><td>outsider, cold read</td><td>The Yard only matches residents (§7)</td></tr>
+    <tr><td>The Hub Order as written doubled late income (the typical estate earns 98.5% from energy sold at 0.39)</td><td>economy</td><td>Today's √ curve, made personal (§8)</td></tr>
+    <tr><td>Four leaks of 1–4M gold a day: Houses at 1.25 × base, the Port at 1.1, Premium between alts, quiet grace per district</td><td>economy</td><td>House prices follow your hub price, the Port at 0.6, one player price, grace per server</td></tr>
+    <tr><td>Baskets counted anyone who "traded", so a resting friend kept them big and blocking a friend paid</td><td>lonely, outsider, cold read</td><td>Only delivering, active residents size a basket (§3, §12)</td></tr>
+    <tr><td>"Release a hold" was a kick button</td><td>outsider, cold read, lonely</td><td>Holds end by themselves, with one "keep the seat?" card (§10)</td></tr>
+    <tr><td>Probation hit every solo player who took a 5-day break</td><td>lonely, cold read</td><td>Only in a crew's station (§6)</td></tr>
+    <tr><td>Crew first in a shortage starved a stranger's established supply</td><td>lonely</td><td>Usual buyers first (§7)</td></tr>
+    <tr><td>The stand-in started on day 30 or day 37, and sold at 2.0 to the friend who stays</td><td>lonely, cold read, economy</td><td>From day 30, at the old price; asleep estates earn nothing (§9)</td></tr>
+    <tr><td>After minute 12 friends had nothing to decide together</td><td>cold read, outsider</td><td>Recipes with a keystone nobody makes yet, the Plan board (§12)</td></tr>
+    <tr><td>Friends couldn't choose their own seats; the first Yard pipe could carry nothing</td><td>outsider</td><td>Seat choice in tap 1; the Foundation buys from minute 12 (§5)</td></tr>
+    <tr><td>Guests in WhatsApp's browser lose their estate; "same device" was never defined</td><td>outsider, cold read</td><td>An account in the same tap there; definitions (§3)</td></tr>
+    <tr><td>"Three words" were really 20 in the first hour</td><td>outsider</td><td>Five words; halt, Depot, perk, ledger, Crew Lens gone</td></tr>
+    <tr><td>Week 3 reached only +7–10%</td><td>economy</td><td>Second hubs pay √2, the Foundry Hall, outposts into the Yard (§13)</td></tr>
+    <tr><td>Discoveries rewarded being online at one moment</td><td>outsider, cold read</td><td>Everyone within 72 h gets the marker</td></tr>
+    <tr><td>The build plan was about half the real work, with no art</td><td>outsider</td><td>About 41 days, art in steps 3 and 6, the bank in step 2 (§19)</td></tr>
+    <tr><td>Ten late-game systems for a test server of a few players</td><td>cold read</td><td>Small mode; Cup, Hosts, tolls and lanes cut</td></tr>
+  </table>
+</section>
+
+<section class="page">
+  <h2>Appendix B · What players feel, and what other games taught</h2>
+  <h3>Eight things players feel</h3>
+  <ol>
+    <li><b>Relationships need a choice.</b> A neighbour you were assigned who trades with you automatically feels like the water company. That is why the district mega-network failed: nobody chose anybody.</li>
+    <li><b>Small groups carry the warmth, big groups the spectacle.</b> The 3–5 you know, the 15–50 you recognise, the server.</li>
+    <li><b>Helping feels better than being helped,</b> when it costs little and is thanked. Being helped too much feels like debt.</li>
+    <li><b>Absence must not hurt anyone.</b> Being the reason someone lost (guilt) or being stalled by someone who isn't there (resentment) kills groups.</li>
+    <li><b>People avoid empty restaurants.</b> A world that looks busy keeps even solo players.</li>
+    <li><b>Comparison should be local.</b> 3rd of 25 is exciting; 500th of 2,000 is depressing.</li>
+    <li><b>Return shame is real.</b> A mess or a scolding waiting at home keeps people away for months.</li>
+    <li><b>Inequity beats greed.</b> A deal that feels unfair is refused even when it pays.</li>
+  </ol>
+  <table>
+    <tr><th>Game</th><th>What happened</th><th>What we take</th></tr>
+    <tr><td>Egg, Inc.</td><td>Co-op contracts work beautifully async, but matching active players with "sleepers" made the active feel exploited.</td><td>Size goals by who delivers; reward your own share, so a sleeper costs nobody.</td></tr>
+    <tr><td>Hay Day</td><td>Neighbours fill your crates hours later (perfect async help); the Derby turned a cosy game into a job.</td><td>Asks that an NPC fills at the deadline; no competition that needs attendance.</td></tr>
+    <tr><td>Clash of Clans</td><td>Veterans donating troops to newcomers is loved; forced wars made clans kick casuals, then came the opt-out.</td><td>Asymmetric help; everything opt-in; goals sized to who takes part.</td></tr>
+    <tr><td>Travian</td><td>Inactive villages became "farms"; servers felt dead late in a round. Account sitters were loved.</td><td>A leaver is never loot; a caretaker keeps trades running but can't spend your gold.</td></tr>
+    <tr><td>OpenTTD</td><td>Friends joining one company is the best-loved co-op; competing companies block each other with track.</td><td>A shared identity for friends; no shared space where a claim blocks someone.</td></tr>
+    <tr><td>Factorio</td><td>Specialisation emerges by choice; standards let many hands work. Host-only worlds fail async play.</td><td>Specialise by choice with a reason (home goods, keystones); a standard way to connect; nothing waits for someone online.</td></tr>
+    <tr><td>FFXIV housing</td><td>An abandoned house is packed away with its things, not destroyed.</td><td>Pack and land: every position can be recovered, nothing is lost.</td></tr>
+    <tr><td>Animal Crossing</td><td>Different islands make visiting worth it; long-absence weeds created real return shame.</td><td>Different home goods per seat; a welcoming return, never a clean-up job.</td></tr>
+    <tr><td>Death Stranding</td><td>Shared roads where strangers can only say thanks.</td><td>Contact between players is positive only.</td></tr>
+    <tr><td>Duolingo</td><td>Small leagues of similar players.</td><td>Leagues of about 25 by stage.</td></tr>
+    <tr><td>Eve Online</td><td>Structures with upkeep die when the owner stops paying.</td><td>Trunks without upkeep; an abandoned trunk becomes public.</td></tr>
+  </table>
+</section>
+
+<section class="page">
+  <h2>Appendix C · The brainstorm: the wild ideas</h2>
+  <p>Round 1 went as wild as we could. Most of these didn't survive, but several left something in the design.</p>
+  <div class="wild">
+    <div><b>Estates as train cars</b>Friends couple their estates into a train; pipes run through the couplings; a
+    leaver is uncoupled at a siding. <span class="verdict pill bad">dropped</span> the map can't move under people
+    (GW2's megaserver lesson), but "a group is a vehicle you choose" stayed.</div>
+    <div><b>River rafts and sky islands</b>Estates moor at docks, drift away when abandoned; connected islands drift
+    closer. <span class="verdict pill bad">dropped</span> a pipe's length and loss would change overnight.</div>
+    <div><b>The accordion map</b>Every night active estates slide together, dormant ones fold out of view.
+    <span class="verdict pill bad">dropped</span> same reason; the "frozen district" survives instead.</div>
+    <div><b>Land rush</b>Every chapter a 24-hour flag-planting. <span class="verdict pill bad">dropped</span> Ultima
+    Online and FFXIV housing rushes: it rewards being online at one moment.</div>
+    <div><b>Quartet recipes</b>Goods that need four different humans. <span class="verdict pill bad">dropped</span>
+    punishes the friends of whoever quits, and three alts unlock it in 25 minutes. Its gentle cousin, the keystone, stayed.</div>
+    <div><b>Adoption of abandoned estates</b>A neighbour runs a leaver's estate for a share.
+    <span class="verdict pill bad">dropped</span> profiting from someone's absence (Travian farming).</div>
+    <div><b>Hamlets around a well</b>Four seats around a shared machine you pick together.
+    <span class="verdict pill good">became the station and the Yard</span></div>
+    <div><b>Lines, not webs + gate tanks</b>A pipe between companies has exactly two ends, a manifest and a tank.
+    <span class="verdict pill good">became links</span></div>
+    <div><b>Steward, time capsule, moving van</b>An NPC runs you while away, packs you, you land anywhere.
+    <span class="verdict pill good">became caretaker, stand-ins and the return</span> (much of it already exists)</div>
+    <div><b>Trunk lines and guild cities</b>Crowd-funded pipe highways with a toll.
+    <span class="verdict pill good">became crew trunks</span>, without the toll</div>
+    <div><b>NPC neighbours with personalities</b>Named families who trade and write letters.
+    <span class="verdict pill good">became Houses</span>, labelled and capped</div>
+    <div><b>Attendance bonuses</b>Clocktowers, shift logs, night markets, diversity bonuses.
+    <span class="verdict pill bad">dropped</span> they put a price on a friend's absence (Snapstreaks, Habitica).</div>
+  </div>
+  <div class="callout"><strong>Was the convergence groupthink?</strong>Round 2 asked every agent to challenge it. The
+  verdict: <b>the small group is right, but the round-1 version carried four jobs at once</b> (where you live, who your
+  friends are, who you trade with, the shared project) and broke for couples, groups of six, friends who fall out and
+  strangers placed together. The final design keeps them as separate things: the <b>station</b> is a place, the
+  <b>crew</b> is people, the <b>Yard</b> and <b>links</b> are trade, and the <b>project</b> is what you build.</div>
+</section>
+
+<section class="page">
+  <h2>Appendix D · Three rival concepts and the exams</h2>
+  <div class="grid3">
+    <div class="callout"><strong>A · Stations with a Yard</strong>Stations of 4 and halts of 2 around a game-owned Yard.
+    Laying your own pipe to the Yard trades your surplus with all residents at one fixed price, strangers included. No
+    votes, no kicks; leavers become profiles.</div>
+    <div class="callout"><strong>B · Streets &amp; Lines</strong>A crew lives along one corridor and shares the Main, a
+    pipe the game lays there for members only. It grows lamps and arches with crew projects and becomes a Line across
+    the map.</div>
+    <div class="callout"><strong>C · Places, Crews, Links</strong>Three clean layers: places, crews (people who chose
+    each other), bilateral links. Strangers share the project and the view, never a market.</div>
+  </div>
+  <table class="scores">
+    <tr><th>Examiner</th><th>What it tested</th><th>A</th><th>B</th><th>C</th><th>Winner</th></tr>
+    <tr><td>Economy (60)</td><td>Funnelling, the fake-quitter farm, price crashes, solver cost, the flat week 3</td><td>43</td><td>45</td><td class="win">48</td><td>C</td></tr>
+    <tr><td>Outsider (100)</td><td>Clarity, the first 20 minutes, fun vs chores, buildability</td><td>55</td><td>61</td><td class="win">62</td><td>C</td></tr>
+    <tr><td>Lonely and leavers (52, core ×2)</td><td>Sleeping partners, the friend left behind, solo, the return, guilt</td><td class="win">26 · core 16</td><td>26 · core 12</td><td>24 · core 14</td><td>A</td></tr>
+  </table>
+  <p>No concept was shippable as written. Every examiner listed the "must-take" changes from the others, and the
+  champions, defending, ended up in the same place: <b>A's champion would back C, B's would back A, and C's would back
+  A</b>, each on conditions taken from their own. C's champion put it plainly: "with these, A and C are the same game".</p>
+  <div class="callout decision"><strong>The merge</strong>The outsider's summary became the plan: <b>C's skeleton</b>
+  (place, people and trade as separate things), <b>A's manners</b> (the open Yard, no votes, a Handshake that waits for
+  you, absent sellers never fined), and <b>B's soul</b> (the crew's stripes on a pipe that grows lamps and arches,
+  "usual buyers first", damping). Plus the economy examiner's caps, which close every funnel and farm it found.</div>
+  <h3>What decided the hard questions</h3>
+  <ul>
+    <li><b>Do strangers share the Yard?</b> Yes. It is the one rule that gives a lonely player at 02:40 a human buyer
+    without waiting for anyone (C's 72-hour offer fails that; B's members-only pipe runs past strangers' doors). The
+    fears ("a stranger takes a couple's coal") are answered by usual-buyers-first, and a couple can live in a small
+    station.</li>
+    <li><b>Votes?</b> None. A vote among four friends is kick drama (Hay Day, Egg, Inc.). Leaving is one tap; Block is
+    private.</li>
+    <li><b>What happens to a long-absent estate?</b> It stays in place for the crew, but asleep: not simulated, earning
+    nothing, its trades run by a stand-in. Simulating the absent for months is a farm, costs CPU and makes stations look
+    full while they're dead.</li>
+    <li><b>One price or several?</b> One. Friend and Premium prices gave friends a choice nobody needed and alts a
+    funnel; "who makes what" is the decision worth having.</li>
+  </ul>
+  <p class="small">The full record (the brief, 47 wild ideas, six round-2 proposals, three specs, three exams with
+  scorecards, three defences and four final reviews, about 100,000 words) is in <code>docs/design-notes/playing-together/</code>.</p>
+</section>
+
+<div class="footer">TransportPipes · Playing together · decided by six design agents in five rounds, October 2026</div>
+</body>
+</html>

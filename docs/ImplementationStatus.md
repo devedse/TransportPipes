@@ -216,6 +216,12 @@ the primary goals: the buildings, the map and the UI. The design may change wher
   contrast for the text on the cream panels, named side panels, Loady's steps announced, labelled icon buttons,
   visible focus
 - ✅ The e2e screenshot scripts are in the repository (`e2e/`)
+- 📐 v1.2 design: playing together (`docs/multiplayer-design.html`, the debate in `docs/design-notes/playing-together/`):
+  stations of four seats around a shared Yard (a matcher between residents at one player price, 1.75), crews of 1–8
+  with seat codes, two-ended links instead of shared networks, labelled NPC Houses and stand-ins for whoever sleeps,
+  absence that costs nobody else, the station's project, crew trunks; the personal √ Hub Order; eight build steps
+  (about 41 days), friends first. Not started; the start area stays as it is, new estates get their home goods in
+  the first two parcels you can buy
 - ⬜ Merge PR #3 and release
 
 ### After v1
@@ -279,3 +285,4 @@ Changes to [GameDesign.md](GameDesign.md) that came up while building; the desig
 | 2026-10-18 | Factories stay on the surface; the Deep Level is for mining, magma energy, storage and decoration | Keeps the lifts the bottleneck and the surface the factory floor |
 | 2026-10-19 | The Franchise opens a new estate instead of resetting the old one, and the world persists over chapters instead of a season wipe | The owner prefers expansion over rebuilding; to be built in M8 |
 | 2026-10-19 | Looks are a primary goal: generated art (Codex, `gpt-6.1-sol` high) for buildings, map and UI; v1 scope is a fun, good-looking multiplayer idle game, the rest after v1 | Owner's direction after the image test |
+| 2026-10-21 | Playing together (v1.2 design): places, people and trade are separate things (stations, crews, the Yard and links); one price between players; no votes, kicks or releases; NPCs labelled and capped at 25% | Six design agents in five rounds, on the owner's principles: fun with three friends, choosing where you live, lonely players, players who stop |
