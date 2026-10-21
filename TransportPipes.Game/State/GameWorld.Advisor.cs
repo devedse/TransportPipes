@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using TransportPipes.Game.Content;
 using TransportPipes.Game.Simulation;
 using TransportPipes.Game.World;
@@ -105,8 +104,16 @@ public sealed record AdvisorStep(
 /// </summary>
 public sealed partial class GameWorld
 {
-    /// <summary>The advisor stops measuring what-ifs after this long (it runs on the game loop)</summary>
-    private static readonly TimeSpan AdvisorBudget = TimeSpan.FromMilliseconds(120);
+    /// <summary>
+    /// The most what-ifs (networks solved again) one call of the advisor makes: a count, not a time, so the same estate
+    /// gets the same advice on every machine (big networks are estimated, they need none)
+    /// </summary>
+    private const int AdvisorMaxWhatIfs = 40;
+
+    private int _whatIfs;
+
+    private bool WhatIfsLeft(int reserve = 0) => _whatIfs < AdvisorMaxWhatIfs - reserve;
+
 
     /// <summary>Upgrades and chains that would take longer than this to afford aren't suggested</summary>
     private const double AdvisorMaxWaitMinutes = 240;
@@ -128,7 +135,7 @@ public sealed partial class GameWorld
         // Right after a command its networks may not be solved yet: an empty solution would make everything look short
         SolveNetworks();
         _spots.Clear();
-        var clock = Stopwatch.StartNew();
+        _whatIfs = 0;
         var income = Math.Max(0, GoldPerMinute().GetValueOrDefault(company.Id));
         var effort = Math.Max(200, AdvisorEffortMinutes * income);
         // Gold per minute gained per gold spent (and effort), scaled to a readable number
@@ -161,11 +168,11 @@ public sealed partial class GameWorld
         {
             PumpStep(company, network, Base, Add);
             PipeStep(company, network, Base, Add);
-            ShortageSteps(company, network, Base, Add, clock, Worth);
+            ShortageSteps(company, network, Base, Add, Worth);
         }
         ResearchStep(company, Add, income, own);
-        UpgradeSteps(company, own, Base, Add, clock);
-        ChainSteps(company, own, Base, Add, clock);
+        UpgradeSteps(company, own, Base, Add);
+        ChainSteps(company, own, Base, Add);
         PartnerStep(company, Add);
         ParcelStep(company, Add);
         StartSteps(company, Add);
@@ -186,6 +193,7 @@ public sealed partial class GameWorld
     /// </summary>
     private double WhatIfGold(Network network, long company, Func<FlowNode, FlowNode>? change = null, IReadOnlyList<FlowNode>? extra = null, long? anchor = null, bool pumps = true, Func<FlowLink, FlowLink>? changeLink = null)
     {
+        _whatIfs++;
         var nodes = network.Buildings.Select(t => ToFlowNode(_buildings[t])).OfType<FlowNode>().ToList();
         if (pumps)
         {
@@ -613,14 +621,14 @@ public sealed partial class GameWorld
         return needs;
     }
 
-    private void ShortageSteps(Company company, Network network, Func<Network, double> baseGold, Action<AdvisorStep, double> add, Stopwatch clock, Func<double, double, double> worth)
+    private void ShortageSteps(Company company, Network network, Func<Network, double> baseGold, Action<AdvisorStep, double> add, Func<double, double, double> worth)
     {
         var needs = NetworkNeeds(network, company.Id);
         var shortOf = needs.Where(t => t.Value.Consumers.Count > 0 && t.Value.Needed - t.Value.Got > Math.Max(0.05, t.Value.Needed * 0.05)).ToDictionary(t => t.Key, t => t.Value);
         foreach (var (resource, (needed, got, consumers)) in shortOf.OrderByDescending(t => (t.Value.Needed - t.Value.Got) * HubBuyPrice(network.District, t.Key)))
         {
-            // Shortages get half the time: upgrades and chains need theirs
-            if (clock.Elapsed > AdvisorBudget / 2)
+            // Shortages get half the what-ifs: upgrades and chains need theirs
+            if (!WhatIfsLeft(AdvisorMaxWhatIfs / 2))
             {
                 break;
             }
@@ -777,7 +785,7 @@ public sealed partial class GameWorld
             AdvisorAction.Research, 0, best.Gain, Research: best.Tech.Id), 1);
     }
 
-    private void UpgradeSteps(Company company, List<Network> networks, Func<Network, double> baseGold, Action<AdvisorStep, double> add, Stopwatch clock)
+    private void UpgradeSteps(Company company, List<Network> networks, Func<Network, double> baseGold, Action<AdvisorStep, double> add)
     {
         var progression = Content.Progression;
         // One of each kind at each level in each network: the same building at the same spot brings the same
@@ -796,9 +804,9 @@ public sealed partial class GameWorld
             .ToList();
         foreach (var (network, building) in candidates)
         {
-            if (clock.Elapsed > AdvisorBudget)
+            if (!Estimated(network) && !WhatIfsLeft(4))
             {
-                break;
+                continue;
             }
             var definition = Content.Building(building.Type);
             var full = TradingPostFull(building);
@@ -834,7 +842,7 @@ public sealed partial class GameWorld
         }
     }
 
-    private void ChainSteps(Company company, List<Network> networks, Func<Network, double> baseGold, Action<AdvisorStep, double> add, Stopwatch clock)
+    private void ChainSteps(Company company, List<Network> networks, Func<Network, double> baseGold, Action<AdvisorStep, double> add)
     {
         if (networks.Count == 0)
         {
@@ -852,7 +860,7 @@ public sealed partial class GameWorld
         var evaluated = 0;
         foreach (var definition in Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.Count > 0 && IsUnlocked(company, t, out _)))
         {
-            if (clock.Elapsed > AdvisorBudget || evaluated >= 8)
+            if (!WhatIfsLeft() || evaluated >= 8)
             {
                 break;
             }
