@@ -21,6 +21,7 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 | `return.mjs` | The way back: A is "gone" ten days (dev cheat) and sees the two screens, then is sent to the Quiet Isles ("isles") and sees the landing cards (its own seat preselected) and moves to another one |
 | `project.mjs` | The station's project: A's spare goes to the Foundation, the `project` cheat finishes a stage and the next asks for a keystone; the Plan board and an Ask; the project in the Yard's corner on the map |
 | `trunk.mjs` | A crew trunk: A founds a crew, the world moves to Era 2 (dev cheat), A starts a steel trunk to the next hub and pays its segments (the `stock` cheat brings steel and concrete); the trunk in the Links tab and on the map |
+| `evening.mjs` | The first evening with four browsers: Ana starts with friends, Ben (a phone) and Cleo open their codes as guests and get the Houses' starter kits, the pipes meet (Handshake), the Foundation buys at once, the `project` cheat brings the Water Tower and its keystone, Dev opens the last code later |
 | `crew.mjs` | Start with friends: Ana founds a crew from the start screen and keeps three seats, Ben opens his seat link on a phone and moves in as a guest, Cleo joins with the crew link and lands next door; Ana's crew panel, Ben's keep note and a move to another seat (three browsers) |
 | `right-click.mjs` | A right-click on the map steps back (deselects, puts a tool away); a right-drag still pans |
 | `advisor.mjs` | The Next steps card on a real estate: its three steps, Show me on the first, an upgrade done from the card |
@@ -34,7 +35,6 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 | `gate.mjs` | Closing and opening a gate: the buildings behind it keep running |
 | `consistency.mjs` | After each kind of action (pipes, gates, upgrade, build, demolish, move) the playing tab matches a freshly loaded one (slow: a reload per action, about 5 min) |
 | `network-ids.mjs` | A selected network rebuilt three times: the selection covers every pipe, its buildings don't go idle |
-| `neighbour.mjs` | Loady's neighbour step as a player does it: pipe to the own gate, Neighbours → Connect to a works |
 | `guide.mjs` | Loady's later steps: the Storage and what it keeps, the daily orders, a step that waits for a level |
 | `art-check.mjs`, `showcase.mjs` | Generated buildings on an estate (`showcase.mjs shots/x type,type,...`) |
 | `pipes.mjs` | Pipes and flowing resources |

@@ -122,6 +122,11 @@ public class ContractFacts
         var game = new TestGame();
         game.World.TenantsEnabled = true;
         var player = game.NewCompany(gold: 10_000, level: 10);
+        // Without its starter kit: what it sells would hide a penalty
+        foreach (var building in game.World.BuildingsOf(player.Id).Where(t => t.Type is not ("hq" or "tradingPost")).ToList())
+        {
+            game.World.Demolish(player.Id, building.Id);
+        }
         var tenant = game.World.Companies.First(t => t.IsNpc && game.World.CanDeliver(player, t) && game.World.BuildingsOf(t.Id).Any(b => game.World.Content.Building(b.Type).Out.Count > 0));
         var resource = game.World.BuildingsOf(tenant.Id).SelectMany(b => game.World.Content.Building(b.Type).Out.Keys).First();
         var price = game.World.PlayerPrice(resource);

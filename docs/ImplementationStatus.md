@@ -307,7 +307,16 @@ stay); name + password accounts only (guests on a hidden account they can keep);
   similar stage by the week's earnings, drawn every week, champions titled (verified companies only, off in small
   mode); Wonder stages sized like baskets (6 h of T(L) per active player of the district, everyone for the Era
   Wonder); Era Wonder tiers by the share of your own Era output (Bronze 1%, Silver 3%, Gold 7%, Diamond 15%)
-- ⬜ 8 · The first evening with four browsers (e2e), balance runs, docs
+- ✅ 8 · The first evening: four browsers (`e2e/evening.mjs`): Ana starts with friends and keeps three seats, Ben (a
+  phone) and Cleo open their codes as guests, the Houses that kept the seats warm leave them starter kits piped to
+  the Yard gate and the trading post, the pipes meet (a Handshake for both, Loady's Yard step), the Foundation buys
+  from the station at once, the Water Tower comes with its keystone, and Dev opens the last code later with nobody
+  online. Balance: the solo game is unchanged (`balance-typical.md`), and a newcomer in a v1.2 world (Houses, kit,
+  project, trunks; `balance-typical-together.md`) reaches the same levels within hours: Level 10 on day 2, 20 on day
+  5, 30 on day 25. The run found two things: an estate piped only to its gate sold the Houses less every round until
+  nothing (their quarter is now of what it could make), and the kit did Loady's first steps for the player (it now
+  counts only what the player builds and pipes). The first session at a human pace (`first-session.md`) earns from
+  minute one and gets one Loady step further in 45 minutes
 
 ### After v1
 
@@ -372,3 +381,11 @@ Changes to [GameDesign.md](GameDesign.md) that came up while building; the desig
 | 2026-10-19 | Looks are a primary goal: generated art (Codex, `gpt-6.1-sol` high) for buildings, map and UI; v1 scope is a fun, good-looking multiplayer idle game, the rest after v1 | Owner's direction after the image test |
 | 2026-10-21 | Playing together (v1.2 design): places, people and trade are separate things (stations, crews, the Yard and links); one price between players; no votes, kicks or releases; NPCs labelled and capped at 25% | Six design agents in five rounds, on the owner's principles: fun with three friends, choosing where you live, lonely players, players who stop |
 | 2026-10-21 | No frozen districts (v1.2 §11): a quiet district already costs almost nothing (its Yard's rounds come every 16 minutes, its networks are never solved again), and running it in quarter-hour steps changed what players earn (the Hub Order follows a one-hour average of sales: a lump of sales keeps the price higher, about 12% in a test) | Being away must never pay better than playing |
+| 2026-10-21 | The Landmark is a basket like the other stages (half the delivering residents' summed T(L) for 6 hours), not yet a sustained flow with its own tank | The flow needs a tank and pause state of its own; the basket gives the same size and the heirloom |
+| 2026-10-21 | A starter kit is at least three producers that need nothing (the House's own where it had them, else what suits the land) | A works House's sawmills, without wood, were no gift |
+| 2026-10-21 | "Find me neighbours" prefers stations of four to small ones; the project takes from every resident in the same share | Small stations give fewer partners; first come, first served left later friends out of the ring of colours |
+| 2026-10-21 | A sleeper without a crew keeps a stand-in only until its seat's hold ends on day 37; a House then warms the seat and trades with the partners | The stand-in needs the seat to trade in its Yard |
+| 2026-10-21 | No e-mail, no stills of the estate, no Era jump kit, no "Back!" ribbon in this version | The in-game way back covers the first return; these come when testers ask |
+| 2026-10-21 | Houses buy at most a quarter of what a player could make (its buildings that have all they need, at full speed), not of what it made last round | Piped to its gate only, an estate's buildings make only what is taken: a quarter of that shrank every round to nothing (found by the balance run) |
+| 2026-10-21 | The starter kit is piped to the trading post as well as the Yard gate | Most of the kit's output found no buyer: the Houses take a quarter, the hub the rest |
+| 2026-10-21 | Loady's build and pipe steps count only what the player builds (`piped:` for the first sale), never the starter kit | The kit did the first three steps, so a newcomer never placed or piped anything before the Iron Mine |

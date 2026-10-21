@@ -23,6 +23,9 @@ public class BalanceSimulation
         ["hardcore"] = [(8, 120), (12, 60), (17, 240)],
         // The typical day, doing what the advisor says (docs/v1.1-design.html §4)
         ["typical-advisor"] = [(8, 5), (12.5, 5), (18, 5), (21, 20), (23, 5)],
+        // The typical day alone on a v1.2 server: Houses in every seat (and their starter kit), the station's project,
+        // the trunks to far markets
+        ["typical-together"] = [(8, 5), (12.5, 5), (18, 5), (21, 20), (23, 5)],
     };
 
     [TestMethod]
@@ -30,6 +33,7 @@ public class BalanceSimulation
     [DataRow("casual")]
     [DataRow("hardcore")]
     [DataRow("typical-advisor")]
+    [DataRow("typical-together")]
     public void TheFirstTwoWeeks(string profile)
     {
         if (Environment.GetEnvironmentVariable("TP_BALANCE") != "1")
@@ -43,6 +47,12 @@ public class BalanceSimulation
         var days = int.TryParse(Environment.GetEnvironmentVariable("TP_BALANCE_DAYS"), out var d) ? d : 14;
         // Like a real server: Loady, achievements, and the surveyors' starter kit on every estate
         var game = new TestGame(seed: 4242, achievements: true, tutorial: true, surveys: true);
+        if (profile == "typical-together")
+        {
+            game.World.TenantsEnabled = true;
+            game.World.ProjectsEnabled = true;
+            game.World.TrunksEnabled = true;
+        }
         var company = game.NewCompany("Bot", gold: game.World.StartingGold);
         var bot = new Bot(game, company);
         var report = new StringBuilder();
@@ -369,7 +379,7 @@ public class BalanceSimulation
                         return SpareEnergy() < 0 && company.Gold >= Cost("windMoily") && Place("windMoily", preferMultiplier: true) ? ("built a Wind Moily for the factory", 40) : (null, 0);
                     }
                     return Unlocked("smallFactory") && company.Gold >= Cost("smallFactory") && Place("smallFactory", preferMultiplier: false) ? ("built and piped a Small Factory", 40) : (null, 0);
-                case "firstNeighbour":
+                case "firstYard":
                     return ConnectNeighbour() is { } neighbour ? ($"piped to {neighbour}", 45) : (null, 0);
                 case "firstStorage":
                     return company.Gold >= Cost("storage") && Place("storage", preferMultiplier: false) ? ("built and piped a Storage", 30) : (null, 0);

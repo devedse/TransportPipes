@@ -43,6 +43,24 @@ public class ProjectFacts
     }
 
     [TestMethod]
+    public void EveryoneWithSpareHelpsAtOnce()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        game.World.ProjectsEnabled = true;
+        var ana = game.NewCompany("Ana");
+        var ben = game.NewCompany("Ben");
+        foreach (var company in new[] { ana, ben })
+        {
+            game.ConnectToGate(company, game.Build(company, "windMoily"));
+        }
+        game.Pass(10);
+
+        var project = ProjectOf(game, ana);
+        Assert.IsGreaterThan(0, project.Credit.GetValueOrDefault(ana.Id));
+        Assert.IsGreaterThan(0, project.Credit.GetValueOrDefault(ben.Id), "not first come, first served: the ring has both colours");
+    }
+
+    [TestMethod]
     public void AFinishedStageLiftsEverySeatAndTheNextAsksForAKeystone()
     {
         var (game, ana) = Producer();

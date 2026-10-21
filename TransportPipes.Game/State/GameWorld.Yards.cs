@@ -342,9 +342,11 @@ public sealed partial class GameWorld
             var least = fractions.Count == 0 ? 1 : fractions.Values.Min();
             if (least >= 0.999 && rate < node.MaxRate - 1e-9)
             {
-                // It has all it needs but nobody takes all it could make: spare for the station
+                // It has all it needs but nobody takes all it could make: spare for the station (and what it makes is
+                // what it could make, else the Houses' cap would shrink with every round nobody takes it all)
                 foreach (var (resource, amount) in node.Out)
                 {
+                    Add(member.Makes, resource, amount * (node.MaxRate - rate));
                     if (ToGate(node.Id, resource) is > 0 and var reach)
                     {
                         Add(member.Spare, resource, amount * (node.MaxRate - rate) * reach);
@@ -509,6 +511,10 @@ public sealed partial class GameWorld
             .OrderBy(t => t.District.X).ThenBy(t => t.District.Y).ThenBy(t => t.Index);
         var byStation = stations.Select(t => (Station: t, Members: YardMembers(t))).ToList();
         var all = byStation.SelectMany(t => t.Members).ToDictionary(t => t.Key);
+        foreach (var (_, members) in byStation)
+        {
+            Handshakes(members);
+        }
         foreach (var (station, members) in byStation)
         {
             var byKey = members.ToDictionary(t => t.Key);
@@ -665,6 +671,26 @@ public sealed partial class GameWorld
         {
             // A tank runs dry or fills up before then
             _couplingInterval = until;
+        }
+    }
+
+    /// <summary>
+    /// A company's Yard pipe is connected for the first time (Loady's step counts it); when another player of the
+    /// station is connected already, the two pipes meet: the Handshake (v1.2 §5), on both first screens
+    /// </summary>
+    private void Handshakes(List<YardMember> members)
+    {
+        var players = members.Where(t => t.Network != null && !t.Company.IsNpc).ToList();
+        foreach (var member in players.Where(t => !t.Company.Stats.ContainsKey("yard")))
+        {
+            foreach (var other in players.Where(t => t != member && t.Company.Stats.ContainsKey("yard")))
+            {
+                Changes.Events.Add(new WorldEvent(member.Company.Id, WorldEventKind.Neighbour, $"🤝 Handshake! Your Yard pipe met {other.Company.Name}'s"));
+                Changes.Events.Add(new WorldEvent(other.Company.Id, WorldEventKind.Neighbour, $"🤝 Handshake! {member.Company.Name}'s Yard pipe met yours"));
+                member.Company.Report.Notes.Add($"Your Yard pipe met {other.Company.Name}'s: Handshake!");
+                other.Company.Report.Notes.Add($"{member.Company.Name}'s Yard pipe met yours: Handshake!");
+            }
+            AddStat(member.Company, "yard", 1);
         }
     }
 

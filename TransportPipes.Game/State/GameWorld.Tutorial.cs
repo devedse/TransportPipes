@@ -13,12 +13,20 @@ public sealed partial class GameWorld
     public TutorialStep? CurrentTutorialStep(Company company) =>
         company.TutorialStep < Content.Tutorial.Count ? Content.Tutorial[company.TutorialStep] : null;
 
-    /// <summary>How far a company is with a step's goal</summary>
-    public double TutorialProgress(Company company, TutorialStep step) =>
-        step.Stat.StartsWith("built:", StringComparison.Ordinal)
-            // built:solarPanel|windMoily counts any of them
-            ? BuildingsOf(company.Id).Count(t => step.Stat["built:".Length..].Split('|').Contains(t.Type))
-            : StatValue(company, step.Stat);
+    /// <summary>
+    /// How far a company is with a step's goal. built:solarPanel|windMoily counts any of them that the player built (not
+    /// its starter kit), piped:… those of them that sell: in a network with its trading post or its Yard gate.
+    /// </summary>
+    public double TutorialProgress(Company company, TutorialStep step)
+    {
+        if (step.Stat.Split(':') is not [("built" or "piped") and var kind, var types])
+        {
+            return StatValue(company, step.Stat);
+        }
+        var own = BuildingsOf(company.Id).Where(t => types.Split('|').Contains(t.Type) && !company.KitBuildings.Contains(t.Id));
+        return kind == "built" ? own.Count() : own.Count(t => NetworkOf(t.Id) is { } network
+            && (network.Gates.Any(t => EstateOfGate(t) != null) || network.Buildings.Any(id => Building(id) is { } b && Content.Building(b.Type).Kind == BuildingKind.TradingPost)));
+    }
 
     /// <summary>
     /// The Company Level a step waits for (its building, or the next parcel, needs it), or null when it can be done

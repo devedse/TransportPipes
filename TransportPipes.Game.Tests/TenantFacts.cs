@@ -78,7 +78,8 @@ public class TenantFacts
         Assert.IsTrue(kit.Any(t => producers.Contains(t.Id)) || producers.All(id => game.World.Building(id) == null), "the House's own where it had them");
         var gate = game.World.GateNetwork(game.EstateOf(player));
         Assert.IsNotNull(gate, "piped to the Yard gate already");
-        Assert.IsTrue(kit.Any(t => game.World.NetworkOf(t.Id) == gate));
+        Assert.IsTrue(kit.All(t => game.World.NetworkOf(t.Id) == gate), "one network");
+        Assert.AreEqual(gate, game.World.NetworkOf(game.TradingPost(player).Id), "and to the trading post: the hub takes what the station doesn't");
         Assert.IsTrue(game.World.Changes.Events.Any(t => t.Company == player.Id && t.Text.Contains("left you")), "a note");
         Assert.IsFalse(game.World.Conductors.Any(t => t.Owner == house.Id), "the rest of its pipes are gone");
     }
@@ -156,6 +157,33 @@ public class TenantFacts
         Assert.IsTrue(sold > 0, "the works buy the player's spare energy");
         Assert.IsTrue(sold <= 0.25 * made + 1e-6, $"Houses buy at most a quarter of what a player makes ({sold:0.##} of {made:0.##})");
         Assert.AreEqual(Math.Min(game.World.HubBuyPrice(player, "energy") * 1.25, 1.25 * game.World.BasePrice("energy")), game.World.HouseBuyPrice(player, "energy"), 1e-9);
+    }
+
+    [TestMethod]
+    public void WithoutATradingPostTheHousesKeepBuyingTheirQuarter()
+    {
+        // Found by the balance run: piped to its gate only, an estate sold the Houses a quarter of what it sold them the
+        // round before (its buildings made only what was taken), until it sold nothing at all
+        var game = WithTenants();
+        var player = game.NewCompany(level: 2, slot: 15);
+        foreach (var building in game.World.BuildingsOf(player.Id).Where(t => t.Type is not ("hq" or "tradingPost")).ToList())
+        {
+            game.World.Demolish(player.Id, building.Id);
+        }
+        game.World.RemovePipes(player.Id, game.World.Conductors.Where(t => t.Owner == player.Id).Select(t => t.Pos).ToList());
+        foreach (var _ in Enumerable.Range(0, 3))
+        {
+            game.ConnectToGate(player, game.Build(player, "windMoily"));
+        }
+        game.ConnectToGate(player, game.Build(player, "ironMine", game.Spot(player, "ironMine", t => game.World.Tile(t).Deposit == "ironOre")));
+        double Sold() => game.World.YardTrades(game.EstateOf(player)).Where(t => t.Selling && game.World.Company(t.Partner)!.IsNpc).Sum(t => t.PerMinute);
+
+        game.Pass(5);
+        var first = Sold();
+        game.Pass(4 * 60);
+
+        Assert.IsGreaterThan(0, first, "the works buy energy");
+        Assert.AreEqual(first, Sold(), first * 0.05, "and keep buying as much");
     }
 
     [TestMethod]

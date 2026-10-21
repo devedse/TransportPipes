@@ -288,25 +288,32 @@ public sealed partial class GameWorld
         var houseShare = Content.Progression.Together.NpcCap;
         foreach (var good in project.Basket.Keys.Order(StringComparer.Ordinal))
         {
-            // It takes in an hour at most what is left (the round comes again within a minute while it flows)
+            // It takes in an hour at most what is left (the round comes again within a minute while it flows), from
+            // everybody who has some spare in the same share, so all of them help (the ring of colours shows it)
             var lacks = ProjectLacks(project, good) / 60;
+            var offers = new List<(YardMember Member, double Offer)>();
             foreach (var member in members.Where(t => t.Spare.GetValueOrDefault(good) > 1e-9 && !t.Company.Asleep && first == t.Company.ProjectFirst.Contains(good)).OrderBy(t => t.Company.Id))
             {
-                if (lacks <= 1e-9)
-                {
-                    break;
-                }
                 var allowance = member.Company.IsNpc
                     // Houses deliver on their own, at most a quarter of the basket
                     ? Math.Max(0, houseShare * project.Basket[good] - project.Delivered.GetValueOrDefault($"house:{good}")) / 60
                     : project.Allowance.GetValueOrDefault(member.Company.Id) / BasePrice(good) / 60;
-                var amount = Math.Min(Math.Min(member.Spare[good], lacks), allowance);
-                if (amount <= 1e-9)
+                var offer = Math.Min(member.Spare[good], allowance);
+                if (offer > 1e-9)
                 {
-                    continue;
+                    offers.Add((member, offer));
                 }
+            }
+            var total = offers.Sum(t => t.Offer);
+            if (total <= 1e-9 || lacks <= 1e-9)
+            {
+                continue;
+            }
+            var share = Math.Min(1, lacks / total);
+            foreach (var (member, offer) in offers)
+            {
+                var amount = offer * share;
                 Add(member.Spare, good, -amount);
-                lacks -= amount;
                 result[(member.Key, good)] = result.GetValueOrDefault((member.Key, good)) + amount;
             }
         }

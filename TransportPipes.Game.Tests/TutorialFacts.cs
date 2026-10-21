@@ -26,6 +26,29 @@ public class TutorialFacts
     }
 
     [TestMethod]
+    public void TheStarterKitDoesntDoLoadysStepsForThePlayer()
+    {
+        // Found by the first-session run: the House's kit built the first panel, sold and built the Moily, so a newcomer
+        // never placed or piped anything before the Iron Mine
+        var game = new TestGame(tutorial: true);
+        game.World.TenantsEnabled = true;
+        game.World.OpenNextDistrict();
+        var company = game.NewCompany(gold: 2000, slot: 3);
+        Assert.IsTrue(company.KitBuildings.Count > 0, "a House left a kit");
+        game.Pass(2);
+        Assert.AreEqual("firstPanel", game.World.CurrentTutorialStep(company)!.Id, "the kit is not the player's panel");
+
+        var pipes = game.World.Conductors.Select(t => t.Pos).ToHashSet();
+        var panel = game.Build(company, "solarPanel", game.Spot(company, "solarPanel", t => !TestGame.Neighbours(t).Any(pipes.Contains)));
+        game.Pass(1);
+        Assert.AreEqual("firstSale", game.World.CurrentTutorialStep(company)!.Id, "although the kit sells already");
+
+        game.Connect(company, panel, game.TradingPost(company));
+        game.Pass(1);
+        Assert.AreEqual("firstUpgrade", game.World.CurrentTutorialStep(company)!.Id);
+    }
+
+    [TestMethod]
     public void ExperiencedPlayersSkipTheGuide()
     {
         var game = new TestGame(content: TestGame.PlainContent, tutorial: true);

@@ -61,6 +61,17 @@ public class YardFacts
     }
 
     [TestMethod]
+    public void WhenTwoYardPipesMeetBothSeeTheHandshake()
+    {
+        var (game, a, b, _, _) = Neighbours();
+        game.Pass(2);
+
+        Assert.IsTrue(game.World.Changes.Events.Any(t => t.Company == a.Id && t.Text.Contains("Handshake")));
+        Assert.IsTrue(game.World.Changes.Events.Any(t => t.Company == b.Id && t.Text.Contains("Handshake")));
+        Assert.AreEqual(1, game.World.StatValue(a, "yard"), "Loady's Yard step counts the pipe");
+    }
+
+    [TestMethod]
     public void NothingIsCreatedOnTheWay()
     {
         var (game, a, _, moily, mine) = Neighbours();

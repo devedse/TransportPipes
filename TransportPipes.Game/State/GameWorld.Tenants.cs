@@ -237,24 +237,50 @@ public sealed partial class GameWorld
         return true;
     }
 
-    /// <summary>A pipe from a building to the tile inside a gate (breadth first over free land of the estate)</summary>
-    private void LayTenantPipe(Company company, Estate estate, Building building, TilePos gate)
+    /// <summary>A pipe from a building to the tile inside a gate</summary>
+    private void LayTenantPipe(Company company, Estate estate, Building building, TilePos gate) =>
+        LayTenantPipe(company, estate, building, t => Math.Abs(t.X - gate.X) + Math.Abs(t.Y - gate.Y) == 1, intoHqArea: false);
+
+    /// <summary>
+    /// A pipe from a building to the first tile that meets the goal, over free land of the estate and along the owner's
+    /// own pipes (they cost nothing, so a kit's pipes join into one network). Houses keep off the HQ area (a newcomer's
+    /// HQ and trading post go there); a newcomer's kit may cross it to reach the trading post.
+    /// </summary>
+    private void LayTenantPipe(Company company, Estate estate, Building building, Func<TilePos, bool> goal, bool intoHqArea)
     {
+        bool Own(TilePos t) => _conductors.TryGetValue(t, out var c) && c.Owner == company.Id && c.Kind == ConductorKind.Pipe;
         bool Free(TilePos t) =>
             estate.Contains(t) && (_conductors.TryGetValue(t, out var c) ? c.Owner == company.Id && c.Kind == ConductorKind.Pipe : !_buildingAt.ContainsKey(t))
             && Tile(t).Terrain is not (TerrainType.Water or TerrainType.Mountain)
-            && !InHqArea(t.X - estate.Origin.X, t.Y - estate.Origin.Y, 1);
+            && (intoHqArea || !InHqArea(t.X - estate.Origin.X, t.Y - estate.Origin.Y, 1));
 
+        // Breadth first with two costs: a new pipe tile 1, an own pipe 0 (the cheapest pipe, not the shortest way)
         var previous = new Dictionary<TilePos, TilePos?>();
-        var queue = new Queue<TilePos>();
+        var cost = new Dictionary<TilePos, int>();
+        var queue = new LinkedList<TilePos>();
         foreach (var start in building.Border().Where(Free))
         {
             previous[start] = null;
-            queue.Enqueue(start);
+            cost[start] = Own(start) ? 0 : 1;
+            if (Own(start))
+            {
+                queue.AddFirst(start);
+            }
+            else
+            {
+                queue.AddLast(start);
+            }
         }
-        while (queue.TryDequeue(out var tile))
+        var done = new HashSet<TilePos>();
+        while (queue.First is { } first)
         {
-            if (Math.Abs(tile.X - gate.X) + Math.Abs(tile.Y - gate.Y) == 1)
+            var tile = first.Value;
+            queue.RemoveFirst();
+            if (!done.Add(tile))
+            {
+                continue;
+            }
+            if (goal(tile))
             {
                 for (TilePos? t = tile; t != null; t = previous[t.Value])
                 {
@@ -270,10 +296,24 @@ public sealed partial class GameWorld
             foreach (var (dx, dy) in Directions)
             {
                 var next = tile.Offset(dx, dy);
-                if (!previous.ContainsKey(next) && Free(next))
+                if (done.Contains(next) || !Free(next))
                 {
-                    previous[next] = tile;
-                    queue.Enqueue(next);
+                    continue;
+                }
+                var step = Own(next) ? 0 : 1;
+                if (cost.TryGetValue(next, out var known) && known <= cost[tile] + step)
+                {
+                    continue;
+                }
+                cost[next] = cost[tile] + step;
+                previous[next] = tile;
+                if (step == 0)
+                {
+                    queue.AddFirst(next);
+                }
+                else
+                {
+                    queue.AddLast(next);
                 }
             }
         }
@@ -418,9 +458,19 @@ public sealed partial class GameWorld
         {
             return;
         }
+        company.KitBuildings = kit.Buildings.Select(t => t.Id).ToHashSet();
+        // And to the trading post: the hub takes what the station doesn't (else most of the kit's output would be lost)
+        if (_buildings.Values.FirstOrDefault(t => t.Owner == company.Id && Content.Building(t.Type).Kind == BuildingKind.TradingPost) is { } post)
+        {
+            var border = post.Border().ToHashSet();
+            foreach (var building in kit.Buildings)
+            {
+                LayTenantPipe(company, estate, building, border.Contains, intoHqArea: true);
+            }
+        }
         var names = kit.Buildings.GroupBy(t => Content.Building(t.Type).Name)
             .Select(t => t.Count() == 1 ? $"a {t.Key}" : $"{t.Count()} {t.Key}s");
         Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Neighbour,
-            $"{kit.House} ⚙ moved out and left you {string.Join(" and ", names)}, piped to your Yard gate already"));
+            $"{kit.House} ⚙ moved out and left you {string.Join(" and ", names)}, piped to your Yard gate and your trading post already"));
     }
 }

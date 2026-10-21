@@ -151,6 +151,9 @@ public sealed class Company : Entity
     /// <summary>What it asked its station for (v1.2 §12)</summary>
     public List<CompanyAsk> Asks { get; set; } = new();
 
+    /// <summary>The starter kit a House left it (v1.2 §5): Loady counts only what the player builds</summary>
+    public HashSet<long> KitBuildings { get; set; } = new();
+
     /// <summary>A stranger in a crew's station is on probation for its first 14 days (v1.2 §6)</summary>
     public DateTime? ProbationUntil { get; set; }
 

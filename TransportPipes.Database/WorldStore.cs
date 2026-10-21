@@ -109,6 +109,7 @@ public sealed class WorldStore
                 PinMakes = settings.PinMakes ?? new HashSet<string>(),
                 PinNeeds = settings.PinNeeds ?? new HashSet<string>(),
                 Asks = settings.Asks ?? new List<CompanyAsk>(),
+                KitBuildings = settings.KitBuildings ?? new HashSet<long>(),
                 League = settings.League,
                 EraOutput = settings.EraOutput,
                 DistinctDays = settings.DistinctDays,
@@ -410,6 +411,7 @@ public sealed class WorldStore
                     PinMakes = company.PinMakes,
                     PinNeeds = company.PinNeeds,
                     Asks = company.Asks,
+                    KitBuildings = company.KitBuildings,
                     League = company.League,
                     EraOutput = company.EraOutput,
                     DistinctDays = company.DistinctDays,
@@ -754,6 +756,7 @@ public sealed class WorldStore
         public HashSet<string>? PinMakes { get; init; }
         public HashSet<string>? PinNeeds { get; init; }
         public List<CompanyAsk>? Asks { get; init; }
+        public HashSet<long>? KitBuildings { get; init; }
         public int? League { get; init; }
         public double EraOutput { get; init; }
         public int DistinctDays { get; init; }

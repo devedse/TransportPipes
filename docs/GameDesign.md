@@ -95,6 +95,11 @@ OpenTTD (infrastructure, tolls), Travian (shared map, slow real time), EVE Onlin
 | Nothing new once the land is full | **Six late-game paths** (§11): denser, deeper (the Deep Level), wider (expeditions, branches, teleporters), over others (infrastructure, finance, governance), prettier, Franchise | The game must stay fun after the estate is complete |
 | Inactive players occupied land | **Activity stages** with a Caretaker, sleeping estates move to the **Quiet Isles**, free relocation on return (§12) | Districts stay lively, nobody loses anything |
 | No moving | **Relocation** of the whole estate, crates, swaps, corporation blocks (§12.3) | Play next to friends and good partners |
+| Four gates per estate on public corridors, a gate policy each, shared corridor networks | **v1.2:** estates sit in **stations** of four (or two) seats around a shared **Yard**; one Yard gate per estate; networks never cross a gate; one **player price** (1.75 × base) for the Yard, links, contracts and the Exchange; **links** join two named companies in different stations | Three friends play together the first evening, nobody can block or fleece anybody, the district never becomes one network ([multiplayer-design.html](multiplayer-design.html)) |
+| One hub price per district that everyone's sales move | **v1.2:** a personal **Hub Order** per company and hub (√ curve), quiet grace on small servers; public copper **trunks** to the next hubs and the Port, crew steel trunks | Nobody's flood lowers a newcomer's price; growth in week 3 comes from crossing borders |
+| NPC tenants on free estates | **v1.2:** **Houses** ⚙ of four kinds as strong as their station, in every free seat on a small server, a starter kit for the newcomer who takes the seat; **stand-ins** keep a sleeper's trades | Never alone, never silent, and labelled: they never pretend to be people |
+| The Quiet Isles at day 30, a move once a week | **v1.2:** asleep in place (the seat held to day 90 in a crew, 37 alone), the way back's screens and landing cards; moves to a chosen seat, free, 5 minutes apart | Absence costs nobody else; coming back is a gift |
+| Corporations as the only groups | **v1.2:** **crews** of 1–8 friends (seat codes, guests), the **station's project** (Foundation → Landmark), Asks, the Plan board, tending, Discoveries with markers, leagues | Doing things together without votes, kicks or appointments |
 
 ## 4. The world
 
@@ -648,6 +653,10 @@ starting gold for new companies), never so much that newcomers can't compete; ne
 districts.
 
 ## 9. Multiplayer systems
+
+> **Since v1.2 ("Playing together", [multiplayer-design.html](multiplayer-design.html)):** the Neighbourhood panel and
+> the gates of §9.1 gave way to stations, the Yard, links and crews; the rules below that still hold are corporations,
+> chat and the Exchange (at the one player price). See §3 for what changed.
 
 ### 9.1 Neighbours
 

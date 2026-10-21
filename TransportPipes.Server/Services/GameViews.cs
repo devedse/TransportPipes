@@ -1474,9 +1474,11 @@ public static class GameViews
                     : yours.FirstOrDefault() is { } purchase
                         ? $"You buy {Name(purchase.Resource)} from {purchase.PartnerName} at {purchase.Price:0.##} g."
                         : mine?.Spare.Where(t => t.Value > 0.01).OrderByDescending(t => t.Value).Select(t => t.Key).FirstOrDefault() is { } spare
-                            ? HubTakes(world, me, spare)
-                                ? $"Nobody here needs {Name(spare)} yet: the hub takes it."
-                                : $"Nobody here needs {Name(spare)} yet: pipe it to your Trading Post and the hub buys it."
+                            ? world.ExistingProject(station) is { } project && project.Basket.GetValueOrDefault(spare) > project.Delivered.GetValueOrDefault(spare)
+                                ? $"Nobody here needs {Name(spare)} yet: the {GameWorld.StageName(project.Stage)} and the hub take it."
+                                : HubTakes(world, me, spare)
+                                    ? $"Nobody here needs {Name(spare)} yet: the hub takes it."
+                                    : $"Nobody here needs {Name(spare)} yet: pipe it to your Trading Post and the hub buys it."
                             : "Nothing to trade yet: what you make your own buildings use.";
         return new YardDto(
             WorldNames.Station(station),
