@@ -836,6 +836,16 @@ public sealed partial class GameWorld
 
     private void Solve(Network network)
     {
+        // An asleep estate makes and earns nothing (v1.2 §10): its stand-in keeps its trades
+        if (Company(network.Owner) is { Asleep: true })
+        {
+            network.Nodes = [];
+            network.GateFlows = [];
+            network.Solution = FlowSolution.Empty;
+            network.NeedsSolve = false;
+            Changes.Networks.Add(network.Id);
+            return;
+        }
         var nodes = network.Buildings.Select(t => ToFlowNode(_buildings[t])).OfType<FlowNode>().ToList();
 
         // Every 50 buildings need a pump station; without enough of them everything runs slower

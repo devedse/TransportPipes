@@ -254,7 +254,7 @@ public sealed partial class GameWorld
     /// The estate a new company gets: the first free estate in the oldest district with room; when only tenants are left
     /// there, a tenant moves out
     /// </summary>
-    private Estate FindFreeEstate()
+    private Estate FindFreeEstate(bool kit = false)
     {
         foreach (var district in WorldLayout.DistrictOrder())
         {
@@ -273,7 +273,7 @@ public sealed partial class GameWorld
                 var estate = _estates[(district, slot)];
                 if (estate.OwnerId is { } owner && Company(owner) is { IsNpc: true } && SeatFree(KeyOf(estate)))
                 {
-                    EvictTenant(estate);
+                    EvictTenant(estate, kit);
                     return estate;
                 }
             }
@@ -291,7 +291,8 @@ public sealed partial class GameWorld
         }
         if (estate.OwnerId is { } owner && Company(owner) is { IsNpc: true })
         {
-            EvictTenant(estate);
+            // The House leaves the newcomer a starter kit
+            EvictTenant(estate, kit: true);
         }
         return estate.OwnerId == null ? estate : null;
     }
@@ -364,7 +365,8 @@ public sealed partial class GameWorld
         {
             seat = SeatNearCrew(linked, code!);
         }
-        var estate = seat is { } chosen && TakeSeat(chosen, code) is { } free ? free : FindFreeEstate();
+        _kit = null;
+        var estate = seat is { } chosen && TakeSeat(chosen, code) is { } free ? free : FindFreeEstate(kit: true);
         var now = Now;
         var company = new Company
         {
@@ -399,6 +401,7 @@ public sealed partial class GameWorld
 
         AddBuilding(company, "hq", estate.Origin.Offset(HqLocal.X, HqLocal.Y), finished: true);
         AddBuilding(company, "tradingPost", estate.Origin.Offset(TradingPostLocal.X, TradingPostLocal.Y), finished: true);
+        HandOverKit(company);
         company.BuiltTypes.Clear();
         if (held is { } joined && HoldOn(joined.Hold.Seat) is not null && KeyOf(estate) == joined.Hold.Seat && CrewMembers(joined.Crew).Count() < MaxCrewSize)
         {

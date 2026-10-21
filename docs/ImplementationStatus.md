@@ -257,8 +257,18 @@ stay); name + password accounts only (guests on a hidden account they can keep);
   when an estate moves; contracts between stations run over a link (and survive a move); the Links tab in the Yard
   panel (offers, state lines, tanks, who a link would suit), links drawn on the map as covered channels with the goods
   moving along them. The Exchange already trades at the one price. e2e `links.mjs`
-- ⬜ 4 · Houses (NPC companies in the stations, House prices, one 25% cap), stand-ins for whoever sleeps, small mode,
-  frozen districts
+- ✅ 4 · Houses and stand-ins: today's tenants are Houses of four kinds (Reliable, Collector, Grower, Neighbour in
+  need: no rival), as strong as their station's players (building levels = median active level − 3, at least 5,
+  every day; a Grower adds buildings), labelled ⚙ with what they do; in small mode (fewer than 50 active companies)
+  they keep every free seat warm, and every seat a crew holds for a friend; a newcomer who takes a House's seat gets
+  its starter kit (3–4 producers that need nothing, at most level 5, piped to the Yard gate already, with a note);
+  "Find me neighbours" prefers stations of four. Asleep in place: from day 30 the estate stays where it is and makes
+  nothing, and a stand-in House keeps its Yard flows and links going (announced on day 23): what partners bought
+  comes at the old price for 14 days, then 10% less a week (that gold leaves the game); what partners sold is paid
+  NPC gold at the old price (a week longer for a crew member's partners), gliding to House terms over 14 days while
+  the volume shrinks to a quarter; on day 90 the estate is packed for the Quiet Isles; waking in place gives the
+  trades back. Frozen districts: not needed (see the refinements). e2e `houses.mjs`. The solo-parity balance run
+  moves to step 8
 - ⬜ 5 · Absence and return: holds, asleep in place, the keep-the-seat card, tending, the three return screens,
   landing cards with crates, Tailwind, narrow probation, crew moves and the consolidation card
 - ⬜ 6 · The station's project (Foundation … Landmark, recipes and keystones, baskets, credit, bonuses), Asks, the Plan
@@ -329,3 +339,4 @@ Changes to [GameDesign.md](GameDesign.md) that came up while building; the desig
 | 2026-10-19 | The Franchise opens a new estate instead of resetting the old one, and the world persists over chapters instead of a season wipe | The owner prefers expansion over rebuilding; to be built in M8 |
 | 2026-10-19 | Looks are a primary goal: generated art (Codex, `gpt-6.1-sol` high) for buildings, map and UI; v1 scope is a fun, good-looking multiplayer idle game, the rest after v1 | Owner's direction after the image test |
 | 2026-10-21 | Playing together (v1.2 design): places, people and trade are separate things (stations, crews, the Yard and links); one price between players; no votes, kicks or releases; NPCs labelled and capped at 25% | Six design agents in five rounds, on the owner's principles: fun with three friends, choosing where you live, lonely players, players who stop |
+| 2026-10-21 | No frozen districts (v1.2 §11): a quiet district already costs almost nothing (its Yard's rounds come every 16 minutes, its networks are never solved again), and running it in quarter-hour steps changed what players earn (the Hub Order follows a one-hour average of sales: a lump of sales keeps the price higher, about 12% in a test) | Being away must never pay better than playing |

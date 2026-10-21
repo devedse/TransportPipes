@@ -206,7 +206,8 @@ public sealed partial class GameWorld
             }
             foreach (var (sellerId, amount) in sources)
             {
-                if (Company(sellerId) is not { } seller)
+                // What a stand-in sells is NPC gold: it leaves the game, it is never the sleeper's
+                if (Company(sellerId) is not { } seller || seller.Asleep)
                 {
                     continue;
                 }
@@ -231,7 +232,9 @@ public sealed partial class GameWorld
     {
         public required EstateKey Key { get; init; }
         public required Company Company { get; init; }
-        public required Network Network { get; init; }
+
+        /// <summary>The network at its gate (null for a stand-in: an asleep estate makes nothing)</summary>
+        public required Network? Network { get; init; }
 
         /// <summary>Per minute: what it has spare (it would go to the hub), what it lacks, what it makes, what its buildings use</summary>
         public Dictionary<string, double> Spare { get; } = new();
@@ -249,8 +252,20 @@ public sealed partial class GameWorld
         var members = new List<YardMember>();
         foreach (var seat in BigStation(station).SelectMany(StationSeats))
         {
-            if (Estate(seat.District, seat.Slot) is not { OwnerId: { } ownerId } estate || Company(ownerId) is not { } company
-                || company.Packed != null || company.Asleep || GateNetwork(estate) is not { } network)
+            if (Estate(seat.District, seat.Slot) is not { OwnerId: { } ownerId } estate || Company(ownerId) is not { } company || company.Packed != null)
+            {
+                continue;
+            }
+            if (company.Asleep)
+            {
+                // Its stand-in keeps its trades going
+                if (company.StandIn is { } standIn)
+                {
+                    members.Add(StandInMember(estate, company, standIn));
+                }
+                continue;
+            }
+            if (GateNetwork(estate) is not { } network)
             {
                 continue;
             }
@@ -268,7 +283,7 @@ public sealed partial class GameWorld
     /// </summary>
     private void Measure(YardMember member)
     {
-        var network = member.Network;
+        var network = member.Network!;
         var solution = network.Solution;
         var gate = Estate(member.Key.District, member.Key.Slot)!.YardGate;
         var efficiency = new Dictionary<(long, string), double>();
@@ -352,7 +367,9 @@ public sealed partial class GameWorld
     /// <summary>Whether a seller's goods may go to a buyer: their trade settings, Blocks, and the buyer's gold</summary>
     private bool YardTradeAllowed(Company seller, Company buyer, string resource) =>
         seller.Id != buyer.Id && !seller.NoTrade.Contains(resource) && !buyer.NoBuy.Contains(resource)
-        && (buyer.IsNpc || buyer.Gold > 0) && TradesWith(seller, buyer) && TradesWith(buyer, seller);
+        && (buyer.IsNpc || buyer.Asleep || buyer.Gold > 0) && TradesWith(seller, buyer) && TradesWith(buyer, seller)
+        // A stand-in keeps a sleeper's trades with players, never with Houses or another stand-in
+        && !(seller.Asleep && (buyer.IsNpc || buyer.Asleep)) && !(buyer.Asleep && seller.IsNpc);
 
     /// <summary>
     /// Shares what sellers have among buyers that lack it, in proportion (every buyer the same share of its need, every
@@ -668,7 +685,9 @@ public sealed partial class GameWorld
                 continue;
             }
             // What is still spare (it goes to the hub) and still missing, after what the Yard passes already
-            var gets = member.Network.GateFlows.Where(t => t.Import && t.Estate == member.Key).GroupBy(t => t.Resource).ToDictionary(t => t.Key, t => t.Sum(f => f.Sent));
+            var gets = member.Network == null
+                ? _gateTerms.TryGetValue(member.Key, out var standInTerms) ? standInTerms.Import.GroupBy(t => t.Key.Resource).ToDictionary(t => t.Key, t => t.Sum(f => f.Value.Values.Sum())) : new Dictionary<string, double>()
+                : member.Network.GateFlows.Where(t => t.Import && t.Estate == member.Key).GroupBy(t => t.Resource).ToDictionary(t => t.Key, t => t.Sum(f => f.Sent));
             residents.Add(new YardResident(company, slot, true,
                 member.Spare.ToDictionary(t => t.Key, t => Math.Max(0, t.Value - member.Sent.GetValueOrDefault(t.Key))),
                 member.Lacks.ToDictionary(t => t.Key, t => Math.Max(0, t.Value - gets.GetValueOrDefault(t.Key)))));

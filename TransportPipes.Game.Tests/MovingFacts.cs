@@ -83,7 +83,7 @@ public class MovingFacts
     }
 
     [TestMethod]
-    public void AfterAMonthAwayTheEstateSleepsOnTheQuietIslesAndWakesUp()
+    public void AfterThreeMonthsAwayTheEstateSleepsOnTheQuietIslesAndWakesUp()
     {
         var game = new TestGame();
         var (company, _) = Settled(game, "Sleeper");
@@ -94,7 +94,9 @@ public class MovingFacts
         game.Pass(16 * 24 * 60);
 
         Assert.IsTrue(company.Asleep);
-        Assert.IsNull(game.World.EstateOf(company), "the spot is free for a newcomer");
+        Assert.IsNotNull(game.World.EstateOf(company), "asleep in place first");
+        game.Pass(60 * 24 * 60);
+        Assert.IsNull(game.World.EstateOf(company), "after three months the spot is free for a newcomer");
         Assert.IsTrue(game.World.QuietIsles.Contains(company));
 
         game.World.WakeUp(company);

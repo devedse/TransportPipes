@@ -24,6 +24,9 @@ public sealed class Company : Entity
     public DateTime LastSeenAt { get; set; }
     public bool IsNpc { get; init; }
 
+    /// <summary>What a House (an NPC company) does for its station; null for players</summary>
+    public HouseKind? House { get; set; }
+
     /// <summary>Total gold earned (sales and trades), for statistics and XP</summary>
     public double LifetimeEarnings { get; set; }
 
@@ -111,6 +114,10 @@ public sealed class Company : Entity
     public PackedEstate? Packed { get; set; }
     public List<PackedBuilding> Crates { get; init; } = new();
     public bool Asleep { get; set; }
+
+    /// <summary>The House that keeps an asleep company's trades going (v1.2 §9), and whether its partners heard on day 23</summary>
+    public StandIn? StandIn { get; set; }
+    public bool StandInAnnounced { get; set; }
     public DateTime? ArrivesAt { get; set; }
     public DateTime? LastMovedAt { get; set; }
 

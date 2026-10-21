@@ -1223,6 +1223,10 @@ export interface YardResidentDto {
   spare: ResourceRateDto[];
   lacks: ResourceRateDto[];
   blocked: boolean;
+  /** A House's kind (v1.2 §9) */
+  house: "reliable" | "collector" | "grower" | "neighbourInNeed" | null;
+  /** The House standing in for an asleep player */
+  standIn: string | null;
 }
 
 /** One of your trades through the Yard: with whom, what, how much per minute, which way, at what price */

@@ -93,6 +93,9 @@ public sealed class WorldStore
                 CrewId = settings.CrewId,
                 LeftCrewAt = settings.LeftCrewAt,
                 IsGuest = settings.IsGuest,
+                House = settings.House,
+                StandIn = settings.StandIn,
+                StandInAnnounced = settings.StandInAnnounced,
                 DistinctDays = settings.DistinctDays,
                 LastPlayedDay = settings.LastPlayedDay,
                 TradeWith = settings.TradeWith,
@@ -366,6 +369,9 @@ public sealed class WorldStore
                     CrewId = company.CrewId,
                     LeftCrewAt = company.LeftCrewAt,
                     IsGuest = company.IsGuest,
+                    House = company.House,
+                    StandIn = company.StandIn,
+                    StandInAnnounced = company.StandInAnnounced,
                     DistinctDays = company.DistinctDays,
                     LastPlayedDay = company.LastPlayedDay,
                     TradeWith = company.TradeWith,
@@ -690,6 +696,9 @@ public sealed class WorldStore
         public long? CrewId { get; init; }
         public DateTime? LeftCrewAt { get; init; }
         public bool IsGuest { get; init; }
+        public HouseKind? House { get; init; }
+        public StandIn? StandIn { get; init; }
+        public bool StandInAnnounced { get; init; }
         public int DistinctDays { get; init; }
         public int LastPlayedDay { get; init; }
         public TradeWith TradeWith { get; init; } = TradeWith.Everyone;

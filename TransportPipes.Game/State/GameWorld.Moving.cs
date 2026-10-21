@@ -447,10 +447,24 @@ public sealed partial class GameWorld
                     Changes.Events.Add(new WorldEvent(next.Id, WorldEventKind.Corporation, $"You lead {corporation.Name} now: {company.Name} has been away for two weeks"));
                 }
             }
-            if (LastTick - company.LastSeenAt >= AsleepAfter && company.Packed == null)
+            var away = LastTick - company.LastSeenAt;
+            if (away >= StandInNoticeAfter && !company.StandInAnnounced && company.Packed == null)
+            {
+                AnnounceStandIn(company);
+            }
+            else if (away < StandInNoticeAfter && company.StandInAnnounced)
+            {
+                company.StandInAnnounced = false;
+                company.Touch();
+            }
+            if (away >= AsleepAfter && company.Packed == null)
             {
                 Sleep(company);
             }
+        }
+        foreach (var company in _companies.Values.Where(t => t.Asleep && t.Packed == null && LastTick - t.LastSeenAt >= PackAsleepAfter).ToList())
+        {
+            PackAsleep(company);
         }
     }
 
@@ -466,14 +480,24 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>To the Quiet Isles: the estate is packed, its spot is free for a newcomer, nothing is lost</summary>
+    /// <summary>
+    /// Asleep in place (v1.2 §10): the estate stays where it is and makes nothing, a stand-in House keeps its trades going
+    /// (contracts and Exchange orders end); on day 90 it is packed for the Quiet Isles
+    /// </summary>
     private void Sleep(Company company)
     {
+        company.StandIn = NewStandIn(company);
         EndTradeOf(company);
-        Pack(company);
         company.Asleep = true;
         company.Touch();
         Changes.Companies.Add(company.Id);
+        MarkCompanyNetworksDirty(company.Id);
+        WakeCoupling();
+        foreach (var partner in PartnersOf(company))
+        {
+            Changes.Events.Add(new WorldEvent(partner.Id, WorldEventKind.Neighbour,
+                $"{company.StandIn.Name} ⚙ stands in for {company.Name} now: your trades with them go on"));
+        }
     }
 
     /// <summary>
@@ -487,6 +511,23 @@ public sealed partial class GameWorld
             return;
         }
         company.Asleep = false;
+        company.StandIn = null;
+        company.StandInAnnounced = false;
+        if (company.Packed == null && EstateOf(company) is { } home)
+        {
+            // Asleep in place: it wakes where it is, its stand-in steps aside
+            MarkCompanyNetworksDirty(company.Id);
+            WakeCoupling();
+            company.Touch();
+            Changes.Companies.Add(company.Id);
+            foreach (var partner in PartnersOf(company))
+            {
+                Changes.Events.Add(new WorldEvent(partner.Id, WorldEventKind.Neighbour, $"{company.Name} is back: your trades with them are theirs again"));
+            }
+            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Neighbour,
+                $"Welcome back! Your estate in {WorldNames.Station(home.Station)} wakes up; a stand-in kept your trades going"));
+            return;
+        }
         var estate = FindFreeEstate();
         Unpack(company, estate);
         var gold = 1000.0 * company.Level;

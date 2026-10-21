@@ -661,7 +661,7 @@ public sealed partial class GameWorld
         OpenRoomForGroups();
         for (var attempt = 0; attempt < 200; attempt++)
         {
-            var candidates = new List<(EstateKey Seat, int Near, int Residents, int Free, int Rank)>();
+            var candidates = new List<(EstateKey Seat, int Near, int Residents, int Free, int Rank, bool Small)>();
             foreach (var district in _openDistricts)
             {
                 var rank = DistrictRank(district);
@@ -682,14 +682,16 @@ public sealed partial class GameWorld
                     };
                     if (fits)
                     {
-                        candidates.Add((free[0], near, residents, free.Count, rank));
+                        candidates.Add((free[0], near, residents, free.Count, rank, station.IsSmall));
                     }
                 }
             }
             if (candidates.Count > 0)
             {
+                // Next to people: where the most active players of about your level live, in a station of four (more
+                // partners than a small one) in the oldest district
                 return placement == Placement.Neighbours
-                    ? candidates.OrderByDescending(t => t.Near).ThenByDescending(t => t.Residents).ThenBy(t => t.Free).ThenBy(t => t.Rank).ThenBy(t => t.Seat.Slot).First().Seat
+                    ? candidates.OrderByDescending(t => t.Near).ThenByDescending(t => t.Residents).ThenBy(t => t.Small).ThenBy(t => t.Rank).ThenBy(t => t.Seat.Slot).First().Seat
                     : candidates.OrderBy(t => t.Rank).ThenBy(t => t.Seat.Slot).First().Seat;
             }
             OpenNextDistrict();

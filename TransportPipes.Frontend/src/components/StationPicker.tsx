@@ -8,7 +8,7 @@ export type PickMode = "neighbours" | "own" | "friends" | "move";
 
 const SEAT_TEXT: Record<SeatDto["state"], string> = {
   free: "free",
-  house: "a House keeps it warm",
+  house: "a House keeps it warm and leaves you its starter kit",
   held: "held for a friend",
   taken: "",
   you: "you",

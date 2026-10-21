@@ -1202,7 +1202,11 @@ public static class GameViews
         var notice = link.NoticeAt is { } at
             ? $" · {(link.NoticeEnds ? "ends" : "pauses")} in {Span(at - world.Now)} ({(link.NoticeBy == me.Id ? "your notice" : $"{name}'s notice")})"
             : "";
-        var resting = partner != null && world.ActivityOf(partner) != Activity.Active ? $" {name} is resting; this link keeps delivering." : "";
+        var resting = partner?.StandIn is { } standIn
+            ? selling
+                ? $" {standIn.Name} ⚙ stands in for {name}: it keeps buying, its terms gliding to a House's from {standIn.Since.AddDays(standIn.OldPriceWeek ? 7 : 0):d MMM}."
+                : $" {standIn.Name} ⚙ stands in for {name}: it keeps this link going."
+            : partner != null && world.ActivityOf(partner) != Activity.Active ? $" {name} is resting; this link keeps delivering." : "";
         var (tone, line) = link.Flow switch
         {
             LinkFlow.Live => ("good", selling
@@ -1287,6 +1291,10 @@ public static class GameViews
             .Select(t => new MapLinkDto(t.Id, t.Resource, t.Tier, t.Rate > 0, t.Seller, t.Buyer, Flat(t.Route)))
             .ToList();
 
+    /// <summary>Whether a company sells a good to the hub (some of its buildings reach a Trading Post)</summary>
+    private static bool HubTakes(GameWorld world, Company me, string resource) =>
+        world.BuildingsOf(me.Id).Any(b => world.NetworkOf(b.Id)?.Solution.Flows.Any(f => f.From == b.Id && f.Kind == FlowKind.Sale && f.Resource == resource) == true);
+
     /// <summary>The player's station and its Yard</summary>
     public static YardDto? Yard(GameWorld world, Company me)
     {
@@ -1316,7 +1324,9 @@ public static class GameViews
                     : yours.FirstOrDefault() is { } purchase
                         ? $"You buy {Name(purchase.Resource)} from {purchase.PartnerName} at {purchase.Price:0.##} g."
                         : mine?.Spare.Where(t => t.Value > 0.01).OrderByDescending(t => t.Value).Select(t => t.Key).FirstOrDefault() is { } spare
-                            ? $"Nobody here needs {Name(spare)} yet: the hub takes it."
+                            ? HubTakes(world, me, spare)
+                                ? $"Nobody here needs {Name(spare)} yet: the hub takes it."
+                                : $"Nobody here needs {Name(spare)} yet: pipe it to your Trading Post and the hub buys it."
                             : "Nothing to trade yet: what you make your own buildings use.";
         return new YardDto(
             WorldNames.Station(station),
@@ -1329,7 +1339,8 @@ public static class GameViews
             estate.YardGate.Y,
             connected,
             residents.Select(t => new YardResidentDto(t.Company.Id, t.Company.Name, t.Company.Color, t.Company.Level, t.Company.IsNpc, t.Slot, t.Connected,
-                t.Company.IsNpc ? null : Camel(world.ActivityOf(t.Company)), Rates(t.Spare), Rates(t.Lacks), me.TradeBlocked.Contains(t.Company.Id))).ToList(),
+                t.Company.IsNpc ? null : Camel(world.ActivityOf(t.Company)), Rates(t.Spare), Rates(t.Lacks), me.TradeBlocked.Contains(t.Company.Id),
+                t.Company.House is { } kind ? Camel(kind) : null, t.Company.StandIn?.Name)).ToList(),
             yours,
             world.YardTotals(station).Select(t => new ResourceRateDto(t.Key, t.Value)).OrderByDescending(t => t.PerMinute).ToList(),
             line);

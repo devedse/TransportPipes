@@ -174,6 +174,7 @@ public sealed partial class GameWorld
         SolveNetworks();
         ExpectContracts(minutes);
         CountLinkDeliveries(minutes);
+        SettleStandIns(minutes);
         foreach (var network in _networks.Values.OrderBy(t => t.Id).ToList())
         {
             AdvanceNetwork(network, minutes);

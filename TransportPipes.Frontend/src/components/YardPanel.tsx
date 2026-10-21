@@ -26,6 +26,14 @@ function Rates({ rates, content, kind }: { rates: ResourceRateDto[]; content: Co
   );
 }
 
+/** What each kind of House does for the station */
+const HOUSE_KIND: Record<string, string> = {
+  reliable: "a steady supplier",
+  collector: "buys what the station makes",
+  grower: "grows with the station",
+  neighbourInNeed: "needs what it lacks from the station",
+};
+
 const ACTIVITY: Record<string, string> = {
   active: "lively",
   resting: "resting",
@@ -131,9 +139,12 @@ export function YardPanel() {
                     )}
                     <span className="muted small">
                       Lv {r.level}
-                      {r.activity !== null && r.id !== company.id
-                        ? ` · ${ACTIVITY[r.activity] ?? r.activity}`
-                        : ""}
+                      {r.house !== null && ` · ${HOUSE_KIND[r.house] ?? r.house}`}
+                      {r.standIn !== null
+                        ? ` · asleep: ${r.standIn} ⚙ stands in`
+                        : r.activity !== null && r.id !== company.id
+                          ? ` · ${ACTIVITY[r.activity] ?? r.activity}`
+                          : ""}
                       {r.connected ? "" : " · not piped to the Yard yet"}
                       {r.blocked ? " · blocked" : ""}
                     </span>

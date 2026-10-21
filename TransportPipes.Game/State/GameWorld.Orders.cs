@@ -29,6 +29,10 @@ public sealed partial class GameWorld
         PlanEvents();
         CheckActivity();
         CheckHolds();
+        if (TenantsEnabled)
+        {
+            UpdateHouses();
+        }
         foreach (var company in _companies.Values.Where(t => !t.IsNpc && t.LastSeenAt >= LastTick - ActivePeriod))
         {
             EnsureOrders(company);
