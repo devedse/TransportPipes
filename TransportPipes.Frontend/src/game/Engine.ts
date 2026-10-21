@@ -108,6 +108,8 @@ export interface EngineCallbacks {
   onPlacePipes(route: TilePosition[]): void;
   onRemovePipes(tiles: TilePosition[]): void;
   onPlaceBuilding(type: string, x: number, y: number): void;
+  /** A painted row or area of the build tool's building */
+  onPlaceBuildings(type: string, spots: TilePosition[]): void;
   onMoveBuilding(id: number, x: number, y: number): void;
   onSelectArea(x: number, y: number, width: number, height: number): void;
   /** The camera went down into the Deep Level, or back up */
@@ -474,6 +476,8 @@ export class Engine {
   private pipeStart: TilePosition | null = null;
   /** The first corner of a blueprint area being dragged */
   private areaStart: TilePosition | null = null;
+  /** Where a drag with the build tool started: it paints a row (with Shift an area) */
+  private paintStart: TilePosition | null = null;
   private pipeRoute: TilePosition[] | null = null;
   private bulldozeTiles = new Map<number, TilePosition>();
   private hovered: TilePosition | null = null;
@@ -677,6 +681,14 @@ export class Engine {
       if (event.button === 0 && tool.kind === "blueprintArea") {
         this.areaStart = this.camera.screenToTile(local.x, local.y);
       }
+      if (
+        event.button === 0 &&
+        tool.kind === "build" &&
+        tool.crate === undefined &&
+        event.pointerType !== "touch"
+      ) {
+        this.paintStart = this.camera.screenToTile(local.x, local.y);
+      }
     };
 
     const onPointerMove = (event: PointerEvent) => {
@@ -795,8 +807,93 @@ export class Engine {
     const tool = this.callbacks.getState().tool;
     return (
       this.dragButton === 0 &&
-      (tool.kind === "pipe" || tool.kind === "bulldoze" || tool.kind === "blueprintArea" || this.isBoxDrag())
+      (tool.kind === "pipe" ||
+        tool.kind === "bulldoze" ||
+        tool.kind === "blueprintArea" ||
+        this.isBoxDrag() ||
+        this.isPaintDrag())
     );
+  }
+
+  /** The left button with the build tool paints a row of the building (a click builds one); a finger still pans */
+  private isPaintDrag(): boolean {
+    const tool = this.callbacks.getState().tool;
+    return (
+      this.dragButton === 0 && tool.kind === "build" && tool.crate === undefined && this.paintStart !== null
+    );
+  }
+
+  /**
+   * The spots of a painted row of the build tool's building (with Shift an area), a building's width apart: where it
+   * fits, as far as the gold goes. Blocked: the ones left out.
+   */
+  private paintSpots(): {
+    spots: TilePosition[];
+    blocked: TilePosition[];
+    cost: number;
+    short: boolean;
+  } | null {
+    const state = this.callbacks.getState();
+    const tool = state.tool;
+    if (tool.kind !== "build" || this.paintStart === null || state.company === null) {
+      return null;
+    }
+    const definition = state.content.building(tool.type);
+    if (definition === undefined) {
+      return null;
+    }
+    const size = definition.size;
+    const start = footprintOrigin(this.paintStart.x, this.paintStart.y, size);
+    const pointer = this.camera.screenToTile(this.pointerX, this.pointerY);
+    const end = footprintOrigin(pointer.x, pointer.y, size);
+    const stepX = end.x >= start.x ? size : -size;
+    const stepY = end.y >= start.y ? size : -size;
+    const countX = Math.floor(Math.abs(end.x - start.x) / size) + 1;
+    const countY = Math.floor(Math.abs(end.y - start.y) / size) + 1;
+    const candidates: TilePosition[] = [];
+    if (this.dragShift || this.keys.has("shift")) {
+      for (let j = 0; j < countY; j++) {
+        for (let i = 0; i < countX; i++) {
+          candidates.push({ x: start.x + i * stepX, y: start.y + j * stepY });
+        }
+      }
+    } else if (countX >= countY) {
+      for (let i = 0; i < countX; i++) {
+        candidates.push({ x: start.x + i * stepX, y: start.y });
+      }
+    } else {
+      for (let j = 0; j < countY; j++) {
+        candidates.push({ x: start.x, y: start.y + j * stepY });
+      }
+    }
+    let copies = [...this.world.buildings.values()].filter(
+      (t) => t.owner === state.company!.id && t.type === definition.id,
+    ).length;
+    const spots: TilePosition[] = [];
+    const blocked: TilePosition[] = [];
+    let cost = 0;
+    let short = false;
+    for (const spot of candidates.slice(0, 100)) {
+      const placement = canPlace(
+        state.content,
+        this.world,
+        state.company,
+        state.era,
+        definition,
+        spot.x,
+        spot.y,
+      );
+      const price = state.content.buildCost(definition, copies);
+      if (!placement.ok || short || cost + price > state.company.gold) {
+        short ||= placement.ok;
+        blocked.push(spot);
+        continue;
+      }
+      spots.push(spot);
+      cost += price;
+      copies++;
+    }
+    return { spots, blocked, cost, short };
   }
 
   /** The left button with the Select tool draws a selection box (the right button pans); a finger still pans */
@@ -876,6 +973,7 @@ export class Engine {
 
   private cancelToolDrag() {
     this.areaStart = null;
+    this.paintStart = null;
     this.pipeStart = null;
     this.pipeRoute = null;
     this.bulldozeTiles.clear();
@@ -884,6 +982,16 @@ export class Engine {
 
   private finishToolDrag() {
     const tool = this.callbacks.getState().tool;
+    if (tool.kind === "build") {
+      const paint = this.movedBeyondClick ? this.paintSpots() : null;
+      if (paint === null) {
+        this.click(this.camera.screenToTile(this.pointerX, this.pointerY));
+      } else if (paint.spots.length === 1) {
+        this.callbacks.onPlaceBuilding(tool.type, paint.spots[0]!.x, paint.spots[0]!.y);
+      } else if (paint.spots.length > 1) {
+        this.callbacks.onPlaceBuildings(tool.type, paint.spots);
+      }
+    }
     if (tool.kind === "pipe" && this.pipeRoute !== null && this.pipeRoute.length > 0) {
       this.callbacks.onPlacePipes(this.pipeRoute);
     }
@@ -2740,6 +2848,13 @@ export class Engine {
       return;
     }
 
+    const paint = this.dragging && this.movedBeyondClick && this.isPaintDrag() ? this.paintSpots() : null;
+    if (paint !== null && tool.kind === "build") {
+      this.drawPaintGhost(tool.type, paint);
+      this.callbacks.onHover(tile, null);
+      return;
+    }
+
     if (tool.kind === "build" || tool.kind === "move") {
       const building = tool.kind === "move" ? this.world.buildings.get(tool.building) : undefined;
       const type = tool.kind === "build" ? tool.type : building?.type;
@@ -2838,6 +2953,51 @@ export class Engine {
       this.ghostLayer.addChild(g);
     }
     this.callbacks.onHover(tile, null);
+  }
+
+  /** A painted row or area: a ghost on every spot it will build, the left-out ones in red, and the count and cost */
+  private drawPaintGhost(
+    type: string,
+    paint: { spots: TilePosition[]; blocked: TilePosition[]; cost: number; short: boolean },
+  ) {
+    const state = this.callbacks.getState();
+    const definition = state.content.building(type);
+    if (definition === undefined) {
+      return;
+    }
+    const size = definition.size;
+    const g = new Graphics();
+    for (const spot of paint.blocked) {
+      traceFootprint(g, spot.x, spot.y, size);
+    }
+    g.fill({ color: 0xef6f6c, alpha: 0.3 });
+    for (const spot of paint.spots) {
+      traceFootprint(g, spot.x, spot.y, size);
+    }
+    g.fill({ color: 0x2ec4a6, alpha: 0.4 });
+    for (const spot of paint.spots) {
+      traceFootprint(g, spot.x, spot.y, size);
+      g.stroke({ color: 0x2ec4a6, width: 4 });
+    }
+    this.ghostLayer.addChild(g);
+    const art = this.textures.building(definition.id, size);
+    for (const spot of [...paint.spots].sort((a, b) => a.x + a.y - (b.x + b.y))) {
+      const sprite = new Sprite(art.frames[0]);
+      placeArt(sprite, art, footprintAnchor(spot.x, spot.y, size), size);
+      sprite.alpha = 0.72;
+      this.ghostLayer.addChild(sprite);
+    }
+    const last = paint.spots.at(-1) ?? paint.blocked.at(-1);
+    if (last !== undefined) {
+      const label = new Text({
+        text: `${paint.spots.length} × ${definition.name} · ${Math.round(paint.cost).toLocaleString("en-US")} g${paint.short ? " · no gold for more" : ""}`,
+        style: { fill: 0xffffff, fontSize: 30, fontWeight: "700", stroke: { color: 0x1d3b5a, width: 6 } },
+      });
+      label.anchor.set(0.5, 1);
+      const top = tileCenter(last.x + (size - 1) / 2, last.y + (size - 1) / 2);
+      label.position.set(top.x, top.y - 90);
+      this.ghostLayer.addChild(label);
+    }
   }
 
   /** Every building of a blueprint where it would go: green when it can be built, red when not */

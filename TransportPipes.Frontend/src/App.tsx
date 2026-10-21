@@ -24,6 +24,7 @@ import { NetworkPanel } from "./components/NetworkPanel";
 import { OverlayBar } from "./components/OverlayBar";
 import { ParcelPanel } from "./components/ParcelPanel";
 import { SelectionPanel } from "./components/SelectionPanel";
+import { KeysHelp } from "./components/KeysHelp";
 import { PipeTierBar } from "./components/PipeTierBar";
 import { ReportDialog } from "./components/ReportDialog";
 import { BlueprintPanel, BlueprintSaveDialog } from "./components/BlueprintPanel";
@@ -76,6 +77,9 @@ function useShortcuts() {
       switch (event.key.toLowerCase()) {
         case "escape":
           gameClient.back();
+          break;
+        case "?":
+          setState({ keysOpen: !state.keysOpen });
           break;
         case "o": {
           const order = ["none", "deposits", "wind", "sun", "owners"] as const;
@@ -231,6 +235,9 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="PipeTierBar">
             <PipeTierBar />
+          </ErrorBoundary>
+          <ErrorBoundary name="KeysHelp">
+            <KeysHelp />
           </ErrorBoundary>
           <ErrorBoundary name="SelectionPanel">
             <SelectionPanel />

@@ -35,6 +35,7 @@ function rememberSeen(seen: Set<string>) {
 /** The tools at the bottom of the screen */
 export function Toolbar() {
   const tool = useAppStore((state) => state.tool);
+  const keysOpen = useAppStore((state) => state.keysOpen);
   const buildMenuOpen = useAppStore((state) => state.buildMenuOpen);
   const content = useAppStore((state) => state.content);
   const researchOpen = useAppStore((state) => state.researchOpen);
@@ -169,6 +170,13 @@ export function Toolbar() {
           <kbd>{t.hotkey}</kbd>
         </button>
       ))}
+      <button
+        className="tool keys-button"
+        title="Mouse and keys (?)"
+        onClick={() => setState({ keysOpen: !keysOpen })}
+      >
+        ?
+      </button>
     </div>
   );
 }

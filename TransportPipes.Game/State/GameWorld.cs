@@ -602,6 +602,38 @@ public sealed partial class GameWorld
     public double BuildCost(Company company, BuildingDefinition definition) =>
         Content.Progression.BuildCost(definition, CopiesOwned(company.Id, definition.Id));
 
+    /// <summary>
+    /// Builds a building on every spot of a painted row or area, in order, until the gold runs out (spots where it can't
+    /// stand are left out); returns how many were built, the gold they cost, and why the rest wasn't
+    /// </summary>
+    public (int Placed, double Gold, string? Error) PlaceBuildings(long companyId, string type, IReadOnlyList<TilePos> spots)
+    {
+        if (Company(companyId) is not { } company)
+        {
+            return (0, 0, "Unknown company.");
+        }
+        var before = company.Gold;
+        var placed = 0;
+        string? error = null;
+        foreach (var spot in spots.Distinct().Take(100))
+        {
+            var result = PlaceBuilding(companyId, type, spot);
+            if (result.Success)
+            {
+                placed++;
+            }
+            else if (result.Error is { } reason && (reason.StartsWith("You need", StringComparison.Ordinal) || placed == 0 && error == null))
+            {
+                error = reason;
+                if (reason.StartsWith("You need", StringComparison.Ordinal))
+                {
+                    break;
+                }
+            }
+        }
+        return (placed, Math.Round(before - company.Gold, 2), placed == spots.Count ? null : error);
+    }
+
     /// <summary>Materials of a company: the contents of all its storages</summary>
     public Dictionary<string, double> Materials(long companyId)
     {

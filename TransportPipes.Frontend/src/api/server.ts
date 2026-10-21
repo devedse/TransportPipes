@@ -257,11 +257,16 @@ export class GameConnection {
       budget,
     );
   getSelectionCosts = (buildings: number[]) =>
-    this.invoke<{ plusOne: number; plusTen: number; cheapest: number; upgradable: number }>(
-      "GetSelectionCosts",
-      buildings,
-    );
+    this.invoke<{
+      plusOne: number;
+      plusTen: number;
+      cheapest: number;
+      upgradable: number;
+      makes: Record<string, number>;
+    }>("GetSelectionCosts", buildings);
   getNextSteps = () => this.invoke<NextStepDto[]>("GetNextSteps");
+  placeBuildings = (type: string, spots: number[]) =>
+    this.invoke<{ placed: number; gold: number; error: string | null }>("PlaceBuildings", type, spots);
   demolish = (building: number) => this.invoke<CommandResult>("Demolish", building);
   repair = (building: number) => this.invoke<CommandResult>("Repair", building);
   dig = (parcel: number) => this.invoke<CommandResult>("Dig", parcel);

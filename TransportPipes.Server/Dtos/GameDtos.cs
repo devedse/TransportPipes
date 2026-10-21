@@ -263,8 +263,12 @@ public record StorageKeepDto(IReadOnlyDictionary<string, double> Keeps, bool Tra
 /// <summary>Upgrading several buildings: the levels bought and the gold spent (or why nothing happened)</summary>
 public record BulkUpgradeDto(bool Success, string? Error, int Levels, double Gold);
 
+/// <summary>A painted row or area: how many were built and what they cost; Error: why the rest wasn't</summary>
+public record BulkPlaceDto(int Placed, double Gold, string? Error);
+
 /// <summary>What upgrading several buildings costs: all by one level, all by ten, and the cheapest next level</summary>
-public record SelectionCostsDto(double PlusOne, double PlusTen, double Cheapest, int Upgradable);
+/// <summary>Upgrading a selection: +1 each, +10 each, the cheapest next level; Makes: what the buildings make together now, per minute</summary>
+public record SelectionCostsDto(double PlusOne, double PlusTen, double Cheapest, int Upgradable, Dictionary<string, double> Makes);
 
 /// <summary>One of the advisor's next steps (GameWorld.NextSteps): x, y is where Show me looks</summary>
 public record NextStepDto(

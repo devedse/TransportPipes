@@ -15,6 +15,7 @@ export function SelectionPanel() {
     plusTen: number;
     cheapest: number;
     upgradable: number;
+    makes: Record<string, number>;
   } | null>(null);
   const [budget, setBudget] = useState<number | null>(null);
   const [confirm, setConfirm] = useState(false);
@@ -112,6 +113,19 @@ export function SelectionPanel() {
           Keys: <kbd>U</kbd> all +1 · <kbd>Shift</kbd>+<kbd>U</kbd> +10 each · <kbd>Del</kbd> demolish
         </p>
       </section>
+
+      {costs !== null && Object.keys(costs.makes).length > 0 && (
+        <p className="selection-makes small">
+          Together{" "}
+          {Object.entries(costs.makes)
+            .sort((a, b) => b[1] - a[1])
+            .map(
+              ([resource, amount]) =>
+                `+${formatAmount(amount)} ${content.resourceName(resource).toLowerCase()}/min`,
+            )
+            .join(" · ")}
+        </p>
+      )}
 
       <section>
         <h4>In it</h4>

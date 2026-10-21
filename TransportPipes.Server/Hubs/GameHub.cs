@@ -208,11 +208,19 @@ public sealed class GameHub : Hub<IGameClient>
             var own = buildings.Take(500).Distinct().Select(world.Building).OfType<TransportPipes.Game.State.Building>()
                 .Where(t => company != null && t.Owner == company.Id && world.CanUpgrade(t)).ToList();
             var max = world.Content.Progression.MaxBuildingLevel;
+            // What they make together now: what flows out of them
+            var ids = buildings.Take(500).ToHashSet();
+            var makes = world.Networks
+                .SelectMany(t => t.Solution.Flows)
+                .Where(t => ids.Contains(t.From) && world.Building(t.From) is { } b && company != null && b.Owner == company.Id && world.Content.Building(b.Type).Kind == TransportPipes.Game.Content.BuildingKind.Producer)
+                .GroupBy(t => t.Resource)
+                .ToDictionary(t => t.Key, t => Math.Round(t.Sum(f => f.Sent), 2));
             return new SelectionCostsDto(
                 Math.Round(own.Sum(t => world.UpgradeCost(t, 1)), 2),
                 Math.Round(own.Sum(t => world.UpgradeCost(t, Math.Min(10, max - t.Level))), 2),
                 own.Count == 0 ? 0 : Math.Round(own.Min(t => world.UpgradeCost(t, 1)), 2),
-                own.Count);
+                own.Count,
+                makes);
         }, changesWorld: false);
     }
 
@@ -891,6 +899,21 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<CommandResultDto> PlaceBuilding(string type, int x, int y) =>
         Command((world, company) => world.PlaceBuilding(company, type, new TilePos(x, y)));
+
+    /// <summary>A painted row or area: spots as x0, y0, x1, y1, ...</summary>
+    public Task<BulkPlaceDto> PlaceBuildings(string type, int[] spots)
+    {
+        var userId = UserId;
+        return _world.RunAsync(world =>
+        {
+            if (world.CompanyOfUser(userId) is not { } company)
+            {
+                return new BulkPlaceDto(0, 0, "Found your company first.");
+            }
+            var (placed, gold, error) = world.PlaceBuildings(company.Id, type, Tiles(spots));
+            return new BulkPlaceDto(placed, gold, error);
+        });
+    }
 
     /// <summary>Pipe tiles as x0, y0, x1, y1, ...</summary>
     public Task<CommandResultDto> PlacePipes(int[] tiles, int tier) =>

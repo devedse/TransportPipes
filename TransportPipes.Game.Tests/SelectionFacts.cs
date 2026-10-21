@@ -56,4 +56,24 @@ public class SelectionFacts
         Assert.AreEqual(1, theirs.Level);
         Assert.AreEqual(1, hq.Level, "the HQ grows with the Company Level");
     }
+
+    [TestMethod]
+    public void APaintedRowIsBuiltAsFarAsTheGoldGoes()
+    {
+        var game = new TestGame();
+        var definition = game.World.Content.Building("solarPanel");
+        var company = game.NewCompany(gold: 0);
+        var spots = Enumerable.Range(0, 16).SelectMany(i => new[] { game.Local(company, 8 + i, 20), game.Local(company, 8 + i, 21) }).Where(t => game.World.CanPlace(company, definition, t).Success).Take(8).ToList();
+        // Enough gold for three panels (each copy costs a little more)
+        company.Gold = Enumerable.Range(0, 3).Sum(i => game.World.Content.Progression.BuildCost(definition, i)) + 1;
+
+        Assert.HasCount(8, spots, "free spots in the start parcels");
+        var (placed, gold, error) = game.World.PlaceBuildings(company.Id, "solarPanel", spots);
+
+        Assert.AreEqual(3, placed);
+        StringAssert.StartsWith(error, "You need");
+        Assert.AreEqual(1, company.Gold, 1e-6);
+        Assert.AreEqual(gold, Enumerable.Range(0, 3).Sum(i => game.World.Content.Progression.BuildCost(definition, i)), 1e-6);
+        Assert.AreEqual(3, game.World.BuildingsOf(company.Id).Count(t => t.Type == "solarPanel"));
+    }
 }

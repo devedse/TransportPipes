@@ -66,6 +66,8 @@ export interface AppState {
   selection: number[];
   /** The advisor's next steps (GameWorld.NextSteps) */
   nextSteps: NextStepDto[];
+  /** The list of mouse actions and keys */
+  keysOpen: boolean;
   buildingDetails: BuildingDetailsDto | null;
   selectedParcel: number | null;
   /** Which of the company's estates the selected parcel belongs to (0 is the first, then the branches) */
@@ -164,6 +166,7 @@ export const initialState: AppState = {
   selectedBuilding: null,
   selection: [],
   nextSteps: [],
+  keysOpen: false,
   buildingDetails: null,
   selectedParcel: null,
   selectedParcelEstate: 0,

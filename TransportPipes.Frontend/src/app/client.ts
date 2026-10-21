@@ -611,6 +611,7 @@ export class GameClient {
     onRemovePipes: (tiles) =>
       void this.command(this.connection.removePipes(tiles.flatMap((t) => [t.x, t.y]))),
     onPlaceBuilding: (type, x, y) => void this.placeBuilding(type, x, y),
+    onPlaceBuildings: (type, spots) => void this.placeBuildings(type, spots),
     onMoveBuilding: (id, x, y) => void this.moveBuilding(id, x, y),
     onSelectArea: (x, y, width, height) => setState({ blueprintDraft: { x, y, width, height } }),
     onLayer: (deep) => setState({ deepView: deep, selectedDeepParcel: null, selectedParcel: null }),
@@ -660,6 +661,33 @@ export class GameClient {
       setState({ hintTile: null });
       // Keep building more of the same until the player switches tools
       void this.refreshCompany();
+    }
+  }
+
+  /** A painted row or area: built in one command, as far as the gold goes */
+  private async placeBuildings(type: string, spots: TilePosition[]) {
+    const name = appStore.getState().content?.building(type)?.name ?? type;
+    const result = await this.connection
+      .placeBuildings(
+        type,
+        spots.flatMap((t) => [t.x, t.y]),
+      )
+      .catch(() => null);
+    if (result === null) {
+      toast("The server didn't answer.", "error");
+      return;
+    }
+    if (result.placed > 0) {
+      sounds.click();
+      toast(
+        `${result.placed} × ${name} for ${formatAmount(result.gold)} g${result.error !== null ? ` (${result.error})` : ""}`,
+        "success",
+      );
+      setState({ hintTile: null });
+      this.scheduleNextSteps();
+      void this.refreshCompany();
+    } else {
+      toast(result.error ?? "Nothing could be built there.", "error");
     }
   }
 
@@ -875,7 +903,9 @@ export class GameClient {
    */
   back() {
     const state = appStore.getState();
-    if (
+    if (state.keysOpen) {
+      setState({ keysOpen: false });
+    } else if (
       state.researchOpen ||
       state.hubOpen ||
       state.neighboursOpen ||
