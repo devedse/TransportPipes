@@ -13,7 +13,7 @@ import type {
 } from "../api/contracts";
 import { auth, fetchContent, GameConnection } from "../api/server";
 import { Content } from "../game/content";
-import type { Engine, EngineCallbacks, Overlay, Tool } from "../game/Engine";
+import type { ClickModifiers, Engine, EngineCallbacks, Overlay, Tool } from "../game/Engine";
 import type { TilePosition } from "../game/isometric";
 import {
   buyableParcels,
@@ -30,6 +30,7 @@ import {
 } from "../game/layout";
 import { canPlace, newPipeTiles, ownEstateAt, ownEstates, routePipe } from "../game/rules";
 import { WorldModel } from "../game/world";
+import { formatAmount } from "./format";
 import { notify } from "./notifications";
 import { sounds } from "./sound";
 import { appStore, initialState, MODALS, setState, toast, type HubTab } from "../state/store";
@@ -557,6 +558,7 @@ export class GameClient {
         overlay: state.overlay,
         plannedRoute: state.plannedRoute,
         selectedBuilding: state.selectedBuilding,
+        selection: state.selection,
         selectedNetwork:
           state.selectedNetwork === null
             ? null
@@ -594,7 +596,8 @@ export class GameClient {
       );
     },
     onHover: (tile, placement) => setState({ hoverTile: tile, placement }),
-    onClick: (tile, building) => this.clickTile(tile, building),
+    onClick: (tile, building, modifiers) => this.clickTile(tile, building, modifiers),
+    onSelectBuildings: (ids, add) => this.selectMany(ids, add),
     onPipeRoute: (route) => setState({ pipeRoute: route }),
     onPlacePipes: (route) => void this.placePipes(route),
     onRemovePipes: (tiles) =>
@@ -675,8 +678,48 @@ export class GameClient {
     setState({ pipeRoute: null });
   }
 
-  private clickTile(tile: TilePosition, building: BuildingDto | undefined) {
+  private clickTile(tile: TilePosition, building: BuildingDto | undefined, modifiers?: ClickModifiers) {
     const state = appStore.getState();
+    // Shift adds a building to the selection (or takes it out), Ctrl takes all of its type, a double click all of
+    // its type in its network
+    const company = state.company;
+    if (
+      building !== undefined &&
+      company !== null &&
+      building.owner === company.id &&
+      modifiers !== undefined
+    ) {
+      const own = [...(this.world?.buildings.values() ?? [])].filter((t) => t.owner === company.id);
+      if (modifiers.shift) {
+        const current =
+          state.selection.length > 0
+            ? state.selection
+            : state.selectedBuilding !== null
+              ? [state.selectedBuilding]
+              : [];
+        this.selectMany(
+          current.includes(building.id)
+            ? current.filter((t) => t !== building.id)
+            : [...current, building.id],
+          false,
+        );
+        return;
+      }
+      if (modifiers.ctrl) {
+        this.selectMany(
+          own.filter((t) => t.type === building.type).map((t) => t.id),
+          false,
+        );
+        return;
+      }
+      if (modifiers.double && building.network !== null) {
+        this.selectMany(
+          own.filter((t) => t.type === building.type && t.network === building.network).map((t) => t.id),
+          false,
+        );
+        return;
+      }
+    }
     if (state.tool.kind === "terraform") {
       // Keeps reshaping until the player picks another tool
       void this.command(
@@ -703,7 +746,6 @@ export class GameClient {
       this.selectNetwork(conductor.network, tile);
       return;
     }
-    const company = state.company;
     if (company !== null && isDeep(tile.y)) {
       // Down in the Deep Level: a parcel still in the rock can be dug out
       const lx = tile.x - company.estateX;
@@ -748,6 +790,64 @@ export class GameClient {
     this.select(null);
   }
 
+  /** Selects several buildings (one: the building panel; none: nothing); add: to what is selected */
+  selectMany(ids: number[], add: boolean) {
+    const state = appStore.getState();
+    const before = add
+      ? state.selection.length > 0
+        ? state.selection
+        : state.selectedBuilding !== null
+          ? [state.selectedBuilding]
+          : []
+      : [];
+    const all = [...new Set([...before, ...ids])];
+    if (all.length === 0) {
+      this.select(null);
+    } else if (all.length === 1) {
+      this.select(all[0]!);
+    } else {
+      this.stopDetails();
+      setState({ selection: all });
+    }
+  }
+
+  /** Selects all the player's buildings on screen */
+  selectInView() {
+    this.selectMany(this.engine?.ownBuildingsInView() ?? [], false);
+  }
+
+  /** Upgrades the selection: each by levels, or with a budget the cheapest levels first */
+  async upgradeSelection(levelsEach: number, budget: number | null = null) {
+    const ids = appStore.getState().selection;
+    if (ids.length === 0) {
+      return;
+    }
+    const result = await this.connection.upgradeMany(ids, levelsEach, budget).catch(() => null);
+    if (result === null) {
+      toast("That didn't work.", "error");
+    } else if (!result.success) {
+      toast(result.error ?? "That didn't work.", "error");
+    } else {
+      ids.forEach((id) => this.engine?.twinkle(id));
+      sounds.click();
+      toast(`${result.levels} levels for ${formatAmount(result.gold)} g`, "success");
+    }
+  }
+
+  /** Demolishes the selection, one by one */
+  async demolishSelection() {
+    const ids = appStore.getState().selection;
+    let done = 0;
+    for (const id of ids) {
+      const result = await this.connection.demolish(id).catch(() => null);
+      if (result?.success) {
+        done++;
+      }
+    }
+    toast(`${done} buildings demolished`, "info");
+    setState({ selection: [] });
+  }
+
   /**
    * One step back (Escape, a right-click on the map): close a window, leave photo mode, cancel a plan or a tool, then
    * deselect
@@ -787,6 +887,8 @@ export class GameClient {
       setState({ selectedGate: null });
     } else if (state.selectedNetwork !== null) {
       this.selectNetwork(null);
+    } else if (state.selection.length > 0) {
+      setState({ selection: [] });
     } else {
       this.select(null);
     }

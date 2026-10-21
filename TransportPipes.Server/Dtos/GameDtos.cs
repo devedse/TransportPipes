@@ -259,6 +259,12 @@ public record BuildingDetailsDto(
 /// </summary>
 public record StorageKeepDto(IReadOnlyDictionary<string, double> Keeps, bool TradingPostFull);
 
+/// <summary>Upgrading several buildings: the levels bought and the gold spent (or why nothing happened)</summary>
+public record BulkUpgradeDto(bool Success, string? Error, int Levels, double Gold);
+
+/// <summary>What upgrading several buildings costs: all by one level, all by ten, and the cheapest next level</summary>
+public record SelectionCostsDto(double PlusOne, double PlusTen, double Cheapest, int Upgradable);
+
 /// <summary>What a building can evolve into where it stands, what it costs and what is in the way</summary>
 public record EvolveDto(string Into, double Cost, string? Problem);
 

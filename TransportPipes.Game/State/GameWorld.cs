@@ -872,6 +872,61 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
+    /// <summary>Whether a building can be upgraded by one more level now (its kind, built, below the maximum)</summary>
+    public bool CanUpgrade(Building building)
+    {
+        var definition = Content.Building(building.Type);
+        return definition.Kind is not (BuildingKind.Hq or BuildingKind.Gate or BuildingKind.Decoration) && definition.Buildable
+            && !building.UnderConstruction && building.Level < Content.Progression.MaxBuildingLevel;
+    }
+
+    /// <summary>
+    /// Upgrades several buildings at once (the selection, v1.1 §12): each by <paramref name="levelsEach"/>, or, with a
+    /// budget, one level at a time always the cheapest next one (so their levels stay even) until the budget or the gold
+    /// runs out. Returns the levels bought and the gold spent.
+    /// </summary>
+    public (int Levels, double Gold, string? Error) UpgradeMany(long companyId, IReadOnlyCollection<long> ids, int levelsEach, double? budget = null)
+    {
+        if (Company(companyId) is not { } company)
+        {
+            return (0, 0, "Unknown company.");
+        }
+        var buildings = ids.Distinct().Select(Building).OfType<Building>().Where(t => t.Owner == companyId && CanUpgrade(t)).ToList();
+        if (buildings.Count == 0)
+        {
+            return (0, 0, "Nothing there can be upgraded.");
+        }
+        var gold = company.Gold;
+        var levels = 0;
+        if (budget is { } limit)
+        {
+            var left = Math.Min(limit, company.Gold);
+            for (var i = 0; i < 5000; i++)
+            {
+                var next = buildings.Where(CanUpgrade).Select(t => (Building: t, Cost: UpgradeCost(t, 1))).OrderBy(t => t.Cost).FirstOrDefault();
+                if (next.Building == null || next.Cost > left + 1e-9 || !Upgrade(companyId, next.Building.Id, 1).Success)
+                {
+                    break;
+                }
+                left -= next.Cost;
+                levels++;
+            }
+        }
+        else
+        {
+            // Cheapest first: when the gold doesn't reach for all, the most of them get their levels
+            foreach (var building in buildings.OrderBy(t => UpgradeCost(t, 1)))
+            {
+                var each = Math.Min(levelsEach, Content.Progression.MaxBuildingLevel - building.Level);
+                if (each > 0 && Upgrade(companyId, building.Id, each).Success)
+                {
+                    levels += each;
+                }
+            }
+        }
+        return levels == 0 ? (0, 0, "Not enough gold for any of them.") : (levels, Math.Round(gold - company.Gold, 2), null);
+    }
+
     /// <summary>Buys a parcel of one of the company's estates (0 is the first estate, then the branches)</summary>
     public CommandResult BuyParcel(long companyId, int parcel, int estateIndex = 0)
     {

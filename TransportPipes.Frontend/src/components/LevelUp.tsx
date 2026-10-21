@@ -19,10 +19,10 @@ export function LevelUp() {
     .filter((t) => t.buildable && t.unlock.level === level)
     .map((t) => t.name);
   return (
-    <div className="level-up" role="status" onClick={() => setState({ levelUp: null })}>
+    <div className="level-up" role="status">
       <div className="level-up-burst" aria-hidden="true" />
       <img src="/art/ui/loady-cheer.webp" alt="" className="level-up-loady" />
-      <div className="level-up-card">
+      <div className="level-up-card" onClick={() => setState({ levelUp: null })}>
         <span className="level-up-title">Company Level</span>
         <strong className="level-up-number">{level}</strong>
         {unlocked.length > 0 && <span className="level-up-unlocks">New: {unlocked.join(", ")}</span>}

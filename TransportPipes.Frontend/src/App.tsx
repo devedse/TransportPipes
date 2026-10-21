@@ -23,6 +23,7 @@ import { NeighboursPanel, PlannedRouteBanner } from "./components/NeighboursPane
 import { NetworkPanel } from "./components/NetworkPanel";
 import { OverlayBar } from "./components/OverlayBar";
 import { ParcelPanel } from "./components/ParcelPanel";
+import { SelectionPanel } from "./components/SelectionPanel";
 import { PipeTierBar } from "./components/PipeTierBar";
 import { ReportDialog } from "./components/ReportDialog";
 import { BlueprintPanel, BlueprintSaveDialog } from "./components/BlueprintPanel";
@@ -52,6 +53,17 @@ function useShortcuts() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const state = appStore.getState();
+      // Ctrl+A: all your buildings on screen
+      if (
+        state.phase === "playing" &&
+        !isTyping(event.target) &&
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === "a"
+      ) {
+        event.preventDefault();
+        gameClient.selectInView();
+        return;
+      }
       if (
         state.phase !== "playing" ||
         isTyping(event.target) ||
@@ -124,6 +136,15 @@ function useShortcuts() {
           gameClient.setPhotoMode(!state.photoMode);
           break;
         case "u":
+          // With buildings selected: upgrade them (Shift: by ten)
+          if (state.selection.length > 0) {
+            void gameClient.upgradeSelection(event.shiftKey ? 10 : 1);
+            break;
+          }
+          if (state.selectedBuilding !== null && state.buildingDetails?.upgradeCost != null) {
+            void gameClient.upgrade(state.selectedBuilding, event.shiftKey ? 10 : 1);
+            break;
+          }
           if (state.blueprintsOpen) {
             setState({ blueprintsOpen: false });
           } else {
@@ -142,6 +163,11 @@ function useShortcuts() {
           break;
         case "h":
           gameClient.goHome();
+          break;
+        case "delete":
+          if (state.selection.length > 0 && window.confirm(`Demolish ${state.selection.length} buildings?`)) {
+            void gameClient.demolishSelection();
+          }
           break;
         case "+":
         case "=":
@@ -205,6 +231,9 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="PipeTierBar">
             <PipeTierBar />
+          </ErrorBoundary>
+          <ErrorBoundary name="SelectionPanel">
+            <SelectionPanel />
           </ErrorBoundary>
           <ErrorBoundary name="ParcelPanel">
             <ParcelPanel />

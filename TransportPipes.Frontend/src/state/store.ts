@@ -61,6 +61,8 @@ export interface AppState {
   buildMenuOpen: boolean;
   buildCategory: string;
   selectedBuilding: number | null;
+  /** Several buildings selected together (the selection panel) */
+  selection: number[];
   buildingDetails: BuildingDetailsDto | null;
   selectedParcel: number | null;
   /** Which of the company's estates the selected parcel belongs to (0 is the first, then the branches) */
@@ -157,6 +159,7 @@ export const initialState: AppState = {
   buildMenuOpen: false,
   buildCategory: "energy",
   selectedBuilding: null,
+  selection: [],
   buildingDetails: null,
   selectedParcel: null,
   selectedParcelEstate: 0,
@@ -246,6 +249,7 @@ export function useAppStore<T>(selector: (state: AppState) => T): T {
  */
 const SIDE_PANELS = {
   selectedBuilding: { selectedBuilding: null, buildingDetails: null, buildingNetwork: null },
+  selection: { selection: [] },
   selectedNetwork: { selectedNetwork: null, networkDetails: null },
   selectedGate: { selectedGate: null },
   selectedParcel: { selectedParcel: null },
@@ -256,9 +260,12 @@ const SIDE_PANELS = {
 } satisfies Partial<Record<keyof AppState, Partial<AppState>>>;
 
 export function setState(partial: Partial<AppState>) {
-  const opened = (Object.keys(SIDE_PANELS) as Array<keyof typeof SIDE_PANELS>).find(
-    (key) => key in partial && partial[key] !== null && partial[key] !== false,
-  );
+  const opened = (Object.keys(SIDE_PANELS) as Array<keyof typeof SIDE_PANELS>).find((key) => {
+    const value = partial[key];
+    return (
+      key in partial && value !== null && value !== false && !(Array.isArray(value) && value.length === 0)
+    );
+  });
   if (opened === undefined) {
     appStore.setState(partial);
     return;

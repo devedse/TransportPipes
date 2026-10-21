@@ -183,6 +183,39 @@ public sealed class GameHub : Hub<IGameClient>
             return world.Networks.Where(t => wanted.Contains(t.Id)).Select(t => GameViews.Flows(world, t)).ToList();
         }, changesWorld: false);
 
+    /// <summary>Upgrades the selection: each by a number of levels, or with a budget the cheapest levels first</summary>
+    public Task<BulkUpgradeDto> UpgradeMany(long[] buildings, int levelsEach, double? budget)
+    {
+        var userId = UserId;
+        return _world.RunAsync(world =>
+        {
+            if (world.CompanyOfUser(userId) is not { } company)
+            {
+                return new BulkUpgradeDto(false, "Found your company first.", 0, 0);
+            }
+            var (levels, gold, error) = world.UpgradeMany(company.Id, buildings.Take(500).ToList(), Math.Clamp(levelsEach, 1, 100), budget);
+            return new BulkUpgradeDto(error == null, error, levels, gold);
+        });
+    }
+
+    /// <summary>What upgrading the selection costs</summary>
+    public Task<SelectionCostsDto> GetSelectionCosts(long[] buildings)
+    {
+        var userId = UserId;
+        return _world.RunAsync(world =>
+        {
+            var company = world.CompanyOfUser(userId);
+            var own = buildings.Take(500).Distinct().Select(world.Building).OfType<TransportPipes.Game.State.Building>()
+                .Where(t => company != null && t.Owner == company.Id && world.CanUpgrade(t)).ToList();
+            var max = world.Content.Progression.MaxBuildingLevel;
+            return new SelectionCostsDto(
+                Math.Round(own.Sum(t => world.UpgradeCost(t, 1)), 2),
+                Math.Round(own.Sum(t => world.UpgradeCost(t, Math.Min(10, max - t.Level))), 2),
+                own.Count == 0 ? 0 : Math.Round(own.Min(t => world.UpgradeCost(t, 1)), 2),
+                own.Count);
+        }, changesWorld: false);
+    }
+
     public Task<NetworkDetailsDto?> GetNetwork(int id)
     {
         var userId = UserId;

@@ -81,6 +81,8 @@ export interface EngineState {
   /** A pipe route to show (Connect), not built yet */
   plannedRoute: TilePosition[] | null;
   selectedBuilding: number | null;
+  /** Several buildings selected together (a box, Shift, Ctrl or a double click) */
+  selection: number[];
   /** The network shown in the inspector, with the paths of its full links */
   selectedNetwork: { id: number; bottlenecks: number[][] } | null;
   /** Milliseconds to add to Date.now() to get the server's clock */
@@ -99,7 +101,9 @@ export interface EngineCallbacks {
   unwatchChunks(pairs: number[]): void;
   requestDistrict(x: number, y: number): void;
   onHover(tile: TilePosition | null, placement: Placement | null): void;
-  onClick(tile: TilePosition, building: BuildingDto | undefined): void;
+  onClick(tile: TilePosition, building: BuildingDto | undefined, modifiers?: ClickModifiers): void;
+  /** A box dragged with the Select tool: the player's buildings in it (Shift: added to the selection) */
+  onSelectBuildings(ids: number[], add: boolean): void;
   onPipeRoute(route: TilePosition[] | null): void;
   onPlacePipes(route: TilePosition[]): void;
   onRemovePipes(tiles: TilePosition[]): void;
@@ -117,6 +121,16 @@ export interface EngineCallbacks {
 }
 
 const CHUNK_MARGIN = 1;
+
+/** The keys held with a click, and whether it was the second click of a double click */
+export interface ClickModifiers {
+  shift: boolean;
+  ctrl: boolean;
+  double: boolean;
+}
+
+/** Two clicks on the same tile within this many milliseconds are a double click */
+const DOUBLE_CLICK_MS = 400;
 
 /** Bottom-left corner (sprite anchor) of a footprint of size×size tiles with its top-left tile at (x, y) */
 export function footprintAnchor(x: number, y: number, size: number): { x: number; y: number } {
@@ -316,6 +330,44 @@ function traceFootprint(g: Graphics, x: number, y: number, size: number, height 
   g.closePath();
 }
 
+/** A footprint grown outwards by a share of a tile on every side: a ring that shows around a building's plate */
+function traceRing(g: Graphics, x: number, y: number, size: number, grow: number) {
+  const top = diagonalToScreen(x, y);
+  const bottom = diagonalToScreen(x + size - 1, y + size - 1);
+  const corners = [
+    { x: top.x + TILE_WIDTH, y: top.y - TILE_HEIGHT },
+    {
+      x: diagonalToScreen(x + size - 1, y).x + TILE_WIDTH * 2,
+      y: diagonalToScreen(x + size - 1, y).y - TILE_HEIGHT / 2,
+    },
+    { x: bottom.x + TILE_WIDTH, y: bottom.y },
+    { x: diagonalToScreen(x, y + size - 1).x, y: diagonalToScreen(x, y + size - 1).y - TILE_HEIGHT / 2 },
+  ];
+  const cx = (corners[0]!.x + corners[2]!.x) / 2;
+  const cy = (corners[0]!.y + corners[2]!.y) / 2;
+  const scale = 1 + grow / size;
+  corners.forEach((c, i) => {
+    const px = cx + (c.x - cx) * scale;
+    const py = cy + (c.y - cy) * scale;
+    if (i === 0) {
+      g.moveTo(px, py);
+    } else {
+      g.lineTo(px, py);
+    }
+  });
+  g.closePath();
+}
+
+/** A selected building: a golden glow on its footprint and a bright ring just outside its plate */
+function drawSelected(g: Graphics, building: BuildingDto, time: number) {
+  traceFootprint(g, building.x, building.y, building.size);
+  g.fill({ color: 0xf6c744, alpha: 0.22 + Math.sin(time * 4) * 0.07 });
+  traceRing(g, building.x, building.y, building.size, 0.2);
+  g.stroke({ color: 0xf6c744, width: 14, alpha: 0.28 });
+  traceRing(g, building.x, building.y, building.size, 0.2);
+  g.stroke({ color: 0xffe08a, width: 4, alpha: 0.95 });
+}
+
 interface ObjectView {
   display: Container;
   effects: BuildingEffects | null;
@@ -384,6 +436,12 @@ export class Engine {
   private lookedAt = false;
   private shown = false;
   private drawnAt: number | null = null;
+  /** The box of a selection drag (in screen pixels), drawn over the map */
+  private readonly boxLayer = new Graphics();
+  private dragPointerType = "mouse";
+  private dragShift = false;
+  private dragCtrl = false;
+  private lastClick: { x: number; y: number; at: number } | null = null;
   /** The level tier each building was last drawn with: an upgrade into a new one flashes */
   private readonly shownTiers = new Map<number, number>();
   /** Building pictures that were still loading have arrived */
@@ -451,7 +509,7 @@ export class Engine {
       this.juice.layer,
       this.labelLayer,
     );
-    app.stage.addChild(this.worldLayer);
+    app.stage.addChild(this.worldLayer, this.boxLayer);
     // The far view starts hidden (it is switched when the zoom crosses FAR_ZOOM)
     this.miniLayer.visible = false;
     this.registerInput(app.canvas);
@@ -602,6 +660,9 @@ export class Engine {
       this.dragging = true;
       this.dragButton = event.button;
       this.dragPointerId = event.pointerId;
+      this.dragPointerType = event.pointerType;
+      this.dragShift = event.shiftKey;
+      this.dragCtrl = event.ctrlKey || event.metaKey;
       this.movedBeyondClick = false;
       canvas.setPointerCapture(event.pointerId);
       const tool = this.callbacks.getState().tool;
@@ -664,7 +725,14 @@ export class Engine {
         this.cancelToolDrag();
         return;
       }
-      if (wasToolDrag) {
+      if (wasToolDrag && this.isBoxDrag()) {
+        if (this.movedBeyondClick) {
+          this.finishBox();
+        } else {
+          this.boxLayer.clear();
+          this.click(this.camera.screenToTile(this.pointerX, this.pointerY));
+        }
+      } else if (wasToolDrag) {
         this.finishToolDrag();
       } else if (!this.movedBeyondClick && this.dragButton === 0) {
         this.click(this.camera.screenToTile(this.pointerX, this.pointerY));
@@ -727,8 +795,69 @@ export class Engine {
     const tool = this.callbacks.getState().tool;
     return (
       this.dragButton === 0 &&
-      (tool.kind === "pipe" || tool.kind === "bulldoze" || tool.kind === "blueprintArea")
+      (tool.kind === "pipe" || tool.kind === "bulldoze" || tool.kind === "blueprintArea" || this.isBoxDrag())
     );
+  }
+
+  /** The left button with the Select tool draws a selection box (the right button pans); a finger still pans */
+  private isBoxDrag(): boolean {
+    return (
+      this.dragButton === 0 &&
+      this.dragPointerType !== "touch" &&
+      this.callbacks.getState().tool.kind === "select"
+    );
+  }
+
+  /** The selection box between where the drag started and the pointer, in screen pixels */
+  private drawBox() {
+    const g = this.boxLayer;
+    g.clear();
+    if (!this.dragging || !this.isBoxDrag() || !this.movedBeyondClick) {
+      return;
+    }
+    const x = Math.min(this.pressX, this.pointerX);
+    const y = Math.min(this.pressY, this.pointerY);
+    const w = Math.abs(this.pointerX - this.pressX);
+    const h = Math.abs(this.pointerY - this.pressY);
+    g.rect(x, y, w, h)
+      .fill({ color: 0x2ec4a6, alpha: 0.14 })
+      .stroke({ color: 0xffffff, width: 2, alpha: 0.9 });
+  }
+
+  /** The player's buildings whose middle is inside the selection box */
+  private finishBox() {
+    this.boxLayer.clear();
+    const ids = this.ownBuildingsIn(
+      Math.min(this.pressX, this.pointerX),
+      Math.min(this.pressY, this.pointerY),
+      Math.max(this.pressX, this.pointerX),
+      Math.max(this.pressY, this.pointerY),
+    );
+    this.callbacks.onSelectBuildings(ids, this.dragShift);
+  }
+
+  /** The player's buildings on screen (Ctrl+A) */
+  ownBuildingsInView(): number[] {
+    return this.ownBuildingsIn(0, 0, this.app.screen.width, this.app.screen.height);
+  }
+
+  /** The player's buildings whose middle is inside a rectangle in screen pixels */
+  private ownBuildingsIn(left: number, top: number, right: number, bottom: number): number[] {
+    const company = this.callbacks.getState().company;
+    const ids: number[] = [];
+    for (const building of this.world.buildings.values()) {
+      if (company === null || building.owner !== company.id) {
+        continue;
+      }
+      const middle = this.tileToScreen(
+        building.x + (building.size - 1) / 2,
+        building.y + (building.size - 1) / 2,
+      );
+      if (middle.x >= left && middle.x <= right && middle.y >= top && middle.y <= bottom) {
+        ids.push(building.id);
+      }
+    }
+    return ids;
   }
 
   /** The rectangle between the first corner of a blueprint area and the pointer */
@@ -802,7 +931,18 @@ export class Engine {
       this.callbacks.onPlaceBlueprint(tool.blueprint, origin.x, origin.y);
       return;
     }
-    this.callbacks.onClick(tile, this.world.buildingAt(tile.x, tile.y));
+    const now = performance.now();
+    const double =
+      this.lastClick !== null &&
+      this.lastClick.x === tile.x &&
+      this.lastClick.y === tile.y &&
+      now - this.lastClick.at < DOUBLE_CLICK_MS;
+    this.lastClick = double ? null : { x: tile.x, y: tile.y, at: now };
+    this.callbacks.onClick(tile, this.world.buildingAt(tile.x, tile.y), {
+      shift: this.dragShift,
+      ctrl: this.dragCtrl,
+      double,
+    });
   }
 
   private updatePipeRoute() {
@@ -829,6 +969,7 @@ export class Engine {
     );
     this.dragDeltaX = 0;
     this.dragDeltaY = 0;
+    this.drawBox();
     this.worldLayer.scale.set(this.camera.scale);
     this.worldLayer.position.set(
       this.camera.offsetX * this.camera.scale,
@@ -2839,13 +2980,12 @@ export class Engine {
       }
       g.fill({ color: 0xef6f6c, alpha: 0.55 });
     }
-    if (state.selectedBuilding !== null) {
-      const building = this.world.buildings.get(state.selectedBuilding);
+    for (const id of state.selectedBuilding !== null
+      ? [...state.selection, state.selectedBuilding]
+      : state.selection) {
+      const building = this.world.buildings.get(id);
       if (building !== undefined) {
-        traceFootprint(g, building.x, building.y, building.size);
-        g.fill({ color: 0xf6c744, alpha: 0.25 + Math.sin(this.time * 4) * 0.08 });
-        traceFootprint(g, building.x, building.y, building.size);
-        g.stroke({ color: 0xf6c744, width: 6 });
+        drawSelected(g, building, this.time);
       }
     }
     if (state.wildTile !== null) {
