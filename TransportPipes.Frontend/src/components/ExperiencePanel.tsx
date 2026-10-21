@@ -1,7 +1,10 @@
+import { gameClient } from "../app/client";
 import { formatAmount, formatDuration } from "../app/format";
 import type { CompanyDto } from "../api/contracts";
 import { levelEta } from "../app/experience";
+import { levelRoadmap } from "../app/roadmap";
 import type { Content } from "../game/content";
+import { useAppStore } from "../state/store";
 
 const SOURCE_NAMES: Record<string, string> = {
   earnings: "Gold earned",
@@ -38,8 +41,10 @@ export function ExperiencePanel({ company, content }: { company: CompanyDto; con
     }))
     .filter((t) => t.total > 0.05)
     .sort((a, b) => b.total - a.total);
+  const era = useAppStore((s) => s.era);
   const left = Math.max(0, company.nextLevelXp - company.xp);
   const eta = levelEta(company);
+  const roadmap = levelRoadmap(content, company, gameClient.world, era);
   return (
     <div className="panel xp-panel" role="dialog" aria-label="Experience">
       <h3>Company Level {company.level}</h3>
@@ -56,6 +61,30 @@ export function ExperiencePanel({ company, content }: { company: CompanyDto; con
       <p className="muted small">
         The XP per minute is what your earnings bring now; building, upgrading and research add more on top.
       </p>
+
+      {roadmap.length > 0 && (
+        <>
+          <h4>Coming next</h4>
+          <ul className="roadmap">
+            {roadmap.map((r) => (
+              <li key={r.level}>
+                <span className="roadmap-level">Level {r.level}</span>
+                <span className="roadmap-items">
+                  {r.items.map((item) => (
+                    <span
+                      key={item.name}
+                      className={`roadmap-item${item.ok === true ? " ok" : item.ok === false ? " no" : ""}`}
+                    >
+                      <strong>{item.name}</strong>
+                      {item.note !== null && <span className="muted"> · {item.note}</span>}
+                    </span>
+                  ))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
       <h4>Where your XP came from</h4>
       {sources.length === 0 ? (

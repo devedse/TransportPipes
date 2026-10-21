@@ -182,4 +182,34 @@ public class AdvisorFacts
         var maker = game.World.Content.Building(step.BuildingType!);
         Assert.IsTrue(maker.Out.ContainsKey("copperIngot") || maker.Out.ContainsKey("copperOre"), "the smelter, or the copper mine before it");
     }
+
+    [TestMethod]
+    public void ABuildingThatSellsNothingIsPipedFirst()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany();
+        var moily = game.Build(company, "windMoily");
+
+        var step = game.World.NextSteps(company)[0];
+
+        Assert.AreEqual(AdvisorKind.Start, step.Kind);
+        Assert.AreEqual(AdvisorAction.Connect, step.Action);
+        Assert.AreEqual(moily.Id, step.Building);
+        StringAssert.Contains(step.Title, "Pipe your Wind Moily");
+        Assert.IsGreaterThan(0, step.GainPerMinute);
+    }
+
+    [TestMethod]
+    public void ANewCompanyIsToldWhatToBuildFirst()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany();
+
+        var step = game.World.NextSteps(company).Single();
+
+        Assert.AreEqual(AdvisorKind.Start, step.Kind);
+        Assert.AreEqual(AdvisorAction.Build, step.Action);
+        Assert.IsTrue(step.BuildingType is "solarPanel" or "windMoily", step.BuildingType);
+        Assert.IsTrue(game.World.CanPlace(company, game.World.Content.Building(step.BuildingType!), step.At!.Value).Success);
+    }
 }

@@ -97,7 +97,7 @@ public sealed class GameContent
         var wonders = Read<WondersDto>("wonders.yaml");
         var managers = Read<List<ManagerDto>>("managers.yaml").Select(t => new ManagerDefinition(t.Id, t.Name, t.Cost, t.Color, t.Automation, t.Bonus)).ToList();
         var achievements = Read<AchievementsDto>("achievements.yaml");
-        var tutorial = Read<List<TutorialDto>>("tutorial.yaml").Select(t => new TutorialStep(t.Id, t.Text, t.Stat, t.Amount, t.Gold, t.Hint)).ToList();
+        var tutorial = Read<List<TutorialDto>>("tutorial.yaml").Select(t => new TutorialStep(t.Id, t.Text, t.Stat, t.Amount, t.Gold, t.Hint, t.Chapter)).ToList();
         var relics = Read<List<RelicDto>>("relics.yaml").Select(t => new RelicDefinition(t.Id, t.Name, t.Lore)).ToList();
         return new GameContent(
             resources,
@@ -365,6 +365,7 @@ public sealed class GameContent
         public double Amount { get; set; }
         public double Gold { get; set; }
         public Dictionary<string, string> Hint { get; set; } = new();
+        public int Chapter { get; set; } = 1;
     }
 
     private sealed class AchievementsDto

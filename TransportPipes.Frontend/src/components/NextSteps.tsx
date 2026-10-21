@@ -14,6 +14,7 @@ const ICONS: Record<NextStepDto["kind"], string> = {
   partner: "🤝",
   parcel: "🗺",
   pipes: "🔧",
+  start: "⭐",
 };
 
 const COLLAPSED_KEY = "tp.nextStepsCollapsed";

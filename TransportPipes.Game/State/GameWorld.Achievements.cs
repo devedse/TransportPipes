@@ -39,6 +39,10 @@ public sealed partial class GameWorld
         "parcels" => EstateOf(company)?.UnlockedCount ?? 0,
         "estates" => EstatesOf(company).Count(),
         "level" => company.Level,
+        // The highest level of a building (the HQ grows with the Company Level, it doesn't count)
+        "maxLevel" => BuildingsOf(company.Id).Where(t => Content.Building(t.Type).Kind != BuildingKind.Hq).Select(t => t.Level).DefaultIfEmpty(0).Max(),
+        // Gold a minute neighbours pay now (trades and contracts)
+        "neighbourIncome" => NeighbourIncome(company),
         _ => company.Stats.GetValueOrDefault(stat),
     };
 

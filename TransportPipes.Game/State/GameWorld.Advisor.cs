@@ -34,6 +34,9 @@ public enum AdvisorKind
 
     /// <summary>The next parcel, with what it holds</summary>
     Parcel,
+
+    /// <summary>A building that sells nothing because it isn't piped to the trading post, or no producer at all yet</summary>
+    Start,
 }
 
 /// <summary>What the step's button does on the client</summary>
@@ -59,6 +62,9 @@ public enum AdvisorAction
 
     /// <summary>Upgrades the pipe Tiles to Tier (Show me selects Network)</summary>
     Pipes,
+
+    /// <summary>The pipe tool, at Building</summary>
+    Connect,
 }
 
 /// <summary>
@@ -161,6 +167,7 @@ public sealed partial class GameWorld
         ChainSteps(company, own, Base, Add, clock);
         PartnerStep(company, Add);
         ParcelStep(company, Add);
+        StartSteps(company, Add);
 
         // The best of each kind first, then the next best of any kind
         var ranked = candidates.OrderByDescending(t => t.Score).ToList();
@@ -730,6 +737,54 @@ public sealed partial class GameWorld
             add(new AdvisorStep(AdvisorKind.Chain, title,
                 $"+{Gold(gain)}/min for {Gold(cost)}, back in {Minutes(payback)}" + (extractor ? "." : ": the hub pays more for it than for what goes in."),
                 AdvisorAction.Build, cost, gain, BuildingType: definition.Id, At: spot), 1);
+        }
+    }
+
+    /// <summary>
+    /// The basics: a producer whose output nothing takes (not piped to the trading post), or no producer at all yet. Its
+    /// gain is what the output would sell for at the hub.
+    /// </summary>
+    private void StartSteps(Company company, Action<AdvisorStep, double> add)
+    {
+        var post = BuildingsOf(company.Id).FirstOrDefault(t => Content.Building(t.Type).Kind == BuildingKind.TradingPost);
+        if (post == null)
+        {
+            return;
+        }
+        var postNetwork = NetworkOf(post.Id);
+        foreach (var building in BuildingsOf(company.Id).Where(t => !t.UnderConstruction && Content.Building(t.Type) is { Kind: BuildingKind.Producer, Out.Count: > 0 }))
+        {
+            if (postNetwork != null && postNetwork.Buildings.Contains(building.Id))
+            {
+                continue;
+            }
+            var definition = Content.Building(building.Type);
+            var value = ToFlowNode(building)?.Out.Sum(t => t.Value * HubBuyPrice(company.District, t.Key)) ?? 0;
+            if (definition.In.Count == 0 && value > 0.01)
+            {
+                add(new AdvisorStep(AdvisorKind.Start, $"Pipe your {definition.Name} to your Trading Post",
+                    $"It sells nothing yet: what it makes would bring about +{Gold(value)}/min at the hub. Drag a pipe from it to the Trading Post.",
+                    AdvisorAction.Connect, Distance(building.Position, post.Position) * Content.PipeTier(1).Gold, value, Building: building.Id, At: building.Position), AdvisorFixFactor);
+                return;
+            }
+        }
+        if (BuildingsOf(company.Id).Any(t => Content.Building(t.Type) is { Kind: BuildingKind.Producer, In.Count: 0, Out.Count: > 0 }))
+        {
+            return;
+        }
+        // Nothing makes anything yet: the generator that earns most for its price on its best spot
+        var best = Content.BuildingList
+            .Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.In.Count == 0 && t.Out.Count > 0 && t.Placement.Deposit == null && IsUnlocked(company, t, out _))
+            .Select(t => (Definition: t, Spot: FindSpot(company, t, post.Position)))
+            .Where(t => t.Spot != null)
+            .Select(t => (t.Definition, t.Spot, Value: HypotheticalNode(company, t.Definition, t.Spot!.Value, -1)?.Out.Sum(o => o.Value * HubBuyPrice(company.District, o.Key)) ?? 0))
+            .OrderByDescending(t => t.Value / Math.Max(1, BuildCost(company, t.Definition)))
+            .FirstOrDefault();
+        if (best.Definition != null && best.Value > 0.01)
+        {
+            add(new AdvisorStep(AdvisorKind.Start, $"Build {Article(best.Definition.Name)} and pipe it to your Trading Post",
+                $"About +{Gold(best.Value)}/min at the hub, on the best spot near it.",
+                AdvisorAction.Build, BuildCost(company, best.Definition), best.Value, BuildingType: best.Definition.Id, At: best.Spot), AdvisorFixFactor);
         }
     }
 

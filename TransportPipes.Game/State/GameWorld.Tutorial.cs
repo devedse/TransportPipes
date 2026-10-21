@@ -1,4 +1,5 @@
 using TransportPipes.Game.Content;
+using TransportPipes.Game.Simulation;
 
 namespace TransportPipes.Game.State;
 
@@ -25,12 +26,38 @@ public sealed partial class GameWorld
     /// </summary>
     public int? TutorialWaitLevel(Company company, TutorialStep step)
     {
-        var level = step.Stat == "parcels"
-            ? NextParcel(company).Level
-            : step.Hint.TryGetValue("building", out var type) && Content.Buildings.TryGetValue(type, out var definition)
-                ? definition.Unlock.Level
-                : 0;
+        var level = step.Stat switch
+        {
+            "parcels" => NextParcel(company).Level,
+            "corporation" => CorporationFoundLevel,
+            // The first building of the hint the company doesn't have yet
+            _ => step.HintBuildings.Where(t => CopiesOwned(company.Id, t) == 0).Select(t => Content.Buildings.TryGetValue(t, out var d) ? d.Unlock.Level : 0).FirstOrDefault(),
+        };
         return level > company.Level ? level : null;
+    }
+
+    /// <summary>The steps of a chapter, and where a step is in its chapter (1-based)</summary>
+    public (int Chapter, int Index, int Count) TutorialChapter(TutorialStep step)
+    {
+        var steps = Content.Tutorial.Where(t => t.Chapter == step.Chapter).ToList();
+        return (step.Chapter, steps.IndexOf(step) + 1, steps.Count);
+    }
+
+    /// <summary>Gold a minute a company's neighbours pay it now (trades and contracts over its pipes)</summary>
+    public double NeighbourIncome(Company company)
+    {
+        var income = 0.0;
+        foreach (var network in Networks)
+        {
+            foreach (var flow in network.Solution.Flows)
+            {
+                if (flow.Kind is FlowKind.Trade or FlowKind.Contract && _buildings.TryGetValue(flow.From, out var from) && from.Owner == company.Id)
+                {
+                    income += flow.Delivered * flow.PricePerUnit;
+                }
+            }
+        }
+        return income;
     }
 
     /// <summary>

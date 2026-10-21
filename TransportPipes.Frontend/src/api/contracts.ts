@@ -1142,6 +1142,10 @@ export interface TutorialDto {
   waitLevel: number | null;
   /** Why it isn't done yet although the player did what it says */
   tip: string | null;
+  /** Chapter 1: the first session; 2: the middle game. chapterStep is 1-based within it. */
+  chapter: number;
+  chapterStep: number;
+  chapterSteps: number;
 }
 
 /** Expeditions (GDD §11.3) */
@@ -1156,10 +1160,20 @@ export interface ExpeditionDto {
 
 /** One of the advisor's next steps (GameWorld.NextSteps): x, y is where Show me looks */
 export interface NextStepDto {
-  kind: "shortage" | "pump" | "full" | "pipes" | "research" | "upgrade" | "chain" | "partner" | "parcel";
+  kind:
+    | "shortage"
+    | "pump"
+    | "full"
+    | "pipes"
+    | "research"
+    | "upgrade"
+    | "chain"
+    | "partner"
+    | "parcel"
+    | "start";
   title: string;
   reason: string;
-  action: "upgrade" | "build" | "select" | "research" | "parcel" | "partner" | "pipes";
+  action: "upgrade" | "build" | "select" | "research" | "parcel" | "partner" | "pipes" | "connect";
   cost: number;
   gainPerMinute: number;
   paybackMinutes: number | null;

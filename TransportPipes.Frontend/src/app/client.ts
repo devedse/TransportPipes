@@ -1102,6 +1102,12 @@ export class GameClient {
           await this.planConnection(step.partner);
         }
         break;
+      case "connect":
+        this.setTool({ kind: "pipe", tier: 1 });
+        if (step.x !== null && step.y !== null) {
+          this.engine?.lookAt(step.x, step.y, 0.8);
+        }
+        break;
       case "pipes":
         if (step.network !== null && step.x !== null && step.y !== null) {
           this.engine?.lookAt(step.x, step.y, 0.8);
@@ -1160,6 +1166,14 @@ export class GameClient {
       void this.openHub("orders");
       return;
     }
+    if (hint.panel === "research") {
+      void this.openResearch();
+      return;
+    }
+    if (hint.panel === "corporation") {
+      void this.openCorporation();
+      return;
+    }
     if (hint.panel === "parcel") {
       const parcel = buyableParcels(company.unlockedParcels)[0];
       if (parcel !== undefined) {
@@ -1171,9 +1185,13 @@ export class GameClient {
       return;
     }
     if (hint.select !== undefined) {
-      const own = [...this.world.buildings.values()].find(
-        (t) => t.owner === company.id && t.type === hint.select,
-      );
+      // "highest": the building closest to its next milestone (the HQ grows with the Company Level)
+      const own =
+        hint.select === "highest"
+          ? [...this.world.buildings.values()]
+              .filter((t) => t.owner === company.id && t.type !== "hq" && t.level < 10)
+              .sort((a, b) => b.level - a.level)[0]
+          : [...this.world.buildings.values()].find((t) => t.owner === company.id && t.type === hint.select);
       if (own !== undefined) {
         this.engine?.lookAt(own.x, own.y, 0.8);
         this.select(own.id);
@@ -1199,11 +1217,17 @@ export class GameClient {
       return;
     }
     if (hint.tool === "build" && hint.building !== undefined) {
-      const definition = state.content.building(hint.building);
+      // A list is built in its order: the first one the company doesn't have yet
+      const owned = new Set(
+        [...this.world.buildings.values()].filter((t) => t.owner === company.id).map((t) => t.type),
+      );
+      const list = hint.building.split(",").map((t) => t.trim());
+      const type = list.find((t) => !owned.has(t)) ?? list.at(-1)!;
+      const definition = state.content.building(type);
       if (definition === undefined) {
         return;
       }
-      this.setTool({ kind: "build", type: hint.building });
+      this.setTool({ kind: "build", type });
       // The best spot nearby for it: where it makes the most, else (a storage) close to the trading post
       const post = [...this.world.buildings.values()].find(
         (t) => t.owner === company.id && t.type === "tradingPost",

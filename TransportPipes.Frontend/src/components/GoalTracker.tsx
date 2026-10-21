@@ -16,6 +16,7 @@ export function GoalTracker() {
   const content = useAppStore((s) => s.content);
   const buildMenuOpen = useAppStore((s) => s.buildMenuOpen);
   const neighbours = useAppStore((s) => s.neighbours);
+  const nextSteps = useAppStore((s) => s.nextSteps);
   const [asked, setAsked] = useState(notificationsAsked);
   const level = company?.level ?? 0;
   // Neighbours come with Level 3: look for someone who needs what you make now and then
@@ -31,9 +32,9 @@ export function GoalTracker() {
     return null;
   }
   const step = company.tutorial;
-  // The advisor once Loady's first chapter is done, or while a step waits for a level: it covers the pump and
-  // trading post alerts and the neighbour who needs something
-  const advisor = step === null || step.waitLevel != null;
+  // The advisor from Loady's second chapter on, or while a step waits for a level: it covers the pump and trading
+  // post alerts and the neighbour who needs something
+  const advisor = step === null || step.chapter >= 2 || step.waitLevel != null;
   const opportunity = advisor ? null : bestOpportunity(company.id, neighbours, content);
   const alerts = (company.alerts ?? []).filter((t) => !advisor || t.text.startsWith("A storage"));
   const order = company.dailyOrders.find((t) => t.delivered < t.amount);
@@ -43,7 +44,44 @@ export function GoalTracker() {
   );
   return (
     <aside className="goal-tracker" aria-label="Goals">
-      {step !== null && (
+      {step !== null && step.chapter >= 2 && (
+        <div className="panel loady-goal" aria-live="polite">
+          <img className="loady-mini" src="/art/ui/loady-point.webp" alt="Loady" />
+          <div className="loady-goal-body">
+            <div className="loady-goal-head">
+              <strong>Loady · Chapter {step.chapter}</strong>
+              <span className="small muted">
+                {step.chapterStep}/{step.chapterSteps} · +{formatAmount(step.gold)} g
+              </span>
+            </div>
+            <p>{step.text}</p>
+            {step.tip != null && <p className="loady-wait small">{step.tip}</p>}
+            {step.waitLevel != null ? (
+              <p className="loady-wait small">
+                <strong>At Company Level {step.waitLevel}.</strong>{" "}
+                {nextSteps.length > 0
+                  ? "The next steps below get you there."
+                  : "Your company keeps earning while you're away: build, upgrade, or come back later."}
+              </p>
+            ) : (
+              <span className="goal-bar">
+                <span style={{ width: `${Math.round(Math.min(1, step.progress / step.amount) * 100)}%` }} />
+              </span>
+            )}
+            <div className="loady-actions">
+              {step.waitLevel == null && (
+                <button className="small" onClick={() => gameClient.showTutorialHint()}>
+                  Show me
+                </button>
+              )}
+              <button className="link small" onClick={() => void gameClient.skipTutorial()}>
+                Skip
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {step !== null && step.chapter < 2 && (
         <div className="loady-card" aria-live="polite">
           <img
             className="loady"
@@ -66,7 +104,7 @@ export function GoalTracker() {
                 </button>
               )}
               <span className="small muted">
-                {step.step + 1}/{step.steps} · +{formatAmount(step.gold)} g
+                {step.chapterStep}/{step.chapterSteps} · +{formatAmount(step.gold)} g
               </span>
               <button className="link small" onClick={() => void gameClient.skipTutorial()}>
                 Skip
@@ -107,7 +145,7 @@ export function GoalTracker() {
         </div>
       )}
       <ul className="goals">
-        {step === null && (
+        {(step === null || step.chapter >= 2) && (
           <li>
             <span className="goal-label">Next</span>
             <span className="goal-text">Company Level {company.level + 1}</span>

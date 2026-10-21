@@ -17,6 +17,7 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 | `onboarding.mjs` | A new player following Loady's first steps |
 | `right-click.mjs` | A right-click on the map steps back (deselects, puts a tool away); a right-drag still pans |
 | `advisor.mjs` | The Next steps card on a real estate: its three steps, Show me on the first, an upgrade done from the card |
+| `chapter2.mjs` | Loady's second chapter above the advisor, the level roadmap in the XP panel, the level-up card with what the level brings |
 | `pipe-upgrade.mjs` | A copper pipe drawn with the mouse over grey pipes upgrades them where they lie |
 | `selection.mjs` | Several buildings at once: a left-drag box, Shift and Ctrl clicks, Ctrl+A, upgrade all (button, U, Shift+U, a budget); a right-drag still pans, also under a level-up card |
 | `network-view.mjs` | The network view (made against needed per resource, money per company) and the trade settings |

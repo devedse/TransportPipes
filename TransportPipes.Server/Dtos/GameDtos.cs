@@ -102,7 +102,8 @@ public record ExpeditionDto(int? Hours, DateTime? EndsAt, IReadOnlyDictionary<in
 /// Loady's current step; WaitLevel: the Company Level it needs first (null when it can be done now); Tip: why it isn't
 /// done yet although the player did what it says
 /// </summary>
-public record TutorialDto(int Step, int Steps, string Id, string Text, double Progress, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint, int? WaitLevel, string? Tip);
+/// <summary>Loady's current step; Chapter, ChapterStep (1-based) and ChapterSteps place it in its chapter</summary>
+public record TutorialDto(int Step, int Steps, string Id, string Text, double Progress, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint, int? WaitLevel, string? Tip, int Chapter, int ChapterStep, int ChapterSteps);
 
 /// <summary>A branch estate opened by a franchise (its index for BuyParcel is its place in this list plus one)</summary>
 public record BranchDto(int DistrictX, int DistrictY, string DistrictName, int Slot, int X, int Y, int UnlockedParcels, double NextParcelCost, int NextParcelLevel);

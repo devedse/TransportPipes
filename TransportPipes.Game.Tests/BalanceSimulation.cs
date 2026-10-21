@@ -38,7 +38,8 @@ public class BalanceSimulation
             Assert.Inconclusive($"Only {only}.");
         }
         var days = int.TryParse(Environment.GetEnvironmentVariable("TP_BALANCE_DAYS"), out var d) ? d : 14;
-        var game = new TestGame(seed: 4242, achievements: true, tutorial: true);
+        // Like a real server: Loady, achievements, and the surveyors' starter kit on every estate
+        var game = new TestGame(seed: 4242, achievements: true, tutorial: true, surveys: true);
         var company = game.NewCompany("Bot", gold: game.World.StartingGold);
         var bot = new Bot(game, company);
         var report = new StringBuilder();
@@ -128,8 +129,8 @@ public class BalanceSimulation
     /// </summary>
     [TestMethod]
     public void TheFirstDayWithTheAdvisor() =>
-        AtAHumanPace("The first day following the advisor (sessions at 0:00, 3:00, 10:00, 14:30 and the next morning at 24:00)", "first-day-advisor.md",
-            [(0, 20), (180, 5), (600, 20), (870, 2), (1440, 10)], advisor: true);
+        AtAHumanPace("The first two days following the advisor (day 1: sessions at 0:00, 3:00, 10:00, 14:30; day 2 the same)", "first-day-advisor.md",
+            [(0, 20), (180, 5), (600, 20), (870, 2), (1440, 10), (1620, 5), (2040, 20), (2310, 5), (2880, 10)], advisor: true);
 
     private void AtAHumanPace(string title, string fileName, (double Start, double Minutes)[] sessions, bool advisor = false)
     {
@@ -137,7 +138,8 @@ public class BalanceSimulation
         {
             Assert.Inconclusive("Set TP_BALANCE=1 to run the balance simulation.");
         }
-        var game = new TestGame(seed: 4242, achievements: true, tutorial: true);
+        // Like a real server: Loady, achievements, and the surveyors' starter kit on every estate
+        var game = new TestGame(seed: 4242, achievements: true, tutorial: true, surveys: true);
         game.World.TenantsEnabled = true;
         var company = game.NewCompany("Bot", gold: game.World.StartingGold);
         // The server gives a new company today's orders
@@ -299,6 +301,7 @@ public class BalanceSimulation
                     AdvisorAction.Parcel => World.BuyParcel(company.Id, step.Parcel!.Value).Success,
                     AdvisorAction.Partner => ConnectNeighbour() != null,
                     AdvisorAction.Pipes => World.UpgradePipes(company.Id, step.Tiles!, step.Tier).Success,
+                    AdvisorAction.Connect => ConnectAll(),
                     _ => false,
                 };
                 if (done)
@@ -371,10 +374,46 @@ public class BalanceSimulation
                         return Unlocked("lab") && company.Gold >= Cost("lab") && Place("lab", preferMultiplier: false) ? ("built and piped a Lab", 40) : (null, 0);
                     }
                     return company.CurrentResearch == null && TryResearch() ? (TakeNotes().TrimStart(' ', '·'), 20) : (null, 0);
+                // Chapter 2
+                case "copperIngots":
+                case "bricks":
+                    return BuildFirstMissing(step) is { } built ? ($"built and piped {Article(built)}", 40) : (null, 0);
+                case "firstMilestone":
+                    var best = World.BuildingsOf(company.Id).Where(t => t.Type != "hq" && t.Level < 10 && World.CanUpgrade(t)).OrderByDescending(t => t.Level).FirstOrDefault();
+                    return best != null && World.UpgradeCost(best, 10 - best.Level) <= company.Gold && World.Upgrade(company.Id, best.Id, 10 - best.Level).Success
+                        ? ($"upgraded a {World.Content.Building(best.Type).Name} to level 10", 15) : (null, 0);
+                case "threeResearches":
+                    return company.CurrentResearch == null && TryResearch() ? (TakeNotes().TrimStart(' ', '·'), 20) : (null, 0);
+                case "moreOrders":
+                    var orders = company.DailyOrders.Where(t => !t.Done).Select(t => World.DeliverOrder(company.Id, t.Id)).Count(t => t.Success);
+                    return orders > 0 ? ($"delivered to {orders} order(s)", 20) : (null, 0);
+                case "neighbourIncome":
+                    return ConnectNeighbour() is { } partner ? ($"piped to {partner}", 45) : (null, 0);
+                case "secondParcel":
+                    return TryParcel() ? ("bought a parcel", 20) : (null, 0);
+                case "corporation":
+                    return World.FoundCorporation(company.Id, "Bot Guild", "BOT", "#3366cc").Success ? ("founded a corporation", 60) : (null, 0);
                 default:
                     return (null, 0);
             }
         }
+
+        /// <summary>The first building of a step's chain the company doesn't have yet, built and piped (its name), or null</summary>
+        private string? BuildFirstMissing(TutorialStep step)
+        {
+            foreach (var type in step.HintBuildings)
+            {
+                if (Count(type) > 0)
+                {
+                    continue;
+                }
+                return Unlocked(type) && company.Gold >= Cost(type) && Place(type, preferMultiplier: true) ? World.Content.Building(type).Name : null;
+            }
+            // All there: what they lack is usually energy
+            return SpareEnergy() < 0 && company.Gold >= Cost("windMoily") && Place("windMoily", preferMultiplier: true) ? "Wind Moily" : null;
+        }
+
+        private static string Article(string name) => ("AEIOU".Contains(name[0]) ? "an " : "a ") + name;
 
         /// <summary>Pipes the buildings that aren't on a pipe yet to the network</summary>
         private bool ConnectAll()
