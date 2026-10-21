@@ -4808,3 +4808,10 @@ kbd {
     font-size: 0.8rem;
   }
 }
+
+/* Keyboard and mouse hints mean nothing on a touch screen */
+@media (hover: none) {
+  .keyboard-hint {
+    display: none;
+  }
+}

@@ -2,12 +2,12 @@
 import { chromium } from "playwright-core";
 import { mkdirSync } from "node:fs";
 
-export async function start(out, { width = 1600, height = 1000 } = {}) {
+export async function start(out, { width = 1600, height = 1000, touch = false } = {}) {
   mkdirSync(out, { recursive: true });
   // A Chromium from Playwright's cache (npx playwright install chromium), or CHROMIUM=/path/to/chrome
   const executablePath = process.env.CHROMIUM ?? `${process.env.HOME}/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome`;
   const browser = await chromium.launch({ executablePath, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
-  const page = await browser.newPage({ viewport: { width, height } });
+  const page = await browser.newPage({ viewport: { width, height }, hasTouch: touch, isMobile: touch });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => { if (m.type() === "error" && !m.text().includes("401")) errors.push(m.text()); });

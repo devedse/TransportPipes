@@ -187,7 +187,8 @@ the primary goals: the buildings, the map and the UI. The design may change wher
   toolbar's ? lists the mouse and the keys
 - ✅ v1.1 · screen rules: big windows dim everything and leave the inspector as it was; toasts stay above the toolbar
   and left of the inspector; on phones the guidance is one line plus Loady (159 px of 844)
-- ⬜ v1.1 · touch: a long press to start a box selection or to paint (the design's touch row)
+- ✅ v1.1 · touch: a finger held still for a moment selects with a box (with the build tool it paints); a quick drag
+  still moves the map; keyboard hints are hidden on touch screens
 - ⬜ Follow-ups seen while building v1.1: in a network of 19 factories the solver leaves some ore and energy to the
   hub while factories run short (each producer–consumer pair has its own pipe capacity); following the advisor the
   first days go about a day faster than the balance plan (run `TheFirstTwoWeeks` with an advisor profile)

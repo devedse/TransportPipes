@@ -20,6 +20,7 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 | `chapter2.mjs` | Loady's second chapter above the advisor, the level roadmap in the XP panel, the level-up card with what the level brings |
 | `paint.mjs` | The build tool paints: a drag builds a row, Shift-drag an area, a click one; the ? key lists the mouse and keys |
 | `pipe-upgrade.mjs` | A copper pipe drawn with the mouse over grey pipes upgrades them where they lie |
+| `touch.mjs` | Real touch events: a quick drag moves the map, a long press and drag selects with a box |
 | `selection.mjs` | Several buildings at once: a left-drag box, Shift and Ctrl clicks, Ctrl+A, upgrade all (button, U, Shift+U, a budget); a right-drag still pans, also under a level-up card |
 | `network-view.mjs` | The network view (made against needed per resource, money per company) and the trade settings |
 | `survey.mjs` | A new estate's starter kit in the Deposits overlay and what a parcel holds |

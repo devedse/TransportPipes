@@ -59,7 +59,9 @@ export function SelectionPanel() {
       <div className="panel-header">
         <div>
           <h3>{buildings.length} buildings</h3>
-          <div className="muted small">Shift-click to add or take out · Ctrl-click: all of a kind</div>
+          <div className="muted small keyboard-hint">
+            Shift-click to add or take out · Ctrl-click: all of a kind
+          </div>
         </div>
         <button className="icon-button" title="Clear (Esc)" onClick={() => setState({ selection: [] })}>
           ×
@@ -109,7 +111,7 @@ export function SelectionPanel() {
             </div>
           </>
         )}
-        <p className="muted small">
+        <p className="muted small keyboard-hint">
           Keys: <kbd>U</kbd> all +1 · <kbd>Shift</kbd>+<kbd>U</kbd> +10 each · <kbd>Del</kbd> demolish
         </p>
       </section>

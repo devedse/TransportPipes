@@ -134,6 +134,9 @@ export interface ClickModifiers {
 /** Two clicks on the same tile within this many milliseconds are a double click */
 const DOUBLE_CLICK_MS = 400;
 
+/** A finger held this long without moving starts a box selection (or, with the build tool, painting) */
+const LONG_PRESS_MS = 450;
+
 /** Bottom-left corner (sprite anchor) of a footprint of size×size tiles with its top-left tile at (x, y) */
 export function footprintAnchor(x: number, y: number, size: number): { x: number; y: number } {
   return { x: TILE_WIDTH * (x - y - size + 1), y: (TILE_HEIGHT / 2) * (x + y + 2 * size - 2) };
@@ -478,6 +481,9 @@ export class Engine {
   private areaStart: TilePosition | null = null;
   /** Where a drag with the build tool started: it paints a row (with Shift an area) */
   private paintStart: TilePosition | null = null;
+  /** A finger was held still: its drag selects or paints instead of moving the map */
+  private longPressed = false;
+  private longPressTimer: number | null = null;
   private pipeRoute: TilePosition[] | null = null;
   private bulldozeTiles = new Map<number, TilePosition>();
   private hovered: TilePosition | null = null;
@@ -681,13 +687,22 @@ export class Engine {
       if (event.button === 0 && tool.kind === "blueprintArea") {
         this.areaStart = this.camera.screenToTile(local.x, local.y);
       }
-      if (
-        event.button === 0 &&
-        tool.kind === "build" &&
-        tool.crate === undefined &&
-        event.pointerType !== "touch"
-      ) {
+      if (event.button === 0 && tool.kind === "build" && tool.crate === undefined) {
         this.paintStart = this.camera.screenToTile(local.x, local.y);
+      }
+      this.longPressed = false;
+      if (
+        event.pointerType === "touch" &&
+        (tool.kind === "select" || (tool.kind === "build" && tool.crate === undefined))
+      ) {
+        this.clearLongPress();
+        this.longPressTimer = window.setTimeout(() => {
+          this.longPressTimer = null;
+          if (this.dragging && !this.movedBeyondClick && touches.size === 1) {
+            this.longPressed = true;
+            navigator.vibrate?.(12);
+          }
+        }, LONG_PRESS_MS);
       }
     };
 
@@ -712,6 +727,8 @@ export class Engine {
       if (this.dragging && event.pointerId === this.dragPointerId) {
         if (Math.hypot(local.x - this.pressX, local.y - this.pressY) > CLICK_TOLERANCE_PX) {
           this.movedBeyondClick = true;
+          // Moved before the long press: it moves the map
+          this.clearLongPress();
         }
         if (!this.isToolDrag()) {
           this.dragDeltaX += local.x - this.pointerX;
@@ -728,6 +745,7 @@ export class Engine {
         return;
       }
       const wasToolDrag = this.isToolDrag();
+      this.clearLongPress();
       this.dragging = false;
       this.dragPointerId = null;
       if (canvas.hasPointerCapture(event.pointerId)) {
@@ -815,12 +833,23 @@ export class Engine {
     );
   }
 
-  /** The left button with the build tool paints a row of the building (a click builds one); a finger still pans */
+  /** The left button with the build tool paints a row of the building (a click builds one); a finger after a long press */
   private isPaintDrag(): boolean {
     const tool = this.callbacks.getState().tool;
     return (
-      this.dragButton === 0 && tool.kind === "build" && tool.crate === undefined && this.paintStart !== null
+      this.dragButton === 0 &&
+      (this.dragPointerType !== "touch" || this.longPressed) &&
+      tool.kind === "build" &&
+      tool.crate === undefined &&
+      this.paintStart !== null
     );
+  }
+
+  private clearLongPress() {
+    if (this.longPressTimer !== null) {
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
+    }
   }
 
   /**
@@ -896,11 +925,11 @@ export class Engine {
     return { spots, blocked, cost, short };
   }
 
-  /** The left button with the Select tool draws a selection box (the right button pans); a finger still pans */
+  /** The left button with the Select tool draws a selection box (the right button pans); a finger after a long press */
   private isBoxDrag(): boolean {
     return (
       this.dragButton === 0 &&
-      this.dragPointerType !== "touch" &&
+      (this.dragPointerType !== "touch" || this.longPressed) &&
       this.callbacks.getState().tool.kind === "select"
     );
   }
