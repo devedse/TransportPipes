@@ -20,6 +20,7 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 | `houses.mjs` | Houses and stand-ins (on a fresh dev world): A takes a House's seat and gets its starter kit, B moves in next door, the Yard panel shows the Houses and what they do; B is put to sleep and A's Yard panel names B's stand-in (two browsers) |
 | `return.mjs` | The way back: A is "gone" ten days (dev cheat) and sees the two screens, then is sent to the Quiet Isles ("isles") and sees the landing cards (its own seat preselected) and moves to another one |
 | `project.mjs` | The station's project: A's spare goes to the Foundation, the `project` cheat finishes a stage and the next asks for a keystone; the Plan board and an Ask; the project in the Yard's corner on the map |
+| `trunk.mjs` | A crew trunk: A founds a crew, the world moves to Era 2 (dev cheat), A starts a steel trunk to the next hub and pays its segments (the `stock` cheat brings steel and concrete); the trunk in the Links tab and on the map |
 | `crew.mjs` | Start with friends: Ana founds a crew from the start screen and keeps three seats, Ben opens his seat link on a phone and moves in as a guest, Cleo joins with the crew link and lands next door; Ana's crew panel, Ben's keep note and a move to another seat (three browsers) |
 | `right-click.mjs` | A right-click on the map steps back (deselects, puts a tool away); a right-drag still pans |
 | `advisor.mjs` | The Next steps card on a real estate: its three steps, Show me on the first, an upgrade done from the card |
