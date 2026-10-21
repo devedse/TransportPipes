@@ -169,6 +169,24 @@ the primary goals: the buildings, the map and the UI. The design may change wher
   when they're founded; the parcel panel lists what a parcel holds
 - ✅ v1.1 · direct partners only: no route crosses a third company's estate, so you trade with the companies you piped
   to yourself; pump stations per company (`docs/TradingRethink.md` has the full islands model for later)
+- ✅ v1.1 · controls: a left-drag on the map draws a selection box (a right-drag pans); Shift adds or takes out, Ctrl
+  takes all of a kind, a double click all of a kind in its network, Ctrl+A all of yours on screen; the selection panel
+  upgrades them together (+1, +10 each, or a budget spent on the cheapest levels first) and demolishes them; U,
+  Shift+U and Delete work on the selection. The level-up card no longer blocks the map
+- ✅ v1.1 · the advisor: the goal tracker's "Next steps" are the three best things to do now (a shortage and its
+  cheapest fix, full pipes, too few pumps, idle research, the upgrade that pays back quickest, the next chain, a
+  partner, the next parcel, the basics), each measured by solving its network as if it were done; following only the
+  advisor, the first day ends at Level 11 (`docs/balance/first-day-advisor.md`; the hand-written bot: Level 6)
+- ✅ v1.1 · pipes upgrade where they lie: draw a better pipe over your own, or Upgrade on the network view's full
+  connections; the advisor asks for the research or the copper ingots first
+- ✅ v1.1 · Loady's chapter 2 (eight goals from copper ingots to bricks, done on day 2 when following Loady and the
+  advisor) and the level roadmap (what the next levels bring and whether your land can use it, in the XP panel and
+  the level-up card)
+- ⬜ v1.1 · painting rows and areas with the build tool
+- ⬜ v1.1 · screen rules: a big window over the inspector without closing it, the phone check
+- ⬜ Follow-ups seen while building v1.1: in a network of 19 factories the solver leaves some ore and energy to the
+  hub while factories run short (each producer–consumer pair has its own pipe capacity); following the advisor the
+  first days go about a day faster than the balance plan (run `TheFirstTwoWeeks` with an advisor profile)
 - ✅ Fair trade for now (found in play): a trade only happens when it beats the own trading post (long lossy pipes
   earned less), trade settings with partners per company (pipe length, how much arrives, a switch), who you trade
   with (everyone, corporation, contracts), gates open or closed, buying can be switched off per resource
