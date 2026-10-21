@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { gameClient } from "../app/client";
 import { isMuted, setMuted } from "../app/sound";
 import { formatAmount, formatDuration, formatRate } from "../app/format";
@@ -25,6 +25,26 @@ export function TopBar() {
   const serverNow = useNow(60000) + serverOffset;
   const gold = useLiveGold();
   const [xpOpen, setXpOpen] = useState(false);
+  const bar = useRef<HTMLDivElement>(null);
+  // Everything below the top bar starts under it: it grows with its contents (the XP line, a moving estate)
+  useEffect(() => {
+    const element = bar.current;
+    if (element === null) {
+      return;
+    }
+    const update = () => {
+      const bottom = element.getBoundingClientRect().bottom;
+      document.documentElement.style.setProperty("--hud-top", `${Math.round(bottom + 8)}px`);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    window.addEventListener("resize", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  });
   if (company === null) {
     return null;
   }
@@ -32,7 +52,7 @@ export function TopBar() {
   const levelProgress = levelSpan > 0 ? Math.min(1, (company.xp - company.levelXp) / levelSpan) : 1;
 
   return (
-    <div className="top-bar">
+    <div className="top-bar" ref={bar}>
       <div
         className="panel top-company clickable"
         title="Your company: managers, achievements and statistics (I)"

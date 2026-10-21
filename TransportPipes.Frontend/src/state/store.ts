@@ -240,8 +240,36 @@ export function useAppStore<T>(selector: (state: AppState) => T): T {
   return useStore(appStore, selector);
 }
 
+/**
+ * The panels on the right side of the map: one at a time. Opening one (a building, a network, a gate, a parcel,
+ * the wilderness, a visit, the inbox) closes the others.
+ */
+const SIDE_PANELS = {
+  selectedBuilding: { selectedBuilding: null, buildingDetails: null, buildingNetwork: null },
+  selectedNetwork: { selectedNetwork: null, networkDetails: null },
+  selectedGate: { selectedGate: null },
+  selectedParcel: { selectedParcel: null },
+  selectedDeepParcel: { selectedDeepParcel: null },
+  wildTile: { wildTile: null, outpostCheck: null },
+  visiting: { visiting: null, visit: null },
+  inboxOpen: { inboxOpen: false },
+} satisfies Partial<Record<keyof AppState, Partial<AppState>>>;
+
 export function setState(partial: Partial<AppState>) {
-  appStore.setState(partial);
+  const opened = (Object.keys(SIDE_PANELS) as Array<keyof typeof SIDE_PANELS>).find(
+    (key) => key in partial && partial[key] !== null && partial[key] !== false,
+  );
+  if (opened === undefined) {
+    appStore.setState(partial);
+    return;
+  }
+  const closing: Partial<AppState> = {};
+  for (const [key, reset] of Object.entries(SIDE_PANELS)) {
+    if (key !== opened && !(key in partial)) {
+      Object.assign(closing, reset);
+    }
+  }
+  appStore.setState({ ...closing, ...partial });
 }
 
 let nextToastId = 1;

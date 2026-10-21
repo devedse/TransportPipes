@@ -605,7 +605,7 @@ kbd {
 
 .build-menu {
   position: absolute;
-  top: 82px;
+  top: var(--hud-top, 82px);
   left: var(--gap);
   bottom: 90px;
   width: min(360px, calc(100vw - 24px));
@@ -729,7 +729,7 @@ kbd {
 .building-panel,
 .parcel-panel {
   position: absolute;
-  top: 82px;
+  top: var(--hud-top, 82px);
   right: var(--gap);
   width: min(380px, calc(100vw - 24px));
   max-height: calc(100vh - 180px);
@@ -1426,7 +1426,7 @@ kbd {
 
 .connection-banner {
   position: absolute;
-  top: 82px;
+  top: var(--hud-top, 82px);
   left: 50%;
   translate: -50% 0;
   border-color: var(--warning);
@@ -1478,7 +1478,7 @@ kbd {
 
 .network-panel {
   position: absolute;
-  top: 82px;
+  top: var(--hud-top, 82px);
   right: var(--gap);
   width: min(400px, calc(100vw - 24px));
   max-height: calc(100vh - 180px);
@@ -1525,7 +1525,7 @@ kbd {
 
 .overlay-bar {
   position: absolute;
-  top: 82px;
+  top: var(--hud-top, 82px);
   left: 50%;
   translate: -50% 0;
   display: flex;
@@ -1684,7 +1684,7 @@ select {
 
 .route-banner {
   position: absolute;
-  top: 140px;
+  top: calc(var(--hud-top, 82px) + 58px);
   left: 50%;
   translate: -50% 0;
   display: flex;
@@ -1697,7 +1697,7 @@ select {
 
 .gate-panel {
   position: absolute;
-  top: 82px;
+  top: var(--hud-top, 82px);
   right: var(--gap);
   width: min(360px, calc(100vw - 24px));
   display: grid;
@@ -2279,7 +2279,7 @@ table.leaderboard button.link {
 
 .visit-panel {
   position: absolute;
-  top: 82px;
+  top: var(--hud-top, 82px);
   right: var(--gap);
   width: min(360px, calc(100vw - 24px));
   max-height: calc(100vh - 180px);
@@ -2377,7 +2377,7 @@ button.liked {
 
 .inbox-panel {
   position: absolute;
-  top: 74px;
+  top: var(--hud-top, 82px);
   right: var(--gap);
   width: min(400px, calc(100vw - 24px));
   max-height: min(520px, calc(100vh - 160px));
@@ -2553,7 +2553,7 @@ button.liked {
 
 .event-bar {
   position: absolute;
-  top: 128px;
+  top: calc(var(--hud-top, 82px) + 46px);
   left: 50%;
   translate: -50% 0;
   display: flex;
@@ -3317,7 +3317,7 @@ button.liked {
 
 .goal-tracker {
   position: absolute;
-  top: 84px;
+  top: var(--hud-top, 84px);
   left: var(--gap);
   width: min(330px, calc(100vw - 24px));
   display: grid;
