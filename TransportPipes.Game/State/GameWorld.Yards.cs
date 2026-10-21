@@ -335,7 +335,11 @@ public sealed partial class GameWorld
             SpareMeasured.GetValueOrDefault(resource) is > 1e-12 and var spare ? Math.Min(1, HubSpare.GetValueOrDefault(resource) / spare) : 0;
     }
 
-    /// <summary>The residents of a station whose Yard gate is connected, with what they have spare and lack</summary>
+    /// <summary>
+    /// The residents of a station whose Yard gate is connected, with what they have spare and lack. Two passes: first
+    /// everyone's spare, then the lacks (a lack counts only as far as the building's other inputs could come, from its
+    /// own pipes or from the station's spare).
+    /// </summary>
     private List<YardMember> YardMembers(StationRef station)
     {
         var members = new List<YardMember>();
@@ -359,50 +363,78 @@ public sealed partial class GameWorld
                 continue;
             }
             var member = new YardMember { Key = KeyOf(estate), Company = company, Network = network };
-            Measure(member);
+            MeasureSpare(member);
             foreach (var (resource, amount) in member.Spare)
             {
                 member.SpareMeasured[resource] = amount;
             }
             members.Add(member);
         }
+        var stationSpare = new Dictionary<string, double>();
+        foreach (var member in members)
+        {
+            foreach (var (resource, amount) in member.Spare)
+            {
+                Add(stationSpare, resource, amount);
+            }
+        }
+        foreach (var member in members.Where(t => t.Network != null))
+        {
+            MeasureLacks(member, stationSpare);
+        }
         return members;
     }
 
-    /// <summary>
-    /// What a resident has spare and lacks, from its network's last solution, measured at its Yard gate (what its own
-    /// pipes lose between a building and the gate is its own): spare is what goes to the hub from buildings that reach
-    /// the gate, lacks what the hub brings and what is missing for buildings the gate can supply
-    /// </summary>
-    private void Measure(YardMember member)
+    /// <summary>The efficiency of the best path from a building to its estate's Yard gate for a good (0: none)</summary>
+    private sealed class GateReach(Network network, TilePos gate)
     {
-        var network = member.Network!;
-        var solution = network.Solution;
-        var gate = Estate(member.Key.District, member.Key.Slot)!.YardGate;
-        var efficiency = new Dictionary<(long, string), double>();
-        double ToGate(long building, string resource)
+        private readonly Dictionary<(long, string), (double Efficiency, double Capacity)> _best = new();
+
+        public (double Efficiency, double Capacity) Of(long building, string resource)
         {
-            if (!efficiency.TryGetValue((building, resource), out var best))
+            if (!_best.TryGetValue((building, resource), out var best))
             {
                 best = network.GateLinks.Where(t => t.Building == building && t.Gate == gate && (t.Resources == null || t.Resources.Contains(resource)))
-                    .Select(t => t.Efficiency).DefaultIfEmpty(0).Max();
-                efficiency[(building, resource)] = best;
+                    .Select(t => (t.Efficiency, t.Capacity)).OrderByDescending(t => t.Efficiency).FirstOrDefault();
+                _best[(building, resource)] = best;
             }
             return best;
         }
+
+        public double Efficiency(long building, string resource) => Of(building, resource).Efficiency;
+    }
+
+    /// <summary>
+    /// What a resident has spare, from its network's last solution, measured at its Yard gate (what its own pipes lose
+    /// between a building and the gate is its own): what goes to the hub from buildings that reach the gate, what goes
+    /// into a Storage beyond what the Storage keeps, what it sends through the gate now, and what buildings that have
+    /// all they need could make more of if somebody took it (F1.4)
+    /// </summary>
+    private void MeasureSpare(YardMember member)
+    {
+        var network = member.Network!;
+        var solution = network.Solution;
+        var reach = new GateReach(network, Estate(member.Key.District, member.Key.Slot)!.YardGate);
+        var nodes = network.Nodes.ToDictionary(t => t.Id);
 
         var received = new Dictionary<(long, string), double>();
         foreach (var flow in solution.Flows)
         {
             received[(flow.To, flow.Resource)] = received.GetValueOrDefault((flow.To, flow.Resource)) + flow.Delivered;
-            if (flow.Kind == FlowKind.Sale && ToGate(flow.From, flow.Resource) is > 0 and var out_)
+            var toGate = reach.Efficiency(flow.From, flow.Resource);
+            if (toGate <= 0)
             {
-                Add(member.Spare, flow.Resource, flow.Sent * out_);
-                Add(member.HubSpare, flow.Resource, flow.Sent * out_);
+                continue;
             }
-            else if (flow.Kind == FlowKind.Import && ToGate(flow.To, flow.Resource) is > 0 and var in_)
+            if (flow.Kind == FlowKind.Sale)
             {
-                Add(member.Lacks, flow.Resource, flow.Delivered / in_);
+                Add(member.Spare, flow.Resource, flow.Sent * toGate);
+                Add(member.HubSpare, flow.Resource, flow.Sent * toGate);
+            }
+            else if (flow.Kind == FlowKind.ToStorage && nodes.TryGetValue(flow.To, out var storage) && storage.StorageWants is { } wants && !wants.Contains(flow.Resource))
+            {
+                // It went into the Storage only because the trading post was full: the Storage doesn't keep it
+                Add(member.Spare, flow.Resource, flow.Sent * toGate);
             }
         }
         foreach (var flow in network.GateFlows.Where(t => t.Estate == member.Key))
@@ -410,7 +442,6 @@ public sealed partial class GameWorld
             if (flow.Import)
             {
                 received[(flow.Building, flow.Resource)] = received.GetValueOrDefault((flow.Building, flow.Resource)) + flow.Delivered;
-                Add(member.Lacks, flow.Resource, flow.Sent);
             }
             else
             {
@@ -434,35 +465,167 @@ public sealed partial class GameWorld
             {
                 continue;
             }
-            // What holds a building back: its scarcest inputs (the others it would use more of only once those come)
-            var fractions = node.In.ToDictionary(t => t.Key, t => received.GetValueOrDefault((node.Id, t.Key)) / Math.Max(1e-12, t.Value * node.MaxRate));
-            var least = fractions.Count == 0 ? 1 : fractions.Values.Min();
-            if (least >= 0.999 && rate < node.MaxRate - 1e-9)
+            var least = node.In.Count == 0 ? 1 : node.In.Min(t => received.GetValueOrDefault((node.Id, t.Key)) / Math.Max(1e-12, t.Value * node.MaxRate));
+            if (least >= 0.999 && rate < node.MaxRate - 1e-9 && _buildings.TryGetValue(node.Id, out var building) && !IdleReasonOf(building).IsStuck)
             {
                 // It has all it needs but nobody takes all it could make: spare for the station (and what it makes is
                 // what it could make, else the Houses' cap would shrink with every round nobody takes it all)
                 foreach (var (resource, amount) in node.Out)
                 {
                     Add(member.Makes, resource, amount * (node.MaxRate - rate));
-                    if (ToGate(node.Id, resource) is > 0 and var reach)
+                    if (reach.Efficiency(node.Id, resource) is > 0 and var toGate)
                     {
-                        Add(member.Spare, resource, amount * (node.MaxRate - rate) * reach);
+                        Add(member.Spare, resource, amount * (node.MaxRate - rate) * toGate);
                     }
                 }
             }
-            if (node.In.Count == 0)
+        }
+    }
+
+    /// <summary>
+    /// What a resident lacks, measured at its Yard gate (F1.2): what the hub brings its buildings that reach the gate,
+    /// what it takes from the gate now, and what is missing for those buildings, but only what they could use:
+    /// lack ≤ need × min(f_out, f_other) − got, with f_out 0 for a building whose output can't leave (its full run
+    /// fraction when its own post or Storage is full) and f_other what its other inputs could reach (from its own pipes,
+    /// or from the station's spare through its gate). A buyer that took under 80% of what it was matched last round is
+    /// matched at most a quarter more than it took (F1.3).
+    /// </summary>
+    private void MeasureLacks(YardMember member, IReadOnlyDictionary<string, double> stationSpare)
+    {
+        var network = member.Network!;
+        var solution = network.Solution;
+        var reach = new GateReach(network, Estate(member.Key.District, member.Key.Slot)!.YardGate);
+        var nodes = network.Nodes.ToDictionary(t => t.Id);
+
+        var received = new Dictionary<(long, string), double>();
+        var fromGate = new Dictionary<(long, string), double>();
+        var takenAtGate = new Dictionary<string, double>();
+        foreach (var flow in solution.Flows)
+        {
+            received[(flow.To, flow.Resource)] = received.GetValueOrDefault((flow.To, flow.Resource)) + flow.Delivered;
+            if (flow.Kind == FlowKind.Import && reach.Efficiency(flow.To, flow.Resource) is > 0 and var in_)
+            {
+                // What the hub brings, the Yard could bring instead
+                Add(member.Lacks, flow.Resource, flow.Delivered / in_);
+            }
+        }
+        foreach (var flow in network.GateFlows.Where(t => t.Estate == member.Key && t.Import))
+        {
+            received[(flow.Building, flow.Resource)] = received.GetValueOrDefault((flow.Building, flow.Resource)) + flow.Delivered;
+            fromGate[(flow.Building, flow.Resource)] = fromGate.GetValueOrDefault((flow.Building, flow.Resource)) + flow.Sent;
+            Add(member.Lacks, flow.Resource, flow.Sent);
+            Add(takenAtGate, flow.Resource, flow.Sent);
+        }
+
+        // What a building could get of a good: what it gets now, what its own suppliers on its pipes still make for
+        // others than buildings (the hub, a Storage) or could make more of, an own Storage or post that has it without
+        // end, and the station's spare through its gate (as far as the gate pipe carries it)
+        double Potential(FlowNode node, string resource)
+        {
+            var potential = received.GetValueOrDefault((node.Id, resource));
+            foreach (var link in network.Links.Where(t => (t.A == node.Id || t.B == node.Id) && t.Allows(resource)))
+            {
+                if (!nodes.TryGetValue(link.A == node.Id ? link.B : link.A, out var other) || other.Owner != node.Owner)
+                {
+                    continue;
+                }
+                if ((other.Kind == FlowNodeKind.Storage && other.StorageContents.Contains(resource)) || (other.Kind == FlowNodeKind.TradingPost && other.Imports.Contains(resource)))
+                {
+                    return double.MaxValue;
+                }
+                if (other.Kind == FlowNodeKind.Building && other.Out.TryGetValue(resource, out var makes))
+                {
+                    var toBuildings = solution.Flows.Where(t => t.From == other.Id && t.Resource == resource && t.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.Contract).Sum(t => t.Sent);
+                    potential += Math.Max(0, makes * other.MaxRate - toBuildings) * link.Efficiency;
+                }
+            }
+            var (efficiency, capacity) = reach.Of(node.Id, resource);
+            if (efficiency > 0)
+            {
+                var others = stationSpare.GetValueOrDefault(resource) - member.Spare.GetValueOrDefault(resource);
+                var room = Math.Max(0, capacity - fromGate.GetValueOrDefault((node.Id, resource)));
+                potential += Math.Min(Math.Max(0, others), room) * efficiency;
+            }
+            return potential;
+        }
+
+        foreach (var node in network.Nodes.Where(t => t.Kind == FlowNodeKind.Building && t.Id > 0))
+        {
+            foreach (var (resource, amount) in node.In)
+            {
+                Add(member.Uses, resource, amount * node.MaxRate);
+            }
+            if (node.MaxRate <= 1e-9 || node.In.Count == 0 || !_buildings.TryGetValue(node.Id, out var building))
+            {
+                continue;
+            }
+            var fOut = OutputFraction(building, node, network);
+            if (fOut <= 1e-9)
             {
                 continue;
             }
             foreach (var (resource, amount) in node.In)
             {
-                Add(member.Uses, resource, amount * node.MaxRate);
-                if (least < 0.999 && fractions[resource] <= least + 1e-6 && ToGate(node.Id, resource) is > 0 and var reach)
+                var toGate = reach.Efficiency(node.Id, resource);
+                if (toGate <= 0)
                 {
-                    Add(member.Lacks, resource, amount * node.MaxRate * (1 - Math.Min(1, fractions[resource])) / reach);
+                    continue;
+                }
+                var fOther = 1.0;
+                foreach (var (other, otherAmount) in node.In.Where(t => t.Key != resource))
+                {
+                    fOther = Math.Min(fOther, Math.Min(1, Potential(node, other) / (otherAmount * node.MaxRate)));
+                }
+                var lack = amount * node.MaxRate * Math.Min(fOut, fOther) - received.GetValueOrDefault((node.Id, resource));
+                if (lack > 1e-9)
+                {
+                    Add(member.Lacks, resource, lack / toGate);
                 }
             }
         }
+
+        // Feedback: what it was matched last round and didn't take shrinks what it is matched now
+        if (_gateTerms.TryGetValue(member.Key, out var terms))
+        {
+            foreach (var ((resource, _), sources) in terms.Import.GroupBy(t => t.Key.Resource).Select(t => (t.First().Key, t.SelectMany(x => x.Value).ToList())))
+            {
+                var matched = sources.Sum(t => t.Value);
+                var taken = takenAtGate.GetValueOrDefault(resource);
+                if (matched > 1e-9 && taken < FeedbackShare * matched && member.Lacks.ContainsKey(resource))
+                {
+                    member.Lacks[resource] = Math.Min(member.Lacks[resource], FeedbackGrowth * taken + FeedbackProbe);
+                }
+            }
+        }
+    }
+
+    /// <summary>Feedback (F1.3): a buyer that took less than this share of its match is matched at most this much more than it took, plus a probe a minute</summary>
+    private const double FeedbackShare = 0.8;
+    private const double FeedbackGrowth = 1.25;
+    private const double FeedbackProbe = 0.5;
+
+    /// <summary>
+    /// How much of its speed a building's output lets it run at: 0 when what it makes can't leave (stuck), its run
+    /// fraction when its only ways out are an own trading post or Storage that is full, else 1
+    /// </summary>
+    private double OutputFraction(Building building, FlowNode node, Network network)
+    {
+        if (node.Out.Count == 0)
+        {
+            return 1;
+        }
+        if (IdleReasonOf(building).IsStuck)
+        {
+            return 0;
+        }
+        var linked = LinkedBuildings(building, network);
+        var full = linked.Any(t => t.Owner == building.Owner
+            && ((Content.Building(t.Type).Kind == BuildingKind.TradingPost && TradingPostFull(t))
+                || (Content.Building(t.Type).Kind == BuildingKind.Storage && StorageCapacity(t, Content.Building(t.Type)) - t.StoredTotal <= StorageEpsilon)));
+        var otherWays = network.GateLinks.Any(t => t.Building == building.Id)
+            || linked.Any(t => (t.Owner == building.Owner && Content.Building(t.Type).Kind is BuildingKind.TradingPost or BuildingKind.Storage && !(Content.Building(t.Type).Kind == BuildingKind.TradingPost ? TradingPostFull(t) : StorageCapacity(t, Content.Building(t.Type)) - t.StoredTotal <= StorageEpsilon))
+                || (ToFlowNode(t) is { Kind: FlowNodeKind.Building } taker && node.Out.Keys.Any(taker.In.ContainsKey)));
+        return full && !otherWays ? network.Solution.Rate(building.Id) / Math.Max(1e-12, node.MaxRate) : 1;
     }
 
     /// <summary>Whether a building's pipes reach a trading post of its owner that can sell this good</summary>

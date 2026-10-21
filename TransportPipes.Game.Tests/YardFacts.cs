@@ -106,30 +106,123 @@ public class YardFacts
     }
 
     [TestMethod]
+    public void ABuyerThatCantRunIsMatchedNothing()
+    {
+        var (game, a, _, _, _) = StuckBuyer();
+        game.Pass(15);
+
+        Assert.AreEqual(0, game.World.StatValue(a, "yardSent"), 1e-9, "a factory without iron ore lacks no energy it could use");
+    }
+
+    [TestMethod]
+    public void ABuyerHeldBackByAnotherInputIsMatchedOnlyWhatItCanUse()
+    {
+        // Cleo's Lab, small: B's factory at level 10 could use 94 energy a minute, but its one mine brings only a fifth
+        // of the iron ore it needs, so the energy it can use is a fifth too
+        var game = new TestGame(content: TestGame.LosslessContent);
+        var a = game.NewCompany("A");
+        var post = game.TradingPost(a);
+        for (var i = 0; i < 5; i++)
+        {
+            var moily = game.Build(a, "windMoily");
+            game.ConnectToGate(a, moily);
+            game.Connect(a, moily, post);
+        }
+        var b = game.NewCompany("B", level: 10);
+        var mine = game.Build(b, "ironMine", game.Spot(b, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
+        var factory = game.Build(b, "smallFactory");
+        Assert.IsTrue(game.World.Upgrade(b.Id, factory.Id, 9).Success);
+        game.Connect(b, mine, factory);
+        game.ConnectToGate(b, mine);
+        game.ConnectToGate(b, factory);
+        game.Connect(b, factory, game.TradingPost(b));
+        game.Pass(20);
+
+        var factoryNode = game.World.ToFlowNode(factory)!;
+        var mineNode = game.World.ToFlowNode(mine)!;
+        var oreShare = mineNode.Out["ironOre"] / factoryNode.In["ironOre"];
+        var canUse = mineNode.In["energy"] + factoryNode.In["energy"] * oreShare;
+        var matched = game.World.YardTrades(game.EstateOf(b)).Where(t => !t.Selling && t.Resource == "energy").Sum(t => t.PerMinute);
+        Assert.IsTrue(oreShare < 0.25, $"the ore is short ({oreShare:P0})");
+        Assert.AreEqual(canUse, matched, canUse * 0.05, $"matched {matched:F1} energy a minute, of {mineNode.In["energy"] + factoryNode.In["energy"]:F1} wanted");
+        var sent = game.World.StatValue(a, "yardSent");
+        Assert.IsTrue(game.World.StatValue(a, "yardUntaken") < 0.05 * sent, "and B takes what it is matched");
+    }
+
+    [TestMethod]
+    public void AStorageBoundProducerOffersItsSpare()
+    {
+        // A's moily fills a Storage that doesn't keep energy (no trading post on its pipes): that energy is spare
+        var game = new TestGame(content: TestGame.LosslessContent);
+        var a = game.NewCompany("A");
+        var moily = game.Build(a, "windMoily");
+        game.ConnectToGate(a, moily);
+        game.Connect(a, moily, game.Build(a, "storage"));
+        var b = game.NewCompany("B", level: 2);
+        var mine = game.Build(b, "ironMine", game.Spot(b, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
+        game.ConnectToGate(b, mine);
+        game.Connect(b, mine, game.TradingPost(b));
+        game.Pass(5);
+
+        Assert.AreEqual(10, ImportedBy(game, mine, "energy"), 1e-6, "B's mine runs on A's stored-away energy");
+        Assert.IsTrue(game.World.StatValue(a, "yardPaid") > 0);
+    }
+
+    [TestMethod]
+    public void AMatchNobodyTakesShrinks()
+    {
+        // After B's mine goes, what the Yard sends B falls to the probe at once (it took nothing of its match)
+        var (game, a) = TradeThenTheBuyerStops(gateOnly: false);
+        game.Pass(3);
+        var sent = game.World.StatValue(a, "yardSent");
+        game.Pass(10);
+
+        Assert.IsTrue((game.World.StatValue(a, "yardSent") - sent) / 10 <= 0.5 + 1e-6, "at most the probe of half a unit a minute");
+    }
+
+    /// <summary>B's mine buys A's energy through the Yard; then B demolishes it, and what the Yard already sent arrives at a gate with no taker</summary>
+    private static (TestGame Game, Company A) TradeThenTheBuyerStops(bool gateOnly)
+    {
+        var game = new TestGame(content: TestGame.LosslessContent);
+        var a = game.NewCompany("A");
+        var moily = game.Build(a, "windMoily");
+        game.ConnectToGate(a, moily);
+        if (!gateOnly)
+        {
+            game.Connect(a, moily, game.TradingPost(a));
+        }
+        var b = game.NewCompany("B", level: 2);
+        var mine = game.Build(b, "ironMine", game.Spot(b, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
+        game.ConnectToGate(b, mine);
+        game.Connect(b, mine, game.TradingPost(b));
+        game.Pass(3);
+        Assert.IsTrue(game.World.StatValue(a, "yardPaid") > 0, "B's mine takes A's energy");
+        Assert.IsTrue(game.World.Demolish(b.Id, mine.Id).Success);
+        return (game, a);
+    }
+
+    [TestMethod]
     public void WhatTheBuyerDoesntTakeIsPaidAtTheSellersHubPrice()
     {
-        var (game, a, b, _, _) = StuckBuyer();
-        game.Pass(5);
+        var (game, a) = TradeThenTheBuyerStops(gateOnly: false);
         var floor = game.World.StatValue(a, "yardFloor");
         var untaken = game.World.StatValue(a, "yardUntaken");
-        game.Pass(10);
+        game.Pass(0.5);
         var units = game.World.StatValue(a, "yardUntaken") - untaken;
         var gold = game.World.StatValue(a, "yardFloor") - floor;
 
-        Assert.IsTrue(units > 1, "the stuck factory takes nothing of what the Yard brings it (run 1's bug, still in the matching)");
+        Assert.IsTrue(units > 1, "what the Yard sent before the mine went arrives with nobody to take it");
         Assert.AreEqual(units * game.World.HubBuyPrice(a, "energy"), gold, 1e-6, "conservation: the seller gets its hub price for what wasn't taken");
-        Assert.AreEqual(0, game.World.StatValue(a, "yardPaid"), "nobody took it, so no player paid");
-        Assert.AreEqual(0, game.World.StatValue(b, "boughtFromPlayers"));
     }
 
     [TestMethod]
     public void TheFloorIsCappedByWhatWouldHaveGoneToTheHub()
     {
-        // A's moily reaches only its gate: what it makes for the Yard would never have been sold at the hub
-        var (game, a, _, _, _) = StuckBuyer(gateOnly: true);
-        game.Pass(15);
+        // A's moily reaches only its gate: what it made for the Yard would never have been sold at the hub
+        var (game, a) = TradeThenTheBuyerStops(gateOnly: true);
+        game.Pass(0.5);
 
-        Assert.IsTrue(game.World.StatValue(a, "yardUntaken") > 1, "the Yard still sends it to the stuck factory");
+        Assert.IsTrue(game.World.StatValue(a, "yardUntaken") > 1);
         Assert.AreEqual(0, game.World.StatValue(a, "yardFloor"), "no gold for goods that had no way to the hub");
     }
 

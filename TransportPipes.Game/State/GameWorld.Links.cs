@@ -745,8 +745,21 @@ public sealed partial class GameWorld
         {
             return [];
         }
-        var me = new YardMember { Key = KeyOf(mine), Company = company, Network = network };
-        Measure(me);
+        // Spare and lacks measured as the Yard measures them (a lack counts only as far as the building can use it)
+        var stations = new Dictionary<StationRef, List<YardMember>>();
+        YardMember? Member(Estate estate)
+        {
+            var corner = BigStation(estate.Station)[0];
+            if (!stations.TryGetValue(corner, out var members))
+            {
+                stations[corner] = members = YardMembers(corner);
+            }
+            return members.FirstOrDefault(t => t.Key == KeyOf(estate) && t.Network != null);
+        }
+        if (Member(mine) is not { } me)
+        {
+            return [];
+        }
         var gets = network.GateFlows.Where(t => t.Import && t.Estate == me.Key).GroupBy(t => t.Resource).ToDictionary(t => t.Key, t => t.Sum(f => f.Sent));
         var lacks = me.Lacks.Where(t => t.Value - gets.GetValueOrDefault(t.Key) > 0.05).Select(t => t.Key).ToHashSet();
         var spare = me.Spare.Where(t => t.Value - me.Sent.GetValueOrDefault(t.Key) > 0.05).Select(t => t.Key).ToHashSet();
@@ -763,8 +776,10 @@ public sealed partial class GameWorld
             {
                 continue;
             }
-            var them = new YardMember { Key = KeyOf(theirs), Company = other, Network = theirNetwork };
-            Measure(them);
+            if (Member(theirs) is not { } them)
+            {
+                continue;
+            }
             var theirGets = theirNetwork.GateFlows.Where(t => t.Import && t.Estate == them.Key).GroupBy(t => t.Resource).ToDictionary(t => t.Key, t => t.Sum(f => f.Sent));
             var length = RouteLength(LinkRoute(mine.YardGate, mine.Station, theirs.YardGate, theirs.Station));
             foreach (var resource in lacks)
