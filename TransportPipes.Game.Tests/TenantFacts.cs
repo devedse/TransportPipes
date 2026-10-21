@@ -263,7 +263,10 @@ public class TenantFacts
     public void TenantsAnswerContractOffersRightAway()
     {
         var game = WithTenants();
-        var player = game.NewCompany();
+        var player = game.NewCompany(level: 2);
+        // A contract promises only what the player makes: a moily, and a mine on its iron
+        game.Build(player, "windMoily");
+        game.Build(player, "ironMine");
         var works = game.World.Companies.First(t => t.IsNpc && game.World.BuildingsOf(t.Id).Any(b => b.Type == "smallFactory"));
 
         // Selling energy to an ironworks at a fair price: accepted

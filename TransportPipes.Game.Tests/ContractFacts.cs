@@ -100,11 +100,11 @@ public class ContractFacts
     {
         var (game, a, b) = Partners();
         game.World.ProposeContract(a.Id, b.Id, selling: true, "energy", 5, 1.5, 3);
-        game.World.ProposeContract(a.Id, b.Id, selling: true, "ironOre", 5, 4, 3);
+        game.World.ProposeContract(b.Id, a.Id, selling: true, "ironOre", 5, 4, 3);
         var (energy, ore) = (game.World.Contracts.First(), game.World.Contracts.Last());
 
         Assert.IsTrue(game.World.DeclineContract(b.Id, energy.Id).Success);
-        Assert.IsTrue(game.World.DeclineContract(a.Id, ore.Id).Success);
+        Assert.IsTrue(game.World.DeclineContract(b.Id, ore.Id).Success);
 
         Assert.AreEqual(ContractState.Declined, energy.State);
         Assert.AreEqual(ContractState.Cancelled, ore.State);
@@ -121,5 +121,38 @@ public class ContractFacts
         StringAssert.Contains(game.World.ProposeContract(a.Id, a.Id, true, "energy", 5, 1.5, 3).Error, "another company");
         Assert.IsTrue(game.World.ProposeContract(a.Id, b.Id, true, "energy", 5, 1.5, 3).Success);
         StringAssert.Contains(game.World.ProposeContract(a.Id, b.Id, true, "energy", 5, 1.5, 3).Error, "already have");
+    }
+
+    [TestMethod]
+    public void AContractNobodyCanMeetCreatesNoGold()
+    {
+        // Found by reading the code: a buying contract for a million ingots a minute, accepted by a tenant that makes a
+        // few, paid its buyer a shortfall penalty of about a billion gold a day
+        var game = new TestGame();
+        game.World.TenantsEnabled = true;
+        var player = game.NewCompany(gold: 10_000, level: 10);
+        var tenant = game.World.Companies.First(t => t.IsNpc && game.World.BuildingsOf(t.Id).Any(b => game.World.Content.Building(b.Type).Out.Count > 0));
+        var resource = game.World.BuildingsOf(tenant.Id).SelectMany(b => game.World.Content.Building(b.Type).Out.Keys).First();
+        var price = game.World.AutoPrice(tenant, resource);
+        var before = player.Gold;
+
+        game.World.ProposeContract(player.Id, tenant.Id, selling: false, resource, rate: 1_000_000, price: price, days: 1);
+        game.Pass(24 * 60 + 30);
+
+        Assert.IsLessThan(before + 10_000, player.Gold, $"no penalty gold from a contract nobody could meet ({player.Gold - before:N0} gold more)");
+        Assert.IsGreaterThanOrEqualTo(0, tenant.Gold, "a penalty never makes anyone's gold negative");
+    }
+
+    [TestMethod]
+    public void APlayerCanOnlyPromiseWhatTheyCanMake()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var seller = game.NewCompany("Seller", gold: 100_000, level: 10);
+        var buyer = game.NewCompany("Buyer", gold: 100_000, level: 10);
+        game.Map(seller, game.Local(seller, 2, 2), "W+T");
+        var price = game.World.HubBuyPrice(seller.District, "energy");
+
+        Assert.IsFalse(game.World.ProposeContract(seller.Id, buyer.Id, selling: true, "energy", rate: 5_000, price: price, days: 1).Success, "a moily makes 30 a minute");
+        Assert.IsTrue(game.World.ProposeContract(seller.Id, buyer.Id, selling: true, "energy", rate: 25, price: price, days: 1).Success);
     }
 }

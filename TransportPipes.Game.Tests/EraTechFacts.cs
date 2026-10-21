@@ -11,6 +11,7 @@ public class EraTechFacts
         var game = new TestGame();
         var a = game.NewCompany("A");
         var b = game.NewCompany("B");
+        game.Map(a, game.Local(a, 2, 2), "W");
 
         StringAssert.Contains(game.World.ProposeContract(a.Id, b.Id, true, "energy", 10, 2, 8).Error, "Futures");
         a.Researched.Add("futures");

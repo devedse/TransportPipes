@@ -76,6 +76,10 @@ public sealed partial class GameWorld
         }
         var seller = selling ? company.Id : partner?.Id ?? 0;
         var buyer = selling ? partner?.Id ?? 0 : company.Id;
+        if (selling && rate > PromisableRate(company, resource) + 1e-9)
+        {
+            return CommandResult.Fail(CapacityError(company, resource));
+        }
         if (seller != 0 && buyer != 0 && _contracts.Values.Any(t => t.IsOpen && t.Seller == seller && t.Buyer == buyer && t.Resource == resource))
         {
             return CommandResult.Fail("You already have a contract with them for this.");
@@ -118,17 +122,36 @@ public sealed partial class GameWorld
         var fair = contract.Seller == tenant.Id
             ? definitions.Any(t => t.Out.ContainsKey(contract.Resource)) && contract.Price >= auto * 0.9
             : definitions.Any(t => t.In.ContainsKey(contract.Resource)) && contract.Price <= auto * 1.1;
-        if (fair)
-        {
-            AcceptContract(tenant.Id, contract.Id);
-        }
-        else
+        // It accepts only what it can make (AcceptContract checks it), and declines the rest
+        if (!fair || !AcceptContract(tenant.Id, contract.Id).Success)
         {
             DeclineContract(tenant.Id, contract.Id);
         }
     }
 
     public int MaxOpenContracts(Company company) => HasResearch(company, "contracts2") ? 12 : 5;
+
+    /// <summary>What a company's finished buildings make of a resource a minute at full speed</summary>
+    public double MakingCapacity(Company company, string resource) =>
+        BuildingsOf(company.Id).Where(t => !t.UnderConstruction).Sum(t => ToFlowNode(t)?.Out.GetValueOrDefault(resource) ?? 0);
+
+    /// <summary>
+    /// How much more of a resource a company may still promise in contracts a minute: what it can make, a quarter on top
+    /// (it may build more), less what its open and offered contracts already promise
+    /// </summary>
+    public double PromisableRate(Company company, string resource, long? except = null) =>
+        Math.Max(0, MakingCapacity(company, resource) * 1.25 - _contracts.Values
+            .Where(t => t.Id != except && t.State is ContractState.Active or ContractState.Offered && t.Seller == company.Id && t.Resource == resource)
+            .Sum(t => t.Rate));
+
+    private string CapacityError(Company company, string resource)
+    {
+        var name = Content.Resources.TryGetValue(resource, out var r) ? r.Name.ToLowerInvariant() : resource;
+        var making = MakingCapacity(company, resource);
+        return making <= 0
+            ? $"{company.Name} doesn't make {name}: a contract can only promise what its buildings make."
+            : $"{company.Name} makes up to {making:0.#} {name} a minute: its contracts can promise {PromisableRate(company, resource):0.#} more.";
+    }
 
     /// <summary>Accepts an offer made to you, or takes an offer from the contract board</summary>
     public CommandResult AcceptContract(long companyId, long contractId)
@@ -164,6 +187,15 @@ public sealed partial class GameWorld
         if (_contracts.Values.Any(t => t.Id != contract.Id && t.State == ContractState.Active && t.Seller == contract.Seller && t.Buyer == contract.Buyer && t.Resource == contract.Resource))
         {
             return CommandResult.Fail("You already have a contract with them for this.");
+        }
+        // Nobody can promise more than they can make: a contract nobody could meet would only pay penalties
+        if (Company(contract.Seller) is { } promiser && contract.Rate > PromisableRate(promiser, contract.Resource, contract.Id) + 1e-9)
+        {
+            if (contract.Seller == companyId)
+            {
+                contract.Seller = 0;
+            }
+            return CommandResult.Fail(CapacityError(promiser, contract.Resource));
         }
         contract.State = ContractState.Active;
         contract.StartedAt = Now;
@@ -247,7 +279,11 @@ public sealed partial class GameWorld
         }
         contract.State = ContractState.Ended;
         var shortfall = Math.Max(0, contract.Expected - contract.Delivered);
-        var penalty = Math.Round(shortfall * contract.Price * contract.PenaltyRate, 2);
+        // The buyer gets what the seller pays, and a penalty never takes anyone's gold below zero: gold never comes
+        // from nothing
+        var penalty = Company(contract.Seller) is { } payer
+            ? Math.Min(Math.Round(shortfall * contract.Price * contract.PenaltyRate, 2), Math.Max(0, payer.Gold))
+            : 0;
         if (Company(contract.Seller) is { } seller)
         {
             seller.Gold -= penalty;
