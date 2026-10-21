@@ -43,17 +43,17 @@ public sealed partial class GameWorld
         return (step.Chapter, steps.IndexOf(step) + 1, steps.Count);
     }
 
-    /// <summary>Gold a minute a company's neighbours pay it now (trades and contracts over its pipes)</summary>
+    /// <summary>Gold a minute a company's neighbours pay it now (through the Yards)</summary>
     public double NeighbourIncome(Company company)
     {
         var income = 0.0;
-        foreach (var network in Networks)
+        foreach (var estate in EstatesOf(company))
         {
-            foreach (var flow in network.Solution.Flows)
+            foreach (var (partner, resource, perMinute, selling) in YardTrades(estate))
             {
-                if (flow.Kind is FlowKind.Trade or FlowKind.Contract && _buildings.TryGetValue(flow.From, out var from) && from.Owner == company.Id)
+                if (selling && Company(partner) is { } buyer)
                 {
-                    income += flow.Delivered * flow.PricePerUnit;
+                    income += perMinute * SettlementPrice(company, buyer, resource);
                 }
             }
         }
@@ -61,39 +61,37 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// Why a step doesn't get done although the player did what Loady said, or null. For the neighbour step: a pipe
-    /// to a neighbour is not yet a trade (it needs something spare that they need).
+    /// Why a step doesn't get done although the player did what Loady said, or null. For the neighbour step: a pipe to
+    /// the Yard gate is not yet a trade (it needs something spare that a neighbour lacks).
     /// </summary>
     public string? TutorialTip(Company company, TutorialStep step)
     {
-        if (step.Stat != "partners" || TutorialProgress(company, step) >= step.Amount)
+        if (step.Stat != "partners" || TutorialProgress(company, step) >= step.Amount || EstateOf(company) is not { } estate)
         {
             return null;
         }
-        var neighbourhood = NeighbourhoodOf(company);
-        var others = neighbourhood.Connected.Where(t => t != company.Id).Select(Company).OfType<Company>().ToList();
+        var residents = YardResidents(estate.Station);
+        if (residents.FirstOrDefault(t => t.Company.Id == company.Id) is not { Connected: true } me)
+        {
+            return null;
+        }
+        var others = residents.Where(t => t.Company.Id != company.Id && t.Connected).ToList();
         if (others.Count == 0)
         {
-            return null;
+            return "You're piped to the Yard, but nobody else in your station is yet: the hub takes your spare until they are.";
         }
-        var spare = neighbourhood.Surplus.TryGetValue(company.Id, out var surplus)
-            ? surplus.Where(t => t.Value > 0.01).Select(t => t.Key).ToHashSet()
-            : [];
+        var spare = me.Spare.Where(t => t.Value > 0.01).Select(t => t.Key).ToHashSet();
         if (spare.Count == 0)
         {
-            return "You're connected, but your own buildings use everything you make. Build another Wind Moily: its spare energy sells to your neighbours.";
+            return "You're piped to the Yard, but your own buildings use everything you make. Build another Wind Moily: its spare energy sells to your neighbours.";
         }
-        if (others.Any(t => neighbourhood.CanSupply(t.Id, spare)))
+        if (others.Any(t => t.Lacks.Any(l => l.Value > 0.01 && spare.Contains(l.Key))))
         {
-            // They need it: the trade starts with the next tick, unless the pipe to them loses so much on the way
-            // that the hub pays more (the solver then keeps selling to the hub)
-            var solved = Networks.Where(t => t.Buildings.Any(b => _buildings[b].Owner == company.Id)).All(t => !t.NeedsSolve);
-            return solved
-                ? "They need what you make, but the pipe to them is so long that most of it is lost on the way: your hub pays you more. Connect to a closer neighbour, or lay better pipes (Copper loses half as much)."
-                : null;
+            // They need it: the trade starts with the Yard's next round
+            return null;
         }
         var names = string.Join(", ", spare.Select(t => Content.Resources[t].Name.ToLowerInvariant()));
-        return $"You're connected to {others[0].Name}{(others.Count > 1 ? $" and {others.Count - 1} more" : "")}, but they don't need what you have spare ({names}). Connect to a neighbour that needs it: the Neighbours panel shows what each needs.";
+        return $"Your neighbours don't need what you have spare ({names}) yet. The Yard shows what each of them lacks: make that, and it sells to them.";
     }
 
     /// <summary>Loady's guide (off in most tests: its gold would change the expected numbers)</summary>

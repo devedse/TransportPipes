@@ -49,23 +49,17 @@ public sealed partial class GameWorld
         return null;
     }
 
-    /// <summary>The companies that trade with a company right now (both ways)</summary>
+    /// <summary>The companies that trade with a company right now (both ways, through the Yards)</summary>
     private HashSet<long> PartnersOf(long companyId)
     {
         var partners = new HashSet<long>();
-        foreach (var network in _networks.Values)
+        foreach (var estate in EstatesOf(Company(companyId)!))
         {
-            foreach (var flow in network.Solution.Flows.Where(t => t.Kind is Simulation.FlowKind.Trade or Simulation.FlowKind.Contract))
+            foreach (var (partner, _, perMinute, _) in YardTrades(estate))
             {
-                var from = _buildings[flow.From].Owner;
-                var to = _buildings[flow.To].Owner;
-                if (from == companyId && to != companyId)
+                if (perMinute > 1e-6 && partner != companyId)
                 {
-                    partners.Add(to);
-                }
-                if (to == companyId && from != companyId)
-                {
-                    partners.Add(from);
+                    partners.Add(partner);
                 }
             }
         }
@@ -147,13 +141,7 @@ public sealed partial class GameWorld
         Changes.Estates.Add((estate.District, estate.Slot));
         company.Branches.Add(new EstateRef(estate.District.X, estate.District.Y, estate.Slot));
         OpenDistrict(estate.District);
-        foreach (var side in Enum.GetValues<GateSide>())
-        {
-            var pos = WorldLayout.GatePosition(estate.District, estate.Slot, side);
-            _conductors[pos] = new Conductor { Pos = pos, Kind = ConductorKind.Gate, Owner = company.Id, Side = side };
-            MarkDirty(pos);
-            Changes.Tiles.Add(pos);
-        }
+        AddYardGate(company, estate);
         AddBuilding(company, "tradingPost", estate.Origin.Offset(TradingPostLocal.X, TradingPostLocal.Y), finished: true);
     }
 

@@ -261,14 +261,14 @@ public sealed partial class GameWorld
         {
             // What it sells for here, or would at the hub
             var sales = flows.Where(t => t.Kind == FlowKind.Sale && t.Resource == resource && t.Delivered > 0).ToList();
-            var price = sales.Count > 0 ? sales.Sum(t => t.Delivered * t.PricePerUnit) / sales.Sum(t => t.Delivered) : post ? HubBuyPrice(network.District, resource) : 0;
+            var price = sales.Count > 0 ? sales.Sum(t => t.Delivered * t.PricePerUnit) / sales.Sum(t => t.Delivered) : post ? HubBuyPrice(Company(network.Owner), network.District, resource) : 0;
             if (shortOf.Contains(resource))
             {
                 // Short: worth what the buildings that wait for it make of a unit
                 var consumer = network.Buildings.Select(t => _buildings[t]).Where(t => t.Owner == company.Id).Select(t => Content.Building(t.Type)).FirstOrDefault(t => t.In.ContainsKey(resource));
                 if (consumer != null)
                 {
-                    price = Math.Max(price, consumer.Out.Sum(t => t.Value * HubBuyPrice(network.District, t.Key)) / consumer.In[resource]);
+                    price = Math.Max(price, consumer.Out.Sum(t => t.Value * HubBuyPrice(Company(network.Owner), network.District, t.Key)) / consumer.In[resource]);
                 }
             }
             value[resource] = price;
@@ -306,7 +306,7 @@ public sealed partial class GameWorld
                 {
                     return 0;
                 }
-                gain -= more * HubBuyPrice(network.District, resource);
+                gain -= more * HubBuyPrice(Company(network.Owner), network.District, resource);
             }
         }
         foreach (var (resource, amount) in changed.Out)
@@ -326,7 +326,7 @@ public sealed partial class GameWorld
         var pairs = full.Select(t => (Math.Min(t.A, t.B), Math.Max(t.A, t.B))).ToHashSet();
         return network.Solution.Flows
             .Where(t => pairs.Contains((Math.Min(t.From, t.To), Math.Max(t.From, t.To))))
-            .Sum(t => t.Delivered * (t.PricePerUnit > 0 ? t.PricePerUnit : HubBuyPrice(network.District, t.Resource)));
+            .Sum(t => t.Delivered * (t.PricePerUnit > 0 ? t.PricePerUnit : HubBuyPrice(Company(network.Owner), network.District, t.Resource)));
     }
 
     /// <summary>A building that isn't there, as the solver would see it at a spot (its wind, sun, deposit)</summary>
@@ -625,7 +625,7 @@ public sealed partial class GameWorld
     {
         var needs = NetworkNeeds(network, company.Id);
         var shortOf = needs.Where(t => t.Value.Consumers.Count > 0 && t.Value.Needed - t.Value.Got > Math.Max(0.05, t.Value.Needed * 0.05)).ToDictionary(t => t.Key, t => t.Value);
-        foreach (var (resource, (needed, got, consumers)) in shortOf.OrderByDescending(t => (t.Value.Needed - t.Value.Got) * HubBuyPrice(network.District, t.Key)))
+        foreach (var (resource, (needed, got, consumers)) in shortOf.OrderByDescending(t => (t.Value.Needed - t.Value.Got) * HubBuyPrice(Company(network.Owner), network.District, t.Key)))
         {
             // Shortages get half the what-ifs: upgrades and chains need theirs
             if (!WhatIfsLeft(AdvisorMaxWhatIfs / 2))
@@ -696,8 +696,8 @@ public sealed partial class GameWorld
                         gain = inputs.Any(t => t.Value > 1e-9 && values.Short.Contains(t.Key))
                             ? 0
                             : Math.Min(option.Covers, short_) * values.Value.GetValueOrDefault(resource)
-                              + Math.Max(0, option.Covers - short_) * HubBuyPrice(network.District, resource)
-                              - inputs.Sum(t => Math.Max(0, t.Value) * HubBuyPrice(network.District, t.Key));
+                              + Math.Max(0, option.Covers - short_) * HubBuyPrice(Company(network.Owner), network.District, resource)
+                              - inputs.Sum(t => Math.Max(0, t.Value) * HubBuyPrice(Company(network.Owner), network.District, t.Key));
                     }
                     else if (option.Upgrade is { } upgrade)
                     {
@@ -762,7 +762,7 @@ public sealed partial class GameWorld
             var rate = network.Solution.Rate(building.Id);
             foreach (var (resource, amount) in node.Out)
             {
-                made.Add((building, Content.Building(building.Type), resource, rate * amount * HubBuyPrice(network.District, resource)));
+                made.Add((building, Content.Building(building.Type), resource, rate * amount * HubBuyPrice(Company(network.Owner), network.District, resource)));
             }
         }
         var best = Content.ResearchList
@@ -800,7 +800,7 @@ public sealed partial class GameWorld
             .ToList();
         // Producers that sell a lot first: their upgrades are worth measuring (a big network solves slowly)
         candidates = candidates.OrderByDescending(t => TradingPostFull(t.Building) ? 1 : 0)
-            .ThenByDescending(t => t.Network.Solution.Flows.Where(f => f.From == t.Building.Id).Sum(f => f.Delivered * Math.Max(f.PricePerUnit, HubBuyPrice(t.Network.District, f.Resource))))
+            .ThenByDescending(t => t.Network.Solution.Flows.Where(f => f.From == t.Building.Id).Sum(f => f.Delivered * Math.Max(f.PricePerUnit, HubBuyPrice(Company(t.Network.Owner), t.Network.District, f.Resource))))
             .ToList();
         foreach (var (network, building) in candidates)
         {
@@ -932,7 +932,7 @@ public sealed partial class GameWorld
                 continue;
             }
             var definition = Content.Building(building.Type);
-            var value = ToFlowNode(building)?.Out.Sum(t => t.Value * HubBuyPrice(company.District, t.Key)) ?? 0;
+            var value = ToFlowNode(building)?.Out.Sum(t => t.Value * HubBuyPrice(company, t.Key)) ?? 0;
             if (definition.In.Count == 0 && value > 0.01)
             {
                 add(new AdvisorStep(AdvisorKind.Start, $"Pipe your {definition.Name} to your Trading Post",
@@ -950,7 +950,7 @@ public sealed partial class GameWorld
             .Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.In.Count == 0 && t.Out.Count > 0 && t.Placement.Deposit == null && IsUnlocked(company, t, out _))
             .Select(t => (Definition: t, Spot: FindSpot(company, t, post.Position)))
             .Where(t => t.Spot != null)
-            .Select(t => (t.Definition, t.Spot, Value: HypotheticalNode(company, t.Definition, t.Spot!.Value, -1)?.Out.Sum(o => o.Value * HubBuyPrice(company.District, o.Key)) ?? 0))
+            .Select(t => (t.Definition, t.Spot, Value: HypotheticalNode(company, t.Definition, t.Spot!.Value, -1)?.Out.Sum(o => o.Value * HubBuyPrice(company, o.Key)) ?? 0))
             .OrderByDescending(t => t.Value / Math.Max(1, BuildCost(company, t.Definition)))
             .FirstOrDefault();
         if (best.Definition != null && best.Value > 0.01)
@@ -961,48 +961,48 @@ public sealed partial class GameWorld
         }
     }
 
+    /// <summary>Not piped to the Yard yet while a neighbour lacks what the company sells to the hub: pipe to the Yard gate</summary>
     private void PartnerStep(Company company, Action<AdvisorStep, double> add)
     {
-        if (company.Level < 3 || EstateOf(company) is not { } mine)
+        if (company.Level < 3 || EstateOf(company) is not { } mine || GateNetwork(mine) != null)
         {
             return;
         }
-        var neighbourhood = NeighbourhoodOf(company);
-        var spare = neighbourhood.Surplus.GetValueOrDefault(company.Id)?.Where(t => t.Value > 0.01).ToDictionary(t => t.Key, t => t.Value) ?? [];
-        if (spare.Count == 0)
+        var spare = new Dictionary<string, double>();
+        foreach (var network in _networks.Values.Where(t => t.Owner == company.Id))
         {
-            return;
-        }
-        var hq = mine.Origin.Offset(HqLocal.X, HqLocal.Y);
-        var loss = Content.PipeTier(1).LossPerTile;
-        var best = (Company: (Company?)null, Gain: 0.0, Resources: new List<string>(), Tiles: 0);
-        foreach (var (other, shortfalls) in neighbourhood.Shortfalls)
-        {
-            if (other == company.Id || neighbourhood.Connected.Contains(other) || Company(other) is not { } partner || EstateOf(partner) is not { } estate
-                || !TradesWith(company, partner) || !TradesWith(partner, company))
+            foreach (var flow in network.Solution.Flows.Where(t => t.Kind == FlowKind.Sale))
             {
-                continue;
+                spare[flow.Resource] = spare.GetValueOrDefault(flow.Resource) + flow.Sent;
             }
-            var tiles = Distance(hq, estate.Origin.Offset(HqLocal.X, HqLocal.Y));
-            var arrives = Math.Pow(1 - loss, tiles);
-            foreach (var shortfall in shortfalls.Where(t => t.Keys.All(spare.ContainsKey)))
+        }
+        var lacks = new Dictionary<string, (double Amount, Company Who)>();
+        foreach (var resident in YardResidents(mine.Station).Where(t => t.Connected && t.Company.Id != company.Id && TradesWith(company, t.Company) && TradesWith(t.Company, company)))
+        {
+            foreach (var (resource, amount) in resident.Lacks.Where(t => spare.ContainsKey(t.Key)))
             {
-                var gain = shortfall.Sum(t => Math.Min(spare[t.Key], t.Value) * Math.Max(0, SellPrice(company, t.Key) * arrives - HubBuyPrice(company.District, t.Key)));
-                if (gain > best.Gain)
+                if (amount > lacks.GetValueOrDefault(resource).Amount)
                 {
-                    best = (partner, gain, shortfall.Keys.ToList(), tiles);
+                    lacks[resource] = (amount, resident.Company);
                 }
             }
         }
-        if (best.Company is not { } chosen || best.Gain < 1)
+        var gains = lacks.Select(t => (Resource: t.Key, t.Value.Who, Gain: Math.Min(spare[t.Key], t.Value.Amount) * Math.Max(0, PlayerPrice(t.Key) - HubBuyPrice(company, t.Key))))
+            .Where(t => t.Gain > 0)
+            .OrderByDescending(t => t.Gain)
+            .ToList();
+        var gain = gains.Sum(t => t.Gain);
+        if (gains.Count == 0 || gain < 1)
         {
             return;
         }
-        // About a grey pipe from HQ to HQ
-        var cost = best.Tiles * Content.PipeTier(1).Gold;
-        add(new AdvisorStep(AdvisorKind.Partner, $"Pipe to {chosen.Name}: they need {string.Join(" and ", best.Resources.Select(ResourceWord))}",
-            $"You have it spare and they pay more than the hub: about +{Gold(best.Gain)}/min for a pipe of about {Gold(cost)}.",
-            AdvisorAction.Partner, cost, best.Gain, Partner: chosen.Id), 1);
+        // A grey pipe from the middle of the start parcels to the gate
+        var middle = mine.Origin.Offset(WorldLayout.EstateSize / 2, WorldLayout.EstateSize / 2);
+        var cost = Distance(middle, mine.YardGate) * Content.PipeTier(1).Gold;
+        var first = gains[0];
+        add(new AdvisorStep(AdvisorKind.Partner, $"Pipe to your Yard gate: {first.Who.Name} lacks {ResourceWord(first.Resource)}",
+            $"You sell it to the hub; your neighbours pay more: about +{Gold(gain)}/min for a pipe of about {Gold(cost)}.",
+            AdvisorAction.Partner, cost, gain, Partner: first.Who.Id, At: mine.YardGate), 1);
     }
 
     private void ParcelStep(Company company, Action<AdvisorStep, double> add)

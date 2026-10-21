@@ -8,5 +8,4 @@ public class DbConductor
     public int Kind { get; set; }
     public int Tier { get; set; }
     public long OwnerId { get; set; }
-    public int? Side { get; set; }
 }

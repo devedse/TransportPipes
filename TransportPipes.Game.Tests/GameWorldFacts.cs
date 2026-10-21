@@ -8,7 +8,7 @@ namespace TransportPipes.Game.Tests;
 public class GameWorldFacts
 {
     [TestMethod]
-    public void ANewCompanyGetsAnEstateWithHqTradingPostAndGates()
+    public void ANewCompanyGetsAnEstateWithHqTradingPostAndAYardGate()
     {
         var game = new TestGame();
         var company = game.World.CreateCompany(1, "Pipe Dreams", "#33aaff");
@@ -20,7 +20,7 @@ public class GameWorldFacts
         Assert.AreEqual(4, estate.UnlockedCount);
         Assert.IsTrue(new[] { 5, 6, 9, 10 }.All(estate.IsUnlocked));
         CollectionAssert.AreEquivalent(new[] { "hq", "tradingPost" }, game.World.BuildingsOf(company.Id).Select(t => t.Type).ToArray());
-        Assert.AreEqual(4, game.World.Conductors.Count(t => t.Kind == ConductorKind.Gate && t.Owner == company.Id));
+        Assert.AreEqual(estate.YardGate, game.World.Conductors.Single(t => t.Kind == ConductorKind.Gate && t.Owner == company.Id).Pos);
         Assert.AreEqual(0, company.Xp, "the free buildings give no XP");
     }
 
@@ -345,71 +345,6 @@ public class GameWorldFacts
         Assert.AreEqual(to, moily.Position);
         Assert.AreEqual(5, moily.Level);
         Assert.AreSame(moily, game.World.BuildingAt(to));
-    }
-
-    /// <summary>Company A (slot 0) sells energy to company B (slot 1) through their gates and a corridor pipe</summary>
-    private static (TestGame Game, Company A, Company B, Building Moily, Building Mine) Neighbours(bool mineToStorage = false)
-    {
-        var game = new TestGame();
-        var a = game.NewCompany("A");
-        var b = game.NewCompany("B", level: 2);
-        Assert.AreEqual(a.Slot + 1, b.Slot);
-
-        var moily = game.Build(a, "windMoily");
-        game.Connect(a, moily, GateSide.Right);
-        var rightGate = WorldLayout.GatePosition(a.District, a.Slot, GateSide.Right);
-        Assert.IsTrue(game.World.PlacePipes(a.Id, [rightGate.Offset(1, 0), rightGate.Offset(2, 0)]).Success);
-        Assert.AreEqual(WorldLayout.GatePosition(b.District, b.Slot, GateSide.Left), rightGate.Offset(3, 0));
-
-        var mine = game.Build(b, "ironMine", game.Spot(b, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
-        game.Connect(b, mine, GateSide.Left);
-        game.Connect(b, mine, mineToStorage ? game.Build(b, "storage") : game.TradingPost(b));
-        game.World.SolveNetworks();
-        return (game, a, b, moily, mine);
-    }
-
-    [TestMethod]
-    public void NeighboursTradeThroughTheirGates()
-    {
-        var (game, a, b, moily, mine) = Neighbours();
-        var goldA = a.Gold;
-
-        game.Pass(10);
-
-        var network = game.World.NetworkOf(moily.Id)!;
-        Assert.AreSame(network, game.World.NetworkOf(mine.Id));
-        var trade = network.Solution.Flows.Single(t => t.Kind == FlowKind.Trade);
-        Assert.AreEqual(moily.Id, trade.From);
-        Assert.AreEqual(mine.Id, trade.To);
-        Assert.AreEqual(10, trade.Delivered, 1e-9, "the mine needs 10 energy");
-        Assert.AreEqual(1.75, trade.PricePerUnit, "the automatic price is the middle of the fair band");
-        Assert.AreEqual(goldA + 10 * 1.75 * 10, a.Gold, 1e-6);
-        Assert.IsTrue(network.Solution.Flows.Any(t => t.Kind == FlowKind.Sale && t.From == mine.Id), "B sells the ore");
-    }
-
-    [TestMethod]
-    public void AClosedGateStopsTheTrade()
-    {
-        var (game, a, b, moily, mine) = Neighbours();
-
-        Assert.IsTrue(game.World.SetGatePolicy(b.Id, GateSide.Left, GatePolicy.Closed).Success);
-        game.World.SolveNetworks();
-
-        Assert.AreNotSame(game.World.NetworkOf(moily.Id), game.World.NetworkOf(mine.Id));
-    }
-
-    [TestMethod]
-    public void ACompanyWithoutGoldCantBuyFromOthers()
-    {
-        var (game, a, b, moily, mine) = Neighbours(mineToStorage: true);
-        b.Gold = 35;
-        var goldA = a.Gold;
-
-        game.Pass(10);
-
-        Assert.AreEqual(0, b.Gold, 1e-6);
-        Assert.AreEqual(goldA + 35, a.Gold, 1e-6, "B could pay for two minutes of energy");
-        Assert.IsFalse(game.World.NetworkOf(moily.Id)!.Solution.Flows.Any(t => t.Kind == FlowKind.Trade));
     }
 
     [TestMethod]

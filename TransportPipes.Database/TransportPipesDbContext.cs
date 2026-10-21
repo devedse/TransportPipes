@@ -50,7 +50,6 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
         {
             world.ToTable("World");
             world.Property(t => t.Id).ValueGeneratedNever();
-            world.Property(t => t.Markets).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
             world.Property(t => t.Exchange).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
             world.Property(t => t.Events).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
             world.Property(t => t.Wonders).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
@@ -75,7 +74,6 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
         {
             estate.ToTable("Estates");
             estate.HasKey(t => new { t.DistrictX, t.DistrictY, t.Slot });
-            estate.Property(t => t.GatePolicies).HasColumnType("jsonb");
         });
 
         modelBuilder.Entity<DbBuilding>(building =>

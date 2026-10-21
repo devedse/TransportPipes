@@ -10,14 +10,6 @@ public abstract class Entity
     public void Touch() => Dirty = true;
 }
 
-public enum GatePolicy
-{
-    Closed,
-    Corporation,
-    Contract,
-    Open,
-}
-
 public sealed class Company : Entity
 {
     public long Id { get; init; }
@@ -38,11 +30,8 @@ public sealed class Company : Entity
     public DistrictCoord District { get; set; }
     public int Slot { get; set; }
 
-    /// <summary>Price per resource this company asks from other companies (missing = automatic, the middle of the fair band)</summary>
-    public Dictionary<string, double> SellPrices { get; init; } = new();
-
-    /// <summary>The highest price this company pays other companies (missing = the hub's sell price)</summary>
-    public Dictionary<string, double> BuyMaxPrices { get; init; } = new();
+    /// <summary>The hubs' orders for this company per hub ("x,y"), v1.2 §8: what it sold lately and the prices that follow</summary>
+    public Dictionary<string, HubMarket> HubMarkets { get; init; } = new();
 
     /// <summary>Resources this company never sells to other companies</summary>
     public HashSet<string> NoTrade { get; init; } = new();
@@ -68,9 +57,6 @@ public sealed class Company : Entity
     /// <summary>The tech being researched now, and when it is done</summary>
     public string? CurrentResearch { get; set; }
     public DateTime? ResearchEndsAt { get; set; }
-
-    /// <summary>Price changes that wait for the notice period because a partner buys from this company</summary>
-    public Dictionary<string, PendingPrice> PendingPrices { get; init; } = new();
 
     /// <summary>The corporation this company is in, and its role there</summary>
     public long? CorporationId { get; set; }
@@ -166,9 +152,6 @@ public sealed class Company : Entity
     public override string ToString() => $"{Name} (#{Id})";
 }
 
-/// <summary>A new sell price (null: back to automatic) that applies at a moment</summary>
-public sealed record PendingPrice(double? Price, DateTime At);
-
 /// <summary>An order from the hub: deliver an amount of a resource before the end of the day</summary>
 public sealed class DailyOrder
 {
@@ -215,8 +198,6 @@ public sealed class Estate : Entity
     /// <summary>Bit n is set when parcel n is unlocked</summary>
     public int UnlockedParcels { get; set; }
 
-    public Dictionary<GateSide, GatePolicy> GatePolicies { get; init; } = Enum.GetValues<GateSide>().ToDictionary(t => t, _ => GatePolicy.Open);
-
     /// <summary>A corporation block (GDD §12.3): a free estate kept for the members of a corporation for a while</summary>
     public long? ReservedFor { get; set; }
     public DateTime? ReservedUntil { get; set; }
@@ -229,6 +210,11 @@ public sealed class Estate : Entity
         pos.X >= Origin.X && pos.Y >= Origin.Y && pos.X < Origin.X + WorldLayout.EstateSize && pos.Y < Origin.Y + WorldLayout.EstateSize;
 
     public int ParcelAt(TilePos pos) => WorldLayout.ParcelOf(pos.X - Origin.X, pos.Y - Origin.Y);
+
+    public StationRef Station => WorldLayout.StationOf(District, Slot);
+
+    /// <summary>Where the estate's own pipes meet its station's Yard</summary>
+    public TilePos YardGate => WorldLayout.YardGate(District, Slot);
 }
 
 public sealed class Building : Entity
@@ -294,6 +280,8 @@ public sealed class Building : Entity
 public enum ConductorKind
 {
     Pipe,
+
+    /// <summary>An estate's Yard gate: where its own pipes meet the Yard (and its links)</summary>
     Gate,
 }
 
@@ -304,9 +292,6 @@ public sealed class Conductor : Entity
     public ConductorKind Kind { get; init; } = ConductorKind.Pipe;
     public int Tier { get; set; } = 1;
     public long Owner { get; set; }
-
-    /// <summary>Gates: the side of the estate</summary>
-    public GateSide? Side { get; init; }
 }
 
 public enum ContractState
@@ -413,7 +398,6 @@ public sealed class PackedBuilding
 public sealed class PackedEstate
 {
     public int UnlockedParcels { get; init; }
-    public Dictionary<GateSide, GatePolicy> GatePolicies { get; init; } = new();
     public List<PackedBuilding> Buildings { get; init; } = new();
     public List<PackedPipe> Pipes { get; init; } = new();
 }

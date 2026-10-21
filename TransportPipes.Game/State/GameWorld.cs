@@ -275,6 +275,21 @@ public sealed partial class GameWorld
         throw new InvalidOperationException("The world is infinite, this can't happen.");
     }
 
+    /// <summary>A seat for a newcomer: free, or kept warm by a tenant who moves out (null when someone lives there)</summary>
+    private Estate? TakeSeat(EstateKey seat)
+    {
+        OpenDistrict(seat.District);
+        if (Estate(seat.District, seat.Slot) is not { } estate)
+        {
+            return null;
+        }
+        if (estate.OwnerId is { } owner && Company(owner) is { IsNpc: true })
+        {
+            EvictTenant(estate);
+        }
+        return estate.OwnerId == null ? estate : null;
+    }
+
     public const int MinCompanyNameLength = 3;
     public const int MaxCompanyNameLength = 24;
 
@@ -300,10 +315,13 @@ public sealed partial class GameWorld
     public static readonly (int X, int Y) HqLocal = (15, 15);
     public static readonly (int X, int Y) TradingPostLocal = (18, 15);
 
-    /// <summary>A new company; Legacy from earlier seasons brings starting gold, titles and a manager slot</summary>
-    public Company CreateCompany(long userId, string name, string color, int legacyLevel = 0, IEnumerable<string>? titles = null)
+    /// <summary>
+    /// A new company, on a seat it chose (when that is free, or a House keeps it warm) or the first free one; Legacy from
+    /// earlier seasons brings starting gold, titles and a manager slot
+    /// </summary>
+    public Company CreateCompany(long userId, string name, string color, int legacyLevel = 0, IEnumerable<string>? titles = null, EstateKey? seat = null)
     {
-        var estate = FindFreeEstate();
+        var estate = seat is { } chosen && TakeSeat(chosen) is { } free ? free : FindFreeEstate();
         var now = Now;
         var company = new Company
         {
@@ -327,13 +345,7 @@ public sealed partial class GameWorld
         estate.Touch();
         Changes.Estates.Add((estate.District, estate.Slot));
 
-        foreach (var side in Enum.GetValues<GateSide>())
-        {
-            var pos = WorldLayout.GatePosition(estate.District, estate.Slot, side);
-            var gate = new Conductor { Pos = pos, Kind = ConductorKind.Gate, Owner = company.Id, Side = side };
-            _conductors[pos] = gate;
-            MarkDirty(pos);
-        }
+        AddYardGate(company, estate);
 
         foreach (var neighbour in _companies.Values.Where(t => t.District == company.District && t.Id != company.Id && !t.IsNpc))
         {
@@ -351,6 +363,27 @@ public sealed partial class GameWorld
         }
         Changes.Companies.Add(company.Id);
         return company;
+    }
+
+    /// <summary>An estate's Yard gate (v1.2 §4): where its owner's pipes meet the station's Yard</summary>
+    private void AddYardGate(Company company, Estate estate)
+    {
+        var pos = estate.YardGate;
+        _conductors[pos] = new Conductor { Pos = pos, Kind = ConductorKind.Gate, Owner = company.Id };
+        MarkDirty(pos);
+        Changes.Tiles.Add(pos);
+    }
+
+    /// <summary>Takes an estate's Yard gate away (the estate is packed or given up)</summary>
+    private void RemoveYardGate(Estate estate)
+    {
+        var pos = estate.YardGate;
+        if (_conductors.Remove(pos, out var gate))
+        {
+            Deleted.Add(gate);
+            MarkDirty(pos);
+            Changes.Tiles.Add(pos);
+        }
     }
 
     private Building AddBuilding(Company company, string type, TilePos pos, bool finished)
@@ -425,11 +458,6 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("You don't have an estate.");
         }
-        if (definition.Kind == BuildingKind.TollMeter)
-        {
-            return CanPlaceTollMeter(company, pos);
-        }
-
         var footprint = new List<TilePos>();
         for (var dy = 0; dy < definition.Size; dy++)
         {
@@ -465,6 +493,10 @@ public sealed partial class GameWorld
                 {
                     return CommandResult.Fail("This is someone else's outpost.");
                 }
+            }
+            else if (WorldLayout.ZoneAt(tile.X, tile.Y).Kind == ZoneKind.Yard)
+            {
+                return CommandResult.Fail("Nobody builds in the Yard.");
             }
             else if (OwnEstateAt(company, tile) is not { } own)
             {
@@ -539,25 +571,6 @@ public sealed partial class GameWorld
             {
                 return CommandResult.Fail($"{definition.Name} needs a deposit of at least {definition.Placement.MinRichness} stars.");
             }
-        }
-        return CommandResult.Ok;
-    }
-
-    /// <summary>A Toll Meter goes in a corridor, in the line of one of your own pipes</summary>
-    private CommandResult CanPlaceTollMeter(Company company, TilePos pos)
-    {
-        if (WorldLayout.ZoneAt(pos.X, pos.Y).Kind != ZoneKind.Corridor)
-        {
-            return CommandResult.Fail("Toll meters go on your public pipes in the corridors.");
-        }
-        if (IsOccupied(pos))
-        {
-            return CommandResult.Fail("Something is already standing here.");
-        }
-        var ownPipes = Directions.Count(d => _conductors.TryGetValue(pos.Offset(d.X, d.Y), out var c) && c.Owner == company.Id && c.Kind == ConductorKind.Pipe);
-        if (ownPipes == 0)
-        {
-            return CommandResult.Fail("Put it in the line of one of your own corridor pipes.");
         }
         return CommandResult.Ok;
     }
@@ -1063,23 +1076,23 @@ public sealed partial class GameWorld
             switch (zone.Kind)
             {
                 case ZoneKind.Estate:
-                    // Pipes may cross parcels you haven't bought yet, so every gate can be reached from the start
+                    // Pipes may cross parcels you haven't bought yet, so the Yard gate can be reached from the start
                     if (OwnEstateAt(company, tile) == null)
                     {
-                        return CommandResult.Fail("You can't lay pipes on someone else's estate. Connect through the corridors.");
+                        return CommandResult.Fail("You can't lay pipes on someone else's estate. Trade through your Yard gate.");
                     }
                     break;
-                case ZoneKind.Corridor:
-                    break;
                 case ZoneKind.Wilderness:
-                    // A long way home from an outpost
+                    // Around an outpost
                     if (OutpostAt(tile) is { } outpost && outpost.Owner != companyId)
                     {
                         return CommandResult.Fail("This is someone else's outpost.");
                     }
                     break;
+                case ZoneKind.Yard:
+                    return CommandResult.Fail("The Yard is shared: pipe to your Yard gate, the game does the rest.");
                 default:
-                    return CommandResult.Fail("Pipes go on your estate, in the corridors and in the wilderness.");
+                    return CommandResult.Fail("Pipes go on your estate (the corridors carry links, which the game lays).");
             }
             if (IsOccupied(tile))
             {
@@ -1233,19 +1246,6 @@ public sealed partial class GameWorld
         }
         building.Touch();
         MarkDirty(building);
-        return CommandResult.Ok;
-    }
-
-    public CommandResult SetGatePolicy(long companyId, GateSide side, GatePolicy policy)
-    {
-        if (Company(companyId) is not { } company || EstateOf(company) is not { } estate)
-        {
-            return CommandResult.Fail("You don't have an estate.");
-        }
-        estate.GatePolicies[side] = policy;
-        estate.Touch();
-        Changes.Estates.Add((estate.District, estate.Slot));
-        MarkDirty(WorldLayout.GatePosition(estate.District, estate.Slot, side));
         return CommandResult.Ok;
     }
 

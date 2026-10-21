@@ -390,7 +390,7 @@ public sealed partial class GameWorld
             network.NeedsSolve = true;
             Changes.Networks.Add(network.Id);
         }
-        foreach (var district in _markets.Keys.Where(gameEvent.Covers))
+        foreach (var district in _openDistricts.Where(gameEvent.Covers))
         {
             Changes.Markets.Add(district);
         }

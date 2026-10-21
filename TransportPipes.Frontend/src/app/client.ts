@@ -6,8 +6,6 @@ import type {
   CommandResult,
   CompanyDto,
   CorporationRole,
-  GatePolicy,
-  GateSide,
   LeaderboardKind,
   NextStepDto,
   ToastDto,
@@ -22,11 +20,10 @@ import {
   ESTATE_SIZE,
   PARCEL_SIZE,
   PARCELS_PER_SIDE,
-  GATE_SIDES,
-  gateTiles,
   isDeep,
   isParcelUnlocked,
   parcelOf,
+  yardGate,
   zoneAt,
 } from "../game/layout";
 import {
@@ -272,61 +269,78 @@ export class GameClient {
   }
 
   /**
-   * Plans the pipe from your nearest gate to a neighbour's through the corridors and shows it on the map. The chunks on
-   * the way have to be loaded, so the camera moves there first and the route is found when they are.
+   * Plans the pipe from your network (your nearest pipe, or your trading post) to your Yard gate and shows it on the
+   * map: once it is laid, your neighbours in the station buy what you have spare and sell you what you lack
    */
-  async planConnection(partner: number) {
+  async planYardPipe() {
     const state = appStore.getState();
-    const neighbour = state.neighbours.find((t) => t.id === partner);
     const company = state.company;
-    if (neighbour === undefined || company === null || this.world === null) {
+    if (company === null || this.world === null) {
       return;
     }
-    const pairs = GATE_SIDES.flatMap((mine) =>
-      GATE_SIDES.map((theirs) => ({
-        from: gateTiles(company.estateX, company.estateY, mine),
-        to: gateTiles(neighbour.estateX, neighbour.estateY, theirs),
-        policy: neighbour.gatePolicies[theirs] ?? "open",
-      })),
-    )
-      .filter((t) => t.policy !== "closed")
-      .sort(
-        (a, b) =>
-          Math.abs(a.from.outside.x - a.to.outside.x) +
-          Math.abs(a.from.outside.y - a.to.outside.y) -
-          (Math.abs(b.from.outside.x - b.to.outside.x) + Math.abs(b.from.outside.y - b.to.outside.y)),
-      );
-    const best = pairs[0];
-    if (best === undefined) {
-      toast(`${neighbour.name} has closed all its gates.`, "error");
-      return;
-    }
-    setState({ neighboursOpen: false, tool: { kind: "select" } });
-    this.engine?.lookAt(
-      (best.from.outside.x + best.to.outside.x) / 2,
-      (best.from.outside.y + best.to.outside.y) / 2,
-      0.3,
-    );
-    for (let attempt = 0; attempt < 20; attempt++) {
-      await new Promise((resolve) => setTimeout(resolve, 300));
+    const gate = yardGate(company.estateX, company.estateY, company.slot);
+    setState({ neighboursOpen: false, yardOpen: false, tool: { kind: "select" } });
+    this.engine?.lookAt(gate.x, gate.y, 0.6);
+    const steps: Array<[number, number]> = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ];
+    for (let attempt = 0; attempt < 10; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
       const current = appStore.getState().company;
       if (current === null) {
         return;
       }
-      const route = routePipe(
-        this.world,
-        current,
-        best.from.outside,
-        best.to.outside,
-        state.content ?? undefined,
-        8000,
-      );
-      if (route !== null) {
-        setState({ plannedRoute: route, plannedPartner: partner });
-        return;
+      // From the gate to the nearest of your own pipes (or the trading post's side)
+      const own: Array<{ x: number; y: number }> = [];
+      for (let dy = 0; dy < ESTATE_SIZE; dy++) {
+        for (let dx = 0; dx < ESTATE_SIZE; dx++) {
+          const x = current.estateX + dx;
+          const y = current.estateY + dy;
+          const conductor = this.world.conductorAt(x, y);
+          if (conductor?.kind === "pipe" && conductor.owner === current.id) {
+            own.push({ x, y });
+          }
+        }
+      }
+      if (own.length === 0) {
+        // No pipe yet: start next to the trading post
+        for (let dy = 0; dy < ESTATE_SIZE && own.length === 0; dy++) {
+          for (let dx = 0; dx < ESTATE_SIZE && own.length === 0; dx++) {
+            const building = this.world.buildingAt(current.estateX + dx, current.estateY + dy);
+            if (building?.owner === current.id && building.type === "tradingPost") {
+              for (const [sx, sy] of steps) {
+                own.push({ x: building.x + sx, y: building.y + sy });
+              }
+            }
+          }
+        }
+      }
+      const targets = own
+        .sort(
+          (a, b) =>
+            Math.abs(a.x - gate.x) +
+            Math.abs(a.y - gate.y) -
+            (Math.abs(b.x - gate.x) + Math.abs(b.y - gate.y)),
+        )
+        .slice(0, 6);
+      for (const [dx, dy] of steps) {
+        const start = { x: gate.x + dx, y: gate.y + dy };
+        if (zoneAt(start.x, start.y).kind !== "estate") {
+          continue;
+        }
+        for (const target of targets) {
+          const route = routePipe(this.world, current, start, target, state.content ?? undefined, 4000);
+          if (route !== null) {
+            setState({ plannedRoute: route, plannedPartner: null });
+            return;
+          }
+        }
       }
     }
-    toast("No free way through the corridors to their gate.", "error");
+    toast("No free way to your Yard gate: clear a path to it, or lay the pipe yourself.", "error");
   }
 
   async buildPlannedRoute() {
@@ -423,18 +437,6 @@ export class GameClient {
   async deliverOrder(order: number) {
     if (await this.command(this.connection.deliverOrder(order))) {
       await this.refreshCompany();
-    }
-  }
-
-  async setSellPrice(resource: string, price: number | null) {
-    if (await this.command(this.connection.setSellPrice(resource, price))) {
-      await this.refreshMarket();
-    }
-  }
-
-  async setBuyMaxPrice(resource: string, price: number | null) {
-    if (await this.command(this.connection.setBuyMaxPrice(resource, price))) {
-      await this.refreshMarket();
     }
   }
 
@@ -781,14 +783,12 @@ export class GameClient {
       return;
     }
     const conductor = this.world?.conductorAt(tile.x, tile.y);
-    if (
-      conductor !== undefined &&
-      conductor.kind === "gate" &&
-      conductor.owner === state.company?.id &&
-      conductor.side !== null
-    ) {
-      this.selectNetwork(null);
-      setState({ selectedGate: conductor.side });
+    if (conductor !== undefined && conductor.kind === "gate" && conductor.owner === state.company?.id) {
+      void this.openYard();
+      return;
+    }
+    if (zoneAt(tile.x, tile.y).kind === "yard") {
+      void this.openYard();
       return;
     }
     if (conductor !== undefined && conductor.network !== null) {
@@ -934,8 +934,8 @@ export class GameClient {
       this.setTool({ kind: "select" });
     } else if (state.buildMenuOpen) {
       setState({ buildMenuOpen: false });
-    } else if (state.selectedGate !== null) {
-      setState({ selectedGate: null });
+    } else if (state.yardOpen) {
+      setState({ yardOpen: false });
     } else if (state.selectedNetwork !== null) {
       this.selectNetwork(null);
     } else if (state.selection.length > 0) {
@@ -1015,8 +1015,16 @@ export class GameClient {
     }
   }
 
-  async setGatePolicy(side: GateSide, policy: GatePolicy) {
-    await this.command(this.connection.setGatePolicy(side, policy), "Gate changed");
+  /** Opens the Yard panel (your station, its residents, your trades with them) */
+  async openYard() {
+    this.selectNetwork(null);
+    setState({ yardOpen: true });
+    await this.refreshYard();
+  }
+
+  async refreshYard() {
+    const yard = await this.connection.getYard().catch(() => null);
+    setState({ yard });
   }
 
   async setBuildingSetting(building: number, value: number) {
@@ -1129,7 +1137,7 @@ export class GameClient {
       case "partner":
         if (step.partner !== null) {
           await this.refreshNeighbours();
-          await this.planConnection(step.partner);
+          await this.planYardPipe();
         }
         break;
       case "connect":
@@ -1187,6 +1195,10 @@ export class GameClient {
     const hint = step.hint;
     if (hint.overlay !== undefined) {
       setState({ overlay: hint.overlay as Overlay });
+    }
+    if (hint.panel === "yard") {
+      void this.openYard();
+      return;
     }
     if (hint.panel === "neighbours") {
       void this.openNeighbours();

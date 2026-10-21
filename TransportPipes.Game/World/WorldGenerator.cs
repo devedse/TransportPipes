@@ -16,7 +16,7 @@ public enum EstateSpecialty
 /// <summary>Everything the world says about a tile before anything is built on it</summary>
 public readonly record struct TileInfo(TerrainType Terrain, string? Deposit, int Richness, double Wind, double Sun)
 {
-    public bool IsBuildableTerrain => Terrain is not (TerrainType.Water or TerrainType.Mountain or TerrainType.Road or TerrainType.City);
+    public bool IsBuildableTerrain => Terrain is not (TerrainType.Water or TerrainType.Mountain or TerrainType.Road or TerrainType.City or TerrainType.Yard);
 }
 
 public sealed record EstateProfile(DistrictCoord District, int Slot, TilePos Origin, EstateSpecialty Primary, EstateSpecialty? Secondary, TileInfo[,] Tiles)
@@ -64,6 +64,7 @@ public sealed class WorldGenerator
             ZoneKind.Estate => Estate(zone.District, zone.Slot).Local(zone.LocalX, zone.LocalY),
             ZoneKind.Hub => new TileInfo(TerrainType.City, null, 0, 1, 1),
             ZoneKind.Corridor => new TileInfo(TerrainType.Road, null, 0, 1, 1),
+            ZoneKind.Yard => new TileInfo(TerrainType.Yard, null, 0, 1, 1),
             _ => Wilderness(pos.X, pos.Y),
         };
     }
@@ -357,18 +358,26 @@ public sealed class WorldGenerator
             DepositCluster(TakeParcel(), "coal", 1, 2, 2);
         }
 
-        // Keep the HQ spot, the Trading Post spot and the gates open
+        // Keep the HQ spot, the Trading Post spot and the way to the Yard gate open
         Rect(14, 14, 6, 4, (x, y) => { terrain[x, y] = TerrainType.Grass; deposit[x, y] = null; });
-        foreach (var (gx, gy) in WorldLayout.GateLocal.Values)
+        var (gx, gy) = WorldLayout.YardGateLocal(slot);
+        void Open(int x, int y)
         {
-            Rect(gx - 1, gy - 1, 3, 3, (x, y) =>
+            if (terrain[x, y] is TerrainType.Water or TerrainType.Mountain)
             {
-                if (terrain[x, y] is TerrainType.Water or TerrainType.Mountain)
-                {
-                    terrain[x, y] = TerrainType.Grass;
-                }
-            });
+                terrain[x, y] = TerrainType.Grass;
+            }
         }
+        // An L from the middle to the gate, and the tiles around the gate
+        for (var x = Math.Min(16, gx); x <= Math.Max(16, gx); x++)
+        {
+            Open(x, 16);
+        }
+        for (var y = Math.Min(16, gy); y <= Math.Max(16, gy); y++)
+        {
+            Open(gx, y);
+        }
+        Rect(gx - 1, gy - 1, 3, 3, Open);
 
         var tiles = new TileInfo[size, size];
         for (var y = 0; y < size; y++)

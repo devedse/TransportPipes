@@ -20,4 +20,9 @@ public static class WorldNames
         var name = Names[index % Names.Length];
         return index < Names.Length ? name : $"{name} {index / Names.Length + 1}";
     }
+
+    private static readonly string[] StationNames = ["NW", "NE", "SW", "SE", "N", "S", "W", "E"];
+
+    /// <summary>A station's name: its district and where it lies around the hub ("Capital NE")</summary>
+    public static string Station(StationRef station) => $"{District(station.District)} {StationNames[station.Index]}";
 }

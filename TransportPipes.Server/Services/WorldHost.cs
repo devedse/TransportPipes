@@ -142,7 +142,12 @@ public sealed class WorldHost : BackgroundService
         {
             world.StartingGold = startingGold;
         }
+        if (_store.WorldReset)
+        {
+            _logger.LogWarning("The saved world was made with older rules: it was thrown away and a new world starts (accounts stay)");
+        }
         world.TenantsEnabled = _options.Tenants;
+        world.QuietGraceEnabled = true;
         world.EventsEnabled = _options.Events;
         world.TutorialEnabled = _options.Tutorial;
         world.SurveysEnabled = _options.Surveys;

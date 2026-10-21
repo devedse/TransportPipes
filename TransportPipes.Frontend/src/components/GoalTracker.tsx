@@ -128,7 +128,7 @@ export function GoalTracker() {
             🤝 <strong>{opportunity.name}</strong> needs {opportunity.resource}: neighbours pay more than the
             hub.
           </p>
-          <button className="primary" onClick={() => void gameClient.planConnection(opportunity.id)}>
+          <button className="primary" onClick={() => void gameClient.planYardPipe()}>
             Connect a pipe
           </button>
         </div>

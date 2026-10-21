@@ -508,9 +508,11 @@ public sealed class GameContent
         public Dictionary<int, int> ManagerSlots { get; set; } = new();
         public double StartingGold { get; set; }
         public double HubSpread { get; set; } = 2.5;
+        public TogetherDto Together { get; set; } = new();
 
         public ProgressionSettings ToSettings() => new()
         {
+            Together = Together.ToSettings(),
             MaxCompanyLevel = CompanyLevel.MaxLevel,
             XpBase = CompanyLevel.XpBase,
             XpExponent = CompanyLevel.XpExponent,
@@ -534,6 +536,40 @@ public sealed class GameContent
             StartingGold = StartingGold,
             HubSpread = HubSpread,
         };
+    }
+
+    private sealed class TogetherDto
+    {
+        public double PlayerPrice { get; set; } = 1.75;
+        public double HouseBuy { get; set; } = 1.25;
+        public double HouseSell { get; set; } = 2.0;
+        public double NpcCap { get; set; } = 0.25;
+        public double HubMaxMultiplier { get; set; } = 1.0;
+        public double HubMinMultiplier { get; set; } = 0.25;
+        public List<QuietGraceDto> QuietGrace { get; set; } = [new() { Below = 10, Factor = 4 }, new() { Below = 50, Factor = 2 }];
+        public double MoveCooldownMinutes { get; set; } = 5;
+        public double MoveFlightMinutes { get; set; } = 1;
+        public double MoveCostPerLevel { get; set; }
+
+        public TogetherSettings ToSettings() => new()
+        {
+            PlayerPrice = PlayerPrice,
+            HouseBuy = HouseBuy,
+            HouseSell = HouseSell,
+            NpcCap = NpcCap,
+            HubMaxMultiplier = HubMaxMultiplier,
+            HubMinMultiplier = HubMinMultiplier,
+            QuietGrace = QuietGrace.Select(t => new QuietGrace(t.Below, t.Factor)).ToList(),
+            MoveCooldownMinutes = MoveCooldownMinutes,
+            MoveFlightMinutes = MoveFlightMinutes,
+            MoveCostPerLevel = MoveCostPerLevel,
+        };
+    }
+
+    private sealed class QuietGraceDto
+    {
+        public int Below { get; set; }
+        public double Factor { get; set; }
     }
 
     private sealed class CompanyLevelDto

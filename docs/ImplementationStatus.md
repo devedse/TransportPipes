@@ -224,6 +224,34 @@ the primary goals: the buildings, the map and the UI. The design may change wher
   the first two parcels you can buy
 - ⬜ Merge PR #3 and release
 
+### v1.2 · Playing together (branch `feature/playing-together`, design `docs/multiplayer-design.html`)
+
+The owner's go-ahead (2026-10-21): build all of it in a second PR; the test server runs this branch from now on; a
+fresh world (no migration of the old one: the server starts a new world when the rules version changes, accounts
+stay); name + password accounts only (guests on a hidden account they can keep); moves free with a 5 minute cooldown
+(configurable). The design's steps, in the order the engine needs them:
+
+- ✅ 1 · Stations and the Yard: station geometry (4 corner stations, 4 small stations per district), the Yard plaza and
+  one Yard gate per estate (no side gates, no corridor pipes, no toll meters), the trade engine (gate nodes in each
+  estate's own network, a matcher per Yard, payment for what the buyer takes), one player price (1.75 × base), the
+  personal Hub Order (today's √ curve per company and hub, quiet grace per server), the Yard panel. Measured at the
+  gate (the buyer's own pipe loss is its own), Houses after players within one 25% cap, contracts first; the Yards
+  round once a minute while terms move and less often when they don't (16 minutes at most). Typical balance: Level
+  30 on day 25 (was day 24 with the hub paying up to 1.25×); e2e `yard.mjs` plays two neighbours
+- ⬜ 2 · Crews and choosing where you live: crews 1–8, seat codes, guest move-in, Start with friends / Find me
+  neighbours / A station of my own, the station picker, moves (cooldown, free, short flight), Block
+- ⬜ 3 · Links between stations (auto-routed through the corridors, tank, notice, fallback, state line), contracts and
+  the Exchange at the one price
+- ⬜ 4 · Houses (NPC companies in the stations, House prices, one 25% cap), stand-ins for whoever sleeps, small mode,
+  frozen districts
+- ⬜ 5 · Absence and return: holds, asleep in place, the keep-the-seat card, tending, the three return screens,
+  landing cards with crates, Tailwind, narrow probation, crew moves and the consolidation card
+- ⬜ 6 · The station's project (Foundation … Landmark, recipes and keystones, baskets, credit, bonuses), Asks, the Plan
+  board
+- ⬜ 7 · The long game: crew trunks, public trunks, outposts feeding the Yard, Discoveries with markers, leagues by
+  stage, Wonders sized like baskets, Era Wonder tiers
+- ⬜ 8 · The first evening with four browsers (e2e), balance runs, docs
+
 ### After v1
 
 Designed (GDD §11), not needed for a fun first version: the Bank (investing, insurance, Wonder bonds), District

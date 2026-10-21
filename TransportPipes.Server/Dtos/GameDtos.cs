@@ -44,8 +44,6 @@ public record CompanyDto(
     int UnlockedParcels,
     double? NextParcelCost,
     int? NextParcelLevel,
-    IReadOnlyDictionary<string, double> SellPrices,
-    IReadOnlyDictionary<string, double> BuyMaxPrices,
     IReadOnlyDictionary<string, int> BuildingCounts,
     IReadOnlyList<string> Researched,
     string? CurrentResearch,
@@ -139,7 +137,10 @@ public record GameEventDto(long Id, string Kind, string Name, string Effect, Dat
 
 public record DailyOrderDto(int Id, string Resource, double Amount, double Delivered, double RewardGold, double RewardXp, double RewardReputation, DateTime ExpiresAt, bool Urgent);
 
-/// <summary>One resource on the hub market of the player's district, with the player's own prices</summary>
+/// <summary>
+/// One resource at the hub of the player's district: what the hub pays the player (its own Hub Order), what it charges,
+/// what the player sold there lately against the order, the one price between players, and the player's trade settings
+/// </summary>
 public record MarketResourceDto(
     string Resource,
     double BasePrice,
@@ -147,15 +148,9 @@ public record MarketResourceDto(
     double SellPrice,
     double SoldPerMinute,
     double Demand,
-    double YourPrice,
-    bool YourPriceIsAuto,
-    double? PendingPrice,
-    DateTime? PendingAt,
-    double YourMaxPrice,
+    double PlayerPrice,
     bool NoTrade,
     bool NoBuy,
-    double BandLow,
-    double BandHigh,
     double? Heading);
 
 public record MarketDto(int DistrictX, int DistrictY, string District, IReadOnlyList<MarketResourceDto> Resources, DateTime NextUpdate);
@@ -184,7 +179,7 @@ public record FullStorageDto(long Building, string Type, int Level, double Capac
 
 public record BuildingDto(long Id, string Type, long Owner, int X, int Y, int Size, int Level, DateTime? ConstructionEndsAt, int? Network, bool Damaged, long? Link = null);
 
-public record ConductorDto(int X, int Y, string Kind, int Tier, long Owner, string? Side, int? Network);
+public record ConductorDto(int X, int Y, string Kind, int Tier, long Owner, int? Network);
 
 /// <summary>
 /// A 32×32 area. Terrain is sent once (packed, one byte per tile, row by row), objects with every change.
@@ -210,7 +205,7 @@ public record OutpostCheckDto(string? Error, int X, int Y, double Lease, int Siz
 
 public record TerrainOverrideDto(int X, int Y, string Terrain);
 
-public record EstateDto(int Slot, int X, int Y, long? OwnerId, string? OwnerName, string? OwnerColor, int OwnerLevel, int UnlockedParcels, IReadOnlyDictionary<string, string> GatePolicies, string Primary, string? Secondary, string? CorporationTag, string? Activity, string? ReservedFor);
+public record EstateDto(int Slot, int X, int Y, long? OwnerId, string? OwnerName, string? OwnerColor, int OwnerLevel, int UnlockedParcels, string Primary, string? Secondary, string? CorporationTag, string? Activity, string? ReservedFor);
 
 /// <summary>A hub structure; corporation HQs have the corporation's tag, colour and HQ level</summary>
 public record HubStructureDto(string Type, int X, int Y, int Size, string? Label = null, string? Color = null, int Level = 0, long? Corporation = null, string? Variant = null, int Stages = 0);
@@ -247,7 +242,6 @@ public record BuildingDetailsDto(
     double DemolishRefund,
     IReadOnlyList<string> Issues,
     double Setting,
-    double TollIncome,
     double? RepairCost,
     int ComplexMembers,
     TeleporterDto? Teleporter = null,
@@ -350,7 +344,6 @@ public record NeighbourDto(
     int Slot,
     int EstateX,
     int EstateY,
-    IReadOnlyDictionary<string, string> GatePolicies,
     bool Connected,
     IReadOnlyList<ResourceRateDto> Surplus,
     IReadOnlyList<ResourceRateDto> Needs,
@@ -533,3 +526,28 @@ public record BlueprintDto(
     DateTime CreatedAt);
 
 public record BlueprintsDto(bool HasOffice, bool CanRebuild, int Max, IReadOnlyList<BlueprintDto> Mine, IReadOnlyList<BlueprintDto> Corporation, IReadOnlyList<BlueprintDto> Board);
+
+/// <summary>A resident of a station: whether its pipes reach its Yard gate, what it has spare (goes to the hub) and lacks</summary>
+public record YardResidentDto(long Id, string Name, string Color, int Level, bool IsNpc, int Slot, bool Connected, string? Activity, IReadOnlyList<ResourceRateDto> Spare, IReadOnlyList<ResourceRateDto> Lacks, bool Blocked);
+
+/// <summary>One of your trades through the Yard: with whom, what, how much per minute, which way, at what price</summary>
+public record YardTradeDto(long Partner, string PartnerName, string Resource, double PerMinute, bool Selling, double Price);
+
+/// <summary>
+/// Your station and its Yard (v1.2 §7): its name and place, its residents, your trades with them, what goes through the
+/// Yard, whether your own pipes reach your Yard gate, and one line about what happens
+/// </summary>
+public record YardDto(
+    string Station,
+    bool Small,
+    int X0,
+    int Y0,
+    int X1,
+    int Y1,
+    int GateX,
+    int GateY,
+    bool Connected,
+    IReadOnlyList<YardResidentDto> Residents,
+    IReadOnlyList<YardTradeDto> Yours,
+    IReadOnlyList<ResourceRateDto> Totals,
+    string Line);

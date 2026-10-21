@@ -7,7 +7,8 @@ namespace TransportPipes.Game.State;
 /// <summary>
 /// Buildings and pipes that are connected. A pipe group is a connected set of pipe and gate tiles; buildings touching
 /// the same pipe group can exchange resources (resources never pass through a building). A network is everything that
-/// is connected through pipe groups, and is solved as one.
+/// is connected through pipe groups, and is solved as one. Networks stay on their owner's land: what goes to others
+/// passes the owner's Yard gate (v1.2 §7).
 /// </summary>
 public sealed class Network
 {
@@ -17,6 +18,19 @@ public sealed class Network
     public List<FlowLink> Links { get; set; } = new();
     public FlowSolution Solution { get; set; } = FlowSolution.Empty;
     public bool NeedsSolve { get; set; } = true;
+
+    /// <summary>The company whose network it is</summary>
+    public long Owner { get; set; }
+
+    /// <summary>The Yard gates in the network, and the best path from each building to each of them</summary>
+    public List<TilePos> Gates { get; } = new();
+    public List<GateLink> GateLinks { get; set; } = new();
+
+    /// <summary>What went through the gates at the last solve</summary>
+    public List<GateFlow> GateFlows { get; set; } = new();
+
+    /// <summary>The buildings as the last solve saw them</summary>
+    public List<FlowNode> Nodes { get; set; } = new();
 
     /// <summary>Buildings run at this fraction when the network has too few pump stations</summary>
     /// <summary>The lowest speed a company's buildings run at for lack of pump stations (1: enough pumps)</summary>
@@ -35,6 +49,9 @@ public sealed class Network
 
     public override string ToString() => $"Network {Id}: {Buildings.Count} buildings, {Conductors.Count} pipes";
 }
+
+/// <summary>The best path from a building to a Yard gate in its network (null resources: everything passes)</summary>
+public sealed record GateLink(long Building, TilePos Gate, double Efficiency, double Capacity, IReadOnlyList<TilePos> Path, IReadOnlySet<string>? Resources);
 
 public sealed partial class GameWorld
 {
@@ -116,42 +133,8 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>Whether this conductor tile carries resources (closed gates don't)</summary>
-    private bool Conducts(Conductor conductor)
-    {
-        if (conductor.Kind != ConductorKind.Gate)
-        {
-            return true;
-        }
-        // A closed gate blocks the pipe; corporation and contract gates carry it but limit who may trade through them
-        return GatePolicyAt(conductor.Pos) != GatePolicy.Closed;
-    }
-
-    /// <summary>The policy of the gate on a tile (Open when it is no gate)</summary>
-    public GatePolicy GatePolicyAt(TilePos pos)
-    {
-        if (!_conductors.TryGetValue(pos, out var conductor) || conductor.Kind != ConductorKind.Gate || conductor.Side is not { } side)
-        {
-            return GatePolicy.Open;
-        }
-        return EstateAt(pos)?.GatePolicies.GetValueOrDefault(side, GatePolicy.Open) ?? GatePolicy.Open;
-    }
-
-    /// <summary>Whether two companies may trade over a path: every gate on it has to allow their trade</summary>
-    public bool PathAllowsTrade(IReadOnlyList<TilePos> path, long seller, long buyer, string resource)
-    {
-        foreach (var tile in path)
-        {
-            switch (GatePolicyAt(tile))
-            {
-                case GatePolicy.Contract when !HasContract(seller, buyer, resource):
-                case GatePolicy.Corporation when !SameCorporation(seller, buyer):
-                case GatePolicy.Closed:
-                    return false;
-            }
-        }
-        return true;
-    }
+    /// <summary>Whether this conductor tile carries resources</summary>
+    private static bool Conducts(Conductor conductor) => true;
 
     private static readonly (int X, int Y)[] Directions = [(1, 0), (-1, 0), (0, 1), (0, -1)];
 
@@ -409,6 +392,8 @@ public sealed partial class GameWorld
 
         var anchor = network.Conductors.First();
         network.District = WorldLayout.DistrictOf(anchor.X, anchor.Y);
+        network.Owner = network.Buildings.Select(t => _buildings[t].Owner).DefaultIfEmpty(_conductors.TryGetValue(anchor, out var c) ? c.Owner : 0).First();
+        network.Gates.AddRange(network.Conductors.Where(t => _conductors.TryGetValue(t, out var conductor) && conductor.Kind == ConductorKind.Gate).OrderBy(t => t.X).ThenBy(t => t.Y));
         network.Links = BuildLinks(network);
         _networks[network.Id] = network;
         Changes.Networks.Add(network.Id);
@@ -511,16 +496,75 @@ public sealed partial class GameWorld
         }
 
         var best = new Dictionary<(long, long, string?), FlowLink>();
+        var bestToGate = new Dictionary<(long, TilePos, string?), GateLink>();
         foreach (var resource in resources)
         {
             bool Passable(TilePos tile) => resource == null || stats[tile].Filter is not { } filter || filter.Contains(resource);
             IReadOnlySet<string>? only = resource == null ? null : new HashSet<string> { resource };
 
+            // Dijkstra over the pipe tiles from a building, cost = -log(efficiency) so the best path has the highest efficiency
+            (Dictionary<TilePos, double> Cost, Dictionary<TilePos, TilePos> Previous, HashSet<TilePos> Done) Paths(long from, Func<TilePos, bool> allowed)
+            {
+                var cost = new Dictionary<TilePos, double>();
+                var previous = new Dictionary<TilePos, TilePos>();
+                var queue = new PriorityQueue<TilePos, double>();
+                foreach (var border in _buildings[from].Border().Where(t => network.Conductors.Contains(t) && Passable(t) && allowed(t)).Distinct())
+                {
+                    var start = -Math.Log(1 - stats[border].Loss);
+                    cost[border] = start;
+                    queue.Enqueue(border, start);
+                }
+
+                var done = new HashSet<TilePos>();
+                while (queue.TryDequeue(out var tile, out var c))
+                {
+                    if (!done.Add(tile))
+                    {
+                        continue;
+                    }
+                    var neighbours = Directions.Select(d => tile.Offset(d.X, d.Y));
+                    if (cables.TryGetValue(tile, out var cable))
+                    {
+                        neighbours = neighbours.Concat(cable);
+                    }
+                    foreach (var next in neighbours)
+                    {
+                        if (!network.Conductors.Contains(next) || done.Contains(next) || !Passable(next) || !allowed(next))
+                        {
+                            continue;
+                        }
+                        var nextCost = c - Math.Log(1 - stats[next].Loss);
+                        if (!cost.TryGetValue(next, out var known) || nextCost < known - 1e-12)
+                        {
+                            cost[next] = nextCost;
+                            previous[next] = tile;
+                            queue.Enqueue(next, nextCost);
+                        }
+                    }
+                }
+                return (cost, previous, done);
+            }
+
+            (List<TilePos> Path, double Capacity) Trace(TilePos tile, Dictionary<TilePos, TilePos> previous)
+            {
+                var path = new List<TilePos> { tile };
+                var capacity = stats[tile].Throughput;
+                var current = tile;
+                while (previous.TryGetValue(current, out var p))
+                {
+                    path.Add(p);
+                    capacity = Math.Min(capacity, stats[p].Throughput);
+                    current = p;
+                }
+                path.Reverse();
+                return (path, capacity);
+            }
+
             foreach (var from in members)
             {
-                // Goods between two companies only travel through their own estates (and over their own pipes), the
-                // corridors and the wilderness: never through a third company's estate (no transit). So the routes
-                // from a building are found per owner of the buildings they lead to.
+                // Goods between two companies only travel through their own estates (and over their own pipes): never
+                // through a third company's estate (no transit). So the routes from a building are found per owner of
+                // the buildings they lead to.
                 var fromOwner = _buildings[from].Owner;
                 foreach (var group in members.Where(t => t > from).GroupBy(t => _buildings[t].Owner))
                 {
@@ -529,45 +573,7 @@ public sealed partial class GameWorld
                         owners[tile] is not { } owner || owner == fromOwner || owner == toOwner
                         || pipeOwners[tile] == fromOwner || pipeOwners[tile] == toOwner;
                     var targets = group.ToHashSet();
-
-                    // Dijkstra over the pipe tiles, cost = -log(efficiency) so the best path has the highest efficiency
-                    var cost = new Dictionary<TilePos, double>();
-                    var previous = new Dictionary<TilePos, TilePos>();
-                    var queue = new PriorityQueue<TilePos, double>();
-                    foreach (var border in _buildings[from].Border().Where(t => network.Conductors.Contains(t) && Passable(t) && Allowed(t)).Distinct())
-                    {
-                        var start = -Math.Log(1 - stats[border].Loss);
-                        cost[border] = start;
-                        queue.Enqueue(border, start);
-                    }
-
-                    var done = new HashSet<TilePos>();
-                    while (queue.TryDequeue(out var tile, out var c))
-                    {
-                        if (!done.Add(tile))
-                        {
-                            continue;
-                        }
-                        var neighbours = Directions.Select(d => tile.Offset(d.X, d.Y));
-                        if (cables.TryGetValue(tile, out var cable))
-                        {
-                            neighbours = neighbours.Concat(cable);
-                        }
-                        foreach (var next in neighbours)
-                        {
-                            if (!network.Conductors.Contains(next) || done.Contains(next) || !Passable(next) || !Allowed(next))
-                            {
-                                continue;
-                            }
-                            var nextCost = c - Math.Log(1 - stats[next].Loss);
-                            if (!cost.TryGetValue(next, out var known) || nextCost < known - 1e-12)
-                            {
-                                cost[next] = nextCost;
-                                previous[next] = tile;
-                                queue.Enqueue(next, nextCost);
-                            }
-                        }
-                    }
+                    var (cost, previous, done) = Paths(from, Allowed);
 
                     foreach (var (tile, others) in touching)
                     {
@@ -581,16 +587,7 @@ public sealed partial class GameWorld
                             {
                                 continue;
                             }
-                            var path = new List<TilePos> { tile };
-                            var capacity = stats[tile].Throughput;
-                            var current = tile;
-                            while (previous.TryGetValue(current, out var p))
-                            {
-                                path.Add(p);
-                                capacity = Math.Min(capacity, stats[p].Throughput);
-                                current = p;
-                            }
-                            path.Reverse();
+                            var (path, capacity) = Trace(tile, previous);
                             var link = new FlowLink(from, to, Math.Exp(-cost[tile]), capacity, path, only, path.Any(t => stats[t].Priority));
                             if (!best.TryGetValue((from, to, resource), out var existing) || link.Efficiency > existing.Efficiency + 1e-12)
                             {
@@ -599,8 +596,26 @@ public sealed partial class GameWorld
                         }
                     }
                 }
+
+                // To the Yard gates of the building's owner (the gate takes what goes to the station, and brings what comes from it)
+                var ownGates = network.Gates.Where(t => _conductors.TryGetValue(t, out var gate) && gate.Owner == fromOwner).ToList();
+                if (ownGates.Count > 0)
+                {
+                    bool OwnLand(TilePos tile) => owners[tile] is not { } owner || owner == fromOwner || pipeOwners[tile] == fromOwner;
+                    var (cost, previous, done) = Paths(from, OwnLand);
+                    foreach (var gate in ownGates.Where(done.Contains))
+                    {
+                        var (path, capacity) = Trace(gate, previous);
+                        var link = new GateLink(from, gate, Math.Exp(-cost[gate]), capacity, path, only);
+                        if (!bestToGate.TryGetValue((from, gate, resource), out var existing) || link.Efficiency > existing.Efficiency + 1e-12)
+                        {
+                            bestToGate[(from, gate, resource)] = link;
+                        }
+                    }
+                }
             }
         }
+        network.GateLinks = bestToGate.Values.ToList();
         return best.Values.ToList();
     }
 
@@ -799,20 +814,25 @@ public sealed partial class GameWorld
         };
     }
 
-    /// <summary>Prices and trade rules for a network: the hub market of its district</summary>
-    public FlowMarket MarketFor(Network network) => new()
+    /// <summary>
+    /// Prices and trade rules for a network: its owner's Hub Order at the hub of its district, and the one player price
+    /// at its Yard gate (the gate's buyers and sellers are no companies)
+    /// </summary>
+    public FlowMarket MarketFor(Network network)
     {
-        HubBuyPrice = resource => HubBuyPrice(network.District, resource),
-        HubSellPrice = resource => HubSellPrice(network.District, resource),
-        SellerPrice = (owner, resource) => Company(owner) is { } company ? SellPrice(company, resource) * ShowroomFactor(company, resource) : HubSellPrice(network.District, resource),
-        BuyerMaxPrice = (owner, resource) => Company(owner) is { } company ? BuyMaxPrice(company, resource) : HubSellPrice(network.District, resource),
-        TradeAllowed = (seller, buyer, resource) =>
-            Company(seller) is { } s && Company(buyer) is { Gold: > 0 } b && !s.NoTrade.Contains(resource) && !b.NoBuy.Contains(resource)
-            && TradesWith(s, b) && TradesWith(b, s),
-        LinkTradeAllowed = (link, seller, buyer, resource) => PathAllowsTrade(link.Path, seller, buyer, resource),
-        IgnoreMaxPrice = MembersTradeFreely,
-        Contracts = ActiveContracts(network.Buildings.Select(t => _buildings[t].Owner).ToHashSet()),
-    };
+        var owner = Company(network.Owner);
+        return new FlowMarket
+        {
+            HubBuyPrice = resource => HubBuyPrice(owner, network.District, resource),
+            HubSellPrice = resource => HubSellPrice(network.District, resource),
+            SellerPrice = (seller, resource) => seller < 0 ? GateSellerPrice(seller, resource) : PlayerPrice(resource),
+            BuyerMaxPrice = (_, _) => double.MaxValue,
+            TradeAllowed = (seller, buyer, resource) =>
+                seller < 0 || buyer < 0
+                    ? !(seller < 0 && buyer < 0)
+                    : Company(seller) is { } s && Company(buyer) is { Gold: > 0 } b && !s.NoTrade.Contains(resource) && !b.NoBuy.Contains(resource) && TradesWith(s, b) && TradesWith(b, s),
+        };
+    }
 
     private void Solve(Network network)
     {
@@ -838,8 +858,20 @@ public sealed partial class GameWorld
             .ToDictionary(t => t.Owner, t => t.Factor);
         network.PumpFactor = network.PumpFactors.Values.DefaultIfEmpty(1).Min();
         nodes = WithPumps(network, nodes);
+        network.Nodes = nodes;
 
-        network.Solution = nodes.Count < 2 ? FlowSolution.Empty : WithTolls(network, FlowSolver.Solve(nodes, LinksBetween(network, nodes), MarketFor(network)));
+        var links = LinksBetween(network, nodes);
+        var gateNodes = GateNodes(network, links);
+        var all = gateNodes.Count == 0 ? nodes : [.. nodes, .. gateNodes.Select(t => t.Node)];
+        network.Solution = all.Count < 2 ? FlowSolution.Empty : SplitGateFlows(network, FlowSolver.Solve(all, links, MarketFor(network)), gateNodes);
+        if (all.Count < 2)
+        {
+            network.GateFlows = [];
+        }
+        if (network.Gates.Count > 0)
+        {
+            WakeCoupling();
+        }
         network.NeedsSolve = false;
         PassTeleported(network);
         Changes.Networks.Add(network.Id);

@@ -324,7 +324,7 @@ public sealed partial class GameWorld
             network.NeedsSolve = true;
             Changes.Networks.Add(network.Id);
         }
-        foreach (var district in _markets.Keys)
+        foreach (var district in _openDistricts)
         {
             Changes.Markets.Add(district);
         }

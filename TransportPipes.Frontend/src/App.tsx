@@ -16,7 +16,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { FoundCompany } from "./components/FoundCompany";
 import { GameCanvas } from "./components/GameCanvas";
 import { MapLoading } from "./components/MapLoading";
-import { GatePanel } from "./components/GatePanel";
+import { YardPanel } from "./components/YardPanel";
 import { HoverTip } from "./components/HoverTip";
 import { HubPanel } from "./components/HubPanel";
 import { NeighboursPanel, PlannedRouteBanner } from "./components/NeighboursPanel";
@@ -226,8 +226,8 @@ export function App() {
           <ErrorBoundary name="BuildingPanel">
             <BuildingPanel />
           </ErrorBoundary>
-          <ErrorBoundary name="GatePanel">
-            <GatePanel />
+          <ErrorBoundary name="YardPanel">
+            <YardPanel />
           </ErrorBoundary>
           <ErrorBoundary name="NetworkPanel">
             <NetworkPanel />

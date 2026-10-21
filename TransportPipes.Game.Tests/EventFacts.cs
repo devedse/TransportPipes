@@ -98,7 +98,7 @@ public class EventFacts
         var game = new TestGame();
         var company = game.NewCompany();
         double Factor(string resource) =>
-            game.World.HubBuyPrice(company.District, resource) / game.World.BasePrice(resource) / game.World.Market(company.District).Multiplier(resource);
+            game.World.HubBuyPrice(company, resource) / game.World.BasePrice(resource) / game.World.HubMarketOf(company, company.District).Multiplier(resource);
         Assert.AreEqual(1, Factor("glass"), 1e-3);
 
         game.World.StartEventNow(EventKind.Expo, company.District, TimeSpan.FromHours(6), "glass");

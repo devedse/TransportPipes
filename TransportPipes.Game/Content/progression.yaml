@@ -47,3 +47,24 @@ managerSlots: { 10: 1, 20: 2, 30: 3, 45: 4, 60: 5 }
 startingGold: 2000
 # Selling to the hub: the hub sells at this multiple of its buy price
 hubSpread: 2.5
+
+# Playing together (docs/multiplayer-design.html): prices are multiples of a good's base price
+together:
+  # The one price between players: the Yard, links, contracts and the Exchange
+  playerPrice: 1.75
+  # Houses (NPC companies) buy at this many times what the hub pays you (at most this times the base) and sell at houseSell
+  houseBuy: 1.25
+  houseSell: 2.0
+  # All NPCs together buy at most this share of a company's output of a good, and sell at most this share of its need
+  npcCap: 0.25
+  # The hub pays base × clamp(√(Hub Order ÷ what you sell), min, max): your own order, nobody else's sales move it
+  hubMaxMultiplier: 1.0
+  hubMinMultiplier: 0.25
+  # A quiet server: the Hub Order is this many times bigger below this many active companies
+  quietGrace:
+    - { below: 10, factor: 4 }
+    - { below: 50, factor: 2 }
+  # Moving to another seat: free, a short flight, and a few minutes between moves
+  moveCooldownMinutes: 5
+  moveFlightMinutes: 1
+  moveCostPerLevel: 0

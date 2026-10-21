@@ -434,32 +434,23 @@ public class BalanceSimulation
             return loose.Count > 0 && loose.All(t => TryConnect(t, post));
         }
 
-        /// <summary>
-        /// A pipe from the network to the nearest gate of a tenant that is short of what the company makes (what the
-        /// neighbour card in the game suggests)
-        /// </summary>
+        /// <summary>A pipe from the network to the Yard gate, so the station's residents trade with it (Loady's neighbour step)</summary>
         private string? ConnectNeighbour()
         {
-            var post = World.BuildingsOf(company.Id).First(t => World.Content.Building(t.Type).Kind == BuildingKind.TradingPost);
-            var made = World.BuildingsOf(company.Id).SelectMany(t => World.Content.Building(t.Type).Out.Keys).ToHashSet();
-            var neighbourhood = World.NeighbourhoodOf(company);
-            var gates = World.Companies.Where(t => t.IsNpc && t.District == company.District && neighbourhood.CanSupply(t.Id, made))
-                .SelectMany(t => Enum.GetValues<GateSide>().Select(side => (Tenant: t, Outside: WorldLayout.OutsideGate(t.District, t.Slot, side))))
-                .OrderBy(t => Math.Abs(t.Outside.X - post.X) + Math.Abs(t.Outside.Y - post.Y));
-            var network = World.Conductors.Where(t => t.Owner == company.Id && t.Kind == ConductorKind.Pipe).Select(t => t.Pos).ToList();
-            foreach (var (tenant, outside) in gates.Take(6))
+            if (World.EstateOf(company) is not { } estate || World.NetworkAt(estate.YardGate) is { Buildings.Count: > 0 })
             {
-                try
-                {
-                    var pipe = game.Connect(company, network, [outside]);
-                    return $"{tenant.Name} ({pipe.Count} tiles of pipe)";
-                }
-                catch (AssertFailedException)
-                {
-                    // Too far or too expensive: the next one
-                }
+                return null;
             }
-            return null;
+            var network = World.Conductors.Where(t => t.Owner == company.Id && t.Kind == ConductorKind.Pipe).Select(t => t.Pos).ToList();
+            try
+            {
+                var pipe = game.Connect(company, network, TestGame.Neighbours(estate.YardGate).Where(t => WorldLayout.ZoneAt(t.X, t.Y).Kind == ZoneKind.Estate && !World.IsOccupied(t)));
+                return $"the Yard gate ({pipe.Count} tiles of pipe)";
+            }
+            catch (AssertFailedException)
+            {
+                return null;
+            }
         }
 
         private bool Unlocked(string type) => World.IsUnlocked(company, World.Content.Building(type), out _);

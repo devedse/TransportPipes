@@ -200,6 +200,40 @@ public sealed class ResearchDefinition
     public string Description { get; init; } = "";
 }
 
+/// <summary>The rules of playing together (docs/multiplayer-design.html), as multiples of a good's base price</summary>
+public sealed class TogetherSettings
+{
+    /// <summary>The one price between players: the Yard, links, contracts and the Exchange</summary>
+    public double PlayerPrice { get; init; } = 1.75;
+
+    /// <summary>Houses (NPC companies) buy at this many times what the hub pays you, never above it times the base</summary>
+    public double HouseBuy { get; init; } = 1.25;
+
+    public double HouseSell { get; init; } = 2.0;
+
+    /// <summary>All NPCs together buy at most this share of a company's output of a good (and sell this share of its need)</summary>
+    public double NpcCap { get; init; } = 0.25;
+
+    /// <summary>The hub pays at most this many times the base price (within your Hub Order), at least the floor</summary>
+    public double HubMaxMultiplier { get; init; } = 1.0;
+    public double HubMinMultiplier { get; init; } = 0.25;
+
+    /// <summary>Quiet grace: the Hub Order grows on a quiet server (fewer active companies than the threshold)</summary>
+    public IReadOnlyList<QuietGrace> QuietGrace { get; init; } = [new(10, 4), new(50, 2)];
+
+    /// <summary>Moving to another seat: how long you wait between moves, how long the estate is in the air, what it costs</summary>
+    public double MoveCooldownMinutes { get; init; } = 5;
+    public double MoveFlightMinutes { get; init; } = 1;
+    public double MoveCostPerLevel { get; init; }
+
+    /// <summary>The Hub Order is grace × this for every company: the multiplier above the quietest threshold that fits</summary>
+    public double GraceFor(int activeCompanies) =>
+        QuietGrace.OrderBy(t => t.Below).FirstOrDefault(t => activeCompanies < t.Below)?.Factor ?? 1;
+}
+
+/// <summary>Below this many active companies the Hub Order is this many times bigger</summary>
+public sealed record QuietGrace(int Below, double Factor);
+
 public sealed class ProgressionSettings
 {
     public int MaxCompanyLevel { get; init; }
@@ -228,6 +262,9 @@ public sealed class ProgressionSettings
     public IReadOnlyDictionary<int, int> ManagerSlots { get; init; } = new Dictionary<int, int>();
     public double StartingGold { get; init; }
     public double HubSpread { get; init; }
+
+    /// <summary>Playing together (v1.2): prices between players, the hub's order, moving</summary>
+    public TogetherSettings Together { get; init; } = new();
 
     public double XpReward(string key) => XpRewards.TryGetValue(key, out var value) ? value : 0;
 

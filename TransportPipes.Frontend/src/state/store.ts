@@ -17,7 +17,6 @@ import type {
   LeaderboardDto,
   LeaderboardKind,
   WondersDto,
-  GateSide,
   MarketDto,
   NeighbourDto,
   NetworkDetailsDto,
@@ -25,6 +24,7 @@ import type {
   BlueprintsDto,
   ResearchStateDto,
   UserInfo,
+  YardDto,
 } from "../api/contracts";
 import type { ConnectionStatus } from "../api/server";
 import type { Content } from "../game/content";
@@ -73,7 +73,9 @@ export interface AppState {
   /** Which of the company's estates the selected parcel belongs to (0 is the first, then the branches) */
   selectedParcelEstate: number;
   selectedNetwork: number | null;
-  selectedGate: GateSide | null;
+  /** The Yard panel: your station, its residents and your trades with them */
+  yardOpen: boolean;
+  yard: YardDto | null;
   /** Counts district updates, so panels that read the world model render again */
   districtVersion: number;
   networkDetails: NetworkDetailsDto | null;
@@ -171,7 +173,8 @@ export const initialState: AppState = {
   selectedParcel: null,
   selectedParcelEstate: 0,
   selectedNetwork: null,
-  selectedGate: null,
+  yardOpen: false,
+  yard: null,
   districtVersion: 0,
   networkDetails: null,
   buildingNetwork: null,
@@ -258,7 +261,7 @@ const SIDE_PANELS = {
   selectedBuilding: { selectedBuilding: null, buildingDetails: null, buildingNetwork: null },
   selection: { selection: [] },
   selectedNetwork: { selectedNetwork: null, networkDetails: null },
-  selectedGate: { selectedGate: null },
+  yardOpen: { yardOpen: false },
   selectedParcel: { selectedParcel: null },
   selectedDeepParcel: { selectedDeepParcel: null },
   wildTile: { wildTile: null, outpostCheck: null },

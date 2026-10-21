@@ -8,40 +8,37 @@ public class ContractFacts
 {
     private const double Tolerance = 1e-6;
 
-    /// <summary>A's wind moily (30 energy) next to B's iron mine (needs 10) that sells its ore</summary>
+    /// <summary>A's wind moily (30 energy) and B's iron mine (needs 10) that sells its ore, neighbours in one station, both piped to their Yard gates</summary>
     private static (TestGame Game, Company A, Company B) Partners()
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var a = game.NewCompany("A");
-        var b = game.NewCompany("B");
-        var origin = game.Local(a, 1, 1);
-        game.Map(a, origin, " W+");
-        game.Map(b, origin, "   M+T");
+        var b = game.NewCompany("B", level: 2);
+        var moily = game.Build(a, "windMoily");
+        game.ConnectToGate(a, moily);
+        game.Connect(a, moily, game.TradingPost(a));
+        var mine = game.Build(b, "ironMine", game.Spot(b, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
+        game.ConnectToGate(b, mine);
+        game.Connect(b, mine, game.TradingPost(b));
         return (game, a, b);
     }
 
-    private static List<Flow> Flows(TestGame game, Company owner) =>
-        game.World.BuildingsOf(owner.Id).Select(t => game.World.NetworkOf(t.Id)).OfType<Network>().First().Solution.Flows.ToList();
-
     [TestMethod]
-    public void AContractIsServedFirstAtItsOwnPrice()
+    public void AContractIsServedFirstAtThePlayerPrice()
     {
         var (game, a, b) = Partners();
         Assert.IsTrue(game.World.ProposeContract(a.Id, b.Id, selling: true, "energy", 6, 1.2, 7).Success);
         var contract = game.World.Contracts.Single();
         Assert.AreEqual(ContractState.Offered, contract.State);
+        Assert.AreEqual(game.World.PlayerPrice("energy"), contract.Price, "one price between players");
         StringAssert.Contains(game.World.AcceptContract(a.Id, contract.Id).Error, "yourself");
 
         Assert.IsTrue(game.World.AcceptContract(b.Id, contract.Id).Success);
-        game.World.SolveNetworks();
+        game.Pass(60);
 
-        var flows = Flows(game, a);
-        var contracted = flows.Single(t => t.Kind == FlowKind.Contract);
-        Assert.AreEqual(6, contracted.Delivered, Tolerance);
-        Assert.AreEqual(1.2, contracted.PricePerUnit);
-        var open = flows.Single(t => t.Kind == FlowKind.Trade);
-        Assert.AreEqual(4, open.Delivered, Tolerance, "the rest of what the mine needs is open trade");
-        Assert.AreEqual(1.75, open.PricePerUnit);
+        Assert.IsGreaterThan(0.95, contract.Fulfillment, $"6 a minute delivered ({contract.Fulfillment:P1})");
+        var bought = game.World.YardTrades(game.EstateOf(b)).Where(t => !t.Selling && t.Partner == a.Id).Sum(t => t.PerMinute);
+        Assert.IsTrue(bought is >= 10 and < 11, $"the rest of what the mine needs (and its pipe loses) is open trade: {bought:0.##}");
     }
 
     [TestMethod]
@@ -52,28 +49,23 @@ public class ContractFacts
         game.World.ProposeContract(b.Id, a.Id, selling: false, "energy", 20, 1.5, 1);
         var contract = game.World.Contracts.Single();
         game.World.AcceptContract(a.Id, contract.Id);
-        var goldA = a.Gold;
         var goldB = b.Gold;
 
         game.Pass(60 * 24 + 1);
 
         Assert.AreEqual(ContractState.Ended, contract.State);
-        Assert.AreEqual(0.5, contract.Fulfillment, 1e-3);
-        var penalty = (contract.Expected - contract.Delivered) * 1.5 * 0.05;
+        Assert.IsTrue(contract.Fulfillment is > 0.5 and < 0.55, $"what the mine took (and its pipe lost): {contract.Fulfillment:P1}");
+        var penalty = (contract.Expected - contract.Delivered) * contract.Price * 0.05;
         Assert.IsGreaterThan(0, penalty);
-        Assert.AreEqual(0.9, a.ContractScore, 1e-3, "the seller's reputation drops: 80% old + 20% of 50%");
+        Assert.AreEqual(0.8 + 0.2 * contract.Fulfillment, a.ContractScore, 1e-3, "the seller's reputation drops: 80% old + 20% of what it delivered");
         Assert.AreEqual(4, GameWorld.ContractStars(a));
-        // A earned 10/min for a day at 1.5 minus the penalty; B paid that, got the penalty and sold its ore
-        // ... and one more minute of open trade at the (market) auto price after the contract ended
-        Assert.AreEqual(goldA + 10 * 1.5 * 60 * 24 - penalty + 10 * game.World.SellPrice(a, "energy"), a.Gold, 0.01, "A's gold");
-        Assert.IsGreaterThan(goldB, b.Gold);
+        Assert.IsGreaterThan(goldB, b.Gold, "B sold its ore and got the penalty");
     }
 
     [TestMethod]
-    public void AContractGateOnlyLetsContractsThrough()
+    public void ContractsHaveADirection()
     {
         var (game, a, b) = Partners();
-        Assert.IsTrue(game.World.PathAllowsTrade([], a.Id, b.Id, "energy"));
         game.World.ProposeContract(a.Id, b.Id, selling: true, "energy", 5, 1.5, 3);
         game.World.AcceptContract(b.Id, game.World.Contracts.Single().Id);
 
@@ -82,7 +74,7 @@ public class ContractFacts
     }
 
     [TestMethod]
-    public void AnyoneInTheDistrictCanTakeAnOfferFromTheBoard()
+    public void AnyoneInTheStationCanTakeAnOfferFromTheBoard()
     {
         var (game, a, b) = Partners();
         Assert.IsTrue(game.World.ProposeContract(a.Id, null, selling: true, "energy", 5, 1.5, 3).Success);
@@ -115,7 +107,6 @@ public class ContractFacts
     public void ContractTermsAreChecked()
     {
         var (game, a, b) = Partners();
-        StringAssert.Contains(game.World.ProposeContract(a.Id, b.Id, true, "energy", 5, 100, 3).Error, "price between");
         StringAssert.Contains(game.World.ProposeContract(a.Id, b.Id, true, "energy", 5, 1.5, 60).Error, "1 to 7 days");
         StringAssert.Contains(game.World.ProposeContract(a.Id, b.Id, true, "energy", 0, 1.5, 3).Error, "amount");
         StringAssert.Contains(game.World.ProposeContract(a.Id, a.Id, true, "energy", 5, 1.5, 3).Error, "another company");
@@ -131,9 +122,9 @@ public class ContractFacts
         var game = new TestGame();
         game.World.TenantsEnabled = true;
         var player = game.NewCompany(gold: 10_000, level: 10);
-        var tenant = game.World.Companies.First(t => t.IsNpc && game.World.BuildingsOf(t.Id).Any(b => game.World.Content.Building(b.Type).Out.Count > 0));
+        var tenant = game.World.Companies.First(t => t.IsNpc && game.World.CanDeliver(player, t) && game.World.BuildingsOf(t.Id).Any(b => game.World.Content.Building(b.Type).Out.Count > 0));
         var resource = game.World.BuildingsOf(tenant.Id).SelectMany(b => game.World.Content.Building(b.Type).Out.Keys).First();
-        var price = game.World.AutoPrice(tenant, resource);
+        var price = game.World.PlayerPrice(resource);
         var before = player.Gold;
 
         game.World.ProposeContract(player.Id, tenant.Id, selling: false, resource, rate: 1_000_000, price: price, days: 1);
@@ -150,7 +141,7 @@ public class ContractFacts
         var seller = game.NewCompany("Seller", gold: 100_000, level: 10);
         var buyer = game.NewCompany("Buyer", gold: 100_000, level: 10);
         game.Map(seller, game.Local(seller, 2, 2), "W+T");
-        var price = game.World.HubBuyPrice(seller.District, "energy");
+        var price = game.World.PlayerPrice("energy");
 
         Assert.IsFalse(game.World.ProposeContract(seller.Id, buyer.Id, selling: true, "energy", rate: 5_000, price: price, days: 1).Success, "a moily makes 30 a minute");
         Assert.IsTrue(game.World.ProposeContract(seller.Id, buyer.Id, selling: true, "energy", rate: 25, price: price, days: 1).Success);

@@ -235,18 +235,18 @@ export function HubPanel() {
         ) : (
           <div className="market">
             <p className="muted small">
-              The hub buys everything, but pays less when players sell more than it wants. Your price is what
-              neighbours pay you, within the fair band; changes wait an hour when a partner buys from you.
+              The hub buys everything from you. Up to your Hub Order it pays the full price; beyond it, less
+              for every extra unit (nobody else's sales move your price). Players pay each other one price,
+              through the Yard, contracts and the Exchange.
             </p>
             <table className="market-table">
               <thead>
                 <tr>
                   <th>Resource</th>
-                  <th>Hub buys</th>
+                  <th>Hub pays you</th>
                   <th>Hub sells</th>
-                  <th>Sold / wanted</th>
-                  <th>Your price</th>
-                  <th>You pay at most</th>
+                  <th>You sell / your order</th>
+                  <th>Between players</th>
                   <th>Trade</th>
                 </tr>
               </thead>
@@ -273,43 +273,10 @@ export function HubPanel() {
                       )}
                     </td>
                     <td>{row.sellPrice.toFixed(2)}</td>
-                    <td className="muted">
+                    <td className={row.soldPerMinute > row.demand ? "warning-text" : "muted"}>
                       {formatAmount(row.soldPerMinute)} / {formatAmount(row.demand)}
                     </td>
-                    <td>
-                      <PriceInput
-                        value={row.yourPrice}
-                        low={row.bandLow}
-                        high={row.bandHigh}
-                        onSet={(price) => void gameClient.setSellPrice(row.resource, price)}
-                      />
-                      {row.yourPriceIsAuto ? (
-                        <span className="muted small"> auto</span>
-                      ) : (
-                        <button
-                          className="link"
-                          onClick={() => void gameClient.setSellPrice(row.resource, null)}
-                        >
-                          auto
-                        </button>
-                      )}
-                      {row.pendingAt !== null && (
-                        <div className="small warning-text">
-                          → {row.pendingPrice?.toFixed(2) ?? "auto"} in{" "}
-                          {formatDuration(
-                            Math.max(0, (new Date(row.pendingAt).getTime() - serverNow) / 1000),
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <PriceInput
-                        value={row.yourMaxPrice}
-                        low={row.bandLow}
-                        high={row.bandHigh}
-                        onSet={(price) => void gameClient.setBuyMaxPrice(row.resource, price)}
-                      />
-                    </td>
+                    <td>{row.playerPrice.toFixed(2)}</td>
                     <td>
                       <label className="check" title="Sell this resource to other players">
                         <input

@@ -44,8 +44,6 @@ export interface CompanyDto {
   unlockedParcels: number;
   nextParcelCost: number | null;
   nextParcelLevel: number | null;
-  sellPrices: Record<string, number>;
-  buyMaxPrices: Record<string, number>;
   buildingCounts: Record<string, number>;
   researched: string[];
   currentResearch: string | null;
@@ -203,23 +201,25 @@ export interface DailyOrderDto {
   urgent: boolean;
 }
 
+/**
+ * One resource at the hub of the player's district: what the hub pays the player (its own Hub Order), what it charges,
+ * what the player sold there lately against the order, the one price between players, and the trade settings
+ */
 export interface MarketResourceDto {
   resource: string;
   basePrice: number;
+  /** What the hub pays you now (your own order: nobody else's sales move it) */
   buyPrice: number;
+  /** What the hub charges */
   sellPrice: number;
+  /** What you sold there per minute lately, and its order: up to it the full price */
   soldPerMinute: number;
   demand: number;
-  yourPrice: number;
-  yourPriceIsAuto: boolean;
-  pendingPrice: number | null;
-  pendingAt: string | null;
-  yourMaxPrice: number;
+  /** The one price between players (the Yard, contracts, the Exchange) */
+  playerPrice: number;
   noTrade: boolean;
   /** Not bought from other companies */
   noBuy: boolean;
-  bandLow: number;
-  bandHigh: number;
   /** Market Insight: where the hub's buy price is heading */
   heading: number | null;
 }
@@ -293,8 +293,6 @@ export interface BuildingDto {
 }
 
 export type ConductorKind = "pipe" | "gate";
-export type GateSide = "top" | "right" | "bottom" | "left";
-export type GatePolicy = "closed" | "corporation" | "contract" | "open";
 
 export interface ConductorDto {
   x: number;
@@ -302,7 +300,6 @@ export interface ConductorDto {
   kind: ConductorKind;
   tier: number;
   owner: number;
-  side: GateSide | null;
   network: number | null;
 }
 
@@ -377,7 +374,6 @@ export interface EstateDto {
   ownerColor: string | null;
   ownerLevel: number;
   unlockedParcels: number;
-  gatePolicies: Record<string, GatePolicy>;
   primary: string;
   secondary: string | null;
   corporationTag: string | null;
@@ -471,7 +467,6 @@ export interface BuildingDetailsDto {
   demolishRefund: number;
   issues: string[];
   setting: number;
-  tollIncome: number;
   repairCost: number | null;
   /** A complex: how many buildings it merged (1 for an ordinary building) */
   complexMembers: number;
@@ -531,6 +526,7 @@ export type TerrainType =
   | "mountain"
   | "road"
   | "city"
+  | "yard"
   | "rock"
   | "cavern";
 
@@ -668,7 +664,12 @@ export interface GameContentDto {
     districtPitch: number;
     hubBlock: number;
     originOffset: number;
-    gateLocal: Record<GateSide, { x: number; y: number }>;
+    yardSize: number;
+    /** Every slot's Yard gate, estate-local */
+    yardGates: Array<{ x: number; y: number }>;
+    /** The stations of a district: their Yard (district-local) and seats */
+    stations: Array<{ yard: { x0: number; y0: number; x1: number; y1: number }; slots: number[] }>;
+    stationOfSlot: number[];
     terrain: TerrainType[];
     richnessMultiplier: number[];
   };
@@ -726,7 +727,7 @@ export interface NeighbourDto {
   slot: number;
   estateX: number;
   estateY: number;
-  gatePolicies: Record<string, GatePolicy>;
+  /** Their pipes reach their Yard gate (they trade with the station) */
   connected: boolean;
   surplus: ResourceRateDto[];
   needs: ResourceRateDto[];
@@ -1193,4 +1194,50 @@ export interface NextStepDto {
   network: number | null;
   tiles: number[];
   tier: number;
+}
+
+// ---------------------------------------------------------------- The Yard (v1.2 §7)
+
+/** A resident of a station: whether its pipes reach its Yard gate, what it has spare (it goes to the hub) and lacks */
+export interface YardResidentDto {
+  id: number;
+  name: string;
+  color: string;
+  level: number;
+  isNpc: boolean;
+  slot: number;
+  connected: boolean;
+  activity: ActivityStage | null;
+  spare: ResourceRateDto[];
+  lacks: ResourceRateDto[];
+  blocked: boolean;
+}
+
+/** One of your trades through the Yard: with whom, what, how much per minute, which way, at what price */
+export interface YardTradeDto {
+  partner: number;
+  partnerName: string;
+  resource: string;
+  perMinute: number;
+  selling: boolean;
+  price: number;
+}
+
+/** Your station and its Yard */
+export interface YardDto {
+  station: string;
+  small: boolean;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  gateX: number;
+  gateY: number;
+  /** Your own pipes reach your Yard gate */
+  connected: boolean;
+  residents: YardResidentDto[];
+  yours: YardTradeDto[];
+  /** What goes through the Yard per minute */
+  totals: ResourceRateDto[];
+  line: string;
 }

@@ -131,188 +131,95 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// What the companies of a district could trade, as one of them sees it (the Neighbours panel, Loady's neighbour
-    /// card): per company what it sells to the hub or leaves unused (surplus), what its buildings miss (needs, and per
-    /// building in shortfalls: a building only runs, and buys, when all it misses comes), and what it trades with
-    /// <paramref name="me"/> (earn: me selling to it, pay: me buying from it).
+    /// What the residents of a company's station could trade through the Yard, as the company sees it (the station
+    /// panel, Loady's neighbour card): per resident what it has spare (it goes to the hub) and what its buildings lack,
+    /// and what it trades with <paramref name="me"/> now (earn: me selling to it, pay: me buying from it). Connected are
+    /// the residents whose own pipes reach their Yard gate.
     /// </summary>
     public Neighbourhood NeighbourhoodOf(Company me)
     {
         var surplus = new Dictionary<long, Dictionary<string, double>>();
         var needs = new Dictionary<long, Dictionary<string, double>>();
+        var shortfalls = new Dictionary<long, List<IReadOnlyDictionary<string, double>>>();
         var earn = new Dictionary<long, double>();
         var pay = new Dictionary<long, double>();
-        var connected = new HashSet<long>();
-        var shortfalls = new Dictionary<long, List<IReadOnlyDictionary<string, double>>>();
-        void AddShortfall(long company, Dictionary<string, double> missing)
+        var connected = new HashSet<long> { me.Id };
+        var links = new Dictionary<long, (double Efficiency, int Tiles)>();
+        if (EstateOf(me) is not { } home)
         {
+            return new Neighbourhood(surplus, needs, shortfalls, earn, pay, connected, links);
+        }
+        SolveNetworks();
+        foreach (var member in YardMembers(home.Station))
+        {
+            var id = member.Company.Id;
+            connected.Add(id);
+            links[id] = (1, 0);
+            surplus[id] = member.Spare.Where(t => t.Value > 0.01).ToDictionary(t => t.Key, t => t.Value);
+            needs[id] = member.Lacks.Where(t => t.Value > 0.01).ToDictionary(t => t.Key, t => t.Value);
+            if (needs[id].Count > 0)
+            {
+                shortfalls[id] = [needs[id]];
+            }
+        }
+        // Residents whose pipes don't reach their gate yet need everything their buildings use
+        foreach (var slot in WorldLayout.StationSlots(home.Station.Index))
+        {
+            if (Estate(home.District, slot)?.OwnerId is not { } owner || connected.Contains(owner) || Company(owner) is not { } resident)
+            {
+                continue;
+            }
+            var missing = new Dictionary<string, double>();
+            foreach (var building in BuildingsOf(owner).Where(t => !t.UnderConstruction))
+            {
+                if (ToFlowNode(building) is { Kind: FlowNodeKind.Building } node)
+                {
+                    foreach (var (resource, amount) in node.In)
+                    {
+                        missing[resource] = missing.GetValueOrDefault(resource) + amount;
+                    }
+                }
+            }
+            needs[resident.Id] = missing;
             if (missing.Count > 0)
             {
-                (shortfalls.TryGetValue(company, out var list) ? list : shortfalls[company] = []).Add(missing);
+                shortfalls[resident.Id] = [missing];
             }
         }
-        void Add(Dictionary<long, Dictionary<string, double>> map, long company, string resource, double amount)
+        foreach (var (partner, resource, perMinute, selling) in YardTrades(home))
         {
-            if (!map.TryGetValue(company, out var rates))
+            if (Company(partner) is not { } other)
             {
-                map[company] = rates = new Dictionary<string, double>();
+                continue;
             }
-            rates[resource] = (rates.TryGetValue(resource, out var v) ? v : 0) + amount;
-        }
-
-        // Per company on my pipes: the best pipe between one of my buildings and one of its (how much arrives, how long)
-        var links = new Dictionary<long, (double Efficiency, int Tiles)>();
-        foreach (var network in Networks.Where(t => t.District == me.District))
-        {
-            var owners = network.Owners(this).ToHashSet();
-            if (owners.Contains(me.Id))
+            if (selling)
             {
-                // Partners are the companies with a route to one of my buildings (no route crosses a third estate)
-                foreach (var link in network.Links)
-                {
-                    var a = Building(link.A)?.Owner;
-                    var b = Building(link.B)?.Owner;
-                    var other = a == me.Id ? b : b == me.Id ? a : null;
-                    if (other is { } id && id != me.Id && (!links.TryGetValue(id, out var best) || link.Efficiency > best.Efficiency))
-                    {
-                        links[id] = (link.Efficiency, link.Path.Count);
-                    }
-                }
+                earn[partner] = earn.GetValueOrDefault(partner) + perMinute * SettlementPrice(me, other, resource);
             }
-            var received = new Dictionary<(long, string), double>();
-            // Bought from the hub (a tenant's works): they would rather buy it from a neighbour
-            var imported = new Dictionary<(long, string), double>();
-            foreach (var flow in network.Solution.Flows)
+            else
             {
-                var from = Building(flow.From)!.Owner;
-                var to = Building(flow.To)!.Owner;
-                received[(flow.To, flow.Resource)] = (received.TryGetValue((flow.To, flow.Resource), out var r) ? r : 0) + flow.Delivered;
-                if (flow.Kind == FlowKind.Import)
-                {
-                    imported[(flow.To, flow.Resource)] = (imported.TryGetValue((flow.To, flow.Resource), out var i) ? i : 0) + flow.Delivered;
-                }
-                if (flow.Kind == FlowKind.Sale)
-                {
-                    // Sold to the hub: they could sell it to you instead
-                    Add(surplus, from, flow.Resource, flow.Sent);
-                }
-                if (flow.Kind is FlowKind.Trade or FlowKind.Contract)
-                {
-                    var value = flow.Delivered * flow.PricePerUnit;
-                    if (from == me.Id)
-                    {
-                        earn[to] = (earn.TryGetValue(to, out var e) ? e : 0) + value;
-                    }
-                    if (to == me.Id)
-                    {
-                        pay[from] = (pay.TryGetValue(from, out var p) ? p : 0) + value;
-                    }
-                }
-            }
-            var sent = new Dictionary<(long, string), double>();
-            foreach (var flow in network.Solution.Flows)
-            {
-                sent[(flow.From, flow.Resource)] = (sent.TryGetValue((flow.From, flow.Resource), out var v) ? v : 0) + flow.Sent;
-            }
-            foreach (var id in network.Buildings)
-            {
-                if (Building(id) is not { } building || ToFlowNode(building) is not { Kind: FlowNodeKind.Building } node)
-                {
-                    continue;
-                }
-                var rate = network.Solution.Rate(id);
-                // What it could make but nobody takes: spare for a neighbour (only when it has what it needs to make it)
-                var inputsMet = node.In.All(t => (received.TryGetValue((id, t.Key), out var got) ? got : 0) >= t.Value * rate - 1e-6);
-                foreach (var (resource, amount) in node.Out)
-                {
-                    var unused = amount * node.MaxRate - (sent.TryGetValue((id, resource), out var s) ? s : 0);
-                    if (unused > 0.01 && (node.In.Count == 0 || inputsMet))
-                    {
-                        Add(surplus, building.Owner, resource, unused);
-                    }
-                }
-                // What it misses, when its product has somewhere to go (otherwise it doesn't really need it)
-                var placeable = node.Out.Count == 0 || network.Links.Any(link =>
-                {
-                    if (!link.Connects(id, link.A == id ? link.B : link.A))
-                    {
-                        return false;
-                    }
-                    var other = Building(link.A == id ? link.B : link.A);
-                    if (other == null)
-                    {
-                        return false;
-                    }
-                    var kind = Content.Building(other.Type).Kind;
-                    return (other.Owner == building.Owner && kind is BuildingKind.Storage or BuildingKind.TradingPost)
-                        || ToFlowNode(other) is { } n && node.Out.Keys.Any(n.In.ContainsKey);
-                });
-                if (!placeable)
-                {
-                    continue;
-                }
-                // What it misses together (nothing runs before all of it comes), and what it imports: each of those
-                // sells to it on its own (the hub brings the rest)
-                var shortfall = new Dictionary<string, double>();
-                var fromHub = new List<string>();
-                foreach (var (resource, amount) in node.In)
-                {
-                    var hub = imported.TryGetValue((id, resource), out var bought) ? bought : 0;
-                    var missing = amount * node.MaxRate - (received.TryGetValue((id, resource), out var got) ? got : 0) + hub;
-                    if (missing > 0.01)
-                    {
-                        Add(needs, building.Owner, resource, missing);
-                        if (hub > 0.01)
-                        {
-                            fromHub.Add(resource);
-                        }
-                        else
-                        {
-                            shortfall[resource] = missing;
-                        }
-                    }
-                }
-                AddShortfall(building.Owner, shortfall);
-                if (shortfall.Count == 0)
-                {
-                    foreach (var resource in fromHub)
-                    {
-                        AddShortfall(building.Owner, new Dictionary<string, double> { [resource] = 1 });
-                    }
-                }
+                pay[partner] = pay.GetValueOrDefault(partner) + perMinute * SettlementPrice(other, me, resource);
             }
         }
-        // Buildings without any pipe need everything
-        foreach (var building in Buildings.Where(t => NetworkOf(t.Id) == null && !t.UnderConstruction))
-        {
-            if (Company(building.Owner)?.District == me.District && ToFlowNode(building) is { Kind: FlowNodeKind.Building } node)
-            {
-                foreach (var (resource, amount) in node.In)
-                {
-                    Add(needs, building.Owner, resource, amount);
-                }
-                AddShortfall(building.Owner, node.In.ToDictionary());
-            }
-        }
-        connected.UnionWith(links.Keys);
-        connected.Add(me.Id);
         return new Neighbourhood(surplus, needs, shortfalls, earn, pay, connected, links);
     }
 
-    /// <summary>The number of companies each company trades with right now (trade and contracts)</summary>
+    /// <summary>The number of companies each company trades with right now (through the Yards)</summary>
     public Dictionary<long, int> PartnerCounts()
     {
         var pairs = new HashSet<(long, long)>();
-        foreach (var network in _networks.Values)
+        foreach (var (key, terms) in _gateTerms)
         {
-            foreach (var flow in network.Solution.Flows.Where(t => t.Kind is Simulation.FlowKind.Trade or Simulation.FlowKind.Contract))
+            if (Estate(key.District, key.Slot)?.OwnerId is not { } buyer)
             {
-                var a = _buildings[flow.From].Owner;
-                var b = _buildings[flow.To].Owner;
-                if (a != b)
+                continue;
+            }
+            foreach (var sources in terms.Import.Values)
+            {
+                foreach (var seller in sources.Keys.Where(t => t != buyer))
                 {
-                    pairs.Add((a, b));
-                    pairs.Add((b, a));
+                    pairs.Add((seller, buyer));
+                    pairs.Add((buyer, seller));
                 }
             }
         }
@@ -351,7 +258,7 @@ public sealed partial class GameWorld
     }
 }
 
-/// <summary>What the companies of a district could trade, as one company sees it (<see cref="GameWorld.NeighbourhoodOf"/>)</summary>
+/// <summary>What the residents of a station could trade, as one company sees it (<see cref="GameWorld.NeighbourhoodOf"/>)</summary>
 public sealed record Neighbourhood(
     Dictionary<long, Dictionary<string, double>> Surplus,
     Dictionary<long, Dictionary<string, double>> Needs,

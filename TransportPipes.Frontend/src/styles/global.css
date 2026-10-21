@@ -1703,31 +1703,81 @@ select {
   border-color: var(--accent);
 }
 
-/* ---------- Gates ---------- */
+/* ---------- The Yard ---------- */
 
-.gate-panel {
+.yard-panel {
   position: absolute;
   top: var(--hud-top, 82px);
   right: var(--gap);
-  width: min(360px, calc(100vw - 24px));
+  width: min(380px, calc(100vw - 24px));
+  max-height: calc(100vh - var(--hud-top, 82px) - var(--toolbar-clear, 120px));
+  overflow-y: auto;
   display: grid;
   gap: 10px;
 }
 
-.policies {
+.yard-panel h4 {
+  margin: 4px 0 6px;
+}
+
+.yard-line {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
+.yard-line.todo {
+  background: #fff1cc;
+}
+
+.yard-trades,
+.yard-residents {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: grid;
   gap: 6px;
 }
 
-.policy {
+.yard-residents li {
   display: grid;
-  gap: 2px;
-  text-align: left;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.45);
 }
 
-.policy.active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
+.yard-residents li.me {
+  outline: 2px solid var(--accent-soft);
+}
+
+.resident-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.resident-name .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.resident-rates {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  align-items: center;
+}
+
+.badge.house {
+  font-size: 0.75em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #e8e1d2;
+  color: #5b4b33;
 }
 
 .slider {
@@ -4782,7 +4832,7 @@ kbd {
 
 /* With an inspector open the toasts sit to its left: they never cover it */
 @media (min-width: 721px) {
-  .app:has(.building-panel, .parcel-panel, .network-panel, .gate-panel, .visit-panel, .inbox-panel) .toasts {
+  .app:has(.building-panel, .parcel-panel, .network-panel, .yard-panel, .visit-panel, .inbox-panel) .toasts {
     right: calc(min(380px, 100vw - 24px) + 2 * var(--gap));
   }
 }

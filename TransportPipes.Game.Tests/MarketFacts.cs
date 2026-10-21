@@ -18,17 +18,20 @@ public class MarketFacts
     private static double SalePrice(TestGame game, Building post) =>
         game.World.NetworkOf(post.Id)!.Solution.Flows.First(t => t.Kind == FlowKind.Sale).PricePerUnit;
 
+    private static double Multiplier(TestGame game, Company company, string resource) =>
+        game.World.HubMarketOf(company, company.District).Multiplier(resource);
+
     [TestMethod]
     public void TheHubPaysLessWhenItIsFloodedWithAResource()
     {
-        // Energy: the hub wants 1,000 per minute per active company; two trading posts sell 1,200 of the 1,500 made
+        // Energy: the hub's order is 1,000 per minute; two trading posts sell 1,200 of the 1,500 made
         var (game, company, post) = SolarSeller(50, 'W');
         Assert.AreEqual(1, SalePrice(game, post), 1e-9);
 
         game.Pass(60 * 4);
 
-        var multiplier = game.World.Market(company.District).Multiplier("energy");
-        Assert.IsLessThan(1.0, multiplier, "1,200 sold for 1,000 wanted");
+        var multiplier = Multiplier(game, company, "energy");
+        Assert.IsLessThan(1.0, multiplier, "1,200 sold for an order of 1,000");
         Assert.IsGreaterThan(0.25, multiplier);
         // The next sales get the new price (within the 1% that triggers a new solution), plus the reputation the sales earned
         game.World.SolveNetworks();
@@ -37,50 +40,45 @@ public class MarketFacts
     }
 
     [TestMethod]
-    public void TheHubPaysABitMoreForWhatIsScarce()
+    public void UpToItsOrderTheHubPaysTheFullPrice()
     {
         var (game, company, post) = SolarSeller(4);
 
         game.Pass(60 * 3);
 
-        Assert.AreEqual(HubMarket.MaxMultiplier, game.World.Market(company.District).Multiplier("energy"), 0.02);
-        Assert.AreEqual(HubMarket.MaxMultiplier, SalePrice(game, post), 0.02);
+        Assert.AreEqual(1, Multiplier(game, company, "energy"), 1e-9);
+        Assert.AreEqual(1, SalePrice(game, post), 0.02);
     }
 
     [TestMethod]
-    public void APriceChangeWaitsAnHourWhenAPartnerBuys()
+    public void NobodyElsesSalesMoveYourPrice()
     {
         var game = new TestGame(content: TestGame.PlainContent);
-        var a = game.NewCompany("A");
-        var b = game.NewCompany("B");
-        game.Map(a, game.Local(a, 1, 1), " W+");
-        game.Map(b, game.Local(a, 1, 1), "   M+T");
-        Assert.AreEqual(1.75, game.World.SellPrice(a, "energy"));
+        var flooder = game.NewCompany("Flooder");
+        var small = game.NewCompany("Small");
+        game.Map(flooder, game.Local(flooder, 2, 2), string.Join("\n", " " + new string('W', 25), "T" + new string('+', 25) + "T", " " + new string('W', 25)));
+        game.Map(small, game.Local(small, 0, 1), " SS\nT++T");
 
-        Assert.IsTrue(game.World.SetSellPrice(a.Id, "energy", 2.2).Success);
-        Assert.AreEqual(1.75, game.World.SellPrice(a, "energy"), "B is warned first");
-        Assert.AreEqual(2.2, a.PendingPrices["energy"].Price);
+        game.Pass(60 * 4);
 
-        game.Pass(61);
-        Assert.AreEqual(2.2, game.World.SellPrice(a, "energy"));
-        Assert.IsEmpty(a.PendingPrices);
-
-        // Without a partner for wood, it changes right away
-        Assert.IsTrue(game.World.SetSellPrice(a.Id, "wood", 2).Success);
-        Assert.AreEqual(2, game.World.SellPrice(a, "wood"));
+        Assert.IsLessThan(1.0, Multiplier(game, flooder, "energy"));
+        Assert.AreEqual(1, Multiplier(game, small, "energy"), 1e-9, "the small seller keeps the full price");
     }
 
     [TestMethod]
-    public void PricesStayInTheFairBand()
+    public void OnAQuietServerTheOrderIsBigger()
     {
-        var game = new TestGame();
-        var company = game.NewCompany();
+        var (game, company, _) = SolarSeller(50, 'W');
+        Assert.AreEqual(1000, game.World.HubDemand(company.District, "energy"), 1e-6);
 
-        game.World.SetSellPrice(company.Id, "energy", 100);
-        Assert.AreEqual(2.5, game.World.SellPrice(company, "energy"));
-        company.Researched.Add("haggling");
-        game.World.SetSellPrice(company.Id, "energy", 100);
-        Assert.AreEqual(2.75, game.World.SellPrice(company, "energy"), "Haggling: 10% beyond the band");
+        game.World.QuietGraceEnabled = true;
+
+        Assert.AreEqual(4000, game.World.HubDemand(company.District, "energy"), 1e-6, "below 10 active players: four times");
+        for (var i = 0; i < 12; i++)
+        {
+            game.NewCompany($"P{i}");
+        }
+        Assert.AreEqual(2000, game.World.HubDemand(company.District, "energy"), 1e-6, "below 50: twice");
     }
 
     [TestMethod]

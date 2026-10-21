@@ -24,7 +24,7 @@ public class ExchangeFacts
     }
 
     [TestMethod]
-    public void MatchingOrdersTradeAtTheOlderPriceAndShipByCargo()
+    public void MatchingOrdersTradeAtThePlayerPriceAndShipByCargo()
     {
         var (game, seller, buyer, sellerStorage, buyerStorage) = Traders();
         sellerStorage.Contents["ironOre"] = 500;
@@ -34,11 +34,13 @@ public class ExchangeFacts
         var goldSeller = seller.Gold;
         var goldBuyer = buyer.Gold;
 
-        // The buyer offers up to 5, the seller asked 4 first: they trade at 4
+        // Whatever prices they name, players trade at the one player price
         Assert.IsTrue(game.World.PlaceExchangeOrder(buyer.Id, "ironOre", false, 300, 5).Success);
+        var price = game.World.PlayerPrice("ironOre");
+        Assert.AreEqual(3 * 1.75, price);
 
-        Assert.AreEqual(goldSeller + 300 * 4 * 0.95, seller.Gold, 1e-6, "5% fee");
-        Assert.AreEqual(goldBuyer - 300 * 4, buyer.Gold, 1e-6, "the difference with the buyer's limit comes back");
+        Assert.AreEqual(goldSeller + 300 * price * 0.95, seller.Gold, 1e-6, "5% fee");
+        Assert.AreEqual(goldBuyer - 300 * price, buyer.Gold, 1e-6);
         Assert.AreEqual(100, game.World.ExchangeOrders.Single().Amount, "100 still for sale");
         var shipment = game.World.Shipments.Single();
         Assert.AreEqual(300, shipment.Amount);
@@ -58,7 +60,7 @@ public class ExchangeFacts
         game.World.PlaceExchangeOrder(seller.Id, "ironOre", true, 200, 4);
         var gold = buyer.Gold;
         game.World.PlaceExchangeOrder(buyer.Id, "coal", false, 100, 3);
-        Assert.AreEqual(gold - 300, buyer.Gold);
+        Assert.AreEqual(gold - 100 * game.World.PlayerPrice("coal"), buyer.Gold);
 
         Assert.IsTrue(game.World.CancelExchangeOrder(buyer.Id, game.World.ExchangeOrders.Single(t => !t.Selling).Id).Success);
         Assert.AreEqual(gold, buyer.Gold);

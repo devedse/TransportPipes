@@ -37,9 +37,12 @@ import {
   districtOf,
   districtOriginX,
   districtOriginY,
+  estateOutline,
   isDeep,
   isParcelUnlocked,
+  stationOfSlot,
   tileKey,
+  yardRect,
   zoneAt,
 } from "./layout";
 import { BuildingEffects, pelletTexture } from "./render/effects";
@@ -332,6 +335,19 @@ function traceFootprint(g: Graphics, x: number, y: number, size: number, height 
   g.lineTo(right.x + TILE_WIDTH * 2, right.y - TILE_HEIGHT / 2);
   g.lineTo(bottom.x + TILE_WIDTH, bottom.y);
   g.lineTo(left.x, left.y - TILE_HEIGHT / 2);
+  g.closePath();
+}
+
+/** A polygon of tile-grid corners (relative to x, y), like an estate's border around its part of the Yard */
+function traceOutline(g: Graphics, x: number, y: number, points: Array<[number, number]>) {
+  points.forEach(([px, py], i) => {
+    const corner = diagonalToScreen(x + px, y + py);
+    if (i === 0) {
+      g.moveTo(corner.x + TILE_WIDTH, corner.y - TILE_HEIGHT);
+    } else {
+      g.lineTo(corner.x + TILE_WIDTH, corner.y - TILE_HEIGHT);
+    }
+  });
   g.closePath();
 }
 
@@ -1982,9 +1998,14 @@ export class Engine {
   private conductorView(conductor: ConductorDto): ObjectView {
     const anchor = diagonalToScreen(conductor.x, conductor.y);
     if (conductor.kind === "gate") {
-      const estate = this.world.estateAt(conductor.x, conductor.y);
-      const policy = estate?.gatePolicies[conductor.side ?? "top"] ?? "open";
-      const art = this.textures.gate(policy, conductor.side === "top" || conductor.side === "bottom");
+      // The Yard gate: its barrier faces the Yard (the pipe runs on towards it)
+      const zone = zoneAt(conductor.x, conductor.y);
+      const yard =
+        zone.kind === "estate" ? yardRect(zone.districtX, zone.districtY, stationOfSlot(zone.slot)) : null;
+      const towardsY =
+        yard !== null &&
+        Math.abs((yard.y0 + yard.y1) / 2 - conductor.y) > Math.abs((yard.x0 + yard.x1) / 2 - conductor.x);
+      const art = this.textures.gate("open", towardsY);
       const sprite = new Sprite(art.frames[0]);
       sprite.anchor.set(0, 1);
       const container = new Container();
@@ -2695,15 +2716,17 @@ export class Engine {
     for (const estate of district.estates) {
       const mine = company !== null && estate.ownerId === company.id;
       const color = estate.ownerColor ?? "#ffffff";
+      // The border goes around the estate's part of its station's Yard
+      const outline = estateOutline(estate.slot);
       if (estate.ownerId !== null) {
         if (far) {
-          traceFootprint(g, estate.x, estate.y, ESTATE_SIZE);
+          traceOutline(g, estate.x, estate.y, outline);
           g.fill({ color, alpha: 0.12 });
         }
-        traceFootprint(g, estate.x, estate.y, ESTATE_SIZE);
+        traceOutline(g, estate.x, estate.y, outline);
         g.stroke({ color, width: far ? (mine ? 40 : 26) : mine ? 7 : 5, alpha: far ? 0.85 : 0.75 });
       } else {
-        traceFootprint(g, estate.x, estate.y, ESTATE_SIZE);
+        traceOutline(g, estate.x, estate.y, outline);
         g.stroke({ color: 0xffffff, width: far ? 14 : 3, alpha: 0.22 });
       }
 

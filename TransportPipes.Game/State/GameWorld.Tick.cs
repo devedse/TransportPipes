@@ -61,13 +61,6 @@ public sealed partial class GameWorld
         {
             events.Add((company.ResearchEndsAt!.Value, -company.Id, () => CompleteResearch(company)));
         }
-        foreach (var company in _companies.Values.Where(t => t.PendingPrices.Count != 0))
-        {
-            foreach (var (resource, pending) in company.PendingPrices.Where(t => t.Value.At <= now).ToList())
-            {
-                events.Add((pending.At, -company.Id, () => ApplySellPrice(company, resource, pending.Price)));
-            }
-        }
         for (var at = NextMarketUpdate(LastTick); at <= now; at = NextMarketUpdate(at))
         {
             events.Add((at, long.MinValue, () =>
@@ -99,15 +92,30 @@ public sealed partial class GameWorld
         }
         foreach (var (at, _, run) in events.OrderBy(t => t.At).ThenBy(t => t.Order))
         {
+            CoupleUntil(at);
             if (at > LastTick)
             {
                 Advance(at);
             }
             run();
         }
+        CoupleUntil(now);
         Advance(now);
         CheckAchievements();
         CheckTutorial();
+    }
+
+    /// <summary>The Yards' rounds up to a moment (v1.2 §7): once a minute while terms move, less often when they don't</summary>
+    private void CoupleUntil(DateTime at)
+    {
+        for (var round = 0; round < 100_000 && NextCoupling() <= at; round++)
+        {
+            if (NextCoupling() > LastTick)
+            {
+                Advance(NextCoupling());
+            }
+            RunCoupling();
+        }
     }
 
     private void CompleteConstruction(Building building)
@@ -169,7 +177,7 @@ public sealed partial class GameWorld
                 Solve(network);
             }
             var solution = network.Solution;
-            if (solution.Flows.Count == 0 && solution.ResearchPerMinute.Count == 0)
+            if (solution.Flows.Count == 0 && solution.ResearchPerMinute.Count == 0 && network.GateFlows.Count == 0)
             {
                 return;
             }
@@ -252,8 +260,8 @@ public sealed partial class GameWorld
             }
         }
 
-        TrackContracts(solution, minutes);
         var earnings = new Dictionary<long, double>();
+        SettleGateFlows(network, minutes, earnings);
         foreach (var flow in solution.Flows)
         {
             var from = _buildings[flow.From];
@@ -265,11 +273,8 @@ public sealed partial class GameWorld
                     if (flow.Kind == FlowKind.Sale && Company(from.Owner) is { } seller)
                     {
                         Add(seller.Report.Sold, flow.Resource, flow.Delivered * minutes);
-                        // The hub's prices follow what players sell (tenants are the background of a district)
-                        if (!seller.IsNpc)
-                        {
-                            Market(network.District).AddSold(flow.Resource, flow.Delivered * minutes);
-                        }
+                        // The company's own order at the hub follows what it sells there
+                        HubMarketOf(seller, network.District).AddSold(flow.Resource, flow.Delivered * minutes);
                         // Trading with your hub builds reputation: a point per 2,000 gold
                         var level = ReputationLevel(seller);
                         seller.HubReputation += income / 2000;

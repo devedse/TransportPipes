@@ -253,6 +253,9 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<MarketDto?> GetMarket() =>
         _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Market(world, company) : null, changesWorld: false);
 
+    public Task<YardDto?> GetYard() =>
+        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Yard(world, company) : null, changesWorld: false);
+
     public Task<IReadOnlyList<NeighbourDto>> GetNeighbourhood() =>
         _world.RunAsync<IReadOnlyList<NeighbourDto>>(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Neighbourhood(world, company) : [], changesWorld: false);
 
@@ -795,6 +798,9 @@ public sealed class GameHub : Hub<IGameClient>
                     company.TutorialStep = Math.Min(company.TutorialStep + 1, world.Content.Tutorial.Count);
                     company.Touch();
                     break;
+                case "yard":
+                    world.CoupleNow(3);
+                    break;
                 case "finish":
                     foreach (var building in world.BuildingsOf(companyId).Where(t => t.UnderConstruction).ToList())
                     {
@@ -952,12 +958,6 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> BuyParcel(int parcel, int estate) =>
         Command((world, company) => world.BuyParcel(company, parcel, estate));
 
-    public Task<CommandResultDto> SetSellPrice(string resource, double? price) =>
-        Command((world, company) => world.SetSellPrice(company, resource, price));
-
-    public Task<CommandResultDto> SetBuyMaxPrice(string resource, double? price) =>
-        Command((world, company) => world.SetBuyMaxPrice(company, resource, price));
-
     public Task<CommandResultDto> SetImport(long building, string resource, bool enabled) =>
         Command((world, company) => world.SetImport(company, building, resource, enabled));
 
@@ -969,9 +969,4 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<CommandResultDto> SetValveFilter(long building, string resource, bool enabled) =>
         Command((world, company) => world.SetValveFilter(company, building, resource, enabled));
-
-    public Task<CommandResultDto> SetGatePolicy(string side, string policy) =>
-        Command((world, company) => Enum.TryParse<GateSide>(side, true, out var s) && Enum.TryParse<GatePolicy>(policy, true, out var p)
-            ? world.SetGatePolicy(company, s, p)
-            : CommandResult.Fail("Unknown gate or policy."));
 }

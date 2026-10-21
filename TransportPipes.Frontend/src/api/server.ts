@@ -29,8 +29,6 @@ import type {
   NeighbourDto,
   DistrictDto,
   GameContentDto,
-  GatePolicy,
-  GateSide,
   HelloDto,
   MarketDto,
   NetworkDetailsDto,
@@ -38,6 +36,7 @@ import type {
   ResearchStateDto,
   ToastDto,
   UserInfo,
+  YardDto,
 } from "./contracts";
 
 export const HUB_URL = "/hubs/game";
@@ -220,6 +219,7 @@ export class GameConnection {
   getResearch = () => this.invoke<ResearchStateDto[]>("GetResearch");
   getMarket = () => this.invoke<MarketDto | null>("GetMarket");
   getNeighbourhood = () => this.invoke<NeighbourDto[]>("GetNeighbourhood");
+  getYard = () => this.invoke<YardDto | null>("GetYard");
   getExchange = () => this.invoke<ExchangeDto | null>("GetExchange");
   placeExchangeOrder = (resource: string, selling: boolean, amount: number, price: number) =>
     this.invoke<CommandResult>("PlaceExchangeOrder", resource, selling, amount, price);
@@ -280,14 +280,8 @@ export class GameConnection {
     this.invoke<CommandResult>("Terraform", x, y, action, resource);
   move = (building: number, x: number, y: number) => this.invoke<CommandResult>("Move", building, x, y);
   buyParcel = (parcel: number, estate: number) => this.invoke<CommandResult>("BuyParcel", parcel, estate);
-  setSellPrice = (resource: string, price: number | null) =>
-    this.invoke<CommandResult>("SetSellPrice", resource, price);
-  setBuyMaxPrice = (resource: string, price: number | null) =>
-    this.invoke<CommandResult>("SetBuyMaxPrice", resource, price);
   setImport = (building: number, resource: string, enabled: boolean) =>
     this.invoke<CommandResult>("SetImport", building, resource, enabled);
-  setGatePolicy = (side: GateSide, policy: GatePolicy) =>
-    this.invoke<CommandResult>("SetGatePolicy", side, policy);
   setBuildingSetting = (building: number, value: number) =>
     this.invoke<CommandResult>("SetBuildingSetting", building, value);
   setShowroomProduct = (building: number, resource: string) =>

@@ -100,11 +100,14 @@ public class TutorialFacts
         var game = new TestGame(content: TestGame.PlainContent);
         var seller = game.NewCompany("Seller", level: 3);
         var buyer = game.NewCompany("Buyer", level: 3);
-        var origin = game.Local(seller, 2, 2);
-        game.Map(seller, origin, "W+");
-        game.Map(buyer, origin, "  +M+T");
+        var moily = game.Build(seller, "windMoily");
+        game.ConnectToGate(seller, moily);
+        var mine = game.Build(buyer, "ironMine", game.Spot(buyer, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
+        game.ConnectToGate(buyer, mine);
+        game.Connect(buyer, mine, game.TradingPost(buyer));
+        game.Pass(3);
 
-        Assert.IsGreaterThan(0, game.World.StatValue(seller, "neighbourIncome"), "the mine buys the moily's energy");
+        Assert.IsGreaterThan(0, game.World.StatValue(seller, "neighbourIncome"), "the mine buys the moily's energy through the Yard");
         Assert.AreEqual(0, game.World.StatValue(buyer, "neighbourIncome"));
     }
 }

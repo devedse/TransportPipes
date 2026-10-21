@@ -338,9 +338,7 @@ export function NeighboursPanel() {
                   )}
                 </div>
                 <div className="neighbour-actions">
-                  {!n.connected && (
-                    <button onClick={() => void gameClient.planConnection(n.id)}>Connect</button>
-                  )}
+                  {!n.connected && <span className="muted small">not piped to the Yard yet</span>}
                   <span className="button-row">
                     <button
                       title="Visit their estate"

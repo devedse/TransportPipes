@@ -39,8 +39,6 @@ public static class GameViews
             estate?.UnlockedParcels ?? 0,
             parcelLevel == int.MaxValue ? null : parcelCost,
             parcelLevel == int.MaxValue ? null : parcelLevel,
-            company.SellPrices,
-            company.BuyMaxPrices,
             world.BuildingsOf(company.Id).GroupBy(t => t.Type).ToDictionary(t => t.Key, t => t.Count()),
             company.Researched.OrderBy(t => t).ToList(),
             company.CurrentResearch,
@@ -71,7 +69,7 @@ public static class GameViews
                 company.Crates.Select((t, i) => new CrateDto(i, t.Type, t.Level)).ToList(),
                 company.FreeMoves,
                 world.MoveCost(company),
-                company.LastMovedAt is { } moved && moved + GameWorld.MoveEvery > world.Now && company.FreeMoves == 0 ? moved + GameWorld.MoveEvery : null,
+                company.LastMovedAt is { } moved && moved + world.MoveEvery > world.Now && company.FreeMoves == 0 ? moved + world.MoveEvery : null,
                 company.SwapWith),
             new DeepDto(
                 world.HasDeepLevel(company),
@@ -142,31 +140,20 @@ public static class GameViews
     public static MarketDto Market(GameWorld world, Company company)
     {
         var district = company.District;
-        var market = world.Market(district);
+        var market = world.HubMarketOf(company, district);
         var resources = world.Content.ResourceList
             .Where(t => t.Era <= world.Era + 1)
-            .Select(t =>
-            {
-                var (low, high) = world.FairBand(company, t.Id);
-                var pending = company.PendingPrices.TryGetValue(t.Id, out var p) ? p : null;
-                return new MarketResourceDto(
-                    t.Id,
-                    t.Price,
-                    world.HubBuyPrice(district, t.Id),
-                    world.HubSellPrice(district, t.Id),
-                    market.SoldRate.TryGetValue(t.Id, out var sold) ? sold : 0,
-                    world.HubDemand(district, t.Id),
-                    world.SellPrice(company, t.Id),
-                    !company.SellPrices.ContainsKey(t.Id),
-                    pending?.Price,
-                    pending?.At,
-                    world.BuyMaxPrice(company, t.Id),
-                    company.NoTrade.Contains(t.Id),
-                    company.NoBuy.Contains(t.Id),
-                    low,
-                    high,
-                    world.HubPriceHeading(company, t.Id));
-            })
+            .Select(t => new MarketResourceDto(
+                t.Id,
+                t.Price,
+                world.HubBuyPrice(company, district, t.Id),
+                world.HubSellPrice(district, t.Id),
+                market.SoldRate.TryGetValue(t.Id, out var sold) ? sold : 0,
+                world.HubDemand(district, t.Id),
+                world.PlayerPrice(t.Id),
+                company.NoTrade.Contains(t.Id),
+                company.NoBuy.Contains(t.Id),
+                world.HubPriceHeading(company, t.Id)))
             .ToList();
         return new MarketDto(district.X, district.Y, WorldNames.District(district), resources, GameWorld.NextMarketUpdate(world.Now));
     }
@@ -245,8 +232,7 @@ public static class GameViews
                 }
                 if (world.ConductorAt(pos) is { } conductor)
                 {
-                    conductors.Add(new ConductorDto(x, y, Camel(conductor.Kind), conductor.Tier, conductor.Owner,
-                        conductor.Side is { } side ? Camel(side) : null, world.NetworkAt(pos)?.Id));
+                    conductors.Add(new ConductorDto(x, y, Camel(conductor.Kind), conductor.Tier, conductor.Owner, world.NetworkAt(pos)?.Id));
                 }
                 if (world.TerrainOverrides.TryGetValue(pos, out var terrain))
                 {
@@ -389,7 +375,6 @@ public static class GameViews
                 owner?.Color,
                 owner?.Level ?? 0,
                 estate?.UnlockedParcels ?? 0,
-                (estate?.GatePolicies ?? new Dictionary<GateSide, GatePolicy>()).ToDictionary(t => Camel(t.Key), t => Camel(t.Value)),
                 Camel(profile.Primary),
                 profile.Secondary is { } secondary ? Camel(secondary) : null,
                 owner != null ? world.CorporationOf(owner)?.Tag : null,
@@ -754,7 +739,6 @@ public static class GameViews
             definition.Kind is BuildingKind.Hq or BuildingKind.Gate ? 0 : world.DemolishRefund(building),
             Issues(world, building, node, network),
             building.Setting,
-            world.TollIncome(building.Id),
             building.Damaged ? world.RepairCost(building) : null,
             world.ComplexMembers(building),
             definition.Kind == BuildingKind.Teleporter ? Teleporter(world, building) : null,
@@ -1035,7 +1019,6 @@ public static class GameViews
                     t.Slot,
                     estate.Origin.X,
                     estate.Origin.Y,
-                    estate.GatePolicies.ToDictionary(g => Camel(g.Key), g => Camel(g.Value)),
                     connected.Contains(t.Id),
                     Rates(surplus, t.Id),
                     Rates(needs, t.Id),
@@ -1050,6 +1033,54 @@ public static class GameViews
             })
             .OrderBy(t => Math.Abs(t.EstateX - home.Origin.X) + Math.Abs(t.EstateY - home.Origin.Y))
             .ToList();
+    }
+
+    /// <summary>The player's station and its Yard</summary>
+    public static YardDto? Yard(GameWorld world, Company me)
+    {
+        if (world.EstateOf(me) is not { } estate)
+        {
+            return null;
+        }
+        var station = estate.Station;
+        var yard = WorldLayout.Yard(station);
+        var residents = world.YardResidents(station);
+        List<ResourceRateDto> Rates(IReadOnlyDictionary<string, double> rates) =>
+            rates.Where(t => t.Value > 0.01).OrderByDescending(t => t.Value * world.BasePrice(t.Key)).Select(t => new ResourceRateDto(t.Key, t.Value)).ToList();
+        var yours = world.YardTrades(estate)
+            .Where(t => t.PerMinute > 1e-6 && world.Company(t.Partner) != null)
+            .Select(t => new YardTradeDto(t.Partner, world.Company(t.Partner)!.Name, t.Resource, t.PerMinute, t.Selling, world.YardPrice(me, world.Company(t.Partner)!, t.Resource, t.Selling)))
+            .OrderByDescending(t => t.PerMinute * t.Price)
+            .ToList();
+        var connected = residents.FirstOrDefault(t => t.Company.Id == me.Id)?.Connected ?? false;
+        var mine = residents.FirstOrDefault(t => t.Company.Id == me.Id);
+        string Name(string resource) => world.Content.Resources.TryGetValue(resource, out var r) ? r.Name.ToLowerInvariant() : resource;
+        var line = !connected
+            ? "Lay a pipe from your network to your Yard gate: your neighbours buy what you have spare, and sell you what you lack."
+            : residents.Count(t => t.Connected) < 2
+                ? "Nobody else here has piped to the Yard yet: the hub takes your spare until they do."
+                : yours.FirstOrDefault(t => t.Selling) is { } sale
+                    ? $"{sale.PartnerName} buys your {Name(sale.Resource)} at {sale.Price:0.##} g."
+                    : yours.FirstOrDefault() is { } purchase
+                        ? $"You buy {Name(purchase.Resource)} from {purchase.PartnerName} at {purchase.Price:0.##} g."
+                        : mine?.Spare.Where(t => t.Value > 0.01).OrderByDescending(t => t.Value).Select(t => t.Key).FirstOrDefault() is { } spare
+                            ? $"Nobody here needs {Name(spare)} yet: the hub takes it."
+                            : "Nothing to trade yet: what you make your own buildings use.";
+        return new YardDto(
+            WorldNames.Station(station),
+            station.IsSmall,
+            yard.X0,
+            yard.Y0,
+            yard.X1,
+            yard.Y1,
+            estate.YardGate.X,
+            estate.YardGate.Y,
+            connected,
+            residents.Select(t => new YardResidentDto(t.Company.Id, t.Company.Name, t.Company.Color, t.Company.Level, t.Company.IsNpc, t.Slot, t.Connected,
+                t.Company.IsNpc ? null : Camel(world.ActivityOf(t.Company)), Rates(t.Spare), Rates(t.Lacks), me.TradeBlocked.Contains(t.Company.Id))).ToList(),
+            yours,
+            world.YardTotals(station).Select(t => new ResourceRateDto(t.Key, t.Value)).OrderByDescending(t => t.PerMinute).ToList(),
+            line);
     }
 
     public static ContractDto Contract(GameWorld world, Contract contract)
@@ -1162,7 +1193,14 @@ public static class GameViews
             WorldLayout.DistrictPitch,
             WorldLayout.HubBlock,
             WorldLayout.OriginOffset,
-            GateLocal = WorldLayout.GateLocal.ToDictionary(t => Camel(t.Key), t => new { t.Value.X, t.Value.Y }),
+            WorldLayout.YardSize,
+            YardGates = Enumerable.Range(0, WorldLayout.EstatesPerDistrict).Select(WorldLayout.YardGateLocal).Select(t => new { t.X, t.Y }).ToList(),
+            Stations = Enumerable.Range(0, WorldLayout.StationsPerDistrict).Select(t => new
+            {
+                Yard = WorldLayout.YardLocal(t) is var yard ? new { yard.X0, yard.Y0, yard.X1, yard.Y1 } : null,
+                Slots = WorldLayout.StationSlots(t),
+            }).ToList(),
+            StationOfSlot = Enumerable.Range(0, WorldLayout.EstatesPerDistrict).Select(WorldLayout.StationOfSlot).ToList(),
             Terrain = Enum.GetValues<TerrainType>().Select(Camel).ToList(),
             RichnessMultiplier = GameWorld.RichnessMultiplier,
         },

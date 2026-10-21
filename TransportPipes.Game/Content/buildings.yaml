@@ -1,5 +1,5 @@
 # All buildings. Rates (in/out) are per minute at level 1.
-# kind: producer | storage | tradingPost | lab | hq | gate | valve | priorityValve | pump | tollMeter | cargoDepot
+# kind: producer | storage | tradingPost | lab | hq | gate | valve | priorityValve | pump | cargoDepot
 #       | exchangeOffice | showroom | workshop | weatherStation | recycler | expeditionOffice | blueprintOffice
 #       | deepLift | bank | teleporter | terraformer | powerLine | corporationHq | decoration
 # placement.terrain: allowed terrain (default: grass, hills, forest, desert, beach)
@@ -461,16 +461,6 @@
   buildSeconds: 60
   in: { energy: 5 }
   description: Every 50 buildings in a network need one pump.
-
-- id: tollMeter
-  name: Toll Meter
-  category: logistics
-  kind: tollMeter
-  size: 1
-  unlock: { level: 9 }
-  cost: { gold: 1000 }
-  buildSeconds: 30
-  description: Earns a toll on everything flowing through your public pipe.
 
 - id: storage
   name: Storage

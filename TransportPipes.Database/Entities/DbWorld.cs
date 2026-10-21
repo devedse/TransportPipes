@@ -11,8 +11,8 @@ public class DbWorld
     public DateTime CreatedAt { get; set; }
     public DateTime LastTick { get; set; }
 
-    /// <summary>The hub markets of all districts (jsonb)</summary>
-    public string Markets { get; set; } = "[]";
+    /// <summary>The version of the game's rules the world was made with: an older world is thrown away (accounts stay)</summary>
+    public int Rules { get; set; }
 
     /// <summary>The Exchange: open orders and shipments on their way (jsonb)</summary>
     public string Exchange { get; set; } = "{}";

@@ -97,12 +97,8 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("Choose an amount.");
         }
-        price = Math.Round(price, 2);
-        var basePrice = HubBuyPrice(company.District, resource);
-        if (price < basePrice * 0.25 || price > HubSellPrice(company.District, resource) * 1.5)
-        {
-            return CommandResult.Fail($"Choose a price between {basePrice * 0.25:0.##} and {HubSellPrice(company.District, resource) * 1.5:0.##} gold.");
-        }
+        // One price between players (v1.2 §8)
+        price = PlayerPrice(resource);
         // Reserve what the order needs
         var reserve = selling
             ? Pay(company, 0, new Dictionary<string, double> { [resource] = amount })

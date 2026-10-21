@@ -64,7 +64,6 @@ internal sealed class TestGame
         ['V'] = "valve",
         ['P'] = "priorityValve",
         ['U'] = "pumpStation",
-        ['X'] = "tollMeter",
         ['E'] = "exchangeOffice",
         ['C'] = "cargoDepot",
         ['L'] = "powerLinePylon",
@@ -111,9 +110,9 @@ internal sealed class TestGame
         World.Tick();
     }
 
-    public Company NewCompany(string name = "Test Co", double gold = 1_000_000, int level = 1)
+    public Company NewCompany(string name = "Test Co", double gold = 1_000_000, int level = 1, int? slot = null)
     {
-        var company = World.CreateCompany(World.Companies.Count() + 1, name, "#ff8800");
+        var company = World.CreateCompany(World.Companies.Count() + 1, name, "#ff8800", seat: slot is { } s ? new EstateKey(new DistrictCoord(0, 0), s) : null);
         company.Gold = gold;
         company.Level = level;
         return company;
@@ -160,12 +159,11 @@ internal sealed class TestGame
 
     public List<TilePos> Connect(Company company, Building from, Building to) => Connect(company, Pipeable(from.Border()), Pipeable(to.Border()));
 
-    /// <summary>Connects a building to one of the company's gates</summary>
-    public List<TilePos> Connect(Company company, Building from, GateSide side)
+    /// <summary>Connects a building to the company's Yard gate</summary>
+    public List<TilePos> ConnectToGate(Company company, Building from)
     {
-        var gate = WorldLayout.GatePosition(company.District, company.Slot, side);
         var estate = EstateOf(company);
-        return Connect(company, Pipeable(from.Border()), Pipeable(Neighbours(gate).Where(estate.Contains)));
+        return Connect(company, Pipeable(from.Border()), Pipeable(Neighbours(estate.YardGate).Where(t => CanPipe(company, t))));
     }
 
     /// <summary>Lays the shortest pipe between two sets of tiles (over free land and the company's own pipes)</summary>
@@ -210,7 +208,7 @@ internal sealed class TestGame
     private bool CanPipe(Company company, TilePos tile)
     {
         var zone = WorldLayout.ZoneAt(tile.X, tile.Y);
-        if (zone.Kind == ZoneKind.Estate ? !EstateOf(company).Contains(tile) : zone.Kind != ZoneKind.Corridor)
+        if (zone.Kind != ZoneKind.Estate || !EstateOf(company).Contains(tile))
         {
             return false;
         }

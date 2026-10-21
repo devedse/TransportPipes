@@ -14,8 +14,8 @@
     text: "At Company Level 2 you can mine. Build an Iron Mine on an iron deposit (see the Deposits overlay)." }
 - { id: firstIngot, stat: "produced:ironIngot", amount: 1, gold: 400, hint: { tool: build, building: smallFactory },
     text: "Ore is worth more as ingots. Build a Small Factory and connect it to the mine and your energy." }
-- { id: firstNeighbour, stat: partners, amount: 1, gold: 500, hint: { panel: neighbours },
-    text: "Your neighbours pay more than the hub. Open Neighbours and connect to one that needs what you make." }
+- { id: firstNeighbour, stat: partners, amount: 1, gold: 500, hint: { panel: yard },
+    text: "Your neighbours pay more than the hub. Lay a pipe from your network to your Yard gate: the station buys what you have spare." }
 - { id: firstStorage, stat: "built:storage", amount: 1, gold: 300, hint: { tool: build, building: storage },
     text: "Build a Storage on your pipes. It keeps what your buildings make, for the hub's daily orders." }
 - { id: firstOrder, stat: orders, amount: 1, gold: 500, hint: { panel: hub },
@@ -36,8 +36,8 @@
     text: "Research is a plan, not a list: pick techs that help what you make. Finish three researches." }
 - { id: moreOrders, chapter: 2, stat: orders, amount: 4, gold: 3000, hint: { panel: hub },
     text: "Deliver three more of the hub's daily orders. Your Storage keeps what they need; orders pay well and bring reputation." }
-- { id: neighbourIncome, chapter: 2, stat: neighbourIncome, amount: 30, gold: 4000, hint: { panel: neighbours },
-    text: "Neighbours pay more than the hub. Earn 30 gold a minute from them: pipe to the ones who need what you have spare (close ones pay best)." }
+- { id: neighbourIncome, chapter: 2, stat: neighbourIncome, amount: 30, gold: 4000, hint: { panel: yard },
+    text: "Your station pays more than the hub. Earn 30 gold a minute from your neighbours: make what they lack (the Yard shows it)." }
 - { id: secondParcel, chapter: 2, stat: parcels, amount: 6, gold: 5000, hint: { panel: parcel },
     text: "Room for the next chain: buy your second parcel. The parcel panel shows what each one holds." }
 - { id: corporation, chapter: 2, stat: corporation, amount: 1, gold: 6000, hint: { panel: corporation },

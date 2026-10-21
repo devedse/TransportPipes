@@ -148,27 +148,6 @@ export function canPlace(
   if (lock !== null) {
     return fail(`Needs ${lock}`);
   }
-  if (definition.kind === "tollMeter") {
-    // In the line of one of your own corridor pipes
-    if (zoneAt(x, y).kind !== "corridor") {
-      return fail("Toll meters go on your pipes in the corridors");
-    }
-    if (world.isOccupied(x, y)) {
-      return fail("Something is in the way");
-    }
-    const own = [
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1],
-    ].some(([dx, dy]) => {
-      const conductor = world.conductorAt(x + dx!, y + dy!);
-      return conductor?.kind === "pipe" && conductor.owner === company.id;
-    });
-    return own
-      ? { ok: true, reason: null, multiplier: 1 }
-      : fail("Put it in the line of your own corridor pipe");
-  }
   const deep = isDeep(y);
   if (deep && definition.layer === "surface") {
     return fail(`${definition.name} can't be built in the Deep Level`);
@@ -271,7 +250,7 @@ export function canPlace(
 }
 
 /** Building kinds that sit in a pipe and carry resources (a pipe route may go through your own) */
-const CONDUCTOR_KINDS = new Set(["valve", "priorityValve", "tollMeter"]);
+const CONDUCTOR_KINDS = new Set(["valve", "priorityValve"]);
 
 /** Whether this tile already carries your resources: your pipe, gate, valve */
 export function isOwnConductor(
@@ -306,7 +285,6 @@ export function pipeCost(
     return 0.15;
   }
   if (world.conductorAt(x, y) !== undefined || world.buildingAt(x, y) !== undefined) {
-    // Other companies' corridor pipes can't be crossed
     return null;
   }
   if (isDeep(y)) {
@@ -314,12 +292,9 @@ export function pipeCost(
     const terrain = world.terrain(x, y);
     return insideEstate(company, x, y - DEEP_OFFSET) && terrain === "cavern" ? 1 : null;
   }
+  // Pipes stay on your own land (the corridors carry links, which the game lays); and around your outposts
   const zone = zoneAt(x, y);
-  if (
-    zone.kind === "estate"
-      ? ownEstateAt(company, x, y) === undefined
-      : zone.kind !== "corridor" && zone.kind !== "wilderness"
-  ) {
+  if (zone.kind === "estate" ? ownEstateAt(company, x, y) === undefined : zone.kind !== "wilderness") {
     return null;
   }
   // The wilderness is open to pipes, except someone else's outpost

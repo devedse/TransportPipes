@@ -98,13 +98,7 @@ public sealed partial class GameWorld
         Changes.Estates.Add((estate.District, estate.Slot));
         Changes.Companies.Add(company.Id);
 
-        foreach (var side in Enum.GetValues<GateSide>())
-        {
-            var pos = WorldLayout.GatePosition(estate.District, estate.Slot, side);
-            _conductors[pos] = new Conductor { Pos = pos, Kind = ConductorKind.Gate, Owner = company.Id, Side = side };
-            MarkDirty(pos);
-            Changes.Tiles.Add(pos);
-        }
+        AddYardGate(company, estate);
 
         var placed = new List<Building>();
         var center = estate.Origin.Offset(WorldLayout.EstateSize / 2, WorldLayout.EstateSize / 2);
@@ -116,14 +110,10 @@ public sealed partial class GameWorld
             }
         }
 
-        // Every building gets a pipe to every gate, so neighbours on any side can connect
+        // Every building gets a pipe to the Yard gate, so the station's residents trade with it
         foreach (var building in placed)
         {
-            foreach (var side in Enum.GetValues<GateSide>())
-            {
-                var gate = WorldLayout.GatePosition(estate.District, estate.Slot, side);
-                LayTenantPipe(company, estate, building, gate);
-            }
+            LayTenantPipe(company, estate, building, estate.YardGate);
         }
     }
 
@@ -216,13 +206,9 @@ public sealed partial class GameWorld
         }
         _companies.Remove(tenant.Id);
         Deleted.Add(tenant);
+        RemoveYardGate(estate);
         estate.OwnerId = null;
         estate.UnlockedParcels = 0;
-        estate.GatePolicies.Clear();
-        foreach (var side in Enum.GetValues<GateSide>())
-        {
-            estate.GatePolicies[side] = GatePolicy.Open;
-        }
         estate.Touch();
         Changes.Estates.Add((estate.District, estate.Slot));
     }

@@ -20,8 +20,9 @@ public sealed partial class GameWorld
     public static readonly TimeSpan RestingAfter = TimeSpan.FromDays(3);
     public static readonly TimeSpan DormantAfter = TimeSpan.FromDays(14);
     public static readonly TimeSpan AsleepAfter = TimeSpan.FromDays(30);
-    public static readonly TimeSpan MoveEvery = TimeSpan.FromDays(7);
-    public static readonly TimeSpan MoveTime = TimeSpan.FromHours(1);
+    /// <summary>How long a company waits between moves, and how long its estate is in the air (content: together)</summary>
+    public TimeSpan MoveEvery => TimeSpan.FromMinutes(Content.Progression.Together.MoveCooldownMinutes);
+    public TimeSpan MoveTime => TimeSpan.FromMinutes(Content.Progression.Together.MoveFlightMinutes);
     public static readonly TimeSpan BlockTime = TimeSpan.FromHours(72);
     private const double CaretakerFee = 0.1;
     private const int BlockMinMembers = 5;
@@ -37,8 +38,8 @@ public sealed partial class GameWorld
         return away >= DormantAfter ? Activity.Dormant : away >= RestingAfter ? Activity.Resting : Activity.Active;
     }
 
-    /// <summary>What a move costs: more at higher Company Levels (free moves are free)</summary>
-    public double MoveCost(Company company) => company.FreeMoves > 0 ? 0 : 1000 * company.Level;
+    /// <summary>What a move costs (content: together; free moves are free)</summary>
+    public double MoveCost(Company company) => company.FreeMoves > 0 ? 0 : Content.Progression.Together.MoveCostPerLevel * company.Level;
 
     // ---------------------------------------------------------------- Packing
 
@@ -49,7 +50,7 @@ public sealed partial class GameWorld
         {
             return;
         }
-        var packed = new PackedEstate { UnlockedParcels = estate.UnlockedParcels, GatePolicies = new(estate.GatePolicies) };
+        var packed = new PackedEstate { UnlockedParcels = estate.UnlockedParcels };
         foreach (var building in BuildingsOf(company.Id).Where(t => InEstateOrBelow(estate, t.Position)).ToList())
         {
             // A lift's shaft comes back with its lift
@@ -70,24 +71,9 @@ public sealed partial class GameWorld
             MarkDirty(conductor.Pos);
             Changes.Tiles.Add(conductor.Pos);
         }
-        // The gates sit on the edge of the estate
-        foreach (var side in Enum.GetValues<GateSide>())
-        {
-            var pos = WorldLayout.GatePosition(estate.District, estate.Slot, side);
-            if (_conductors.TryGetValue(pos, out var gate) && gate.Owner == company.Id)
-            {
-                _conductors.Remove(pos);
-                Deleted.Add(gate);
-                MarkDirty(pos);
-                Changes.Tiles.Add(pos);
-            }
-        }
+        RemoveYardGate(estate);
         estate.OwnerId = null;
         estate.UnlockedParcels = 0;
-        foreach (var side in Enum.GetValues<GateSide>())
-        {
-            estate.GatePolicies[side] = GatePolicy.Open;
-        }
         estate.Touch();
         Changes.Estates.Add((estate.District, estate.Slot));
         company.Packed = packed;
@@ -117,10 +103,6 @@ public sealed partial class GameWorld
         estate.UnlockedParcels = packed.UnlockedParcels != 0 ? packed.UnlockedParcels : Content.Progression.StartParcels.Aggregate(0, (mask, parcel) => mask | (1 << parcel));
         estate.ReservedFor = null;
         estate.ReservedUntil = null;
-        foreach (var (side, policy) in packed.GatePolicies)
-        {
-            estate.GatePolicies[side] = policy;
-        }
         if (company.MergeBonus)
         {
             // A free parcel for moving away from a quiet district
@@ -139,13 +121,7 @@ public sealed partial class GameWorld
         company.ArrivesAt = null;
         OpenDistrict(estate.District);
 
-        foreach (var side in Enum.GetValues<GateSide>())
-        {
-            var pos = WorldLayout.GatePosition(estate.District, estate.Slot, side);
-            _conductors[pos] = new Conductor { Pos = pos, Kind = ConductorKind.Gate, Owner = company.Id, Side = side };
-            MarkDirty(pos);
-            Changes.Tiles.Add(pos);
-        }
+        AddYardGate(company, estate);
         // HQ and trading post first: they always fit
         // The Deep Level after the surface: the lifts' shafts first
         foreach (var item in packed.Buildings.OrderBy(t => Content.Building(t.Type).Kind is BuildingKind.Hq or BuildingKind.TradingPost ? 0 : 1)
@@ -235,7 +211,7 @@ public sealed partial class GameWorld
         }
         if (company.LastMovedAt is { } last && last + MoveEvery > LastTick && company.FreeMoves == 0)
         {
-            return "You can move once a week.";
+            return $"You can move again in {Math.Ceiling((last + MoveEvery - LastTick).TotalMinutes):N0} minutes.";
         }
         if (district == company.District)
         {
@@ -277,7 +253,7 @@ public sealed partial class GameWorld
             company.Gold -= cost;
             company.Report.GoldSpent += cost;
         }
-        EndTradeOf(company, cancelPipes: false);
+        EndTradeOf(company);
         Pack(company);
         // The new spot is kept for the company while it travels
         target.OwnerId = company.Id;
@@ -320,8 +296,8 @@ public sealed partial class GameWorld
             : $"Your estate has landed; {company.Crates.Count} buildings didn't fit and wait in crates"));
     }
 
-    /// <summary>Ends what ties a company to its neighbours: contracts and Exchange orders (and for sleepers their public pipes)</summary>
-    private void EndTradeOf(Company company, bool cancelPipes)
+    /// <summary>Ends what ties a company to its neighbours: contracts and Exchange orders</summary>
+    private void EndTradeOf(Company company)
     {
         foreach (var contract in _contracts.Values.Where(t => t.IsOpen && (t.Seller == company.Id || t.Buyer == company.Id)).ToList())
         {
@@ -335,20 +311,6 @@ public sealed partial class GameWorld
             Refund(order);
             _orders.Remove(order);
             Changes.Exchange = true;
-        }
-        if (cancelPipes)
-        {
-            // Public pipes become toll-free hub pipes
-            foreach (var conductor in _conductors.Values.Where(t => t.Owner == company.Id && WorldLayout.ZoneAt(t.Pos.X, t.Pos.Y).Kind == ZoneKind.Corridor).ToList())
-            {
-                conductor.Owner = 0;
-                conductor.Touch();
-                Changes.Tiles.Add(conductor.Pos);
-            }
-            foreach (var meter in _buildings.Values.Where(t => t.Owner == company.Id && Content.Building(t.Type).Kind == BuildingKind.TollMeter).ToList())
-            {
-                RemoveBuilding(meter);
-            }
         }
     }
 
@@ -405,8 +367,8 @@ public sealed partial class GameWorld
         {
             other.SwapWith = null;
             company.SwapWith = null;
-            EndTradeOf(company, cancelPipes: false);
-            EndTradeOf(other, cancelPipes: false);
+            EndTradeOf(company);
+            EndTradeOf(other);
             Pack(company);
             Pack(other);
             Unpack(company, theirs);
@@ -504,7 +466,7 @@ public sealed partial class GameWorld
     /// <summary>To the Quiet Isles: the estate is packed, its spot is free for a newcomer, nothing is lost</summary>
     private void Sleep(Company company)
     {
-        EndTradeOf(company, cancelPipes: true);
+        EndTradeOf(company);
         Pack(company);
         company.Asleep = true;
         company.Touch();
