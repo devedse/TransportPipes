@@ -318,6 +318,38 @@ stay); name + password accounts only (guests on a hidden account they can keep);
   counts only what the player builds and pipes). The first session at a human pace (`first-session.md`) earns from
   minute one and gets one Loady step further in 45 minutes
 
+### v1.2 after the AI playtest (decided, not built)
+
+The AI playtest (`docs/playtest-design.html`, tools in `playtest/`): five AI players, 36 game days. Its verdict: a
+lovely first evening, then five weeks side by side but never together; 4 of 20 promises kept.
+
+What followed:
+- **The fix plan.** A panel of five decided it: `docs/playtest-fixes.html`, F0–F11.
+- **The redesign.** The six v1.2 designers came back, agreed one shared idea, and argued it against the fix panel's
+  plan through one representative each, to a joint statement both signed. The record is in
+  `docs/design-notes/after-playtest/`.
+- **The revised plan:** `docs/playtest-redesign.html`, "Needs from the land, gifts by pipe".
+  - Land goods are dealt per station, with no copies.
+  - Kits make the seat's own good.
+  - One price, 1.3, confirmed by light bots.
+  - Houses sell land goods at 1.4, with a floor and a station backstop.
+  - Send ▸ sits on top of the automatic Yard.
+  - A stranger is seated next door to a crew.
+
+**The build, in seven playable steps:**
+- On today's world:
+  1. The fix plan's foundations.
+  2. The money's guards.
+  3. The project and one return card.
+  4. Send.
+- With a new world:
+  5. The land deal.
+  6. The stranger next door.
+  7. The rest, then run 2.
+
+**Waiting for the owner's three decisions:** a new world on the test server, going on past the fix plan, and the
+stranger next door.
+
 ### After v1
 
 Designed (GDD §11), not needed for a fun first version: the Bank (investing, insurance, Wonder bonds), District
