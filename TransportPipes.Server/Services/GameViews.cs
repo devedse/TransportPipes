@@ -457,9 +457,11 @@ public static class GameViews
                 continue;
             }
             var yard = WorldLayout.Yard(station);
-            var stage = project.Stage == ProjectStage.Done ? ProjectStage.Landmark : project.Stage;
+            // What stands is the last finished stage; before the Foundation is built, its plan rises with the basket
+            var built = project.Finished.Keys.Where(t => t != ProjectStage.Done).DefaultIfEmpty(ProjectStage.Done).Max();
+            var stage = built == ProjectStage.Done ? ProjectStage.Foundation : built;
             var target = project.Basket.Sum(t => t.Value * world.BasePrice(t.Key));
-            var done = project.Stage == ProjectStage.Done || target <= 0 ? 100
+            var done = built != ProjectStage.Done || target <= 0 ? 100
                 : (int)Math.Floor(100 * project.Basket.Sum(t => Math.Min(t.Value, project.Delivered.GetValueOrDefault(t.Key)) * world.BasePrice(t.Key)) / target);
             structures.Add(new HubStructureDto($"project-{Camel(stage)}", yard.X0 - hub.X, yard.Y0 - hub.Y, 4,
                 $"{GameWorld.StageName(stage)} · {WorldNames.Station(station)}", Level: Math.Min(100, done), Stages: 100));
