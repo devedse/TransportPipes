@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fixing Playing Together</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --teal: #24575a; --teal-dark: #173c3f; --accent: #236b69; --brass: #c9963a; --brass-dark: #94692a;
+  --cream: #f4ead3; --cream-strong: #fbf5e7; --paper: #fffaf0; --ink: #2b2418; --muted: #6b5c43;
+  --green: #33761f; --red: #a12f1f; --gold: #8a5d00; --line: rgba(80, 60, 30, 0.18);
+  --good-bg: #d6eccd; --bad-bg: #f6d3cc; --warn-bg: #f3e6c4;
+}
+* { box-sizing: border-box; }
+html { background: #e9dfc6; }
+body { margin: 0; font-family: Nunito, system-ui, sans-serif; color: var(--ink); line-height: 1.55; background: #e9dfc6; }
+.page { max-width: 1040px; margin: 24px auto; padding: 48px 56px; background: var(--paper); border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(40, 30, 10, 0.18); border: 1px solid var(--line); }
+@media (max-width: 720px) { .page { margin: 12px 8px; padding: 24px 16px; border-radius: 12px; } }
+h1, h2, h3 { font-family: Fraunces, Georgia, serif; color: var(--teal-dark); line-height: 1.2; text-wrap: balance; }
+h1 { font-size: 2.6rem; margin: 0 0 8px; }
+h2 { font-size: 1.9rem; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 3px solid var(--brass); }
+h3 { font-size: 1.25rem; margin: 26px 0 8px; }
+h4 { margin: 18px 0 6px; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+p { margin: 0 0 12px; max-width: 72ch; }
+ul, ol { padding-left: 22px; margin: 0 0 12px; }
+li { margin-bottom: 4px; }
+.kicker { text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; color: var(--brass-dark); font-size: 0.85rem; }
+.lead { font-size: 1.15rem; }
+.muted { color: var(--muted); }
+.small { font-size: 0.88rem; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+@media (max-width: 720px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+.grid2 > *, .grid3 > * { min-width: 0; }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 0.92rem; }
+th { text-align: left; background: var(--cream); color: var(--teal-dark); padding: 7px 10px; font-weight: 800; }
+td { padding: 7px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+tr.hl td { background: #fbefd4; }
+.callout { padding: 14px 18px; border-radius: 12px; background: var(--cream); border-left: 6px solid var(--brass); margin: 14px 0; }
+.callout.decision { border-left-color: var(--accent); background: #e4efe9; }
+.callout.problem { border-left-color: var(--red); background: #f8e7e2; }
+.callout strong:first-child { display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; margin-bottom: 4px; }
+.pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 0.78rem; font-weight: 800; white-space: nowrap; }
+.pill.good { background: var(--good-bg); color: var(--green); }
+.pill.bad { background: var(--bad-bg); color: var(--red); }
+.pill.warn { background: var(--warn-bg); color: var(--gold); }
+.pill.info { background: #dde9f3; color: #24507a; }
+.toc { columns: 2; gap: 32px; padding-left: 20px; }
+.toc li { break-inside: avoid; }
+@media (max-width: 720px) { .toc { columns: 1; } }
+.cover { background: linear-gradient(160deg, #1f4d50 0%, #24575a 55%, #2f6b66 100%); color: #fff; }
+.cover h1 { color: #fff; font-size: 3rem; }
+.cover .kicker { color: #f2d27a; }
+.cover .lead { color: #f4ead3; }
+.themes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 26px; }
+@media (max-width: 720px) { .themes { grid-template-columns: 1fr; } .cover h1 { font-size: 2.2rem; } }
+.theme { background: rgba(255,255,255,0.1); border: 1px solid rgba(242,210,122,0.5); border-radius: 12px; padding: 12px 14px; }
+.theme b { color: #f2d27a; display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; }
+.theme span { color: #f4ead3; font-size: 0.9rem; }
+.gpanel { background: var(--cream); border: 3px solid var(--teal); border-radius: 14px; box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+  padding: 12px 14px; color: var(--ink); font-size: 0.9rem; }
+.gpanel h5 { margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; color: var(--teal-dark); }
+.plaque { display: inline-block; background: linear-gradient(#8a5a2e, #6e4421); color: #fff6df; font-family: Fraunces, Georgia, serif;
+  padding: 3px 12px; border-radius: 8px; border: 2px solid #4a2c12; font-weight: 800; margin-bottom: 6px; }
+pre, code { font-family: "JetBrains Mono", ui-monospace, monospace; }
+code { font-size: 0.86em; background: var(--cream); padding: 1px 5px; border-radius: 5px; }
+pre { background: #1d2b2c; color: #e9f0e6; padding: 14px 16px; border-radius: 12px; font-size: 0.8rem; line-height: 1.5;
+  overflow-x: auto; margin: 10px 0 16px; white-space: pre; }
+pre .c { color: #9fb8b0; }
+pre .k { color: #f2d27a; }
+/* The setup as a flow */
+.flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: stretch; margin: 18px 0 8px; }
+@media (max-width: 860px) { .flow { grid-template-columns: 1fr; } }
+.node { background: var(--cream-strong); border: 2px solid var(--teal); border-radius: 12px; padding: 10px 12px; font-size: 0.86rem; position: relative; }
+.node b { display: block; font-family: Fraunces, Georgia, serif; color: var(--teal-dark); font-size: 1rem; margin-bottom: 2px; }
+.node .who { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800; color: var(--brass-dark); }
+.node.ai { border-color: var(--brass); background: #fdf3dc; }
+.node.game { border-color: var(--accent); background: #e7f1ec; }
+.arrows { font-size: 0.85rem; color: var(--muted); margin: 4px 0 18px; }
+.persona { display: flex; flex-direction: column; gap: 6px; }
+.persona .head { display: flex; align-items: center; gap: 10px; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-family: Fraunces, Georgia, serif;
+  font-weight: 800; font-size: 1.1rem; flex: none; border: 2px solid rgba(0,0,0,0.15); }
+.persona .tests { font-size: 0.84rem; color: var(--muted); }
+.persona .tests b { color: var(--teal-dark); }
+.cal td:first-child { white-space: nowrap; font-weight: 800; color: var(--teal-dark); }
+.dots { white-space: nowrap; }
+.dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; margin-right: 3px; vertical-align: -1px; }
+.ex { position: relative; }
+.ex::before { content: "Example of the format · not a result"; position: absolute; top: -11px; right: 14px; background: var(--brass);
+  color: #fff; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 6px; }
+.score { display: inline-flex; gap: 10px; flex-wrap: wrap; font-weight: 800; color: var(--teal-dark); }
+
+.fix { border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px 6px; margin: 0 0 14px; background: #fffdf7; }
+.fix-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.fix-head h3 { margin: 0; }
+.fix-head .eff { margin-left: auto; font-size: 0.8rem; font-weight: 800; color: var(--muted); }
+.fix ol, .fix ul { margin-top: 0; }
+.fix table td:first-child { white-space: nowrap; }
+table.small td, table.small th { font-size: 0.86rem; }
+</style>
+
+</head>
+<body>
+
+<section class="page cover">
+  <div class="kicker">TransportPipes · v1.2 · after the first AI playtest</div>
+  <h1>Fixing Playing Together</h1>
+  <p class="lead">The playtest found a lovely first evening, then five weeks side by side but never together. A panel of
+  five, each with one point of view, read every diary, log and screenshot and checked the code. Over three rounds they
+  decided what to change, how, in what order, and how we'll know it worked. This page is the decision.</p>
+  <div class="themes">
+    <div class="theme"><b>Make it true, then show it</b><span>The Yard pays before any screen shows trade. Dead ends
+      explain themselves before the advice reaches everyone. The project can be reached before it's put on a row.</span></div>
+    <div class="theme"><b>The cause in five words, where they look</b><span>On the building panel, the return card,
+      Loady and the "This week" row: the four places every player read. Nothing new to find.</span></div>
+    <div class="theme"><b>Give the friends something to give</b><span>An honest Yard trades little between kits that
+      all make energy. So the project and chains fed by a neighbour carry week 1, and every gift is announced.</span></div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>1 · What the playtest showed</h2>
+  <p>Four causes, in order. Everything else hangs off them.</p>
+  <div class="grid2">
+    <div class="callout problem">
+      <strong>1. The Yard took goods and paid almost nobody</strong>
+      <code>Measure</code> counted every input of a slowed building as lacking at its full unused need, because the
+      solver gives each input exactly what the building's rate uses, so they always tie. Cleo's level-35 Lab was matched
+      361 energy a minute from Ana, Ben and Dev and could use 0.6: about 3.5M gold vanished in eight days. A Glassworks
+      House that could never run took a quarter of Mia's energy for 36 days. In 36 days no Yard trade paid a player.
+    </div>
+    <div class="callout problem">
+      <strong>2. Dead ends blamed their inputs</strong>
+      Ana built her factory exactly as Loady said, piped to the mine and a windmill. Goods never pass through a
+      building, so its ingots couldn't leave. The network card said "Energy 20 short", and she, Cleo and Dev chased
+      energy for 32 days. Dev's dredger sat 11 days the same way. 5 of the 9 real STUCK notes.
+    </div>
+    <div class="callout problem">
+      <strong>3. Nothing to give, and a project out of reach</strong>
+      Every starter kit makes energy, so no friend needed what a friend made. The one shared buyer, the project, asked
+      for sand, wood and stone, which nobody made, at sizes from the balance bot's income table: 3–18 times what these
+      players earned. The Water Tower wanted 91.5k sand and sat at 0 from day 3 to day 36. Every stage also had an
+      18-hour tail.
+    </div>
+    <div class="callout problem">
+      <strong>4. The screens they read carried none of it</strong>
+      One line hid the Next steps from 4 of 5 players for 36 days. Loady stalled for weeks. Three dialogs stood before
+      every return, without the friends' news. The "This week" row said "A new parcel: Level 5" for a month. The crew
+      chip was clipped off the screen. Ana never learned of Ben's stand-in.
+    </div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>2 · How we decided</h2>
+  <div class="grid2">
+    <div>
+      <p>Five agents, each with one seat:</p>
+      <ul>
+        <li><b>The systems engineer:</b> root causes in the code, file and line, and the smallest correct fix.</li>
+        <li><b>The economy designer:</b> every number, with worked checks against the run.</li>
+        <li><b>The clarity designer:</b> what players see, with exact texts.</li>
+        <li><b>The cooperation designer:</b> playing together on purpose.</li>
+        <li><b>The player researcher:</b> the evidence, the devil's advocate, and what counts as success.</li>
+      </ul>
+      <p>They worked in three rounds: each alone; everyone reading everyone; then the moderator's draft plan, judged item by item and voted
+      on. The record is in <code>docs/design-notes/playtest-fixes/</code>.</p>
+    </div>
+    <div class="callout decision">
+      <strong>Where they changed their minds</strong>
+      <ul class="small">
+        <li><b>The engineer</b> dropped an extra solve per buyer (too slow for big networks). It also took back its own
+          seller-side floor, which would have paid project, Ask and trunk deliveries twice.</li>
+        <li><b>The economy designer</b> withdrew the keystone valve, hub research points and the one-tap Invest.</li>
+        <li><b>The cooperation designer</b> withdrew the crew chat channel: the crew's talk in the district chat was Mia's only
+          sign of life. It also gave up the Loady Yard step.</li>
+        <li><b>The researcher</b> corrected two of its own claims; the Lab's 15 points at 3% is correct arithmetic.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>3 · Rules for every fix</h2>
+  <ul>
+    <li><b>One truth per fact.</b> One <code>IdleReason</code> for the panel, the card, the next steps and Loady. Paid
+      figures only, never matched ones, wherever income or trade shows.</li>
+    <li><b>The cause in the first five words.</b> Ben skims, Dev doesn't read. The building panel shows a block only
+      when it has something true to say, in a fixed order:
+      <ol>
+        <li>the status and reach line;</li>
+        <li>the one fix button;</li>
+        <li>the upgrade (it stays put under the pointer);</li>
+        <li>where it goes;</li>
+        <li>needs and makes;</li>
+        <li>its network.</li>
+      </ol>
+    </li>
+    <li><b>An event budget.</b> A toast is for what happens while you watch. What happened while you were away goes on
+      the return card, and the bell is the archive. On a phone, one toast at a time.</li>
+    <li><b>Privacy.</b> A trade pair is shown only to its two ends.</li>
+    <li><b>No gold moves between players, and no gold buys a shared decision.</b> No gifts, point trading or keystone
+      valve.</li>
+    <li><b>Keep v1.2's decisions:</b> one price between players, Houses labelled and capped at 25%, no votes or kicks.
+      The one exception is the price's level, which the bots decide (section 5).</li>
+    <li><b>Snapshots stay loadable.</b> No migration is needed (companies, projects and crews are JSON), so the run's
+      snapshots replay every fix.</li>
+  </ul>
+</section>
+
+<section class="page">
+  <h2>4 · The fixes, in ship order</h2>
+  <p class="small muted">S ≤ 2 h, M ≤ a day, L more. Each step is a playable commit on the branch, and each must pass its
+  gate (section 6) before the next ships.</p>
+
+  <div class="fix"><div class="fix-head"><span class="pill info">F0</span><h3>Instruments and replays</h3><span class="eff">S–M</span></div>
+    <p><b>What it measures:</b></p>
+    <ul>
+      <li>gold the Yard paid, beside what it matched, and what nobody took, per seller;</li>
+      <li>per building, idle since when, why, and whether its owner was shown why;</li>
+      <li>project deliveries per good and company;</li>
+      <li>return cards and clicks, and toasts on a phone screen;</li>
+      <li>the share of output traded between humans;</li>
+      <li>new gold from NPCs;</li>
+      <li>tends, thanks and the first gift.</li>
+    </ul>
+    <p><b>The tools:</b> a <code>project restage</code> cheat, and scripted replays from the snapshots (row01, row07,
+    row08, row10, row14, and Dev's day 10). <b>Every replay must first fail on today's build exactly as run 1 did.</b></p></div>
+
+  <div class="fix"><div class="fix-head"><span class="pill bad">F1</span><h3>The Yard is honest</h3><span class="eff">S + M</span></div>
+    <ol>
+      <li><b>The floor (S, the first commit).</b> What the Yard matched and the buyer didn't take is paid to the seller
+        at its own hub price.
+        <ul>
+          <li>It is settled on the buyer's side, for Yard matches only, capped at the seller's hub-bound spare.</li>
+          <li>It is booked as a hub sale, in the seller's Hub Order too.</li>
+          <li>A player buyer pays the premium (1.75 × base − the seller's hub price) for what it takes.</li>
+          <li>The project, Asks and trunks pay for their own goods as today, never twice.</li>
+        </ul>
+      </li>
+      <li><b>Lacks only what a building can use.</b> <code>lack ≤ need × min(f_out, f_other) − got</code>.
+        <ul>
+          <li><code>f_out</code> is 0 when the building is stuck, its run fraction when its own Storage or post is full,
+            and 1 otherwise.</li>
+          <li><code>f_other</code> covers its other inputs on its own links, plus the station's spare through its gate
+            link.</li>
+        </ul>
+        The <code>IdleReason</code> engine (game side) moves into this step. A probe solve checks the formula in tests only.
+      </li>
+      <li><b>Feedback.</b> A buyer that took under 80% is next matched at most 1.25 × what it took, plus 0.5 a minute.</li>
+      <li><b>Spare is real.</b> It counts storage-bound output beyond what the Storage keeps, and the idle capacity of a
+        building held back by its output.</li>
+      <li><b>No dead Houses.</b> The "neighbour in need" Houses get a trading post. Their missing good is one the
+        station's humans make, chosen again daily.</li>
+      <li><b>Screens show what was paid</b>, last: the top bar, the Yard panel and Loady's neighbour step.</li>
+    </ol>
+    <p class="small"><b>Checked against the run:</b> Ana 33.5 + 194 ≈ 228 g/min through the Lab week (her real rate
+    after it: 228–231). The Lab's energy lack is capped at 0.1 a minute.</p></div>
+
+  <div class="fix"><div class="fix-head"><span class="pill bad">F2</span><h3>Dead ends explain themselves</h3><span class="eff">M</span></div>
+    <p><b><code>IdleReason</code></b> is decided from links, never from this round's flows, so it can't flicker. It
+    distinguishes stuck, taker stuck, full (<i>"Slowed: its Storage is full"</i>), input missing, input short, post
+    full, pumps and damaged.</p>
+    <p><b>The network card</b> no longer counts a stuck building as "short", and the advisor's shortage steps skip it.</p>
+    <p><b>The panel:</b></p>
+    <ul>
+      <li>the pill reads <code>⛔ Stuck: ingots can't leave</code>;</li>
+      <li>the reach line reads <code>Its pipes reach only: Iron Mine, Wind Moily.</code>;</li>
+      <li>one button, <b><code>Lay the pipe to your Trading Post · 12 g</code></b>, planned with the player's own pipe
+        rules and laid on a click;</li>
+      <li>when the best taker is the project or a neighbour, the button goes to the Yard gate instead: <code>The Water
+        Tower wants its sand at your Yard gate (G)</code> · <code>Lay the pipe to your Yard gate · 26 tiles · 52 g</code>.</li>
+    </ul>
+    <p><b>Elsewhere:</b> a map bubble on a stuck building and a goal-tracker alert for everyone. Loady's factory step
+    reads <i>"build it right on the pipe from your Iron Mine to your Trading Post … Goods never pass through a
+    building."</i> Its Show me places the ghost on that pipe.</p></div>
+
+  <div class="fix"><div class="fix-head"><span class="pill bad">F3</span><h3>Next steps for everyone, Loady follows the estate</h3><span class="eff">S–M · with F2</span></div>
+    <ul>
+      <li>The Next steps show from Level 3 in every chapter, collapsed on a phone. They ship <i>with</i> F2, so the
+        advice they spread is true.</li>
+      <li>The starter kit counts from step 3 on. Step 2 stays the player's own first pipe, the lesson Ben needed.</li>
+      <li>The kit's own gate pipe still completes Loady's Yard step, whose text teaches the door: <i>"Your kit is piped
+        to your Yard gate (G): that's your door to the neighbours. What reaches it by pipe goes to their buildings, and
+        to the Water Tower, by itself."</i></li>
+      <li>A step open for two play days shrinks to one line with its tip. Chapter 1 retires at Level 10 for everyone.</li>
+      <li>No levels in step texts, no duplicate titles, and nothing the player demolished in the last 7 days is
+        suggested.</li>
+      <li>The advisor's effort term becomes max(200, 10 minutes of income, 2% of the bank), so with a big bank the steps
+        rank by what they bring. For Cleo on day 14, "moily to 30 + post to 10" (+1,760 g/min for 114k) ranks first
+        instead of "+16 for 353 g".</li>
+    </ul></div>
+
+  <div class="fix"><div class="fix-head"><span class="pill warn">F4</span><h3>A project the station can reach</h3><span class="eff">L</span></div>
+    <table class="small">
+      <tr><td><b>Foundation</b></td><td>900 energy. It stands about 20:12 for the crew and 20:21 for Mia alone on kits
+        (pass: 20:30).</td></tr>
+      <tr><td><b>No tail</b></td><td>The project takes all that's offered, up to what's left, in proportion. A good is done at
+        99.5% or under 1 unit. 150 ore takes about 10 minutes, not 19 hours.</td></tr>
+      <tr><td><b>Recipe</b></td><td>Two goods active residents make now, or can make with one building unlocked within the stage's
+        horizon (Water Tower Level 5, Workshop 7, Foundry Hall and after 10), preferring goods made now and goods other
+        than energy. "Makes" means running output that reaches a gate.</td></tr>
+      <tr><td><b>Keystone</b></td><td>A good nobody makes yet that an active resident can make with one building, on land they
+        have or can buy. It is picked again only when no active resident can make it, never while someone delivers it.
+        There's no keystone when none qualifies. It is exempt from the allowance, and is 6 h of one level-1 building
+        (sand 5,400, stone 7,200).</td></tr>
+      <tr><td><b>Size</b></td><td>Made goods are 4 h / 6 h / 9 h of the station's spare (at least that much of one level-1
+        building). The whole basket is at most 1.5 × the stage's hours of summed measured income. Baskets only shrink:
+        a counted resident's part comes off after 3 days without a session. The crew's Water Tower: about 93k instead
+        of 329k, done around day 3.</td></tr>
+      <tr><td><b>Measured income</b></td><td>I(c) is a 24-h average of production gold a minute (at least 60). It replaces the bot's
+        table for allowances (2 h a day, banked 3 days), "delivering", the Landmark and Wonder stages. The table stays only
+        for trunk prices.</td></tr>
+      <tr><td><b>Shown</b></td><td>On the "This week" row, clickable: <code>This week · 🏗 Water Tower 12% · wants sand · Ben can ›</code>.
+        Only active residents are named, and nothing scolds. The bonus shows honestly in g/min on the card.</td></tr>
+    </table></div>
+
+  <div class="fix"><div class="fix-head"><span class="pill warn">F5</span><h3>One return card</h3><span class="eff">M</span></div>
+    <p>One card replaces the report and the way-back pages 1–2. It is built by the server on its clock, for every return
+    with news, with one button and keys trapped. The landing screen remains only for the Quiet Isles or crates.</p>
+    <p><b>The sections, in order, six lines at most:</b></p>
+    <ol>
+      <li>gold and level;</li>
+      <li><b>your people</b>: resting, a tend that repairs, the stand-in, back, moved in, what your goods did for them,
+        and for a player without a crew, who answered them in the district chat and when;</li>
+      <li><b>to look at</b>: stuck buildings and storm damage with Repair all;</li>
+      <li>the project;</li>
+      <li>the Invest line (section 5), the lowest, folded first.</li>
+    </ol></div>
+
+  <div class="fix"><div class="fix-head"><span class="pill warn">F6</span><h3>Trade with a face, and things a friend needs</h3><span class="eff">M + M · after F1, F2, F4</span></div>
+    <ul>
+      <li>"Where it goes" names both ends (<code>⚡ to the Yard → Dev's Sand Dredger · 8/min · 1.75 g</code>) and the
+        project. The top bar counts paid Yard, Ask and project income, with a hover split.</li>
+      <li><b>The first gift is announced</b>, to a crew mate <i>and</i> to the project (<i>"∴ Your sand reached the Water
+        Tower: 15 a minute"</i>), within the event budget. A 💛 Thanks tap, once a day per pair. Pairs are shown only to
+        their ends.</li>
+      <li>"Who could use your sand" lists real takers on a producer's panel; F2's button already lays the pipe, so there is one
+        fix button per panel.</li>
+      <li><b>Interdependence:</b> the advisor also offers factories whose missing input a neighbour has spare (<i>"Cleo has
+        6 iron ingots spare: a Lab piped to your Yard gate gets them by itself"</i>), and recipes prefer such goods.</li>
+      <li>The toolbar's "Station" becomes <b>"Neighbours"</b>. Its first line: <i>"To give a neighbour something, pipe the
+        building that makes it to your Yard gate (G). It goes to whoever here lacks it, and to the station's
+        project."</i></li>
+      <li>The seat card says what's really there (<i>"wind kit · sand: a dredger on the shore, Level 5"</i>): the
+        Riverside seat promised Ben sand he never had.</li>
+    </ul></div>
+
+  <div class="fix"><div class="fix-head"><span class="pill info">F7</span><h3>The seat picker tells the truth</h3><span class="eff">S · ships early</span></div>
+    <ul>
+      <li>After a refusal the picker reloads with the next seat named (<i>"Tea Time Pipes just settled in Capital NW and
+        keeps its seats for friends. Here's the next free seat: …"</i>).</li>
+      <li>It never keeps a stale seat, and Settle is off on a seat that can't be picked.</li>
+      <li>Friends and a stranger are suggested different stations, and "A station of my own" prefers four seats.</li>
+      <li>An honest text when no human has a free seat, and an empty company name says so.</li>
+    </ul></div>
+
+  <div class="fix"><div class="fix-head"><span class="pill info">F8</span><h3>Smart Max</h3><span class="eff">S–M</span></div>
+    <ul>
+      <li>The Max button itself buys only the levels the building's own pipes (and what its gate brings now) keep at ≥ 90%.
+        It shows its price and its reason: <code>Max +8 · 27.5k g</code>, with <i>"+34 would run at 3%: its pipes bring 6
+        of 204 iron ingots · more…"</i> under it.</li>
+      <li>"More…" opens the choice; the neighbours' spare is a separate line there.</li>
+      <li>Every upgrade button shows its price. Complexes are priced right. There's no confirm on big spends, which we
+        want players to make.</li>
+    </ul></div>
+
+  <div class="fix"><div class="fix-head"><span class="pill info">F9</span><h3>Friends by name, the crew where people look, a tend that does a chore</h3><span class="eff">S–M</span></div>
+    <ul>
+      <li>"Who is this seat for?" makes "Copy Ben's link". The move-in screen reads "Ana kept this seat for Ben", and to
+        the crew he shows as <code>Riverside Co. (Ben)</code>.</li>
+      <li>The crew gets its own top-bar spot, out of the clipped name.</li>
+      <li>Tend shows only when it repairs (<i>"💛 Tend: repair Ben's 2 storm-damaged moilies"</i>). There's no fee
+        waiver.</li>
+      <li>Stand-ins copy what partners actually took, not what was matched. A 14-day median comes only if run 2 shows a
+        hole.</li>
+    </ul></div>
+
+  <div class="fix"><div class="fix-head"><span class="pill info">F10</span><h3>Trust in minute one, the phone, small breakers</h3><span class="eff">S–M</span></div>
+    <ul>
+      <li>Rates are read after the solve, so "+0/min" goes. No "Something is in the way" after a placement that
+        worked.</li>
+      <li>On a phone: one toast at a time, the level-up after Loady's first step, a pipe step that says to pick the
+        Pipe tool (and Show me picks it), and a building panel as a bottom sheet of at most 55%.</li>
+      <li>Overlays turn off when their step is done, and Wind and Sun get a legend.</li>
+      <li>Chat gets day stamps and "new since you left". Buttons get distinct accessible names, and research cards are
+        named by their tech.</li>
+      <li>The pipe groups light up on the map (after F2's button).</li>
+    </ul></div>
+
+  <div class="fix"><div class="fix-head"><span class="pill info">F11</span><h3>The edges</h3><span class="eff">S each</span></div>
+    <ul>
+      <li>Link offers wait until 24 h after the other side's next session (at most 14 days) and show on their return
+        card.</li>
+      <li>The lone-human card gives an honest text when no livelier seat is free, and suggests a link only for a real
+        spare–lack pair.</li>
+      <li>A research queue of five.</li>
+    </ul></div>
+
+  <p class="small muted"><b>Dropped:</b> the crew chat channel, the keystone valve, hub research points, a "send to a
+  friend" button, new gold sinks, a 25% spend confirm, and a top-bar project chip. Letting goods pass through
+  buildings is dropped too, unanimously: we explain the rule instead. It comes back only if Ana's replay still fails
+  after F2.</p>
+</section>
+
+<section class="page">
+  <h2>5 · The decisions where the panel disagreed</h2>
+  <div class="scroll">
+  <table>
+    <tr><th>Question</th><th>Decided</th><th>Why</th></tr>
+    <tr><td>Where the Yard's floor is paid</td><td>Buyer's side, Yard matches only, capped at hub-bound spare, booked in
+      the Hub Order</td><td>The seller's side paid the project, Asks and trunks twice (engineer, r3). The untaken part is now
+      known exactly, so it can be a hub sale (economy, r2)</td></tr>
+    <tr><td>How lacks are computed</td><td>A formula with an output cap and an input cap on the building's own links; a
+      probe solve only in tests</td><td>One probe per buyer per round broke the speed budget on dense networks. Caps on inputs
+      alone left Ana's stuck factory "lacking" (engineer, r2)</td></tr>
+    <tr><td>Where the kit counts in Loady's steps</td><td>From step 3</td><td>Step 2 is where players learn to pipe; the kit
+      would leave their own first panel silently unpiped</td></tr>
+    <tr><td>Whether the Yard step needs the player's own pipe</td><td>No; the kit's pipe completes it, and the text teaches the
+      door</td><td>Its author withdrew it. Ben's only real STUCK was a phone pipe drag, and a 26-tile gate pipe can stall</td></tr>
+    <tr><td>Next steps for everyone</td><td>Yes, shipped with the dead-end fix</td><td>Before it, they'd spread today's wrong
+      "build moilies" advice (researcher)</td></tr>
+    <tr><td>Invest line (VOTE A)</td><td><b>Unanimous:</b> on the return card, "Show me" opens the best upgrade, one building at
+      a time, smart-Max level preselected. It shows only with ≥ 12 h of income banked and a payback ≤ 2 h on own
+      supply. No one-tap spend</td><td>An unseen big spend is what hurt Cleo. Even the advisor-following bot banks 25 days of
+      income, so the advice was sized too small, not missing an autopilot</td></tr>
+    <tr><td>Crew chat channel</td><td>No</td><td>The crew's talk in the district chat was Mia's only sign of life. The friends
+      talked fine outside</td></tr>
+    <tr><td>Keystone valve (buy it with gold)</td><td>No</td><td>It turns the crew's one decision into a gold check. If a
+      buildable keystone sits 7 days with an able resident, a House brings it (a trigger, not built now)</td></tr>
+    <tr><td>Tending</td><td>It repairs storm damage, and shows only then; no fee waiver</td><td>A tend that does nothing gets
+      one tap, never a second. The waiver was a faucet nobody missed</td></tr>
+    <tr><td>Stand-ins</td><td>Copy what partners took now; a 14-day median only if run 2 shows a hole</td><td>The observed fault
+      was a frozen false match (S); the median is M, for a fault nobody saw</td></tr>
+    <tr><td>Agent replays</td><td>They gate each fix</td><td>Run 1's factory line was <i>correct</i> and Ana still misread it
+      for 32 days. A test checks it's true; only a player checks it's understood (researcher)</td></tr>
+    <tr><td>Does a gift to the project count?</td><td>Yes, announced and measured</td><td>In week 1 the project is the only
+      honest gift (cooperation designer)</td></tr>
+    <tr class="hl"><td><b>The one price between players: 1.75 or 1.5 × base</b></td><td>A crew-of-four bot run at both prices
+      decides, before run 2. Ship the one that reaches a 15% trade share and 85–90% parity; keep 1.75 if neither does
+      better</td><td>At 1.75 buying a neighbour's ore pays the buyer +1 g/min on a Small Factory and −1.25 on a Smelter, so
+      copper can't cross estates. A solo player would then earn about 106% of a crewed one. At 1.5 both sides gain, and it's
+      still one price (economy, r3)</td></tr>
+  </table>
+  </div>
+</section>
+
+<section class="page">
+  <h2>6 · How we'll know it worked</h2>
+  <h3>The gates: what must pass before the next step ships</h3>
+  <div class="scroll">
+  <table class="small">
+    <tr><th>Step</th><th>Ships</th><th>Must pass</th></tr>
+    <tr><td>0</td><td>F0, rates after the solve, the seat picker</td><td>Every replay fails on today's build as run 1 did</td></tr>
+    <tr><td>1</td><td>F1.1, the floor</td><td>row10 + 6 h with no actions: Ben ≥ 70 g/min (run 1: 0), Ana ≥ 200, Dev ≥ 120, Mia ≥ 90</td></tr>
+    <tr><td>2</td><td><code>IdleReason</code> + honest lacks, real spare, the Houses' posts</td><td>row10: the Lab matched under 1 energy a minute; untaken ≤ 5%; conservation every sample</td></tr>
+    <tr><td>3</td><td>Paid figures on screens</td><td>row10: top bar × 10 minutes = the gold change; no matched figure anywhere</td></tr>
+    <tr><td>4</td><td>Smart Max, then F2 + F3</td><td>row08, row10, Dev's day 10 scripted; <b>agents: Ana d08, Ana d14, Dev d10</b>: the factory and dredger run in the session, ≤ 10 play minutes</td></tr>
+    <tr><td>5</td><td>F4</td><td>row01: both Foundations by 20:30; row07 + restage: made goods 100% in 3 days; a sweep over every station of the seed</td></tr>
+    <tr><td>6</td><td>F5</td><td><code>return.mjs</code>; row10 → day 27: Ana's card names Ben's stand-in; row14 on a phone: ≤ 2 taps; <b>agent: Ana d27</b></td></tr>
+    <tr><td>7</td><td>F6</td><td>row10: Dev's dredger piped to the gate in one click, his sand in the project within 20 game minutes, the first gift announced</td></tr>
+    <tr><td>8</td><td>F7–F11</td><td>their tests; <b>agents: Mia d01 with Ana, Cleo d06</b></td></tr>
+    <tr><td>9</td><td>The bot runs, then the second full run</td><td>Section 6's marks</td></tr>
+  </table>
+  </div>
+  <h3>The second run passes if</h3>
+  <div class="scroll">
+  <table class="small">
+    <tr><th>Measure</th><th>Run 1</th><th>Run 2</th></tr>
+    <tr><td><b>First good knowingly given:</b> paid, announced to the giver, named by them</td><td>never</td><td>one by day 2 20:00; every crew member with 3+ sessions by day 14</td></tr>
+    <tr><td>Yard honesty: real growth − hub = paid Yard shown</td><td>32–90 shown, ≈ 0 paid</td><td>within 2%, every sample</td></tr>
+    <tr><td>Harm from a neighbour (a fall over 10% without own action)</td><td>Ana −83%, Ben −100%</td><td>none</td></tr>
+    <tr><td>Dead ends: play minutes from stuck to running</td><td>Ana never, Dev 3 sessions</td><td>≤ 10; no dead-end STUCK</td></tr>
+    <tr><td>Real STUCK notes</td><td>9</td><td>≤ 3, none on dead ends or seats</td></tr>
+    <tr><td>Project</td><td>Foundation day 3; Water Tower 0% to day 36</td><td>Foundation by day 1 20:30; Water Tower by day 8, Workshop by day 14; keystone made by a crew member</td></tr>
+    <tr><td>Return</td><td>3 dialogs, 51 clicks</td><td>1 card, 1 click (≤ 2 taps on a phone), friends' news on it</td></tr>
+    <tr><td>Absent friend</td><td>Ana never learned of the stand-in</td><td>Ana's day-27 diary names it</td></tr>
+    <tr><td>Mia</td><td>9 minutes to a seat; "alive" 3/5</td><td>seated within 3 minutes beside Jo; alive ≥ 4 twice; 85–110% of Dev per building</td></tr>
+    <tr><td>Trade share between humans</td><td>0%</td><td>≥ 15% by day 14 (the target set by the bot run)</td></tr>
+    <tr><td>New gold from NPCs</td><td>not measured</td><td>≤ 6% of faucets</td></tr>
+    <tr><td>Come back tomorrow, crew, from day 8</td><td>1 yes in 13</td><td>yes in at least half</td></tr>
+  </table>
+  </div>
+  <p class="small">The second run uses the same story, personas, devices, budgets and 5× clock, one frozen build and a
+  snapshot before every row. It adds <b>Jo</b>, a scripted solo human (no agent, never chats) seated by placement before
+  row 1, whose factory lacks the energy Mia's kit makes. That makes §17b testable. Beside it run the balance bots:
+  typical (pacing unchanged), typical-advisor (bank under a day of income), the crew of four at 1.75 and 1.5, the solo
+  against crew parity run, and a Lab-trap check.</p>
+</section>
+
+<section class="page">
+  <h2>7 · What would change the plan</h2>
+  <ul>
+    <li><b>Ana's replay still ends with an idle factory after F2:</b> the rule is the problem. Let a building pass on goods it
+      doesn't use, or lay the pipe for her, before F4 ships.</li>
+    <li><b>Run 2 pays and shows trade, but nobody knowingly gives by day 8:</b> giving needs an act (an Ask, or "I make it"
+      on the building panel).</li>
+    <li><b>The project is seen and reachable but under 50% by day 8:</b> the size is wrong.</li>
+    <li><b>The trade share stays under 15% at the chosen price:</b> seat kits get one consumer of a neighbour's specialty, a
+      chain that pays at that price.</li>
+    <li><b>Run 2's diaries name project gifts but nobody builds anything for a friend by day 14:</b> the project is carrying
+      the crew alone. Same lever.</li>
+  </ul>
+  <h3>What it costs</h3>
+  <ul>
+    <li><b>The build:</b> 16 playable commits. The engineer's estimate is 8–10 working days; at my pace it is faster.</li>
+    <li><b>The agent replays:</b> about 0.3M tokens.</li>
+    <li><b>The second run:</b> about 1.3M tokens and 70 minutes of agent time, the same as run 1.</li>
+  </ul>
+  <p class="small muted">The record: <code>docs/design-notes/playtest-fixes/</code> (brief, roles, r1, r2, plan-draft,
+  r3). The engineer's r3 appendix lists every commit with its files and tests. The economy designer's lists every
+  constant with its check, the clarity designer's every text, the cooperation designer's the promises one by one, and
+  the researcher's every replay step by step.</p>
+</section>
+
+</body>
+</html>
