@@ -164,6 +164,9 @@ the primary goals: the buildings, the map and the UI. The design may change wher
   art is cached by browsers for good, the frontend is compressed; a new player on fast 4G waits 1.3 s from founding
   to the map (was 8.3 s), a returning one 0.7 s (was 3.3 s); `e2e/load.mjs` measures it
 - ✅ v1.1 design (`docs/v1.1-design.html`): the plan below comes from the play day
+- ✅ v1.1 · surveyors and the starter kit: every estate has copper, coal and stone (2×2, 2★) in its start parcels and a
+  shore within reach; existing estates get it once at startup (deposit seeds and a pond, only on free land), new ones
+  when they're founded; the parcel panel lists what a parcel holds
 - ✅ v1.1 · direct partners only: no route crosses a third company's estate, so you trade with the companies you piped
   to yourself; pump stations per company (`docs/TradingRethink.md` has the full islands model for later)
 - ✅ Fair trade for now (found in play): a trade only happens when it beats the own trading post (long lossy pipes

@@ -12,9 +12,9 @@ internal sealed class TestGame
     public DateTime Time { get; set; } = Start;
     public GameWorld World { get; }
 
-    public TestGame(int seed = 1234, GameContent? content = null, bool events = false, bool achievements = false, bool tutorial = false)
+    public TestGame(int seed = 1234, GameContent? content = null, bool events = false, bool achievements = false, bool tutorial = false, bool surveys = false)
     {
-        World = new GameWorld(content ?? GameContent.Default, seed, () => Time) { EventsEnabled = events, AchievementsEnabled = achievements, TutorialEnabled = tutorial };
+        World = new GameWorld(content ?? GameContent.Default, seed, () => Time) { EventsEnabled = events, AchievementsEnabled = achievements, TutorialEnabled = tutorial, SurveysEnabled = surveys };
     }
 
     /// <summary>The game content without location modifiers (wind, sun, richness), so every building makes its listed amount</summary>

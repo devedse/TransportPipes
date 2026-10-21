@@ -17,6 +17,7 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 | `onboarding.mjs` | A new player following Loady's first steps |
 | `right-click.mjs` | A right-click on the map steps back (deselects, puts a tool away); a right-drag still pans |
 | `network-view.mjs` | The network view (made against needed per resource, money per company) and the trade settings |
+| `survey.mjs` | A new estate's starter kit in the Deposits overlay and what a parcel holds |
 | `gate.mjs` | Closing and opening a gate: the buildings behind it keep running |
 | `consistency.mjs` | After each kind of action (pipes, gates, upgrade, build, demolish, move) the playing tab matches a freshly loaded one (slow: a reload per action, about 5 min) |
 | `network-ids.mjs` | A selected network rebuilt three times: the selection covers every pipe, its buildings don't go idle |

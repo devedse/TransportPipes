@@ -1,6 +1,8 @@
 import { gameClient } from "../app/client";
 import { formatAmount } from "../app/format";
+import { PARCEL_SIZE, PARCELS_PER_SIDE } from "../game/layout";
 import { ownEstates } from "../game/rules";
+import { ResourceIcon } from "./ResourceIcon";
 import { currentGold, setState, useAppStore } from "../state/store";
 
 /** Buying a locked parcel of your own estate */
@@ -35,6 +37,10 @@ export function ParcelPanel() {
       <p className="muted">
         8×8 tiles of your estate. You can already lay pipes over it; buy it to build on it.
       </p>
+      <ParcelContents
+        x={own.x + (parcel % PARCELS_PER_SIDE) * PARCEL_SIZE}
+        y={own.y + Math.floor(parcel / PARCELS_PER_SIDE) * PARCEL_SIZE}
+      />
       {!buyable ? (
         <p className="status idle">Buy a parcel next to it first: parcels are bought next to land you own.</p>
       ) : cost === null || level === null ? (
@@ -61,5 +67,58 @@ export function ParcelPanel() {
         </>
       )}
     </aside>
+  );
+}
+
+/** What a parcel holds: its deposits (with their best richness), water, forest, hills */
+function ParcelContents({ x, y }: { x: number; y: number }) {
+  const content = useAppStore((state) => state.content);
+  const world = gameClient.world;
+  if (world === null || content === null) {
+    return null;
+  }
+  const deposits = new Map<string, { tiles: number; richness: number }>();
+  const terrain = new Map<string, number>();
+  for (let dy = 0; dy < PARCEL_SIZE; dy++) {
+    for (let dx = 0; dx < PARCEL_SIZE; dx++) {
+      const tile = world.tile(x + dx, y + dy);
+      if (tile === null) {
+        continue;
+      }
+      terrain.set(tile.terrain, (terrain.get(tile.terrain) ?? 0) + 1);
+      if (tile.deposit !== null) {
+        const known = deposits.get(tile.deposit) ?? { tiles: 0, richness: 0 };
+        deposits.set(tile.deposit, {
+          tiles: known.tiles + 1,
+          richness: Math.max(known.richness, tile.richness),
+        });
+      }
+    }
+  }
+  const land = [
+    (terrain.get("water") ?? 0) > 0 && "water (a shore for pumps and dredgers)",
+    (terrain.get("forest") ?? 0) >= 4 && "forest",
+    (terrain.get("hills") ?? 0) >= 6 && "windy hills",
+    (terrain.get("desert") ?? 0) >= 6 && "sunny desert",
+  ].filter(Boolean);
+  if (deposits.size === 0 && land.length === 0) {
+    return <p className="small muted">Open grassland.</p>;
+  }
+  return (
+    <div className="parcel-contents">
+      <h4>In it</h4>
+      <ul className="flow-list">
+        {[...deposits.entries()].map(([resource, d]) => (
+          <li key={resource}>
+            <ResourceIcon resource={resource} />
+            <span>{content.resourceName(resource)}</span>
+            <span className="flow-amount">
+              {d.tiles} tiles · {"★".repeat(d.richness)}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {land.length > 0 && <p className="small">Also: {land.join(", ")}</p>}
+    </div>
   );
 }

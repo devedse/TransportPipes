@@ -91,6 +91,8 @@ public sealed class WorldHost : BackgroundService
             var world = await LoadWorldAsync(stoppingToken);
             var away = Now - world.LastTick;
             world.Tick();
+            // Estates from before the starter kit get it now (once), and their players a note
+            var surveyed = _options.Surveys ? world.SurveyEstates() : [];
             world.TakeChanges();
             _world = world;
             _lastSave = Now;
@@ -98,6 +100,11 @@ public sealed class WorldHost : BackgroundService
                 world.Generator.Seed, world.Companies.Count(), world.Buildings.Count(), away, stopwatch.ElapsedMilliseconds);
             await SaveAsync(force: true);
             _ready.SetResult();
+            if (surveyed.Count > 0)
+            {
+                _logger.LogInformation("Surveyed {Estates} estates for their starter kit", surveyed.Count);
+                await NotifyAsync(surveyed.Select(t => (t.Company, "survey", t.Text + " Look for the new deposits near your HQ.")).ToList());
+            }
         }
         catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
         {
@@ -138,6 +145,7 @@ public sealed class WorldHost : BackgroundService
         world.TenantsEnabled = _options.Tenants;
         world.EventsEnabled = _options.Events;
         world.TutorialEnabled = _options.Tutorial;
+        world.SurveysEnabled = _options.Surveys;
         if (_options.Tenants)
         {
             world.EnsureTenants();

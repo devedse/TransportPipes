@@ -345,6 +345,10 @@ public sealed partial class GameWorld
         AddBuilding(company, "hq", estate.Origin.Offset(HqLocal.X, HqLocal.Y), finished: true);
         AddBuilding(company, "tradingPost", estate.Origin.Offset(TradingPostLocal.X, TradingPostLocal.Y), finished: true);
         company.BuiltTypes.Clear();
+        if (SurveysEnabled)
+        {
+            Survey(estate);
+        }
         Changes.Companies.Add(company.Id);
         return company;
     }

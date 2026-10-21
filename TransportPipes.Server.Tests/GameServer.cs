@@ -60,6 +60,7 @@ public sealed class GameServer : WebApplicationFactory<Program>
         builder.UseSetting("TransportPipes:TickSeconds", "1");
         // Loady's thank-you gold would change the expected numbers
         builder.UseSetting("TransportPipes:Tutorial", "false");
+        builder.UseSetting("TransportPipes:Surveys", "false");
         builder.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(Time));
     }
 

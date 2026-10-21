@@ -30,6 +30,9 @@ public class TransportPipesOptions
     /// <summary>Loady's guide for new players (GDD §10.2)</summary>
     public bool Tutorial { get; set; } = true;
 
+    /// <summary>The starter kit: surveyors add copper, coal, stone and a pond where an estate lacks them (v1.1)</summary>
+    public bool Surveys { get; set; } = true;
+
     /// <summary>Days between the end of a chapter (its ceremony) and the next one (GDD §8.8)</summary>
     public double SeasonBreakDays { get; set; } = 1;
 

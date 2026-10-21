@@ -258,6 +258,7 @@ public sealed class WorldStore
         {
             world.LoadOutposts(outposts.Outposts ?? [], outposts.Discoveries ?? []);
             world.LoadSeeds((outposts.Seeds ?? []).Select(t => (new TilePos(t.X, t.Y), t.Deposit, t.Richness)));
+            world.LoadSurveyed((outposts.Surveyed ?? []).Select(t => (new DistrictCoord(t.X, t.Y), t.Slot)));
         }
 
         world.LoadBlueprints(JsonSerializer.Deserialize<List<Blueprint>>(dbWorld.Blueprints, Json) ?? []);
@@ -290,7 +291,8 @@ public sealed class WorldStore
                 Events = JsonSerializer.Serialize(new EventsState(world.Events.ToList(), world.PlannedDays.ToList()), Json),
                 Wonders = JsonSerializer.Serialize(new WondersState(world.EraStartedAt, world.EraWonder, world.DistrictWonders.Values.ToList()), Json),
                 Outposts = JsonSerializer.Serialize(new OutpostsState(world.Outposts.ToList(), world.Discoveries.ToList(),
-                    world.Seeds.Select(t => new SeedRow(t.Key.X, t.Key.Y, t.Value.Deposit, t.Value.Richness)).ToList()), Json),
+                    world.Seeds.Select(t => new SeedRow(t.Key.X, t.Key.Y, t.Value.Deposit, t.Value.Richness)).ToList(),
+                    world.Surveyed.Select(t => new SurveyedRow(t.District.X, t.District.Y, t.Slot)).ToList()), Json),
                 Season = JsonSerializer.Serialize(new SeasonState(world.Season, world.FinaleAt, world.SeasonEndedAt, world.SeasonResults, ResultsSaved), Json),
                 Blueprints = JsonSerializer.Serialize(world.Blueprints.ToList(), Json),
             },
@@ -697,7 +699,9 @@ public sealed class WorldStore
 
     private sealed record WondersState(DateTime EraStartedAt, Wonder? EraWonder, List<Wonder>? DistrictWonders);
 
-    private sealed record OutpostsState(List<Outpost>? Outposts, List<Discovery>? Discoveries, List<SeedRow>? Seeds = null);
+    private sealed record OutpostsState(List<Outpost>? Outposts, List<Discovery>? Discoveries, List<SeedRow>? Seeds = null, List<SurveyedRow>? Surveyed = null);
+
+    private sealed record SurveyedRow(int X, int Y, int Slot);
 
     private sealed record SeedRow(int X, int Y, string Deposit, int Richness);
 
