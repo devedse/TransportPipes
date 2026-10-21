@@ -1003,6 +1003,10 @@ public sealed class GameHub : Hub<IGameClient>
                     company.Report.Since = company.LastSeenAt;
                     company.Touch();
                     break;
+                case "restage":
+                    // Every project's stage starts again by today's rules
+                    world.RestageProjects();
+                    break;
                 case "project":
                     // The station's project: its stage is delivered now
                     if (world.EstateOf(company) is { } home)

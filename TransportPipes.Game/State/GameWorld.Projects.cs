@@ -353,6 +353,7 @@ public sealed partial class GameWorld
                     }
                     var worth = units * BasePrice(good);
                     Add(project.Delivered, good, units);
+                    AddStat(seller, "projectGold", worth);
                     seller.Gold += worth;
                     seller.Report.GoldEarned += worth;
                     Add(seller.Report.Sold, good, units);
@@ -481,6 +482,16 @@ public sealed partial class GameWorld
             .SelectMany(BuildingsOf)
             .SelectMany(t => Content.Building(t.Type).Out.Keys)
             .ToHashSet();
+
+    /// <summary>For replays and the dev cheat: every project's current stage starts again, sized and chosen by today's rules</summary>
+    public void RestageProjects()
+    {
+        foreach (var project in _projects.Values.Where(t => t.Stage is not (ProjectStage.Foundation or ProjectStage.Done)).ToList())
+        {
+            StartStage(project, project.Stage);
+        }
+        WakeCoupling();
+    }
 
     /// <summary>For tests and the dev cheat: the project's current stage is delivered now</summary>
     public void FinishStageNow(StationRef station) => FinishStage(ProjectOf(station));

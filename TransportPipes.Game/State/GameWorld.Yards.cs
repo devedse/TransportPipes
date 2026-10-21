@@ -183,6 +183,7 @@ public sealed partial class GameWorld
     /// </summary>
     private void SettleGateFlows(Network network, double minutes, Dictionary<long, double> earnings)
     {
+        CountUntaken(network, minutes);
         foreach (var flow in network.GateFlows)
         {
             if (!_buildings.TryGetValue(flow.Building, out var building) || Company(building.Owner) is not { } owner)
@@ -217,6 +218,8 @@ public sealed partial class GameWorld
                 var gold = units * SettlementPrice(seller, owner, flow.Resource);
                 seller.Gold += gold;
                 earnings[seller.Id] = earnings.GetValueOrDefault(seller.Id) + gold;
+                // Measures (the playtest's): gold the Yard paid a player, and gold that came from a House
+                AddStat(seller, owner.IsNpc ? "npcGold" : seller.IsNpc ? "houseSold" : "yardPaid", gold);
                 Add(seller.Report.Sold, flow.Resource, units);
                 ContractDelivered(seller.Id, owner.Id, flow.Resource, units);
                 AddStat(seller, "soldToPlayers", units);
@@ -226,6 +229,45 @@ public sealed partial class GameWorld
             }
         }
     }
+
+    /// <summary>
+    /// Measures what the Yard brought to this network's gates and nobody took (its sellers sent it, and it was lost on
+    /// the way): per seller, the units sent to its buyers and the units they didn't take
+    /// </summary>
+    private void CountUntaken(Network network, double minutes)
+    {
+        foreach (var gate in network.Gates)
+        {
+            if (EstateOfGate(gate) is not { } estate || !_gateTerms.TryGetValue(KeyOf(estate), out var terms))
+            {
+                continue;
+            }
+            var key = KeyOf(estate);
+            foreach (var ((resource, priceClass), sources) in terms.Import)
+            {
+                var total = sources.Values.Sum();
+                if (total <= 1e-12)
+                {
+                    continue;
+                }
+                var taken = network.GateFlows.Where(t => t.Import && t.Estate == key && t.Resource == resource && t.PriceClass == priceClass).Sum(t => t.Sent);
+                var untaken = Math.Max(0, total - taken);
+                foreach (var (sellerId, amount) in sources)
+                {
+                    if (Company(sellerId) is { IsNpc: false } seller)
+                    {
+                        AddStat(seller, "yardSent", amount * minutes);
+                        AddStat(seller, "yardUntaken", untaken * minutes * amount / total);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>Whether the Yard brings something to one of this network's gates</summary>
+    private bool HasGateImports(Network network) =>
+        network.Gates.Any(gate => EstateOfGate(gate) is { } estate && _gateTerms.TryGetValue(KeyOf(estate), out var terms)
+            && terms.Import.Values.Any(t => t.Values.Sum() > 1e-12));
 
     // ---------------------------------------------------------------- The Yard's matching
 

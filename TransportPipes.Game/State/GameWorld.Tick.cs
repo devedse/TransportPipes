@@ -198,7 +198,7 @@ public sealed partial class GameWorld
                 Solve(network);
             }
             var solution = network.Solution;
-            if (solution.Flows.Count == 0 && solution.ResearchPerMinute.Count == 0 && network.GateFlows.Count == 0)
+            if (solution.Flows.Count == 0 && solution.ResearchPerMinute.Count == 0 && network.GateFlows.Count == 0 && !HasGateImports(network))
             {
                 return;
             }
@@ -293,6 +293,7 @@ public sealed partial class GameWorld
                     earnings[from.Owner] = (earnings.TryGetValue(from.Owner, out var e) ? e : 0) + income;
                     if (flow.Kind == FlowKind.Sale && Company(from.Owner) is { } seller)
                     {
+                        AddStat(seller, "hubGold", income);
                         Add(seller.Report.Sold, flow.Resource, flow.Delivered * minutes);
                         // The company's own order at the hub follows what it sells there
                         HubMarketOf(seller, network.District).AddSold(flow.Resource, flow.Delivered * minutes);

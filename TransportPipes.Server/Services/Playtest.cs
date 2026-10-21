@@ -144,6 +144,13 @@ public static class PlaytestEndpoints
 
         group.MapGet("/companies", (WorldHost host) => host.RunAsync(Companies, changesWorld: false));
 
+        // Every station's project starts its stage again, by today's rules (old baskets in a replayed snapshot)
+        group.MapPost("/restage", (WorldHost host) => host.RunAsync(world =>
+        {
+            world.RestageProjects();
+            return new { restaged = true };
+        }));
+
         // A company's networks as the solver sees them: what every building could make and needs, how fast it runs,
         // and where every unit went (for finding out why a building starves)
         group.MapGet("/networks/{companyId:long}", (long companyId, WorldHost host) => host.RunAsync(world =>
@@ -188,7 +195,19 @@ public static class PlaytestEndpoints
                 gold = company.Gold,
                 goldPerMinute = gold.GetValueOrDefault(company.Id),
                 neighbourIncome = world.NeighbourIncome(company),
+                yardMatched = world.NeighbourIncome(company),
+                // What the Yard brings this company per minute now, by good (what it was matched, taken or not)
+                yardImports = world.EstatesOf(company).SelectMany(world.YardTrades).Where(t => !t.Selling)
+                    .GroupBy(t => t.Resource).ToDictionary(t => t.Key, t => t.Sum(x => x.PerMinute)),
                 earned = company.LifetimeEarnings,
+                // Lifetime measures (F0): what the Yard paid, what it sent that nobody took, and where new gold came from
+                yardPaid = company.Stats.GetValueOrDefault("yardPaid"),
+                yardFloor = company.Stats.GetValueOrDefault("yardFloor"),
+                yardSent = company.Stats.GetValueOrDefault("yardSent"),
+                yardUntaken = company.Stats.GetValueOrDefault("yardUntaken"),
+                hubGold = company.Stats.GetValueOrDefault("hubGold"),
+                npcGold = company.Stats.GetValueOrDefault("npcGold"),
+                projectGold = company.Stats.GetValueOrDefault("projectGold"),
                 buildings = world.BuildingsOf(company.Id).Count(),
                 parcels = estate?.UnlockedCount ?? 0,
                 tutorialStep = company.TutorialStep,

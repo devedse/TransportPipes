@@ -118,6 +118,7 @@ public sealed partial class GameWorld
                     }
                     var units = perMinute * minutes;
                     var gold = units * StandInBuyPrice(sleeper.StandIn!, seller, resource);
+                    AddStat(seller, "npcGold", gold);
                     seller.Gold += gold;
                     seller.Report.GoldEarned += gold;
                     Add(seller.Report.Sold, resource, units);

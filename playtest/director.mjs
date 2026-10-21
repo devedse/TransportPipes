@@ -17,7 +17,8 @@ const ROOT = path.dirname(new URL(import.meta.url).pathname);
 const RUN = process.env.PLAYTEST_RUN ?? "pilot";
 const RUN_DIR = path.join(ROOT, "runs", RUN);
 const SERVER_DIR = path.join(RUN_DIR, "server");
-const SNAPSHOTS = path.join(RUN_DIR, "snapshots");
+// A replay restores another run's snapshots (PLAYTEST_SNAPSHOTS) into a run folder of its own
+const SNAPSHOTS = process.env.PLAYTEST_SNAPSHOTS ?? path.join(RUN_DIR, "snapshots");
 const SERVER = process.env.PLAYTEST_SERVER ?? "http://localhost:5090";
 const TOKEN = process.env.PLAYTEST_TOKEN ?? "playtest-local";
 const DB = "transportpipes_playtest";
