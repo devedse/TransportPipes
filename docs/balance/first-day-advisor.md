@@ -123,48 +123,109 @@
 | 24:00:00 | 10 | 1,946,855 | 2,331.7 | 19/19 | **Session 5, 10 minutes** · Loady: bricks |
 | 24:00:30 | 10 | 1,945,021 | 2,331.7 | 19/19 | built and piped a Quarry |
 | 24:01:10 | 10 | 1,945,176 | 2,331.7 | 19/19 | built and piped a Brickworks |
-| 24:01:50 | 10 | 1,946,730 | 2,331.7 | 19/19 | Pick a research: Double Furnace |
-| 24:02:10 | 10 | 1,944,532 | 2,331.7 | 19/19 | Your buildings are 724 energy short |
-| 24:02:30 | 10 | 1,942,810 | 2,331.7 | 19/19 | Upgrade Trading Post to level 2 |
-| 24:02:50 | 10 | 1,943,261 | 2,486.4 | 19/19 | Your buildings are 746 energy short |
-| 24:03:20 | 10 | 1,943,606 | 2,457.0 | 19/19 | Your buildings are 777 energy short |
-| 24:03:40 | 10 | 1,952,419 | 2,420.2 | 19/19 | **Loady: bricks done** |
-| 24:06:40 | 11 | 1,959,680 | 2,420.2 | 19/19 | **Level 11** |
-| 24:10:00 | 11 | 1,967,747 | 2,420.2 | 19/19 | (waiting since 24:03:40) |
-| 27:00:00 | 11 | 2,385,842 | 2,488.2 | 19/19 | (away for 2:50:00: +418,095 gold) |
-| 27:00:00 | 11 | 2,385,842 | 2,488.2 | 19/19 | **Session 6, 5 minutes** |
-| 27:00:30 | 11 | 2,387,090 | 2,496.1 | 19/19 | Pick a research: Copper Pipes |
-| 27:00:50 | 11 | 2,382,096 | 2,496.1 | 19/19 | Your buildings are 855 energy short |
-| 27:01:10 | 11 | 2,381,202 | 2,496.1 | 19/19 | Your buildings are 855 energy short |
-| 27:01:30 | 11 | 2,368,877 | 1,814.5 | 19/19 | Your buildings are 1,037 energy short |
-| 27:01:50 | 11 | 2,356,391 | 1,675.7 | 19/19 | Your buildings are 1,074 energy short |
-| 27:02:10 | 11 | 2,343,882 | 1,603.8 | 19/19 | Your buildings are 1,092 energy short |
-| 27:02:30 | 11 | 2,331,355 | 1,551.8 | 19/19 | Your buildings are 1,106 energy short |
-| 27:02:50 | 11 | 2,318,816 | 1,513.2 | 19/19 | Your buildings are 1,116 energy short |
-| 27:03:10 | 11 | 2,306,266 | 1,483.5 | 19/19 | Your buildings are 1,124 energy short |
-| 27:03:30 | 11 | 2,267,288 | 1,459.3 | 19/19 | Your Trading Post sells all it can |
-| 27:03:50 | 11 | 2,262,820 | 5,594.2 | 19/19 | Upgrade Smelter to level 11 |
-| 27:05:00 | 11 | 2,269,383 | 5,625.1 | 19/19 | (waiting since 27:04:10) |
-| 27:30:00 | 12 | 2,405,000 | 5,291.0 | 19/19 | **Level 12** |
-| 31:50:00 | 13 | 3,527,792 | 4,151.0 | 19/19 | **Level 13** |
-| 34:00:00 | 13 | 4,070,676 | 4,155.5 | 19/19 | (away for 6:55:00: +1,801,293 gold) |
-| 34:00:00 | 13 | 4,070,676 | 4,155.5 | 19/19 | **Session 7, 20 minutes** |
-| 34:00:30 | 13 | 4,072,753 | 4,155.5 | 19/19 | Pick a research: Hydro Wheel |
-| 34:00:50 | 13 | 4,054,139 | 4,155.5 | 19/19 | Buy a parcel: forest |
-| 34:10:30 | 13 | 4,094,308 | 4,155.5 | 19/19 | (waited 9:20) |
-| 34:10:30 | 13 | 4,094,308 | 4,155.5 | 19/19 | Pick a research: Valves |
-| 34:20:00 | 13 | 4,133,785 | 4,155.5 | 19/19 | (waiting since 34:11:00) |
-| 36:45:00 | 14 | 4,736,326 | 4,155.5 | 19/19 | **Level 14** |
-| 38:30:00 | 14 | 5,174,551 | 4,193.5 | 19/19 | (away for 4:10:00: +1,040,766 gold) |
-| 38:30:00 | 14 | 5,174,551 | 4,193.5 | 19/19 | **Session 8, 5 minutes** |
-| 38:30:40 | 14 | 5,177,347 | 4,193.5 | 19/19 | Pick a research: Market Insight |
-| 38:31:10 | 14 | 5,139,443 | 4,193.5 | 19/19 | Buy a parcel: a shore |
-| 38:35:00 | 14 | 5,155,518 | 4,193.5 | 19/19 | (waiting since 38:31:40) |
-| 41:50:00 | 15 | 5,973,252 | 4,193.5 | 19/19 | **Level 15** |
-| 48:00:00 | 15 | 7,533,410 | 4,231.6 | 19/19 | (away for 9:25:00: +2,377,891 gold) |
-| 48:00:00 | 15 | 7,533,410 | 4,231.6 | 19/19 | **Session 9, 10 minutes** |
-| 48:00:40 | 15 | 7,536,231 | 4,231.6 | 19/19 | Pick a research: Haggling |
-| 48:10:00 | 15 | 7,575,725 | 4,231.6 | 19/19 | (waiting since 48:01:10) |
+| 24:01:50 | 10 | 1,943,755 | 2,331.7 | 19/19 | Your buildings are 724 energy short |
+| 24:02:10 | 10 | 1,915,945 | 2,331.7 | 19/19 | Your buildings are 724 energy short |
+| 24:02:30 | 10 | 1,879,690 | 1,739.1 | 19/19 | Your buildings are 982 energy short |
+| 24:02:50 | 10 | 1,843,346 | 1,462.0 | 19/19 | Your buildings are 1,096 energy short |
+| 24:03:10 | 10 | 1,806,953 | 1,318.1 | 19/19 | Your buildings are 1,142 energy short |
+| 24:03:30 | 10 | 1,770,541 | 1,260.5 | 19/19 | Your buildings are 1,160 energy short |
+| 24:03:50 | 11 | 1,734,121 | 1,234.5 | 19/19 | Your buildings are 1,168 energy short |
+| 24:04:00 | 11 | 1,734,323 | 1,215.8 | 19/19 | **Level 11** |
+| 24:04:10 | 11 | 1,697,694 | 1,215.8 | 19/19 | Your buildings are 1,173 energy short |
+| 24:04:30 | 11 | 1,661,264 | 1,205.0 | 19/19 | Your buildings are 1,176 energy short |
+| 24:04:50 | 11 | 1,624,831 | 1,196.6 | 19/19 | Your buildings are 1,178 energy short |
+| 24:05:10 | 11 | 1,588,396 | 1,191.9 | 19/19 | Your buildings are 1,180 energy short |
+| 24:05:30 | 11 | 1,551,960 | 1,188.4 | 19/19 | Your buildings are 1,181 energy short |
+| 24:05:50 | 11 | 1,513,755 | 1,186.4 | 19/19 | Your buildings are 1,182 energy short |
+| 24:06:10 | 11 | 1,475,550 | 1,184.4 | 19/19 | Your buildings are 1,183 energy short |
+| 24:06:30 | 11 | 1,470,113 | 1,182.7 | 19/19 | Your buildings are 1,184 energy short |
+| 24:06:50 | 11 | 1,420,508 | 1,182.7 | 19/19 | Your buildings are 1,184 energy short |
+| 24:07:10 | 11 | 1,384,070 | 1,180.8 | 19/19 | Your buildings are 1,184 energy short |
+| 24:07:30 | 11 | 1,347,630 | 1,178.4 | 19/19 | Your buildings are 1,185 energy short |
+| 24:07:50 | 11 | 1,311,191 | 1,176.5 | 19/19 | Your buildings are 1,185 energy short |
+| 24:08:10 | 11 | 1,274,750 | 1,175.5 | 19/19 | Your buildings are 1,186 energy short |
+| 24:08:30 | 11 | 1,238,310 | 1,174.3 | 19/19 | Your buildings are 1,186 energy short |
+| 24:08:50 | 11 | 1,201,869 | 1,173.0 | 19/19 | Your buildings are 1,186 energy short |
+| 24:09:10 | 11 | 1,165,427 | 1,171.7 | 19/19 | Your buildings are 1,187 energy short |
+| 24:09:30 | 11 | 1,128,986 | 1,170.4 | 19/19 | Your buildings are 1,187 energy short |
+| 24:09:50 | 11 | 1,092,544 | 1,170.0 | 19/19 | Your buildings are 1,187 energy short |
+| 24:30:00 | 11 | 1,124,164 | 1,172.2 | 19/19 | **Loady: bricks done** |
+| 27:00:00 | 11 | 1,300,078 | 1,172.8 | 19/19 | (away for 2:50:00: +207,339 gold) |
+| 27:00:00 | 11 | 1,300,078 | 1,172.8 | 19/19 | **Session 6, 5 minutes** |
+| 27:00:30 | 11 | 1,263,832 | 1,172.8 | 19/19 | Your buildings are 1,188 energy short |
+| 27:00:50 | 11 | 1,214,108 | 1,172.1 | 19/19 | Your buildings are 1,188 energy short |
+| 27:01:10 | 11 | 1,164,383 | 1,171.5 | 19/19 | Your buildings are 1,188 energy short |
+| 27:01:30 | 11 | 1,114,659 | 1,170.8 | 19/19 | Your buildings are 1,188 energy short |
+| 27:01:50 | 11 | 1,064,934 | 1,170.2 | 19/19 | Your buildings are 1,188 energy short |
+| 27:02:10 | 11 | 1,015,209 | 1,169.6 | 19/19 | Your buildings are 1,188 energy short |
+| 27:02:30 | 11 | 958,099 | 1,169.2 | 19/19 | Your buildings are 1,189 energy short |
+| 27:02:50 | 11 | 900,990 | 1,168.7 | 19/19 | Your buildings are 1,189 energy short |
+| 27:03:10 | 11 | 840,565 | 1,168.3 | 19/19 | Your buildings are 1,189 energy short |
+| 27:03:30 | 11 | 777,598 | 1,167.9 | 19/19 | Your buildings are 1,189 energy short |
+| 27:03:50 | 11 | 714,630 | 1,167.5 | 19/19 | Your buildings are 1,189 energy short |
+| 27:04:10 | 11 | 651,662 | 1,167.3 | 19/19 | Your buildings are 1,189 energy short |
+| 27:04:30 | 11 | 588,694 | 1,167.0 | 19/19 | Your buildings are 1,189 energy short |
+| 27:04:50 | 11 | 525,726 | 1,166.7 | 19/19 | Your buildings are 1,189 energy short |
+| 28:05:00 | 12 | 595,907 | 1,166.4 | 19/19 | **Level 12** |
+| 34:00:00 | 12 | 1,011,417 | 1,176.2 | 19/19 | (away for 6:55:00: +485,497 gold) |
+| 34:00:00 | 12 | 1,011,417 | 1,176.2 | 19/19 | **Session 7, 20 minutes** |
+| 34:00:30 | 12 | 948,648 | 1,176.2 | 19/19 | Your buildings are 1,190 energy short |
+| 34:00:50 | 12 | 885,683 | 1,175.9 | 19/19 | Your buildings are 1,190 energy short |
+| 34:01:10 | 12 | 822,718 | 1,175.6 | 19/19 | Your buildings are 1,190 energy short |
+| 34:01:30 | 12 | 759,753 | 1,175.3 | 19/19 | Your buildings are 1,190 energy short |
+| 34:01:50 | 12 | 696,788 | 1,174.9 | 19/19 | Your buildings are 1,190 energy short |
+| 34:02:10 | 12 | 633,822 | 1,174.7 | 19/19 | Your buildings are 1,190 energy short |
+| 34:02:30 | 12 | 570,857 | 1,174.5 | 19/19 | Your buildings are 1,190 energy short |
+| 34:02:50 | 12 | 507,891 | 1,174.1 | 19/19 | Your buildings are 1,190 energy short |
+| 34:03:10 | 12 | 442,158 | 1,173.9 | 19/19 | Your buildings are 1,190 energy short |
+| 34:03:30 | 12 | 431,095 | 1,173.7 | 19/19 | Your buildings are 1,190 energy short |
+| 34:03:50 | 12 | 365,363 | 1,173.7 | 19/19 | Your buildings are 1,190 energy short |
+| 34:04:10 | 12 | 328,922 | 1,172.8 | 19/19 | Your buildings are 1,190 energy short |
+| 34:04:30 | 12 | 292,481 | 1,172.8 | 19/19 | Your buildings are 1,190 energy short |
+| 34:04:50 | 12 | 256,040 | 1,172.5 | 19/19 | Your buildings are 1,190 energy short |
+| 34:05:10 | 12 | 219,598 | 1,172.1 | 19/19 | Your buildings are 1,190 energy short |
+| 34:05:30 | 12 | 183,157 | 1,171.8 | 19/19 | Your buildings are 1,191 energy short |
+| 34:05:50 | 12 | 146,715 | 1,171.5 | 19/19 | Your buildings are 1,191 energy short |
+| 34:06:10 | 12 | 110,274 | 1,171.1 | 19/19 | Your buildings are 1,191 energy short |
+| 34:06:30 | 12 | 73,832 | 1,171.1 | 19/19 | Your buildings are 1,191 energy short |
+| 34:06:50 | 12 | 37,390 | 1,171.0 | 19/19 | Your buildings are 1,191 energy short |
+| 34:07:00 | 13 | 37,585 | 1,170.7 | 19/19 | **Level 13** |
+| 34:07:10 | 13 | 949 | 1,170.7 | 19/19 | Your buildings are 1,191 energy short |
+| 34:07:30 | 13 | 1,339 | 1,170.2 | 19/19 | Pick a research: Double Furnace |
+| 34:20:00 | 13 | 15,966 | 1,170.2 | 19/19 | (waiting since 34:07:50) |
+| 34:30:00 | 14 | 27,673 | 1,170.9 | 19/19 | **Level 14** |
+| 38:30:00 | 14 | 308,700 | 1,170.9 | 19/19 | (away for 4:10:00: +292,735 gold) |
+| 38:30:00 | 14 | 308,700 | 1,170.9 | 19/19 | **Session 8, 5 minutes** |
+| 38:30:40 | 14 | 246,124 | 1,170.9 | 19/19 | Your buildings are 1,192 energy short |
+| 38:31:10 | 14 | 183,352 | 1,170.7 | 19/19 | Your buildings are 1,192 energy short |
+| 38:31:40 | 14 | 120,581 | 1,170.6 | 19/19 | Your buildings are 1,192 energy short |
+| 38:32:10 | 14 | 57,809 | 1,170.4 | 19/19 | Your buildings are 1,192 energy short |
+| 38:32:40 | 14 | 58,394 | 1,170.2 | 19/19 | Pick a research: Copper Pipes |
+| 38:33:10 | 14 | 17,014 | 1,170.2 | 19/19 | Your Trading Post sells all it can |
+| 38:33:50 | 14 | 191 | 4,764.6 | 19/19 | Buy a parcel: forest |
+| 38:35:00 | 14 | 5,749 | 4,764.6 | 19/19 | (waiting since 38:34:20) |
+| 43:40:00 | 15 | 1,030,921 | 3,111.9 | 19/19 | **Level 15** |
+| 48:00:00 | 15 | 1,833,414 | 3,086.0 | 19/19 | (away for 9:25:00: +1,827,664 gold) |
+| 48:00:00 | 15 | 1,833,414 | 3,086.0 | 19/19 | **Session 9, 10 minutes** |
+| 48:00:40 | 15 | 1,792,170 | 3,086.0 | 19/19 | Your buildings are 977 energy short |
+| 48:01:10 | 15 | 1,750,415 | 3,091.5 | 19/19 | Your buildings are 976 energy short |
+| 48:01:40 | 15 | 1,701,848 | 3,097.0 | 19/19 | Your buildings are 974 energy short |
+| 48:02:10 | 15 | 1,653,280 | 3,093.0 | 19/19 | Your buildings are 975 energy short |
+| 48:02:40 | 15 | 1,604,709 | 3,089.1 | 19/19 | Your buildings are 976 energy short |
+| 48:03:10 | 15 | 1,556,137 | 3,085.2 | 19/19 | Your buildings are 977 energy short |
+| 48:03:40 | 15 | 1,557,678 | 3,081.4 | 19/19 | Pick a research: Hydro Wheel |
+| 48:04:10 | 15 | 1,140,762 | 3,081.4 | 19/19 | Your Trading Post sells all it can |
+| 48:04:40 | 15 | 1,114,653 | 4,956.0 | 19/19 | Your buildings are 655 energy short |
+| 48:05:10 | 15 | 1,088,541 | 4,949.5 | 19/19 | Your buildings are 656 energy short |
+| 48:05:40 | 15 | 1,056,243 | 4,943.2 | 19/19 | Your buildings are 658 energy short |
+| 48:06:10 | 15 | 1,023,941 | 4,936.7 | 19/19 | Your buildings are 659 energy short |
+| 48:06:40 | 15 | 991,622 | 4,930.3 | 19/19 | Your buildings are 661 energy short |
+| 48:07:10 | 15 | 948,110 | 4,943.8 | 19/19 | Your buildings are 662 energy short |
+| 48:07:40 | 15 | 907,277 | 4,935.8 | 19/19 | Your buildings are 664 energy short |
+| 48:08:10 | 15 | 863,758 | 4,929.1 | 19/19 | Your buildings are 666 energy short |
+| 48:08:40 | 15 | 822,917 | 4,921.7 | 19/19 | Your buildings are 667 energy short |
+| 48:09:10 | 15 | 779,391 | 4,915.6 | 19/19 | Your buildings are 669 energy short |
+| 48:09:40 | 15 | 738,544 | 4,908.6 | 19/19 | Your buildings are 670 energy short |
 
-Buildings: hq ×1, tradingPost ×1, solarPanel ×31, windMoily ×21, ironMine ×7, smallFactory ×11, storage ×1, lab ×1, coalPit ×1, copperMine ×1, smelter ×1, quarry ×1, brickworks ×1.
-Storages: 3,825 energy, 499 ironOre, 230 ironIngot, 445 coal. Orders: 0/4,180 energy; 0/2,250 coal; 0/380 copperIngot
+Buildings: hq ×1, tradingPost ×1, solarPanel ×1, windMoily ×31, ironMine ×7, smallFactory ×11, storage ×1, lab ×1, coalPit ×1, copperMine ×1, smelter ×1, quarry ×1, brickworks ×1.
+Storages: 3,825 energy, 499 ironOre, 230 ironIngot, 445 coal. Orders: 0/4,620 energy; 0/2,480 coal; 0/410 copperIngot

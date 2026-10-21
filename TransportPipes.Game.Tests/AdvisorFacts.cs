@@ -177,6 +177,11 @@ public class AdvisorFacts
 
         var step = game.World.NextSteps(company, 8).Single(t => t.Kind == AdvisorKind.Pipes);
 
+        // Materials come out of storages: a Storage first
+        Assert.AreEqual("storage", step.BuildingType, step.Title);
+        game.Build(company, "storage");
+        game.World.SolveNetworks();
+        step = game.World.NextSteps(company, 8).Single(t => t.Kind == AdvisorKind.Pipes);
         Assert.AreEqual(AdvisorAction.Build, step.Action, step.Title);
         StringAssert.Contains(step.Title, "copper");
         var maker = game.World.Content.Building(step.BuildingType!);
@@ -211,5 +216,17 @@ public class AdvisorFacts
         Assert.AreEqual(AdvisorAction.Build, step.Action);
         Assert.IsTrue(step.BuildingType is "solarPanel" or "windMoily", step.BuildingType);
         Assert.IsTrue(game.World.CanPlace(company, game.World.Content.Building(step.BuildingType!), step.At!.Value).Success);
+    }
+
+    [TestMethod]
+    public void StoragesKeepTheMaterialsOfThePipesYouCanLay()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 10);
+        Assert.AreEqual(0, game.World.StorageNeed(company, "copperIngot"), "not before Copper Pipes");
+
+        company.Researched.Add("copperPipes");
+
+        Assert.AreEqual(GameWorld.PipeMaterialReserve * game.World.Content.PipeTier(2).Materials["copperIngot"], game.World.StorageNeed(company, "copperIngot"));
     }
 }

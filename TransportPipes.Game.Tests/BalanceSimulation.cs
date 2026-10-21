@@ -21,12 +21,15 @@ public class BalanceSimulation
         ["typical"] = [(8, 5), (12.5, 5), (18, 5), (21, 20), (23, 5)],
         ["casual"] = [(8, 5), (20, 15)],
         ["hardcore"] = [(8, 120), (12, 60), (17, 240)],
+        // The typical day, doing what the advisor says (docs/v1.1-design.html §4)
+        ["typical-advisor"] = [(8, 5), (12.5, 5), (18, 5), (21, 20), (23, 5)],
     };
 
     [TestMethod]
     [DataRow("typical")]
     [DataRow("casual")]
     [DataRow("hardcore")]
+    [DataRow("typical-advisor")]
     public void TheFirstTwoWeeks(string profile)
     {
         if (Environment.GetEnvironmentVariable("TP_BALANCE") != "1")
@@ -59,7 +62,7 @@ public class BalanceSimulation
             var playing = minute < 20 || sessions.Any(t => dayMinute >= t.Start * 60 && dayMinute < t.Start * 60 + t.Minutes);
             if (playing)
             {
-                bot.CheckIn();
+                bot.CheckIn(advisor: profile.EndsWith("advisor", StringComparison.Ordinal));
             }
             try
             {
@@ -266,13 +269,13 @@ public class BalanceSimulation
             return text;
         }
 
-        public void CheckIn()
+        public void CheckIn(bool advisor = false)
         {
             // Playing counts as being seen (else the company would fall asleep after 30 days)
             company.LastSeenAt = game.Time;
             for (var action = 0; action < 30; action++)
             {
-                if (!Act())
+                if (!(advisor ? FollowAdvisor() : Act()))
                 {
                     break;
                 }
@@ -286,7 +289,12 @@ public class BalanceSimulation
         /// <summary>The first of the advisor's next steps the company can afford now, done</summary>
         public bool FollowAdvisor()
         {
-            foreach (var step in World.NextSteps(company))
+            var advice = World.NextSteps(company);
+            if (advice.Count == 0)
+            {
+                _notes.Add("no steps");
+            }
+            foreach (var step in advice)
             {
                 if (step.Cost > company.Gold)
                 {
@@ -309,6 +317,8 @@ public class BalanceSimulation
                     _notes.Add(step.Title);
                     return true;
                 }
+                // The bot can't always do it (a spot it can't pipe to): the report shows where
+                _notes.Add($"could not: {step.Title}");
             }
             return false;
         }

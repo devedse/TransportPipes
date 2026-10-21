@@ -662,9 +662,13 @@ public sealed partial class GameWorld
         return Company(storage.Owner) is { } owner ? Math.Max(keep, StorageNeed(owner, resource)) : keep;
     }
 
+    /// <summary>How many tiles of the best pipe a company can lay its storages keep the materials for</summary>
+    public const int PipeMaterialReserve = 100;
+
     /// <summary>
     /// What a company needs of a resource in its storages: what today's orders and its corporation's weekly goal still
-    /// need, and enough to build the building it can build that needs the most of it
+    /// need, enough to build the building it can build that needs the most of it, and the materials for a stretch of
+    /// the pipes it can lay (copper ingots for Copper Pipes)
     /// </summary>
     public double StorageNeed(Company company, string resource)
     {
@@ -678,7 +682,12 @@ public sealed partial class GameWorld
             .Select(t => t.Cost.Materials[resource])
             .DefaultIfEmpty(0)
             .Max();
-        return Math.Max(need, materials);
+        var pipes = Content.PipeTiers
+            .Where(t => t.Materials.ContainsKey(resource) && t.Era <= Era && (t.Research == null || HasResearch(company, t.Research)))
+            .Select(t => t.Materials[resource] * PipeMaterialReserve)
+            .DefaultIfEmpty(0)
+            .Max();
+        return Math.Max(need, Math.Max(materials, pipes));
     }
 
     /// <summary>What a company's open orders of today still need of a resource</summary>

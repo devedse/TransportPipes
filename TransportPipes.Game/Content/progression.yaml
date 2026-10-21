@@ -6,6 +6,11 @@ companyLevel:
   xpExponent: 1.7
   xpRamp: 4
   xpRampLevel: 9
+  # From Level 22 the curve grows on to xpLateRamp times by Level 30, so Level 30 takes about four weeks (GDD §8.1):
+  # the starter kit made the middle game quicker. Levels only ever go up, so nobody loses one.
+  xpLateRamp: 2
+  xpLateRampFrom: 22
+  xpLateRampTo: 30
 
 # XP rewards
 xp:

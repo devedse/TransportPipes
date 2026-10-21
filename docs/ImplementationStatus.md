@@ -189,9 +189,15 @@ the primary goals: the buildings, the map and the UI. The design may change wher
   and left of the inspector; on phones the guidance is one line plus Loady (159 px of 844)
 - ✅ v1.1 · touch: a finger held still for a moment selects with a box (with the build tool it paints); a quick drag
   still moves the map; keyboard hints are hidden on touch screens
-- ⬜ Follow-ups seen while building v1.1: in a network of 19 factories the solver leaves some ore and energy to the
-  hub while factories run short (each producer–consumer pair has its own pipe capacity); following the advisor the
-  first days go about a day faster than the balance plan (run `TheFirstTwoWeeks` with an advisor profile)
+- ✅ Balance after v1.1 (`TheFirstTwoWeeks`, 28 days, `docs/balance/`): the starter kit made the middle game quicker,
+  so from Level 22 the XP curve grows on to twice by Level 30 (`xpLateRamp`; levels only go up, nobody loses one).
+  Typical: Level 10 on day 2, 20 on day 5, 30 on day 25; casual 30 on day 27; hardcore 30 on day 21; following only
+  the advisor: 10 in the first day, 20 on day 4, 30 on day 27 (GDD §8.1: 20 in week 1, 30 in week 4)
+- ✅ The advisor on big estates (found by the simulation following it): it went silent from day 4. A network of 56
+  buildings took 380 ms a solve (the solver chased rounding errors for 500 rounds; now about 24, the same result),
+  big networks' gains are now estimated from their last solution instead of solved again, and it points at what an
+  estate with full pipes lacks: a Lab for the research, a Storage for the copper ingots (storages keep the materials
+  of the pipes you can lay), the mine an idle Smelter waits for
 - ✅ Fair trade for now (found in play): a trade only happens when it beats the own trading post (long lossy pipes
   earned less), trade settings with partners per company (pipe length, how much arrives, a switch), who you trade
   with (everyone, corporation, contracts), gates open or closed, buying can be switched off per resource
