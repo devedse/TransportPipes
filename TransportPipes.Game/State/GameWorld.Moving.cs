@@ -462,10 +462,7 @@ public sealed partial class GameWorld
                 Sleep(company);
             }
         }
-        foreach (var company in _companies.Values.Where(t => t.Asleep && t.Packed == null && LastTick - t.LastSeenAt >= PackAsleepAfter).ToList())
-        {
-            PackAsleep(company);
-        }
+        CheckAsleepHolds();
     }
 
     /// <summary>For testing: to the Quiet Isles right away</summary>
@@ -513,6 +510,12 @@ public sealed partial class GameWorld
         company.Asleep = false;
         company.StandIn = null;
         company.StandInAnnounced = false;
+        company.HoldUntil = null;
+        company.KeepAsked = false;
+        if (CrewOf(company) is { } crew && crew.KeepCards.Remove(company.Id))
+        {
+            CrewChanged(crew);
+        }
         if (company.Packed == null && EstateOf(company) is { } home)
         {
             // Asleep in place: it wakes where it is, its stand-in steps aside
@@ -528,8 +531,25 @@ public sealed partial class GameWorld
                 $"Welcome back! Your estate in {WorldNames.Station(home.Station)} wakes up; a stand-in kept your trades going"));
             return;
         }
-        var estate = FindFreeEstate();
+        // Its old seat when it's still free, else next to its crew, else next to people (the landing cards offer the rest)
+        var seat = PreferredLanding(company);
+        OpenDistrict(seat.District);
+        var estate = Estate(seat.District, seat.Slot)!;
+        if (estate.OwnerId is { } owner && Company(owner) is { IsNpc: true })
+        {
+            EvictTenant(estate);
+        }
+        if (estate.OwnerId != null)
+        {
+            estate = FindFreeEstate();
+        }
         Unpack(company, estate);
+        RerouteLinks(company);
+        // A seat its crew kept for it (after the crew moved) is its own now
+        if (HoldOn(KeyOf(estate)) is { } kept && kept.Hold.For == company.Id)
+        {
+            RemoveHold(kept.Crew, kept.Hold);
+        }
         var gold = 1000.0 * company.Level;
         company.Gold += gold;
         company.ResearchPoints += 500 * company.Level;

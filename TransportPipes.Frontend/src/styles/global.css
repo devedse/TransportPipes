@@ -5332,3 +5332,80 @@ button.link.danger {
   border: none;
   box-shadow: none;
 }
+
+/* The way back (v1.2 §10): three screens, landing cards */
+.return-steps {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.return-steps .step {
+  width: 28px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.return-steps .step.active {
+  background: var(--accent);
+}
+
+.return-steps .step.done {
+  background: rgba(35, 107, 105, 0.45);
+}
+
+.return-buttons {
+  justify-content: flex-end;
+}
+
+.landing-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.landing-card {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  text-align: left;
+  padding: 10px 12px;
+  position: relative;
+}
+
+.landing-card.here {
+  outline: 3px solid var(--accent);
+}
+
+.landing-card .badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+
+.keep-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 2px dashed #c9963a;
+  border-radius: 10px;
+  background: rgba(201, 150, 58, 0.12);
+}
+
+.crew-members li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.crew-members li .grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.tailwind-chip {
+  color: #2e7d4a;
+  font-weight: 700;
+}

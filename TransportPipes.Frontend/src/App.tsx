@@ -29,6 +29,8 @@ import { SelectionPanel } from "./components/SelectionPanel";
 import { KeysHelp } from "./components/KeysHelp";
 import { PipeTierBar } from "./components/PipeTierBar";
 import { ReportDialog } from "./components/ReportDialog";
+import { ReturnDialog } from "./components/ReturnDialog";
+import { LoneCard } from "./components/LoneCard";
 import { BlueprintPanel, BlueprintSaveDialog } from "./components/BlueprintPanel";
 import { DeepParcelPanel, DeepVignette, LayerSwitch } from "./components/DeepPanel";
 import { GoalTracker } from "./components/GoalTracker";
@@ -310,6 +312,12 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="SeasonPanel">
             <SeasonPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="ReturnDialog">
+            <ReturnDialog />
+          </ErrorBoundary>
+          <ErrorBoundary name="LoneCard">
+            <LoneCard />
           </ErrorBoundary>
           <ErrorBoundary name="ReportDialog">
             <ReportDialog />

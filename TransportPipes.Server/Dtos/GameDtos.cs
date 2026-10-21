@@ -27,7 +27,26 @@ public record CommandResultDto(bool Success, string? Error)
 }
 
 /// <summary>Everything the client needs right after connecting</summary>
-public record HelloDto(UserInfo User, CompanyDto? Company, ReportDto? Report, DateTime ServerTime, int Era, int Unread);
+public record HelloDto(UserInfo User, CompanyDto? Company, ReportDto? Report, DateTime ServerTime, int Era, int Unread, ReturnDto? Return = null);
+
+/// <summary>
+/// The way back after three or more days (v1.2 §10): what happened, that the estate is safe, and where it can land
+/// </summary>
+public record ReturnDto(
+    double DaysAway,
+    double Earned,
+    double CaretakerFee,
+    int TendedDays,
+    string? StandIn,
+    bool WasAsleep,
+    bool FromQuietIsles,
+    string Station,
+    int Links,
+    int Crates,
+    IReadOnlyList<LandingCardDto> Landing);
+
+/// <summary>A place to land: your seat, next to your crew, a lively station, the Frontier; with the crates it would mean</summary>
+public record LandingCardDto(string Kind, SeatRefDto Seat, string Station, int Crates, bool Here, int Neighbours);
 
 public record CompanyDto(
     long Id,
@@ -83,7 +102,11 @@ public record CompanyDto(
     DateTime ServerTime,
     ExperienceDto Experience,
     string TradeWith,
-    CrewBadgeDto? Crew);
+    CrewBadgeDto? Crew,
+    /// <summary>The XP multiplier while far behind the people you live with (v1.2 §10)</summary>
+    double Tailwind,
+    /// <summary>The lone-human card waits: nobody else in the station played lately</summary>
+    bool LoneCard);
 
 /// <summary>A company's crew as the top bar and the map show it</summary>
 public record CrewBadgeDto(long Id, string Name, string Emblem, string Color, string Color2, int Members);
@@ -594,9 +617,14 @@ public record DistrictRefDto(int DistrictX, int DistrictY, string Name);
 /// <summary>What a seat code or crew link opens: the crew, who invites, the station and (for a seat code) the seat kept</summary>
 public record InviteDto(bool Valid, string? CrewName, string? Emblem, string? Color, string? Color2, string? From, StationDto? Station, int? Slot, bool SeatCode, bool NeedsApproval, string? Name);
 
-public record CrewMemberDto(long Id, string Name, string Color, int Level, string? Activity, string Station, int Slot, bool You);
+/// <summary>A crew mate; CanTend: you may tend their estate today (v1.2 §12), Tended: someone did lately, Asleep: a stand-in runs their trades</summary>
+public record CrewMemberDto(long Id, string Name, string Color, int Level, string? Activity, string Station, int Slot, bool You, bool CanTend = false, bool Tended = false, bool Asleep = false);
 
-public record HeldSeatDto(string Code, int DistrictX, int DistrictY, int Slot, string Primary, string? Secondary, DateTime Until);
+/// <summary>The keep card (v1.2 §10): an asleep crew mate's seat whose hold ends soon</summary>
+public record KeepCardDto(long Id, string Name, DateTime Ends);
+
+/// <summary>A seat the crew keeps: for a friend (with its code), or for a member (For: a crew move, an asleep friend's seat)</summary>
+public record HeldSeatDto(string Code, int DistrictX, int DistrictY, int Slot, string Primary, string? Secondary, DateTime Until, long? For = null, string? ForName = null, string? Station = null);
 
 /// <summary>Your crew: its members, the seats it keeps for friends (with their codes), its invite link and who asked to join</summary>
 public record CrewDto(
@@ -612,7 +640,11 @@ public record CrewDto(
     IReadOnlyList<CrewMemberDto> Requests,
     bool StationOpen,
     bool StationClosed,
-    int MaxSize);
+    int MaxSize,
+    IReadOnlyList<KeepCardDto> KeepCards,
+    bool ConsolidationCard,
+    /// <summary>Where the crew could move together (a station with a seat for everyone)</summary>
+    string? MoveTo);
 
 /// <summary>The crew panel: your crew (or none), and the emblems to choose from</summary>
 public record CrewViewDto(CrewDto? Crew, IReadOnlyList<string> Emblems);

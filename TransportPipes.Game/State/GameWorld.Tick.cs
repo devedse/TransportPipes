@@ -77,6 +77,7 @@ public sealed partial class GameWorld
             events.Add((at, long.MinValue, () =>
             {
                 UpdateMarkets();
+                UpdateTailwinds();
                 RunManagers();
             }));
         }
@@ -314,6 +315,7 @@ public sealed partial class GameWorld
             {
                 // The Caretaker of a dormant company
                 company.Gold -= earned * CaretakerShare(company);
+                company.Report.CaretakerFee += earned * CaretakerShare(company);
                 TaxEarnings(company, earned);
                 company.LifetimeEarnings += earned;
                 company.Report.GoldEarned += earned;

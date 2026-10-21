@@ -269,8 +269,21 @@ stay); name + password accounts only (guests on a hidden account they can keep);
   the volume shrinks to a quarter; on day 90 the estate is packed for the Quiet Isles; waking in place gives the
   trades back. Frozen districts: not needed (see the refinements). e2e `houses.mjs`. The solo-parity balance run
   moves to step 8
-- ⬜ 5 · Absence and return: holds, asleep in place, the keep-the-seat card, tending, the three return screens,
-  landing cards with crates, Tailwind, narrow probation, crew moves and the consolidation card
+- ✅ 5 · Absence and return: an asleep crew member's seat is held in place to day 90 (a week before, every active
+  crew mate gets one keep card: "Keep Ben's seat 60 more days?", the first answer counts, once; holds lapse when no
+  crew mate played for two weeks), without a crew to day 37; then the estate travels safely to the Quiet Isles and a
+  House warms the seat. Coming back after three days or more: the way back's screens (what the estate earned, what
+  the caretaker took, on how many days the crew tended it, the stand-in; that the estate is safe and the links are
+  back; after the Quiet Isles the landing cards: your seat preselected, next to your crew, a lively station, the
+  Frontier, each with its crates; another card is a free move). Tending (once a day per crew mate, banks for three
+  days, counted once per day, never who). Tailwind (XP × min(2.5, 1 + (median − level) ÷ 10) while more than five
+  levels behind the active median of the crew, else the station, else the district; shown in the top bar). The
+  lone-human card (the fifth day as the only active player of a station, at most every 30 days: up to three livelier
+  stations), crew moves as a block (a seat kept for every member for a week), the consolidation card (once, when
+  more than half of a crew sleeps: the others move together, the sleepers' seats follow them), narrow probation
+  (a stranger in a station a crew fills: away five days in its first two weeks, packed with nothing lost, its old
+  seat the first landing card). e2e `return.mjs`. Not in this version: e-mail (the in-game report only), the five
+  stills of the estate, the Era jump kit, the "Back!" ribbon and the Houses' postcard
 - ⬜ 6 · The station's project (Foundation … Landmark, recipes and keystones, baskets, credit, bonuses), Asks, the Plan
   board
 - ⬜ 7 · The long game: crew trunks, public trunks, outposts feeding the Yard, Discoveries with markers, leagues by

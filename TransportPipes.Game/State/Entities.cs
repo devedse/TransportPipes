@@ -118,6 +118,28 @@ public sealed class Company : Entity
     /// <summary>The House that keeps an asleep company's trades going (v1.2 §9), and whether its partners heard on day 23</summary>
     public StandIn? StandIn { get; set; }
     public bool StandInAnnounced { get; set; }
+
+    /// <summary>When an asleep company's seat stops being held when a friend kept it longer, and whether its crew got the keep card</summary>
+    public DateTime? HoldUntil { get; set; }
+    public bool KeepAsked { get; set; }
+
+    /// <summary>Tending (v1.2 §12): who tended the estate on which day, and until when it counts as tended</summary>
+    public Dictionary<long, int> TendedBy { get; set; } = new();
+    public DateTime? TendedUntil { get; set; }
+
+    /// <summary>The seat a returner had before the Quiet Isles (its landing card)</summary>
+    public EstateKey? LastSeat { get; set; }
+
+    /// <summary>The lone-human card (v1.2 §4): days alone among the active, when it last came, whether it waits to be seen</summary>
+    public int LoneDays { get; set; }
+    public DateTime? LoneCardAt { get; set; }
+    public bool LoneCard { get; set; }
+
+    /// <summary>A stranger in a crew's station is on probation for its first 14 days (v1.2 §6)</summary>
+    public DateTime? ProbationUntil { get; set; }
+
+    /// <summary>The XP multiplier while far behind the people you live with (v1.2 §10), worked out every quarter of an hour</summary>
+    public double Tailwind { get; set; } = 1;
     public DateTime? ArrivesAt { get; set; }
     public DateTime? LastMovedAt { get; set; }
 
@@ -205,6 +227,10 @@ public sealed class CompanyReport
     public List<string> ResearchDone { get; set; } = new();
     public List<string> Contracts { get; set; } = new();
     public List<string> NewNeighbours { get; set; } = new();
+
+    /// <summary>On how many days a crew mate tended the estate, and what the caretaker took</summary>
+    public int TendedDays { get; set; }
+    public double CaretakerFee { get; set; }
     public int OrdersCompleted { get; set; }
     public int LikesReceived { get; set; }
 }

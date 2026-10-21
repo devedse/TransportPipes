@@ -25,13 +25,12 @@ public sealed class StandIn
 /// on which they stop. Split by direction, so the friend who stays isn't hurt and an alt can't farm it: a partner who
 /// buys from the stand-in gets what the sleeper sold at the old price for 14 days, then 10% less a week, and that gold
 /// leaves the game; a partner who sells to it is paid NPC gold at the old price (a week longer for a crew member's
-/// partners), gliding over 14 days to House terms while the volume shrinks to the NPC share. On day 90 the estate is
-/// packed for the Quiet Isles and its seat is free.
+/// partners), gliding over 14 days to House terms while the volume shrinks to the NPC share. When the seat's hold ends
+/// (GameWorld.Return) the estate is packed for the Quiet Isles and a House warms the seat.
 /// </summary>
 public sealed partial class GameWorld
 {
     public static readonly TimeSpan StandInNoticeAfter = TimeSpan.FromDays(23);
-    public static readonly TimeSpan PackAsleepAfter = TimeSpan.FromDays(90);
     private const double StandInFullDays = 14;
     private const double StandInGlideDays = 14;
     private const int StandInOldPriceDays = 5;
@@ -154,14 +153,35 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>Day 90: the asleep estate is packed for the Quiet Isles and its seat is free (nothing is lost)</summary>
+    /// <summary>For testing: the hold is over now</summary>
+    public void PackForTesting(Company company)
+    {
+        if (company.Asleep && company.Packed == null)
+        {
+            PackAsleep(company);
+        }
+    }
+
+    /// <summary>The hold ends: the asleep estate travels safely to the Quiet Isles (nothing is lost) and a House warms its seat</summary>
     private void PackAsleep(Company company)
     {
+        var seat = EstateOf(company);
+        // Its landing card when it comes back
+        company.LastSeat = seat is { } home ? KeyOf(home) : null;
         company.StandIn = null;
+        company.KeepAsked = false;
+        if (CrewOf(company) is { } crew && crew.KeepCards.Remove(company.Id))
+        {
+            CrewChanged(crew);
+        }
         EndTradeOf(company);
         Pack(company);
         company.Touch();
         Changes.Companies.Add(company.Id);
         WakeCoupling();
+        if (TenantsEnabled && seat is { OwnerId: null })
+        {
+            CreateTenant(seat, seat.Slot);
+        }
     }
 }

@@ -146,6 +146,15 @@ export function TopBar() {
             </div>
             <div className="xp-pace small">
               +{formatAmount(company.experience.perMinute)} XP/min
+              {company.tailwind > 1 && (
+                <span
+                  className="tailwind-chip"
+                  title="Tailwind: far behind the people you live with, you get more XP until you catch up"
+                >
+                  {" "}
+                  🍃 ×{company.tailwind.toFixed(1)}
+                </span>
+              )}
               {levelEta(company) !== null && (
                 <>
                   {" "}

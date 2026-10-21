@@ -299,6 +299,7 @@ export class GameClient {
       era: hello.era,
       serverOffsetMs: new Date(hello.serverTime).getTime() - Date.now(),
       report: hello.report,
+      welcomeBack: hello.return,
       unread: hello.unread,
     });
     if (hello.company === null) {

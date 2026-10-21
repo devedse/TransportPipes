@@ -105,6 +105,14 @@ public sealed class GameHub : Hub<IGameClient>
             {
                 return new HelloDto(user, null, null, world.Now, world.Era, 0);
             }
+            // The way back (v1.2 §10): what to tell a player who was away three days or more (before the report starts anew)
+            var away = world.Now - company.LastSeenAt;
+            var wasAsleep = company.Asleep;
+            var fromIsles = company.Asleep && company.Packed != null;
+            var standIn = company.StandIn?.Name;
+            var earned = company.Report.GoldEarned;
+            var fee = company.Report.CaretakerFee;
+            var tended = company.Report.TendedDays;
             ReportDto? report = null;
             if (world.Now - company.Report.Since >= ReportAfter && GameViews.HasNews(company.Report))
             {
@@ -114,10 +122,11 @@ public sealed class GameHub : Hub<IGameClient>
             }
             company.LastSeenAt = world.Now;
             world.CountPlayDay(company);
-            // Back from the Quiet Isles
+            // Back from sleep (in place, or from the Quiet Isles)
             world.WakeUp(company);
             world.EnsureOrders(company);
-            return new HelloDto(user, CompanyView(world, company), report, world.Now, world.Era, 0);
+            var back = away >= GameWorld.RestingAfter || wasAsleep ? GameViews.Return(world, company, away, earned, fee, tended, standIn, wasAsleep, fromIsles) : null;
+            return new HelloDto(user, CompanyView(world, company), report, world.Now, world.Era, 0, back);
         });
         return hello.Company is { } dto ? hello with { Unread = await _social.UnreadAsync(dto.Id) } : hello;
     }
@@ -330,6 +339,32 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<MarketDto?> GetMarket() =>
         _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Market(world, company) : null, changesWorld: false);
+
+    public Task<IReadOnlyList<LandingCardDto>> GetLivelierStations() =>
+        _world.RunAsync<IReadOnlyList<LandingCardDto>>(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Livelier(world, company) : [], changesWorld: false);
+
+    public Task<CommandResultDto> DismissLoneCard() =>
+        Command((world, company) => world.DismissLoneCard(company));
+
+    /// <summary>Moves the crew together: you to the suggested station, a seat there kept for everyone else for a week</summary>
+    public Task<CommandResultDto> CrewMove() =>
+        Command((world, company) => world.Company(company) is { } me ? world.CrewMove(company, world.CrewMoveSeat(me)) : CommandResult.Fail("Unknown company."));
+
+    public Task<CommandResultDto> Consolidate() =>
+        Command((world, company) => world.Consolidate(company));
+
+    public Task<CommandResultDto> DismissConsolidation() =>
+        Command((world, company) => world.DismissConsolidation(company));
+
+    public Task<CommandResultDto> Tend(long friendId) =>
+        Command((world, company) => world.Tend(company, friendId));
+
+    public Task<CommandResultDto> KeepSeat(long sleeperId, bool keep) =>
+        Command((world, company) => world.KeepSeat(company, sleeperId, keep));
+
+    /// <summary>Where you could land now (the third screen of the way back; a move there is free once)</summary>
+    public Task<IReadOnlyList<LandingCardDto>> GetLandingCards() =>
+        _world.RunAsync<IReadOnlyList<LandingCardDto>>(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Landing(world, company) : [], changesWorld: false);
 
     public Task<YardDto?> GetYard() =>
         _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Yard(world, company) : null, changesWorld: false);
@@ -940,6 +975,19 @@ public sealed class GameHub : Hub<IGameClient>
                     break;
                 case "sleep":
                     world.PutToSleep(company);
+                    break;
+                case "gone":
+                    // The next Hello comes as if the player was away for ten days (the way back's screens)
+                    company.LastSeenAt = world.Now.AddDays(-10);
+                    company.Report.Since = company.LastSeenAt;
+                    company.Touch();
+                    break;
+                case "isles":
+                    // Asleep, and the hold over: the estate waits on the Quiet Isles
+                    world.PutToSleep(company);
+                    world.PackForTesting(company);
+                    company.LastSeenAt = world.Now.AddDays(-40);
+                    company.Report.Since = company.LastSeenAt;
                     break;
                 case "finale":
                     // To Era 5 and the launch countdown

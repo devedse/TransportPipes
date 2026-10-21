@@ -1,5 +1,6 @@
 import { HubConnectionBuilder, LogLevel, type HubConnection } from "@microsoft/signalr";
 import type {
+  LandingCardDto,
   LinkPlanDto,
   LinksDto,
   MapLinkDto,
@@ -295,6 +296,14 @@ export class GameConnection {
   getMarket = () => this.invoke<MarketDto | null>("GetMarket");
   getNeighbourhood = () => this.invoke<NeighbourDto[]>("GetNeighbourhood");
   getYard = () => this.invoke<YardDto | null>("GetYard");
+  tend = (friendId: number) => this.invoke<CommandResult>("Tend", friendId);
+  getLivelierStations = () => this.invoke<LandingCardDto[]>("GetLivelierStations");
+  dismissLoneCard = () => this.invoke<CommandResult>("DismissLoneCard");
+  crewMove = () => this.invoke<CommandResult>("CrewMove");
+  consolidate = () => this.invoke<CommandResult>("Consolidate");
+  dismissConsolidation = () => this.invoke<CommandResult>("DismissConsolidation");
+  keepSeat = (sleeperId: number, keep: boolean) => this.invoke<CommandResult>("KeepSeat", sleeperId, keep);
+  getLandingCards = () => this.invoke<LandingCardDto[]>("GetLandingCards");
   getLinks = () => this.invoke<LinksDto | null>("GetLinks");
   planLink = (partnerId: number, resource: string, selling: boolean, tier: number) =>
     this.invoke<LinkPlanDto | null>("PlanLink", partnerId, resource, selling, tier);

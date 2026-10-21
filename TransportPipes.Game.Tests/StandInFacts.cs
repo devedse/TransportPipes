@@ -18,6 +18,9 @@ public class StandInFacts
         var mine = game.Build(b, "ironMine", game.Spot(b, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
         game.ConnectToGate(b, mine);
         game.Connect(b, mine, game.TradingPost(b));
+        // A crew: an asleep member's seat is held to day 90, so the stand-in runs its full course
+        var (_, crew) = game.World.FoundCrew(a.Id, "Kettle & Co.", "kettle", "#236b69", "#c9963a", 0);
+        game.World.JoinCrew(b.Id, crew!.InviteCode);
         game.Pass(3);
         return (game, a, b, moily, mine);
     }
@@ -91,7 +94,7 @@ public class StandInFacts
         Assert.IsTrue(b.Asleep);
         var standIn = b.StandIn!;
         var days = (game.World.Now - standIn.Since).TotalDays;
-        Assert.AreEqual(days / 14, game.World.StandInGlide(standIn), 1e-9, "not a crew member: the glide starts at once");
+        Assert.AreEqual(days / 14, game.World.StandInGlide(standIn), 1e-9, "fewer than five days of play: the glide starts at once");
         Assert.IsGreaterThan(game.World.HouseBuyPrice(a, "energy"), game.World.StandInBuyPrice(standIn, a, "energy"), "still near the old price");
 
         var goldA = a.Gold;

@@ -29,6 +29,7 @@ public sealed partial class GameWorld
         PlanEvents();
         CheckActivity();
         CheckHolds();
+        CheckTogether();
         if (TenantsEnabled)
         {
             UpdateHouses();

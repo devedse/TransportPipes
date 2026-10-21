@@ -96,6 +96,15 @@ public sealed class WorldStore
                 House = settings.House,
                 StandIn = settings.StandIn,
                 StandInAnnounced = settings.StandInAnnounced,
+                HoldUntil = settings.HoldUntil,
+                KeepAsked = settings.KeepAsked,
+                TendedBy = settings.TendedBy ?? new Dictionary<long, int>(),
+                TendedUntil = settings.TendedUntil,
+                LastSeat = settings.LastSeat,
+                LoneDays = settings.LoneDays,
+                LoneCardAt = settings.LoneCardAt,
+                LoneCard = settings.LoneCard,
+                ProbationUntil = settings.ProbationUntil,
                 DistinctDays = settings.DistinctDays,
                 LastPlayedDay = settings.LastPlayedDay,
                 TradeWith = settings.TradeWith,
@@ -372,6 +381,15 @@ public sealed class WorldStore
                     House = company.House,
                     StandIn = company.StandIn,
                     StandInAnnounced = company.StandInAnnounced,
+                    HoldUntil = company.HoldUntil,
+                    KeepAsked = company.KeepAsked,
+                    TendedBy = company.TendedBy,
+                    TendedUntil = company.TendedUntil,
+                    LastSeat = company.LastSeat,
+                    LoneDays = company.LoneDays,
+                    LoneCardAt = company.LoneCardAt,
+                    LoneCard = company.LoneCard,
+                    ProbationUntil = company.ProbationUntil,
                     DistinctDays = company.DistinctDays,
                     LastPlayedDay = company.LastPlayedDay,
                     TradeWith = company.TradeWith,
@@ -699,6 +717,15 @@ public sealed class WorldStore
         public HouseKind? House { get; init; }
         public StandIn? StandIn { get; init; }
         public bool StandInAnnounced { get; init; }
+        public DateTime? HoldUntil { get; init; }
+        public bool KeepAsked { get; init; }
+        public Dictionary<long, int>? TendedBy { get; init; }
+        public DateTime? TendedUntil { get; init; }
+        public EstateKey? LastSeat { get; init; }
+        public int LoneDays { get; init; }
+        public DateTime? LoneCardAt { get; init; }
+        public bool LoneCard { get; init; }
+        public DateTime? ProbationUntil { get; init; }
         public int DistinctDays { get; init; }
         public int LastPlayedDay { get; init; }
         public TradeWith TradeWith { get; init; } = TradeWith.Everyone;

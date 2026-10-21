@@ -33,6 +33,7 @@ async function share(text: string, title: string) {
 /** The seats held for friends, each with its own link */
 export function HeldSeats({ holds, crewName }: { holds: HeldSeatDto[]; crewName: string }) {
   const serverOffset = useAppStore((s) => s.serverOffsetMs);
+  const company = useAppStore((s) => s.company);
   const now = useNow(60000) + serverOffset;
   if (holds.length === 0) {
     return <p className="muted small">No seats held for friends.</p>;
@@ -40,6 +41,35 @@ export function HeldSeats({ holds, crewName }: { holds: HeldSeatDto[]; crewName:
   return (
     <ul className="held-seats">
       {holds.map((hold) => {
+        if (hold.for !== null) {
+          // A seat kept for a member: after a crew move, or an asleep friend's seat next to the others
+          const mine = hold.for === company?.id;
+          return (
+            <li key={hold.code}>
+              <div>
+                <strong>{mine ? "Your seat" : `${hold.forName ?? "A friend"}'s seat`}</strong>{" "}
+                <span className="muted small">
+                  in {hold.station} · {landText(hold.primary, hold.secondary)} · kept{" "}
+                  {formatDuration(Math.max(0, (new Date(hold.until).getTime() - now) / 1000))} more
+                </span>
+              </div>
+              {mine && (
+                <button
+                  className="primary"
+                  onClick={() =>
+                    void gameClient.relocateTo({
+                      districtX: hold.districtX,
+                      districtY: hold.districtY,
+                      slot: hold.slot,
+                    })
+                  }
+                >
+                  Move there
+                </button>
+              )}
+            </li>
+          );
+        }
         const link = inviteLink(hold.code, true);
         return (
           <li key={hold.code}>
@@ -215,14 +245,88 @@ export function CrewPanel() {
                   <li key={m.id}>
                     <span className="dot" style={{ background: m.color }} />{" "}
                     <strong>{m.you ? "You" : m.name}</strong>{" "}
-                    <span className="muted small">
+                    <span className="muted small grow">
                       Lv {m.level} · {m.station}
                       {m.activity !== null && ` · ${m.activity}`}
+                      {m.asleep && " (a stand-in keeps their trades)"}
+                      {m.tended && " · 💛 tended"}
                     </span>
+                    {m.canTend && (
+                      <button
+                        className="small"
+                        title="A favour while they're away: they'll read on how many days their crew tended it (never who)"
+                        onClick={() =>
+                          void gameClient.crewCommand(
+                            gameClient.connection.tend(m.id),
+                            `You tended ${m.name}'s estate`,
+                          )
+                        }
+                      >
+                        💛 Tend
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
             </section>
+            {crew.consolidationCard && (
+              <section className="keep-card">
+                <strong>Move to a fresh station together?</strong>
+                <p className="muted small">
+                  Most of {crew.name} is asleep. You and the others who play move to{" "}
+                  {crew.moveTo ?? "a fresh station"}; the sleepers&apos; estates wait safely on the Quiet
+                  Isles, and their seats are kept next to you for when they come back.
+                </p>
+                <span className="button-row">
+                  <button
+                    className="primary"
+                    onClick={() =>
+                      void gameClient.crewCommand(
+                        gameClient.connection.consolidate(),
+                        "Up, up and away, together",
+                      )
+                    }
+                  >
+                    Move together
+                  </button>
+                  <button
+                    onClick={() => void gameClient.crewCommand(gameClient.connection.dismissConsolidation())}
+                  >
+                    Not now
+                  </button>
+                </span>
+              </section>
+            )}
+            {crew.keepCards.map((card) => (
+              <section key={card.id} className="keep-card">
+                <strong>Keep {card.name}&apos;s seat 60 more days?</strong>
+                <p className="muted small">
+                  {card.name} has been asleep for a while; their seat is kept until{" "}
+                  {new Date(card.ends).toLocaleDateString()}. Without an answer their estate travels safely to
+                  the Quiet Isles then, and a House keeps the seat warm. The first answer counts.
+                </p>
+                <span className="button-row">
+                  <button
+                    className="primary"
+                    onClick={() =>
+                      void gameClient.crewCommand(
+                        gameClient.connection.keepSeat(card.id, true),
+                        "Kept 60 days more",
+                      )
+                    }
+                  >
+                    Keep it
+                  </button>
+                  <button
+                    onClick={() =>
+                      void gameClient.crewCommand(gameClient.connection.keepSeat(card.id, false))
+                    }
+                  >
+                    Let it go
+                  </button>
+                </span>
+              </section>
+            ))}
             {crew.requests.length > 0 && (
               <section>
                 <h4>Want to join</h4>
@@ -276,6 +380,22 @@ export function CrewPanel() {
                 </button>
               </span>
             </section>
+            {crew.moveTo !== null && crew.members.length > 1 && (
+              <section>
+                <h4>Live together</h4>
+                <p className="muted small">
+                  Move the crew as a block: you go to {crew.moveTo} now, and a seat there is kept for everyone
+                  else for a week; each moves with one tap.
+                </p>
+                <button
+                  onClick={() =>
+                    void gameClient.crewCommand(gameClient.connection.crewMove(), `Off to ${crew.moveTo}`)
+                  }
+                >
+                  Move the crew to {crew.moveTo}
+                </button>
+              </section>
+            )}
             {(crew.stationClosed || crew.stationOpen) && (
               <section>
                 <label className="check">

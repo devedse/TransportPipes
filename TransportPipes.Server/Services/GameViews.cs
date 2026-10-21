@@ -103,7 +103,9 @@ public static class GameViews
             Camel(company.TradeWith),
             world.CrewOf(company) is { } crew
                 ? new CrewBadgeDto(crew.Id, crew.NameHidden ? $"Crew {crew.Id}" : crew.Name, crew.Emblem, crew.Color, crew.Color2, world.CrewMembers(crew).Count())
-                : null);
+                : null,
+            company.Tailwind,
+            company.LoneCard);
     }
 
     private static ExperienceDto Experience(GameWorld world, Company company, double goldPerMinute)
@@ -1134,7 +1136,8 @@ public static class GameViews
     public static HeldSeatDto Held(GameWorld world, SeatHold hold)
     {
         var profile = world.Generator.Estate(hold.Seat.District, hold.Seat.Slot);
-        return new HeldSeatDto(GameWorld.ShowCode(hold.Code), hold.DistrictX, hold.DistrictY, hold.Slot, Camel(profile.Primary), profile.Secondary is { } secondary ? Camel(secondary) : null, hold.Until);
+        return new HeldSeatDto(GameWorld.ShowCode(hold.Code), hold.DistrictX, hold.DistrictY, hold.Slot, Camel(profile.Primary), profile.Secondary is { } secondary ? Camel(secondary) : null, hold.Until,
+            hold.For, hold.For is { } member ? world.Company(member)?.Name : null, WorldNames.Station(WorldLayout.StationOf(hold.Seat.District, hold.Seat.Slot)));
     }
 
     public static CrewViewDto Crew(GameWorld world, Company me)
@@ -1144,8 +1147,9 @@ public static class GameViews
             return new CrewViewDto(null, GameWorld.CrewEmblems);
         }
         CrewMemberDto Member(Company t) =>
-            new(t.Id, t.Name, t.Color, t.Level, t.Id == me.Id ? null : ActivityBucket(world, t),
-                world.EstateOf(t) is { } estate ? WorldNames.Station(estate.Station) : "on the way", t.Slot, t.Id == me.Id);
+            new(t.Id, t.Name, t.Color, t.Level, t.Id == me.Id ? null : t.Asleep ? "asleep" : ActivityBucket(world, t),
+                world.EstateOf(t) is { } estate ? WorldNames.Station(estate.Station) : t.Asleep ? "the Quiet Isles" : "on the way", t.Slot, t.Id == me.Id,
+                world.CanTend(me, t), world.Tended(t), t.Asleep);
         var home = world.EstateOf(me)?.Station;
         var closed = home is { } station && !world.StationOpenToStrangers(station);
         return new CrewViewDto(new CrewDto(
@@ -1161,7 +1165,10 @@ public static class GameViews
             crew.JoinRequests.Select(world.Company).OfType<Company>().Select(Member).ToList(),
             home is { } h && crew.OpenStations.Contains($"{h.District.X},{h.District.Y},{h.Index}"),
             closed,
-            GameWorld.MaxCrewSize), GameWorld.CrewEmblems);
+            GameWorld.MaxCrewSize,
+            crew.KeepCards.Select(world.Company).OfType<Company>().Select(t => new KeepCardDto(t.Id, t.Name, world.HoldEnds(t))).ToList(),
+            crew.ConsolidationOpen,
+            world.CrewMembers(crew).Count() > 1 ? WorldNames.Station(WorldLayout.StationOf(world.CrewMoveSeat(me).District, world.CrewMoveSeat(me).Slot)) : null), GameWorld.CrewEmblems);
     }
 
     /// <summary>A duration as a state line says it: "45 min", "1 h 40 min", "2 days"</summary>
@@ -1290,6 +1297,34 @@ public static class GameViews
         world.Links.Where(t => t.State != LinkState.Offered)
             .Select(t => new MapLinkDto(t.Id, t.Resource, t.Tier, t.Rate > 0, t.Seller, t.Buyer, Flat(t.Route)))
             .ToList();
+
+    /// <summary>The lone-human card's stations (and the Move tab's "livelier stations"): where active players live and a seat is free</summary>
+    public static IReadOnlyList<LandingCardDto> Livelier(GameWorld world, Company company) =>
+        world.LivelierStations(company).Select(t => new LandingCardDto("lively", Ref(t.Seat), WorldNames.Station(t.Station),
+            world.Estate(t.Seat.District, t.Seat.Slot) is { } target ? world.CratesIfMovedTo(company, target) : 0, false, t.Active)).ToList();
+
+    public static IReadOnlyList<LandingCardDto> Landing(GameWorld world, Company company) =>
+        world.LandingCards(company).Select(t =>
+        {
+            var station = WorldLayout.StationOf(t.Seat.District, t.Seat.Slot);
+            var neighbours = world.BigStation(station).SelectMany(GameWorld.StationSeats)
+                .Count(s => s != t.Seat && world.Estate(s.District, s.Slot)?.OwnerId is { } o && world.Company(o) is { IsNpc: false } c && c.Id != company.Id && !c.Asleep);
+            return new LandingCardDto(t.Kind, Ref(t.Seat), WorldNames.Station(station), t.Crates, t.Here, neighbours);
+        }).ToList();
+
+    public static ReturnDto Return(GameWorld world, Company company, TimeSpan away, double earned, double fee, int tended, string? standIn, bool wasAsleep, bool fromIsles) =>
+        new(
+            Math.Round(away.TotalDays, 1),
+            earned,
+            fee,
+            tended,
+            standIn,
+            wasAsleep,
+            fromIsles,
+            world.EstateOf(company) is { } estate ? WorldNames.Station(estate.Station) : "",
+            world.LinksOf(company.Id).Count(t => t.State != LinkState.Offered),
+            company.Crates.Count,
+            fromIsles ? Landing(world, company) : []);
 
     /// <summary>Whether a company sells a good to the hub (some of its buildings reach a Trading Post)</summary>
     private static bool HubTakes(GameWorld world, Company me, string resource) =>

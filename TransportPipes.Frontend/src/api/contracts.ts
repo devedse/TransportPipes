@@ -100,6 +100,10 @@ export interface CompanyDto {
   tradeWith: "everyone" | "corporation" | "contracts";
   /** The company's crew (v1.2 §6) */
   crew: CrewBadgeDto | null;
+  /** The XP multiplier while far behind the people you live with (v1.2 §10) */
+  tailwind: number;
+  /** The lone-human card waits: nobody else in the station played lately */
+  loneCard: boolean;
 }
 
 export type ActivityStage = "active" | "resting" | "dormant" | "asleep";
@@ -286,6 +290,33 @@ export interface HelloDto {
   serverTime: string;
   era: number;
   unread: number;
+  /** The way back after three or more days away (v1.2 §10) */
+  return: ReturnDto | null;
+}
+
+/** The way back: what happened, that the estate is safe, and where it can land */
+export interface ReturnDto {
+  daysAway: number;
+  earned: number;
+  caretakerFee: number;
+  tendedDays: number;
+  standIn: string | null;
+  wasAsleep: boolean;
+  fromQuietIsles: boolean;
+  station: string;
+  links: number;
+  crates: number;
+  landing: LandingCardDto[];
+}
+
+/** A place to land: your seat, next to your crew, a lively station, the Frontier */
+export interface LandingCardDto {
+  kind: "yours" | "crew" | "lively" | "frontier";
+  seat: SeatRefDto;
+  station: string;
+  crates: number;
+  here: boolean;
+  neighbours: number;
 }
 
 export interface BuildingDto {
@@ -1350,6 +1381,17 @@ export interface CrewMemberDto {
   station: string;
   slot: number;
   you: boolean;
+  /** You may tend their estate today (v1.2 §12) */
+  canTend: boolean;
+  tended: boolean;
+  asleep: boolean;
+}
+
+/** An asleep crew mate's seat whose hold ends soon: keep it 60 more days? */
+export interface KeepCardDto {
+  id: number;
+  name: string;
+  ends: string;
 }
 
 export interface HeldSeatDto {
@@ -1360,6 +1402,10 @@ export interface HeldSeatDto {
   primary: string;
   secondary: string | null;
   until: string;
+  /** A seat kept for a member (a crew move, an asleep friend's seat) */
+  for: number | null;
+  forName: string | null;
+  station: string | null;
 }
 
 export interface CrewDto {
@@ -1376,6 +1422,10 @@ export interface CrewDto {
   stationOpen: boolean;
   stationClosed: boolean;
   maxSize: number;
+  keepCards: KeepCardDto[];
+  consolidationCard: boolean;
+  /** Where the crew could move together */
+  moveTo: string | null;
 }
 
 export interface CrewViewDto {

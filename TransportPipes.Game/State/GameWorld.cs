@@ -417,6 +417,7 @@ public sealed partial class GameWorld
         {
             Survey(estate);
         }
+        StartProbation(company);
         Changes.Companies.Add(company.Id);
         return company;
     }
@@ -1327,6 +1328,17 @@ public sealed partial class GameWorld
             company.XpLog[source] = items = new Dictionary<string, double>();
         }
         items[item] = items.GetValueOrDefault(item) + xp;
+        if (company.Tailwind > 1)
+        {
+            // Far behind the people you live with: the Tailwind's share is booked on its own
+            var tailwind = xp * (company.Tailwind - 1);
+            if (!company.XpLog.TryGetValue("tailwind", out var boost))
+            {
+                company.XpLog["tailwind"] = boost = new Dictionary<string, double>();
+            }
+            boost["Tailwind"] = boost.GetValueOrDefault("Tailwind") + tailwind;
+            xp += tailwind;
+        }
         company.Xp += xp;
         var level = Content.Progression.LevelForXp(company.Xp);
         if (level > company.Level)

@@ -9,7 +9,9 @@ export function ReportDialog() {
   const content = useAppStore((state) => state.content);
   const gold = useAppStore((state) => state.company?.gold ?? 0);
   const level = useAppStore((state) => state.company?.level ?? 1);
-  if (report === null || content === null) {
+  // After a long absence the way back comes first
+  const welcomeBack = useAppStore((state) => state.welcomeBack);
+  if (report === null || content === null || welcomeBack !== null) {
     return null;
   }
   const sold = Object.entries(report.sold).sort((a, b) => b[1] - a[1]);

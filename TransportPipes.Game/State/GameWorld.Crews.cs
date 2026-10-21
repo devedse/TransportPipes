@@ -15,6 +15,9 @@ public sealed class SeatHold
     /// <summary>Held for 28 days at most (and only while a member played in the last 14 days)</summary>
     public DateTime Until { get; set; }
 
+    /// <summary>A seat kept for a member (a crew move, or an asleep friend's seat after the crew moved): only they take it</summary>
+    public long? For { get; init; }
+
     public EstateKey Seat => new(new DistrictCoord(DistrictX, DistrictY), Slot);
 }
 
@@ -44,6 +47,13 @@ public sealed class Crew : Entity
 
     /// <summary>Stations ("x,y,index") where the crew lets strangers settle although it lives in or holds 3+ seats there</summary>
     public HashSet<string> OpenStations { get; init; } = new();
+
+    /// <summary>Asleep members whose seat's hold ends within a week: the keep card every active member sees</summary>
+    public HashSet<long> KeepCards { get; init; } = new();
+
+    /// <summary>The consolidation card (v1.2 §4): asked once, and whether its members still see it</summary>
+    public bool ConsolidationAsked { get; set; }
+    public bool ConsolidationOpen { get; set; }
 
     /// <summary>Hidden after reports until a moderator looks at it (it shows as "Crew 12")</summary>
     public bool NameHidden { get; set; }
@@ -583,7 +593,7 @@ public sealed partial class GameWorld
         }
         if (HoldOn(seat) is { } hold)
         {
-            return code != null && hold.Hold.Code == NormalizeCode(code);
+            return (code != null && hold.Hold.Code == NormalizeCode(code)) || (newcomer != null && hold.Hold.For == newcomer.Id);
         }
         // A crew's link (while anyone may join with it) opens the crew's own stations
         var joining = code != null && CrewByInvite(code) is { } crew && LastTick - crew.InviteCodeAt <= InviteOpenFor ? crew : null;
