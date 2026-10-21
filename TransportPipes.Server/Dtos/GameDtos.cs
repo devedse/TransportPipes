@@ -265,6 +265,29 @@ public record BulkUpgradeDto(bool Success, string? Error, int Levels, double Gol
 /// <summary>What upgrading several buildings costs: all by one level, all by ten, and the cheapest next level</summary>
 public record SelectionCostsDto(double PlusOne, double PlusTen, double Cheapest, int Upgradable);
 
+/// <summary>One of the advisor's next steps (GameWorld.NextSteps): x, y is where Show me looks</summary>
+public record NextStepDto(
+    string Kind,
+    string Title,
+    string Reason,
+    string Action,
+    double Cost,
+    double GainPerMinute,
+    double? PaybackMinutes,
+    double? WaitMinutes,
+    long? Building,
+    string? BuildingType,
+    int Levels,
+    int? Parcel,
+    long? Partner,
+    int? X,
+    int? Y,
+    string? Research,
+    int Count,
+    int? Network,
+    int[] Tiles,
+    int Tier);
+
 /// <summary>What a building can evolve into where it stands, what it costs and what is in the way</summary>
 public record EvolveDto(string Into, double Cost, string? Problem);
 

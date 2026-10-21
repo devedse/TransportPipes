@@ -27,7 +27,7 @@ export function PipeTierBar() {
               role="radio"
               aria-checked={tool.tier === tier.tier}
               disabled={locked}
-              className={tool.tier === tier.tier ? "tier active" : "tier"}
+              className={tool.tier === tier.tier ? "pipe-tier active" : "pipe-tier"}
               onClick={() => gameClient.setTool({ kind: "pipe", tier: tier.tier })}
               title={
                 locked ? `Needs research: ${content.research(tier.research ?? "")?.name ?? ""}` : undefined
@@ -35,7 +35,7 @@ export function PipeTierBar() {
             >
               <strong>{tier.name}</strong>
               <span className="small">
-                {formatAmount(tier.gold)} g{materials} per tile
+                {formatAmount(tier.gold)} g{materials} a tile
               </span>
               <span className="small muted">
                 {tier.lossPerTile * 100}% loss · {formatAmount(tier.throughput)}/min

@@ -9,6 +9,7 @@ import type {
   GatePolicy,
   GateSide,
   LeaderboardKind,
+  NextStepDto,
   ToastDto,
 } from "../api/contracts";
 import { auth, fetchContent, GameConnection } from "../api/server";
@@ -28,7 +29,14 @@ import {
   parcelOf,
   zoneAt,
 } from "../game/layout";
-import { canPlace, newPipeTiles, ownEstateAt, ownEstates, routePipe } from "../game/rules";
+import {
+  canPlace,
+  newPipeTiles,
+  ownEstateAt,
+  ownEstates,
+  routePipe,
+  upgradablePipeTiles,
+} from "../game/rules";
 import { WorldModel } from "../game/world";
 import { formatAmount } from "./format";
 import { notify } from "./notifications";
@@ -625,6 +633,7 @@ export class GameClient {
       if (success !== undefined) {
         toast(success, "success");
       }
+      this.scheduleNextSteps();
       return true;
     } catch (error) {
       toast(`The server didn't answer (${String(error)}).`, "error");
@@ -665,16 +674,28 @@ export class GameClient {
     if (state.company === null || this.world === null || state.tool.kind !== "pipe") {
       return;
     }
+    const tier = state.tool.tier;
     const tiles = newPipeTiles(this.world, state.company, route, state.content ?? undefined);
-    if (tiles.length === 0) {
-      return;
+    // A better pipe drawn over the player's own pipes upgrades them
+    const upgrades = upgradablePipeTiles(this.world, state.company, route, tier);
+    if (tiles.length > 0) {
+      await this.command(
+        this.connection.placePipes(
+          tiles.flatMap((t) => [t.x, t.y]),
+          tier,
+        ),
+      );
     }
-    await this.command(
-      this.connection.placePipes(
-        tiles.flatMap((t) => [t.x, t.y]),
-        state.tool.tier,
-      ),
-    );
+    if (upgrades.length > 0) {
+      const name = state.content?.pipeTiers.find((t) => t.tier === tier)?.name ?? "pipe";
+      await this.command(
+        this.connection.upgradePipes(
+          upgrades.flatMap((t) => [t.x, t.y]),
+          tier,
+        ),
+        `${upgrades.length} pipe tiles upgraded to ${name}`,
+      );
+    }
     setState({ pipeRoute: null });
   }
 
@@ -1008,6 +1029,102 @@ export class GameClient {
     link.href = url;
     link.download = `transportpipes-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.png`;
     link.click();
+  }
+
+  private nextStepsTimer: number | null = null;
+
+  /** The advisor's steps again soon: after a command the network needs a moment to solve */
+  scheduleNextSteps(delay = 1500) {
+    if (this.nextStepsTimer !== null) {
+      clearTimeout(this.nextStepsTimer);
+    }
+    this.nextStepsTimer = window.setTimeout(() => {
+      this.nextStepsTimer = null;
+      void this.refreshNextSteps();
+    }, delay);
+  }
+
+  async refreshNextSteps() {
+    const steps = await this.connection.getNextSteps().catch(() => null);
+    if (steps !== null) {
+      setState({ nextSteps: steps });
+    }
+  }
+
+  /** The advisor's Show me: looks at the step and opens the tool or panel for it */
+  async showNextStep(step: NextStepDto) {
+    const state = appStore.getState();
+    switch (step.action) {
+      case "upgrade":
+      case "select":
+        if (step.building !== null) {
+          this.showBuilding(step.building);
+        }
+        break;
+      case "build": {
+        const definition =
+          step.buildingType !== null ? state.content?.building(step.buildingType) : undefined;
+        if (definition === undefined) {
+          break;
+        }
+        this.setTool({ kind: "build", type: definition.id });
+        const overlay: Overlay | null =
+          definition.modifier === "wind"
+            ? "wind"
+            : definition.modifier === "sun"
+              ? "sun"
+              : definition.placement.deposit !== null
+                ? "deposits"
+                : null;
+        if (overlay !== null) {
+          setState({ overlay });
+        }
+        if (step.x !== null && step.y !== null) {
+          this.engine?.lookAt(step.x, step.y, 0.8);
+          setState({ hintTile: { x: step.x, y: step.y, size: definition.size } });
+        }
+        break;
+      }
+      case "research":
+        await this.openResearch();
+        break;
+      case "parcel":
+        if (step.parcel !== null) {
+          if (step.x !== null && step.y !== null) {
+            this.engine?.lookAt(step.x, step.y, 0.5);
+          }
+          setState({ selectedParcel: step.parcel, selectedParcelEstate: 0 });
+        }
+        break;
+      case "partner":
+        if (step.partner !== null) {
+          await this.refreshNeighbours();
+          await this.planConnection(step.partner);
+        }
+        break;
+      case "pipes":
+        if (step.network !== null && step.x !== null && step.y !== null) {
+          this.engine?.lookAt(step.x, step.y, 0.8);
+          this.selectNetwork(step.network, { x: step.x, y: step.y });
+        }
+        break;
+    }
+  }
+
+  /** Raises the player's own pipes on these tiles to a better tier */
+  async upgradePipes(tiles: TilePosition[], tier: number) {
+    const name = appStore.getState().content?.pipeTiers.find((t) => t.tier === tier)?.name ?? "pipe";
+    if (
+      await this.command(
+        this.connection.upgradePipes(
+          tiles.flatMap((t) => [t.x, t.y]),
+          tier,
+        ),
+        `${tiles.length} pipe tiles upgraded to ${name}`,
+      )
+    ) {
+      window.setTimeout(() => void this.refreshNetwork(), 1200);
+    }
   }
 
   /** Looks at a building and opens its panel */

@@ -1,6 +1,6 @@
 import { formatAmount } from "../app/format";
 import { gameClient } from "../app/client";
-import { newPipeTiles, pipeGold } from "../game/rules";
+import { newPipeTiles, pipeGold, upgradablePipeTiles } from "../game/rules";
 import { isDeep, zoneAt } from "../game/layout";
 import { useAppStore } from "../state/store";
 
@@ -55,9 +55,14 @@ export function HoverTip() {
   } else if (tool.kind === "pipe" && company !== null) {
     if (route !== null && route.length > 0) {
       const tiles = newPipeTiles(world, company, route, content);
+      const upgrades = upgradablePipeTiles(world, company, route, tool.tier);
       const tier = content.pipeTiers.find((t) => t.tier === tool.tier);
-      const gold = pipeGold(world, tiles, tier?.gold ?? 2);
-      text = `${tiles.length} pipe tiles · ${formatAmount(gold)} g · release to build`;
+      const gold = pipeGold(world, tiles, tier?.gold ?? 2) + upgrades.length * (tier?.gold ?? 2);
+      const parts = [
+        tiles.length > 0 ? `${tiles.length} pipe tiles` : null,
+        upgrades.length > 0 ? `${upgrades.length} upgraded to ${tier?.name ?? "this pipe"}` : null,
+      ].filter((t) => t !== null);
+      text = `${parts.join(" · ") || "Nothing new"} · ${formatAmount(gold)} g · release to build`;
       tone = "good";
     } else {
       text = "Drag from a building to another to lay a pipe · right-click to stop";

@@ -122,7 +122,16 @@ public class BalanceSimulation
         AtAHumanPace("The first day at a human pace (sessions at 0:00, 3:00, 10:00, 14:30 and the next morning at 24:00)", "first-day.md",
             [(0, 20), (180, 5), (600, 20), (870, 2), (1440, 10)]);
 
-    private void AtAHumanPace(string title, string fileName, (double Start, double Minutes)[] sessions)
+    /// <summary>
+    /// The first day again, but besides Loady the player does only what the advisor says (docs/v1.1-design.html §4):
+    /// the first of its next steps it can afford. Compare with first-day.md: the advice should get as far.
+    /// </summary>
+    [TestMethod]
+    public void TheFirstDayWithTheAdvisor() =>
+        AtAHumanPace("The first day following the advisor (sessions at 0:00, 3:00, 10:00, 14:30 and the next morning at 24:00)", "first-day-advisor.md",
+            [(0, 20), (180, 5), (600, 20), (870, 2), (1440, 10)], advisor: true);
+
+    private void AtAHumanPace(string title, string fileName, (double Start, double Minutes)[] sessions, bool advisor = false)
     {
         if (Environment.GetEnvironmentVariable("TP_BALANCE") != "1")
         {
@@ -199,7 +208,7 @@ public class BalanceSimulation
                     var step = game.World.CurrentTutorialStep(company);
                     // Loady first; when that can't be done yet, what a player would do meanwhile (build, upgrade)
                     var (what, seconds) = step != null ? bot.FollowLoady(step) : (null, 0);
-                    if (what == null && bot.Act())
+                    if (what == null && (advisor ? bot.FollowAdvisor() : bot.Act()))
                     {
                         (what, seconds) = (bot.TakeNotes().TrimStart(' ', '·') is { Length: > 0 } note ? note : "built or upgraded something", 20);
                     }
@@ -271,6 +280,51 @@ public class BalanceSimulation
 
         /// <summary>One sensible thing to do, if there is one</summary>
         public bool Act() => TryPump() || TryResearch() || TryParcel() || TryChain() || TryUpgrade() || TryProducer();
+
+        /// <summary>The first of the advisor's next steps the company can afford now, done</summary>
+        public bool FollowAdvisor()
+        {
+            foreach (var step in World.NextSteps(company))
+            {
+                if (step.Cost > company.Gold)
+                {
+                    continue;
+                }
+                var done = step.Action switch
+                {
+                    AdvisorAction.Upgrade => World.Upgrade(company.Id, step.Building!.Value, step.Levels).Success,
+                    // A human keeps the build tool and puts down as many as it says
+                    AdvisorAction.Build => Enumerable.Range(0, step.Count).Count(_ => company.Gold >= Cost(step.BuildingType!) && PlaceAt(step.BuildingType!, step.At)) > 0,
+                    AdvisorAction.Research => step.Research != null && World.StartResearch(company.Id, step.Research).Success,
+                    AdvisorAction.Parcel => World.BuyParcel(company.Id, step.Parcel!.Value).Success,
+                    AdvisorAction.Partner => ConnectNeighbour() != null,
+                    AdvisorAction.Pipes => World.UpgradePipes(company.Id, step.Tiles!, step.Tier).Success,
+                    _ => false,
+                };
+                if (done)
+                {
+                    _notes.Add(step.Title);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>A building where the advisor said, piped to the network; elsewhere when it can't be piped there</summary>
+        private bool PlaceAt(string type, TilePos? at)
+        {
+            var post = World.BuildingsOf(company.Id).First(t => World.Content.Building(t.Type).Kind == BuildingKind.TradingPost);
+            if (at is { } pos && World.PlaceBuilding(company.Id, type, pos).Success)
+            {
+                var building = World.BuildingAt(pos)!;
+                if (TryConnect(building, post))
+                {
+                    return true;
+                }
+                World.Demolish(company.Id, building.Id);
+            }
+            return Place(type, preferMultiplier: true);
+        }
 
         /// <summary>
         /// What Loady says, done the way a new player would (one action, and how many seconds it takes), or null when

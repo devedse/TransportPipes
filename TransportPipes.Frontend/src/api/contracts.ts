@@ -1153,3 +1153,30 @@ export interface ExpeditionDto {
   log: string[];
   relics: string[];
 }
+
+/** One of the advisor's next steps (GameWorld.NextSteps): x, y is where Show me looks */
+export interface NextStepDto {
+  kind: "shortage" | "pump" | "full" | "pipes" | "research" | "upgrade" | "chain" | "partner" | "parcel";
+  title: string;
+  reason: string;
+  action: "upgrade" | "build" | "select" | "research" | "parcel" | "partner" | "pipes";
+  cost: number;
+  gainPerMinute: number;
+  paybackMinutes: number | null;
+  waitMinutes: number | null;
+  building: number | null;
+  buildingType: string | null;
+  levels: number;
+  parcel: number | null;
+  partner: number | null;
+  x: number | null;
+  y: number | null;
+  /** A research step: the tech */
+  research: string | null;
+  /** A build step: how many */
+  count: number;
+  /** A pipes step: the network, its full pipe tiles (x, y pairs) and the tier they become */
+  network: number | null;
+  tiles: number[];
+  tier: number;
+}

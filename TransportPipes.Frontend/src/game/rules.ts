@@ -410,6 +410,24 @@ export function newPipeTiles(
   return route.filter((t) => !isOwnConductor(world, company, t.x, t.y, content));
 }
 
+/** The player's own pipes on a route that are of a lower tier: drawing a better pipe over them upgrades them */
+export function upgradablePipeTiles(
+  world: WorldModel,
+  company: CompanyDto,
+  route: Array<{ x: number; y: number }>,
+  tier: number,
+): Array<{ x: number; y: number }> {
+  return route.filter((t) => {
+    const conductor = world.conductorAt(t.x, t.y);
+    return (
+      conductor !== undefined &&
+      conductor.kind === "pipe" &&
+      conductor.owner === company.id &&
+      conductor.tier < tier
+    );
+  });
+}
+
 /** Gold for laying pipes on these tiles (bridges over water cost three times as much) */
 export function pipeGold(
   world: WorldModel,

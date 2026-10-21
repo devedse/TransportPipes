@@ -724,15 +724,18 @@ public sealed partial class GameWorld
         return sold >= TradingPostThroughput(building, definition) * 0.98;
     }
 
-    /// <summary>The building as the flow solver sees it, or null when it takes no part in flows</summary>
-    public FlowNode? ToFlowNode(Building building)
+    /// <summary>
+    /// The building as the flow solver sees it, or null when it takes no part in flows; atLevel: as if it had that level
+    /// (the advisor's what-ifs)
+    /// </summary>
+    public FlowNode? ToFlowNode(Building building, int? atLevel = null)
     {
         if (building.UnderConstruction)
         {
             return null;
         }
         var definition = Content.Building(building.Type);
-        var level = Content.Progression.OutputMultiplier(building.Level);
+        var level = Content.Progression.OutputMultiplier(atLevel ?? building.Level);
         switch (definition.Kind)
         {
             case BuildingKind.Teleporter:
@@ -759,7 +762,7 @@ public sealed partial class GameWorld
                     Id = building.Id,
                     Owner = building.Owner,
                     Kind = FlowNodeKind.TradingPost,
-                    Throughput = tenant ? TenantThroughput : TradingPostThroughput(building, definition),
+                    Throughput = tenant ? TenantThroughput : definition.Throughput * level,
                     // Hub reputation: +1% per level above 1
                     PriceBonus = definition.PriceBonus + (company == null ? 0 : (ReputationLevel(company) - 1) * 0.01) + ManagerPriceBonus(company),
                     // Imports cost gold: a company without gold can't import
@@ -825,17 +828,25 @@ public sealed partial class GameWorld
             .Where(t => t.Factor < 1)
             .ToDictionary(t => t.Owner, t => t.Factor);
         network.PumpFactor = network.PumpFactors.Values.DefaultIfEmpty(1).Min();
-        if (network.PumpFactors.Count > 0)
-        {
-            nodes = nodes.Select(t => t.Kind == FlowNodeKind.Building && network.PumpFactors.TryGetValue(t.Owner, out var factor) && Content.Building(_buildings[t.Id].Type).Kind != BuildingKind.Pump ? t.WithMaxRate(t.MaxRate * factor) : t).ToList();
-        }
+        nodes = WithPumps(network, nodes);
 
-        var ids = nodes.Select(t => t.Id).ToHashSet();
-        var links = network.Links.Where(t => ids.Contains(t.A) && ids.Contains(t.B)).ToList();
-        network.Solution = nodes.Count < 2 ? FlowSolution.Empty : WithTolls(network, FlowSolver.Solve(nodes, links, MarketFor(network)));
+        network.Solution = nodes.Count < 2 ? FlowSolution.Empty : WithTolls(network, FlowSolver.Solve(nodes, LinksBetween(network, nodes), MarketFor(network)));
         network.NeedsSolve = false;
         PassTeleported(network);
         Changes.Networks.Add(network.Id);
+    }
+
+    /// <summary>Buildings slowed down by too few pump stations (their company's factor in the network)</summary>
+    private List<FlowNode> WithPumps(Network network, List<FlowNode> nodes) =>
+        network.PumpFactors.Count == 0
+            ? nodes
+            : nodes.Select(t => t.Kind == FlowNodeKind.Building && network.PumpFactors.TryGetValue(t.Owner, out var factor) && _buildings.TryGetValue(t.Id, out var b) && Content.Building(b.Type).Kind != BuildingKind.Pump ? t.WithMaxRate(t.MaxRate * factor) : t).ToList();
+
+    /// <summary>The network's links between these nodes</summary>
+    private static List<FlowLink> LinksBetween(Network network, IEnumerable<FlowNode> nodes)
+    {
+        var ids = nodes.Select(t => t.Id).ToHashSet();
+        return network.Links.Where(t => ids.Contains(t.A) && ids.Contains(t.B)).ToList();
     }
 
     /// <summary>Gold per minute of every company over all its networks</summary>

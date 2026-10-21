@@ -216,6 +216,15 @@ public sealed class GameHub : Hub<IGameClient>
         }, changesWorld: false);
     }
 
+    /// <summary>The advisor's three best next steps for the player's company</summary>
+    public Task<List<NextStepDto>> GetNextSteps()
+    {
+        var userId = UserId;
+        return _world.RunAsync(world => world.CompanyOfUser(userId) is { } company
+            ? world.NextSteps(company).Select(GameViews.NextStep).ToList()
+            : [], changesWorld: false);
+    }
+
     public Task<NetworkDetailsDto?> GetNetwork(int id)
     {
         var userId = UserId;
@@ -886,6 +895,9 @@ public sealed class GameHub : Hub<IGameClient>
     /// <summary>Pipe tiles as x0, y0, x1, y1, ...</summary>
     public Task<CommandResultDto> PlacePipes(int[] tiles, int tier) =>
         Command((world, company) => world.PlacePipes(company, Tiles(tiles), tier));
+
+    public Task<CommandResultDto> UpgradePipes(int[] tiles, int tier) =>
+        Command((world, company) => world.UpgradePipes(company, Tiles(tiles), tier));
 
     public Task<CommandResultDto> RemovePipes(int[] tiles) =>
         Command((world, company) => world.RemovePipes(company, Tiles(tiles)));

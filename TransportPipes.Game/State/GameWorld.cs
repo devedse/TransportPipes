@@ -1082,6 +1082,49 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
+    /// <summary>
+    /// Raises a company's own pipes to a better tier where they lie (the pipe tool drawn over them, the network view's
+    /// Upgrade): each tile costs what a new pipe of that tier costs
+    /// </summary>
+    public CommandResult UpgradePipes(long companyId, IReadOnlyList<TilePos> tiles, int tier)
+    {
+        if (Company(companyId) is not { } company)
+        {
+            return CommandResult.Fail("Unknown company.");
+        }
+        var pipe = Content.PipeTiers.FirstOrDefault(t => t.Tier == tier);
+        if (pipe == null)
+        {
+            return CommandResult.Fail("Unknown pipe.");
+        }
+        if (pipe.Era > Era || (pipe.Research != null && !HasResearch(company, pipe.Research)))
+        {
+            return CommandResult.Fail($"{pipe.Name}s are not unlocked yet.");
+        }
+        var upgrade = tiles.Distinct()
+            .Select(t => _conductors.TryGetValue(t, out var conductor) ? conductor : null)
+            .OfType<Conductor>()
+            .Where(t => t.Kind == ConductorKind.Pipe && t.Owner == companyId && t.Tier < tier)
+            .ToList();
+        if (upgrade.Count == 0)
+        {
+            return CommandResult.Fail($"Those pipes are already {pipe.Name}s or better.");
+        }
+        var payment = Pay(company, pipe.Gold * upgrade.Count, pipe.Materials.ToDictionary(t => t.Key, t => t.Value * upgrade.Count));
+        if (!payment.Success)
+        {
+            return payment;
+        }
+        foreach (var conductor in upgrade)
+        {
+            conductor.Tier = tier;
+            conductor.Touch();
+            MarkDirty(conductor.Pos);
+            Changes.Tiles.Add(conductor.Pos);
+        }
+        return CommandResult.Ok;
+    }
+
     public CommandResult RemovePipes(long companyId, IReadOnlyList<TilePos> tiles)
     {
         if (Company(companyId) is not { } company)

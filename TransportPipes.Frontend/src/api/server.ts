@@ -1,5 +1,6 @@
 import { HubConnectionBuilder, LogLevel, type HubConnection } from "@microsoft/signalr";
 import type {
+  NextStepDto,
   AuthResult,
   BlueprintSharing,
   BlueprintsDto,
@@ -246,6 +247,7 @@ export class GameConnection {
     this.invoke<CommandResult>("PlaceBuilding", type, x, y);
   placePipes = (tiles: number[], tier: number) => this.invoke<CommandResult>("PlacePipes", tiles, tier);
   removePipes = (tiles: number[]) => this.invoke<CommandResult>("RemovePipes", tiles);
+  upgradePipes = (tiles: number[], tier: number) => this.invoke<CommandResult>("UpgradePipes", tiles, tier);
   upgrade = (building: number, levels: number) => this.invoke<CommandResult>("Upgrade", building, levels);
   upgradeMany = (buildings: number[], levelsEach: number, budget: number | null) =>
     this.invoke<{ success: boolean; error: string | null; levels: number; gold: number }>(
@@ -259,6 +261,7 @@ export class GameConnection {
       "GetSelectionCosts",
       buildings,
     );
+  getNextSteps = () => this.invoke<NextStepDto[]>("GetNextSteps");
   demolish = (building: number) => this.invoke<CommandResult>("Demolish", building);
   repair = (building: number) => this.invoke<CommandResult>("Repair", building);
   dig = (parcel: number) => this.invoke<CommandResult>("Dig", parcel);

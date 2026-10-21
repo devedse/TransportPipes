@@ -870,6 +870,28 @@ public static class GameViews
     }
 
     /// <summary>A network as a company sees it (its own pump stations and speed)</summary>
+    public static NextStepDto NextStep(AdvisorStep step) => new(
+        JsonNamingPolicy.CamelCase.ConvertName(step.Kind.ToString()),
+        step.Title,
+        step.Reason,
+        JsonNamingPolicy.CamelCase.ConvertName(step.Action.ToString()),
+        Math.Round(step.Cost, 2),
+        Math.Round(step.GainPerMinute, 2),
+        step.PaybackMinutes is { } payback ? Math.Round(payback, 1) : null,
+        step.WaitMinutes is { } wait ? Math.Round(wait, 1) : null,
+        step.Building,
+        step.BuildingType,
+        step.Levels,
+        step.Parcel,
+        step.Partner,
+        step.At?.X,
+        step.At?.Y,
+        step.Research,
+        step.Count,
+        step.Network,
+        step.Tiles?.SelectMany(t => new[] { t.X, t.Y }).ToArray() ?? [],
+        step.Tier);
+
     public static NetworkDetailsDto NetworkDetails(GameWorld world, Network network, long? viewer = null)
     {
         var solution = network.Solution;
@@ -934,33 +956,9 @@ public static class GameViews
             row[7] += flow.Sent - flow.Delivered;
         }
 
-        // What the buildings need of each resource: of what holds them back their full need, of the rest what they get.
-        // A factory without ore uses no energy either, but it is short of ore, not of energy: when nobody in the
-        // network makes one of its inputs, only that one counts as short.
-        var received = new Dictionary<(long, string), double>();
-        foreach (var flow in solution.Flows)
-        {
-            received[(flow.To, flow.Resource)] = received.GetValueOrDefault((flow.To, flow.Resource)) + flow.Delivered;
-        }
-        var supply = resources.ToDictionary(t => t.Key, t => t.Value[0] + t.Value[3] + t.Value[6]);
-        var needed = new Dictionary<string, double>();
-        foreach (var id in network.Buildings)
-        {
-            if (world.Building(id) is not { } b || !Machine(id) || world.ToFlowNode(b) is not { } node || node.In.Count == 0)
-            {
-                continue;
-            }
-            var full = node.In.ToDictionary(t => t.Key, t => t.Value * node.MaxRate);
-            var got = node.In.ToDictionary(t => t.Key, t => received.GetValueOrDefault((id, t.Key)));
-            var missing = full.Keys.Where(t => supply.GetValueOrDefault(t) < 1e-6).ToHashSet();
-            var ratios = full.Where(t => t.Value > 1e-9).ToDictionary(t => t.Key, t => got[t.Key] / t.Value);
-            var lowest = ratios.Count == 0 ? 1 : ratios.Values.Min();
-            foreach (var (resource, amount) in full)
-            {
-                var holdsBack = missing.Count > 0 ? missing.Contains(resource) : ratios.GetValueOrDefault(resource, 1) <= lowest + 1e-3;
-                needed[resource] = needed.GetValueOrDefault(resource) + (holdsBack ? amount : got[resource]);
-            }
-        }
+        // What the buildings need of each resource: of what holds them back their full need, of the rest what they get
+        // (the advisor's shortages are the same numbers)
+        var needed = world.NetworkNeeds(network).ToDictionary(t => t.Key, t => t.Value.Needed);
 
         var used = new Dictionary<FlowLink, double>(ReferenceEqualityComparer.Instance);
         foreach (var flow in solution.Flows)

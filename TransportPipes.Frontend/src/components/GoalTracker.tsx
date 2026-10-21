@@ -5,6 +5,7 @@ import { formatAmount } from "../app/format";
 import type { NeighbourDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import { useAppStore } from "../state/store";
+import { NextSteps } from "./NextSteps";
 
 /**
  * Always three goals in view (GDD §10.1): Loady's next step (or the next Company Level), today's order and something
@@ -29,8 +30,12 @@ export function GoalTracker() {
   if (company === null || content === null || buildMenuOpen) {
     return null;
   }
-  const opportunity = bestOpportunity(company.id, neighbours, content);
   const step = company.tutorial;
+  // The advisor once Loady's first chapter is done, or while a step waits for a level: it covers the pump and
+  // trading post alerts and the neighbour who needs something
+  const advisor = step === null || step.waitLevel != null;
+  const opportunity = advisor ? null : bestOpportunity(company.id, neighbours, content);
+  const alerts = (company.alerts ?? []).filter((t) => !advisor || t.text.startsWith("A storage"));
   const order = company.dailyOrders.find((t) => t.delivered < t.amount);
   const levelShare = Math.min(
     1,
@@ -70,7 +75,8 @@ export function GoalTracker() {
           </div>
         </div>
       )}
-      {(company.alerts ?? []).slice(0, 2).map((alert) => (
+      {advisor && <NextSteps />}
+      {alerts.slice(0, 2).map((alert) => (
         <div key={alert.text} className="panel opportunity alert">
           <p>⚠ {alert.text}</p>
           {alert.building !== null && (
