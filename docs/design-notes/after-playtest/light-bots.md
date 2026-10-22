@@ -68,3 +68,21 @@ of the advisor and Loady's dealt-land steps. Run 2 measures what people do with 
 stays low, the next lever is in the content, and it is a designer's decision for the whole team:
 - iron ingots that need coal, the one good every station has once;
 - or a smaller Hub Order for ingots, so a fifth factory pays less than a first Smelter.
+
+## After run 2: the two levers (2026-10-22)
+
+Run 2's analyst asked to try the levers above in a bot run before run 3 (recommendation 7). 14 days at 1.3, on the
+build after run 2's fixes (`TP_BALANCE_LEVER`):
+
+| Variant | Trade by day 14 | Losses | Solo / crew | What the bots built |
+| --- | --- | --- | --- | --- |
+| Today | 0.7% | 2,640 | 101% | as before: Small Factories fill the slots |
+| `coal`: iron ingots need 4 coal a minute (a Big Factory a third of its ore) | 2.2% | 0 | 73% | no Small Factories: 8 Lumber Camps (Ana), 8 Water Pumps (Cleo), Sand Dredgers; incomes a third lower |
+| `order`: the ingots' Hub Order halved | 1.5% | 2,400 | 83% | the same factories; incomes a quarter lower |
+
+Neither ships. When the best chain needs a neighbour, the bots don't buy from one: they build the next self-sufficient
+producer, whose goods the hub buys. Trade between friends won't come from the iron chain alone. It needs chains that
+need a neighbour *and* beat a raw producer at the hub, or a hub that pays less for raw goods past a point. That is the
+team's decision for run 3, together with run 2's finding that the real flows between friends (Ben's sand, Ana's
+ingots) did happen and weren't felt as gifts. Run 2's trade figures were also measured with every trade between
+players at the hub's price (the playtest's one-device artefact, fixed since), so they under-count the gold.

@@ -60,7 +60,8 @@ public class LightBotSimulation
             Assert.Inconclusive($"Only {only}.");
         }
         var days = int.TryParse(Environment.GetEnvironmentVariable("TP_BALANCE_DAYS"), out var d) ? d : 36;
-        var game = new TestGame(seed: 4242, tutorial: true, surveys: true, dealtLand: true);
+        var lever = Environment.GetEnvironmentVariable("TP_BALANCE_LEVER") is { Length: > 0 } l ? l : null;
+        var game = new TestGame(seed: 4242, content: Lever(lever), tutorial: true, surveys: true, dealtLand: true);
         var world = game.World;
         world.TenantsEnabled = true;
         world.ProjectsEnabled = true;
@@ -90,7 +91,7 @@ public class LightBotSimulation
         var crew = new[] { "Ana", "Ben", "Cleo", "Dev" };
 
         var report = new StringBuilder();
-        report.AppendLine($"## The light bots at {price:0.00}");
+        report.AppendLine($"## The light bots at {price:0.00}{(lever != null ? $", lever \"{lever}\"" : "")}");
         report.AppendLine();
         report.AppendLine($"Seats: {string.Join(", ", seats.Select(t => $"{t.Key} {string.Join("+", world.Generator.LandOf(district, t.Value))}"))}");
         report.AppendLine();
@@ -166,9 +167,52 @@ public class LightBotSimulation
                 + (player.LossTypes.Count > 0 ? $"; at a loss: {string.Join(", ", player.LossTypes.Take(6))}" : ""));
         }
         TestContext.WriteLine(report.ToString());
-        var file = Path.Combine(AppContext.BaseDirectory, $"light-bots-{price:0.00}.md");
+        var file = Path.Combine(AppContext.BaseDirectory, $"light-bots-{price:0.00}{(lever != null ? $"-{lever}" : "")}.md");
         File.WriteAllText(file, report.ToString());
         TestContext.WriteLine(file);
+    }
+
+    /// <summary>
+    /// A content lever for friends' trade (run 2's recommendation 7, light-bots.md): "coal" makes iron ingots need coal,
+    /// the one good every station holds once (a Small Factory: 4 coal a minute, a Big Factory a third of its ore);
+    /// "order" halves the iron ingots' Hub Order, so a fifth factory pays less than a first chain that needs a neighbour
+    /// </summary>
+    private static GameContent Lever(string? lever)
+    {
+        var content = GameContent.Default;
+        if (lever is null or "none")
+        {
+            return content;
+        }
+        var resources = content.ResourceList.Select(t => lever == "order" && t.Id == "ironIngot" ? t with { Demand = t.Demand * 0.5 } : t).ToList();
+        var buildings = content.BuildingList.Select(t => lever != "coal" || t.Id is not ("smallFactory" or "bigFactory") ? t : new BuildingDefinition
+        {
+            Id = t.Id,
+            Name = t.Name,
+            Category = t.Category,
+            Kind = t.Kind,
+            Size = t.Size,
+            Buildable = t.Buildable,
+            Unlock = t.Unlock,
+            Cost = t.Cost,
+            BuildSeconds = t.BuildSeconds,
+            In = new Dictionary<string, double>(t.In) { ["coal"] = t.Id == "smallFactory" ? 4 : Math.Round(t.In.GetValueOrDefault("ironOre") / 3) },
+            Out = t.Out,
+            OutFromDeposit = t.OutFromDeposit,
+            ResearchPerMinute = t.ResearchPerMinute,
+            Placement = t.Placement,
+            Modifier = t.Modifier,
+            Capacity = t.Capacity,
+            Throughput = t.Throughput,
+            PriceBonus = t.PriceBonus,
+            Range = t.Range,
+            Reach = t.Reach,
+            Layer = t.Layer,
+            EvolvesTo = t.EvolvesTo,
+            Sprite = t.Sprite,
+            Description = t.Description,
+        }).ToList();
+        return new GameContent(resources, buildings, content.PipeTiers, content.Progression, content.ResearchList, [.. content.DistrictWonders, .. content.EraWonders], content.Managers, content.Achievements, content.Collections, content.Tutorial, content.Relics);
     }
 
     /// <summary>All production gold a company earned (the faucets): the hub, the Yard, its floor, Houses, the project</summary>
