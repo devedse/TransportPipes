@@ -154,9 +154,27 @@ function md(text) {
     if (list) out.push(`<ul>${list.map((t) => `<li>${inline(t)}</li>`).join("")}</ul>`);
     list = null;
   };
+  // A table: "| a | b |" rows, the first the header, a "| --- |" row under it (run 3's chores counts)
+  let table = null;
+  const cells = (line) => line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((t) => t.trim());
+  const flushTable = () => {
+    if (table) {
+      const [head, ...rows] = table;
+      out.push(`<div class="scroll"><table><tr>${head.map((t) => `<th>${inline(t)}</th>`).join("")}</tr>${rows.map((r) => `<tr>${r.map((t) => `<td>${inline(t)}</td>`).join("")}</tr>`).join("")}</table></div>`);
+    }
+    table = null;
+  };
   for (const raw of String(text ?? "").split("\n")) {
     const line = raw.trimEnd();
     const item = line.match(/^\s*(?:[-*]|\d+\.)\s+(.*)$/);
+    if (/^\s*\|.*\|\s*$/.test(line)) {
+      flushPara();
+      flushList();
+      table ??= [];
+      if (!/^[\s|:-]+$/.test(line)) table.push(cells(line));
+      continue;
+    }
+    flushTable();
     if (item) {
       flushPara();
       list ??= [];
@@ -173,6 +191,7 @@ function md(text) {
   }
   flushPara();
   flushList();
+  flushTable();
   return out.join("");
 }
 
@@ -613,6 +632,8 @@ p { margin:0 0 10px; max-width:78ch; } ul { margin:0 0 10px; padding-left:20px; 
 .scroll { overflow-x:auto; } .scroll.tall { max-height:640px; overflow-y:auto; }
 /* Long paths and names in the findings break rather than push the page wider (run 2's evidence cites absolute paths) */
 .page { overflow-wrap:anywhere; }
+/* Table cells keep their words whole: a narrow screen scrolls the table instead (the evidence rows still break) */
+.scroll table { min-width:34em; } .scroll th, .scroll td:not([colspan]) { overflow-wrap:normal; }
 tr.mark td { border-bottom:none; padding-bottom:2px; } tr.mark-evidence td { padding-top:0; }
 table { width:100%; border-collapse:collapse; margin:8px 0 16px; font-size:.9rem; }
 th { text-align:left; background:var(--cream); color:var(--teal-dark); padding:7px 10px; font-weight:800; position:sticky; top:0; }

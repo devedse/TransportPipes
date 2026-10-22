@@ -318,7 +318,7 @@ stay); name + password accounts only (guests on a hidden account they can keep);
   counts only what the player builds and pipes). The first session at a human pace (`first-session.md`) earns from
   minute one and gets one Loady step further in 45 minutes
 
-### v1.2 after the AI playtest (built; run 2 played)
+### v1.2 after the AI playtest (built; runs 2 and 3 played)
 
 The AI playtest (`docs/playtest-design.html`, tools in `playtest/`): five AI players, 36 game days. Its verdict: a
 lovely first evening, then five weeks side by side but never together; 4 of 20 promises kept.
@@ -387,6 +387,14 @@ is the design's call (yes).
   trade (an open design decision). Replays from run 2's snapshots: no stage stands by itself; Ana's day 8 rose to
   clarity 4, fun 4; Dev pressed the playtest's first Thanks. The playtest's one-device artefact (every pair of AI
   players priced at the hub) is fixed.
+- **Run 3** (`playtest/runs/story3`, 2026-10-22): run 2's story again on that build, a fresh world, 32 sessions. Fixed
+  during it: a friend's seat link closes a crew you're alone in (ccf5ca1). Better than run 2: gifts named and thanked
+  at both ends (3 Thanks, 2 Tends; run 2: none), the first chosen chain between friends (Ana's stone ran Cleo's
+  Brickworks for a week), one-tap pipe fixes, Level 10 by days 5–16. Worse: every station's project froze at 89–96% on
+  a water keystone (passed over only when none ever came; "Not on water" for a pump on the pond), the Era 1 wonder got
+  nothing, Ben never found the crew. Chores: about 11–15% of commands, nobody called it one; what wore players down was
+  warnings that never clear and nothing left to want. 9 of 22 promises, 11 marks pass and 7 fail; the analyst's twelve
+  recommendations are in `runs/story3/findings.json` (the owner decides what's next).
 
 ### After v1
 
