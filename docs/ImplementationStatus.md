@@ -318,7 +318,7 @@ stay); name + password accounts only (guests on a hidden account they can keep);
   counts only what the player builds and pipes). The first session at a human pace (`first-session.md`) earns from
   minute one and gets one Loady step further in 45 minutes
 
-### v1.2 after the AI playtest (being built)
+### v1.2 after the AI playtest (built; run 2 played)
 
 The AI playtest (`docs/playtest-design.html`, tools in `playtest/`): five AI players, 36 game days. Its verdict: a
 lovely first evening, then five weeks side by side but never together; 4 of 20 promises kept.
@@ -360,14 +360,26 @@ is the design's call (yes).
   in one tap.
 - Step 4 (7026d26): Send, Thanks, named ends, bids, the Neighbours panel, the first gift, neighbour-fed chains.
   Gates: Dev's stuck dredger sends to the Water Tower in one tap, on a desktop and a phone.
-- Step 5 (in progress): dealt land (rules 3: a world made before keeps its land; the test server starts a new one),
+- Step 5: dealt land (rules 3: a world made before keeps its land; the test server starts a new one),
   kits that make the seat's good, the Build-menu line and the Deposits overlay by seat, the seat card, Houses' land
   sales at 1.4 with the floor and the station backstop, the project paying the one price, Loady's chain steps on dealt
   land. The light bots (LightBotSimulation, TP_BALANCE=1; docs/design-notes/after-playtest/light-bots.md) chose
   1.3: the only price at which a factory buying its ore from a neighbour doesn't lose. Their open finding: trade
   between friends stays near 2%, because the iron chain on every estate is Era 1's best and fills the slots first.
-- Step 6: the stranger next door (on a small server someone who comes alone lives in the small station beside a crew,
-  sharing its Yard and project) and the first-comer's line.
+- Step 5 done (24b06ea): the land deal at the one price 1.3.
+- Step 6 (24b06ea): the stranger next door (on a small server someone who comes alone lives in the small station beside
+  a crew, sharing its Yard and project) and the first-comer's line. Gate: the squatter probe (StrangerFacts,
+  TP_BALANCE=1): a stranger seated next door who never plays again changes none of the crew's chains.
+- Step 7 (a9b140d): F9–F11's rest and Loady's gift step. Then **run 2** (`playtest/runs/story2`, 2026-10-22): run 1's 14
+  rows again on dealt land, with Jo (a scripted solo human) and Mia played twice (beside Jo, and next door to the
+  crew); 32 sessions. Five fixes during the run (5ffd344, 28f6e4e, 964bb1e, f031e73): the phone Build menu, "only the
+  X takes its energy", phone panels under full-screen panels, the Experience panel's Escape and ×, the "short of"
+  text. The report (findings.json, report.html, shared with the owner): 11 of 24 promises kept; dead ends explain
+  themselves, one return card, goods crossed estates and were paid (the crew earned twice run 1's income by day 36).
+  But nobody felt the automatic flows as gifts, Sends went to energy crumbs, Thanks was never pressed, paid trade
+  between friends stayed at 2–3% (mark 15%), the project's stages stood by themselves after day 11 (a bug: a basket
+  shrinks to what was delivered when its residents are away), a building set into a pipe split the line (Ana, Cleo),
+  and the middle game's chores (hub orders and Storage, the two-tap pipe, Labs that need ingots) made 13 STUCKs.
 
 ### After v1
 
