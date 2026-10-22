@@ -91,7 +91,8 @@ public class MarketFacts
         var order = company.DailyOrders[0];
         Assert.AreEqual("energy", order.Resource, "a level 1 company can only make energy");
 
-        StringAssert.Contains(game.World.DeliverOrder(company.Id, order.Id).Error, "no energy");
+        // It says how an order fills (run 2: "Your storages have no coal" left players asking what a storage is)
+        StringAssert.Contains(game.World.DeliverOrder(company.Id, order.Id).Error, "energy");
 
         var storage = game.Map(company, game.Local(company, 1, 1), "O").Values.Single();
         storage.Contents["energy"] = order.Amount / 2;

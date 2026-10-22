@@ -8,6 +8,7 @@ import type {
   CommandResult,
   CompanyDto,
   CorporationRole,
+  DailyOrderDto,
   LeaderboardKind,
   NextStepDto,
   ReturnLineDto,
@@ -523,9 +524,10 @@ export class GameClient {
     const name = appStore.getState().content?.building(details.building.type)?.name ?? "It";
     switch (fix.kind) {
       case "layPipe":
+        // "Laid the pipe to your Iron Mine", "Laid the pipe from your Wind Moily to your Trading Post"
         await this.layPipeNow(
           fix.tiles,
-          `${name} runs: its goods go to your ${fix.target ?? "Trading Post"}`,
+          `Laid ${fix.label.split(" · ")[0]!.replace(/^Lay /, "")}: ${name} runs`,
         );
         break;
       case "open":
@@ -677,9 +679,26 @@ export class GameClient {
     }
   }
 
-  async deliverOrder(order: number) {
-    if (await this.command(this.connection.deliverOrder(order))) {
+  /**
+   * Delivers what the Storages hold for an order and says what happened, for the order's own line: a toast hides behind
+   * the Hub, and a part delivery said nothing at all (run 2: "Hub Deliver silent again")
+   */
+  async deliverOrder(order: DailyOrderDto): Promise<string> {
+    try {
+      const result = await this.connection.deliverOrder(order.id);
+      if (!result.success) {
+        return result.error ?? "That didn't work.";
+      }
       await this.refreshCompany();
+      this.scheduleNextSteps();
+      const after =
+        appStore.getState().company?.dailyOrders.find((t) => t.id === order.id)?.delivered ?? order.amount;
+      const left = Math.max(0, order.amount - after);
+      return left <= 1e-9
+        ? `Done: +${formatAmount(order.rewardGold)} g`
+        : `Delivered ${formatAmount(after - order.delivered)} of ${formatAmount(order.amount)} · ${formatAmount(left)} to go`;
+    } catch (error) {
+      return `The server didn't answer (${String(error)}).`;
     }
   }
 

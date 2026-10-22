@@ -85,6 +85,35 @@ function landLine(definition: BuildingDefinition, land: LandDto | null, content:
   return `There's no ${word} on your land.${who === "" ? "" : ` ${who.charAt(0).toUpperCase()}${who.slice(1)}`}${user !== undefined ? `: build ${/^[aeiou]/i.test(user.name) ? "an" : "a"} ${user.name}, and its ${word} comes by itself` : ""}.`;
 }
 
+/**
+ * What a building uses besides energy and land goods, and where it would come from (run 2: three players built a Lab
+ * without knowing it needs iron ingots): "Uses 2 iron ingots a minute: your Small Factory makes them", or "you make
+ * none yet: a Small Factory does"; null when it uses nothing such
+ */
+function supplyLine(definition: BuildingDefinition, companyId: number, content: Content): string | null {
+  const land = ["copperOre", "coal", "sand", "wood", "stone"];
+  const good = Object.keys(definition.in).find((t) => t !== "energy" && !land.includes(t));
+  if (good === undefined) {
+    return null;
+  }
+  const word = content.resourceName(good).toLowerCase();
+  const words = word.endsWith("ingot") ? `${word}s` : word;
+  const amount = `${formatAmount(definition.in[good]!)} ${definition.in[good] === 1 ? word : words} a minute`;
+  const own = [...(gameClient.world?.buildings.values() ?? [])].find(
+    (t) =>
+      t.owner === companyId && t.type !== definition.id && (content.building(t.type)?.out[good] ?? 0) > 0,
+  );
+  if (own !== undefined) {
+    return `Uses ${amount}: your ${content.building(own.type)!.name} makes ${words.endsWith("s") ? "them" : "it"}`;
+  }
+  const maker = content.buildings
+    .filter((t) => t.buildable && (t.out[good] ?? 0) > 0)
+    .sort(
+      (a, b) => a.unlock.era - b.unlock.era || a.unlock.level - b.unlock.level || a.cost.gold - b.cost.gold,
+    )[0];
+  return `Uses ${amount}: you make none yet${maker !== undefined ? `, ${/^[aeiou]/i.test(maker.name) ? "an" : "a"} ${maker.name} does` : ""}`;
+}
+
 export function BuildMenu() {
   const open = useAppStore((state) => state.buildMenuOpen);
   const content = useAppStore((state) => state.content);
@@ -108,8 +137,12 @@ export function BuildMenu() {
   const category = categories.includes(selectedCategory)
     ? selectedCategory
     : (categories[0] ?? selectedCategory);
+  // What uses goods shows under Processing too (run 2: Mia-B looked for the Lab there and under Commerce)
+  const listed = (t: BuildingDefinition) =>
+    t.category === category ||
+    (category === "processing" && t.category === "company" && Object.keys(t.in).some((r) => r !== "energy"));
   const buildings = content.buildings
-    .filter((t) => t.category === category && inLayer(t))
+    .filter((t) => listed(t) && inLayer(t))
     .sort(
       (a, b) => a.unlock.era - b.unlock.era || a.unlock.level - b.unlock.level || a.cost.gold - b.cost.gold,
     );
@@ -196,6 +229,9 @@ export function BuildMenu() {
                         {copies > 0 && <span className="muted"> · you have {copies}</span>}
                       </div>
                       <Recipe definition={definition} content={content} />
+                      {supplyLine(definition, company.id, content) !== null && (
+                        <div className="supply-line small">{supplyLine(definition, company.id, content)}</div>
+                      )}
                     </>
                   )}
                 </div>

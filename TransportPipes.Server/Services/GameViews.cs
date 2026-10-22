@@ -46,7 +46,7 @@ public static partial class GameViews
             company.HubReputation,
             world.ReputationLevel(company),
             world.ReputationLevel(company) < GameWorld.ReputationLevels.Length ? GameWorld.ReputationLevels[world.ReputationLevel(company)] : null,
-            company.DailyOrders.Select(t => new DailyOrderDto(t.Id, t.Resource, t.Amount, t.Delivered, t.RewardGold, t.RewardXp, t.RewardReputation, t.ExpiresAt, t.Urgent)).ToList(),
+            Orders(world, company),
             company.NoTrade.OrderBy(t => t).ToList(),
             company.CorporationId,
             world.CorporationOf(company)?.Tag,
@@ -125,6 +125,15 @@ public static partial class GameViews
                 world.Generator.LandOf(seat.District, seat.Slot));
         }).ToList();
         return new LandDto(world.Generator.LandOf(home.District, home.Slot), seats);
+    }
+
+    /// <summary>Today's hub orders, each with what the Storages hold of its good (orders come out of them)</summary>
+    private static List<DailyOrderDto> Orders(GameWorld world, Company company)
+    {
+        var stock = world.Materials(company.Id);
+        var hasStorage = world.HasStorage(company);
+        return company.DailyOrders.Select(t => new DailyOrderDto(t.Id, t.Resource, t.Amount, t.Delivered, t.RewardGold, t.RewardXp, t.RewardReputation, t.ExpiresAt, t.Urgent,
+            Math.Floor(stock.GetValueOrDefault(t.Resource)), hasStorage)).ToList();
     }
 
     /// <summary>

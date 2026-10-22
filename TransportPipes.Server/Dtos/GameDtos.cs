@@ -191,7 +191,9 @@ public record SeasonDto(int Season, DateTime? FinaleAt, DateTime? EndedAt, DateT
 /// <summary>An event in the calendar (GDD §15)</summary>
 public record GameEventDto(long Id, string Kind, string Name, string Effect, DateTime StartsAt, DateTime EndsAt, string? Resource, bool Active, bool Everywhere);
 
-public record DailyOrderDto(int Id, string Resource, double Amount, double Delivered, double RewardGold, double RewardXp, double RewardReputation, DateTime ExpiresAt, bool Urgent);
+/// <param name="InStorage">What the company's Storages hold of the good now (orders come out of them)</param>
+/// <param name="HasStorage">Whether it has a Storage at all</param>
+public record DailyOrderDto(int Id, string Resource, double Amount, double Delivered, double RewardGold, double RewardXp, double RewardReputation, DateTime ExpiresAt, bool Urgent, double InStorage = 0, bool HasStorage = false);
 
 /// <summary>
 /// One resource at the hub of the player's district: what the hub pays the player (its own Hub Order), what it charges,

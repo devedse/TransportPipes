@@ -125,6 +125,8 @@ export function HubPanel() {
   const now = useNow();
   const tab = useAppStore((state) => state.hubTab);
   const setTab = (hubTab: HubTab) => setState({ hubTab });
+  // What the last Deliver of each order did, on its own line
+  const [delivered, setDelivered] = useState<Record<number, string>>({});
   if (!open || company === null || content === null) {
     return null;
   }
@@ -187,8 +189,8 @@ export function HubPanel() {
         ) : tab === "orders" ? (
           <div className="orders">
             <p className="muted small">
-              The hub wants these today. Deliver them from your storages for a reward, reputation and XP. New
-              orders at midnight.
+              The hub wants these today. Deliver them from your Storages for a reward, reputation and XP: pipe
+              a building into a Storage and it keeps what today&apos;s orders need. New orders at midnight.
             </p>
             {company.dailyOrders.map((order) => {
               const done = order.delivered >= order.amount - 1e-9;
@@ -218,11 +220,40 @@ export function HubPanel() {
                       {formatAmount(order.rewardXp)} XP · {formatAmount(order.rewardReputation)} reputation
                       {!done && ` · ${formatDuration(Math.max(0, left))} left`}
                     </div>
+                    {!done && (
+                      // Where it comes from (run 2: three players asked what a storage is)
+                      <div className="small order-stock">
+                        {order.hasStorage
+                          ? `In your Storages: ${formatAmount(order.inStorage)} ${content.resourceName(order.resource).toLowerCase()}`
+                          : "Comes out of a Storage: you have none yet"}
+                      </div>
+                    )}
+                    {delivered[order.id] !== undefined && (
+                      <div className="small order-result" role="status">
+                        {delivered[order.id]}
+                      </div>
+                    )}
                   </div>
                   {done ? (
                     <span className="order-check">✔</span>
+                  ) : !order.hasStorage ? (
+                    <button
+                      onClick={() => {
+                        setState({ hubOpen: false });
+                        gameClient.setTool({ kind: "build", type: "storage" });
+                      }}
+                    >
+                      Build a Storage
+                    </button>
                   ) : (
-                    <button className="primary" onClick={() => void gameClient.deliverOrder(order.id)}>
+                    <button
+                      className="primary"
+                      onClick={() =>
+                        void gameClient
+                          .deliverOrder(order)
+                          .then((text) => setDelivered((all) => ({ ...all, [order.id]: text })))
+                      }
+                    >
                       Deliver
                     </button>
                   )}

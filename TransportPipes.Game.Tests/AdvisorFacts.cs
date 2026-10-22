@@ -161,6 +161,24 @@ public class AdvisorFacts
     }
 
     [TestMethod]
+    public void ALabIsSuggestedOnlyOnceItsIngotsAreMadeAndBesideTheirMaker()
+    {
+        // Run 2: the advisor sent everyone to build a Lab first, and Labs sat at 0% for want of iron ingots
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 5);
+        game.Map(company, game.Local(company, 2, 2), "W+M\n + \n +T");
+        static AdvisorStep? Lab(TestGame game, Company company) =>
+            game.World.NextSteps(company, 12).FirstOrDefault(t => t.Kind == AdvisorKind.Research && t.Action == AdvisorAction.Build);
+        Assert.IsNull(Lab(game, company), "no ingots made: no Lab yet");
+
+        var factory = game.Build(company, "smallFactory");
+
+        var lab = Lab(game, company);
+        Assert.IsNotNull(lab, "a Small Factory makes its ingots now");
+        Assert.IsTrue(Math.Abs(lab.At!.Value.X - factory.X) + Math.Abs(lab.At!.Value.Y - factory.Y) <= 8, $"beside the factory: {lab.At} against ({factory.X},{factory.Y})");
+    }
+
+    [TestMethod]
     public void IdleLabsWithPointsSuggestTheResearchThatHelpsMost()
     {
         var game = new TestGame(content: TestGame.PlainContent);

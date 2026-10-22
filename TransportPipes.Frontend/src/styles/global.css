@@ -631,6 +631,11 @@ kbd {
   border-color: var(--accent);
 }
 
+.supply-line {
+  margin-top: 2px;
+  opacity: 0.85;
+}
+
 .build-list {
   list-style: none;
   margin: 0;
@@ -1942,6 +1947,17 @@ select {
 
 .order-title {
   font-weight: 700;
+}
+
+.order-stock {
+  margin-top: 2px;
+  opacity: 0.85;
+}
+
+.order-result {
+  margin-top: 2px;
+  font-weight: 700;
+  color: var(--accent);
 }
 
 .order-check {

@@ -760,7 +760,10 @@ public sealed partial class GameWorld
         }
         if (FullStorages(company.Id).FirstOrDefault() is { } storage)
         {
-            alerts.Add(("A storage is full: upgrade it or sell what is in it.", storage.Id));
+            var (holds, waiting, _) = StorageLine(storage);
+            alerts.Add((waiting != null
+                ? $"Your Storage is full of {holds}: {waiting} slow behind it. Pipe them to your trading post, or upgrade the Storage."
+                : $"Your Storage is full of {holds}: what comes now goes on to your trading post. Upgrade it to keep more.", storage.Id));
         }
         return alerts;
     }

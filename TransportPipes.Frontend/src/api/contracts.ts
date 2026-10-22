@@ -239,6 +239,10 @@ export interface DailyOrderDto {
   expiresAt: string;
   /** A Shortage order: bigger, better paid, gone when the event ends */
   urgent: boolean;
+  /** What your Storages hold of the good now: orders come out of them */
+  inStorage: number;
+  /** Whether you have a Storage at all */
+  hasStorage: boolean;
 }
 
 /**

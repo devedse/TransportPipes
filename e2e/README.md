@@ -25,6 +25,7 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 | `crew.mjs` | Start with friends: Ana founds a crew from the start screen and keeps three seats, Ben opens his seat link on a phone and moves in as a guest, Cleo joins with the crew link and lands next door; Ana's crew panel, Ben's keep note and a move to another seat (three browsers) |
 | `right-click.mjs` | A right-click on the map steps back (deselects, puts a tool away); a right-drag still pans |
 | `onetap.mjs` | One tap lays the pipe: a lone Wind Moily is stuck, its panel's fix names where the pipe goes and its price, and a single tap lays it (no preview to confirm) |
+| `chores.mjs` | The middle game's chores explain themselves: the Lab under Processing says what it uses and who makes it, the Hub's orders say they come out of a Storage, with a button to build one |
 | `advisor.mjs` | The Next steps card on a real estate: its three steps, Show me on the first, an upgrade done from the card |
 | `chapter2.mjs` | Loady's second chapter above the advisor, the level roadmap in the XP panel, the level-up card with what the level brings |
 | `paint.mjs` | The build tool paints: a drag builds a row, Shift-drag an area, a click one; the ? key lists the mouse and keys |

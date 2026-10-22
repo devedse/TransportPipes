@@ -785,10 +785,16 @@ public sealed partial class GameWorld
     {
         if (!BuildingsOf(company.Id).Any(t => Content.Building(t.Type).ResearchPerMinute > 0))
         {
-            // No research at all: techs add output and unlock better pipes, so a Lab comes first (more so with full pipes)
+            // No research at all: techs add output and unlock better pipes, so a Lab comes first (more so with full pipes),
+            // once the company makes what it uses: run 2's Labs sat at 0% without ingots. It stands beside the building
+            // that makes them, so one short pipe feeds it.
             var post = BuildingsOf(company.Id).FirstOrDefault(t => Content.Building(t.Type).Kind == BuildingKind.TradingPost);
-            if (post != null && Content.BuildingList.FirstOrDefault(t => t.Buildable && t.ResearchPerMinute > 0 && IsUnlocked(company, t, out _)) is { } lab
-                && FindSpot(company, lab, post.Position) is { } spot)
+            var lab = Content.BuildingList.FirstOrDefault(t => t.Buildable && t.ResearchPerMinute > 0 && IsUnlocked(company, t, out _));
+            var makers = lab?.In.Keys.Where(t => t != "energy")
+                .Select(good => BuildingsOf(company.Id).FirstOrDefault(b => !b.UnderConstruction && Content.Building(b.Type).Out.ContainsKey(good)))
+                .ToList() ?? [];
+            if (post != null && lab != null && makers.All(t => t != null)
+                && FindSpot(company, lab, (makers.FirstOrDefault() ?? post).Position) is { } spot)
             {
                 var fullPipes = networks.Any(t => FullLinks(t).Count > 0);
                 add(new AdvisorStep(AdvisorKind.Research, fullPipes ? $"Build {Article(lab.Name)}: your pipes are full, better ones need research" : $"Build {Article(lab.Name)}: research makes everything better",

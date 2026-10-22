@@ -119,6 +119,10 @@ public sealed partial class GameWorld
         return orders;
     }
 
+    /// <summary>Whether a company has a finished Storage (hub orders come out of storages)</summary>
+    public bool HasStorage(Company company) =>
+        BuildingsOf(company.Id).Any(t => !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Storage);
+
     /// <summary>Delivers what the storages have for an order; the reward comes when it is complete</summary>
     public CommandResult DeliverOrder(long companyId, int orderId)
     {
@@ -139,7 +143,14 @@ public sealed partial class GameWorld
         var amount = Math.Min(order.Amount - order.Delivered, available);
         if (amount <= 1e-9)
         {
-            return CommandResult.Fail($"Your storages have no {Content.Resources[order.Resource].Name.ToLowerInvariant()}.");
+            // Say how an order is filled (run 2: "Your storages have no coal" left three players asking what a storage is)
+            var good = Content.Resources[order.Resource].Name.ToLowerInvariant();
+            var storages = BuildingsOf(company.Id).Where(t => !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Storage).ToList();
+            return CommandResult.Fail(storages.Count == 0
+                ? $"Orders come out of a Storage: build one (Build › Logistics) and pipe your {good} into it."
+                : storages.All(t => StorageCapacity(t, Content.Building(t.Type)) - t.StoredTotal <= StorageEpsilon)
+                    ? $"Your Storage is full of other goods, so no {good} gets in: upgrade it, or sell what is in it."
+                    : $"Your Storage has no {good} yet: pipe a building that makes {good} into it.");
         }
         var payment = Pay(company, 0, new Dictionary<string, double> { [order.Resource] = amount });
         if (!payment.Success)

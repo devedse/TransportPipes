@@ -93,7 +93,16 @@ public sealed partial class GameWorld
                 return new IdleStatus(reason, $"Slowed: only {(only.Count == 1 ? $"the {only[0]}" : "the buildings on its pipe")} takes its {good}",
                     $"It sells nothing: its pipe reaches no trading post or Storage, and goods never pass through a building.", FixOwnNeedFirst());
             case IdleCause.Full when definition.Kind == BuildingKind.Storage:
-                return new IdleStatus(reason, "Full", "What comes now goes on to your trading post, or waits.", null);
+                // What it holds, who waits behind it, and one pipe that frees them
+                var (holds, waiting, first) = StorageLine(building);
+                IdleFix? freeThem = null;
+                if (plan && first != null && PlanFixPipe(first) is { } free && free.Target?.Id != building.Id)
+                {
+                    freeThem = new IdleFix(IdleFixKind.LayPipe, $"Lay the pipe from your {BuildingName(first)} to your {BuildingName(free.Target!)} · {Tiles(free.NewTiles)} · {Gold(free.Cost)}", free, Cost: free.Cost);
+                }
+                return new IdleStatus(reason, "Full", waiting != null
+                    ? $"It holds {holds}; {waiting} slow behind it, because their pipes reach nothing else that takes it."
+                    : $"It holds {holds}. What comes now goes on to your trading post.", freeThem);
             case IdleCause.Full:
                 return new IdleStatus(reason, "Slowed: its Storage is full", $"Nothing else on its pipes takes its {GoodsWord(definition.Out.Keys.FirstOrDefault() ?? "")}.", FixPipe());
             case IdleCause.InputMissing:

@@ -286,6 +286,28 @@ public sealed partial class GameWorld
     private static readonly TimeSpan StorageFullNoticeEvery = TimeSpan.FromHours(6);
     private readonly Dictionary<long, DateTime> _storageFullNoticeAt = new();
 
+    /// <summary>
+    /// A full Storage as a line says it (run 2: Ana's warning said "full" for four weeks and never what was in it or what
+    /// waited behind it): "4,800 energy and 200 iron ingots", and the buildings that slow behind it ("your 4 Wind Moilies")
+    /// </summary>
+    public (string Holds, string? Waiting, Building? First) StorageLine(Building storage)
+    {
+        var holds = storage.Contents.Where(t => t.Value >= 1).OrderByDescending(t => t.Value).Take(2)
+            .Select(t => $"{(t.Value >= 100 ? t.Value.ToString("N0") : t.Value.ToString("0"))} {GoodsWord(t.Key)}").ToList();
+        var waiting = BuildingsOf(storage.Owner)
+            .Where(t => t.Id != storage.Id && IdleReasonOf(t).Cause == IdleCause.Full && PipeReach(t).Any(r => r.Id == storage.Id))
+            .ToList();
+        var kinds = waiting.GroupBy(t => Content.Building(t.Type).Name).OrderByDescending(t => t.Count())
+            .Select(t => t.Count() == 1 ? $"a {t.Key}" : $"{t.Count()} {Plural(t.Key)}").ToList();
+        return (holds.Count == 0 ? "goods" : string.Join(" and ", holds),
+            kinds.Count == 0 ? null : $"your {string.Join(" and ", kinds.Take(2))}{(kinds.Count > 2 ? " and more" : "")}",
+            waiting.FirstOrDefault());
+    }
+
+    /// <summary>"Wind Moilies", "Solar Panels", "Small Factories"</summary>
+    private static string Plural(string name) =>
+        name.EndsWith('y') && !name.EndsWith("ey", StringComparison.Ordinal) ? name[..^1] + "ies" : name.EndsWith('s') ? name : name + "s";
+
     /// <summary>Storages that are (nearly) full</summary>
     public IEnumerable<Building> FullStorages(long companyId) =>
         BuildingsOf(companyId).Where(t => Content.Building(t.Type).Kind == BuildingKind.Storage && !t.UnderConstruction

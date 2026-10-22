@@ -143,7 +143,10 @@ public static partial class GameViews
         }
         if (world.FullStorages(me.Id).FirstOrDefault() is { } full)
         {
-            Add(6, "look", "🛢", $"Your {Kind(full)} is full: what comes now waits", "show", full.Id);
+            var (holds, waiting, _) = world.StorageLine(full);
+            Add(waiting != null ? 3 : 6, "look", "🛢", waiting != null
+                ? $"Your {Kind(full)} is full of {holds}: {waiting} slow behind it"
+                : $"Your {Kind(full)} is full of {holds}: what comes now goes on to your trading post", "show", full.Id);
         }
 
         // Link offers that waited for you (F11)
