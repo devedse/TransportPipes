@@ -1,6 +1,6 @@
 import { gameClient } from "../app/client";
 import { useNow } from "../app/useNow";
-import { formatAmount } from "../app/format";
+import { formatAmount, possessive } from "../app/format";
 import type { ResourceRateDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import { setState, useAppStore } from "../state/store";
@@ -159,8 +159,8 @@ export function YardPanel() {
                   <li key={`${b.buyer}-${b.resource}`}>
                     <span>
                       <ResourceIcon resource={b.resource} /> <strong>{b.buyerName}</strong>
-                      {b.building !== null && `'s ${b.building}`} could use {formatAmount(b.perMinute)}/min{" "}
-                      {content.resourceName(b.resource).toLowerCase()}
+                      {b.building !== null && `${possessive(b.buyerName)} ${b.building}`} could use{" "}
+                      {formatAmount(b.perMinute)}/min {content.resourceName(b.resource).toLowerCase()}
                       {b.house !== null && <span className="muted"> · it buys from {b.house} ⚙ now</span>}
                     </span>
                     <button
@@ -186,11 +186,13 @@ export function YardPanel() {
                     <span>
                       💛 <ResourceIcon resource={t.resource} /> {content.resourceName(t.resource)} to{" "}
                       <strong>{t.toName}</strong>
-                      {t.building !== null && `'s ${t.building}`} first
+                      {t.building !== null && `${possessive(t.toName)} ${t.building}`} first
                       {t.to !== null &&
                         (t.perMinute > 0
                           ? ` · ${formatAmount(t.perMinute)}/min now`
-                          : " · nothing they lack now")}
+                          : ` · nothing now${t.idle !== null ? `: ${t.idle}` : ""}`)}
+                      {/* What it really moved (run 2: Dev's Sends promised for 28 days and moved nothing) */}
+                      {t.to !== null && ` · ${formatAmount(t.week)} this week`}
                     </span>
                     <button className="link small" onClick={() => void gameClient.stopSend(t.resource, t.to)}>
                       stop

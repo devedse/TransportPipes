@@ -1640,7 +1640,9 @@ public static partial class GameViews
             Discoveries(world, station),
             me.Sends.Select(t => new SendDto(t.Resource, t.To, world.Company(t.To) is { } to ? world.NameFor(to, me) : "?",
                 t.Building is { } b && world.Building(b) is { } building ? world.Content.Building(building.Type).Name : null,
-                Math.Round(yours.Where(y => y.Selling && y.Partner == t.To && y.Resource == t.Resource).Sum(y => y.PerMinute), 3)))
+                Math.Round(yours.Where(y => y.Selling && y.Partner == t.To && y.Resource == t.Resource).Sum(y => y.PerMinute), 3),
+                Math.Round(world.TakenSince(me, t.Since > world.Now.AddDays(-7) ? t.Since : world.Now.AddDays(-7)).GetValueOrDefault((t.To, t.Resource))),
+                world.SendIdleReason(me, t)))
                 .Concat(me.ProjectFirst.Order().Select(t => new SendDto(t, null, world.ExistingProject(station) is { } p ? $"the {GameWorld.StageName(p.Stage)}" : "the project", null, 0)))
                 .ToList(),
             world.SendCount(me),

@@ -59,6 +59,11 @@ export function formatRate(perMinute: number): string {
 }
 
 /** "1 building", "3 buildings" */
+/** The ending of a name's possessive: "'" after a name ending in s ("ana_pm Pipes' Quarry"), else "'s" */
+export function possessive(name: string): string {
+  return name.endsWith("s") ? "'" : "'s";
+}
+
 export function plural(count: number, one: string, many = `${one}s`): string {
   return `${formatAmount(count)} ${count === 1 ? one : many}`;
 }

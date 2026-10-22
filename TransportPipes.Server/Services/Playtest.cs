@@ -170,6 +170,22 @@ public static class PlaytestEndpoints
             return new { seen = companyId };
         }));
 
+        // A company's station as its Yard sees it: every resident's spare and lacks at the gate, and the company's Sends
+        // with why each moves nothing (run 2: Dev's Sends moved nothing for 28 days)
+        group.MapGet("/yard/{companyId:long}", (long companyId, WorldHost host) => host.RunAsync(world =>
+        {
+            if (world.Company(companyId) is not { } company || world.EstateOf(company) is not { } estate)
+            {
+                return (object)new { error = "no such company" };
+            }
+            return new
+            {
+                residents = world.YardResidents(estate.Station).Select(t => new { id = t.Company.Id, name = t.Company.Name, house = t.Company.IsNpc, connected = t.Connected, spare = t.Spare, lacks = t.Lacks }),
+                trades = world.YardTrades(estate).Select(t => new { partner = t.Partner, resource = t.Resource, perMinute = t.PerMinute, selling = t.Selling }),
+                sends = company.Sends.Select(t => new { to = t.To, resource = t.Resource, building = t.Building, idle = world.SendIdleReason(company, t) }),
+            };
+        }, changesWorld: false));
+
         // The return card a company would see if its player came back now (F5's gate), without waking it
         group.MapGet("/card/{companyId:long}", (long companyId, WorldHost host) => host.RunAsync(world =>
         {

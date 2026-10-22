@@ -1423,6 +1423,10 @@ export interface SendDto {
   toName: string;
   building: string | null;
   perMinute: number;
+  /** What it moved this week (since it began) */
+  week: number;
+  /** Why it moves nothing now ("their Quarry gets all it needs now"), if it doesn't */
+  idle: string | null;
 }
 
 /** What you and a neighbour gave each other this week, in units each way */

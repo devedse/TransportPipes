@@ -630,8 +630,11 @@ public record AskDto(string Resource, double Amount, double Got, DateTime Until,
 /// <summary>A Yard trade of yours; Sent: a Send (yours, or theirs to you), CanThank: Thanks today, House: an NPC partner</summary>
 public record YardTradeDto(long Partner, string PartnerName, string Resource, double PerMinute, bool Selling, double Price, bool Sent = false, bool CanThank = false, bool House = false);
 
-/// <summary>A Send of yours (step 4): the good, who it goes to (null: the project), the building it's for, what it brings now</summary>
-public record SendDto(string Resource, long? To, string ToName, string? Building, double PerMinute);
+/// <summary>
+/// A Send of yours (step 4): the good, who it goes to (null: the project), the building it's for, what it brings now,
+/// what it moved this week (since it began), and why it moves nothing now if it doesn't
+/// </summary>
+public record SendDto(string Resource, long? To, string ToName, string? Building, double PerMinute, double Week = 0, string? Idle = null);
 
 /// <summary>What you and a neighbour gave each other this week, in units each way; Sent: by a Send (yours, theirs)</summary>
 public record GiftDto(long Partner, string Name, string Resource, double Given, double Received, bool YouSend, bool TheySend);

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { gameClient } from "../app/client";
-import { formatAmount, formatDuration } from "../app/format";
+import { formatAmount, formatDuration, possessive } from "../app/format";
 import { useNow } from "../app/useNow";
 import type { BuildingDetailsDto, BuildingFlowDto, BuildingTradeDto } from "../api/contracts";
 import type { Content } from "../game/content";
@@ -90,8 +90,8 @@ function NeighbourTrade({ trade, content }: { trade: BuildingTradeDto; content: 
             <ResourceIcon resource={t.resource} />
             <span>
               to <strong>{t.partnerName}</strong>
-              {t.partnerBuilding !== null && `'s ${t.partnerBuilding}`} · {formatAmount(t.perMinute)}/min ·{" "}
-              {t.price.toFixed(2)} g{t.sent && " 💛"}
+              {t.partnerBuilding !== null && `${possessive(t.partnerName)} ${t.partnerBuilding}`} ·{" "}
+              {formatAmount(t.perMinute)}/min · {t.price.toFixed(2)} g{t.sent && " 💛"}
             </span>
             {!t.house &&
               (t.sent ? (
@@ -142,7 +142,8 @@ function NeighbourTrade({ trade, content }: { trade: BuildingTradeDto; content: 
             <ResourceIcon resource={b.resource} />
             <span>
               <strong>{b.buyerName}</strong>
-              {b.building !== null && `'s ${b.building}`} could use {formatAmount(b.perMinute)}/min
+              {b.building !== null && `${possessive(b.buyerName)} ${b.building}`} could use{" "}
+              {formatAmount(b.perMinute)}/min
               {b.house !== null && <span className="muted"> · it buys from {b.house} ⚙ now</span>}
             </span>
             {(primary === null || primary.to !== b.buyer || primary.resource !== b.resource) && (

@@ -266,7 +266,7 @@ public sealed partial class GameWorld
     }
 
     /// <summary>What one level-1 building that makes a good makes of it a minute (the cheapest such producer)</summary>
-    private double OneBuildingRate(string good) =>
+    public double OneBuildingRate(string good) =>
         Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.ContainsKey(good))
             .OrderBy(t => t.Unlock.Level).ThenBy(t => t.Cost.Gold).Select(t => t.Out[good]).FirstOrDefault(1);
 

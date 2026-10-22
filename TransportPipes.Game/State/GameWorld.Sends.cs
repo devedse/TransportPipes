@@ -246,6 +246,39 @@ public sealed partial class GameWorld
         return new BuildingTrade(takers, suppliers, bids, toProject, reaches);
     }
 
+    /// <summary>A bid needs at least this much of the good a minute at the giver's gate</summary>
+    private const double SendSpareAtLeast = 0.5;
+
+    /// <summary>What of a good a company puts through its Yard gate a minute: sold in the Yard, and spare nobody took</summary>
+    private double AtGate(Company me, Estate estate, string resource, IReadOnlyList<YardResident> residents) =>
+        (residents.FirstOrDefault(t => t.Company.Id == me.Id)?.Spare.GetValueOrDefault(resource) ?? 0)
+        + YardTrades(estate).Where(t => t.Selling && t.Resource == resource).Sum(t => t.PerMinute);
+
+    /// <summary>
+    /// Why a Send moves nothing now, if it doesn't: the receiver gets all it needs (by its usual partners, say), or the
+    /// giver's own buildings use all of it (run 2: Dev's "goes to ana_pm Pipes first" moved nothing for 28 days)
+    /// </summary>
+    public string? SendIdleReason(Company giver, GoodSend send)
+    {
+        var to = send.To;
+        if (Company(to) is not { } receiver || EstateOf(giver) is not { } estate)
+        {
+            return null;
+        }
+        var residents = YardResidents(estate.Station);
+        var lacks = residents.FirstOrDefault(t => t.Company.Id == to)?.Lacks.GetValueOrDefault(send.Resource) ?? 0;
+        var houses = EstateOf(receiver) is { } theirs ? YardTrades(theirs).Where(t => !t.Selling && t.Resource == send.Resource && Company(t.Partner) is { IsNpc: true }).Sum(t => t.PerMinute) : 0;
+        if (lacks + houses < 0.05)
+        {
+            return $"{(send.Building is { } b && Building(b) is { } building ? $"their {Content.Building(building.Type).Name}" : "they")} {(send.Building != null ? "gets" : "get")} all {(send.Building != null ? "it needs" : "they need")} now";
+        }
+        if (AtGate(giver, estate, send.Resource, residents) <= 1e-3)
+        {
+            return $"your own buildings use all your {GoodsWord(send.Resource)}";
+        }
+        return null;
+    }
+
     /// <summary>The name of a company's building that needs a good most ("Glassworks"), if any</summary>
     public string? TradeNeed(Company company, string resource) => NeedOf(company, resource) is { } building ? Content.Building(building.Type).Name : null;
 
@@ -260,7 +293,9 @@ public sealed partial class GameWorld
     /// <summary>
     /// Who in a company's station could use a good it makes (bids: "Ana's Glassworks could use your sand"): players it
     /// may send to, not sent to yet, with what they still lack and what Houses sell them now (a Send takes both); what
-    /// other players sell them stays private
+    /// other players sell them stays private. Only where a Send would move something: you have spare of it, and they
+    /// could use at least half of what one building makes of it (run 2: every bid was energy for 0.3-0.8 a minute, and
+    /// Dev's two Sends never moved a unit)
     /// </summary>
     public List<GoodBid> Bids(Company me, string resource, IReadOnlyList<YardResident>? residents = null)
     {
@@ -268,8 +303,14 @@ public sealed partial class GameWorld
         {
             return [];
         }
+        residents ??= YardResidents(estate.Station);
+        if (AtGate(me, estate, resource, residents) <= SendSpareAtLeast)
+        {
+            return [];
+        }
+        var enough = Math.Max(1, 0.5 * OneBuildingRate(resource));
         var bids = new List<GoodBid>();
-        foreach (var resident in (residents ?? YardResidents(estate.Station)).Where(t => t.Connected && !t.Company.IsNpc && t.Company.Id != me.Id))
+        foreach (var resident in residents.Where(t => t.Connected && !t.Company.IsNpc && t.Company.Id != me.Id))
         {
             var buyer = resident.Company;
             if (SendsTo(me, buyer.Id, resource) || SendBlocker(me, buyer) != null || EstateOf(buyer) is not { } theirs)
@@ -278,7 +319,7 @@ public sealed partial class GameWorld
             }
             var houses = YardTrades(theirs).Where(t => !t.Selling && t.Resource == resource && Company(t.Partner) is { IsNpc: true }).ToList();
             var couldUse = resident.Lacks.GetValueOrDefault(resource) + houses.Sum(t => t.PerMinute);
-            if (couldUse > 0.05)
+            if (couldUse >= enough)
             {
                 var house = houses.OrderByDescending(t => t.PerMinute).Select(t => Company(t.Partner)).FirstOrDefault();
                 bids.Add(new GoodBid(resource, buyer, NeedOf(buyer, resource), couldUse, house));

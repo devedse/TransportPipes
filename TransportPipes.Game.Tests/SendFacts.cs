@@ -42,6 +42,26 @@ public class SendFacts
         game.World.YardTrades(game.EstateOf(buyer)).Where(t => !t.Selling && t.Partner == seller.Id && t.Resource == resource).Sum(t => t.PerMinute);
 
     [TestMethod]
+    public void SendIsOfferedOnlyWhereItMovesSomething()
+    {
+        var (game, a, b, c) = Station();
+        game.Pass(3);
+        Assert.IsTrue(game.World.Bids(a, "energy").Any(t => t.Buyer.Id == b.Id && t.PerMinute >= 2.5), "B's mines lack a building's worth of A's energy");
+
+        // A's own mines take all its moily makes: nothing reaches its gate, a Send would move nothing, so nobody is offered one
+        a.Level = 2;
+        for (var i = 0; i < 3; i++)
+        {
+            var mine = game.Build(a, "ironMine", game.Spot(a, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
+            game.ConnectToGate(a, mine);
+        }
+        game.World.SolveNetworks();
+        game.Pass(3);
+
+        Assert.IsEmpty(game.World.Bids(a, "energy"), "no spare, no bid (run 2: Sends offered for 0.3-0.8 a minute moved nothing)");
+    }
+
+    [TestMethod]
     public void ABuyerHearsWhoseGoodsItGot()
     {
         // Run 2: Ana's ingots ran Dev's Lab and he never heard; the receiver's card needs what it got from whom
