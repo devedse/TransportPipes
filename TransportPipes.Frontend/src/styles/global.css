@@ -4560,6 +4560,21 @@ kbd {
   .app:has(.building-panel, .parcel-panel, .build-menu, .modal-backdrop) .goal-tracker {
     display: none;
   }
+
+  /* A panel over the whole map: what sits on the map steps aside (the Yard's title hid behind the overlay bar, and
+     Loady's card and the chat button were under and over it: Ben's run 2 evening) */
+  .app:has(
+      .yard-panel,
+      .neighbours-panel,
+      .network-panel,
+      .visit-panel,
+      .inbox-panel,
+      .research-panel,
+      .leaderboard-panel
+    )
+    :is(.goal-tracker, .chat-toggle, .overlay-bar) {
+    display: none;
+  }
 }
 
 /* ---------------------------------------------------------------- Title screens: the key art */
