@@ -253,7 +253,8 @@ public class TenantFacts
         game.ConnectToGate(player, moily);
         bool Trades()
         {
-            game.Pass(3);
+            // A round matches, the next brings it, and the buyer's buildings take it (what YardTrades shows)
+            game.Pass(5);
             return game.World.YardTrades(game.EstateOf(player)).Any(t => t.Selling && t.Partner == works.Id && t.PerMinute > 1e-6);
         }
         Assert.IsTrue(Trades());

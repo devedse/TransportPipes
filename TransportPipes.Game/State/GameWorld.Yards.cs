@@ -192,60 +192,94 @@ public sealed partial class GameWorld
     /// </summary>
     private void SettleGateFlows(Network network, double minutes, Dictionary<long, double> earnings)
     {
-        SettleUntaken(network, minutes, earnings);
-        foreach (var flow in network.GateFlows)
+        CountUntaken(network, minutes);
+        foreach (var flow in network.GateFlows.Where(t => !t.Import))
         {
-            if (!_buildings.TryGetValue(flow.Building, out var building) || Company(building.Owner) is not { } owner)
-            {
-                continue;
-            }
-            if (!flow.Import)
+            if (_buildings.TryGetValue(flow.Building, out var building) && Company(building.Owner) is { } owner)
             {
                 CountDiscovery(building, flow.Sent * minutes);
                 owner.EraOutput += flow.Sent * minutes * BasePrice(flow.Resource);
                 Add(owner.Report.Produced, flow.Resource, flow.Sent * minutes);
                 AddStat(owner, $"produced:{flow.Resource}", flow.Sent * minutes);
+            }
+        }
+        foreach (var payment in GatePayments(network))
+        {
+            var (seller, buyer) = (payment.Seller, payment.Buyer);
+            var units = payment.Units * minutes;
+            var gold = payment.Gold * minutes;
+            if (payment.Floor)
+            {
+                BookHubSale(seller, payment.Resource, units, gold, earnings, "yardFloor");
                 continue;
             }
-            if (!_gateTerms.TryGetValue(flow.Estate, out var terms) || !terms.Import.TryGetValue((flow.Resource, flow.PriceClass), out var sources))
-            {
-                continue;
-            }
-            var total = sources.Values.Sum();
-            if (total <= 1e-12)
-            {
-                continue;
-            }
-            foreach (var (sellerId, amount) in sources)
-            {
-                // What a stand-in sells is NPC gold: it leaves the game, it is never the sleeper's
-                if (Company(sellerId) is not { } seller || seller.Asleep)
-                {
-                    continue;
-                }
-                var units = flow.Sent * minutes * amount / total;
-                var gold = units * SettlementPrice(seller, owner, flow.Resource);
-                seller.Gold += gold;
-                earnings[seller.Id] = earnings.GetValueOrDefault(seller.Id) + gold;
-                // Measures (the playtest's): gold the Yard paid a player, and gold that came from a House
-                AddStat(seller, owner.IsNpc ? "npcGold" : seller.IsNpc ? "houseSold" : "yardPaid", gold);
-                Add(seller.Report.Sold, flow.Resource, units);
-                ContractDelivered(seller.Id, owner.Id, flow.Resource, units);
-                AddStat(seller, "soldToPlayers", units);
-                AddStat(owner, "boughtFromPlayers", units);
-                seller.Touch();
-                Changes.Companies.Add(seller.Id);
-            }
+            seller.Gold += gold;
+            earnings[seller.Id] = earnings.GetValueOrDefault(seller.Id) + gold;
+            // Measures (the playtest's): gold the Yard paid a player, and gold that came from a House
+            AddStat(seller, buyer.IsNpc ? "npcGold" : seller.IsNpc ? "houseSold" : "yardPaid", gold);
+            Add(seller.Report.Sold, payment.Resource, units);
+            ContractDelivered(seller.Id, buyer.Id, payment.Resource, units);
+            AddStat(seller, "soldToPlayers", units);
+            AddStat(buyer, "boughtFromPlayers", units);
+            seller.Touch();
+            Changes.Companies.Add(seller.Id);
         }
     }
 
     /// <summary>
-    /// What the Yard brought to this network's gates and the buyer didn't take (F1, the floor): its sellers sent it, so
-    /// what would have gone to their hub is paid at their own hub price, booked as a hub sale. The rest of it (what a
-    /// Storage kept, or a building made only for the Yard) is lost on the way, and the next round sends less. Also counts
-    /// the measures: per seller, the units sent to its buyers and the units they didn't take.
+    /// A seller's pay per minute for what the Yard brought to a buyer's gate: for what the buyer's buildings took, at the
+    /// settlement price (in proportion to what each seller sent), or (Floor) for what they didn't take, at the seller's
+    /// own hub price as far as it would have gone to the seller's hub (F1.1)
     /// </summary>
-    private void SettleUntaken(Network network, double minutes, Dictionary<long, double> earnings)
+    private sealed record GatePayment(Company Seller, Company Buyer, string Resource, double Units, double Gold, bool Floor);
+
+    /// <summary>
+    /// The payments for what the Yard brings to this network's gates, per minute. What a stand-in sells is NPC gold: it
+    /// leaves the game, it is never the sleeper's. What isn't taken and wouldn't have gone to the seller's hub (what a
+    /// Storage kept, or a building made only for the Yard) is lost on the way, and the next round sends less.
+    /// </summary>
+    private IEnumerable<GatePayment> GatePayments(Network network)
+    {
+        foreach (var gate in network.Gates)
+        {
+            if (EstateOfGate(gate) is not { OwnerId: { } buyerId } estate || Company(buyerId) is not { } buyer || !_gateTerms.TryGetValue(KeyOf(estate), out var terms))
+            {
+                continue;
+            }
+            var key = KeyOf(estate);
+            foreach (var ((resource, priceClass), sources) in terms.Import)
+            {
+                var total = sources.Values.Sum();
+                if (total <= 1e-12)
+                {
+                    continue;
+                }
+                var taken = network.GateFlows.Where(t => t.Import && t.Estate == key && t.Resource == resource && t.PriceClass == priceClass).Sum(t => t.Sent);
+                var untaken = Math.Max(0, total - taken);
+                var hubBound = terms.HubBound.GetValueOrDefault((resource, priceClass));
+                foreach (var (sellerId, amount) in sources)
+                {
+                    if (Company(sellerId) is not { } seller || seller.Asleep)
+                    {
+                        continue;
+                    }
+                    var units = taken * amount / total;
+                    if (units > 1e-12)
+                    {
+                        yield return new GatePayment(seller, buyer, resource, units, units * SettlementPrice(seller, buyer, resource), false);
+                    }
+                    var floor = seller.IsNpc ? 0 : untaken * Math.Min(amount, hubBound?.GetValueOrDefault(sellerId) ?? 0) / total;
+                    if (floor > 1e-12)
+                    {
+                        yield return new GatePayment(seller, buyer, resource, floor, floor * HubBuyPrice(seller, resource), true);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>The measures: per seller, the units the Yard sent its buyers and the units they didn't take</summary>
+    private void CountUntaken(Network network, double minutes)
     {
         foreach (var gate in network.Gates)
         {
@@ -263,21 +297,65 @@ public sealed partial class GameWorld
                 }
                 var taken = network.GateFlows.Where(t => t.Import && t.Estate == key && t.Resource == resource && t.PriceClass == priceClass).Sum(t => t.Sent);
                 var untaken = Math.Max(0, total - taken);
-                var hubBound = terms.HubBound.GetValueOrDefault((resource, priceClass));
                 foreach (var (sellerId, amount) in sources)
                 {
-                    if (Company(sellerId) is not { IsNpc: false } seller)
+                    if (Company(sellerId) is { IsNpc: false } seller)
                     {
-                        continue;
+                        AddStat(seller, "yardSent", amount * minutes);
+                        AddStat(seller, "yardUntaken", untaken * minutes * amount / total);
                     }
-                    AddStat(seller, "yardSent", amount * minutes);
-                    AddStat(seller, "yardUntaken", untaken * minutes * amount / total);
-                    // Its share of what wasn't taken (in the same proportion as it is paid for what was), as far as it would have gone to its hub
-                    var units = untaken * minutes * Math.Min(amount, hubBound?.GetValueOrDefault(sellerId) ?? 0) / total;
-                    if (units > 1e-12 && !seller.Asleep)
-                    {
-                        BookHubSale(seller, resource, units, units * HubBuyPrice(seller, resource), earnings, "yardFloor");
-                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gold a minute that companies get, or pay, besides their networks' own flows (F1.6: the screens show what is
+    /// paid): Yard sales (and the floor), deliveries to the project, Asks, and what stand-ins buy
+    /// </summary>
+    private void AddTradeIncome(Dictionary<long, double> total)
+    {
+        void Add(long company, double gold) => total[company] = total.GetValueOrDefault(company) + gold;
+        foreach (var network in _networks.Values)
+        {
+            foreach (var payment in GatePayments(network))
+            {
+                Add(payment.Seller.Id, payment.Gold);
+            }
+        }
+        foreach (var project in _projects.Values.Where(t => t.Incoming.Count > 0))
+        {
+            foreach (var (sellerId, goods) in project.Incoming)
+            {
+                foreach (var (good, perMinute) in goods.Where(t => ProjectLacks(project, t.Key) > 1e-9))
+                {
+                    Add(sellerId, perMinute * BasePrice(good));
+                }
+            }
+        }
+        foreach (var asker in _companies.Values.Where(t => t.Asks.Count > 0))
+        {
+            var room = StorageRoom(asker.Id) > 1e-9;
+            foreach (var ask in asker.Asks.Where(t => room && t.Left > 1e-9))
+            {
+                foreach (var (sellerId, perMinute) in ask.Incoming)
+                {
+                    Add(sellerId, perMinute * PlayerPrice(ask.Resource));
+                    Add(asker.Id, -perMinute * PlayerPrice(ask.Resource));
+                }
+            }
+        }
+        foreach (var sleeper in _companies.Values.Where(t => t.Asleep && t.StandIn != null && t.Packed == null))
+        {
+            if (EstateOf(sleeper) is not { } estate || !_gateTerms.TryGetValue(KeyOf(estate), out var terms))
+            {
+                continue;
+            }
+            foreach (var ((resource, _), sources) in terms.Import)
+            {
+                foreach (var (sellerId, perMinute) in sources.Where(t => Company(t.Key) is { Asleep: false }))
+                {
+                    Add(sellerId, perMinute * StandInBuyPrice(sleeper.StandIn!, Company(sellerId)!, resource));
                 }
             }
         }
@@ -1111,7 +1189,10 @@ public sealed partial class GameWorld
                 && Estate(buyer.District, buyer.Slot)?.OwnerId == t.Buyer)
             .Sum(t => t.Rate);
 
-    /// <summary>What a company's estate sends to and gets from its station's residents per minute, by partner and resource (links aside)</summary>
+    /// <summary>
+    /// What a company's estate sends to and gets from its station's residents per minute, by partner and resource (links
+    /// aside): what the buyers' buildings take, never what was only matched (F1.6)
+    /// </summary>
     public IReadOnlyList<(long Partner, string Resource, double PerMinute, bool Selling)> YardTrades(Estate estate)
     {
         var trades = new List<(long, string, double, bool)>();
@@ -1120,13 +1201,14 @@ public sealed partial class GameWorld
         double OverLink(long seller, long buyer, string resource) => LinkBetween(seller, buyer, resource)?.Rate ?? 0;
         if (_gateTerms.TryGetValue(key, out var terms) && estate.OwnerId is { } me)
         {
-            foreach (var ((resource, _), sources) in terms.Import)
+            foreach (var ((resource, priceClass), sources) in terms.Import)
             {
+                var share = TakenShare(key, resource, priceClass);
                 foreach (var (seller, amount) in sources.Where(t => LivesIn(t.Key, home)))
                 {
-                    if (amount - OverLink(seller, me, resource) > 1e-9)
+                    if (amount * share - OverLink(seller, me, resource) > 1e-9)
                     {
-                        trades.Add((seller, resource, amount - OverLink(seller, me, resource), false));
+                        trades.Add((seller, resource, amount * share - OverLink(seller, me, resource), false));
                     }
                 }
             }
@@ -1137,14 +1219,39 @@ public sealed partial class GameWorld
             {
                 continue;
             }
-            foreach (var ((resource, _), sources) in other.Import)
+            foreach (var ((resource, priceClass), sources) in other.Import)
             {
-                if (estate.OwnerId is { } owner && sources.TryGetValue(owner, out var amount) && amount - OverLink(owner, buyer, resource) > 1e-9)
+                if (estate.OwnerId is { } owner && sources.TryGetValue(owner, out var amount)
+                    && amount * TakenShare(otherKey, resource, priceClass) - OverLink(owner, buyer, resource) is > 1e-9 and var taken)
                 {
-                    trades.Add((buyer, resource, amount - OverLink(owner, buyer, resource), true));
+                    trades.Add((buyer, resource, taken, true));
                 }
             }
         }
         return trades;
+    }
+
+    /// <summary>The share of what the Yard brings an estate's gate that its buildings take (a stand-in takes it all)</summary>
+    private double TakenShare(EstateKey key, string resource, int priceClass)
+    {
+        if (!_gateTerms.TryGetValue(key, out var terms) || !terms.Import.TryGetValue((resource, priceClass), out var sources))
+        {
+            return 0;
+        }
+        var total = sources.Values.Sum();
+        if (total <= 1e-12)
+        {
+            return 0;
+        }
+        if (Estate(key.District, key.Slot) is not { } estate || (estate.OwnerId is { } owner && Company(owner) is { Asleep: true }))
+        {
+            return 1;
+        }
+        if (NetworkAt(estate.YardGate) is not { } network)
+        {
+            return 0;
+        }
+        var taken = network.GateFlows.Where(t => t.Import && t.Estate == key && t.Resource == resource && t.PriceClass == priceClass).Sum(t => t.Sent);
+        return Math.Min(1, taken / total);
     }
 }

@@ -71,6 +71,10 @@ const scenarios = {
     check("Cleo's estate is matched under 1 energy a minute", labEnergy < 1, `${round(labEnergy, 2)}/min`);
     for (const id of [ANA, BEN, CLEO, DEV, MIA]) {
       const shown = b[id].goldPerMinute;
+      check(`${NAMES[id]}'s top bar shows what was paid`, Math.abs(shown - growth(id)) <= 0.02 * Math.max(1, Math.abs(growth(id))), `${round(shown)} shown, ${round(growth(id))} real`);
+    }
+    for (const id of [ANA, BEN, CLEO, DEV, MIA]) {
+      const shown = b[id].goldPerMinute;
       const real = growth(id);
       console.log(`info  ${NAMES[id]}: real ${round(real)} g/min, top bar ${round(shown)}, paid by the Yard ${round(delta(id, "yardPaid") / minutes)}, hub ${round(delta(id, "hubGold") / minutes)}, Houses ${round(delta(id, "npcGold") / minutes)}, project ${round(delta(id, "projectGold") / minutes)}, Yard matched ${round(b[id].yardMatched)}`);
     }

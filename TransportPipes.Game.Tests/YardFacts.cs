@@ -244,6 +244,30 @@ public class YardFacts
     }
 
     [TestMethod]
+    public void TheTopBarCountsWhatNeighboursPay()
+    {
+        var (game, a, b, _, _) = Neighbours();
+        game.Pass(5);
+        var rate = game.World.GoldPerMinute();
+        var (goldA, goldB) = (a.Gold, b.Gold);
+        game.Pass(10);
+
+        Assert.IsTrue(game.World.StatValue(a, "yardPaid") > 0, "B pays A through the Yard");
+        Assert.AreEqual(goldA + 10 * rate[a.Id], a.Gold, 1e-6, "A's rate counts what B pays");
+        Assert.AreEqual(goldB + 10 * rate[b.Id], b.Gold, 1e-6, "and B's what it pays");
+    }
+
+    [TestMethod]
+    public void TheYardPanelListsOnlyWhatArrives()
+    {
+        var (game, a) = TradeThenTheBuyerStops(gateOnly: false);
+
+        // The Yard still sends what it matched before the mine went, and nobody takes it
+        Assert.IsFalse(game.World.YardTrades(game.EstateOf(a)).Any(t => t.Selling), "no trade is shown that nobody takes");
+        Assert.AreEqual(0, game.World.NeighbourIncome(a), 1e-9);
+    }
+
+    [TestMethod]
     public void TheFloorNeverPaysTheProjectTwice()
     {
         var game = new TestGame(content: TestGame.PlainContent);

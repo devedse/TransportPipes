@@ -900,7 +900,10 @@ public sealed partial class GameWorld
         return network.Links.Where(t => ids.Contains(t.A) && ids.Contains(t.B)).ToList();
     }
 
-    /// <summary>Gold per minute of every company over all its networks (solved first: a rate is never one command old)</summary>
+    /// <summary>
+    /// Gold per minute of every company: its networks' flows, and what neighbours, Houses, the project, Asks and
+    /// stand-ins pay it (solved first: a rate is never one command old)
+    /// </summary>
     public Dictionary<long, double> GoldPerMinute()
     {
         SolveNetworks();
@@ -912,6 +915,7 @@ public sealed partial class GameWorld
                 total[company] = (total.TryGetValue(company, out var v) ? v : 0) + gold;
             }
         }
+        AddTradeIncome(total);
         return total;
     }
 
