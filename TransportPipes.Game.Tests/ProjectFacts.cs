@@ -139,7 +139,7 @@ public class ProjectFacts
         game.World.FinishStageNow(station);
         var made = project.Basket.Where(t => t.Key != project.Keystone).ToDictionary();
         Assert.HasCount(2, project.Counted, "both residents sized it");
-        var benShare = project.Counted[ben.Id];
+        var benShare = project.Counted[ben.Id] / project.Counted.Values.Sum();
 
         // Ben stops; Ana plays on
         for (var day = 0; day < 4; day++)
@@ -153,9 +153,47 @@ public class ProjectFacts
         {
             foreach (var (good, basket) in made)
             {
-                Assert.IsTrue(project.Basket[good] <= Math.Max(project.Delivered.GetValueOrDefault(good), Math.Ceiling(basket * (1 - benShare))) + 1e-6, good);
+                // He takes his part of what was still missing; what came stays
+                var delivered = project.Delivered.GetValueOrDefault(good);
+                Assert.IsTrue(project.Basket[good] <= delivered + Math.Ceiling(Math.Max(0, basket - delivered) * (1 - benShare)) + 1e-6, good);
             }
         }
+    }
+
+    [TestMethod]
+    public void AStageStandsOnlyByDelivery()
+    {
+        // Run 2: from day 12 the stages stood by themselves while everyone was away (the Foundry Hall with nothing
+        // delivered, the Landmark with an empty basket): when the counted residents left, the baskets shrank to what
+        // had come
+        var game = new TestGame(content: TestGame.PlainContent);
+        game.World.ProjectsEnabled = true;
+        var ana = game.NewCompany("Ana", level: 3);
+        var ben = game.NewCompany("Ben", level: 3);
+        foreach (var company in new[] { ana, ben })
+        {
+            game.ConnectToGate(company, game.Build(company, "windMoily"));
+            company.MeasuredIncome = 100;
+        }
+        game.Pass(3);
+        var station = game.EstateOf(ana).Station;
+        var project = game.World.ProjectOf(station);
+        project.DeliveredAt[ana.Id] = game.World.Now;
+        project.DeliveredAt[ben.Id] = game.World.Now;
+        game.World.FinishStageNow(station);
+        Assert.AreEqual(ProjectStage.WaterTower, project.Stage);
+        // Goods neither of them makes, a third of each already in
+        project.Basket = new Dictionary<string, double> { ["stone"] = 900, ["sand"] = 600 };
+        project.Delivered = new Dictionary<string, double> { ["stone"] = 300, ["sand"] = 200 };
+        project.Keystone = null;
+
+        // Both stop playing for a week
+        game.Pass(7 * 24 * 60);
+
+        Assert.AreEqual(ProjectStage.WaterTower, project.Stage, "nobody delivered, so it doesn't stand");
+        Assert.HasCount(1, project.Counted, "the last one counted stays counted");
+        Assert.IsTrue(project.Basket["stone"] > project.Delivered["stone"] && project.Basket["sand"] > project.Delivered["sand"], "something is still missing of each");
+        Assert.IsTrue(project.Basket["stone"] >= 300 + 600 * 0.4, $"the one who left took only their part of the missing stone: {project.Basket["stone"]}");
     }
 
     [TestMethod]

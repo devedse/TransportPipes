@@ -388,8 +388,10 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// Once a day: a counted resident who hasn't played for 3 days takes its part of the made goods with it (baskets only
-    /// shrink), and a keystone nobody active can make any more is chosen again (F4)
+    /// Once a day: a counted resident who hasn't played for 3 days takes its part of what the made goods still lack with it
+    /// (baskets only shrink), and a keystone nobody active can make any more is chosen again (F4). A stage stands only by
+    /// delivery: the last counted resident never takes the rest with it, and with nobody active the stage waits as it is
+    /// (run 2: from day 12 stages stood by themselves while everyone was away, with empty baskets)
     /// </summary>
     private void UpdateBaskets()
     {
@@ -398,20 +400,23 @@ public sealed partial class GameWorld
             var station = StationOfKey(project.Station);
             foreach (var (residentId, share) in project.Counted.ToList())
             {
-                if (Company(residentId) is { } resident && LastTick - resident.LastSeenAt < BasketShrinksAfter && !resident.Asleep)
+                if (Company(residentId) is { } resident && LastTick - resident.LastSeenAt < BasketShrinksAfter && !resident.Asleep || project.Counted.Count == 1)
                 {
                     continue;
                 }
+                var part = share / Math.Max(1e-9, project.Counted.Values.Sum());
                 project.Counted.Remove(residentId);
                 foreach (var good in project.Basket.Keys.Where(t => t != project.Keystone).ToList())
                 {
-                    project.Basket[good] = Math.Max(project.Delivered.GetValueOrDefault(good), Math.Ceiling(project.Basket[good] * (1 - share)));
+                    var delivered = project.Delivered.GetValueOrDefault(good);
+                    project.Basket[good] = delivered + Math.Ceiling(Math.Max(0, project.Basket[good] - delivered) * (1 - part));
                 }
                 project.Touch();
             }
-            if (project.Keystone is { } keystone && ProjectLacks(project, keystone) > 1e-6)
+            var active = CountedResidents(project);
+            if (project.Keystone is { } keystone && ProjectLacks(project, keystone) > 1e-6 && active.Count > 0)
             {
-                var residents = CountedResidents(project);
+                var residents = active;
                 var made = residents.ToDictionary(t => t.Id, t => BuildingsOf(t.Id).Where(b => !b.UnderConstruction).SelectMany(b => Content.Building(b.Type).Out.Keys).ToHashSet());
                 if (Makers(keystone, residents, StageHorizon(project.Stage), made).Count == 0)
                 {
