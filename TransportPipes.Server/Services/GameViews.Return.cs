@@ -148,13 +148,15 @@ public static partial class GameViews
         // A building running short, not stuck (run 2: Cleo's mines ran at 33% for weeks and no card said so)
         if (stuck.Count == 0 && buildings
                 .Select(t => (Building: t, Status: world.IdleStatusOf(t, plan: false), Rate: world.NetworkOf(t.Id)?.Solution.Rate(t.Id) ?? 0))
-                .Where(t => t.Status.Reason.Cause is IdleCause.InputShort or IdleCause.InputMissing && t.Rate < 0.6
+                .Where(t => t.Status.Reason.Cause is IdleCause.InputShort or IdleCause.InputMissing or IdleCause.PipeFull && t.Rate < 0.6
                     && world.Content.Building(t.Building.Type).Kind is BuildingKind.Producer)
                 .OrderByDescending(t => world.Content.Building(t.Building.Type).Out.Sum(o => o.Value * world.BasePrice(o.Key)) * t.Building.Level)
                 .FirstOrDefault() is { Building: not null } shortOne)
         {
             Add(2, "look", "⚠", shortOne.Rate < 0.005 || shortOne.Status.Reason.Cause == IdleCause.InputMissing
                     ? $"Your {Kind(shortOne.Building)} is idle: {(shortOne.Status.Pill ?? "").Replace("Idle: ", "")}"
+                    : shortOne.Status.Reason.Cause == IdleCause.PipeFull
+                    ? $"Your {Kind(shortOne.Building)} runs at {shortOne.Rate * 100:0}%: {(shortOne.Status.Pill ?? "").Replace("Slowed: ", "")}"
                     : $"Your {Kind(shortOne.Building)} runs at {shortOne.Rate * 100:0}%: {(shortOne.Status.Reach ?? shortOne.Status.Pill ?? "").TrimEnd('.').Replace("Its pipes", "its pipes")}",
                 "show", shortOne.Building.Id);
         }

@@ -10,6 +10,8 @@
 //   return-phone  day 36 18:00: Ben opens the game on his phone; one card, then the map in at most two taps (F5)
 //   keystone      run 3 (--from story3) from day 10 19:55 to day 22, everyone playing when the story has them play:
 //                 Capital SE's Workshop and NW's Water Tower move on instead of waiting weeks on water (after run 3, row 1)
+//   project-line  run 3 (--from story3), day 27 20:00: Ana's This week line names how long the Workshop has waited on water,
+//                 that she can make it and how, and its Show me puts a Water Pump in hand on a tile beside the water
 //   send-desktop  day 14 19:00: Dev's stuck Sand Dredger, one tap lays its pipe and sends to the Water Tower; his sand
 //   send-phone    arrives within 20 game minutes and the first gift is announced (step 4; on a desktop, on a phone)
 //                 (needs Vite on :5174 with TP_SERVER=http://localhost:5090)
@@ -204,6 +206,45 @@ const scenarios = {
     check("Capital SE's Workshop doesn't wait on water to day 22", !(end.se.projectStage === "Workshop" && "water*" in (end.se.projectBasket ?? {})), stage(end.se));
     check("Capital SE stands past the Workshop by day 22", (end.se.projectFinished ?? []).includes("Workshop"), stage(end.se));
     check("Capital NW's Water Tower doesn't wait on water to day 22", !(end.nw.projectStage === "WaterTower" && "water*" in (end.nw.projectBasket ?? {})), stage(end.nw));
+  },
+
+  /** Run 3's "(nobody here yet)" (docs/playtest-run3-review.html, row 2): Ana's day-27 evening on today's build */
+  async "project-line"() {
+    console.log(director("restore", "row13"));
+    await api("POST", "seen/27");
+    const { browser, page } = await browserFor("ana", false);
+    const dir = path.join(ROOT, "runs", "replay-project-line");
+    mkdirSync(dir, { recursive: true });
+    try {
+      const week = page.locator(".goal-tracker li", { hasText: "This week" }).first();
+      await week.waitFor({ timeout: 20_000 });
+      // The return card may come a moment after the map: Continue
+      await page.waitForTimeout(3000);
+      for (let i = 0; i < 3 && (await page.locator("[role=dialog]:visible").count()) > 0; i++) {
+        await page.screenshot({ path: path.join(dir, "0-card.png") });
+        await page.locator("[role=dialog]:visible button.primary").last().click();
+        await page.waitForTimeout(800);
+      }
+      const text = (await week.innerText()).replace(/\s+/g, " ");
+      console.log("This week:", text);
+      await page.screenshot({ path: path.join(dir, "1-this-week.png") });
+      check("it says how long the Workshop has waited on water", /\d+ days on water/.test(text), text);
+      check("it says Ana can make it, and how", /you can: a Water Pump beside the water/.test(text), text);
+      check("never 'nobody here yet'", !/nobody here yet/.test(text), text);
+      await week.getByRole("button", { name: /^Show me/ }).click();
+      await page.waitForTimeout(2000);
+      await page.screenshot({ path: path.join(dir, "2-show-me.png") });
+      const inHand = await page.evaluate(() => ({ tool: tp.appStore.getState().tool, hint: tp.appStore.getState().hintTile }));
+      console.log("in hand:", JSON.stringify(inHand));
+      check("Show me puts a Water Pump in hand on a golden tile", inHand.tool?.kind === "build" && inHand.tool?.type === "waterPump" && inHand.hint !== null, JSON.stringify(inHand));
+      const ok = await page.evaluate(({ x, y }) => {
+        const s = tp.appStore.getState();
+        return tp.rules.canPlace(s.content, tp.gameClient.world, s.company, s.era, s.content.building("waterPump"), x, y).ok;
+      }, inHand.hint ?? { x: 0, y: 0 });
+      check("and the pump can stand on that tile", ok === true);
+    } finally {
+      await browser.close();
+    }
   },
 
   /** Every middle-game Yard bug at once: six hours of nobody acting from day 14 19:00 (A2 row10, step 1) */

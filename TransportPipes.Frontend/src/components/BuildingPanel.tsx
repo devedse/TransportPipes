@@ -119,7 +119,9 @@ function NeighbourTrade({ trade, content }: { trade: BuildingTradeDto; content: 
             <span>
               The {p.stage} wants {formatAmount(p.wants)} {good(p.resource)}
               {p.sent
-                ? ` · yours goes there first${p.perMinute > 0 ? `: ${formatAmount(p.perMinute)}/min 💛` : ""}`
+                ? p.perMinute > 0
+                  ? ` · yours goes there first: ${formatAmount(p.perMinute)}/min 💛`
+                  : ` · yours would go first, but nothing moves${p.nothingMoves !== null ? `: ${p.nothingMoves}` : ""}`
                 : " · you make it"}
             </span>
             {p.sent ? (

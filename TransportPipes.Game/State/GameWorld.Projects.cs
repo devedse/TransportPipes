@@ -521,7 +521,7 @@ public sealed partial class GameWorld
     }
 
     /// <summary>Since when a stage wants its keystone</summary>
-    private static DateTime KeystoneWantedSince(StationProject project) =>
+    public static DateTime KeystoneWantedSince(StationProject project) =>
         project.KeystoneSince > project.StageStartedAt ? project.KeystoneSince : project.StageStartedAt;
 
     /// <summary>What players (not Houses) delivered of a good to the stage</summary>

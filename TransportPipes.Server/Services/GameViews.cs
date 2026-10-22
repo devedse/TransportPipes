@@ -172,29 +172,115 @@ public static partial class GameViews
             return new ProjectWeekDto($"🏗 The {stage} opens in {Span(opens - world.Now)}", 0);
         }
         var card = world.ProjectCardFor(project, me);
-        var head = $"🏗 {stage} {Math.Floor(card.Share * 100):0}%";
-        var lacking = project.Basket.Keys.Where(t => project.Delivered.GetValueOrDefault(t) < project.Basket[t] * 0.995).ToList();
-        if (project.Keystone is { } keystone && lacking.Contains(keystone) && !world.StationMakes(estate.Station).Contains(keystone))
+        var (parts, step) = ProjectSentence(world, me, project);
+        return new ProjectWeekDto(string.Join(" · ", parts.Prepend($"🏗 {stage} {Math.Floor(card.Share * 100):0}%")), card.Share, step);
+    }
+
+    /// <summary>
+    /// The project's sentence after its stage and share, the same on the This week line, the return card and the Project
+    /// tab (run 3: "Workshop 96% · wants water (nobody here yet)" for 27 days, though every estate had a pond and the
+    /// Project tab said "You can make it"): a keystone just passed over; your own maker of what it waits for that isn't
+    /// running; what it waits on and for how long; who can make it and how; when it will be passed over. And the step its
+    /// Show me takes: your idle maker, or the build tool with the building on a tile where it stands.
+    /// </summary>
+    private static (List<string> Parts, NextStepDto? Step) ProjectSentence(GameWorld world, Company me, StationProject project)
+    {
+        string Name(string resource) => world.Content.Resources.TryGetValue(resource, out var r) ? r.Name.ToLowerInvariant() : resource;
+        var parts = new List<string>();
+        NextStepDto? step = null;
+        var card = world.ProjectCardFor(project, me);
+        if (project.LastPassed is { } passed && project.LastPassedAt is { } passedAt && world.Now - passedAt < TimeSpan.FromDays(1))
         {
-            var makers = MakerNames(world.MakersOf(project, keystone).Select(t => t.Maker).ToList(), me);
-            return new ProjectWeekDto($"{head} · wants {Name(keystone)}{(makers.Count > 0 ? $" · {Capital(And(makers))} can" : "")}", card.Share);
+            parts.Add($"no longer waits on {Name(passed)}");
         }
+        var lacking = project.Basket.Keys.Where(t => project.Delivered.GetValueOrDefault(t) < project.Basket[t] * 0.995).ToList();
         if (lacking.Count == 0)
         {
-            return new ProjectWeekDto(head, card.Share);
+            return (parts, null);
         }
-        // What it still wants, each with who makes it now ("wants iron ingot (Ana) and stone (you)"), and what of yours
-        // goes in (run 2: from the Workshop on nobody could tell what a stage wanted or who it waited for)
-        string Who(string good) => MakerNames(world.MakersNow(project, good), me) switch
+        var keystone = project.Keystone is { } k && lacking.Contains(k) ? k : null;
+
+        // Your own building that makes what it waits for and isn't running leads (run 3: Mia's pump sat without energy for
+        // four weeks after the game's own fix pipe, and her cards said nothing)
+        foreach (var good in lacking.OrderBy(t => t == keystone ? 0 : 1))
         {
-            { Count: 0 } => "nobody here yet",
-            { Count: > 2 } names => $"{names[0]}, {names[1]} +{names.Count - 2}",
-            var names => And(names),
-        };
-        var wants = $"wants {And(lacking.Select(t => $"{Name(t)} ({Who(t)})").ToList())}";
-        return new ProjectWeekDto(card.GoingIn.Count > 0
-            ? $"{head} · your {And(card.GoingIn.Select(Name).ToList())} {(card.GoingIn.Count == 1 ? "goes" : "go")} in · {wants}"
-            : $"{head} · {wants}", card.Share);
+            if (world.BuildingsOf(me.Id).FirstOrDefault(b => !b.UnderConstruction && world.Content.Building(b.Type).Out.ContainsKey(good)
+                    && world.IdleReasonOf(b).Cause != IdleCause.None) is { } idle && world.IdleLine(idle) is { } line)
+            {
+                var building = world.Content.Building(idle.Type).Name;
+                parts.Add(line.StartsWith("Idle: ", StringComparison.Ordinal) ? $"your {building} is idle ({line[6..]})"
+                    : line.StartsWith("Stuck: ", StringComparison.Ordinal) ? $"your {building} is stuck ({line[7..]})"
+                    : $"your {building}: {char.ToLowerInvariant(line[0])}{line[1..]}");
+                step = NextStep(new AdvisorStep(AdvisorKind.Shortage, $"Your {building}", line, AdvisorAction.Select, 0, 0, Building: idle.Id));
+                break;
+            }
+        }
+
+        if (keystone != null)
+        {
+            var wait = world.Now - GameWorld.KeystoneWantedSince(project);
+            parts.Add(wait >= TimeSpan.FromDays(1) ? $"{Span(wait)} on {Name(keystone)}" : $"wants {Name(keystone)}");
+            if (step == null)
+            {
+                var (who, how) = WhoBrings(world, me, project, keystone, card);
+                parts.Add(who);
+                step = how;
+            }
+            if (world.KeystonePassesAt(project) is { } at)
+            {
+                parts.Add($"passed over {at:ddd HH:mm} unless one of you brings some");
+            }
+            return (parts, step);
+        }
+        // What it still wants, each with who brings it or can ("wants iron ingot (Ana) and stone (you can)")
+        if (card.GoingIn.Count > 0)
+        {
+            parts.Add($"your {And(card.GoingIn.Select(Name).ToList())} {(card.GoingIn.Count == 1 ? "goes" : "go")} in");
+        }
+        string Who(string good)
+        {
+            var now = MakerNames(world.MakersNow(project, good), me);
+            if (now.Count > 0)
+            {
+                return now.Count > 2 ? $"{now[0]}, {now[1]} +{now.Count - 2}" : And(now);
+            }
+            var can = MakerNames(world.MakersOf(project, good).Select(t => t.Maker), me);
+            return can.Count == 0 ? "nobody here can" : $"{(can.Count > 2 ? $"{can[0]}, {can[1]} +{can.Count - 2}" : And(can))} can";
+        }
+        parts.Add($"wants {And(lacking.Select(t => $"{Name(t)} ({Who(t)})").ToList())}");
+        return (parts, step);
+    }
+
+    /// <summary>Who brings a good the project waits on, or can, and how ("you can: a Water Pump beside the water"), with its Show me</summary>
+    private static (string Who, NextStepDto? Step) WhoBrings(GameWorld world, Company me, StationProject project, string good, GameWorld.ProjectCard card)
+    {
+        string Name(string resource) => world.Content.Resources.TryGetValue(resource, out var r) ? r.Name.ToLowerInvariant() : resource;
+        if (card.GoingIn.Contains(good))
+        {
+            return ($"your {Name(good)} goes in", null);
+        }
+        var bringing = project.Incoming.Where(t => t.Key != me.Id && t.Value.GetValueOrDefault(good) > 1e-9).Select(t => world.Company(t.Key)).OfType<Company>().ToList();
+        if (bringing.Count > 0)
+        {
+            return ($"{And(MakerNames(bringing, me))} {(bringing.Count == 1 ? "brings" : "bring")} it", null);
+        }
+        var makers = world.MakersOf(project, good);
+        if (makers.FirstOrDefault(t => t.Maker.Id == me.Id) is { Maker: not null } mine)
+        {
+            var near = world.BuildingsOf(me.Id).FirstOrDefault(t => world.Content.Building(t.Type).Kind == BuildingKind.TradingPost) is { } post ? post.Position : default;
+            var spot = world.EstateOf(me) is null ? null : world.FindSpot(me, mine.Producer, near);
+            var how = $"you can: {GameWorld.Article(mine.Producer.Name)} {WhereItStands(world, mine.Producer)}".TrimEnd();
+            return (how, spot is { } at
+                ? NextStep(new AdvisorStep(AdvisorKind.Chain, $"Build {GameWorld.Article(mine.Producer.Name)}", $"The {GameWorld.StageName(project.Stage)} waits on {Name(good)}", AdvisorAction.Build,
+                    world.BuildCost(me, mine.Producer), 0, BuildingType: mine.Producer.Id, At: at))
+                : null);
+        }
+        if (makers.Count > 0)
+        {
+            var names = MakerNames(makers.Select(t => t.Maker).DistinctBy(t => t.Id), me);
+            return ($"{(names.Count > 2 ? $"{names[0]}, {names[1]} +{names.Count - 2}" : And(names))} can: {GameWorld.Article(makers[0].Producer.Name)} {WhereItStands(world, makers[0].Producer)}".TrimEnd(), null);
+        }
+        return ("nobody here can make it", null);
     }
 
     /// <summary>Who can make a good, as a line says it: the others first, then "you"</summary>
@@ -222,7 +308,7 @@ public static partial class GameViews
         }
         if (placement.Shore)
         {
-            return "by the water";
+            return "beside the water";
         }
         return placement.Terrain.Count != 1 ? "" : placement.Terrain[0] switch
         {
@@ -887,6 +973,23 @@ public static partial class GameViews
     }
 
     /// <summary>
+    /// Why a building's good reaches nobody at its Yard gate (a Send that moves nothing says so: run 3, Mia's water Send
+    /// moved nothing for 27 days because her pump had no energy); null when some of it reaches the gate
+    /// </summary>
+    private static string? NothingMoves(GameWorld world, Building building, string good)
+    {
+        if (world.IdleReasonOf(building) is { Cause: not IdleCause.None } idle && (world.NetworkOf(building.Id)?.Solution.Rate(building.Id) ?? 0) < 0.005)
+        {
+            return world.IdleLine(building) is { } line ? $"it doesn't run ({char.ToLowerInvariant(line[0])}{line[1..]})" : "it doesn't run";
+        }
+        if (world.NetworkOf(building.Id) is not { } network || !network.GateLinks.Any(t => t.Building == building.Id && (t.Resources == null || t.Resources.Contains(good))))
+        {
+            return "its pipes don't reach your Yard gate";
+        }
+        return network.GateFlows.Any(t => !t.Import && t.Building == building.Id && t.Resource == good && t.Sent > 1e-9) ? null : "your own buildings use all of it";
+    }
+
+    /// <summary>
     /// A building's trade with its neighbours, for its owner only (step 4): who takes its goods and who sends it its
     /// inputs (both ends named), who could use its goods (Send ▸), what the project wants of them, and the pipe to the
     /// gate a Send lays first when its pipes don't reach it
@@ -905,7 +1008,7 @@ public static partial class GameViews
                 .Where(t => project.Basket.ContainsKey(t) && project.Basket[t] - project.Delivered.GetValueOrDefault(t) > 0.5
                     && (project.Delivered.GetValueOrDefault(t) < project.Basket[t] * 0.995 || me.ProjectFirst.Contains(t)))
                 .Select(t => new ProjectWantDto(t, GameWorld.StageName(project.Stage), Math.Max(0, project.Basket[t] - project.Delivered.GetValueOrDefault(t)),
-                    Math.Round(trade.ToProject.GetValueOrDefault(t), 3), me.ProjectFirst.Contains(t)))
+                    Math.Round(trade.ToProject.GetValueOrDefault(t), 3), me.ProjectFirst.Contains(t), NothingMoves(world, building, t)))
                 .ToList();
         if (trade.Takers.Count == 0 && trade.Suppliers.Count == 0 && trade.Bids.Count == 0 && wants.Count == 0)
         {
@@ -1540,8 +1643,8 @@ public static partial class GameViews
             ? "Every stage stands: the station's Landmark is finished."
             : opens is { } at && at > world.Now
                 ? $"The Foundry Hall opens in {Span(at - world.Now)}: until then the station grows."
-                : keystone != null && !made.Contains(keystone) && project.Delivered.GetValueOrDefault(keystone) < project.Basket.GetValueOrDefault(keystone)
-                    ? $"Wanted by the {GameWorld.StageName(project.Stage)}: {Name(keystone)}. Nobody here makes it yet."
+                : ProjectSentence(world, me, project) is { Parts.Count: > 0 } sentence
+                    ? $"The {GameWorld.StageName(project.Stage)}: {string.Join(" · ", sentence.Parts)}."
                     : $"The {GameWorld.StageName(project.Stage)} takes your spare at the one player price: pipe it to your Yard gate.";
         var card = world.ProjectCardFor(project, me);
         ProjectGoodDto Good(string good, double target)

@@ -45,6 +45,9 @@ public enum IdleCause
 
     /// <summary>Its only takers run fully and use less than it makes (Other: the first of them); the rest can't pass through them</summary>
     TakersFull,
+
+    /// <summary>What it makes (Resource) fills the pipe connections it leaves by, and they carry less than it could make</summary>
+    PipeFull,
 }
 
 /// <summary>Why a building doesn't run (fully): the cause, the good it is about, and the building it is about</summary>
@@ -147,6 +150,11 @@ public sealed partial class GameWorld
         {
             received[flow.Resource] = received.GetValueOrDefault(flow.Resource) + flow.Delivered;
         }
+        // Its pipes can't carry more away: then that's its limit, whatever its inputs (it gets only what it can use)
+        if (PipeCapped(building, node, network, maxRate) is { } capped)
+        {
+            return new IdleReason(IdleCause.PipeFull, capped);
+        }
         // Of inputs equally short, the one whose suppliers stand still: a factory with no ore from a mine that has no
         // energy is short of ore, though no energy comes either (Cleo's run 2 afternoon read "energy short")
         var scarcest = node.In
@@ -185,6 +193,42 @@ public sealed partial class GameWorld
             }
         }
         return IdleReason.Running;
+    }
+
+    /// <summary>
+    /// The good a building makes more of than its pipes can carry away: every connection that carries it is full, and
+    /// together they carry less than it could make; null when none (run 3: Cleo's level-25 Coal Pit could make 882 coal a
+    /// minute, its grey pipe to the trading post carried 100, and its card blamed energy for eleven days, because the
+    /// solver gave it only the energy it could use)
+    /// </summary>
+    private static string? PipeCapped(Building building, FlowNode node, Network network, double maxRate)
+    {
+        foreach (var (resource, perRun) in node.Out.OrderBy(t => t.Key, StringComparer.Ordinal))
+        {
+            if (network.GateFlows.Any(t => !t.Import && t.Building == building.Id && t.Resource == resource && t.Sent > 1e-9))
+            {
+                continue;
+            }
+            var used = network.Links
+                .Where(t => (t.A == building.Id || t.B == building.Id) && t.Allows(resource))
+                .Select(link => (link.Capacity, Sent: network.Solution.Flows.Where(f => f.From == building.Id && f.Resource == resource && link.Connects(f.From, f.To)).Sum(f => f.Sent)))
+                .Where(t => t.Sent > 1e-9)
+                .ToList();
+            if (used.Count > 0 && used.All(t => t.Sent >= t.Capacity * 0.98) && used.Sum(t => t.Capacity) < perRun * maxRate * SlowedShare)
+            {
+                return resource;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>What a building could make of a good at full speed, and what its pipes carry away (the PipeFull line)</summary>
+    public (double Could, double Carried) PipeCarry(Building building, string resource)
+    {
+        var network = NetworkOf(building.Id);
+        var node = network?.Nodes.FirstOrDefault(t => t.Id == building.Id);
+        var carried = network?.Solution.Flows.Where(t => t.From == building.Id && t.Resource == resource).Sum(t => t.Sent) ?? 0;
+        return ((node?.Out.GetValueOrDefault(resource) ?? 0) * (node?.MaxRate ?? 1), carried);
     }
 
     /// <summary>Whether every building on its pipes that makes a resource stands still (and the Yard brings none of it)</summary>

@@ -132,6 +132,31 @@ public class IdleFacts
     }
 
     [TestMethod]
+    public void AMineWhosePipeCarriesLessThanItMakesSaysThePipeIsTheLimit()
+    {
+        // Run 3, Cleo's level-25 Coal Pit: it could make 882 coal a minute, its grey pipe to the trading post carried 100,
+        // and its card said "energy short" for eleven days (the solver gives it only the energy it can use)
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 10);
+        var map = game.Map(company, game.Local(company, 1, 1), string.Join("\n", "W+M+T", "  +", "W+W"), pipeTier: 1);
+        game.Pass(1);
+        var mine = map[(2, 0)];
+        company.Gold = 1e12;
+        company.Level = 60;
+        game.World.UpgradeMany(company.Id, [mine.Id], 24);
+        game.World.UpgradeMany(company.Id, [map[(0, 0)].Id, map[(0, 2)].Id, map[(2, 2)].Id], 15);
+        game.Pass(1);
+        var rate = game.World.NetworkOf(mine.Id)!.Solution.Rate(mine.Id);
+        Assert.IsTrue(rate < 0.9, $"it runs at {rate:P0}");
+
+        Assert.AreEqual(new IdleReason(IdleCause.PipeFull, "ironOre"), game.World.IdleReasonOf(mine), "the pipe, not its energy");
+        var status = game.World.IdleStatusOf(mine);
+        Assert.AreEqual("Slowed: its pipes carry 100 iron ore a minute", status.Pill);
+        Assert.AreEqual(IdleFixKind.Build, status.Fix?.Kind);
+        Assert.AreEqual("tradingPost", status.Fix?.BuildingType, "a second taker on a pipe of its own carries as much again");
+    }
+
+    [TestMethod]
     public void AStuckMoilyPipesToItsOwnShortMineFirst()
     {
         // Cleo's run 2 evening: her new Wind Moily was stuck while her own Iron Mine had no energy; the one fix offered to

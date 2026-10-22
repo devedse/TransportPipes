@@ -3834,6 +3834,12 @@ select option {
   color: var(--info);
 }
 
+/* The project row's Show me sits under its line, in the text column */
+.goals .goal-show {
+  grid-column: 2;
+  justify-self: start;
+}
+
 .goal-bar {
   grid-column: 2;
   height: 5px;

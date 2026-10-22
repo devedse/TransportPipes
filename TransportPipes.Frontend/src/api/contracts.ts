@@ -611,6 +611,8 @@ export interface ProjectWantDto {
   wants: number;
   perMinute: number;
   sent: boolean;
+  /** Why none of it reaches the Yard gate ("it doesn't run (idle: no energy here)"); null when some does */
+  nothingMoves: string | null;
 }
 
 export interface BuildingStatusDto {
@@ -1827,10 +1829,15 @@ export interface ProjectGoodDto {
   makerBuilding: string | null;
 }
 
-/** The "This week" row while the station builds its project (F4): "🏗 Water Tower 12% · wants sand · Ben can" */
+/**
+ * The station's project in one line (This week, the return card, the Project tab): "🏗 Workshop 96% · 9 days on water ·
+ * you can: a Water Pump beside the water · passed over Fri 20:30 unless one of you brings some"
+ */
 export interface ProjectWeekDto {
   text: string;
   share: number;
+  /** What its Show me does: your idle maker, or the build tool with a building on a tile where it stands */
+  step: NextStepDto | null;
 }
 
 export interface ProjectHelperDto {

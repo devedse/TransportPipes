@@ -221,6 +221,15 @@ export function GoalTracker() {
             >
               {company.week.text} ›
             </button>
+            {company.week.step !== null && (
+              <button
+                className="small goal-show"
+                aria-label={`Show me: ${company.week.step.title}`}
+                onClick={() => void gameClient.showNextStep(company.week!.step!)}
+              >
+                Show me
+              </button>
+            )}
             <span className="goal-bar">
               <span style={{ width: `${Math.round(company.week.share * 100)}%` }} />
             </span>

@@ -318,7 +318,8 @@ public record TradeEndDto(string Resource, long Partner, string PartnerName, str
 public record BidDto(string Resource, long Buyer, string BuyerName, string? Building, long? BuildingId, double PerMinute, string? House);
 
 /// <summary>"🏗 The Water Tower wants 5,400 · you make it · Send ▸"</summary>
-public record ProjectWantDto(string Resource, string Stage, double Wants, double PerMinute, bool Sent);
+/// <summary>What the project wants of a building's goods, what it sends now, and why nothing moves when nothing does</summary>
+public record ProjectWantDto(string Resource, string Stage, double Wants, double PerMinute, bool Sent, string? NothingMoves = null);
 
 /// <summary>
 /// A building's panel head (F2): why it doesn't run fully (Cause, from IdleReason), the status pill (the cause in five
@@ -843,6 +844,7 @@ public record ProjectDto(
 public record ProjectGoodDto(string Resource, double Target, double Delivered, bool Keystone, bool MadeHere, double Price, IReadOnlyList<string> Makers, string? MakerBuilding);
 
 /// <summary>The "This week" row while the station builds its project (F4): "🏗 Water Tower 12% · wants sand · Ben can"</summary>
-public record ProjectWeekDto(string Text, double Share);
+/// <summary>The station's project in one line (This week, the return card, the Project tab), and the step its Show me takes</summary>
+public record ProjectWeekDto(string Text, double Share, NextStepDto? Step = null);
 
 public record ProjectHelperDto(string Color, double Share, bool You);

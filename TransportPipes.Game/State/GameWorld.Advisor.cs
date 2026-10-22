@@ -1211,7 +1211,7 @@ public sealed partial class GameWorld
     private static string Plural(string name, int count) =>
         count == 1 ? name : name.EndsWith('y') && !name.EndsWith("ey", StringComparison.Ordinal) ? $"{name[..^1]}ies" : name.EndsWith('s') ? name : $"{name}s";
 
-    private static string Article(string name) => ("aeiou".Contains(char.ToLowerInvariant(name[0])) ? "an " : "a ") + name;
+    public static string Article(string name) => ("aeiou".Contains(char.ToLowerInvariant(name[0])) ? "an " : "a ") + name;
 
     private static string Amount(double value) => value >= 100 ? $"{value:N0}" : value >= 10 ? $"{value:0}" : $"{value:0.#}";
 

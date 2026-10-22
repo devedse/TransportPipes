@@ -128,6 +128,14 @@ public sealed partial class GameWorld
                 return new IdleStatus(reason, "Slowed: too few pumps",
                     $"{network?.Buildings.Count ?? 0} buildings on these pipes: everything runs at {network?.PumpFactorOf(building.Owner) ?? 1:P0}.",
                     new IdleFix(IdleFixKind.Build, "Build a Pump Station", BuildingType: "pumpStation"));
+            case IdleCause.PipeFull:
+                // The pipe is the limit: a second taker on a pipe of its own carries as much again (each connection
+                // carries its pipe's throughput), a better pipe carries more
+                var (could, carried) = PipeCarry(building, reason.Resource!);
+                var second = Content.BuildingList.FirstOrDefault(t => t.Kind == BuildingKind.TradingPost && t.Buildable && Company(building.Owner) is { } owner && IsUnlocked(owner, t, out _));
+                return new IdleStatus(reason, $"Slowed: its pipes carry {Amount(carried)} {good} a minute",
+                    $"It could make {Amount(could)} a minute, but a pipe connection carries only so much (Grey Pipe: 100 a minute). A second taker on a pipe of its own, or a better pipe, takes more.",
+                    second == null ? null : new IdleFix(IdleFixKind.Build, $"Build a second {second.Name} on its pipe · {Gold(second.Cost.Gold)}", BuildingType: second.Id, Cost: second.Cost.Gold));
             case IdleCause.GateOnly:
                 return new IdleStatus(reason, $"Waiting: nobody here takes its {good}", "Its only way out is your Yard gate (G), and nobody in your station needs it now.", FixPipe());
             default:
