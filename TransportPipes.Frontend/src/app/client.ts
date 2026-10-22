@@ -1,7 +1,9 @@
 import type {
   BlueprintDto,
   BlueprintSharing,
+  BuildingDetailsDto,
   BuildingDto,
+  BuildingFixDto,
   ChatMessageDto,
   CommandResult,
   CompanyDto,
@@ -443,7 +445,12 @@ export class GameClient {
         for (const target of targets) {
           const route = routePipe(this.world, current, start, target, state.content ?? undefined, 4000);
           if (route !== null) {
-            setState({ plannedRoute: route, plannedPartner: null });
+            setState({
+              plannedRoute: route,
+              plannedPartner: null,
+              plannedTarget: "your Yard gate (G)",
+              plannedDone: null,
+            });
             return;
           }
         }
@@ -464,11 +471,66 @@ export class GameClient {
           tiles.flatMap((t) => [t.x, t.y]),
           1,
         ),
-        "Connected! Trade starts right away.",
+        state.plannedDone ?? "Connected! Trade starts right away.",
       )
     ) {
-      setState({ plannedRoute: null, plannedPartner: null });
+      setState({ plannedRoute: null, plannedPartner: null, plannedTarget: null, plannedDone: null });
     }
+  }
+
+  /** The one fix button of a building's panel (F2) */
+  async fixBuilding(details: BuildingDetailsDto, fix: BuildingFixDto) {
+    const name = appStore.getState().content?.building(details.building.type)?.name ?? "It";
+    switch (fix.kind) {
+      case "layPipe":
+        this.showPlannedPipe(
+          fix.tiles,
+          `your ${fix.target ?? "Trading Post"}`,
+          `${name} runs: its goods go to your ${fix.target ?? "Trading Post"}`,
+        );
+        break;
+      case "open":
+        if (fix.building !== null) {
+          this.showBuilding(fix.building);
+        }
+        break;
+      case "repair":
+        await this.repair(details.building.id);
+        break;
+      case "upgrade":
+        if (fix.building !== null) {
+          await this.upgrade(fix.building, 1);
+        }
+        break;
+      case "build":
+        if (fix.buildingType !== null) {
+          this.setTool({ kind: "build", type: fix.buildingType });
+        }
+        break;
+    }
+  }
+
+  /**
+   * A pipe the game planned (F2's fix button, an advisor step): shown as a ghost on the map with its price, laid with
+   * one click on the banner. Tiles are x, y pairs; target names where it goes, done is said once it is laid.
+   */
+  showPlannedPipe(tiles: number[], target: string, done: string) {
+    const route: TilePosition[] = [];
+    for (let i = 0; i + 1 < tiles.length; i += 2) {
+      route.push({ x: tiles[i]!, y: tiles[i + 1]! });
+    }
+    if (route.length === 0) {
+      return;
+    }
+    setState({
+      plannedRoute: route,
+      plannedPartner: null,
+      plannedTarget: target,
+      plannedDone: done,
+      tool: { kind: "select" },
+    });
+    const middle = route[Math.floor(route.length / 2)]!;
+    this.engine?.lookAt(middle.x, middle.y, 0.8);
   }
 
   async proposeContract(
@@ -1114,7 +1176,7 @@ export class GameClient {
     } else if (state.wildTile !== null) {
       this.closeWild();
     } else if (state.plannedRoute !== null) {
-      setState({ plannedRoute: null, plannedPartner: null });
+      setState({ plannedRoute: null, plannedPartner: null, plannedTarget: null, plannedDone: null });
     } else if (state.tool.kind !== "select") {
       this.setTool({ kind: "select" });
     } else if (state.buildMenuOpen) {
@@ -1386,6 +1448,9 @@ export class GameClient {
         if (step.x !== null && step.y !== null) {
           this.engine?.lookAt(step.x, step.y, 0.8);
         }
+        break;
+      case "layPipe":
+        this.showPlannedPipe(step.tiles, "the pipe", "Laid: its goods can leave now");
         break;
       case "pipes":
         if (step.network !== null && step.x !== null && step.y !== null) {

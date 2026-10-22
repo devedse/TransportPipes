@@ -27,6 +27,66 @@ public class AdvisorFacts
     }
 
     [TestMethod]
+    public void AFactoryWhoseIngotsCantLeaveIsNotShortOfEnergy()
+    {
+        // Ana's day 4: the factory piped to the mine and a windmill, the mine to the trading post and a windmill of its
+        // own (run 1's network card said "Energy 20 short" for 32 days)
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 3);
+        var map = game.Map(company, game.Local(company, 2, 2), "T+M+F+W\n  +\n  W");
+        var factory = map[(4, 0)];
+        game.Pass(1);
+
+        Assert.IsFalse(game.World.NetworkNeeds(game.World.NetworkOf(factory.Id)!, company.Id)
+            .Any(t => t.Value.Consumers.Contains(factory.Id)), "a stuck factory is short of nothing");
+        var steps = game.World.NextSteps(company);
+        Assert.IsFalse(steps.Any(t => t.Kind == AdvisorKind.Shortage), string.Join(" | ", steps.Select(t => t.Title)));
+        var unstick = steps.Single(t => t.Kind == AdvisorKind.Stuck);
+        StringAssert.StartsWith(unstick.Title, "Unstick your Small Factory: one pipe");
+        StringAssert.Contains(unstick.Reason, "iron ingots can't leave");
+        Assert.AreEqual(AdvisorAction.LayPipe, unstick.Action);
+        Assert.IsNotNull(unstick.Tiles);
+    }
+
+    [TestMethod]
+    public void AProducerWhoseOnlyTakerIsStuckSaysSo()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 3);
+        var map = game.Map(company, game.Local(company, 2, 2), "W+F");
+        game.Pass(1);
+
+        var status = game.World.IdleStatusOf(map[(0, 0)]);
+
+        Assert.AreEqual("Idle: Small Factory is stuck", status.Pill);
+        Assert.AreEqual(IdleFixKind.Open, status.Fix!.Kind);
+        Assert.AreEqual(map[(2, 0)].Id, status.Fix.Building);
+        Assert.AreEqual("⛔ Stuck: iron ingots can't leave", game.World.IdleStatusOf(map[(2, 0)]).Pill);
+    }
+
+    [TestMethod]
+    public void TheFixPipeStaysOnTheEstateAndReachesThePost()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 3);
+        var map = game.Map(company, game.Local(company, 4, 4), "M+F+W");
+        var factory = map[(2, 0)];
+        game.Pass(1);
+        Assert.IsTrue(game.World.IdleReasonOf(factory).IsStuck);
+
+        var plan = game.World.PlanFixPipe(factory)!;
+
+        Assert.AreEqual("tradingPost", plan.Target!.Type);
+        Assert.IsTrue(plan.Tiles.All(t => game.EstateOf(company).Contains(t)), "on the owner's estate");
+        Assert.AreEqual(plan.NewTiles * game.World.Content.PipeTier(1).Gold, plan.Cost, 1e-9);
+        var gold = company.Gold;
+        Assert.IsTrue(game.World.PlacePipes(company.Id, plan.Tiles).Success, "the player's own rules allow it");
+        Assert.AreEqual(gold - plan.Cost, company.Gold, 1e-6, "it costs what the button says");
+        game.Pass(1);
+        Assert.AreNotEqual(IdleCause.Stuck, game.World.IdleReasonOf(factory).Cause, "the ingots can leave now");
+    }
+
+    [TestMethod]
     public void AnUpgradeStepEarnsWhatItSays()
     {
         var game = new TestGame(content: TestGame.PlainContent);

@@ -15,6 +15,7 @@ const ICONS: Record<NextStepDto["kind"], string> = {
   parcel: "🗺",
   pipes: "🔧",
   start: "⭐",
+  stuck: "⛔",
 };
 
 const COLLAPSED_KEY = "tp.nextStepsCollapsed";
@@ -74,7 +75,10 @@ export function NextSteps() {
           {steps.map((step, i) => {
             const short = step.cost > gold + 0.5;
             return (
-              <li key={`${step.kind}-${step.title}`} className={`next-step kind-${step.kind}`}>
+              <li
+                key={`${step.kind}-${step.building ?? step.title}`}
+                className={`next-step kind-${step.kind}`}
+              >
                 <span className="next-step-icon" aria-hidden="true">
                   {ICONS[step.kind]}
                 </span>
@@ -102,6 +106,16 @@ export function NextSteps() {
                           ? `In ${minutes(step.waitMinutes)}`
                           : `Upgrade pipes · ${formatAmount(step.cost)} g`}
                       </button>
+                    ) : step.action === "layPipe" ? (
+                      <button
+                        className="primary"
+                        disabled={short}
+                        onClick={() => void gameClient.showNextStep(step)}
+                      >
+                        {short && step.waitMinutes !== null
+                          ? `In ${minutes(step.waitMinutes)}`
+                          : `Lay the pipe · ${formatAmount(step.cost)} g`}
+                      </button>
                     ) : step.action === "upgrade" && step.building !== null ? (
                       <button
                         className="primary"
@@ -121,7 +135,9 @@ export function NextSteps() {
                     )}
                     <button
                       className={
-                        step.action === "upgrade" || step.action === "pipes" ? "link small" : "small"
+                        step.action === "upgrade" || step.action === "pipes" || step.action === "layPipe"
+                          ? "link small"
+                          : "small"
                       }
                       onClick={() => void gameClient.showNextStep(step)}
                     >

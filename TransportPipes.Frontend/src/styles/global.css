@@ -4094,6 +4094,31 @@ textarea {
   color: #24527d;
 }
 
+/* A building whose goods can't leave (F2): the cause in five words, what its pipes reach, the one fix */
+.status.stuck {
+  background: rgba(170, 40, 30, 0.14);
+  color: #8e2316;
+}
+
+.idle-status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.idle-status .reach {
+  margin: 0;
+}
+
+.net-stuck {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  text-align: left;
+  font-weight: 700;
+  color: #8e2316;
+}
+
 .toast {
   color: var(--text);
   border-left: 6px solid var(--accent);

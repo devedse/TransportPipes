@@ -180,6 +180,9 @@ public sealed partial class GameWorld
         return IdleReason.Running;
     }
 
+    /// <summary>The buildings a building's pipes reach directly (the reach line of its panel)</summary>
+    public List<Building> PipeReach(Building building) => NetworkOf(building.Id) is { } network ? LinkedBuildings(building, network) : [];
+
     /// <summary>The buildings a building's pipes reach directly (its links in the network), finished ones only</summary>
     private List<Building> LinkedBuildings(Building building, Network network) =>
         network.Links

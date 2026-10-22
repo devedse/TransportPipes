@@ -100,6 +100,16 @@ export function NetworkSummary({
     .sort((a, b) => b.lost - a.lost)[0];
   return (
     <div className="net-summary">
+      {/* What can't leave comes first (F2): a stuck building is never "short" of what it would use */}
+      {(details.stuck ?? []).map((s) => (
+        <button
+          key={s.building}
+          className="net-stuck link"
+          onClick={() => gameClient.showBuilding(s.building)}
+        >
+          ⛔ {s.line} ›
+        </button>
+      ))}
       {details.resources.map((r) => (
         <ResourceRow key={r.resource} r={r} content={content} />
       ))}

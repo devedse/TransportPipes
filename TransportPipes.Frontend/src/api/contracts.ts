@@ -525,6 +525,29 @@ export interface BuildingDetailsDto {
    * them, how fast it would run there, and what holds it back
    */
   maxMore: MaxMoreDto | null;
+  /** Why it doesn't run fully (F2): the cause, the status pill, the reach line and the one fix button */
+  status: BuildingStatusDto | null;
+}
+
+export interface BuildingStatusDto {
+  cause: string;
+  /** The cause in five words; null when it runs fine */
+  pill: string | null;
+  reach: string | null;
+  fix: BuildingFixDto | null;
+}
+
+/** The one fix button: lay a planned pipe (tiles as x, y pairs), open another building, repair, upgrade, or build */
+export interface BuildingFixDto {
+  kind: "layPipe" | "open" | "repair" | "upgrade" | "build";
+  label: string;
+  tiles: number[];
+  newTiles: number;
+  cost: number;
+  building: number | null;
+  buildingType: string | null;
+  /** Where a pipe goes (a building's name) */
+  target: string | null;
 }
 
 export interface MaxMoreDto {
@@ -772,6 +795,8 @@ export interface NetworkDetailsDto {
   }>;
   resources: NetworkResourceDto[];
   bottlenecks: Array<{ a: number; b: number; capacity: number; used: number; path: number[] }>;
+  /** The buildings whose goods can't leave (F2): the card names them first */
+  stuck: Array<{ building: number; type: string; line: string }> | null;
 }
 
 export interface ResourceRateDto {
@@ -1233,10 +1258,12 @@ export interface NextStepDto {
     | "chain"
     | "partner"
     | "parcel"
-    | "start";
+    | "start"
+    | "stuck";
   title: string;
   reason: string;
-  action: "upgrade" | "build" | "select" | "research" | "parcel" | "partner" | "pipes" | "connect";
+  action:
+    "upgrade" | "build" | "select" | "research" | "parcel" | "partner" | "pipes" | "connect" | "layPipe";
   cost: number;
   gainPerMinute: number;
   paybackMinutes: number | null;

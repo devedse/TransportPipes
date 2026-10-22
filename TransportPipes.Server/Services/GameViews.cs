@@ -772,7 +772,19 @@ public static class GameViews
             definition.Kind == BuildingKind.Storage ? Keep(world, building, definition, network) : null,
             max != null && max.AffordableLevels > max.Levels
                 ? new MaxMoreDto(max.AffordableLevels, Math.Round(max.AffordableCost), Math.Round(max.AffordableShare, 3), max.Resource, Math.Round(max.Have, 2), Math.Round(max.Need, 2), max.Output)
-                : null);
+                : null,
+            Status(world, building));
+    }
+
+    /// <summary>The panel head (F2): the cause, the pill, the reach line and the one fix, for the owner's eyes (others see the pill)</summary>
+    private static BuildingStatusDto Status(GameWorld world, Building building)
+    {
+        var status = world.IdleStatusOf(building);
+        var fix = status.Fix is { } f
+            ? new BuildingFixDto(Camel(f.Kind), f.Label, f.Pipe?.Tiles.SelectMany(t => new[] { t.X, t.Y }).ToArray() ?? [], f.Pipe?.NewTiles ?? 0, Math.Round(f.Cost, 2),
+                f.Building, f.BuildingType, f.Pipe?.Target is { } target ? world.Content.Building(target.Type).Name : null)
+            : null;
+        return new BuildingStatusDto(Camel(status.Reason.Cause), status.Pill, status.Reach, fix);
     }
 
     private static StorageKeepDto Keep(GameWorld world, Building storage, BuildingDefinition definition, Network? network)
@@ -816,72 +828,8 @@ public static class GameViews
             candidates);
     }
 
-    /// <summary>Why a building can't run (fully): missing suppliers or buyers on its pipes</summary>
-    private static List<string> Issues(GameWorld world, Building building, FlowNode? node, Network? network)
-    {
-        var issues = new List<string>();
-        if (building.Damaged)
-        {
-            issues.Add("Storm damage: it works at half speed until it is repaired.");
-        }
-        if (node is { Kind: FlowNodeKind.TradingPost } && network != null && world.TradingPostFull(building))
-        {
-            issues.Add($"Sells all it can ({node.Throughput:N0} a minute): upgrade it, or build a Market Hall, to sell more.");
-        }
-        if (node == null || node.Kind != FlowNodeKind.Building || building.UnderConstruction)
-        {
-            return issues;
-        }
-        if (network != null && node.Out.Count > 0 && network.Solution.Rate(building.Id) < 0.99
-            && network.Buildings.Select(world.Building).Any(t => t != null && t.Owner == building.Owner && world.TradingPostFull(t)))
-        {
-            issues.Add("Slowed down: your trading post sells all it can. Upgrade it to sell more.");
-        }
-        if (network == null)
-        {
-            issues.Add("Not connected: lay a pipe from it to the buildings it works with.");
-            return issues;
-        }
-        var linked = network.Links
-            .Where(t => t.A == building.Id || t.B == building.Id)
-            .Select(t => world.Building(t.A == building.Id ? t.B : t.A))
-            .OfType<Building>()
-            .Where(t => !t.UnderConstruction)
-            .ToList();
-        string Name(string resource) => world.Content.Resources.TryGetValue(resource, out var r) ? r.Name.ToLowerInvariant() : resource;
-
-        foreach (var resource in node.In.Keys)
-        {
-            var supplied = linked.Any(other =>
-            {
-                var definition = world.Content.Building(other.Type);
-                var mine = other.Owner == building.Owner;
-                return world.ToFlowNode(other) is { } n && n.Out.ContainsKey(resource)
-                    || (mine && definition.Kind == BuildingKind.Storage && other.Contents.ContainsKey(resource))
-                    || (mine && definition.Kind == BuildingKind.TradingPost && other.Imports.Contains(resource));
-            });
-            if (!supplied)
-            {
-                issues.Add($"No {Name(resource)} on its pipes: connect a building that makes it, or let your trading post buy it.");
-            }
-        }
-        if (node.Out.Count > 0)
-        {
-            var hasSink = linked.Any(other =>
-            {
-                var definition = world.Content.Building(other.Type);
-                return other.Owner == building.Owner && definition.Kind is BuildingKind.Storage or BuildingKind.TradingPost;
-            });
-            foreach (var resource in node.Out.Keys.Where(_ => !hasSink))
-            {
-                if (!linked.Any(other => world.ToFlowNode(other) is { } n && n.In.ContainsKey(resource)))
-                {
-                    issues.Add($"Nothing on its pipes takes its {Name(resource)}: connect your trading post, a storage or a building that uses it.");
-                }
-            }
-        }
-        return issues;
-    }
+    /// <summary>Why a building can't run (fully), besides its status (IdleReason says the cause, the pill and the fix)</summary>
+    private static List<string> Issues(GameWorld world, Building building, FlowNode? node, Network? network) => [];
 
     /// <summary>A network as a company sees it (its own pump stations and speed)</summary>
     public static NextStepDto NextStep(AdvisorStep step) => new(
@@ -1016,7 +964,11 @@ public static class GameViews
                 .OrderBy(t => world.Content.Resources.TryGetValue(t.Resource, out var r) ? r.Tier : 99).ThenBy(t => t.Resource)
                 .Select(t => new NetworkResourceDto(t.Resource, t.Row[0], t.Row[1], t.Row[2], t.Row[3], t.Row[4], t.Row[5], t.Row[6], t.Row[7], t.Needed))
                 .ToList(),
-            bottlenecks);
+            bottlenecks,
+            network.Buildings.Select(world.Building).OfType<Building>()
+                .Where(t => (viewer == null || t.Owner == viewer) && world.IdleReasonOf(t).Cause == IdleCause.Stuck)
+                .Select(t => new StuckBuildingDto(t.Id, t.Type, $"{world.Content.Building(t.Type).Name} is stuck: {world.GoodsWord(world.IdleReasonOf(t).Resource!)} can't leave"))
+                .ToList());
     }
 
     /// <summary>The companies of a district as one of them sees them: surplus, needs, trade with you</summary>

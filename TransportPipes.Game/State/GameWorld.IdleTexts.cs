@@ -1,0 +1,144 @@
+using TransportPipes.Game.Content;
+
+namespace TransportPipes.Game.State;
+
+/// <summary>What the one fix button of a building's panel does (F2)</summary>
+public enum IdleFixKind
+{
+    /// <summary>Shows Pipe as a ghost to lay with one click</summary>
+    LayPipe,
+
+    /// <summary>Opens Building (the stuck taker)</summary>
+    Open,
+
+    /// <summary>Repairs the storm damage</summary>
+    Repair,
+
+    /// <summary>Upgrades Building (a full trading post) by a level</summary>
+    Upgrade,
+
+    /// <summary>The build tool with BuildingType</summary>
+    Build,
+}
+
+/// <summary>The one fix button of a building's panel: what it does, its label, and what it needs</summary>
+public sealed record IdleFix(IdleFixKind Kind, string Label, PipePlan? Pipe = null, long? Building = null, string? BuildingType = null, double Cost = 0);
+
+/// <summary>A building's panel head (F2): the status pill (the cause in five words), the reach line, and the one fix</summary>
+public sealed record IdleStatus(IdleReason Reason, string? Pill, string? Reach, IdleFix? Fix);
+
+public sealed partial class GameWorld
+{
+    /// <summary>What a good is called where it can't leave or is missing: "iron ingots", "sand"</summary>
+    public string GoodsWord(string resource)
+    {
+        var name = Content.Resources.TryGetValue(resource, out var r) ? r.Name.ToLowerInvariant() : resource;
+        return name.EndsWith("ingot", StringComparison.Ordinal) ? name + "s" : name;
+    }
+
+    private string BuildingName(Building building) => Content.Building(building.Type).Name;
+
+    private static string Tiles(int count) => count == 1 ? "1 tile" : $"{count} tiles";
+
+    /// <summary>"Iron Mine, Wind Moily": the kinds of buildings a building's pipes reach</summary>
+    private string ReachNames(Building building) =>
+        string.Join(", ", PipeReach(building).Select(BuildingName).Distinct());
+
+    /// <summary>The short line for a building that doesn't run (the map bubble, the goal tracker, the return card): "Stuck: iron ingots can't leave"</summary>
+    public string? IdleLine(Building building) => IdleStatusOf(building, plan: false).Pill?.TrimStart('⛔', ' ');
+
+    /// <summary>A building's status pill, reach line and fix (plan: false skips planning the fix's pipe)</summary>
+    public IdleStatus IdleStatusOf(Building building, bool plan = true)
+    {
+        var reason = IdleReasonOf(building);
+        var definition = Content.Building(building.Type);
+        var good = reason.Resource is { } resource ? GoodsWord(resource) : "";
+        string Reach(string prefix) => PipeReach(building).Count == 0 ? "Its pipes reach nothing yet." : $"{prefix} {ReachNames(building)}.";
+        IdleFix? FixPipe()
+        {
+            if (!plan || PlanFixPipe(building) is not { } pipe)
+            {
+                return null;
+            }
+            return new IdleFix(IdleFixKind.LayPipe, $"Lay the pipe to your {BuildingName(pipe.Target!)} · {Tiles(pipe.NewTiles)} · {Gold(pipe.Cost)}", pipe, Cost: pipe.Cost);
+        }
+        switch (reason.Cause)
+        {
+            case IdleCause.Damaged:
+                return new IdleStatus(reason, "Half speed: storm damage", null, new IdleFix(IdleFixKind.Repair, $"Repair · {Gold(RepairCost(building))}", Building: building.Id, Cost: RepairCost(building)));
+            case IdleCause.Stuck:
+                return new IdleStatus(reason, $"⛔ Stuck: {good} can't leave",
+                    (PipeReach(building).Count == 0 ? "Its pipes reach nothing yet." : $"Its pipes reach only: {ReachNames(building)}.") + " Goods never pass through a building.",
+                    FixPipe());
+            case IdleCause.TakerStuck when reason.Other is { } other && Building(other) is { } taker:
+                return new IdleStatus(reason, $"Idle: {BuildingName(taker)} is stuck",
+                    $"Its pipe reaches only the {BuildingName(taker)}, and its {(IdleReasonOf(taker).Resource is { } r ? GoodsWord(r) : "goods")} can't leave.",
+                    new IdleFix(IdleFixKind.Open, $"Open the {BuildingName(taker)}", Building: taker.Id));
+            case IdleCause.TakerIdle when reason.Other is { } other && Building(other) is { } taker:
+                return new IdleStatus(reason, $"Idle: {BuildingName(taker)} isn't running",
+                    $"Its {good} go only to the {BuildingName(taker)}.",
+                    new IdleFix(IdleFixKind.Open, $"Open the {BuildingName(taker)}", Building: taker.Id));
+            case IdleCause.Full when definition.Kind == BuildingKind.Storage:
+                return new IdleStatus(reason, "Full", "What comes now goes on to your trading post, or waits.", null);
+            case IdleCause.Full:
+                return new IdleStatus(reason, "Slowed: its Storage is full", $"Nothing else on its pipes takes its {GoodsWord(definition.Out.Keys.FirstOrDefault() ?? "")}.", FixPipe());
+            case IdleCause.InputMissing:
+                return new IdleStatus(reason, $"Idle: no {good} here", Reach("Its pipes reach:"), plan ? SupplyFix(building, reason.Resource!) : null);
+            case IdleCause.InputShort:
+                var (have, need) = InputHaveNeed(building, reason.Resource!);
+                var rate = NetworkOf(building.Id)?.Solution.Rate(building.Id) ?? 0;
+                return new IdleStatus(reason, $"Running at {rate:P0}: {good} short", $"Its pipes bring {Amount(have)} of the {Amount(need)} {good} it needs.", null);
+            case IdleCause.PostFull when definition.Kind == BuildingKind.TradingPost:
+                return new IdleStatus(reason, "Sells all it can", $"{Amount(TradingPostThroughput(building, definition))} a minute: upgrade it, or build a Market Hall, to sell more.",
+                    new IdleFix(IdleFixKind.Upgrade, $"Upgrade it · {Gold(UpgradeCost(building, 1))}", Building: building.Id, Cost: UpgradeCost(building, 1)));
+            case IdleCause.PostFull:
+                var post = PipeReach(building).FirstOrDefault(t => t.Owner == building.Owner && Content.Building(t.Type).Kind == BuildingKind.TradingPost && TradingPostFull(t));
+                return new IdleStatus(reason, "Slowed: Trading Post full",
+                    post == null ? null : $"It sells all it can: {Amount(TradingPostThroughput(post, Content.Building(post.Type)))} a minute.",
+                    post == null ? null : new IdleFix(IdleFixKind.Upgrade, $"Upgrade the Trading Post · {Gold(UpgradeCost(post, 1))}", Building: post.Id, Cost: UpgradeCost(post, 1)));
+            case IdleCause.Pumps:
+                var network = NetworkOf(building.Id);
+                return new IdleStatus(reason, "Slowed: too few pumps",
+                    $"{network?.Buildings.Count ?? 0} buildings on these pipes: everything runs at {network?.PumpFactorOf(building.Owner) ?? 1:P0}.",
+                    new IdleFix(IdleFixKind.Build, "Build a Pump Station", BuildingType: "pumpStation"));
+            case IdleCause.GateOnly:
+                return new IdleStatus(reason, $"Waiting: nobody here takes its {good}", "Its only way out is your Yard gate (G), and nobody in your station needs it now.", FixPipe());
+            default:
+                return new IdleStatus(reason, null, null, null);
+        }
+    }
+
+    /// <summary>What a building gets of an input now, and what it would need at full speed</summary>
+    private (double Have, double Need) InputHaveNeed(Building building, string resource)
+    {
+        var network = NetworkOf(building.Id);
+        var node = network?.Nodes.FirstOrDefault(t => t.Id == building.Id) ?? ToFlowNode(building);
+        var have = network == null ? 0
+            : network.Solution.Flows.Where(t => t.To == building.Id && t.Resource == resource).Sum(t => t.Delivered)
+              + network.GateFlows.Where(t => t.Import && t.Building == building.Id && t.Resource == resource).Sum(t => t.Delivered);
+        return (have, (node?.In.GetValueOrDefault(resource) ?? 0) * (node?.MaxRate ?? 1));
+    }
+
+    /// <summary>The fix for a missing input: a pipe to an own building that makes it, or the build tool with one that does</summary>
+    private IdleFix? SupplyFix(Building building, string resource)
+    {
+        if (Company(building.Owner) is not { } company)
+        {
+            return null;
+        }
+        var makers = BuildingsOf(company.Id).Where(t => t.Id != building.Id && !t.UnderConstruction && Content.Building(t.Type).Out.ContainsKey(resource)).ToList();
+        foreach (var maker in makers.OrderBy(t => Math.Abs(t.X - building.X) + Math.Abs(t.Y - building.Y)))
+        {
+            var goal = maker.Border().ToHashSet();
+            if (PlanPipe(company, building, goal.Contains) is { } pipe)
+            {
+                return new IdleFix(IdleFixKind.LayPipe, $"Plan a pipe to your {BuildingName(maker)} · {Tiles(pipe.NewTiles)} · {Gold(pipe.Cost)}", pipe with { Target = maker }, Cost: pipe.Cost);
+            }
+        }
+        var producer = Content.BuildingList
+            .Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.ContainsKey(resource) && !t.In.ContainsKey(resource) && IsUnlocked(company, t, out _))
+            .OrderBy(t => BuildCost(company, t) / t.Out[resource])
+            .FirstOrDefault();
+        return producer == null ? null : new IdleFix(IdleFixKind.Build, $"Build {Article(producer.Name)}", BuildingType: producer.Id);
+    }
+}

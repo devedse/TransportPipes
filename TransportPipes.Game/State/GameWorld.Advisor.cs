@@ -36,6 +36,9 @@ public enum AdvisorKind
 
     /// <summary>A building that sells nothing because it isn't piped to the trading post, or no producer at all yet</summary>
     Start,
+
+    /// <summary>A building whose goods can't leave (F2): the pipe that lets them out</summary>
+    Stuck,
 }
 
 /// <summary>What the step's button does on the client</summary>
@@ -58,6 +61,9 @@ public enum AdvisorAction
 
     /// <summary>Plans a pipe to Partner</summary>
     Partner,
+
+    /// <summary>Shows the pipe on Tiles as a ghost to lay with one click</summary>
+    LayPipe,
 
     /// <summary>Upgrades the pipe Tiles to Tier (Show me selects Network)</summary>
     Pipes,
@@ -164,6 +170,7 @@ public sealed partial class GameWorld
             candidates.Add((step with { WaitMinutes = wait }, wait is { } w ? score / (1 + w / 30) : score));
         }
 
+        StuckSteps(company, Add);
         foreach (var network in own)
         {
             PumpStep(company, network, Base, Add);
@@ -598,6 +605,11 @@ public sealed partial class GameWorld
             {
                 continue;
             }
+            // A building whose goods can't leave isn't short of anything: what holds it back is its way out (F2)
+            if (IdleReasonOf(building).IsStuck)
+            {
+                continue;
+            }
             // A factory without ore uses no energy either, but it is short of ore, not of energy: when nobody in the
             // network makes one of its inputs, only that one counts as short. And an input that is left over (sold, stored)
             // isn't what holds it back: a factory without energy takes no more ore, so its ore goes to the hub.
@@ -605,7 +617,8 @@ public sealed partial class GameWorld
             var got = node.In.ToDictionary(t => t.Key, t => received.GetValueOrDefault((id, t.Key)));
             var missing = full.Keys.Where(t => supply.GetValueOrDefault(t) < 1e-6).ToHashSet();
             var ratios = full.Where(t => t.Value > 1e-9).ToDictionary(t => t.Key, t => got[t.Key] / t.Value);
-            var binding = ratios.Keys.Any(t => !spare.Contains(t)) ? ratios.Where(t => !spare.Contains(t.Key)).ToDictionary() : ratios;
+            // Only inputs that aren't left over can hold it back: when all of them are, its output does (nothing is short)
+            var binding = ratios.Where(t => !spare.Contains(t.Key)).ToDictionary();
             var lowest = binding.Count == 0 ? 1 : binding.Values.Min();
             foreach (var (resource, amount) in full)
             {
@@ -619,6 +632,33 @@ public sealed partial class GameWorld
             }
         }
         return needs;
+    }
+
+    /// <summary>
+    /// A building whose goods can't leave (F2): the pipe to its trading post (or a Storage) that lets them out, ranked like
+    /// a fix. What it brings: what it makes at the hub's prices, less what its inputs would have sold for.
+    /// </summary>
+    private void StuckSteps(Company company, Action<AdvisorStep, double> add)
+    {
+        foreach (var building in BuildingsOf(company.Id).Where(t => !t.UnderConstruction).OrderBy(t => t.Id).ToList())
+        {
+            if (IdleReasonOf(building) is not { Cause: IdleCause.Stuck, Resource: { } resource } || ToFlowNode(building) is not { } node)
+            {
+                continue;
+            }
+            // A generator with no pipe at all is the player's own first pipe to lay (the start step teaches it)
+            if (node.In.Count == 0 && PipeReach(building).Count == 0 || PlanFixPipe(building) is not { } pipe)
+            {
+                continue;
+            }
+            var hub = (string r) => HubBuyPrice(company, r);
+            var gain = Math.Max(0, node.Out.Sum(t => t.Value * node.MaxRate * hub(t.Key)) - node.In.Sum(t => t.Value * node.MaxRate * hub(t.Key)));
+            var name = Content.Building(building.Type).Name;
+            var target = Content.Building(pipe.Target!.Type);
+            add(new AdvisorStep(AdvisorKind.Stuck, $"Unstick your {name}: one pipe, {Gold(pipe.Cost)}",
+                $"Its {GoodsWord(resource)} can't leave. A pipe to your {target.Name} {(target.Kind == BuildingKind.TradingPost ? "sells" : "keeps")} them" + (gain > 0.05 ? $": about +{Gold(gain)}/min." : "."),
+                AdvisorAction.LayPipe, pipe.Cost, gain, Building: building.Id, At: building.Position, Tiles: pipe.Tiles), AdvisorFixFactor);
+        }
     }
 
     private void ShortageSteps(Company company, Network network, Func<Network, double> baseGold, Action<AdvisorStep, double> add, Func<double, double, double> worth)

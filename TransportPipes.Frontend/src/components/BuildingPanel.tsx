@@ -181,6 +181,22 @@ export function BuildingPanel() {
         <p className="status building">
           🏗 Under construction · ready in {formatDuration(Math.max(0, secondsLeft))}
         </p>
+      ) : details.status?.pill != null ? (
+        // Why it doesn't run fully, in five words (F2), what its pipes reach, and the one fix
+        <div className={`idle-status ${details.status.cause}`}>
+          <p className={details.status.cause === "stuck" ? "status stuck" : "status idle"}>
+            {details.status.pill}
+          </p>
+          {details.status.reach !== null && <p className="muted small reach">{details.status.reach}</p>}
+          {mine && details.status.fix !== null && (
+            <button
+              className="primary wide fix"
+              onClick={() => void gameClient.fixBuilding(details, details.status!.fix!)}
+            >
+              {details.status.fix.label}
+            </button>
+          )}
+        </div>
       ) : isProducer ? (
         <p className={details.rate > 0.005 ? "status running" : "status idle"}>
           {details.rate > 0.995
@@ -550,7 +566,9 @@ function MaxMore({
   const good = more.resource !== null ? content.resourceName(more.resource).toLowerCase() : "";
   const useful = details.maxAffordableLevels;
   const reason = more.output
-    ? `+${more.levels} would sell nothing more: your Trading Post sells all it can. Upgrade it first.`
+    ? details.status?.cause === "postFull"
+      ? `+${more.levels} would sell nothing more: your Trading Post sells all it can. Upgrade it first.`
+      : `+${more.levels} would make nothing more: nothing on its pipes takes more ${good}`
     : `+${more.levels} would run at ${Math.round(more.share * 100)}%: its pipes bring ${formatAmount(more.have)} of ${formatAmount(more.need)} ${good}`;
   return (
     <div className="max-more">

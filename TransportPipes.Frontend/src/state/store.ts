@@ -120,6 +120,9 @@ export interface AppState {
   /** A pipe route the player is looking at (Connect), drawn on the map until it is built or dropped */
   plannedRoute: TilePosition[] | null;
   plannedPartner: number | null;
+  /** Where a planned pipe goes, when it isn't to a neighbour ("your Trading Post"), and what to say once it is laid */
+  plannedTarget: string | null;
+  plannedDone: string | null;
 
   corporationOpen: boolean;
   /** Your crew (v1.2 §6): its members, held seats with their codes, its invite link */
@@ -230,6 +233,8 @@ export const initialState: AppState = {
   contracts: null,
   plannedRoute: null,
   plannedPartner: null,
+  plannedTarget: null,
+  plannedDone: null,
   corporationOpen: false,
   crewOpen: false,
   crew: null,

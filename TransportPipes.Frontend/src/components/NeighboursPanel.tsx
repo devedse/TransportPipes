@@ -404,6 +404,7 @@ export function PlannedRouteBanner() {
   const company = useAppStore((s) => s.company);
   const content = useAppStore((s) => s.content);
   const partner = useAppStore((s) => s.neighbours.find((t) => t.id === s.plannedPartner));
+  const target = useAppStore((s) => s.plannedTarget);
   if (route === null || company === null || content === null || gameClient.world === null) {
     return null;
   }
@@ -412,12 +413,19 @@ export function PlannedRouteBanner() {
   return (
     <div className="panel route-banner">
       <span>
-        Pipe to {partner?.name ?? "your neighbour"}: {tiles.length} tiles, {formatAmount(gold)} g
+        Pipe to {partner?.name ?? target ?? "your neighbour"}:{" "}
+        {tiles.length === 1 ? "1 tile" : `${tiles.length} tiles`} · {formatAmount(gold)} g
       </span>
       <button className="primary" onClick={() => void gameClient.buildPlannedRoute()}>
-        Build it
+        Lay it · {formatAmount(gold)} g
       </button>
-      <button onClick={() => setState({ plannedRoute: null, plannedPartner: null })}>Cancel</button>
+      <button
+        onClick={() =>
+          setState({ plannedRoute: null, plannedPartner: null, plannedTarget: null, plannedDone: null })
+        }
+      >
+        Cancel
+      </button>
     </div>
   );
 }

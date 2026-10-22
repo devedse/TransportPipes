@@ -282,7 +282,20 @@ public record BuildingDetailsDto(
     TeleporterDto? Teleporter = null,
     EvolveDto? Evolve = null,
     StorageKeepDto? Keep = null,
-    MaxMoreDto? MaxMore = null);
+    MaxMoreDto? MaxMore = null,
+    BuildingStatusDto? Status = null);
+
+/// <summary>
+/// A building's panel head (F2): why it doesn't run fully (Cause, from IdleReason), the status pill (the cause in five
+/// words), the reach line, and the one fix button; null pill: it runs fine
+/// </summary>
+public record BuildingStatusDto(string Cause, string? Pill, string? Reach, BuildingFixDto? Fix);
+
+/// <summary>
+/// The one fix button: Kind layPipe (Tiles as x,y pairs, to show as a ghost and lay), open (Building), repair, upgrade
+/// (Building by a level) or build (the build tool with BuildingType); Target names where a pipe goes
+/// </summary>
+public record BuildingFixDto(string Kind, string Label, int[] Tiles, int NewTiles, double Cost, long? Building, string? BuildingType, string? Target);
 
 /// <summary>
 /// Smart Max (F8): the Max button buys MaxAffordableLevels, the levels its pipes can feed; these are the levels the gold
@@ -373,7 +386,11 @@ public record NetworkDetailsDto(
     double PumpFactor,
     IReadOnlyList<NetworkOwnerDto> Owners,
     IReadOnlyList<NetworkResourceDto> Resources,
-    IReadOnlyList<BottleneckDto> Bottlenecks);
+    IReadOnlyList<BottleneckDto> Bottlenecks,
+    IReadOnlyList<StuckBuildingDto>? Stuck = null);
+
+/// <summary>A building of the network whose goods can't leave (F2): the network card names it first</summary>
+public record StuckBuildingDto(long Building, string Type, string Line);
 
 public record ResourceRateDto(string Resource, double PerMinute);
 
