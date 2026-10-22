@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { gameClient } from "../app/client";
 import { emblemIcon } from "../app/crews";
 import { setState, useAppStore } from "../state/store";
@@ -74,10 +74,20 @@ export function KeepEstate() {
   );
 }
 
-/** A friend's link opened by someone who already plays: join their crew (and move to the kept seat) */
+/**
+ * A friend's link opened by someone who already plays: join their crew (and move to the kept seat). A seat link is
+ * remembered, so the seat stays on the player's return card until they answer (run 3: Ben)
+ */
 export function InviteInGame() {
   const invite = useAppStore((s) => s.invite);
   const phase = useAppStore((s) => s.phase);
+  const seen = useRef<string | null>(null);
+  useEffect(() => {
+    if (invite !== null && phase === "playing" && invite.dto.seatCode && seen.current !== invite.code) {
+      seen.current = invite.code;
+      void gameClient.connection.sawSeatCode(invite.code, false).catch(() => undefined);
+    }
+  }, [invite, phase]);
   if (invite === null || phase !== "playing") {
     return null;
   }
@@ -108,6 +118,17 @@ export function InviteInGame() {
             {dto.seatCode ? "Join and move" : "Join"}
           </button>
           <button onClick={close}>Not now</button>
+          {dto.seatCode && (
+            <button
+              className="link"
+              onClick={() => {
+                void gameClient.connection.sawSeatCode(invite.code, true).catch(() => undefined);
+                close();
+              }}
+            >
+              Not with them
+            </button>
+          )}
         </span>
       </div>
     </div>

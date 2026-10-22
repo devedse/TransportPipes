@@ -124,6 +124,8 @@ export interface CompanyDto {
   keepResearching: boolean;
   /** Something can be researched now (run 3: "pick one!" over 449k points with every tech locked) */
   researchOpen: boolean;
+  /** A seat a friend keeps for you, whose link you opened while living elsewhere (null: none) */
+  keptSeat: KeptSeatDto | null;
 }
 
 /** Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there */
@@ -330,7 +332,18 @@ export interface ReturnLineDto {
   kind: "people" | "look" | "project" | "social" | "today" | "invest";
   icon: string;
   text: string;
-  action: "repairAll" | "show" | "project" | "upgrade" | "send" | "thank" | "tend" | "links" | null;
+  action:
+    | "repairAll"
+    | "show"
+    | "project"
+    | "upgrade"
+    | "send"
+    | "thank"
+    | "tend"
+    | "links"
+    | "seat"
+    | "crew"
+    | null;
   building: number | null;
   cost: number | null;
   /** send: whose building, which good; thank: whose goods, which good; tend: whose estate */
@@ -1602,6 +1615,15 @@ export interface KeepCardDto {
   ends: string;
 }
 
+/** A friend's kept seat: its code, who keeps it, their crew, where it is and where you live */
+export interface KeptSeatDto {
+  code: string;
+  from: string;
+  crew: string;
+  station: string;
+  yourStation: string | null;
+}
+
 export interface HeldSeatDto {
   code: string;
   districtX: number;
@@ -1616,6 +1638,12 @@ export interface HeldSeatDto {
   station: string | null;
   /** Who the seat is for, as the crew calls them ("Ben") */
   friendName: string | null;
+  /** Who opened its link while living elsewhere, and where they live (run 3: Ben) */
+  openedBy: string | null;
+  openedByStation: string | null;
+  /** They said "Not with them" */
+  declined: boolean;
+  openedById: number | null;
 }
 
 export interface CrewDto {

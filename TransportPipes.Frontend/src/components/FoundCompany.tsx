@@ -17,8 +17,8 @@ const WAYS: Array<{ mode: PickMode; title: string; text: string }> = [
   },
   {
     mode: "friends",
-    title: "Start with friends",
-    text: "Found a crew, pick a station for all of you, and send each friend the code of their seat.",
+    title: "Start a crew for my friends",
+    text: "Pick a station for all of you, then send each friend the link to their seat.",
   },
   {
     mode: "own",
@@ -80,37 +80,40 @@ export function CrewFields({
           maxLength={24}
         />
       </label>
-      <div className="emblems" role="radiogroup" aria-label="Emblem">
-        {Object.keys(EMBLEM_ICONS).map((id) => (
-          <button
-            key={id}
-            type="button"
-            role="radio"
-            aria-checked={id === emblem}
-            title={id}
-            className={id === emblem ? "emblem active" : "emblem"}
-            onClick={() => onChange(name, id, colors)}
-          >
-            {EMBLEM_ICONS[id]}
-          </button>
-        ))}
-      </div>
-      <div className="crew-colors">
-        <span className="muted small">The banner&apos;s left half</span>
-        <Swatches
-          value={colors[0]}
-          onChange={(c) => onChange(name, emblem, [c, colors[1]])}
-          colors={CREW_COLORS}
-          label="The banner's left half"
-        />
-        <span className="muted small">and its right half</span>
-        <Swatches
-          value={colors[1]}
-          onChange={(c) => onChange(name, emblem, [colors[0], c])}
-          colors={CREW_COLORS}
-          label="The banner's right half"
-        />
-      </div>
+      <details className="crew-looks">
+        <summary className="small">Emblem and colours (later is fine)</summary>
+        <div className="emblems" role="radiogroup" aria-label="Emblem">
+          {Object.keys(EMBLEM_ICONS).map((id) => (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={id === emblem}
+              title={id}
+              className={id === emblem ? "emblem active" : "emblem"}
+              onClick={() => onChange(name, id, colors)}
+            >
+              {EMBLEM_ICONS[id]}
+            </button>
+          ))}
+        </div>
+        <div className="crew-colors">
+          <span className="muted small">The banner&apos;s left half</span>
+          <Swatches
+            value={colors[0]}
+            onChange={(c) => onChange(name, emblem, [c, colors[1]])}
+            colors={CREW_COLORS}
+            label="The banner's left half"
+          />
+          <span className="muted small">and its right half</span>
+          <Swatches
+            value={colors[1]}
+            onChange={(c) => onChange(name, emblem, [colors[0], c])}
+            colors={CREW_COLORS}
+            label="The banner's right half"
+          />
+        </div>
+      </details>
       <div
         className="crew-banner"
         style={{ background: `linear-gradient(90deg, ${colors[0]} 50%, ${colors[1]} 50%)` }}
@@ -118,6 +121,44 @@ export function CrewFields({
         <span>{emblemIcon(emblem)}</span> <strong>{name || "Your crew"}</strong>
       </div>
     </fieldset>
+  );
+}
+
+/**
+ * A friend's link or code, first on the start screen (run 3: Ben opened the game before Ana's link came, started a
+ * crew of his own, and was never found again): pasted here it opens the friend's seat as the link would
+ */
+function FriendCode() {
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const open = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError(await gameClient.openInviteCode(text));
+    setBusy(false);
+  };
+  return (
+    <form className="way friend-code" onSubmit={(event) => void open(event)}>
+      <strong>A friend sent me a link or code</strong>
+      <span className="muted small">Paste it here: you move in next to them.</span>
+      <span className="friend-code-row">
+        <input
+          aria-label="Your friend's link or code"
+          placeholder="the link or code"
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+        />
+        <button className="primary" type="submit" disabled={busy || text.trim() === ""}>
+          Open
+        </button>
+      </span>
+      {error !== null && (
+        <span className="form-error small" role="alert">
+          {error}
+        </span>
+      )}
+    </form>
   );
 }
 
@@ -189,6 +230,7 @@ export function FoundCompany() {
             Your estate is part of a station: four seats around a shared Yard where neighbours buy each
             other&apos;s spare goods. You can move later.
           </p>
+          <FriendCode />
           {WAYS.map((way) => (
             <button
               key={way.mode}

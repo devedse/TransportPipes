@@ -26,6 +26,10 @@ function actionLabel(line: ReturnLineDto): string | null {
       return "💛 Tend";
     case "links":
       return "Look";
+    case "seat":
+      return "Move in";
+    case "crew":
+      return "Crew";
     case "show":
     case "upgrade":
       return "Show me";

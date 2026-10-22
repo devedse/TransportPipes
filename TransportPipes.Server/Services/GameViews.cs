@@ -111,7 +111,20 @@ public static partial class GameViews
             Land(world, company),
             company.ResearchQueue.ToList(),
             company.KeepResearching,
-            world.ResearchOpen(company));
+            world.ResearchOpen(company),
+            KeptSeat(world, company));
+    }
+
+    /// <summary>A seat a friend keeps for a company that opened its link and lives elsewhere (run 3: Ben)</summary>
+    private static KeptSeatDto? KeptSeat(GameWorld world, Company me)
+    {
+        if (world.KeptSeatFor(me) is not { } kept)
+        {
+            return null;
+        }
+        var from = world.Company(kept.Crew.Founder) is { } founder ? founder.Name : kept.Crew.Name;
+        return new KeptSeatDto(kept.Hold.Code, from, kept.Crew.Name, WorldNames.Station(WorldLayout.StationOf(kept.Hold.Seat.District, kept.Hold.Seat.Slot)),
+            world.EstateOf(me) is { } home ? WorldNames.Station(home.Station) : null);
     }
 
     /// <summary>Dealt land (step 5): the goods your seat holds, and who in your station holds the others (null on old land)</summary>
@@ -1403,7 +1416,11 @@ public static partial class GameViews
     {
         var profile = world.Generator.Estate(hold.Seat.District, hold.Seat.Slot);
         return new HeldSeatDto(GameWorld.ShowCode(hold.Code), hold.DistrictX, hold.DistrictY, hold.Slot, Camel(profile.Primary), profile.Secondary is { } secondary ? Camel(secondary) : null, hold.Until,
-            hold.For, hold.For is { } member ? world.Company(member)?.Name : null, WorldNames.Station(WorldLayout.StationOf(hold.Seat.District, hold.Seat.Slot)), hold.FriendName);
+            hold.For, hold.For is { } member ? world.Company(member)?.Name : null, WorldNames.Station(WorldLayout.StationOf(hold.Seat.District, hold.Seat.Slot)), hold.FriendName,
+            hold.OpenedBy is { } opener ? world.Company(opener)?.Name : null,
+            hold.OpenedBy is { } who && world.Company(who) is { } friend && world.EstateOf(friend) is { } theirs ? WorldNames.Station(theirs.Station) : null,
+            hold.Declined,
+            hold.OpenedBy);
     }
 
     /// <summary>"💛 Tend: repair Ben's 2 storm-damaged Wind Moilies" (F9: a tend that does a chore)</summary>

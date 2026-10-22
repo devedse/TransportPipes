@@ -116,14 +116,35 @@ function FriendSeat({ hold, crewName, now }: { hold: HeldSeatDto; crewName: stri
           }}
         />
       </label>
+      {hold.openedBy !== null && (
+        <p className="small" role="status">
+          {hold.declined
+            ? `${hold.openedBy} chose to stay in ${hold.openedByStation ?? "their station"} for now`
+            : `${hold.openedBy} opened this link but lives in ${hold.openedByStation ?? "another station"}: send it again, or visit them`}
+          {hold.openedById !== null && (
+            <>
+              {" "}
+              <button
+                className="link small"
+                onClick={() => void gameClient.visitEstate(hold.openedById!, true)}
+              >
+                👁 Visit
+              </button>
+            </>
+          )}
+        </p>
+      )}
       <span className="button-row">
-        <button
-          onClick={() =>
-            void share(link, `A seat next to me in ${crewName}${saved === "" ? "" : ` for ${saved}`}`)
-          }
-        >
-          {saved === "" ? "Send" : `Send to ${saved}`}
-        </button>
+        {/* Send only where the device can share (a phone); elsewhere the link is copied (run 3: "Send to Ben did nothing visible") */}
+        {navigator.share !== undefined && (
+          <button
+            onClick={() =>
+              void share(link, `A seat next to me in ${crewName}${saved === "" ? "" : ` for ${saved}`}`)
+            }
+          >
+            {saved === "" ? "Send" : `Send to ${saved}`}
+          </button>
+        )}
         <button
           onClick={() => void copy(link)}
           aria-label={`Copy ${whose === "" ? `the link of seat ${hold.code}` : `${saved}'s link`}`}

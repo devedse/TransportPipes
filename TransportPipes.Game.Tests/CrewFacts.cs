@@ -277,4 +277,51 @@ public class CrewFacts
         Assert.IsTrue(game.World.JoinCrew(dee.Id, cleos!.Holds[0].Code).Success);
         StringAssert.Contains(game.World.JoinCrew(cleo.Id, crew.Holds[0].Code).Error, "Leave your crew first");
     }
+
+    [TestMethod]
+    public void AFriendWhoOpenedTheLinkAndStaysElsewhereKeepsSeeingTheSeat()
+    {
+        // Run 3: three of Ben's return cards said nothing of Ana's seat while he asked "which station am i in?"
+        var game = new TestGame();
+        var ana = game.NewCompany("Ana");
+        var (_, crew) = game.World.FoundCrew(ana.Id, "Teapot Four", "kettle", "#236b69", "#c9963a", 2);
+        var ben = game.NewCompany("Ben");
+        var seat = crew!.Holds[0];
+        Assert.IsNull(game.World.KeptSeatFor(ben), "nothing before he opens the link");
+
+        Assert.IsTrue(game.World.SawSeatCode(ben.Id, seat.Code, decline: false).Success);
+        Assert.AreEqual(seat.Code, game.World.KeptSeatFor(ben)?.Hold.Code, "the seat stays in front of him");
+        Assert.AreEqual(ben.Id, seat.OpenedBy, "and Ana's crew sees who opened it");
+        game.Pass(3 * 24 * 60);
+        Assert.IsNotNull(game.World.KeptSeatFor(ben), "on every return until he answers");
+
+        game.World.TakeChanges();
+        Assert.IsTrue(game.World.SawSeatCode(ben.Id, seat.Code, decline: true).Success);
+        Assert.IsNull(game.World.KeptSeatFor(ben), "\"Not with them\" ends it");
+        Assert.IsTrue(game.World.TakeChanges().Events.Any(t => t.Company == ana.Id && t.Text.StartsWith("Ben stays in")), "and Ana hears it");
+        Assert.IsTrue(crew.Holds.Contains(seat), "the seat is still kept");
+
+        // He changes his mind and joins: the seat is his, nothing waits any more
+        Assert.IsTrue(game.World.JoinCrew(ben.Id, seat.Code).Success);
+        Assert.IsNull(game.World.KeptSeatFor(ben));
+    }
+
+    [TestMethod]
+    public void ANewcomerIsNextDoorOnlyInTheSameStation()
+    {
+        // Run 3: Ana read "Ben Co moved into your district" and looked for him beside her; he lived in another station
+        var game = new TestGame();
+        var ana = game.NewCompany("Ana", slot: 0);
+        var near = WorldLayout.StationSlots(WorldLayout.StationOfSlot(0)).First(t => t != 0);
+        var far = Enumerable.Range(0, WorldLayout.EstatesPerDistrict).First(t => WorldLayout.StationOfSlot(t) != WorldLayout.StationOfSlot(0) && WorldLayout.StationOf(ana.District, t) is var st && !game.World.BigStation(st).Contains(WorldLayout.StationOf(ana.District, 0)));
+        game.World.TakeChanges();
+
+        game.NewCompany("Ben", slot: far);
+        game.NewCompany("Cleo", slot: near);
+
+        var texts = game.World.TakeChanges().Events.Where(t => t.Company == ana.Id).Select(t => t.Text).ToList();
+        Assert.IsTrue(texts.Any(t => t.StartsWith("Ben moved into ") && t.EndsWith("another station of your district")), string.Join(" | ", texts));
+        Assert.IsTrue(texts.Contains("Cleo moved in next door"), string.Join(" | ", texts));
+        CollectionAssert.AreEqual(new[] { "Cleo" }, ana.Report.NewNeighbours, "the card's people line names only the one next door");
+    }
 }

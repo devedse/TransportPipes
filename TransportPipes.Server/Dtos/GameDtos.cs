@@ -124,7 +124,12 @@ public record CompanyDto(
     /// <summary>With nothing queued, the cheapest tech the points cover starts by itself</summary>
     bool KeepResearching = true,
     /// <summary>Something can be researched now (run 3: "pick one!" over 449k points with every tech locked)</summary>
-    bool ResearchOpen = true);
+    bool ResearchOpen = true,
+    /// <summary>A seat a friend keeps for you, whose link you opened while living elsewhere (null: none)</summary>
+    KeptSeatDto? KeptSeat = null);
+
+/// <summary>A friend's kept seat: its code, who keeps it, their crew, and where it is and where you live</summary>
+public record KeptSeatDto(string Code, string From, string Crew, string Station, string? YourStation);
 
 /// <summary>Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there</summary>
 public record LandDto(IReadOnlyList<string> Goods, IReadOnlyList<LandSeatDto> Station);
@@ -718,7 +723,9 @@ public record CrewMemberDto(long Id, string Name, string Color, int Level, strin
 public record KeepCardDto(long Id, string Name, DateTime Ends);
 
 /// <summary>A seat the crew keeps: for a friend (with its code), or for a member (For: a crew move, an asleep friend's seat)</summary>
-public record HeldSeatDto(string Code, int DistrictX, int DistrictY, int Slot, string Primary, string? Secondary, DateTime Until, long? For = null, string? ForName = null, string? Station = null, string? FriendName = null);
+/// <param name="OpenedBy">Who opened its link while living elsewhere, and where they live (run 3: Ben); Declined: they said "Not with them"</param>
+public record HeldSeatDto(string Code, int DistrictX, int DistrictY, int Slot, string Primary, string? Secondary, DateTime Until, long? For = null, string? ForName = null, string? Station = null, string? FriendName = null,
+    string? OpenedBy = null, string? OpenedByStation = null, bool Declined = false, long? OpenedById = null);
 
 /// <summary>Your crew: its members, the seats it keeps for friends (with their codes), its invite link and who asked to join</summary>
 public record CrewDto(

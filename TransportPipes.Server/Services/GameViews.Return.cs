@@ -183,6 +183,27 @@ public static partial class GameViews
                 "links");
         }
 
+        // A friend keeps a seat for you, and you opened its link while living elsewhere: on every return until you answer
+        // (run 3: three of Ben's cards said nothing of Ana's seat while he asked "which station am i in?")
+        if (world.KeptSeatFor(me) is { } seatKept)
+        {
+            var from = world.Company(seatKept.Crew.Founder) is { } founder ? world.NameFor(founder, me) : seatKept.Crew.Name;
+            var there = WorldNames.Station(WorldLayout.StationOf(seatKept.Hold.Seat.District, seatKept.Hold.Seat.Slot));
+            Add(1, "people", "🪑", $"{from} keeps a seat for you in {there}{(world.EstateOf(me) is { } myHome ? $" (you live in {WorldNames.Station(myHome.Station)})" : "")}: move in, free", "seat");
+        }
+        // The crew's side: a friend who opened your link but lives elsewhere, and where
+        if (world.CrewOf(me) is { } ownCrew)
+        {
+            foreach (var hold in ownCrew.Holds.Where(t => t.OpenedBy is { } who && who != me.Id && !t.Declined))
+            {
+                if (world.Company(hold.OpenedBy!.Value) is { } friend && friend.CrewId != ownCrew.Id)
+                {
+                    Add(2, "people", "🪑", $"{hold.FriendName ?? friend.Name} opened your link but lives in {(world.EstateOf(friend) is { } theirs ? WorldNames.Station(theirs.Station) : "another station")}: send it again from the Crew panel, or visit", "crew");
+                    break;
+                }
+            }
+        }
+
         // The project
         if (world.ProjectsEnabled && world.EstateOf(me) is { } estate && world.ExistingProject(estate.Station) is { } project)
         {

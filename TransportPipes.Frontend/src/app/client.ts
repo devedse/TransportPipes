@@ -118,6 +118,31 @@ export class GameClient {
     }
   }
 
+  /**
+   * A friend's link or code typed or pasted in (run 3: Ben started before Ana's link came, and the start screen had no
+   * way in for a link): the invite screen or the in-game dialog, as if the link had been opened. Returns an error.
+   */
+  async openInviteCode(text: string): Promise<string | null> {
+    const trimmed = text.trim();
+    let code = trimmed;
+    try {
+      const params = new URL(trimmed).searchParams;
+      code = params.get("seat") ?? params.get("crew") ?? trimmed;
+    } catch {
+      // Not a link: the code itself
+    }
+    if (code === "") {
+      return "Paste the link or type the code your friend sent.";
+    }
+    const dto = await fetchInvite(code).catch(() => null);
+    if (dto?.valid !== true) {
+      return "That link or code doesn't open any seat or crew (it may have lapsed): ask your friend for a new one.";
+    }
+    sessionStorage.setItem(INVITE_KEY, code);
+    setState({ invite: { code, dto } });
+    return null;
+  }
+
   /** The invite is used (or the player chose another way to start) */
   forgetInvite() {
     sessionStorage.removeItem(INVITE_KEY);
@@ -2071,6 +2096,19 @@ export class GameClient {
       case "links":
         setState({ returnCard: null });
         await this.openLinks();
+        return true;
+      case "seat": {
+        // A friend's kept seat: the invite dialog again, to move in or say "Not with them"
+        const code = appStore.getState().company?.keptSeat?.code;
+        setState({ returnCard: null });
+        if (code != null) {
+          await this.openInviteCode(code);
+        }
+        return true;
+      }
+      case "crew":
+        setState({ returnCard: null });
+        await this.openCrew();
         return true;
       default:
         return false;

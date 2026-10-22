@@ -5135,6 +5135,29 @@ kbd {
   font-size: 1.1rem;
 }
 
+/* A friend's link or code, first on the start screen: a form that looks like the other ways */
+.start-ways .friend-code {
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.friend-code-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.friend-code-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.crew-looks summary {
+  cursor: pointer;
+  margin: 4px 0;
+}
+
 .play-now {
   width: min(400px, calc(100vw - 32px));
   display: grid;

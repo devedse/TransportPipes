@@ -406,11 +406,20 @@ public sealed partial class GameWorld
                 $"You're the first in {WorldNames.District(estate.District)}. The next player who comes alone will live next to you."));
         }
 
+        // Newcomers named where they live: "next door" only in the same station (run 3: Ana read "Ben Co moved into my
+        // district" and looked for him beside her; he lived in Capital SW)
+        var home = BigStation(estate.Station);
         foreach (var neighbour in _companies.Values.Where(t => t.District == company.District && t.Id != company.Id && !t.IsNpc))
         {
-            neighbour.Report.NewNeighbours.Add(company.Name);
+            var nextDoor = EstateOf(neighbour) is { } theirs && home.Contains(theirs.Station);
+            if (nextDoor)
+            {
+                neighbour.Report.NewNeighbours.Add(company.Name);
+            }
             neighbour.Touch();
-            Changes.Events.Add(new WorldEvent(neighbour.Id, WorldEventKind.Neighbour, $"{company.Name} moved into your district"));
+            Changes.Events.Add(new WorldEvent(neighbour.Id, WorldEventKind.Neighbour, nextDoor
+                ? $"{company.Name} moved in next door"
+                : $"{company.Name} moved into {WorldNames.Station(estate.Station)}, another station of your district"));
         }
 
         AddBuilding(company, "hq", estate.Origin.Offset(HqLocal.X, HqLocal.Y), finished: true);

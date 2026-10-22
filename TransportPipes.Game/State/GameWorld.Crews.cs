@@ -21,6 +21,15 @@ public sealed class SeatHold
     /// <summary>Who the seat is for, as the crew calls them ("Ben", F9): the link says it, and the crew sees "Riverside Co. (Ben)"</summary>
     public string? FriendName { get; set; }
 
+    /// <summary>
+    /// Who opened its link while living elsewhere (run 3: Ben founded his own crew 33 seconds before Ana's link came and
+    /// was never found again): their return card keeps the seat in front of them, and the crew sees where they live
+    /// </summary>
+    public long? OpenedBy { get; set; }
+
+    /// <summary>They answered "Not with them": the seat stops asking</summary>
+    public bool Declined { get; set; }
+
     public EstateKey Seat => new(new DistrictCoord(DistrictX, DistrictY), Slot);
 }
 
@@ -303,6 +312,40 @@ public sealed partial class GameWorld
         CrewChanged(crew);
         return CommandResult.Ok;
     }
+
+    /// <summary>
+    /// A company that plays opened a seat link while living elsewhere: the seat is kept in front of it on every return
+    /// until it answers (moves in, or "Not with them"). A decline is remembered so it stops asking.
+    /// </summary>
+    public CommandResult SawSeatCode(long companyId, string code, bool decline)
+    {
+        if (Company(companyId) is not { } company || HoldByCode(code) is not { } held)
+        {
+            return CommandResult.Fail("That seat isn't kept any more.");
+        }
+        if (held.Hold.For is { } only && only != company.Id)
+        {
+            return CommandResult.Fail("That seat is kept for someone else.");
+        }
+        held.Hold.OpenedBy = company.Id;
+        held.Hold.Declined = decline;
+        CrewChanged(held.Crew);
+        if (decline)
+        {
+            foreach (var member in CrewMembers(held.Crew))
+            {
+                Changes.Events.Add(new WorldEvent(member.Id, WorldEventKind.Crew, $"{company.Name} stays in {(EstateOf(company) is { } home ? WorldNames.Station(home.Station) : "their station")} for now: your seat for them is still kept"));
+            }
+        }
+        return CommandResult.Ok;
+    }
+
+    /// <summary>The seat a friend keeps for a company that opened its link and lives elsewhere, and hasn't answered (null: none)</summary>
+    public (Crew Crew, SeatHold Hold)? KeptSeatFor(Company company) =>
+        _crews.Values.SelectMany(c => c.Holds.Select(h => (Crew: c, Hold: h)))
+            .Where(t => t.Hold.OpenedBy == company.Id && !t.Hold.Declined && t.Crew.Id != company.CrewId)
+            .Select(t => ((Crew Crew, SeatHold Hold)?)t)
+            .FirstOrDefault();
 
     /// <summary>A company as its crew mates see it: "Riverside Co. (Ben)" when the seat it took was kept for "Ben" (F9)</summary>
     public string NameFor(Company company, Company viewer) =>
@@ -619,12 +662,20 @@ public sealed partial class GameWorld
     /// <summary>The crew hears that a friend moved in; the next first screen says so</summary>
     private void AnnounceArrival(Crew crew, Company company)
     {
+        var home = EstateOf(company) is { } estate ? BigStation(estate.Station) : [];
         foreach (var member in CrewMembers(crew).Where(t => t.Id != company.Id))
         {
-            member.Report.NewNeighbours.Add(company.Name);
-            member.Report.Notes.Add($"{company.Name} moved in next door");
+            // "Next door" only in the same station (run 3: Ben's card said Dev "moved in next door"; Dev lived elsewhere)
+            var nextDoor = EstateOf(member) is { } theirs && home.Contains(theirs.Station);
+            var text = nextDoor ? $"{company.Name} moved in next door"
+                : $"{company.Name} joined {crew.Name}{(EstateOf(company) is { } at ? $", in {WorldNames.Station(at.Station)}" : "")}";
+            if (nextDoor)
+            {
+                member.Report.NewNeighbours.Add(company.Name);
+            }
+            member.Report.Notes.Add(text);
             member.Touch();
-            Changes.Events.Add(new WorldEvent(member.Id, WorldEventKind.Crew, $"{company.Name} moved in next door"));
+            Changes.Events.Add(new WorldEvent(member.Id, WorldEventKind.Crew, text));
         }
     }
 
