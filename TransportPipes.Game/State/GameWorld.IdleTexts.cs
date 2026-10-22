@@ -1,4 +1,5 @@
 using TransportPipes.Game.Content;
+using TransportPipes.Game.Simulation;
 
 namespace TransportPipes.Game.State;
 
@@ -78,6 +79,10 @@ public sealed partial class GameWorld
                 return new IdleStatus(reason, $"Idle: {BuildingName(taker)} isn't running",
                     $"Its {good} go only to the {BuildingName(taker)}.",
                     new IdleFix(IdleFixKind.Open, $"Open the {BuildingName(taker)}", Building: taker.Id));
+            case IdleCause.TakersFull when reason.Other is { } other && Building(other) is { } taker:
+                var only = PipeReach(building).Where(t => ToFlowNode(t) is { Kind: FlowNodeKind.Building } n && n.In.ContainsKey(reason.Resource!)).Select(BuildingName).Distinct().ToList();
+                return new IdleStatus(reason, $"Slowed: only {(only.Count == 1 ? $"the {only[0]}" : "the buildings on its pipe")} takes its {good}",
+                    $"It sells nothing: its pipe reaches no trading post or Storage, and goods never pass through a building.", FixPipe());
             case IdleCause.Full when definition.Kind == BuildingKind.Storage:
                 return new IdleStatus(reason, "Full", "What comes now goes on to your trading post, or waits.", null);
             case IdleCause.Full:

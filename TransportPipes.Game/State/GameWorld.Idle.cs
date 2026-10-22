@@ -42,6 +42,9 @@ public enum IdleCause
 
     /// <summary>Its only way out is the Yard gate, and nobody in the station takes it now</summary>
     GateOnly,
+
+    /// <summary>Its only takers run fully and use less than it makes (Other: the first of them); the rest can't pass through them</summary>
+    TakersFull,
 }
 
 /// <summary>Why a building doesn't run (fully): the cause, the good it is about, and the building it is about</summary>
@@ -174,7 +177,9 @@ public sealed partial class GameWorld
             if (!sinks && takers.Count > 0)
             {
                 var least = takers.OrderBy(t => network.Solution.Rate(t.Id)).ThenBy(t => t.Id).First();
-                return new IdleReason(IdleCause.TakerIdle, node.Out.Keys.First(), least.Id);
+                // A taker that runs fully isn't idle: it just can't use more (Ana's factory set into her windmills' pipe, run 2)
+                var full = network.Solution.Rate(least.Id) >= (network.Nodes.FirstOrDefault(t => t.Id == least.Id)?.MaxRate ?? 1) * SlowedShare;
+                return new IdleReason(full ? IdleCause.TakersFull : IdleCause.TakerIdle, node.Out.Keys.First(), full ? takers.OrderBy(t => t.Id).First().Id : least.Id);
             }
         }
         return IdleReason.Running;

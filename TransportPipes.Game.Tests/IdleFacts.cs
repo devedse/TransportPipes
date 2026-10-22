@@ -96,4 +96,24 @@ public class IdleFacts
         Assert.AreEqual(IdleCause.TakerIdle, reason.Cause);
         Assert.AreEqual(factory.Id, reason.Other);
     }
+
+    [TestMethod]
+    public void AMoilyWhoseOnlyTakerRunsFullySaysItSellsNothing()
+    {
+        // Ana's run 2 evening: a factory set into her windmills' pipe runs fully on what it can use; the rest of the
+        // energy can't pass through it to the trading post, so the moily runs slowly, and the factory isn't "idle"
+        var (game, _, map) = Setup("W+F+T", "  +", "W+M");
+        var moily = map[(0, 0)];
+        var factory = map[(2, 0)];
+        var rate = game.World.NetworkOf(moily.Id)!.Solution.Rate(moily.Id);
+
+        Assert.AreEqual(IdleCause.None, game.World.IdleReasonOf(factory).Cause, "the factory runs fully");
+        Assert.IsTrue(rate < 0.99, $"the moily runs at {rate:P0}");
+        var reason = game.World.IdleReasonOf(moily);
+        Assert.AreEqual(IdleCause.TakersFull, reason.Cause);
+        Assert.AreEqual(factory.Id, reason.Other);
+        var status = game.World.IdleStatusOf(moily);
+        Assert.AreEqual("Slowed: only the Small Factory takes its energy", status.Pill);
+        Assert.AreEqual(IdleFixKind.LayPipe, status.Fix?.Kind, "one pipe to the trading post sells the rest");
+    }
 }
