@@ -911,16 +911,17 @@ public sealed partial class GameWorld
         return Math.Round(total * ComplexMembers(building) * ManagerUpgradeFactor(Company(building.Owner)), 2);
     }
 
-    /// <summary>How many levels the company can afford right now (for the Max button)</summary>
+    /// <summary>How many levels the company can afford right now, priced like the upgrade (a complex's members, Foreman Rick)</summary>
     public int AffordableLevels(Company company, Building building)
     {
         var definition = Content.Building(building.Type);
+        var factor = ComplexMembers(building) * ManagerUpgradeFactor(company);
         var gold = company.Gold;
         var levels = 0;
         while (building.Level + levels < Content.Progression.MaxBuildingLevel)
         {
-            var cost = Content.Progression.UpgradeCost(definition, building.Level + levels);
-            if (cost > gold)
+            var cost = Content.Progression.UpgradeCost(definition, building.Level + levels) * factor;
+            if (cost > gold + 1e-6)
             {
                 break;
             }

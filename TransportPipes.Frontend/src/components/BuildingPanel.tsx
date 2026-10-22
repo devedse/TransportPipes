@@ -223,12 +223,15 @@ export function BuildingPanel() {
                 +10 · {formatAmount(details.upgradeCost10)} g
               </button>
             )}
-            {details.maxAffordableLevels > 1 && (
+            {details.maxAffordableLevels > 1 && details.upgradeCostMax !== null && (
               <button onClick={() => void gameClient.upgrade(building.id, details.maxAffordableLevels)}>
-                Max +{details.maxAffordableLevels}
+                Max +{details.maxAffordableLevels} · {formatAmount(details.upgradeCostMax)} g
               </button>
             )}
           </div>
+          {details.maxMore !== null && (
+            <MaxMore details={details} content={content} gold={gold} level={building.level} />
+          )}
         </section>
       )}
 
@@ -527,6 +530,70 @@ export function BuildingPanel() {
         </div>
       )}
     </aside>
+  );
+}
+
+/** Why Max stops where it does (F8): what the levels beyond would do, and on "more…" the choice to buy them anyway */
+function MaxMore({
+  details,
+  content,
+  gold,
+  level,
+}: {
+  details: BuildingDetailsDto;
+  content: Content;
+  gold: number;
+  level: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const more = details.maxMore!;
+  const good = more.resource !== null ? content.resourceName(more.resource).toLowerCase() : "";
+  const useful = details.maxAffordableLevels;
+  const reason = more.output
+    ? `+${more.levels} would sell nothing more: your Trading Post sells all it can. Upgrade it first.`
+    : `+${more.levels} would run at ${Math.round(more.share * 100)}%: its pipes bring ${formatAmount(more.have)} of ${formatAmount(more.need)} ${good}`;
+  return (
+    <div className="max-more">
+      <p className="muted small">
+        {reason} ·{" "}
+        <button className="link" onClick={() => setOpen(!open)}>
+          more…
+        </button>
+      </p>
+      {open && (
+        <div className="max-choice">
+          <p className="small">
+            Level {level + more.levels} · {formatAmount(more.cost)} g,{" "}
+            {Math.round((100 * more.cost) / Math.max(1, gold))}% of your gold. It would run at{" "}
+            {Math.round(more.share * 100)}%.
+            {useful > 0 && details.upgradeCostMax !== null && (
+              <>
+                {" "}
+                Level {level + useful} runs at full speed for {formatAmount(details.upgradeCostMax)} g.
+              </>
+            )}
+          </p>
+          <div className="button-row">
+            {useful > 0 && details.upgradeCostMax !== null && (
+              <button
+                className="primary"
+                onClick={() => void gameClient.upgrade(details.building.id, useful)}
+              >
+                Level {level + useful} · {formatAmount(details.upgradeCostMax)} g
+              </button>
+            )}
+            <button
+              onClick={() =>
+                void gameClient.upgrade(details.building.id, more.levels).then(() => setOpen(false))
+              }
+            >
+              Level {level + more.levels} anyway
+            </button>
+            <button onClick={() => setOpen(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -281,7 +281,15 @@ public record BuildingDetailsDto(
     int ComplexMembers,
     TeleporterDto? Teleporter = null,
     EvolveDto? Evolve = null,
-    StorageKeepDto? Keep = null);
+    StorageKeepDto? Keep = null,
+    MaxMoreDto? MaxMore = null);
+
+/// <summary>
+/// Smart Max (F8): the Max button buys MaxAffordableLevels, the levels its pipes can feed; these are the levels the gold
+/// could buy beyond them, how fast the building would run there, and what holds it back (an input: what its pipes bring
+/// and what it would need; or its output)
+/// </summary>
+public record MaxMoreDto(int Levels, double Cost, double Share, string? Resource, double Have, double Need, bool Output);
 
 /// <summary>
 /// A storage: how much of each resource it keeps (its setting, or what the company needs), and whether a full trading

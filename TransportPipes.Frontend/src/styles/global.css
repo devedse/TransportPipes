@@ -1325,6 +1325,17 @@ kbd {
   flex: 1;
 }
 
+/* Smart Max (F8): why it stops where it does, and the choice to go further */
+.upgrade .max-more p {
+  margin: 6px 0 0;
+}
+.upgrade .max-choice {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
 .footer-row {
   border-top: 1px solid var(--panel-border);
   padding-top: 10px;

@@ -738,7 +738,9 @@ public static class GameViews
 
         var upgradable = definition.Kind is not (BuildingKind.Hq or BuildingKind.Gate or BuildingKind.Decoration)
             && building.Level < world.Content.Progression.MaxBuildingLevel;
-        var affordable = upgradable && owner != null ? world.AffordableLevels(owner, building) : 0;
+        // Max buys the levels its pipes can feed (F8)
+        var max = upgradable && owner != null ? world.SmartMax(owner, building) : null;
+        var affordable = max?.Levels ?? 0;
         var maxLevels = world.Content.Progression.MaxBuildingLevel - building.Level;
 
         return new BuildingDetailsDto(
@@ -767,7 +769,10 @@ public static class GameViews
             world.ComplexMembers(building),
             definition.Kind == BuildingKind.Teleporter ? Teleporter(world, building) : null,
             definition.EvolvesTo is { } next && owner != null ? Evolve(world, owner, building, next) : null,
-            definition.Kind == BuildingKind.Storage ? Keep(world, building, definition, network) : null);
+            definition.Kind == BuildingKind.Storage ? Keep(world, building, definition, network) : null,
+            max != null && max.AffordableLevels > max.Levels
+                ? new MaxMoreDto(max.AffordableLevels, Math.Round(max.AffordableCost), Math.Round(max.AffordableShare, 3), max.Resource, Math.Round(max.Have, 2), Math.Round(max.Need, 2), max.Output)
+                : null);
     }
 
     private static StorageKeepDto Keep(GameWorld world, Building storage, BuildingDefinition definition, Network? network)

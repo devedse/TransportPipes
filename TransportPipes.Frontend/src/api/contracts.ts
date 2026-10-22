@@ -520,6 +520,23 @@ export interface BuildingDetailsDto {
   evolve: { into: string; cost: number; problem: string | null } | null;
   /** A storage: what it keeps of each resource, and whether a full trading post sends it the rest */
   keep: { keeps: Record<string, number>; tradingPostFull: boolean } | null;
+  /**
+   * Smart Max: maxAffordableLevels are the levels its pipes can feed; these are the levels the gold could buy beyond
+   * them, how fast it would run there, and what holds it back
+   */
+  maxMore: MaxMoreDto | null;
+}
+
+export interface MaxMoreDto {
+  levels: number;
+  cost: number;
+  /** 0..1: how fast it would run at that level */
+  share: number;
+  resource: string | null;
+  /** Per minute: what its pipes bring of that input (or take of that output), and what it would need */
+  have: number;
+  need: number;
+  output: boolean;
 }
 
 /** A teleporter station (GDD §11.4) */
