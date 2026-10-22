@@ -887,6 +887,22 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
+    /// Whether a member's buildings that use a good still make more than they cost when it comes from a House: what they
+    /// make at the base price against that good at the House's price and their other inputs at the base
+    /// </summary>
+    private bool PaysAtHousePrice(YardMember member, string resource)
+    {
+        if (member.Network is not { } network)
+        {
+            return true;
+        }
+        var users = network.Nodes.Where(t => t.Kind == FlowNodeKind.Building && t.Owner == member.Company.Id && t.In.ContainsKey(resource)).ToList();
+        // A Lab (research points have no price) always pays
+        return users.Count == 0 || users.Any(t => t.Out.Keys.Any(o => !Content.Resources.ContainsKey(o))
+            || t.Out.Sum(o => o.Value * BasePrice(o.Key)) > t.In.Sum(i => i.Value * (i.Key == resource ? HouseSellPrice(i.Key) : BasePrice(i.Key))));
+    }
+
+    /// <summary>
     /// What one building of a member uses of a good at full speed, measured at the gate (with what its own pipe loses on
     /// the way): the hungriest one, which a House feeds fully
     /// </summary>
@@ -940,6 +956,14 @@ public sealed partial class GameWorld
                 if (IsLandGood(resource))
                 {
                     LandGoodHouses(members, resource, spare, maySell);
+                }
+                // A House sells a good only where it pays the buyer: none of its buildings would run at a loss on it
+                for (var b = 0; b < members.Count; b++)
+                {
+                    if (!members[b].Company.IsNpc && maySell[b] > 0 && !PaysAtHousePrice(members[b], resource))
+                    {
+                        maySell[b] = 0;
+                    }
                 }
                 Record(Share(spare, lacks, (s, b) => members[s].Company.IsNpc && !members[b].Company.IsNpc && Allowed(s, b), buyerCap: maySell));
                 continue;

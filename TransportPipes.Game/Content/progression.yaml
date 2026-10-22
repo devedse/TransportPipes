@@ -51,7 +51,7 @@ hubSpread: 2.5
 # Playing together (docs/multiplayer-design.html): prices are multiples of a good's base price
 together:
   # The one price between players: the Yard, links, contracts and the Exchange
-  playerPrice: 1.75
+  playerPrice: 1.3
   # Houses (NPC companies) buy at this many times what the hub pays you (at most this times the base) and sell at houseSell
   houseBuy: 1.15
   houseSell: 2.0

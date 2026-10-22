@@ -58,7 +58,7 @@ public class LinkFacts
         var goldAna = ana.Gold;
         var energySales = game.World.NetworkOf(game.World.BuildingsOf(ana.Id).Single(t => t.Type == "windMoily").Id)!.Solution.GoldPerMinute[ana.Id];
         game.Pass(10);
-        Assert.AreEqual(goldAna + 10 * (energySales + link.Rate * 1.75), ana.Gold, 1e-3, "Ana is paid the player price for what arrives at Ben's gate");
+        Assert.AreEqual(goldAna + 10 * (energySales + link.Rate * 1.3), ana.Gold, 1e-3, "Ana is paid the player price for what arrives at Ben's gate");
     }
 
     [TestMethod]

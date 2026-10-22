@@ -127,6 +127,12 @@ public sealed class Company : Entity
     /// <summary>What its crew calls its player ("Ben"): the name the seat it took was kept for (F9)</summary>
     public string? KnownAs { get; set; }
 
+    /// <summary>
+    /// The stranger next door (step 6): it came alone and lives in the small station beside a crew's, sharing their Yard
+    /// and project
+    /// </summary>
+    public bool SeatedNextDoor { get; set; }
+
     /// <summary>The House that keeps an asleep company's trades going (v1.2 §9), and whether its partners heard on day 23</summary>
     public StandIn? StandIn { get; set; }
     public bool StandInAnnounced { get; set; }

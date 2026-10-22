@@ -48,11 +48,11 @@ public class YardFacts
         var atTheGate = game.World.NetworkOf(mine.Id)!.GateFlows.Where(t => t.Import).Sum(t => t.Sent);
         Assert.IsGreaterThan(10, atTheGate, "B's own pipe loses a little between its gate and its mine");
         Assert.AreEqual(atTheGate, ExportedBy(game, moily, "energy"), 1e-6, "A sends that to the Yard");
-        Assert.AreEqual(1.75, game.World.PlayerPrice("energy"));
+        Assert.AreEqual(1.3, game.World.PlayerPrice("energy"));
 
         var goldA = a.Gold;
         var goldB = b.Gold;
-        var paid = atTheGate * 1.75;
+        var paid = atTheGate * 1.3;
         var oreSales = game.World.NetworkOf(mine.Id)!.Solution.GoldPerMinute[b.Id] + paid;
         var energySales = game.World.NetworkOf(moily.Id)!.Solution.GoldPerMinute[a.Id];
         game.Pass(10);
@@ -447,7 +447,7 @@ public class YardFacts
         var (game, a, b, _, _) = Neighbours();
         Assert.IsTrue(game.World.ProposeContract(a.Id, b.Id, selling: true, "energy", 5, 99, 1).Success);
         var contract = game.World.Contracts.Single();
-        Assert.AreEqual(1.75, contract.Price, "one price between players");
+        Assert.AreEqual(1.3, contract.Price, "one price between players");
         Assert.IsTrue(game.World.AcceptContract(b.Id, contract.Id).Success);
 
         game.Pass(60);

@@ -37,7 +37,7 @@ public class ExchangeFacts
         // Whatever prices they name, players trade at the one player price
         Assert.IsTrue(game.World.PlaceExchangeOrder(buyer.Id, "ironOre", false, 300, 5).Success);
         var price = game.World.PlayerPrice("ironOre");
-        Assert.AreEqual(3 * 1.75, price);
+        Assert.AreEqual(3 * 1.3, price, 1e-9);
 
         Assert.AreEqual(goldSeller + 300 * price * 0.95, seller.Gold, 1e-6, "5% fee");
         Assert.AreEqual(goldBuyer - 300 * price, buyer.Gold, 1e-6);

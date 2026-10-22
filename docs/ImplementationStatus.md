@@ -363,7 +363,11 @@ is the design's call (yes).
 - Step 5 (in progress): dealt land (rules 3: a world made before keeps its land; the test server starts a new one),
   kits that make the seat's good, the Build-menu line and the Deposits overlay by seat, the seat card, Houses' land
   sales at 1.4 with the floor and the station backstop, the project paying the one price, Loady's chain steps on dealt
-  land. The light bots (LightBotSimulation, TP_BALANCE=1) decide 1.3 or 1.5.
+  land. The light bots (LightBotSimulation, TP_BALANCE=1; docs/design-notes/after-playtest/light-bots.md) chose
+  1.3: the only price at which a factory buying its ore from a neighbour doesn't lose. Their open finding: trade
+  between friends stays near 2%, because the iron chain on every estate is Era 1's best and fills the slots first.
+- Step 6: the stranger next door (on a small server someone who comes alone lives in the small station beside a crew,
+  sharing its Yard and project) and the first-comer's line.
 
 ### After v1
 

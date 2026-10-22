@@ -57,7 +57,7 @@ public class EraTechFacts
         Assert.AreEqual(1.1, game.World.ShowroomFactor(a, "energy"));
         Assert.AreEqual(1, game.World.ShowroomFactor(a, "wood"));
         Assert.AreEqual(price * 1.1, game.World.HubBuyPrice(a, "energy"), 1e-9);
-        Assert.AreEqual(game.World.PlayerPrice("energy"), 1.75, "players pay each other the one price");
+        Assert.AreEqual(1.3, game.World.PlayerPrice("energy"), "players pay each other the one price");
     }
 
     [TestMethod]

@@ -506,11 +506,25 @@ public sealed partial class GameWorld
     /// The corner station a small station is joined to (v1.2 §6): a crew that lives in or holds three or more seats of
     /// the corner station and seats of the small one next to it makes them one big station, with one Yard
     /// </summary>
+    /// <summary>The corner station beside a small one where a crew lives (it fills three seats or more), if any</summary>
+    public StationRef? CrewCornerNextTo(StationRef small) =>
+        !small.IsSmall ? null
+        : WorldLayout.CornersNextTo(small.Index).Select(t => new StationRef(small.District, t))
+            .Where(t => CrewSeats(t).Any(c => c.Seats >= CrewClosesStationAt))
+            .Select(t => (StationRef?)t)
+            .FirstOrDefault();
+
     public StationRef? JoinedTo(StationRef small)
     {
         if (!small.IsSmall)
         {
             return null;
+        }
+        // The stranger next door (step 6): a small station with a player the game seated beside a crew shares its Yard
+        if (StationSeats(small).Any(t => Estate(t.District, t.Slot)?.OwnerId is { } id && Company(id) is { SeatedNextDoor: true })
+            && CrewCornerNextTo(small) is { } crewCorner)
+        {
+            return crewCorner;
         }
         var here = CrewSeats(small).Select(t => t.Crew.Id).ToHashSet();
         if (here.Count == 0)
@@ -711,6 +725,9 @@ public sealed partial class GameWorld
                     }
                     var residents = StationSeats(station).Count(t => Estate(t.District, t.Slot)?.OwnerId is { } o && Company(o) is { IsNpc: false });
                     var near = ActiveResidents(station).Count(t => Math.Abs(t.Level - level) <= 10);
+                    // The stranger next door (step 6): on a small server, someone who comes alone lives beside a crew
+                    var nextDoor = placement == Placement.Neighbours && SmallMode && newcomer?.CrewId == null && CrewCornerNextTo(station) is { } crewCorner
+                        && ActiveResidents(crewCorner).Count > 0;
                     var fits = placement switch
                     {
                         Placement.OwnStation => residents == 0,
@@ -719,7 +736,7 @@ public sealed partial class GameWorld
                     };
                     if (fits)
                     {
-                        candidates.Add((free[0], near, residents, free.Count, rank, station.IsSmall));
+                        candidates.Add((free[0], near + (nextDoor ? 1000 : 0), residents, free.Count, rank, station.IsSmall));
                     }
                 }
             }

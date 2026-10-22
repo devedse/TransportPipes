@@ -394,6 +394,18 @@ public sealed partial class GameWorld
 
         AddYardGate(company, estate);
 
+        // The stranger next door (step 6): alone, in the small station beside a crew's, it shares their Yard and project
+        if (code == null && SmallMode && estate.Station.IsSmall && CrewCornerNextTo(estate.Station) != null)
+        {
+            company.SeatedNextDoor = true;
+        }
+        // The first-comer: alone on an empty server, it reads once who comes next
+        if (!_companies.Values.Any(t => !t.IsNpc && t.Id != company.Id && IsActive(t)))
+        {
+            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Neighbour,
+                $"You're the first in {WorldNames.District(estate.District)}. The next player who comes alone will live next to you."));
+        }
+
         foreach (var neighbour in _companies.Values.Where(t => t.District == company.District && t.Id != company.Id && !t.IsNpc))
         {
             neighbour.Report.NewNeighbours.Add(company.Name);

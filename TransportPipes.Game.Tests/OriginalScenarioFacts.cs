@@ -264,8 +264,8 @@ public class OriginalScenarioFacts
         s.Map("   M+T   ", s.B);
 
         var gold = s.Solution(s.One("windMoily")).GoldPerMinute;
-        Assert.AreEqual(10 * 1.75, gold[s.A.Id], Tolerance);
-        Assert.AreEqual(-10 * 1.75 + 12 * 3, gold[s.B.Id], Tolerance);
+        Assert.AreEqual(10 * 1.3, gold[s.A.Id], Tolerance);
+        Assert.AreEqual(-10 * 1.3 + 12 * 3, gold[s.B.Id], Tolerance);
     }
 
     // ---------------------------------------------------------------- ConnectionFinderFacts
