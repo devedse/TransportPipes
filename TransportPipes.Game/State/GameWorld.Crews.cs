@@ -759,6 +759,13 @@ public sealed partial class GameWorld
         static int Distance(TileRect a, TileRect b) => Math.Abs(a.X0 + a.X1 - b.X0 - b.X1) + Math.Abs(a.Y0 + a.Y1 - b.Y0 - b.Y1);
     }
 
+    /// <summary>How many members of the crew that fills a corner station played there in the last three days</summary>
+    private int CrewPlayingIn(StationRef corner) =>
+        CrewSeats(corner).Where(t => t.Seats >= CrewClosesStationAt)
+            .Select(t => ActiveResidents(corner).Count(c => c.CrewId == t.Crew.Id))
+            .DefaultIfEmpty(0)
+            .Max();
+
     /// <summary>Players who opened the game in the last three days living in a station, with their levels</summary>
     private List<Company> ActiveResidents(StationRef station) =>
         StationSeats(station)
@@ -809,9 +816,13 @@ public sealed partial class GameWorld
                     }
                     var residents = StationSeats(station).Count(t => Estate(t.District, t.Slot)?.OwnerId is { } o && Company(o) is { IsNpc: false });
                     var near = ActiveResidents(station).Count(t => Math.Abs(t.Level - level) <= 10);
-                    // The stranger next door (step 6): on a small server, someone who comes alone lives beside a crew
-                    var nextDoor = placement == Placement.Neighbours && SmallMode && newcomer?.CrewId == null && CrewCornerNextTo(station) is { } crewCorner
-                        && ActiveResidents(crewCorner).Count > 0;
+                    // The stranger next door (step 6): on a small server, someone who comes alone lives beside a crew that
+                    // plays, the one with the most members who played in the last three days first, held seats not
+                    // counted (run 3: Mia-B was seated beside Ben's crew of one and its three held seats while Ana and Cleo
+                    // played next door to another small station; Ben stopped on day 3)
+                    var crewPlaying = placement == Placement.Neighbours && SmallMode && newcomer?.CrewId == null && CrewCornerNextTo(station) is { } crewCorner
+                        ? CrewPlayingIn(crewCorner) : 0;
+                    var nextDoor = crewPlaying >= 1;
                     var fits = placement switch
                     {
                         Placement.OwnStation => residents == 0,
@@ -820,7 +831,7 @@ public sealed partial class GameWorld
                     };
                     if (fits)
                     {
-                        candidates.Add((free[0], near + (nextDoor ? 1000 : 0), residents, free.Count, rank, station.IsSmall));
+                        candidates.Add((free[0], near + (nextDoor ? 1000 + 10 * crewPlaying : 0), residents, free.Count, rank, station.IsSmall));
                     }
                 }
             }

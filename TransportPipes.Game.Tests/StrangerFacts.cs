@@ -31,6 +31,44 @@ public class StrangerFacts
     }
 
     [TestMethod]
+    public void TheStrangerSitsBesideTheCrewThatPlays()
+    {
+        // Run 3: Ben's crew of one held three seats in one corner, Ana's crew played in another; Mia-B was seated beside
+        // Ben's, and he stopped on day 3. Members who played count, held seats don't.
+        var game = new TestGame();
+        game.World.TenantsEnabled = true;
+        game.World.ProjectsEnabled = true;
+        game.World.OpenNextDistrict();
+        var district = new DistrictCoord(0, 0);
+        var corners = WorldLayout.Stations(district).Where(t => !t.IsSmall).ToList();
+        var smalls = WorldLayout.Stations(district).Where(t => t.IsSmall).ToList();
+        // Two corners across from each other (no small station between both), each tried as Ben's: the old rule took
+        // whichever came first in the seat order
+        var (bens, anas) = corners.SelectMany(a => corners.Select(b => (a, b)))
+            .Where(t => t.a != t.b && !smalls.Any(m => WorldLayout.CornersNextTo(m.Index).Contains(t.a.Index) && WorldLayout.CornersNextTo(m.Index).Contains(t.b.Index)))
+            .OrderBy(t => smalls.Where(m => WorldLayout.CornersNextTo(m.Index).Contains(t.a.Index)).Min(m => WorldLayout.StationSlots(m.Index).Min()))
+            .First();
+        corners = [bens, anas];
+        var ben = game.NewCompany("Ben", slot: WorldLayout.StationSlots(corners[0].Index)[0]);
+        game.World.FoundCrew(ben.Id, "Ana and Ben", "kettle", "#236b69", "#c9963a", 3);
+        var ana = game.NewCompany("Ana", slot: WorldLayout.StationSlots(corners[1].Index)[0]);
+        var (_, crew) = game.World.FoundCrew(ana.Id, "Teapot Four", "kettle", "#236b69", "#c9963a", 2);
+        var cleo = game.NewCompany("Cleo");
+        Assert.IsTrue(game.World.JoinCrew(cleo.Id, crew!.Holds[0].Code).Success);
+        game.Pass(24 * 60);
+        foreach (var company in new[] { ana, ben, cleo })
+        {
+            company.LastSeenAt = game.World.Now;
+        }
+
+        var mia = game.World.CreateCompany(99, "Mia", "#e84393", seat: game.World.SuggestSeat(Placement.Neighbours));
+
+        var home = WorldLayout.StationOf(mia.District, mia.Slot);
+        Assert.IsTrue(mia.SeatedNextDoor);
+        Assert.IsTrue(WorldLayout.CornersNextTo(home.Index).Contains(corners[1].Index), $"beside Ana's crew of two who play: {home}");
+    }
+
+    [TestMethod]
     public void AStrangerWhoseYardSplitsKeepsTheStagesSheStoodWith()
     {
         // Run 3: Capital W shared Capital SW's project until its held seats lapsed (day 17); then it began again at the
