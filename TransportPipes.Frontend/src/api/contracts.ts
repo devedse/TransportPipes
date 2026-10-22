@@ -134,6 +134,8 @@ export interface LandSeatDto {
   house: boolean;
   you: boolean;
   goods: string[];
+  /** Of its land goods, those its owner makes now */
+  makes: string[];
 }
 
 export type ActivityStage = "active" | "resting" | "dormant" | "asleep";

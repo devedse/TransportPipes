@@ -31,6 +31,10 @@ public sealed class StationProject : Entity
     public Dictionary<string, double> Delivered { get; set; } = new();
     public string? Keystone { get; set; }
 
+    /// <summary>Since when the keystone is wanted, and the keystones this stage passed over because nobody brought any</summary>
+    public DateTime KeystoneSince { get; set; }
+    public HashSet<string> PassedKeystones { get; set; } = new();
+
     /// <summary>This stage's credit per company (the gold worth it delivered, the keystone counting 20% more)</summary>
     public Dictionary<long, double> Credit { get; set; } = new();
 
@@ -84,6 +88,9 @@ public sealed partial class GameWorld
 
     /// <summary>A counted resident's part of a basket comes off after this long without a session (F4)</summary>
     private static readonly TimeSpan BasketShrinksAfter = TimeSpan.FromDays(3);
+
+    /// <summary>A keystone nobody brought any of for this long is passed over for another</summary>
+    private static readonly TimeSpan KeystoneStallsAfter = TimeSpan.FromDays(2);
 
     /// <summary>A stage's made goods are this many hours of the station's spare of them (at least of one level-1 building)</summary>
     private static double StageHours(ProjectStage stage) => stage switch
@@ -276,7 +283,7 @@ public sealed partial class GameWorld
     /// a keystone, a good nobody makes yet that one of them can make with one building on land they have or can buy
     /// (none when none qualifies). Stable per station and stage.
     /// </summary>
-    private (List<string> Made, string? Keystone) Recipe(StationRef station, ProjectStage stage, List<Company> residents)
+    private (List<string> Made, string? Keystone) Recipe(StationRef station, ProjectStage stage, List<Company> residents, IReadOnlySet<string>? passed = null)
     {
         var horizon = StageHorizon(stage);
         var spare = StationSpare(station, residents);
@@ -305,7 +312,7 @@ public sealed partial class GameWorld
         }
         var everybodyMakes = made.Values.SelectMany(t => t).ToHashSet();
         var keystone = Content.Resources.Values
-            .Where(t => t.Era <= Era && t.Id != "energy" && !goods.Contains(t.Id) && !everybodyMakes.Contains(t.Id) && Makers(t.Id, residents, horizon, made).Count > 0)
+            .Where(t => t.Era <= Era && t.Id != "energy" && !goods.Contains(t.Id) && !everybodyMakes.Contains(t.Id) && passed?.Contains(t.Id) != true && Makers(t.Id, residents, horizon, made).Count > 0)
             .OrderBy(t => t.Tier).ThenBy(t => Order(t.Id), StringComparer.Ordinal)
             .Select(t => t.Id)
             .FirstOrDefault();
@@ -337,6 +344,7 @@ public sealed partial class GameWorld
         project.Credit = new Dictionary<long, double>();
         project.Basket = new Dictionary<string, double>();
         project.Keystone = null;
+        project.PassedKeystones = new HashSet<string>();
         project.Counted = new Dictionary<long, double>();
         if (stage is ProjectStage.Done)
         {
@@ -374,6 +382,7 @@ public sealed partial class GameWorld
         {
             project.Basket[keystone] = Math.Ceiling(KeystoneHours * 60 * OneBuildingRate(keystone));
             project.Keystone = keystone;
+            project.KeystoneSince = LastTick;
         }
         var keystoneWorth = keystone != null ? project.Basket[keystone] * BasePrice(keystone) : 0;
         if (madeWorth > 1e-9 && madeWorth + keystoneWorth > cap)
@@ -418,11 +427,20 @@ public sealed partial class GameWorld
             {
                 var residents = active;
                 var made = residents.ToDictionary(t => t.Id, t => BuildingsOf(t.Id).Where(b => !b.UnderConstruction).SelectMany(b => Content.Building(b.Type).Out.Keys).ToHashSet());
-                if (Makers(keystone, residents, StageHorizon(project.Stage), made).Count == 0)
+                // A keystone nobody brought any of for two days is passed over: a stage never waits on the one resident
+                // who could make it and doesn't (run 2: Capital NW's coal lay on Jo's land, and Jo never built a Coal Pit)
+                var since = project.KeystoneSince > project.StageStartedAt ? project.KeystoneSince : project.StageStartedAt;
+                var stalled = project.Delivered.GetValueOrDefault(keystone) < 1e-6 && LastTick - since >= KeystoneStallsAfter;
+                if (stalled || Makers(keystone, residents, StageHorizon(project.Stage), made).Count == 0)
                 {
-                    var (_, next) = Recipe(station, project.Stage, residents);
+                    if (stalled)
+                    {
+                        project.PassedKeystones.Add(keystone);
+                    }
+                    var (_, next) = Recipe(station, project.Stage, residents, project.PassedKeystones);
                     project.Basket.Remove(keystone);
                     project.Keystone = next != null && !project.Basket.ContainsKey(next) ? next : null;
+                    project.KeystoneSince = LastTick;
                     if (project.Keystone is { } chosen)
                     {
                         project.Basket[chosen] = Math.Ceiling(KeystoneHours * 60 * OneBuildingRate(chosen));

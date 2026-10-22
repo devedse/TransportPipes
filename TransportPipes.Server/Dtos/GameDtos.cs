@@ -125,7 +125,8 @@ public record CompanyDto(
 /// <summary>Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there</summary>
 public record LandDto(IReadOnlyList<string> Goods, IReadOnlyList<LandSeatDto> Station);
 
-public record LandSeatDto(int Slot, string? Owner, bool House, bool You, IReadOnlyList<string> Goods);
+/// <param name="Makes">Of its land goods, those its owner makes now (a finished building of theirs makes it)</param>
+public record LandSeatDto(int Slot, string? Owner, bool House, bool You, IReadOnlyList<string> Goods, IReadOnlyList<string> Makes);
 
 /// <summary>A company's crew as the top bar and the map show it</summary>
 public record CrewBadgeDto(long Id, string Name, string Emblem, string Color, string Color2, int Members);

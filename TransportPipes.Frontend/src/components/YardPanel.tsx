@@ -231,13 +231,23 @@ export function YardPanel() {
                   <div className="resident-name">
                     <span className="dot" style={{ background: r.color }} />
                     <strong>{r.id === company.id ? "You" : r.name}</strong>
-                    {r.isNpc && (
+                    {r.isNpc ? (
                       <span
                         className="badge house"
                         title="A House: an NPC company that trades with the station"
                       >
                         ⚙ House
                       </span>
+                    ) : (
+                      r.id !== company.id && (
+                        // Plainly a person (run 2: Mia took her neighbour Jo for "a House/NPC?")
+                        <span
+                          className="badge player"
+                          title="A player like you: what you trade with them is real"
+                        >
+                          a player
+                        </span>
+                      )
                     )}
                     <span className="muted small">
                       Lv {r.level}

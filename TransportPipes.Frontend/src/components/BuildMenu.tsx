@@ -1,5 +1,5 @@
 import { gameClient } from "../app/client";
-import { formatAmount, formatDuration } from "../app/format";
+import { formatAmount, formatDuration, possessive } from "../app/format";
 import type { BuildingDefinition, LandDto } from "../api/contracts";
 import { CATEGORY_NAMES, CATEGORY_ORDER, type Content } from "../game/content";
 import { usePhone } from "../app/usePhone";
@@ -69,20 +69,38 @@ function landLine(definition: BuildingDefinition, land: LandDto | null, content:
   }
   const word = content.resourceName(good).toLowerCase().replace(" ore", "");
   const seats = land.station.filter((t) => t.goods.includes(good));
-  const players = seats.filter((t) => t.owner !== null && !t.house).map((t) => t.owner!);
+  // "Makes" only when someone does (run 2: Mia was told Jo makes coal, and Jo never built a Coal Pit)
+  const makers = seats
+    .filter((t) => t.owner !== null && !t.house && t.makes.includes(good))
+    .map((t) => t.owner!);
+  const holders = seats
+    .filter((t) => t.owner !== null && !t.house && !t.makes.includes(good))
+    .map((t) => t.owner!);
   const houses = seats.filter((t) => t.owner !== null && t.house).map((t) => `${t.owner} ⚙`);
   const free = seats.some((t) => t.owner === null);
   const who = [
-    players.length > 0 && `${names(players)} ${players.length === 1 ? "makes" : "make"} it`,
+    makers.length > 0 && `${names(makers)} ${makers.length === 1 ? "makes" : "make"} it`,
     houses.length > 0 && `${names(houses)} ${houses.length === 1 ? "sells" : "sell"} it`,
-    players.length === 0 && houses.length === 0 && free && "a free seat of your station holds it",
+    makers.length === 0 &&
+      holders.length > 0 &&
+      `it lies on ${names(holders)}${possessive(names(holders))} land, but nobody makes it yet`,
+    makers.length === 0 &&
+      holders.length === 0 &&
+      houses.length === 0 &&
+      free &&
+      "a free seat of your station holds it",
   ]
     .filter(Boolean)
     .join(", and ");
   const user = content.buildings
     .filter((t) => t.buildable && Object.keys(t.in).includes(good) && t.unlock.era <= 1)
     .sort((a, b) => a.unlock.level - b.unlock.level)[0];
-  return `There's no ${word} on your land.${who === "" ? "" : ` ${who.charAt(0).toUpperCase()}${who.slice(1)}`}${user !== undefined ? `: build ${/^[aeiou]/i.test(user.name) ? "an" : "a"} ${user.name}, and its ${word} comes by itself` : ""}.`;
+  // Plainly: the user building uses the good, and the Yard brings it (Mia: "I don't understand how a smelter gives me coal")
+  const use =
+    user !== undefined && (makers.length > 0 || houses.length > 0)
+      ? `: ${/^[aeiou]/i.test(user.name) ? "an" : "a"} ${user.name} uses it, and the Yard brings it to one by itself`
+      : "";
+  return `There's no ${word} on your land.${who === "" ? "" : ` ${who.charAt(0).toUpperCase()}${who.slice(1)}`}${use}.`;
 }
 
 /**

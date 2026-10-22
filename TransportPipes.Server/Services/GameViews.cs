@@ -122,8 +122,11 @@ public static partial class GameViews
         var seats = world.BigStation(home.Station).SelectMany(GameWorld.StationSeats).Select(seat =>
         {
             var owner = world.Estate(seat.District, seat.Slot)?.OwnerId is { } id ? world.Company(id) : null;
-            return new LandSeatDto(seat.Slot, owner == null ? null : world.NameFor(owner, me), owner?.IsNpc ?? false, owner?.Id == me.Id,
-                world.Generator.LandOf(seat.District, seat.Slot));
+            var goods = world.Generator.LandOf(seat.District, seat.Slot);
+            // "Makes" only when someone does (run 2: Mia was told Jo makes coal; Jo never built a Coal Pit)
+            var makes = owner == null ? [] : world.BuildingsOf(owner.Id).Where(t => !t.UnderConstruction)
+                .SelectMany(t => world.Content.Building(t.Type).Out.Keys).Where(goods.Contains).Distinct().ToList();
+            return new LandSeatDto(seat.Slot, owner == null ? null : world.NameFor(owner, me), owner?.IsNpc ?? false, owner?.Id == me.Id, goods, makes);
         }).ToList();
         return new LandDto(world.Generator.LandOf(home.District, home.Slot), seats);
     }

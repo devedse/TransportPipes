@@ -197,6 +197,44 @@ public class ProjectFacts
     }
 
     [TestMethod]
+    public void AKeystoneNobodyBringsIsPassedOverAfterTwoDays()
+    {
+        // Run 2: Capital NW's keystone was coal, on the land of a resident who never built a Coal Pit; it sat at 0 for
+        // 24 days. A keystone nobody brings any of for two days is passed over for another, or dropped.
+        var game = new TestGame(content: TestGame.PlainContent);
+        game.World.ProjectsEnabled = true;
+        var ana = game.NewCompany("Ana", level: 3);
+        var ben = game.NewCompany("Ben", level: 3);
+        foreach (var company in new[] { ana, ben })
+        {
+            game.ConnectToGate(company, game.Build(company, "windMoily"));
+            company.MeasuredIncome = 100;
+        }
+        game.Pass(3);
+        var station = game.EstateOf(ana).Station;
+        var project = game.World.ProjectOf(station);
+        project.DeliveredAt[ana.Id] = game.World.Now;
+        project.DeliveredAt[ben.Id] = game.World.Now;
+        game.World.FinishStageNow(station);
+        project.Basket = new Dictionary<string, double> { ["energy"] = 1_000_000, ["coal"] = 500 };
+        project.Delivered = new Dictionary<string, double>();
+        project.Keystone = "coal";
+        project.KeystoneSince = game.World.Now;
+
+        // Both play every day; nobody brings coal
+        for (var day = 0; day < 3; day++)
+        {
+            ana.LastSeenAt = ben.LastSeenAt = game.World.Now;
+            game.Pass(24 * 60);
+        }
+
+        Assert.AreNotEqual("coal", project.Keystone, "passed over");
+        Assert.IsFalse(project.Basket.ContainsKey("coal"), "and out of the basket");
+        CollectionAssert.Contains(project.PassedKeystones.ToList(), "coal", "and not chosen again this stage");
+        Assert.AreEqual(ProjectStage.WaterTower, project.Stage, "the energy still has to come");
+    }
+
+    [TestMethod]
     public void EveryoneWithSpareHelpsAtOnce()
     {
         var game = new TestGame(content: TestGame.PlainContent);

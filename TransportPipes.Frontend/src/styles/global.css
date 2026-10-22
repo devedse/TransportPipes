@@ -1865,6 +1865,14 @@ select {
   color: #5b4b33;
 }
 
+.badge.player {
+  font-size: 0.75em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #d8ece6;
+  color: #1f5c57;
+}
+
 .slider {
   width: 100%;
   margin: 4px 0;
