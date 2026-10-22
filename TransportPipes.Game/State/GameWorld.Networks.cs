@@ -367,7 +367,8 @@ public sealed partial class GameWorld
                     {
                         VisitBuilding(buildingId);
                     }
-                    else if (_conductors.TryGetValue(next, out var conductor) && Conducts(conductor))
+                    // A pipe runs on under a building that stands on it (goods still never pass through the building)
+                    if (_conductors.TryGetValue(next, out var conductor) && Conducts(conductor))
                     {
                         VisitTile(next);
                     }

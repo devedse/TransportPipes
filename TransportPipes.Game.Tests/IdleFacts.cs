@@ -148,4 +148,27 @@ public class IdleFacts
         StringAssert.StartsWith(status.Fix!.Label, "Lay the pipe to your Iron Mine");
         Assert.AreEqual(mine.Id, status.Fix.Pipe!.Target!.Id);
     }
+
+    [TestMethod]
+    public void AFactorySetOnTheLineKeepsThePipeRunningUnderIt()
+    {
+        // Run 2: Ana and Cleo removed a pipe tile to set a factory into the line, which split it. Now a building may stand
+        // on its owner's pipe, and the pipe runs on under it.
+        var (game, company, map) = Setup("W+++T");
+        var moily = map[(0, 0)];
+        var post = map[(4, 0)];
+        var spot = game.Local(company, 1 + 2, 1);
+        company.Gold = 1_000_000;
+        game.EstateOf(company).UnlockedParcels = -1;
+
+        var result = game.World.PlaceBuilding(company.Id, "smallFactory", spot);
+
+        Assert.IsTrue(result.Success, result.Error);
+        game.Pass(5);
+        var factory = game.World.BuildingsOf(company.Id).Single(t => t.Type == "smallFactory");
+        Assert.IsTrue(game.World.ConductorAt(spot) != null, "the pipe stays under it");
+        CollectionAssert.Contains(game.World.PipeReach(moily).Select(t => t.Id).ToList(), post.Id, "the moily still reaches the trading post");
+        CollectionAssert.Contains(game.World.PipeReach(moily).Select(t => t.Id).ToList(), factory.Id, "and the factory on the line");
+        Assert.AreEqual(IdleCause.None, game.World.IdleReasonOf(moily).Cause, "it sells what the factory doesn't take");
+    }
 }

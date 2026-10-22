@@ -585,9 +585,14 @@ public sealed partial class GameWorld
             {
                 return CommandResult.Fail("This parcel is still locked. Buy it first.");
             }
-            if ((_buildingAt.TryGetValue(tile, out var other) && other != ignoreBuilding) || _conductors.ContainsKey(tile))
+            // A building may stand on its owner's own pipe: the pipe runs on under it, so a factory set into a line
+            // doesn't split it (run 2: Ana and Cleo removed a tile to set a factory in, and lost half their income)
+            if ((_buildingAt.TryGetValue(tile, out var other) && other != ignoreBuilding)
+                || (_conductors.TryGetValue(tile, out var under) && !PipeMayRunUnder(company, definition, under)))
             {
-                return CommandResult.Fail("Something is already standing here.");
+                return CommandResult.Fail(_conductors.TryGetValue(tile, out var pipe) && pipe.Owner != company.Id
+                    ? "Someone else's pipe runs here."
+                    : "Something is already standing here.");
             }
             var terrain = Tile(tile).Terrain;
             if (!definition.Placement.Terrain.Contains(terrain))
@@ -620,6 +625,10 @@ public sealed partial class GameWorld
         }
         return CommandResult.Ok;
     }
+
+    /// <summary>Whether a building may stand on a pipe tile, the pipe running on under it: its owner's own plain pipe, for a building that isn't part of the pipe itself</summary>
+    private bool PipeMayRunUnder(Company company, BuildingDefinition definition, Conductor conductor) =>
+        conductor.Kind == ConductorKind.Pipe && conductor.Owner == company.Id && !definition.IsConductor;
 
     /// <summary>Deep buildings stand in the dug out caverns under your own estate</summary>
     private CommandResult CanPlaceDeep(Estate estate, BuildingDefinition definition, List<TilePos> footprint, long? ignoreBuilding)

@@ -1,4 +1,4 @@
-import type { BuildingDefinition, BuildingDto, CompanyDto, EstateDto } from "../api/contracts";
+import type { BuildingDefinition, BuildingDto, BuildingKind, CompanyDto, EstateDto } from "../api/contracts";
 import type { Content } from "./content";
 import { DEEP_OFFSET, ESTATE_SIZE, isDeep, isParcelUnlocked, parcelOf, zoneAt } from "./layout";
 import type { WorldModel } from "./world";
@@ -135,6 +135,17 @@ export function locationMultiplier(
 }
 
 /** Whether a company can put this building with its top-left tile at (x, y) */
+/** Buildings that are part of the pipe themselves (the server's IsConductor): they never stand on a pipe */
+const PART_OF_THE_PIPE: ReadonlySet<BuildingKind> = new Set<BuildingKind>([
+  "gate",
+  "valve",
+  "priorityValve",
+  "tollMeter",
+  "powerLine",
+  "cargoDepot",
+  "deepLift",
+]);
+
 export function canPlace(
   content: Content,
   world: WorldModel,
@@ -199,11 +210,22 @@ export function canPlace(
         }
       }
       const building = world.buildingAt(tx, ty);
+      // A building may stand on your own pipe: the pipe runs on under it (run 2: a factory set into a line split it)
+      const under = world.conductorAt(tx, ty);
+      const pipeRunsUnder =
+        under !== undefined &&
+        under.kind === "pipe" &&
+        under.owner === company.id &&
+        !PART_OF_THE_PIPE.has(definition.kind);
       if (
         (building !== undefined && building.id !== ignoreBuilding) ||
-        world.conductorAt(tx, ty) !== undefined
+        (under !== undefined && !pipeRunsUnder)
       ) {
-        return fail("Something is in the way");
+        return fail(
+          under !== undefined && under.owner !== company.id
+            ? "Someone else's pipe runs here"
+            : "Something is in the way",
+        );
       }
       const terrain = world.terrain(tx, ty);
       if (terrain === null) {
