@@ -139,6 +139,9 @@ public sealed class Company : Entity
     /// <summary>The return card has said once that the Yard sells its spare to neighbours by itself (run 2: "did I agree?")</summary>
     public bool YardSalesExplained { get; set; }
 
+    /// <summary>When its player's current (or last) session began; not stored (LastSeenAt moves on every tick they're online)</summary>
+    public DateTime SessionStartedAt { get; set; }
+
     /// <summary>When the research queue is empty and the Labs are free, the cheapest tech the points cover starts by itself</summary>
     public bool KeepResearching { get; set; } = true;
 

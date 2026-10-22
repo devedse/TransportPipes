@@ -313,7 +313,8 @@ export function App() {
             <SeasonPanel />
           </ErrorBoundary>
           <ErrorBoundary name="ReturnCard">
-            <ReturnCard />
+            {/* Over the drawn map, not a dark screen (run 2) */}
+            {mapShown && <ReturnCard />}
           </ErrorBoundary>
           <ErrorBoundary name="LoneCard">
             <LoneCard />

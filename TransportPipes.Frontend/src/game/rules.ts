@@ -135,6 +135,11 @@ export function locationMultiplier(
 }
 
 /** Whether a company can put this building with its top-left tile at (x, y) */
+/** What a deposit is called in a line ("iron ore", "metal") */
+function depositWord(deposit: string, content: Content): string {
+  return deposit === "anyMetal" ? "metal" : content.resourceName(deposit).toLowerCase();
+}
+
 /** Buildings that are part of the pipe themselves (the server's IsConductor): they never stand on a pipe */
 const PART_OF_THE_PIPE: ReadonlySet<BuildingKind> = new Set<BuildingKind>([
   "gate",
@@ -249,7 +254,7 @@ export function canPlace(
     }
     if (best === 0) {
       return fail(
-        `Needs a ${deposit === "anyMetal" ? "metal" : content.resourceName(deposit).toLowerCase()} deposit`,
+        `Needs ${/^[aeiou]/.test(depositWord(deposit, content)) ? "an" : "a"} ${depositWord(deposit, content)} deposit`,
       );
     }
     if (best < definition.placement.minRichness) {

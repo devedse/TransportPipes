@@ -129,6 +129,7 @@ public sealed class GameHub : Hub<IGameClient>
                 company.Touch();
             }
             company.LastSeenAt = world.Now;
+            company.SessionStartedAt = world.Now;
             world.SeenOn(company, browserId, ipDay);
             world.CountPlayDay(company);
             // Back from sleep (in place, or from the Quiet Isles)

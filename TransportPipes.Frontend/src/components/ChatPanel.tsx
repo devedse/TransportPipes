@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { gameClient } from "../app/client";
 import type { ChatChannelDto, ChatMessageDto } from "../api/contracts";
-import { useAppStore } from "../state/store";
+import { setState, useAppStore } from "../state/store";
 
 const KIND_ICONS: Record<ChatChannelDto["kind"], string> = {
   district: "🏘",
@@ -153,6 +153,7 @@ export function ChatPanel() {
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               (e.target as HTMLInputElement).blur();
+              setState({ chatOpen: false });
             }
           }}
         />

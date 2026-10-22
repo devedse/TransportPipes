@@ -57,7 +57,8 @@ const after = await page.evaluate(() => ({
 console.log("banner after the tap:", banner, "after", JSON.stringify(after));
 await shot("2-laid");
 
-const pass = head.pill?.includes("Stuck: energy can't leave") && head.fix?.startsWith("Lay the pipe to your") && banner === 0 && after.pill === null;
+// The fix lays a pipe: to your own building, or to the gate with a Send when the project or a neighbour wants it
+const pass = head.pill?.includes("Stuck: energy can't leave") && /^Lay the pipe (to your|and send to)/.test(head.fix ?? "") && banner === 0 && after.pill === null;
 console.log(pass ? "PASS" : "FAIL", "errors:", errors.length ? errors.join(" | ") : "none");
 await browser.close();
 process.exit(pass ? 0 : 1);

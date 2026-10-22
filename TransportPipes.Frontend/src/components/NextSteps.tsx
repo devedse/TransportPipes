@@ -40,7 +40,14 @@ function minutes(value: number) {
  * numbers and a button that does it or shows where
  */
 export function NextSteps() {
-  const steps = useAppStore((s) => s.nextSteps);
+  const latest = useAppStore((s) => s.nextSteps);
+  // The list holds still while the pointer is over it: a step that moved under the pointer was clicked by mistake
+  // (run 2: Ana built a Glassworks she didn't want)
+  const [held, setHeld] = useState<NextStepDto[] | null>(null);
+  const keyOf = (t: NextStepDto) => `${t.kind}-${t.building ?? t.title}`;
+  // Held: the same order, with each step's newest numbers, and a step that's done drops out
+  const steps =
+    held === null ? latest : held.flatMap((h) => latest.filter((l) => keyOf(l) === keyOf(h)).slice(0, 1));
   const company = useAppStore((s) => s.company);
   const companyAt = useAppStore((s) => s.companyAt);
   const [collapsed, setCollapsed] = useState(readCollapsed);
@@ -64,7 +71,12 @@ export function NextSteps() {
   };
 
   return (
-    <section className="panel next-steps" aria-label="Next steps">
+    <section
+      className="panel next-steps"
+      aria-label="Next steps"
+      onPointerEnter={() => setHeld(latest)}
+      onPointerLeave={() => setHeld(null)}
+    >
       <button className="next-steps-head" onClick={toggle} aria-expanded={!collapsed}>
         <span>Next steps</span>
         {collapsed && <span className="next-steps-peek">{steps[0]!.title}</span>}
@@ -75,10 +87,7 @@ export function NextSteps() {
           {steps.map((step, i) => {
             const short = step.cost > gold + 0.5;
             return (
-              <li
-                key={`${step.kind}-${step.building ?? step.title}`}
-                className={`next-step kind-${step.kind}`}
-              >
+              <li key={keyOf(step)} className={`next-step kind-${step.kind}`}>
                 <span className="next-step-icon" aria-hidden="true">
                   {ICONS[step.kind]}
                 </span>
@@ -139,6 +148,8 @@ export function NextSteps() {
                           ? "link small"
                           : "small"
                       }
+                      // Each its own name, for screen readers and the playtest's players alike
+                      aria-label={`${step.action === "research" ? "Open research" : step.action === "partner" ? "Plan the pipe" : "Show me"}: ${step.title}`}
                       onClick={() => void gameClient.showNextStep(step)}
                     >
                       {step.action === "research"

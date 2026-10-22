@@ -606,7 +606,7 @@ public sealed partial class GameWorld
             var best = footprint.Select(Tile).Where(t => DepositMatches(deposit, t.Deposit)).Select(t => t.Richness).DefaultIfEmpty(0).Max();
             if (best == 0)
             {
-                return CommandResult.Fail($"{definition.Name} needs a {DepositName(deposit)} deposit.");
+                return CommandResult.Fail($"{definition.Name} needs {(DepositName(deposit) is var name && "aeiou".Contains(name[0]) ? "an" : "a")} {DepositName(deposit)} deposit.");
             }
             if (best < definition.Placement.MinRichness)
             {
@@ -653,7 +653,7 @@ public sealed partial class GameWorld
             var best = footprint.Select(Tile).Where(t => DepositMatches(deposit, t.Deposit)).Select(t => t.Richness).DefaultIfEmpty(0).Max();
             if (best == 0)
             {
-                return CommandResult.Fail($"{definition.Name} needs a {DepositName(deposit)} deposit.");
+                return CommandResult.Fail($"{definition.Name} needs {(DepositName(deposit) is var name && "aeiou".Contains(name[0]) ? "an" : "a")} {DepositName(deposit)} deposit.");
             }
             if (best < definition.Placement.MinRichness)
             {

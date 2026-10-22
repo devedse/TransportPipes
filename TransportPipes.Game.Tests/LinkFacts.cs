@@ -158,13 +158,37 @@ public class LinkFacts
         game.Pass(73 * 60);
         Assert.IsNotNull(game.World.Link(link.Id), "it waits for Ana's next session");
 
-        ana.LastSeenAt = game.World.Now;
+        ana.LastSeenAt = ana.SessionStartedAt = game.World.Now;
         game.Pass(23 * 60);
         Assert.IsNotNull(game.World.Link(link.Id), "a day to answer");
         game.Pass(2 * 60);
 
         Assert.IsNull(game.World.Link(link.Id));
         Assert.AreEqual(gold, dee.Gold, 1e-6, "refunded");
+    }
+
+    [TestMethod]
+    public void AnOfferMadeWhileTheyPlayWaitsForTheirNextSession()
+    {
+        // Run 2: Mia offered Ana a link while Ana was playing; Ana's last-seen moved on with every tick of that session, so
+        // the day to answer started then, and the offer lapsed before her next session
+        var game = new TestGame(content: TestGame.PlainContent);
+        var ana = game.NewCompany("Ana", slot: 0);
+        var dee = game.NewCompany("Dee", slot: 8);
+        ana.SessionStartedAt = game.World.Now;
+        game.Pass(10);
+        var (offer, link) = game.World.OfferLink(dee.Id, ana.Id, "coal", selling: false);
+        Assert.IsTrue(offer.Success, offer.Error);
+
+        // Ana plays on a while (online: seen every tick), then leaves; 30 hours pass
+        for (var i = 0; i < 3; i++)
+        {
+            ana.LastSeenAt = game.World.Now;
+            game.Pass(5);
+        }
+        game.Pass(30 * 60);
+
+        Assert.IsNotNull(game.World.Link(link!.Id), "it waits for the session after the offer");
     }
 
     [TestMethod]

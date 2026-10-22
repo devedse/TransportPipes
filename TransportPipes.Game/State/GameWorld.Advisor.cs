@@ -886,7 +886,9 @@ public sealed partial class GameWorld
                 continue;
             }
             var target = building.Level + best.Levels;
-            var name = definition.Name;
+            // Which one, when there are several (run 2: Cleo read the step for her second Wind Moily as the first's)
+            var same = BuildingsOf(company.Id).Where(t => t.Type == building.Type).OrderBy(t => t.Id).ToList();
+            var name = same.Count > 1 ? $"your {Ordinal(same.FindIndex(t => t.Id == building.Id) + 1)} {definition.Name}" : definition.Name;
             var payback = best.Cost / best.Gain;
             var why = progression.Milestones.Contains(target) ? $"Level {target} doubles it" : "Every level makes 10% more";
             add(new AdvisorStep(full ? AdvisorKind.Full : AdvisorKind.Upgrade,
@@ -1212,6 +1214,13 @@ public sealed partial class GameWorld
     private static string Article(string name) => ("aeiou".Contains(char.ToLowerInvariant(name[0])) ? "an " : "a ") + name;
 
     private static string Amount(double value) => value >= 100 ? $"{value:N0}" : value >= 10 ? $"{value:0}" : $"{value:0.#}";
+
+    /// <summary>"first", "second", … "10th"</summary>
+    private static string Ordinal(int n) => n switch
+    {
+        1 => "first", 2 => "second", 3 => "third", 4 => "fourth", 5 => "fifth",
+        _ => n % 10 == 1 && n % 100 != 11 ? $"{n}st" : n % 10 == 2 && n % 100 != 12 ? $"{n}nd" : n % 10 == 3 && n % 100 != 13 ? $"{n}rd" : $"{n}th",
+    };
 
     private static string Gold(double value) => value >= 10_000 ? $"{value / 1000:0.#}k g" : $"{Amount(value)} g";
 

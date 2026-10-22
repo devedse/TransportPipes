@@ -1584,18 +1584,20 @@ export class Engine {
           ) {
             continue;
           }
+          // Smaller, and on the estate's upper edge rather than over its HQ, with the iron every estate holds (run 2:
+          // huge words over the town hall, clipped at the screen's edge, and Mia-B couldn't find her iron)
           const label = new Text({
-            text: estate.goods.map((t) => content.resourceName(t).toLowerCase()).join(" · "),
+            text: `${estate.goods.map((t) => content.resourceName(t).toLowerCase()).join(" · ")} (+ iron ore)`,
             style: {
               fontFamily: "system-ui",
-              fontSize: 72,
+              fontSize: 40,
               fontWeight: "800",
               fill: "#ffffff",
-              stroke: { color: "#0b1d24", width: 14 },
+              stroke: { color: "#0b1d24", width: 9 },
             },
           });
           label.anchor.set(0.5);
-          const at = tileCenter(cx, cy);
+          const at = tileCenter(cx, estate.y + 3);
           label.position.set(at.x, at.y);
           labels.addChild(label);
         }
@@ -2310,7 +2312,14 @@ export class Engine {
         });
         icon.anchor.set(0.5);
         icon.position.set(0, -4);
-        badge.addChild(bubble, icon);
+        // With no pipe at all it shows a pipe, not "zz" (run 2: Ben's new Solar Panel "looks broken")
+        const pipe = new Graphics();
+        pipe.roundRect(-22, -11, 44, 14, 6).fill({ color: 0x8d97a3 }).stroke({ color: 0x5b636c, width: 2 });
+        pipe.rect(-4, -14, 8, 20).fill({ color: 0xc9963a });
+        pipe.label = "needs-pipe";
+        pipe.visible = false;
+        icon.label = "waits";
+        badge.addChild(bubble, icon, pipe);
         badge.position.set(TILE_WIDTH * size, -TILE_HEIGHT * size - 30);
         badge.visible = false;
         container.addChild(badge);
@@ -2410,6 +2419,13 @@ export class Engine {
     }
     if (view.idle !== null) {
       view.idle.visible = !running && !this.photo;
+      const unpiped = building.network === null;
+      const pipe = view.idle.getChildByLabel("needs-pipe");
+      const waits = view.idle.getChildByLabel("waits");
+      if (pipe !== null && waits !== null) {
+        pipe.visible = unpiped;
+        waits.visible = !unpiped;
+      }
     }
   }
 
@@ -3403,6 +3419,9 @@ export class Engine {
       const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
       traceFootprint(g, state.hintTile.x, state.hintTile.y, state.hintTile.size);
       g.fill({ color: 0xf6c744, alpha: 0.18 + 0.22 * pulse });
+      // A dark rim under the gold, so it shows on the Wind and Sun overlays too (run 2: "an orange area, not a tile")
+      traceFootprint(g, state.hintTile.x, state.hintTile.y, state.hintTile.size);
+      g.stroke({ color: 0x2b1d0e, width: 12 + 4 * pulse, alpha: 0.55 });
       traceFootprint(g, state.hintTile.x, state.hintTile.y, state.hintTile.size);
       g.stroke({ color: 0xffe08a, width: 6 + 4 * pulse, alpha: 0.95 });
     }

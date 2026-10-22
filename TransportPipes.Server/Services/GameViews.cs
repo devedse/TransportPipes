@@ -901,7 +901,9 @@ public static partial class GameViews
         var project = world.ProjectsEnabled && world.EstateOf(me) is { } estate ? world.ExistingProject(estate.Station) : null;
         var wants = project == null || project.Stage == ProjectStage.Done ? []
             : definition.Out.Keys
-                .Where(t => project.Basket.ContainsKey(t) && (project.Delivered.GetValueOrDefault(t) < project.Basket[t] * 0.995 || me.ProjectFirst.Contains(t)))
+                // Only what the stage still wants (run 2: "The Landmark wants 0 energy · yours goes there first")
+                .Where(t => project.Basket.ContainsKey(t) && project.Basket[t] - project.Delivered.GetValueOrDefault(t) > 0.5
+                    && (project.Delivered.GetValueOrDefault(t) < project.Basket[t] * 0.995 || me.ProjectFirst.Contains(t)))
                 .Select(t => new ProjectWantDto(t, GameWorld.StageName(project.Stage), Math.Max(0, project.Basket[t] - project.Delivered.GetValueOrDefault(t)),
                     Math.Round(trade.ToProject.GetValueOrDefault(t), 3), me.ProjectFirst.Contains(t)))
                 .ToList();

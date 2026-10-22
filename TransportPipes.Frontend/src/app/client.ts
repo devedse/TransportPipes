@@ -65,6 +65,9 @@ export function inviteLink(code: string, seat: boolean): string {
 }
 
 /** Connects the server, the world model, the map engine and the UI state */
+/** Whether the screen is a phone's (the layout's 720 px break) */
+const PHONE = () => window.matchMedia?.("(max-width: 720px)").matches === true;
+
 export class GameClient {
   readonly connection = new GameConnection();
   world: WorldModel | null = null;
@@ -1264,6 +1267,11 @@ export class GameClient {
       setState({ blueprintDraft: null });
     } else if (state.inboxOpen) {
       setState({ inboxOpen: false });
+    } else if (state.chatOpen) {
+      // An open panel goes before a tool (run 2: Escape left the chat and the Neighbours panel open)
+      setState({ chatOpen: false });
+    } else if (state.yardOpen) {
+      setState({ yardOpen: false });
     } else if (state.visiting !== null) {
       this.closeVisit();
     } else if (state.wildTile !== null) {
@@ -1274,8 +1282,6 @@ export class GameClient {
       this.setTool({ kind: "select" });
     } else if (state.buildMenuOpen) {
       setState({ buildMenuOpen: false });
-    } else if (state.yardOpen) {
-      setState({ yardOpen: false });
     } else if (state.selectedNetwork !== null) {
       this.selectNetwork(null);
     } else if (state.selection.length > 0) {
@@ -1517,6 +1523,8 @@ export class GameClient {
         if (step.x !== null && step.y !== null) {
           this.engine?.lookAt(step.x, step.y, 0.8);
           setState({ hintTile: { x: step.x, y: step.y, size: definition.size } });
+          // Say what is in hand and where it goes (run 2: Dev's Show me for the Lab "opened build mode with nothing chosen")
+          toast(`${definition.name} in hand: ${PHONE() ? "tap" : "click"} the golden tile to build it there`);
         }
         break;
       }
@@ -1705,6 +1713,7 @@ export class GameClient {
       if (best !== null) {
         this.engine?.lookAt(best.x, best.y, 0.8);
         setState({ hintTile: { x: best.x, y: best.y, size: definition.size } });
+        toast(`${definition.name} in hand: ${PHONE() ? "tap" : "click"} the golden tile to build it there`);
       }
     }
   }
@@ -1832,12 +1841,21 @@ export class GameClient {
   // ---------------------------------------------------------------- Commands from the UI
 
   setTool(tool: Tool) {
+    // An overlay a Show me switched on goes off with the tool it came with (run 2: Deposits stayed on for whole sessions)
+    const overlayOff =
+      tool.kind === "select" &&
+      this.hintOverlay !== null &&
+      appStore.getState().overlay === this.hintOverlay.overlay;
     setState({
       tool,
       pipeRoute: null,
       hintTile: null,
       buildMenuOpen: tool.kind === "build" ? appStore.getState().buildMenuOpen : false,
+      ...(overlayOff ? { overlay: "none" as const } : {}),
     });
+    if (overlayOff) {
+      this.hintOverlay = null;
+    }
   }
 
   async upgrade(building: number, levels: number) {

@@ -101,12 +101,16 @@ public sealed partial class GameWorld
     public static readonly TimeSpan LinkOfferAfterSeen = TimeSpan.FromHours(24);
     public static readonly TimeSpan LinkOfferLongest = TimeSpan.FromDays(14);
 
-    /// <summary>When an offer lapses: a day after the side it was offered to played again (at most two weeks after it was made)</summary>
+    /// <summary>
+    /// When an offer lapses: a day after the side it was offered to began a session after it was made (at most two weeks
+    /// after it was made). Run 2: an offer made while Ana was playing lapsed before her next session, because the session
+    /// she was in counted, and her return card never showed it.
+    /// </summary>
     public DateTime OfferLapsesAt(Link link)
     {
-        if (link.PartnerSeenAt == null && Company(link.Partner(link.OfferedBy)) is { } partner && partner.LastSeenAt > link.CreatedAt)
+        if (link.PartnerSeenAt == null && Company(link.Partner(link.OfferedBy)) is { } partner && partner.SessionStartedAt > link.CreatedAt)
         {
-            link.PartnerSeenAt = partner.LastSeenAt;
+            link.PartnerSeenAt = partner.SessionStartedAt;
             link.Touch();
         }
         var longest = link.CreatedAt + LinkOfferLongest;

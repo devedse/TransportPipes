@@ -67,8 +67,13 @@ export function YardPanel() {
         <div>
           <h3>{yard?.station ?? "Your station"} · Yard</h3>
           <div className="muted small">
-            {yard?.small ? "A small station of two seats" : "A station of four seats"}: one fair price for
-            everybody
+            {/* A small station next to a crew's shares its Yard (run 2: Mia-B read "two seats" above six residents) */}
+            {yard?.small
+              ? yard.residents.length > 2
+                ? "A small station that shares this Yard with the station next door"
+                : "A small station of two seats"
+              : "A station of four seats"}
+            : one fair price for everybody
           </div>
         </div>
         <button

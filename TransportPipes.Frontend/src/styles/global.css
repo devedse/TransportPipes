@@ -2615,6 +2615,11 @@ button.liked {
   z-index: 4;
 }
 
+/* While the chat is open, Loady's card and the Next steps fold away: the chat lay over them (run 2) */
+.app:has(.chat-panel) .goal-tracker {
+  display: none;
+}
+
 .chat-channels {
   display: flex;
   gap: 4px;

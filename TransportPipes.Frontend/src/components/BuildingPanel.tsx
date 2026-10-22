@@ -14,7 +14,7 @@ const KIND_LABELS: Record<string, string> = {
   internal: "own",
   trade: "trade",
   toStorage: "stored",
-  fromStorage: "from storage",
+  fromStorage: "from your Storage",
   sale: "sold to hub",
   import: "bought from hub",
 };

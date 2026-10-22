@@ -85,8 +85,12 @@ public sealed partial class GameWorld
                     $"Its pipe reaches only the {BuildingName(taker)}, and its {(IdleReasonOf(taker).Resource is { } r ? GoodsWord(r) : "goods")} can't leave.",
                     new IdleFix(IdleFixKind.Open, $"Open the {BuildingName(taker)}", Building: taker.Id));
             case IdleCause.TakerIdle when reason.Other is { } other && Building(other) is { } taker:
-                return new IdleStatus(reason, $"Idle: {BuildingName(taker)} isn't running",
-                    $"Its {good} go only to the {BuildingName(taker)}.",
+                // A taker that runs, if slowly, isn't "not running" (run 2: Cleo's mine at 24 of 42 energy)
+                var takerRate = NetworkOf(taker.Id)?.Solution.Rate(taker.Id) ?? 0;
+                return new IdleStatus(reason, takerRate > 0.005
+                        ? $"Slowed: its {BuildingName(taker)} runs at {takerRate * 100:0}%"
+                        : $"Idle: {BuildingName(taker)} isn't running",
+                    $"Its {good} {(good.EndsWith('s') ? "go" : "goes")} only to the {BuildingName(taker)}, which can't take more now.",
                     new IdleFix(IdleFixKind.Open, $"Open the {BuildingName(taker)}", Building: taker.Id));
             case IdleCause.TakersFull when reason.Other is { } other && Building(other) is { } taker:
                 var only = PipeReach(building).Where(t => ToFlowNode(t) is { Kind: FlowNodeKind.Building } n && n.In.ContainsKey(reason.Resource!)).Select(BuildingName).Distinct().ToList();
