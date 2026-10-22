@@ -698,11 +698,17 @@ public sealed partial class GameWorld
             }
             if (candidates.Count > 0)
             {
-                // Next to people: where the most active players of about your level live, in a station of four (more
-                // partners than a small one) in the oldest district
-                return placement == Placement.Neighbours
-                    ? candidates.OrderByDescending(t => t.Near).ThenByDescending(t => t.Residents).ThenBy(t => t.Small).ThenBy(t => t.Rank).ThenBy(t => t.Seat.Slot).First().Seat
-                    : candidates.OrderBy(t => t.Rank).ThenBy(t => t.Seat.Slot).First().Seat;
+                return placement switch
+                {
+                    // Next to people: where the most active players of about your level live, in a station of four
+                    // (more partners than a small one) in the oldest district
+                    Placement.Neighbours => candidates.OrderByDescending(t => t.Near).ThenByDescending(t => t.Residents).ThenBy(t => t.Small).ThenBy(t => t.Rank).ThenBy(t => t.Seat.Slot).First().Seat,
+                    // Friends from the other end of the district, so a crew and a stranger who start the same evening
+                    // aren't sent to the same empty station (run 1: Mia and Ana, 20 seconds apart)
+                    Placement.Friends => candidates.OrderBy(t => t.Rank).ThenByDescending(t => t.Seat.Slot).First().Seat,
+                    // A station of your own: one of four seats (room for whoever comes) first
+                    _ => candidates.OrderBy(t => t.Small).ThenBy(t => t.Rank).ThenBy(t => t.Seat.Slot).First().Seat,
+                };
             }
             OpenNextDistrict();
         }

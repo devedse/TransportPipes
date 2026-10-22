@@ -134,6 +134,10 @@ export function FoundCompany() {
   const [friends, setFriends] = useState(3);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // A refused seat: the picker loads the stations again and says where the next free seat is (F7)
+  const [reload, setReload] = useState(0);
+  const [moved, setMoved] = useState<string | null>(null);
+  const nameShort = name.trim().length < 3;
 
   if (invite !== null) {
     return <InviteScreen />;
@@ -143,21 +147,25 @@ export function FoundCompany() {
     event.preventDefault();
     setBusy(true);
     try {
-      if (mode === "friends" && seat !== null) {
-        setError(
-          await gameClient.startWithFriends(
-            name,
-            color,
-            crew.name,
-            crew.emblem,
-            crew.colors[0],
-            crew.colors[1],
-            seat,
-            friends,
-          ),
-        );
+      const failure =
+        mode === "friends" && seat !== null
+          ? await gameClient.startWithFriends(
+              name,
+              color,
+              crew.name,
+              crew.emblem,
+              crew.colors[0],
+              crew.colors[1],
+              seat,
+              friends,
+            )
+          : await gameClient.foundCompany(name, color, seat);
+      setMoved(null);
+      if (failure?.code === "seatTaken") {
+        setError(null);
+        setReload(reload + 1);
       } else {
-        setError(await gameClient.foundCompany(name, color, seat));
+        setError(failure?.error ?? null);
       }
     } catch (reason) {
       setError(String(reason));
@@ -176,7 +184,16 @@ export function FoundCompany() {
             other&apos;s spare goods. You can move later.
           </p>
           {WAYS.map((way) => (
-            <button key={way.mode} type="button" className="way" onClick={() => setMode(way.mode)}>
+            <button
+              key={way.mode}
+              type="button"
+              className="way"
+              onClick={() => {
+                // A seat chosen for another way of starting doesn't carry over
+                setSeat(null);
+                setMode(way.mode);
+              }}
+            >
               <strong>{way.title}</strong>
               <span className="muted small">{way.text}</span>
             </button>
@@ -195,7 +212,12 @@ export function FoundCompany() {
             ← another way
           </button>
         </div>
-        <StationPicker mode={mode} value={seat} onChange={setSeat} />
+        <StationPicker mode={mode} value={seat} onChange={setSeat} reload={reload} onMoved={setMoved} />
+        {moved !== null && (
+          <p className="picker-moved" role="status">
+            {moved}
+          </p>
+        )}
         {mode === "friends" && (
           <>
             <CrewFields
@@ -227,6 +249,7 @@ export function FoundCompany() {
             maxLength={24}
           />
         </label>
+        {nameShort && <p className="muted small">Give your company a name first (3 letters or more).</p>}
         <Swatches value={color} onChange={setColor} colors={COLORS} />
         <div className="company-preview">
           <span className="company-dot" style={{ background: color }} />
@@ -237,7 +260,7 @@ export function FoundCompany() {
             {error}
           </p>
         )}
-        <button className="primary" type="submit" disabled={busy || seat === null}>
+        <button className="primary" type="submit" disabled={busy || seat === null || nameShort}>
           {busy ? "Settling…" : mode === "friends" ? "Settle and invite my friends" : "Settle here"}
         </button>
       </form>

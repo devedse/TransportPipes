@@ -662,15 +662,16 @@ export class GameClient {
   }
 
   /** A new company on a chosen seat (or the one a friend's code holds, or the one the game suggests) */
+  /** A new company; the refusal (null: founded), with its code ("seatTaken": someone took the seat a moment ago) */
   async foundCompany(
     name: string,
     color: string,
     seat: SeatRefDto | null = null,
     code: string | null = null,
-  ): Promise<string | null> {
+  ): Promise<{ error: string; code: string | null } | null> {
     const result = await this.connection.createCompany(name, color, seat, code);
     if (!result.success) {
-      return result.error ?? "That didn't work.";
+      return { error: result.error ?? "That didn't work.", code: result.code ?? null };
     }
     if (code !== null) {
       this.forgetInvite();
@@ -690,7 +691,7 @@ export class GameClient {
     crewColor2: string,
     seat: SeatRefDto,
     holdSeats: number,
-  ): Promise<string | null> {
+  ): Promise<{ error: string; code: string | null } | null> {
     const result = await this.connection.startWithFriends(
       name,
       color,
@@ -702,7 +703,7 @@ export class GameClient {
       holdSeats,
     );
     if (!result.success) {
-      return result.error ?? "That didn't work.";
+      return { error: result.error ?? "That didn't work.", code: result.code ?? null };
     }
     setState({ shareCodes: result.holds });
     await this.hello();

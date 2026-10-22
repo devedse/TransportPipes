@@ -143,6 +143,29 @@ public class CrewFacts
     }
 
     [TestMethod]
+    public void FriendsAndAStrangerAreSuggestedDifferentStations()
+    {
+        // Run 1, a quiet server: Mia ("Find me neighbours") and Ana ("Start with friends") were sent to the same empty
+        // station 20 seconds apart, and the crew's claim refused Mia's seat
+        var game = new TestGame();
+
+        var stranger = game.World.SuggestSeat(Placement.Neighbours);
+        var friends = game.World.SuggestSeat(Placement.Friends, seats: 4);
+
+        Assert.AreNotEqual(WorldLayout.StationOf(stranger.District, stranger.Slot), WorldLayout.StationOf(friends.District, friends.Slot));
+    }
+
+    [TestMethod]
+    public void OwnStationPrefersFourSeats()
+    {
+        var game = new TestGame();
+
+        var own = game.World.SuggestSeat(Placement.OwnStation);
+
+        Assert.IsFalse(WorldLayout.StationOf(own.District, own.Slot).IsSmall, "room for whoever comes later");
+    }
+
+    [TestMethod]
     public void AnEstateMovesToAChosenSeatWithAFewMinutesBetweenMoves()
     {
         var game = new TestGame();

@@ -40,7 +40,7 @@ export function InviteScreen({ onLogin }: { onLogin?: () => void }) {
       // The server settles you on the kept seat (a seat code) or next to the crew (its link) and joins you up
       const failure = await gameClient.foundCompany(name, color, null, invite.code);
       if (failure !== null) {
-        setError(failure);
+        setError(failure.error);
         return;
       }
       if (dto.needsApproval) {

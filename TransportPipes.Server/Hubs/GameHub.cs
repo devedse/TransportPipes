@@ -160,7 +160,7 @@ public sealed class GameHub : Hub<IGameClient>
             var seat = districtX is { } x && districtY is { } y && slot is { } s ? new EstateKey(new DistrictCoord(x, y), s) : (EstateKey?)null;
             if (seat is { } chosen && code == null && !world.SeatFree(chosen))
             {
-                return CommandResultDto.Fail("Someone took that seat a moment ago: pick another one.");
+                return CommandResultDto.Fail("Someone took that seat a moment ago: here's the next free one.", "seatTaken");
             }
             seat ??= code == null ? world.SuggestSeat(Placement.Neighbours) : null;
             var created = world.CreateCompany(userId, name, color, GameWorld.LegacyLevelOf(legacy), titles, seat, code);
@@ -177,7 +177,7 @@ public sealed class GameHub : Hub<IGameClient>
         var created = await CreateCompany(name, color, districtX, districtY, slot, null);
         if (!created.Success)
         {
-            return new FoundCrewResultDto(false, created.Error, []);
+            return new FoundCrewResultDto(false, created.Error, [], created.Code);
         }
         return await FoundCrew(crewName, emblem, crewColor, crewColor2, holdSeats);
     }

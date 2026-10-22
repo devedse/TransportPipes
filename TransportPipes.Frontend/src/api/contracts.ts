@@ -31,6 +31,8 @@ export interface AuthResult {
 export interface CommandResult {
   success: boolean;
   error: string | null;
+  /** A failure the client acts on: "seatTaken" (the picker loads the stations again) */
+  code?: string | null;
 }
 
 export interface CompanyDto {
@@ -1511,6 +1513,7 @@ export interface FoundCrewResultDto {
   success: boolean;
   error: string | null;
   holds: HeldSeatDto[];
+  code?: string | null;
 }
 
 /** A company's crew as the top bar and the map show it */

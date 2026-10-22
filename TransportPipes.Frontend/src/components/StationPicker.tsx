@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { gameClient } from "../app/client";
 import { landIcon, landText, lived } from "../app/crews";
+import { chooseSeat, findSeat, pickable, sameSeat } from "../app/seats";
 import type { SeatDto, SeatRefDto, StationDto, StationsDto } from "../api/contracts";
 import { useAppStore } from "../state/store";
 
-export type PickMode = "neighbours" | "own" | "friends" | "move";
+import type { PickMode } from "../app/seats";
+
+export type { PickMode };
 
 const SEAT_TEXT: Record<SeatDto["state"], string> = {
   free: "free",
@@ -14,28 +17,12 @@ const SEAT_TEXT: Record<SeatDto["state"], string> = {
   you: "you",
 };
 
-/** Whether a seat can be picked in this way of starting */
-function pickable(seat: SeatDto, station: StationDto, mode: PickMode): boolean {
-  if (seat.state === "held") {
-    return seat.heldForYou;
+/** Why a seat can't be picked, for its tooltip */
+function refusal(seat: SeatDto, station: StationDto): string | undefined {
+  if (seat.state === "held" && !seat.heldForYou) {
+    return station.crewName !== null ? `Kept for a friend of ${station.crewName}` : "Kept for a friend";
   }
-  if (seat.state !== "free" && seat.state !== "house") {
-    return false;
-  }
-  if (mode === "own" || mode === "friends") {
-    return station.seats.every((t) => t.state === "free" || t.state === "house" || t.state === "you");
-  }
-  return station.open;
-}
-
-function sameSeat(a: SeatRefDto | null, b: SeatRefDto | null): boolean {
-  return (
-    a !== null &&
-    b !== null &&
-    a.districtX === b.districtX &&
-    a.districtY === b.districtY &&
-    a.slot === b.slot
-  );
+  return seat.state === "taken" ? "Someone lives here" : undefined;
 }
 
 /**
@@ -47,10 +34,16 @@ export function StationPicker({
   mode,
   value,
   onChange,
+  reload = 0,
+  onMoved,
 }: {
   mode: PickMode;
   value: SeatRefDto | null;
   onChange: (seat: SeatRefDto) => void;
+  /** Counts up when the stations must be loaded again (a refused seat) */
+  reload?: number;
+  /** After a reload took a seat away: what happened and where the next free seat is */
+  onMoved?: (text: string) => void;
 }) {
   const [stations, setStations] = useState<StationsDto | null>(null);
   const company = useAppStore((s) => s.company);
@@ -70,23 +63,55 @@ export function StationPicker({
       }
       const suggested = mode === "own" ? dto.ownStation : mode === "friends" ? dto.friends : dto.neighbours;
       const here = suggested.districtX === dto.districtX && suggested.districtY === dto.districtY;
+      // Never a seat the fresh data says is gone (run 1: Mia's picker kept a seat a crew had just claimed)
+      const gone = value !== null ? findSeat(dto, value) : null;
+      const lost = gone !== null && !pickable(gone.seat, gone.station, mode);
+      const tell = (where: string) => {
+        if (reload > 0 && lost && onMoved !== undefined) {
+          const taker = gone.station.crewName ?? gone.seat.ownerName ?? "Someone";
+          const keeps = gone.station.crewName !== null ? " and keeps its seats for friends" : "";
+          onMoved(
+            `${taker} just settled in ${gone.station.name}${keeps}. Here's the next free seat: ${where}.`,
+          );
+        }
+      };
       if (district === null && !here) {
         // The suggested seat is in another district: show that one
         onChange(suggested);
         setDistrict({ x: suggested.districtX, y: suggested.districtY });
-      } else if (
-        here &&
-        (value === null || value.districtX !== dto.districtX || value.districtY !== dto.districtY)
-      ) {
+        tell(
+          dto.districts.find(
+            (t) => t.districtX === suggested.districtX && t.districtY === suggested.districtY,
+          )?.name ?? "in the next district",
+        );
+        return;
+      }
+      const next = chooseSeat(dto, mode, value);
+      if (next !== null && !sameSeat(next, value)) {
+        onChange(next);
+        const land = findSeat(dto, next);
+        tell(
+          land !== null
+            ? `${land.station.name} · ${landText(land.seat.primary, land.seat.secondary)}`
+            : "nearby",
+        );
+      } else if (lost && !here) {
+        // Gone, and the next free seat is in another district
+        setDistrict({ x: suggested.districtX, y: suggested.districtY });
         onChange(suggested);
+        tell(
+          dto.districts.find(
+            (t) => t.districtX === suggested.districtX && t.districtY === suggested.districtY,
+          )?.name ?? "in the next district",
+        );
       }
     });
     return () => {
       cancelled = true;
     };
-    // The suggestion is taken once per district
+    // The suggestion is taken once per district, and again after a refused seat
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [district?.x, district?.y, mode]);
+  }, [district?.x, district?.y, mode, reload]);
 
   if (stations === null) {
     return <p className="muted">Looking at the map…</p>;
@@ -238,6 +263,16 @@ export function StationPicker({
             {!selectedStation.open && mode !== "own" && (
               <div className="muted small">A crew lives here: closed to strangers</div>
             )}
+            {mode === "neighbours" && !selectedStation.seats.some((t) => lived(t) && t.state !== "you") && (
+              <div className="small picker-honest">
+                Nobody who&apos;s playing has a free seat next to them right now. {selectedStation.name} is
+                open
+                {selectedStation.seats.some((t) => t.state === "house")
+                  ? `: ${selectedStation.seats.filter((t) => t.state === "house").length} Houses keep it warm`
+                  : ""}
+                , and the next newcomers land here first. You can move for free later.
+              </div>
+            )}
             <ul className="seat-list">
               {selectedStation.seats.map((seat) => {
                 const ref = {
@@ -253,6 +288,7 @@ export function StationPicker({
                       type="button"
                       className={chosen ? "seat-row chosen" : "seat-row"}
                       disabled={!can}
+                      title={can ? undefined : refusal(seat, selectedStation)}
                       onClick={() => onChange(ref)}
                     >
                       <span className="icon">{lived(seat) ? "🏠" : landIcon(seat.primary)}</span>

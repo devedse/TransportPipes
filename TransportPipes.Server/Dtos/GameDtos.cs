@@ -19,11 +19,12 @@ public record GuestResult(bool Success, string? Error, UserInfo? User, string? P
 /// <summary>A guest keeps the estate: a name and a password of its own</summary>
 public record KeepRequest(string UserName, string Password, string? Email);
 
-public record CommandResultDto(bool Success, string? Error)
+/// <summary>A command's result; Code names a failure the client acts on ("seatTaken": the picker loads the stations again)</summary>
+public record CommandResultDto(bool Success, string? Error, string? Code = null)
 {
     public static CommandResultDto Ok { get; } = new(true, null);
 
-    public static CommandResultDto Fail(string error) => new(false, error);
+    public static CommandResultDto Fail(string error, string? code = null) => new(false, error, code);
 }
 
 /// <summary>Everything the client needs right after connecting</summary>
@@ -690,7 +691,7 @@ public record CrewDto(
 public record CrewViewDto(CrewDto? Crew, IReadOnlyList<string> Emblems);
 
 /// <summary>Founding a crew with friends: the seats held for them, each with its code</summary>
-public record FoundCrewResultDto(bool Success, string? Error, IReadOnlyList<HeldSeatDto> Holds);
+public record FoundCrewResultDto(bool Success, string? Error, IReadOnlyList<HeldSeatDto> Holds, string? Code = null);
 
 /// <summary>
 /// A link (v1.2 §7) as one of its ends sees it: the good, the partner, the flow, the tank at the buyer's gate, the notice,
