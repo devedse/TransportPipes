@@ -320,6 +320,34 @@ async function tapAt(player, p) {
 // made Ben's phone taps miss 5 s in run 2's first row)
 const TAP_TIMEOUT = 15000;
 
+/**
+ * A click or tap as a person makes it: on the element, or, when something lies over it (a panel's see-through
+ * backdrop), on whatever is on top at that point (Cleo's run 2 afternoon: a dozen clicks waited on a backdrop that one
+ * click would have closed). False when it hit something else.
+ */
+async function press(player, item) {
+  const phone = player.config.device === "phone";
+  try {
+    if (phone) await item.tap({ timeout: 2500, trial: true });
+    else await item.click({ timeout: 2500, trial: true });
+  } catch {
+    // Slow, or covered? What is on top at its middle decides (a busy machine makes the trial slow too)
+    const box = await item.boundingBox();
+    const covered = box !== null && (await item.evaluate((el, p) => {
+      const top = document.elementFromPoint(p.x, p.y);
+      return top !== null && !el.contains(top);
+    }, { x: box.x + box.width / 2, y: box.y + box.height / 2 }));
+    if (covered) {
+      await tapAt(player, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+      await player.page.waitForTimeout(400);
+      return false;
+    }
+  }
+  if (phone) await item.tap({ timeout: TAP_TIMEOUT });
+  else await item.click({ timeout: TAP_TIMEOUT });
+  return true;
+}
+
 const ROLES = ["button", "link", "tab", "radio", "checkbox", "menuitem", "option", "switch", "combobox", "textbox"];
 
 async function clickLabel(player, label, nth = 1) {
@@ -332,8 +360,7 @@ async function clickLabel(player, label, nth = 1) {
       for (let i = 0; i < count; i++) {
         const item = found.nth(i);
         if ((await item.isVisible()) && ++seen === nth) {
-          if (player.config.device === "phone") await item.tap({ timeout: TAP_TIMEOUT });
-          else await item.click({ timeout: TAP_TIMEOUT });
+          if (!(await press(player, item))) return `Your click on the ${role} "${label}" landed on something lying over it.`;
           return `Clicked the ${role} "${label}".`;
         }
       }
@@ -341,8 +368,7 @@ async function clickLabel(player, label, nth = 1) {
   }
   const text = page.getByText(label, { exact: false });
   if ((await text.count()) > 0 && (await text.first().isVisible())) {
-    if (player.config.device === "phone") await text.first().tap({ timeout: TAP_TIMEOUT });
-    else await text.first().click({ timeout: TAP_TIMEOUT });
+    if (!(await press(player, text.first()))) return `Your click on "${label}" landed on something lying over it.`;
     return `Clicked the text "${label}".`;
   }
   return `Nothing called "${label}" is on the screen.`;
@@ -382,7 +408,9 @@ function ordinal(n) {
 async function chat(player, { channel, text }) {
   const page = player.page;
   if ((await page.locator(".chat-panel").count()) === 0) {
-    await page.locator(".chat-toggle").click();
+    const toggle = page.locator(".chat-toggle").first();
+    if ((await toggle.count()) === 0 || !(await toggle.isVisible())) return "The chat's button isn't on the screen now (close the panel first).";
+    if (!(await press(player, toggle))) return "You can't open the chat now: something lies over its button.";
     await page.waitForTimeout(800);
   }
   if (channel) {

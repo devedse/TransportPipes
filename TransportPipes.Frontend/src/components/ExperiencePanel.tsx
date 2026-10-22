@@ -32,7 +32,15 @@ function itemName(content: Content, source: string, item: string): string {
 }
 
 /** Where a company's XP came from, per source (open one for its items), and what gives XP */
-export function ExperiencePanel({ company, content }: { company: CompanyDto; content: Content }) {
+export function ExperiencePanel({
+  company,
+  content,
+  onClose,
+}: {
+  company: CompanyDto;
+  content: Content;
+  onClose: () => void;
+}) {
   const sources = Object.entries(company.experience.log)
     .map(([source, items]) => ({
       source,
@@ -47,7 +55,12 @@ export function ExperiencePanel({ company, content }: { company: CompanyDto; con
   const roadmap = levelRoadmap(content, company, gameClient.world, era);
   return (
     <div className="panel xp-panel" role="dialog" aria-label="Experience">
-      <h3>Company Level {company.level}</h3>
+      <div className="panel-header">
+        <h3>Company Level {company.level}</h3>
+        <button className="icon-button" title="Close (Esc)" onClick={onClose}>
+          ×
+        </button>
+      </div>
       <p>
         <strong>{formatAmount(left)} XP</strong> to Level {company.level + 1}
         {eta !== null && (

@@ -46,6 +46,19 @@ export function TopBar() {
       window.removeEventListener("resize", update);
     };
   });
+  // Escape closes the Experience panel, like every other panel (Cleo's run 2 afternoon: it stayed open)
+  useEffect(() => {
+    if (!xpOpen) {
+      return;
+    }
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setXpOpen(false);
+      }
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [xpOpen]);
   if (company === null) {
     return null;
   }
@@ -172,7 +185,7 @@ export function TopBar() {
         {xpOpen && content !== null && (
           <>
             <div className="xp-backdrop" onClick={() => setXpOpen(false)} />
-            <ExperiencePanel company={company} content={content} />
+            <ExperiencePanel company={company} content={content} onClose={() => setXpOpen(false)} />
           </>
         )}
       </div>

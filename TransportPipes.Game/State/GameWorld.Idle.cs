@@ -147,9 +147,11 @@ public sealed partial class GameWorld
         {
             received[flow.Resource] = received.GetValueOrDefault(flow.Resource) + flow.Delivered;
         }
+        // Of inputs equally short, the one whose suppliers stand still: a factory with no ore from a mine that has no
+        // energy is short of ore, though no energy comes either (Cleo's run 2 afternoon read "energy short")
         var scarcest = node.In
             .Select(t => (Resource: t.Key, Share: received.GetValueOrDefault(t.Key) / Math.Max(1e-12, t.Value * maxRate)))
-            .OrderBy(t => t.Share).ThenBy(t => t.Resource, StringComparer.Ordinal)
+            .OrderBy(t => Math.Round(t.Share, 6)).ThenBy(t => SuppliersStandStill(building, network, t.Resource) ? 0 : 1).ThenBy(t => t.Resource, StringComparer.Ordinal)
             .FirstOrDefault();
         if (scarcest.Resource != null && scarcest.Share < SlowedShare && scarcest.Share <= rate / Math.Max(1e-12, maxRate) + 1e-6)
         {
@@ -184,6 +186,13 @@ public sealed partial class GameWorld
         }
         return IdleReason.Running;
     }
+
+    /// <summary>Whether every building on its pipes that makes a resource stands still (and the Yard brings none of it)</summary>
+    private bool SuppliersStandStill(Building building, Network network, string resource) =>
+        !network.GateFlows.Any(t => t.Import && t.Building == building.Id && t.Resource == resource && t.Delivered > 1e-9)
+        && LinkedBuildings(building, network)
+            .Where(t => ToFlowNode(t) is { Kind: FlowNodeKind.Building } n && n.Out.ContainsKey(resource))
+            .All(t => network.Solution.Rate(t.Id) < 1e-6);
 
     /// <summary>The buildings a building's pipes reach directly (the reach line of its panel)</summary>
     public List<Building> PipeReach(Building building) => NetworkOf(building.Id) is { } network ? LinkedBuildings(building, network) : [];

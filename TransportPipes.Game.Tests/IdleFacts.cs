@@ -116,4 +116,18 @@ public class IdleFacts
         Assert.AreEqual("Slowed: only the Small Factory takes its energy", status.Pill);
         Assert.AreEqual(IdleFixKind.LayPipe, status.Fix?.Kind, "one pipe to the trading post sells the rest");
     }
+
+    [TestMethod]
+    public void AFactoryWhoseMineStandsStillIsShortOfOre()
+    {
+        // Cleo's run 2 afternoon: a factory set into the line between her mine and her windmills; the mine's only pipe
+        // reaches the factory, so it has no energy, and the factory gets no ore. Neither input comes, but ore is the cause.
+        var (game, _, map) = Setup("  M", "  +", "W+F+T", "+++++");
+        var factory = map[(2, 2)];
+        var mine = map[(2, 0)];
+
+        Assert.AreEqual(new IdleReason(IdleCause.InputMissing, "energy"), game.World.IdleReasonOf(mine));
+        Assert.AreEqual(IdleCause.None, game.World.IdleReasonOf(map[(0, 2)]).Cause, "the moily sells to the trading post");
+        Assert.AreEqual(new IdleReason(IdleCause.InputShort, "ironOre"), game.World.IdleReasonOf(factory));
+    }
 }
