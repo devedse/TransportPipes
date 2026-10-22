@@ -18,7 +18,10 @@ public sealed partial class GameWorld
     public double BasePrice(string resource) => Content.Resources.TryGetValue(resource, out var definition) ? definition.Price : 0;
 
     /// <summary>The one price between players: the Yard, links, contracts and the Exchange</summary>
-    public double PlayerPrice(string resource) => Math.Round(BasePrice(resource) * Content.Progression.Together.PlayerPrice, 4);
+    public double PlayerPrice(string resource) => Math.Round(BasePrice(resource) * PlayerPriceFactor, 4);
+
+    /// <summary>The one price between players as a multiple of the base (content's; the light bots try others)</summary>
+    public double PlayerPriceFactor { get; set; }
 
     private static string HubKey(DistrictCoord district) => $"{district.X},{district.Y}";
 

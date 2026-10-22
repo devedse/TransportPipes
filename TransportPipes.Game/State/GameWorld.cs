@@ -102,6 +102,7 @@ public sealed partial class GameWorld
         _clock = clock;
         LastTick = clock();
         StartingGold = content.Progression.StartingGold;
+        PlayerPriceFactor = content.Progression.Together.PlayerPrice;
     }
 
     public DateTime Now => _clock();

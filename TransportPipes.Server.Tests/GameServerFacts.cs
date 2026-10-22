@@ -194,12 +194,15 @@ public class GameServerFacts
         var (cx, cy) = WorldLayout.ChunkOf(moily.X, moily.Y);
         await client.Invoke<IReadOnlyList<ChunkDto>>("GetChunks", new[] { cx, cy });
 
+        // Dealt land (step 5): the starter kit earns already, and another Wind Moily costs more than the first
+        var before = await client.Invoke<CompanyDto>("GetCompany");
+        var cost = await server.World.RunAsync(w => w.BuildCost(w.CompanyOfUser(hello.User.Id)!, w.Content.Building("windMoily")), changesWorld: false);
         await client.Command("PlaceBuilding", "windMoily", moily.X, moily.Y);
-        await TestClient.WaitFor(client.Chunks, t => t.Buildings.Any(b => b.Type == "windMoily" && b.ConstructionEndsAt != null));
+        await TestClient.WaitFor(client.Chunks, t => t.Buildings.Any(b => b.Type == "windMoily" && b.ConstructionEndsAt != null && b.X == moily.X && b.Y == moily.Y));
         await client.Command("PlacePipes", new[] { pipe.X, pipe.Y }, 1);
         var company = await client.Invoke<CompanyDto>("GetCompany");
-        Assert.AreEqual(2000 - 200 - 2, company.Gold);
-        Assert.AreEqual(0, company.GoldPerMinute, "still under construction");
+        Assert.AreEqual(before.Gold - cost - 2, company.Gold, 1e-6);
+        Assert.AreEqual(before.GoldPerMinute, company.GoldPerMinute, 1e-6, "still under construction");
 
         // 30 seconds to build, then a minute of wind
         await server.AdvanceAsync(TimeSpan.FromSeconds(90));
@@ -208,7 +211,7 @@ public class GameServerFacts
         StringAssert.Contains(toast.Text, "Wind Moily");
         company = await client.Invoke<CompanyDto>("GetCompany");
         Assert.IsGreaterThan(0, company.GoldPerMinute);
-        Assert.AreEqual(2000 - 202 + company.GoldPerMinute, company.Gold, 1e-6);
+        Assert.IsGreaterThan(before.Gold - cost - 2, company.Gold);
 
         var details = await client.Invoke<BuildingDetailsDto>("GetBuilding", (await server.World.RunAsync(w => w.BuildingAt(moily)!.Id, changesWorld: false)));
         Assert.AreEqual(1, details.Rate, 1e-9);
@@ -224,6 +227,7 @@ public class GameServerFacts
         {
             string cookie;
             TilePos moily;
+            CompanyDto stopped;
             var time = new FakeTimeProvider(GameServer.StartTime());
             using (var server = new GameServer(connectionString, time))
             {
@@ -236,6 +240,7 @@ public class GameServerFacts
                 await client.Command("PlaceBuilding", "windMoily", moily.X, moily.Y);
                 await client.Command("PlacePipes", new[] { pipe.X, pipe.Y }, 1);
                 await server.AdvanceAsync(TimeSpan.FromMinutes(1));
+                stopped = await client.Invoke<CompanyDto>("GetCompany");
             }
 
             // The server was down for an hour: the world catches up when it starts again
@@ -246,13 +251,13 @@ public class GameServerFacts
                 var hello = await client.Invoke<HelloDto>("Hello");
 
                 Assert.AreEqual("Keepers & Co", hello.Company!.Name);
-                Assert.AreEqual(1, hello.Company.BuildingCounts["windMoily"]);
+                Assert.AreEqual(stopped.BuildingCounts["windMoily"], hello.Company.BuildingCounts["windMoily"], "the kit's moilies and the new one");
                 Assert.IsGreaterThan(0, hello.Company.GoldPerMinute);
-                // 30 seconds of construction, then 60.5 minutes of wind; the hub pays up to 25% more for scarce energy after
-                // its first market update, so the rate now is the highest one of that hour
-                var earned = hello.Company.Gold - (2000 - 202);
-                Assert.IsGreaterThan(hello.Company.GoldPerMinute * 60.5 / 1.3, earned);
-                Assert.IsLessThanOrEqualTo(hello.Company.GoldPerMinute * 60.5 * 1.001, earned);
+                // About an hour of the estate's income while the server was down (the hub's price moves with its market
+                // updates, and the Yard's trade with the Houses comes on top)
+                var earned = hello.Company.Gold - stopped.Gold;
+                Assert.IsGreaterThan(hello.Company.GoldPerMinute * 60 / 1.3, earned);
+                Assert.IsLessThanOrEqualTo(hello.Company.GoldPerMinute * 60 * 1.3, earned);
                 Assert.IsNotNull(hello.Card, "a return card after an hour away");
                 Assert.IsGreaterThan(0, hello.Card.Earned);
                 StringAssert.StartsWith(hello.Card.Away, "1 h", "on the server's clock");

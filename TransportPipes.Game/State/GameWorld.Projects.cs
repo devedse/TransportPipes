@@ -73,6 +73,9 @@ public sealed partial class GameWorld
 
     private const double FoundryBonus = 0.10;
     private const double KeystoneCredit = 1.2;
+
+    /// <summary>Dealt land: what goods a player doesn't make itself count toward its credit (bought from a House)</summary>
+    private const double BoughtCredit = 0.25;
     private const double AllowanceHoursPerDay = 2;
     private const double AllowanceBankDays = 3;
     private const double LandmarkHours = 6;
@@ -649,7 +652,9 @@ public sealed partial class GameWorld
                     {
                         project.Allowance[seller.Id] = Math.Max(0, project.Allowance.GetValueOrDefault(seller.Id) - worth);
                     }
-                    project.Credit[seller.Id] = project.Credit.GetValueOrDefault(seller.Id) + worth * (good == project.Keystone ? KeystoneCredit : 1);
+                    // Goods a player doesn't make itself (bought from a House) count a quarter toward the credit (step 5's guard)
+                    var bought = Generator.DealtLand && !BuildingsOf(seller.Id).Any(t => !t.UnderConstruction && Content.Building(t.Type).Out.ContainsKey(good)) ? BoughtCredit : 1;
+                    project.Credit[seller.Id] = project.Credit.GetValueOrDefault(seller.Id) + worth * bought * (good == project.Keystone ? KeystoneCredit : 1);
                     AnnounceProjectGift(seller, project, good, units / minutes);
                     // Whoever delivers to this stage (or did to the last within 3 days) sizes the next basket
                     project.DeliveredAt[seller.Id] = LastTick;

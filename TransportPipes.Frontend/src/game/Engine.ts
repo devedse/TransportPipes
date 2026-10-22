@@ -416,6 +416,8 @@ class ChunkView {
   readonly cy: number;
   ground: Container | null = null;
   overlay: Container | null = null;
+  /** The Deposits overlay's seat labels, over the buildings */
+  overlayLabels: Container | null = null;
   mini: Sprite | null = null;
   objects: ObjectView[] = [];
   loaded = false;
@@ -1358,8 +1360,10 @@ export class Engine {
   private clearChunk(chunk: ChunkView) {
     chunk.ground?.destroy({ children: true });
     chunk.ground = null;
-    chunk.overlay?.destroy();
+    chunk.overlay?.destroy({ children: true });
     chunk.overlay = null;
+    chunk.overlayLabels?.destroy({ children: true });
+    chunk.overlayLabels = null;
     if (chunk.mini !== null) {
       chunk.mini.texture.destroy(true);
       chunk.mini.destroy();
@@ -1491,8 +1495,10 @@ export class Engine {
 
   /** Colours over the terrain: who owns what, wind, sun or deposits */
   private drawOverlay(chunk: ChunkView) {
-    chunk.overlay?.destroy();
+    chunk.overlay?.destroy({ children: true });
     chunk.overlay = null;
+    chunk.overlayLabels?.destroy({ children: true });
+    chunk.overlayLabels = null;
     if (this.overlay === "none" || !chunk.loaded) {
       return;
     }
@@ -1561,7 +1567,8 @@ export class Engine {
     }
     const overlay = new Container();
     overlay.addChild(g);
-    // Dealt land (step 5): every seat's goods on it, so a player sees who in the station holds what
+    // Dealt land (step 5): every seat's goods on it, so a player sees who in the station holds what (over the buildings)
+    const labels = new Container();
     if (this.overlay === "deposits") {
       for (const district of this.world.districts.values()) {
         for (const estate of district.estates) {
@@ -1581,21 +1588,23 @@ export class Engine {
             text: estate.goods.map((t) => content.resourceName(t).toLowerCase()).join(" · "),
             style: {
               fontFamily: "system-ui",
-              fontSize: 34,
+              fontSize: 72,
               fontWeight: "800",
               fill: "#ffffff",
-              stroke: { color: "#0b1d24", width: 8 },
+              stroke: { color: "#0b1d24", width: 14 },
             },
           });
           label.anchor.set(0.5);
           const at = tileCenter(cx, cy);
           label.position.set(at.x, at.y);
-          overlay.addChild(label);
+          labels.addChild(label);
         }
       }
     }
     chunk.overlay = overlay;
     this.overlayLayer.addChild(overlay);
+    chunk.overlayLabels = labels;
+    this.labelLayer.addChild(labels);
   }
 
   /** The far view of a chunk: one small picture of its terrain and buildings */

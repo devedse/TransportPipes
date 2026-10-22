@@ -92,7 +92,7 @@ export function StationPicker({
         const land = findSeat(dto, next);
         tell(
           land !== null
-            ? `${land.station.name} · ${landText(land.seat.primary, land.seat.secondary)}`
+            ? `${land.station.name} · ${landText(land.seat.primary, land.seat.secondary, land.seat.goods)}`
             : "nearby",
         );
       } else if (lost && !here) {
@@ -178,7 +178,7 @@ export function StationPicker({
                     style={lived(seat) && seat.ownerColor !== null ? { fill: seat.ownerColor } : undefined}
                     onClick={() => can && onChange(ref)}
                   >
-                    <title>{seat.ownerName ?? landText(seat.primary, seat.secondary)}</title>
+                    <title>{seat.ownerName ?? landText(seat.primary, seat.secondary, seat.goods)}</title>
                   </rect>
                 );
               }),
@@ -302,7 +302,7 @@ export function StationPicker({
                           </>
                         ) : (
                           <>
-                            <strong>{landText(seat.primary, seat.secondary)}</strong>
+                            <strong>{landText(seat.primary, seat.secondary, seat.goods)}</strong>
                             <span className="muted small">
                               {" "}
                               · {seat.heldForYou ? "kept by your crew: yours to take" : SEAT_TEXT[seat.state]}

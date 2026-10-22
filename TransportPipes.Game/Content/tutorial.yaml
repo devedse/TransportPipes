@@ -30,7 +30,8 @@
 # thank-you. A building list in the hint is built in that order (Show me picks the first one missing); a step waits
 # for the Company Level its next building, the next parcel or a corporation needs.
 - { id: copperIngots, chapter: 2, stat: "produced:copperIngot", amount: 1, gold: 3000, hint: { tool: build, building: "copperMine,coalPit,smelter", overlay: deposits },
-    text: "Chapter 2: copper! Your land has copper ore and coal (the Deposits overlay shows them). Mine both, then a Smelter makes copper ingots, worth much more than the ore." }
+    text: "Chapter 2: copper! Your land has copper ore and coal (the Deposits overlay shows them). Mine both, then a Smelter makes copper ingots, worth much more than the ore.",
+    dealtText: "Chapter 2: copper ingots, worth much more than the ore. A Smelter needs copper ore and coal: mine what your land holds (the Deposits overlay shows it), and pipe the Smelter to your Yard gate: a neighbour's or a House's brings the rest by itself." }
 - { id: firstMilestone, chapter: 2, stat: maxLevel, amount: 10, gold: 2500, hint: { select: highest },
     text: "Level 10 doubles what a building makes, and its badge turns green. Upgrade one of your buildings to level 10." }
 - { id: threeResearches, chapter: 2, stat: researched, amount: 3, gold: 3000, hint: { panel: research },
@@ -44,4 +45,5 @@
 - { id: corporation, chapter: 2, stat: corporation, amount: 1, gold: 6000, hint: { panel: corporation },
     text: "Companies are stronger together: found a corporation or join one in the Corp panel. Members trade freely and share weekly goals." }
 - { id: bricks, chapter: 2, stat: "produced:bricks", amount: 1, gold: 8000, hint: { tool: build, building: "quarry,coalPit,brickworks", overlay: deposits },
-    text: "Bricks need stone, coal and energy at once. Quarry your stone, pipe it and your coal to a Brickworks: your first three-input factory." }
+    text: "Bricks need stone, coal and energy at once. Quarry your stone, pipe it and your coal to a Brickworks: your first three-input factory.",
+    dealtText: "Bricks need stone, coal and energy at once: your first three-input factory. Mine what your land holds, and pipe the Brickworks to your Yard gate: a neighbour's or a House's stone or coal comes by itself." }

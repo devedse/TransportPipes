@@ -177,6 +177,39 @@ public sealed partial class GameWorld
     /// <summary>Rebuilds the networks around everything that changed (other networks keep their solution)</summary>
     private void UpdateNetworks()
     {
+        // Parts of absorbed networks that a flood didn't reach come back for another pass; a building whose tiles hold
+        // another building (a second trading post an old landing put on the first) never settles, and goes
+        for (var pass = 0; _dirtyTiles.Count > 0 || _dirtyBuildings.Count > 0; pass++)
+        {
+            if (pass == 10)
+            {
+                RemoveOrphanBuildings();
+            }
+            if (pass > 50)
+            {
+                _dirtyTiles.Clear();
+                _dirtyBuildings.Clear();
+                break;
+            }
+            UpdateNetworksOnce();
+        }
+    }
+
+    /// <summary>Buildings standing on tiles that belong to another building: leftovers of an old bug, removed</summary>
+    private void RemoveOrphanBuildings()
+    {
+        foreach (var building in _buildings.Values.Where(t => t.Footprint().Any(f => _buildingAt.TryGetValue(f, out var other) && other != t.Id)).ToList())
+        {
+            _buildings.Remove(building.Id);
+            _networkOfBuilding.Remove(building.Id);
+            _dirtyBuildings.Remove(building.Id);
+            Deleted.Add(building);
+            building.Touch();
+        }
+    }
+
+    private void UpdateNetworksOnce()
+    {
         if (_dirtyTiles.Count == 0 && _dirtyBuildings.Count == 0)
         {
             return;
@@ -256,11 +289,7 @@ public sealed partial class GameWorld
                 Flood(null, buildingId);
             }
         }
-        // Parts of absorbed networks that the floods didn't reach
-        if (_dirtyTiles.Count > 0 || _dirtyBuildings.Count > 0)
-        {
-            UpdateNetworks();
-        }
+        // Parts of absorbed networks that the floods didn't reach: the next pass
     }
 
     /// <summary>Creates the network that contains this tile or building</summary>

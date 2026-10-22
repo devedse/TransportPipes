@@ -318,7 +318,7 @@ stay); name + password accounts only (guests on a hidden account they can keep);
   counts only what the player builds and pipes). The first session at a human pace (`first-session.md`) earns from
   minute one and gets one Loady step further in 45 minutes
 
-### v1.2 after the AI playtest (decided, not built)
+### v1.2 after the AI playtest (being built)
 
 The AI playtest (`docs/playtest-design.html`, tools in `playtest/`): five AI players, 36 game days. Its verdict: a
 lovely first evening, then five weeks side by side but never together; 4 of 20 promises kept.
@@ -347,8 +347,23 @@ What followed:
   6. The stranger next door.
   7. The rest, then run 2.
 
-**Waiting for the owner's three decisions:** a new world on the test server, going on past the fix plan, and the
-stranger next door.
+The owner's decisions (2026-10-22): build all of it; a new world on the test server is fine; the stranger next door
+is the design's call (yes).
+
+**Progress:**
+- Step 1 (3962abe and after): the honest Yard, dead ends that explain themselves (IdleReason, one fix button),
+  Next steps for everyone, the seat picker, smart Max. Gates: the row10 Yard replay 11/11 and agent replays of Ana,
+  Dev, Cleo and Mia.
+- Step 2 (d95cdad): the money's guards.
+- Step 3: a project the station can reach (f3ed56a) and one return card (622992c), with friends by name. Gates: the
+  Foundation by 18:25 on evening one, the day-7 restage, Ana's day-27 card naming Ben's stand-in, Ben's phone return
+  in one tap.
+- Step 4 (7026d26): Send, Thanks, named ends, bids, the Neighbours panel, the first gift, neighbour-fed chains.
+  Gates: Dev's stuck dredger sends to the Water Tower in one tap, on a desktop and a phone.
+- Step 5 (in progress): dealt land (rules 3: a world made before keeps its land; the test server starts a new one),
+  kits that make the seat's good, the Build-menu line and the Deposits overlay by seat, the seat card, Houses' land
+  sales at 1.4 with the floor and the station backstop, the project paying the one price, Loady's chain steps on dealt
+  land. The light bots (LightBotSimulation, TP_BALANCE=1) decide 1.3 or 1.5.
 
 ### After v1
 

@@ -129,7 +129,8 @@ public sealed partial class GameWorld
         {
             var pos = estate.Origin.Offset(item.Dx, item.Dy);
             var definition = Content.Building(item.Type);
-            if (definition.Kind is BuildingKind.Hq or BuildingKind.TradingPost || CanPlace(company, definition, pos).Success)
+            var free = Enumerable.Range(0, definition.Size * definition.Size).All(i => !_buildingAt.ContainsKey(pos.Offset(i % definition.Size, i / definition.Size)));
+            if (definition.Kind is BuildingKind.Hq or BuildingKind.TradingPost && free || CanPlace(company, definition, pos).Success)
             {
                 Restore(company, item, pos);
             }
@@ -138,10 +139,16 @@ public sealed partial class GameWorld
                 company.Crates.Add(item);
             }
         }
+        // The HQ isn't packed (nobody builds one), the trading post is: only what's missing is added, never a second
+        // trading post on the first one's tile (its networks would never settle)
         if (!BuildingsOf(company.Id).Any(t => Content.Building(t.Type).Kind == BuildingKind.Hq))
         {
             AddBuilding(company, "hq", estate.Origin.Offset(HqLocal.X, HqLocal.Y), finished: true);
-            AddBuilding(company, "tradingPost", estate.Origin.Offset(TradingPostLocal.X, TradingPostLocal.Y), finished: true);
+        }
+        var postAt = estate.Origin.Offset(TradingPostLocal.X, TradingPostLocal.Y);
+        if (!BuildingsOf(company.Id).Any(t => Content.Building(t.Type).Kind == BuildingKind.TradingPost) && !IsOccupied(postAt))
+        {
+            AddBuilding(company, "tradingPost", postAt, finished: true);
         }
         foreach (var pipe in packed.Pipes)
         {

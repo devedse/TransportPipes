@@ -72,7 +72,29 @@ export const SPECIALTIES: Record<string, { name: string; icon: string; good: str
   stoneQuarry: { name: "Stone Quarry", icon: "🪨", good: "stone" },
 };
 
-export function landText(primary: string, secondary: string | null): string {
+/** The building a dealt seat's kit makes its good with, and the word for the good */
+const LAND_KITS: Record<string, { good: string; kit: string }> = {
+  copperOre: { good: "copper", kit: "a Copper Mine" },
+  coal: { good: "coal", kit: "a Coal Pit" },
+  sand: { good: "sand", kit: "a Sand Dredger" },
+  wood: { good: "wood", kit: "a Lumber Camp" },
+  stone: { good: "stone", kit: "a Quarry" },
+};
+
+/**
+ * What a seat's land holds, as its card says it. Dealt land (step 5) says what's really there: "Riverside: sand (kit:
+ * a Sand Dredger) · stone at Level 5"
+ */
+export function landText(primary: string, secondary: string | null, goods: string[] | null = null): string {
+  if (goods !== null && goods.length > 0) {
+    const name = SPECIALTIES[primary]?.name ?? primary;
+    const first = LAND_KITS[goods[0]!];
+    const later = goods.slice(1).map((t, i) => `${LAND_KITS[t]?.good ?? t} at Level ${i === 0 ? 5 : 7}`);
+    return [
+      `${name}: ${first?.good ?? goods[0]}${first !== undefined ? ` (kit: ${first.kit})` : ""}`,
+      ...later,
+    ].join(" · ");
+  }
   const first = SPECIALTIES[primary];
   const second = secondary !== null ? SPECIALTIES[secondary] : undefined;
   if (first === undefined) {

@@ -674,7 +674,9 @@ public record SeatDto(
     /// <summary>For strangers: lively, some days or resting (never a count of days)</summary>
     string? Activity,
     string? CrewName,
-    bool HeldForYou);
+    bool HeldForYou,
+    /// <summary>Dealt land: the goods the seat holds (beside the HQ, then in the first parcels), what the picker says it has</summary>
+    IReadOnlyList<string>? Goods = null);
 
 /// <summary>A station on the picker: its seats, how lively it is, whether strangers may settle</summary>
 public record StationDto(int DistrictX, int DistrictY, int Index, string Name, bool Small, bool Open, int Free, int Lively, IReadOnlyList<SeatDto> Seats, string? CrewName, int X0, int Y0, int X1, int Y1, string? Project = null,

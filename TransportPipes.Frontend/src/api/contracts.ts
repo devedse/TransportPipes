@@ -1472,6 +1472,8 @@ export interface SeatDto {
   activity: string | null;
   crewName: string | null;
   heldForYou: boolean;
+  /** Dealt land: the goods the seat holds (beside the HQ, then in the first parcels) */
+  goods: string[] | null;
 }
 
 export interface StationDto {

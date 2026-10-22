@@ -267,8 +267,14 @@ public class BalanceSimulation
     private static string Time(int minutes) => minutes < 24 * 60 ? $"{minutes / 60}h{minutes % 60:00}" : $"day {minutes / (24 * 60) + 1} {minutes / 60 % 24}h";
 
     /// <summary>A sensible player: energy first, then chains, upgrades with a quick payback, parcels and research</summary>
-    private sealed class Bot(TestGame game, Company company)
+    internal sealed class Bot(TestGame game, Company company)
     {
+        /// <summary>The light bots' cap (step 5): at most this many buildings besides the HQ and the trading post</summary>
+        public int? MaxBuildings { get; init; }
+
+        private bool Full => MaxBuildings is { } cap
+            && World.BuildingsOf(company.Id).Count(t => World.Content.Building(t.Type).Kind is not (BuildingKind.Hq or BuildingKind.TradingPost)) >= cap;
+
         private readonly List<string> _notes = new();
         private GameWorld World => game.World;
 
@@ -306,7 +312,7 @@ public class BalanceSimulation
             }
             foreach (var step in advice)
             {
-                if (step.Cost > company.Gold)
+                if (step.Cost > company.Gold || step.Action == AdvisorAction.Build && Full)
                 {
                     continue;
                 }

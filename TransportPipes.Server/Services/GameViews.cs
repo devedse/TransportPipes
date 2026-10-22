@@ -902,7 +902,7 @@ public static partial class GameViews
     private static TutorialDto Tutorial(GameWorld world, Company company, TutorialStep step)
     {
         var pipe = world.TutorialPipe(company, step);
-        return new TutorialDto(company.TutorialStep, world.Content.Tutorial.Count, step.Id, step.Text, world.TutorialProgress(company, step), step.Amount, step.Gold, step.Hint,
+        return new TutorialDto(company.TutorialStep, world.Content.Tutorial.Count, step.Id, world.TutorialText(step), world.TutorialProgress(company, step), step.Amount, step.Gold, world.TutorialHint(company, step),
             world.TutorialWaitLevel(company, step), world.TutorialTip(company, step), step.Chapter, world.TutorialChapter(step).Index, world.TutorialChapter(step).Count,
             step.PhoneText, pipe?.Tiles.SelectMany(t => new[] { t.X, t.Y }).ToArray(), Math.Round(pipe?.Cost ?? 0, 2),
             pipe?.Target is { } target ? world.Content.Building(target.Type).Name : null, company.TutorialStepSince);
@@ -1177,7 +1177,8 @@ public static partial class GameViews
             owner?.Level ?? 0,
             owner is { IsNpc: false } && owner.Id != me?.Id ? ActivityBucket(world, owner) : null,
             hold?.Crew.Name ?? (owner?.CrewId is { } crew ? world.Crew(crew)?.Name : null),
-            hold != null && me?.CrewId == hold.Value.Crew.Id);
+            hold != null && me?.CrewId == hold.Value.Crew.Id,
+            profile.Goods);
     }
 
     public static StationDto Station(GameWorld world, StationRef station, Company? me)

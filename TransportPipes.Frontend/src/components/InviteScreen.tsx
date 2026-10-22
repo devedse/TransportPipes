@@ -84,7 +84,7 @@ export function InviteScreen({ onLogin }: { onLogin?: () => void }) {
                     <strong>{s.ownerName}</strong>
                   ) : (
                     <>
-                      {landText(s.primary, s.secondary)}
+                      {landText(s.primary, s.secondary, s.goods)}
                       {s.slot === dto.slot && <span className="badge">your seat</span>}
                     </>
                   )}

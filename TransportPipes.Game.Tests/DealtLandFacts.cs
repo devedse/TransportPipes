@@ -195,6 +195,28 @@ public class DealtLandFacts
     }
 
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void BackFromTheQuietIslesWithOneTradingPost(bool dealt)
+    {
+        var game = new TestGame(dealtLand: dealt);
+        game.World.TenantsEnabled = true;
+        game.World.OpenNextDistrict();
+        var ana = game.NewCompany("Ana", slot: 0);
+        game.Pass(10);
+        game.World.PutToSleep(ana);
+        game.World.PackForTesting(ana);
+        game.Pass(60);
+        game.World.WakeUp(ana);
+        game.Pass(10);
+
+        var posts = game.World.Buildings.Where(t => t.Type == "tradingPost" && t.Owner == ana.Id).ToList();
+        Assert.HasCount(1, posts, string.Join(", ", posts.Select(t => $"{t.Id}@{t.Position}")));
+        var all = game.World.Buildings.ToList();
+        Assert.AreEqual(all.Count, all.SelectMany(t => t.Footprint()).Distinct().Count() == all.Sum(t => t.Size * t.Size) ? all.Count : -1, "no two buildings on one tile");
+    }
+
+    [TestMethod]
     public void ALumberCampNeedsTheOldForest()
     {
         var game = new TestGame(dealtLand: true);

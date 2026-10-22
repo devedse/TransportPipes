@@ -66,7 +66,8 @@ public sealed record RelicDefinition(string Id, string Name, string Lore);
 
 /// <summary>A step of Loady's guide (GDD §10.2): done when the stat reaches the amount</summary>
 /// <summary>One of Loady's steps; chapter 1 is the first session, chapter 2 the middle game (docs/v1.1-design.html §5)</summary>
-public sealed record TutorialStep(string Id, string Text, string Stat, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint, int Chapter = 1, string? PhoneText = null)
+/// <param name="DealtText">The text on dealt land (step 5), where a chain's two inputs never lie on one seat</param>
+public sealed record TutorialStep(string Id, string Text, string Stat, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint, int Chapter = 1, string? PhoneText = null, string? DealtText = null)
 {
     /// <summary>The buildings of the step's hint, in the order to build them ("copperMine,coalPit,smelter")</summary>
     public IReadOnlyList<string> HintBuildings => Hint.TryGetValue("building", out var list) ? list.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) : [];

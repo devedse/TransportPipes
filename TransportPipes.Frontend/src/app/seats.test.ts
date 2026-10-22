@@ -16,6 +16,7 @@ const seat = (slot: number, state: SeatDto["state"]): SeatDto => ({
   activity: null,
   crewName: null,
   heldForYou: false,
+  goods: null,
 });
 
 const station = (index: number, seats: SeatDto[], crewName: string | null = null): StationDto => ({
@@ -76,5 +77,15 @@ describe("the seat picker (F7)", () => {
 
   it("starts with the suggestion when nothing is chosen", () => {
     expect(chooseSeat(stations(), "friends", null)?.slot).toBe(3);
+  });
+});
+
+describe("landText", () => {
+  it("says what a dealt seat really holds, and its kit", async () => {
+    const { landText } = await import("./crews");
+    expect(landText("riverside", "stoneQuarry", ["sand", "stone"])).toBe(
+      "Riverside: sand (kit: a Sand Dredger) · stone at Level 5",
+    );
+    expect(landText("windyHeights", null)).toBe("Windy Heights: wind");
   });
 });

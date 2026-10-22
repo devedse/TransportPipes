@@ -37,6 +37,36 @@ public sealed partial class GameWorld
     /// The Company Level a step waits for (its building, or the next parcel, needs it), or null when it can be done
     /// now: Loady then says to come back later instead of pointing at something locked
     /// </summary>
+    /// <summary>
+    /// A step's buildings for this company: on dealt land without the mines of land goods its seat doesn't hold (a
+    /// neighbour or a House brings those to its Yard gate)
+    /// </summary>
+    public IReadOnlyList<string> TutorialBuildings(Company company, TutorialStep step)
+    {
+        if (!Generator.DealtLand || EstateOf(company) is not { } estate)
+        {
+            return step.HintBuildings;
+        }
+        var land = Generator.LandOf(estate.District, estate.Slot);
+        return step.HintBuildings.Where(t => Content.Buildings.TryGetValue(t, out var d)
+            && !(d.In.Keys.All(k => k == "energy") && d.Out.Keys.Any(o => IsLandGood(o) && !land.Contains(o)))).ToList();
+    }
+
+    /// <summary>What Loady says: on dealt land the step's dealt text where it has one</summary>
+    public string TutorialText(TutorialStep step) => Generator.DealtLand && step.DealtText != null ? step.DealtText : step.Text;
+
+    /// <summary>The step's hint for this company: its building list without the mines its land can't hold</summary>
+    public IReadOnlyDictionary<string, string> TutorialHint(Company company, TutorialStep step)
+    {
+        if (!step.Hint.ContainsKey("building"))
+        {
+            return step.Hint;
+        }
+        var hint = step.Hint.ToDictionary();
+        hint["building"] = string.Join(",", TutorialBuildings(company, step));
+        return hint;
+    }
+
     public int? TutorialWaitLevel(Company company, TutorialStep step)
     {
         var level = step.Stat switch
@@ -44,7 +74,7 @@ public sealed partial class GameWorld
             "parcels" => NextParcel(company).Level,
             "corporation" => CorporationFoundLevel,
             // The first building of the hint the company doesn't have yet
-            _ => step.HintBuildings.Where(t => CopiesOwned(company.Id, t) == 0).Select(t => Content.Buildings.TryGetValue(t, out var d) ? d.Unlock.Level : 0).FirstOrDefault(),
+            _ => TutorialBuildings(company, step).Where(t => CopiesOwned(company.Id, t) == 0).Select(t => Content.Buildings.TryGetValue(t, out var d) ? d.Unlock.Level : 0).FirstOrDefault(),
         };
         return level > company.Level ? level : null;
     }
@@ -117,7 +147,7 @@ public sealed partial class GameWorld
 
     /// <summary>The step's building the company built that is stuck (its goods can't leave), if any</summary>
     private Building? StuckHintBuilding(Company company, TutorialStep step) =>
-        BuildingsOf(company.Id).FirstOrDefault(t => step.HintBuildings.Contains(t.Type) && !t.UnderConstruction && IdleReasonOf(t).Cause == IdleCause.Stuck);
+        BuildingsOf(company.Id).FirstOrDefault(t => TutorialBuildings(company, step).Contains(t.Type) && !t.UnderConstruction && IdleReasonOf(t).Cause == IdleCause.Stuck);
 
     /// <summary>
     /// The pipe Loady's Show me lays (F2, F3): for a stuck building of the step, the pipe that unsticks it; for the pipe
