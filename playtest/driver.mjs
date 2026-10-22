@@ -202,10 +202,12 @@ async function map(player, { radius = 14, overlay = null, at = null }) {
     const ownEstate = (x, y) => (state.company ? window.tp.rules.ownEstateAt(state.company, x, y) : undefined);
     const buildingLetters = new Map();
     const seen = new Map();
+    // Your buildings get letters in turn, never one the map already uses (G the gate, H the hub, Y the Yard: Dev's replay
+    // couldn't tell his moily "G" from his Yard gate "G")
+    const letters = [..."ABCDEFIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz"].filter((t) => !used.has(t));
     const letterFor = (b) => {
       if (!buildingLetters.has(b.id)) {
-        const n = buildingLetters.size;
-        buildingLetters.set(b.id, n < 26 ? String.fromCharCode(65 + n) : String.fromCharCode(97 + ((n - 26) % 26)));
+        buildingLetters.set(b.id, letters[buildingLetters.size % letters.length]);
       }
       return buildingLetters.get(b.id);
     };
@@ -344,6 +346,14 @@ async function fill(player, label, value) {
   const page = player.page;
   for (const locator of [page.getByLabel(label, { exact: false }), page.getByPlaceholder(label, { exact: false }), page.getByRole("textbox", { name: label })]) {
     if ((await locator.count()) > 0 && (await locator.first().isVisible())) {
+      // A drop-down: choose the option with that text (Dev's replay couldn't pick a good on the Plan board)
+      if ((await locator.first().evaluate((t) => t.tagName)) === "SELECT") {
+        const options = await locator.first().locator("option").allTextContents();
+        const option = options.find((t) => t.trim().toLowerCase() === value.trim().toLowerCase()) ?? options.find((t) => t.toLowerCase().includes(value.trim().toLowerCase()));
+        if (option === undefined) return `"${label}" has no option "${value}". It offers: ${options.join(", ")}.`;
+        await locator.first().selectOption({ label: option });
+        return `Chose "${option.trim()}" in "${label}".`;
+      }
       await locator.first().fill(value);
       return `Typed "${value}" into "${label}".`;
     }
@@ -405,7 +415,7 @@ const HELP = `Commands (node playtest/pt.mjs <you> <command> …):
   rclick <x> <y>              right-click the map on that tile
   hover <x> <y>               move the mouse over that tile (to see what the game shows there)
   drag <x1> <y1> <x2> <y2>    drag on the map from one tile to another (pipes, areas)
-  fill "<field>" "<text>"     type into the field with that label or placeholder
+  fill "<field>" "<text>"     type into the field with that label or placeholder (or choose that option of a drop-down)
   type "<text>" / key <Key>   type with the keyboard / press a key (Escape, Enter, b, p, …)
   goto <url>                  open a link someone sent you (only links to the game)
   wait <seconds>              wait (up to 120 s) and look again
