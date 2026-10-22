@@ -380,6 +380,13 @@ is the design's call (yes).
   between friends stayed at 2–3% (mark 15%), the project's stages stood by themselves after day 11 (a bug: a basket
   shrinks to what was delivered when its residents are away), a building set into a pipe split the line (Ana, Cleo),
   and the middle game's chores (hub orders and Storage, the two-tap pipe, Labs that need ingots) made 13 STUCKs.
+- **After run 2** (`docs/design-notes/after-playtest/run2-fixes.md`): the analyst's twelve recommendations, built:
+  stages stand only by delivery, gifts named at both ends with Thanks, Send only where it moves something, the
+  one-tap pipe, chores that explain themselves, damage and shortages in sight, a lone player's keystone, a building on
+  its own pipe, keep researching, and the small breakers. The light bots found neither content lever raises friends'
+  trade (an open design decision). Replays from run 2's snapshots: no stage stands by itself; Ana's day 8 rose to
+  clarity 4, fun 4; Dev pressed the playtest's first Thanks. The playtest's one-device artefact (every pair of AI
+  players priced at the hub) is fixed.
 
 ### After v1
 
