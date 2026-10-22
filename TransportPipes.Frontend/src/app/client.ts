@@ -1922,6 +1922,13 @@ export class GameClient {
     }
   }
 
+  /** Takes a building's last purchase back (within the hour of buying it) */
+  async undo(building: number) {
+    if (await this.command(this.connection.undo(building), "Taken back: the gold is yours again")) {
+      void this.refreshCompany();
+    }
+  }
+
   async upgrade(building: number, levels: number) {
     if (await this.command(this.connection.upgrade(building, levels))) {
       this.engine?.twinkle(building);

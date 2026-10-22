@@ -300,7 +300,13 @@ public record BuildingDetailsDto(
     StorageKeepDto? Keep = null,
     MaxMoreDto? MaxMore = null,
     BuildingStatusDto? Status = null,
-    BuildingTradeDto? Trade = null);
+    BuildingTradeDto? Trade = null,
+    /// <summary>What the next level and Max will do to your income, solved (after run 3: "+0 g/min: its pipes carry 100 coal a minute")</summary>
+    string? UpgradePreview = null,
+    string? MaxPreview = null,
+    /// <summary>Its last purchase can be taken back for this much gold until UndoUntil (null: nothing to undo)</summary>
+    double? UndoRefund = null,
+    DateTime? UndoUntil = null);
 
 /// <summary>
 /// A building's trade with its neighbours, for its owner (step 4): who takes its goods and who sends it its inputs (both

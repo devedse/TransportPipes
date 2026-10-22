@@ -260,6 +260,10 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> NameHold(string code, string? name) =>
         Command((world, company) => world.NameHold(company, code, name));
 
+    /// <summary>Takes a building's last purchase back within the hour (after run 3: spending is safe)</summary>
+    public Task<CommandResultDto> Undo(long buildingId) =>
+        Command((world, company) => world.Undo(company, buildingId));
+
     /// <summary>A friend's seat link opened while playing elsewhere: kept in front of the player until they answer (decline: "Not with them")</summary>
     public Task<CommandResultDto> SawSeatCode(string code, bool decline) =>
         Command((world, company) => world.SawSeatCode(company, code, decline));

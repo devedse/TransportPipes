@@ -235,32 +235,39 @@ public static partial class GameViews
             Add(6, "today", "📰", $"Today in {WorldNames.District(me.District)}: {string.Join(" · ", today)}");
         }
 
-        // The Invest line (VOTE A): with a day of income banked, the building where Max buys the most levels its pipes
-        // can use (run 2: millions sat in the bank, "the gold figure feels meaningless"); with 12 hours, the best upgrade
-        // that pays itself back in 2 hours
+        // What stops you (after run 3, the design team's step 1): with an hour of income banked, the upgrade that pays
+        // most now as the solver measures it ("Max now pays"), else the biggest producer held back and by what (run 3:
+        // "27796.8k gold banked: Max … for 13k g", and Cleo's Coal Pit "energy short" for 11 days behind a full pipe)
         var income = world.MeasuredIncome(me);
-        var bank = me.Gold >= 24 * 60 * income && income > 0
-            ? buildings
-                .Where(t => world.Content.Building(t.Type) is { Kind: BuildingKind.Producer, Out.Count: > 0 })
+        if (income > 0 && me.Gold >= 60 * income)
+        {
+            var producers = buildings
+                .Where(t => !t.UnderConstruction && world.Content.Building(t.Type) is { Kind: BuildingKind.Producer, Out.Count: > 0 })
+                .OrderByDescending(t => world.Content.Building(t.Type).Out.Sum(o => o.Value * world.BasePrice(o.Key)) * world.Content.Progression.OutputMultiplier(t.Level))
+                .Take(6)
+                .ToList();
+            var pays = producers
                 .Select(t => (Building: t, Plan: world.SmartMax(me, t)))
-                .Where(t => t.Plan.Levels >= 3)
-                .Select(t => (t.Building, t.Plan, Gain: world.Content.Building(t.Building.Type).Out.Sum(o => o.Value * world.BasePrice(o.Key))
-                    * (world.Content.Progression.OutputMultiplier(t.Building.Level + t.Plan.Levels) - world.Content.Progression.OutputMultiplier(t.Building.Level))))
-                .OrderByDescending(t => t.Gain / Math.Max(1, t.Plan.Cost))
-                .FirstOrDefault()
-            : default;
-        if (bank.Building != null)
-        {
-            var good = world.Content.Building(bank.Building.Type).Out.Keys.First();
-            var more = world.Content.Building(bank.Building.Type).Out[good]
-                * (world.Content.Progression.OutputMultiplier(bank.Building.Level + bank.Plan.Levels) - world.Content.Progression.OutputMultiplier(bank.Building.Level));
-            Add(7, "invest", "💡", $"{Amount(me.Gold)} gold banked: Max takes your {Kind(bank.Building)} to level {bank.Building.Level + bank.Plan.Levels} for {Amount(bank.Plan.Cost)} g, {Amount(more)} more {world.GoodsWord(good)} a minute its pipes can use",
-                "show", bank.Building.Id, bank.Plan.Cost);
-        }
-        else if (me.Gold >= 12 * 60 * income
-            && world.NextSteps(me, 6).FirstOrDefault(t => t.Action == AdvisorAction.Upgrade && t.Building != null && t.GainPerMinute > 0 && t.Cost <= me.Gold && t.Cost / t.GainPerMinute <= 120) is { } step)
-        {
-            Add(7, "invest", "💡", $"{step.Title}: {step.Reason}", "upgrade", step.Building, step.Cost);
+                .Where(t => t.Plan.Levels >= 1 && t.Plan.Cost <= me.Gold)
+                .Select(t => (t.Building, t.Plan, Preview: world.UpgradePreview(me, t.Building, t.Plan.Levels)))
+                .Where(t => t.Preview.Gain > 0.5 && t.Plan.Cost / t.Preview.Gain <= 24 * 60)
+                .OrderByDescending(t => t.Preview.Gain / Math.Max(1, t.Plan.Cost))
+                .FirstOrDefault();
+            if (pays.Building != null)
+            {
+                Add(7, "invest", "💡", $"Max now pays: your {Kind(pays.Building)} to level {pays.Building.Level + pays.Plan.Levels} for {Amount(pays.Plan.Cost)} g, {pays.Preview.Text}",
+                    "show", pays.Building.Id, pays.Plan.Cost);
+            }
+            else if (producers.FirstOrDefault(t => world.IdleReasonOf(t).Cause is IdleCause.PipeFull or IdleCause.PostFull) is { } held)
+            {
+                var reason = world.IdleReasonOf(held);
+                var good = reason.Resource ?? world.Content.Building(held.Type).Out.Keys.First();
+                var (could, carried) = world.PipeCarry(held, good);
+                Add(7, "invest", "🧱", reason.Cause == IdleCause.PipeFull
+                        ? $"What stops you: your {Kind(held)} sells {Amount(carried)} of the {Amount(could)} {world.GoodsWord(good)} it could make a minute: its pipes carry no more"
+                        : $"What stops you: your {Kind(held)} could make more, and its trading post sells all it can",
+                    "show", held.Id);
+            }
         }
 
         var kept = lines.OrderBy(t => t.Rank).Take(ReturnLines).Select(t => t.Line).ToHashSet();

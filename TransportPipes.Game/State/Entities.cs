@@ -140,6 +140,9 @@ public sealed class Company : Entity
     public bool YardSalesExplained { get; set; }
 
     /// <summary>When its player's current (or last) session began; not stored (LastSeenAt moves on every tick they're online)</summary>
+    /// <summary>Purchases it may take back for an hour (after run 3: spending is safe)</summary>
+    public List<Purchase> Purchases { get; set; } = new();
+
     public DateTime SessionStartedAt { get; set; }
 
     /// <summary>When the research queue is empty and the Labs are free, the cheapest tech the points cover starts by itself</summary>

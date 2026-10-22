@@ -303,6 +303,8 @@ export class GameConnection {
   holdSeats = (count: number) => this.invoke<CommandResult>("HoldSeats", count);
   releaseHold = (code: string) => this.invoke<CommandResult>("ReleaseHold", code);
   nameHold = (code: string, name: string | null) => this.invoke<CommandResult>("NameHold", code, name);
+  /** Takes a building's last purchase back within the hour */
+  undo = (building: number) => this.invoke<CommandResult>("Undo", building);
   /** A friend's seat link opened while playing elsewhere (decline: "Not with them") */
   sawSeatCode = (code: string, decline: boolean) => this.invoke<CommandResult>("SawSeatCode", code, decline);
   setStationOpen = (open: boolean) => this.invoke<CommandResult>("SetStationOpen", open);

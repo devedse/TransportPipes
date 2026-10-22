@@ -841,14 +841,17 @@ public sealed partial class GameWorld
         {
             return placement;
         }
-        var payment = Pay(company, BuildCost(company, definition), definition.Cost.Materials);
+        var cost = BuildCost(company, definition);
+        var payment = Pay(company, cost, definition.Cost.Materials);
         if (!payment.Success)
         {
             return payment;
         }
 
-        AddBuilding(company, type, pos, finished: false);
+        var xpBefore = company.Xp;
+        var placed = AddBuilding(company, type, pos, finished: false);
         GainXp(company, Content.Progression.XpReward("building") + (company.BuiltTypes.Add(type) ? Content.Progression.XpReward("firstBuildingOfType") : 0), "buildings", type);
+        RecordPurchase(company, PurchaseKind.Build, placed, 0, cost, company.Xp - xpBefore);
         return CommandResult.Ok;
     }
 
@@ -1026,6 +1029,7 @@ public sealed partial class GameWorld
         }
 
         var from = building.Level;
+        var xpBefore = company.Xp;
         building.Level += levels;
         AddStat(company, "levelsBought", levels);
         building.Touch();
@@ -1036,6 +1040,7 @@ public sealed partial class GameWorld
         }
         var milestones = Content.Progression.Milestones.Count(t => t > from && t <= building.Level);
         GainXp(company, levels * Content.Progression.XpReward("upgradeLevel") + milestones * Content.Progression.XpReward("milestone"), "upgrades", building.Type);
+        RecordPurchase(company, PurchaseKind.Upgrade, building, levels, UpgradeCostFrom(building, from, levels), company.Xp - xpBefore);
         return CommandResult.Ok;
     }
 

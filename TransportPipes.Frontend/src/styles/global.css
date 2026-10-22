@@ -5868,3 +5868,17 @@ button.link.danger {
   border-radius: 8px;
   background: rgba(201, 150, 58, 0.15);
 }
+
+/* What a purchase will do, before the click (after run 3, step 1); a loss in red */
+.spend-preview {
+  margin: 6px 0 0;
+  color: var(--good, #8fd06a);
+}
+
+.spend-preview.bad {
+  color: var(--bad, #ef6f6c);
+}
+
+.undo-line {
+  margin: 6px 0;
+}

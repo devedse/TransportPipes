@@ -575,6 +575,12 @@ export interface BuildingDetailsDto {
   status: BuildingStatusDto | null;
   /** Its trade with the neighbours, for its owner (step 4) */
   trade: BuildingTradeDto | null;
+  /** What the next level and Max will do to your income, solved ("+0 g/min: its pipes carry 100 coal a minute") */
+  upgradePreview: string | null;
+  maxPreview: string | null;
+  /** Its last purchase can be taken back for this much gold until undoUntil */
+  undoRefund: number | null;
+  undoUntil: string | null;
 }
 
 /**
