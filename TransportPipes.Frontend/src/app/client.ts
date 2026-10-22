@@ -1956,6 +1956,13 @@ export class GameClient {
     );
   }
 
+  /** With nothing queued, the cheapest tech starts by itself (on by default) */
+  async setKeepResearching(keep: boolean) {
+    if (await this.command(this.connection.setKeepResearching(keep))) {
+      await this.refreshCompany();
+    }
+  }
+
   /** 💛 Thanks: once a day per neighbour, no gold, no XP; they hear it */
   async thank(giver: number, resource: string, name: string) {
     if (await this.command(this.connection.thank(giver, resource), `💛 ${name} hears your thanks`)) {

@@ -212,8 +212,29 @@ public static partial class GameViews
             Add(6, "today", "📰", $"Today in {WorldNames.District(me.District)}: {string.Join(" · ", today)}");
         }
 
-        // The Invest line (VOTE A): with 12 hours of income banked, the best upgrade that pays itself back in 2 hours
-        if (me.Gold >= 12 * 60 * world.MeasuredIncome(me)
+        // The Invest line (VOTE A): with a day of income banked, the building where Max buys the most levels its pipes
+        // can use (run 2: millions sat in the bank, "the gold figure feels meaningless"); with 12 hours, the best upgrade
+        // that pays itself back in 2 hours
+        var income = world.MeasuredIncome(me);
+        var bank = me.Gold >= 24 * 60 * income && income > 0
+            ? buildings
+                .Where(t => world.Content.Building(t.Type) is { Kind: BuildingKind.Producer, Out.Count: > 0 })
+                .Select(t => (Building: t, Plan: world.SmartMax(me, t)))
+                .Where(t => t.Plan.Levels >= 3)
+                .Select(t => (t.Building, t.Plan, Gain: world.Content.Building(t.Building.Type).Out.Sum(o => o.Value * world.BasePrice(o.Key))
+                    * (world.Content.Progression.OutputMultiplier(t.Building.Level + t.Plan.Levels) - world.Content.Progression.OutputMultiplier(t.Building.Level))))
+                .OrderByDescending(t => t.Gain / Math.Max(1, t.Plan.Cost))
+                .FirstOrDefault()
+            : default;
+        if (bank.Building != null)
+        {
+            var good = world.Content.Building(bank.Building.Type).Out.Keys.First();
+            var more = world.Content.Building(bank.Building.Type).Out[good]
+                * (world.Content.Progression.OutputMultiplier(bank.Building.Level + bank.Plan.Levels) - world.Content.Progression.OutputMultiplier(bank.Building.Level));
+            Add(7, "invest", "💡", $"{Amount(me.Gold)} gold banked: Max takes your {Kind(bank.Building)} to level {bank.Building.Level + bank.Plan.Levels} for {Amount(bank.Plan.Cost)} g, {Amount(more)} more {world.GoodsWord(good)} a minute its pipes can use",
+                "show", bank.Building.Id, bank.Plan.Cost);
+        }
+        else if (me.Gold >= 12 * 60 * income
             && world.NextSteps(me, 6).FirstOrDefault(t => t.Action == AdvisorAction.Upgrade && t.Building != null && t.GainPerMinute > 0 && t.Cost <= me.Gold && t.Cost / t.GainPerMinute <= 120) is { } step)
         {
             Add(7, "invest", "💡", $"{step.Title}: {step.Reason}", "upgrade", step.Building, step.Cost);

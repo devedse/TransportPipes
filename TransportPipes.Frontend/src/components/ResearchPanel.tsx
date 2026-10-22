@@ -182,6 +182,15 @@ export function ResearchPanel() {
           Labs turn energy and iron ingots into research points. Techs get cheaper the more active companies
           already have them.
         </p>
+        {/* Research that keeps going while you're away (run 2: points piled up to 64k while the queue sat empty) */}
+        <label className="small keep-researching">
+          <input
+            type="checkbox"
+            checked={company.keepResearching}
+            onChange={(event) => void gameClient.setKeepResearching(event.target.checked)}
+          />{" "}
+          Keep researching: when the queue is empty, the cheapest tech your points cover starts by itself
+        </label>
         {(company.researchQueue?.length ?? 0) > 0 && (
           <p className="small research-queue">
             Next, by themselves:{" "}

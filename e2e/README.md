@@ -26,6 +26,8 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 | `right-click.mjs` | A right-click on the map steps back (deselects, puts a tool away); a right-drag still pans |
 | `onetap.mjs` | One tap lays the pipe: a lone Wind Moily is stuck, its panel's fix names where the pipe goes and its price, and a single tap lays it (no preview to confirm) |
 | `chores.mjs` | The middle game's chores explain themselves: the Lab under Processing says what it uses and who makes it, the Hub's orders say they come out of a Storage, with a button to build one |
+| `pipeunder.mjs` | A Small Factory set onto a tile of the starter kit's line: allowed, and the pipe runs on under it |
+| `research-keep.mjs` | The Research panel's Keep researching switch, on by default, turned off |
 | `advisor.mjs` | The Next steps card on a real estate: its three steps, Show me on the first, an upgrade done from the card |
 | `chapter2.mjs` | Loady's second chapter above the advisor, the level roadmap in the XP panel, the level-up card with what the level brings |
 | `paint.mjs` | The build tool paints: a drag builds a row, Shift-drag an area, a click one; the ? key lists the mouse and keys |

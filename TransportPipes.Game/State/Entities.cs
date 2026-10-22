@@ -139,6 +139,9 @@ public sealed class Company : Entity
     /// <summary>The return card has said once that the Yard sells its spare to neighbours by itself (run 2: "did I agree?")</summary>
     public bool YardSalesExplained { get; set; }
 
+    /// <summary>When the research queue is empty and the Labs are free, the cheapest tech the points cover starts by itself</summary>
+    public bool KeepResearching { get; set; } = true;
+
     /// <summary>The House that keeps an asleep company's trades going (v1.2 §9), and whether its partners heard on day 23</summary>
     public StandIn? StandIn { get; set; }
     public bool StandInAnnounced { get; set; }

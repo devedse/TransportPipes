@@ -120,6 +120,8 @@ export interface CompanyDto {
   land: LandDto | null;
   /** The research queue (F11): techs that start by themselves, in order */
   researchQueue: string[] | null;
+  /** With nothing queued, the cheapest tech the points cover starts by itself */
+  keepResearching: boolean;
 }
 
 /** Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there */

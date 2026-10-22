@@ -372,6 +372,7 @@ export class GameConnection {
   startResearch = (tech: string) => this.invoke<CommandResult>("StartResearch", tech);
   queueResearch = (tech: string, queued: boolean) =>
     this.invoke<CommandResult>("QueueResearch", tech, queued);
+  setKeepResearching = (keep: boolean) => this.invoke<CommandResult>("SetKeepResearching", keep);
   placeBuilding = (type: string, x: number, y: number) =>
     this.invoke<CommandResult>("PlaceBuilding", type, x, y);
   placePipes = (tiles: number[], tier: number) => this.invoke<CommandResult>("PlacePipes", tiles, tier);

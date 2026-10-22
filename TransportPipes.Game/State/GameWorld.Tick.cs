@@ -76,6 +76,12 @@ public sealed partial class GameWorld
         {
             events.Add((company.ResearchEndsAt!.Value, -company.Id, () => CompleteResearch(company)));
         }
+        // Banked points start research while the player is away, even with idle Labs (run 2: Ana's 64k points sat
+        // unspent in a Lab with no pipes)
+        foreach (var company in _companies.Values.Where(t => t.CurrentResearch == null && t.KeepResearching && t.ResearchQueue.Count == 0 && t.ResearchPoints > 0 && !t.IsNpc))
+        {
+            StartQueuedResearch(company);
+        }
         for (var at = NextMarketUpdate(LastTick); at <= now; at = NextMarketUpdate(at))
         {
             events.Add((at, long.MinValue, () =>

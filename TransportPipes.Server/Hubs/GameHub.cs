@@ -391,6 +391,9 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> QueueResearch(string tech, bool queued) =>
         Command((world, company) => world.QueueResearch(company, tech, queued));
 
+    public Task<CommandResultDto> SetKeepResearching(bool keep) =>
+        Command((world, company) => world.SetKeepResearching(company, keep));
+
     public Task<MarketDto?> GetMarket() =>
         _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Market(world, company) : null, changesWorld: false);
 

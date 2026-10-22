@@ -179,4 +179,29 @@ public class ResearchFacts
         Assert.IsTrue(game.World.QueueResearch(company.Id, "valves", false).Success);
         Assert.HasCount(4, company.ResearchQueue);
     }
+
+    [TestMethod]
+    public void ResearchKeepsGoingWhileThePlayerIsAway()
+    {
+        // Run 2: research points piled up to 64k while the queue sat empty; with nothing queued, the cheapest tech the
+        // points cover starts by itself, once the player has been away half an hour (one who is here chooses)
+        var game = new TestGame();
+        var company = game.NewCompany(level: 5);
+        company.ResearchPoints = 100_000;
+        game.Build(company, "lab");
+        game.Pass(10);
+        Assert.IsNull(company.CurrentResearch, "the player is here: they choose");
+
+        company.LastSeenAt = game.World.Now.AddHours(-1);
+        game.Pass(10);
+
+        Assert.IsNotNull(company.CurrentResearch, "away: the cheapest tech started");
+        Assert.AreEqual(game.World.Content.ResearchList.Where(t => game.World.ResearchBlocker(company, t) == null || t.Id == company.CurrentResearch)
+            .Min(t => game.World.ResearchCost(company, t)), game.World.ResearchCost(company, game.World.Content.Research[company.CurrentResearch!]), 1e-9);
+
+        company.CurrentResearch = null;
+        Assert.IsTrue(game.World.SetKeepResearching(company.Id, false).Success);
+        game.Pass(10);
+        Assert.IsNull(company.CurrentResearch, "switched off");
+    }
 }

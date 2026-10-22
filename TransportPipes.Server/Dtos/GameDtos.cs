@@ -120,7 +120,9 @@ public record CompanyDto(
     /// <summary>Dealt land: your seat's goods and who in your station holds the others (null on old land)</summary>
     LandDto? Land = null,
     /// <summary>The research queue (F11): techs that start by themselves, in order</summary>
-    IReadOnlyList<string>? ResearchQueue = null);
+    IReadOnlyList<string>? ResearchQueue = null,
+    /// <summary>With nothing queued, the cheapest tech the points cover starts by itself</summary>
+    bool KeepResearching = true);
 
 /// <summary>Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there</summary>
 public record LandDto(IReadOnlyList<string> Goods, IReadOnlyList<LandSeatDto> Station);

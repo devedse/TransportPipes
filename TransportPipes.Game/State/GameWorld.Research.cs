@@ -144,11 +144,24 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
-    /// <summary>The Labs are free: the first queued tech that can start (its prerequisites done, its points there) starts</summary>
+    /// <summary>
+    /// The Labs are free: the first queued tech that can start (its prerequisites done, its points there) starts; with
+    /// nothing queued and the player away, the cheapest tech the points cover, unless the player turned that off (run 2:
+    /// research points piled up to 64k while a queue of five emptied in hours)
+    /// </summary>
     private void StartQueuedResearch(Company company)
     {
-        if (company.CurrentResearch != null || company.ResearchQueue.Count == 0)
+        if (company.CurrentResearch != null)
         {
+            return;
+        }
+        if (company.ResearchQueue.Count == 0)
+        {
+            // Only while the player is away: one who is here chooses
+            if (company.KeepResearching && LastTick - company.LastSeenAt >= KeepResearchingAway && CheapestResearch(company) is { } next)
+            {
+                StartResearch(company.Id, next.Id);
+            }
             return;
         }
         company.ResearchQueue.RemoveAll(company.Researched.Contains);
@@ -164,6 +177,30 @@ public sealed partial class GameWorld
                 return;
             }
         }
+    }
+
+    /// <summary>Keep researching starts the cheapest tech only when the player has been away this long</summary>
+    private static readonly TimeSpan KeepResearchingAway = TimeSpan.FromMinutes(30);
+
+    /// <summary>The cheapest tech a company can start now with its points</summary>
+    public ResearchDefinition? CheapestResearch(Company company) =>
+        Content.ResearchList
+            .Where(t => !company.Researched.Contains(t.Id) && ResearchBlocker(company, t) == null && company.ResearchPoints >= ResearchCost(company, t) - 1e-9)
+            .OrderBy(t => ResearchCost(company, t)).ThenBy(t => t.Id, StringComparer.Ordinal)
+            .FirstOrDefault();
+
+    /// <summary>Whether the cheapest tech starts by itself when the queue is empty</summary>
+    public CommandResult SetKeepResearching(long companyId, bool keep)
+    {
+        if (Company(companyId) is not { } company)
+        {
+            return CommandResult.Fail("Unknown company.");
+        }
+        company.KeepResearching = keep;
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        StartQueuedResearch(company);
+        return CommandResult.Ok;
     }
 
     private CommandResult StartMastery(Company company)

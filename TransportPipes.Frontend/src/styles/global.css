@@ -2036,6 +2036,19 @@ button.link {
 
 /* ---------- Research ---------- */
 
+.keep-researching {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+
+.keep-researching input {
+  width: auto;
+  margin: 0;
+  flex: none;
+}
+
 .research-panel {
   width: min(1180px, calc(100vw - 24px));
   max-height: calc(100vh - 40px);

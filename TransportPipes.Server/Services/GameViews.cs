@@ -109,7 +109,8 @@ public static partial class GameViews
             company.League,
             Week(world, company),
             Land(world, company),
-            company.ResearchQueue.ToList());
+            company.ResearchQueue.ToList(),
+            company.KeepResearching);
     }
 
     /// <summary>Dealt land (step 5): the goods your seat holds, and who in your station holds the others (null on old land)</summary>
