@@ -6,7 +6,12 @@
 //     --from      the run whose snapshots to restore (default story1)
 // Scenarios:
 //   row10-yard    day 14 19:00 + 6 h, nobody acting: incomes, what the Yard sends that nobody takes, Cleo's Lab
+//   return-d27    day 14 19:00 to day 27 02:30, nobody acting: Ana's return card names Ben's stand-in (F5)
+//   return-phone  day 36 18:00: Ben opens the game on his phone; one card, then the map in at most two taps (F5)
+//                 (needs Vite on :5174 with TP_SERVER=http://localhost:5090)
 import { execSync } from "node:child_process";
+import { mkdirSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 
 const ROOT = path.dirname(new URL(import.meta.url).pathname);
@@ -49,6 +54,61 @@ function check(name, ok, detail) {
 const round = (x, d = 1) => Number(x).toFixed(d);
 
 const scenarios = {
+  /** F5: Ana comes back on day 27, after Ben's stand-in was announced (row 13 of run 1): her one card says so */
+  async "return-d27"() {
+    console.log(director("restore", "row10"));
+    const story = JSON.parse(execSync(`cat ${path.join(ROOT, "runs", from, "story.json")}`).toString());
+    const target = new Date(story.day1).getTime() + (26 * 24 + 4.5) * 3600e3;
+    const { now } = await api("GET", "now");
+    await advance((target - new Date(now).getTime()) / 3600e3, 6);
+    const card = await api("GET", `card/${ANA}`);
+    console.log(JSON.stringify(card, null, 2));
+    check("Ana gets a card", card !== null);
+    const lines = card?.lines ?? [];
+    check("it names Ben's stand-in", lines.some((t) => /Riverside Co\./.test(t.text) && /stand/.test(t.text)), lines.map((t) => t.text).join(" | "));
+    check("six lines at most", lines.length <= 6, `${lines.length}`);
+    check("on the server's clock", /day|h|min/.test(card?.away ?? ""), card?.away);
+  },
+
+  /** F5: Ben comes back on his phone on day 36 (row 14 of run 1, after three dialogs): one card, then the map */
+  async "return-phone"() {
+    console.log(director("restore", "row14"));
+    const { chromium } = createRequire(new URL("../e2e/package.json", import.meta.url))("playwright-core");
+    const executablePath = process.env.CHROMIUM ?? `${process.env.HOME}/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome`;
+    const browser = await chromium.launch({ executablePath, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
+    try {
+      const context = await browser.newContext({
+        viewport: { width: 420, height: 860 },
+        hasTouch: true,
+        isMobile: true,
+        storageState: path.join(ROOT, "runs", from, "ben", "storage.json"),
+      });
+      const page = await context.newPage();
+      await page.goto(process.env.PLAYTEST_URL ?? "http://localhost:5174");
+      await page.waitForSelector(".toolbar, [role=dialog]", { timeout: 90_000 });
+      await page.waitForTimeout(4000);
+      const dir = path.join(ROOT, "runs", `replay-return-phone`);
+      mkdirSync(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "ben-card.png") });
+      const dialogs = page.locator("[role=dialog]:visible");
+      const first = await dialogs.count();
+      const card = first > 0 ? await dialogs.first().innerText() : "";
+      console.log(card);
+      let taps = 0;
+      while ((await dialogs.count()) > 0 && taps < 6) {
+        await dialogs.first().locator("button.primary").last().tap();
+        taps++;
+        await page.waitForTimeout(1500);
+      }
+      await page.screenshot({ path: path.join(dir, "ben-after.png") });
+      check("one card on the way back", first === 1 && /While you were away/.test(card), `${first} dialog(s)`);
+      check("it names what happened to Ben's estate", /stood in|stand/i.test(card), card.split("\n").slice(0, 4).join(" / "));
+      check("the map in at most two taps", taps <= 2 && (await dialogs.count()) === 0, `${taps} tap(s)`);
+    } finally {
+      await browser.close();
+    }
+  },
+
   /** Every middle-game Yard bug at once: six hours of nobody acting from day 14 19:00 (A2 row10, step 1) */
   async "row10-yard"() {
     console.log(director("restore", "row10"));

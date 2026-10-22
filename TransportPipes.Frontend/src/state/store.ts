@@ -20,14 +20,13 @@ import type {
   MarketDto,
   NeighbourDto,
   NetworkDetailsDto,
-  ReportDto,
   BlueprintsDto,
   ResearchStateDto,
   UserInfo,
   YardDto,
   LinksDto,
   MapLinkDto,
-  ReturnDto,
+  ReturnCardDto,
   ProjectDto,
   CrewViewDto,
   HeldSeatDto,
@@ -86,8 +85,8 @@ export interface AppState {
   /** The Yard panel's tab: your station, or your links to other stations */
   yardTab: "yard" | "links" | "project";
   project: ProjectDto | null;
-  /** The way back after an absence: three screens before the report */
-  welcomeBack: ReturnDto | null;
+  /** The return card (F5): what happened since the last session, until the player continues */
+  returnCard: ReturnCardDto | null;
   links: LinksDto | null;
   /** Every link on the map, and the one the Links tab points at */
   mapLinks: MapLinkDto[];
@@ -104,7 +103,6 @@ export interface AppState {
   zoom: number;
 
   toasts: Toast[];
-  report: ReportDto | null;
   helpOpen: boolean;
   researchOpen: boolean;
   research: ResearchStateDto[];
@@ -207,7 +205,7 @@ export const initialState: AppState = {
   yard: null,
   yardTab: "yard",
   project: null,
-  welcomeBack: null,
+  returnCard: null,
   links: null,
   mapLinks: [],
   focusLink: null,
@@ -220,7 +218,6 @@ export const initialState: AppState = {
   pipeRoute: null,
   zoom: 1,
   toasts: [],
-  report: null,
   helpOpen: false,
   researchOpen: false,
   research: [],

@@ -302,6 +302,7 @@ export class GameConnection {
   renewInvite = () => this.invoke<CommandResult>("RenewInvite");
   holdSeats = (count: number) => this.invoke<CommandResult>("HoldSeats", count);
   releaseHold = (code: string) => this.invoke<CommandResult>("ReleaseHold", code);
+  nameHold = (code: string, name: string | null) => this.invoke<CommandResult>("NameHold", code, name);
   setStationOpen = (open: boolean) => this.invoke<CommandResult>("SetStationOpen", open);
   relocateTo = (seat: SeatRefDto) =>
     this.invoke<CommandResult>("RelocateTo", seat.districtX, seat.districtY, seat.slot);
@@ -395,6 +396,7 @@ export class GameConnection {
     this.invoke<{ placed: number; gold: number; error: string | null }>("PlaceBuildings", type, spots);
   demolish = (building: number) => this.invoke<CommandResult>("Demolish", building);
   repair = (building: number) => this.invoke<CommandResult>("Repair", building);
+  repairAll = () => this.invoke<CommandResult>("RepairAll");
   dig = (parcel: number) => this.invoke<CommandResult>("Dig", parcel);
   evolve = (building: number) => this.invoke<CommandResult>("Evolve", building);
   skipTutorial = () => this.invoke<CommandResult>("SkipTutorial");

@@ -2606,20 +2606,6 @@ button.liked {
   margin: 0;
 }
 
-.report-storages {
-  display: grid;
-  gap: 6px;
-  margin: 10px 0;
-}
-
-.report-storage {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.88rem;
-}
-
 /* ---------- Events and weather ---------- */
 
 .event-bar {
@@ -5233,6 +5219,20 @@ button.big {
   background: rgba(255, 255, 255, 0.45);
 }
 
+/* "Who is it for?": the friend's name makes the link theirs (F9) */
+.held-seats .friend-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.held-seats .friend-name input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 4px 8px;
+}
+
 .held-seats .code {
   font-family: ui-monospace, monospace;
   letter-spacing: 0.08em;
@@ -5398,30 +5398,50 @@ button.link.danger {
   box-shadow: none;
 }
 
-/* The way back (v1.2 §10): three screens, landing cards */
-.return-steps {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
+/* The return card (F5): gold and level, then one line per thing to know, each with its one button */
+.return-card {
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
 }
 
-.return-steps .step {
-  width: 28px;
-  height: 5px;
-  border-radius: 3px;
-  background: rgba(0, 0, 0, 0.15);
+.return-head {
+  display: grid;
+  gap: 2px;
 }
 
-.return-steps .step.active {
-  background: var(--accent);
+.return-lines {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
 }
 
-.return-steps .step.done {
-  background: rgba(35, 107, 105, 0.45);
+.return-line {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  line-height: 1.35;
 }
 
-.return-buttons {
-  justify-content: flex-end;
+.return-line .return-icon {
+  text-align: center;
+}
+
+.return-line.look {
+  font-weight: 600;
+}
+
+.return-line.today,
+.return-line.invest {
+  color: var(--text-muted);
+}
+
+.return-line .ok {
+  color: #2f8f4e;
+  font-weight: 700;
 }
 
 .landing-cards {

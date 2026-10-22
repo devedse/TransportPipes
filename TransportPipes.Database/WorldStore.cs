@@ -96,6 +96,7 @@ public sealed class WorldStore
                 House = settings.House,
                 StandIn = settings.StandIn,
                 StandInAnnounced = settings.StandInAnnounced,
+                KnownAs = settings.KnownAs,
                 HoldUntil = settings.HoldUntil,
                 KeepAsked = settings.KeepAsked,
                 TendedBy = settings.TendedBy ?? new Dictionary<long, int>(),
@@ -403,6 +404,7 @@ public sealed class WorldStore
                     House = company.House,
                     StandIn = company.StandIn,
                     StandInAnnounced = company.StandInAnnounced,
+                    KnownAs = company.KnownAs,
                     HoldUntil = company.HoldUntil,
                     KeepAsked = company.KeepAsked,
                     TendedBy = company.TendedBy,
@@ -753,6 +755,7 @@ public sealed class WorldStore
         public HouseKind? House { get; init; }
         public StandIn? StandIn { get; init; }
         public bool StandInAnnounced { get; init; }
+        public string? KnownAs { get; init; }
         public DateTime? HoldUntil { get; init; }
         public bool KeepAsked { get; init; }
         public Dictionary<long, int>? TendedBy { get; init; }

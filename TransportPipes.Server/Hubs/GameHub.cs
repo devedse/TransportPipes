@@ -106,25 +106,18 @@ public sealed class GameHub : Hub<IGameClient>
         var user = new UserInfo(userId, UserName);
         var (isAdmin, _, _) = await _accounts.ModerationAsync(userId);
         user = user with { IsAdmin = isAdmin, IsGuest = await _accounts.IsGuestAsync(userId) };
-        var hello = await _world.RunAsync(world =>
+        var start = await _world.RunAsync(world =>
         {
             var company = world.CompanyOfUser(userId);
             if (company == null)
             {
-                return new HelloDto(user, null, null, world.Now, world.Era, 0);
+                return (Hello: new HelloDto(user, null, null, world.Now, world.Era, 0), Away: (GameViews.AwayFacts?)null, Company: (Company?)null, Crew: false);
             }
-            // The way back (v1.2 §10): what to tell a player who was away three days or more (before the report starts anew)
-            var away = world.Now - company.LastSeenAt;
-            var wasAsleep = company.Asleep;
-            var fromIsles = company.Asleep && company.Packed != null;
-            var standIn = company.StandIn?.Name;
-            var earned = company.Report.GoldEarned;
-            var fee = company.Report.CaretakerFee;
-            var tended = company.Report.TendedDays;
-            ReportDto? report = null;
-            if (world.Now - company.Report.Since >= ReportAfter && GameViews.HasNews(company.Report))
+            // The return card (F5): what happened since the last session (from before the company wakes and its next report starts)
+            var away = new GameViews.AwayFacts(world.Now - company.LastSeenAt, company.Report, company.StandIn?.Name, company.Asleep, company.Asleep && company.Packed != null);
+            var hasCard = world.Now - company.Report.Since >= ReportAfter;
+            if (hasCard)
             {
-                report = GameViews.Report(world, company);
                 company.Report = new CompanyReport { Since = world.Now };
                 company.Touch();
             }
@@ -134,10 +127,35 @@ public sealed class GameHub : Hub<IGameClient>
             // Back from sleep (in place, or from the Quiet Isles)
             world.WakeUp(company);
             world.EnsureOrders(company);
-            var back = away >= GameWorld.RestingAfter || wasAsleep ? GameViews.Return(world, company, away, earned, fee, tended, standIn, wasAsleep, fromIsles) : null;
-            return new HelloDto(user, CompanyView(world, company), report, world.Now, world.Era, 0, back);
+            return (Hello: new HelloDto(user, CompanyView(world, company), null, world.Now, world.Era, 0), Away: hasCard ? away : null, Company: company, Crew: world.CrewOf(company) != null);
         });
+        var hello = start.Hello;
+        if (start is { Away: { } facts, Company: { } me })
+        {
+            // A player without a crew: who answered them in the district chat while they were away
+            var chatLine = start.Crew ? null : await ChatAnswerAsync(me, facts.Report.Since);
+            hello = hello with { Card = await _world.RunAsync(world => GameViews.ReturnCard(world, me, facts, chatLine)) };
+        }
         return hello.Company is { } dto ? hello with { Unread = await _social.UnreadAsync(dto.Id) } : hello;
+    }
+
+    /// <summary>"Mia answered you in the Capital chat, 3 min after you wrote": the others' messages after your last one, while you were away</summary>
+    private async Task<string?> ChatAnswerAsync(Company me, DateTime since)
+    {
+        var history = await _social.HistoryAsync(SocialService.DistrictChannel(me.District.X, me.District.Y), me.Id, null);
+        if (history.LastOrDefault(t => t.Sender == me.Id) is not { } mine)
+        {
+            return null;
+        }
+        var answers = history.Where(t => t.Id > mine.Id && t.Sender != me.Id && t.SentAt >= since).ToList();
+        if (answers.Count == 0)
+        {
+            return null;
+        }
+        var names = answers.Select(t => t.SenderName).Distinct().Take(3).ToList();
+        var after = answers[0].SentAt - mine.SentAt;
+        var when = after.TotalMinutes < 1 ? "right after you wrote" : after.TotalHours < 1 ? $"{Math.Ceiling(after.TotalMinutes):0} min after you wrote" : after.TotalHours < 24 ? $"{(int)after.TotalHours} h after you wrote" : $"{(int)after.TotalDays} days after you wrote";
+        return $"{(names.Count == 1 ? names[0] : $"{string.Join(", ", names.Take(names.Count - 1))} and {names[^1]}")} answered you in the {WorldNames.District(me.District)} chat, {when}";
     }
 
     private static CompanyDto CompanyView(GameWorld world, Company company) =>
@@ -230,6 +248,9 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<CommandResultDto> ReleaseHold(string code) =>
         Command((world, company) => world.ReleaseHold(company, code));
+
+    public Task<CommandResultDto> NameHold(string code, string? name) =>
+        Command((world, company) => world.NameHold(company, code, name));
 
     public Task<CommandResultDto> SetStationOpen(bool open) =>
         Command((world, company) => world.SetStationOpen(company, open));
@@ -1141,6 +1162,9 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<CommandResultDto> Repair(long building) =>
         Command((world, company) => world.Repair(company, building));
+
+    public Task<CommandResultDto> RepairAll() =>
+        Command((world, company) => world.RepairAll(company));
 
     public Task<CommandResultDto> Demolish(long building) =>
         Command((world, company) => world.Demolish(company, building));

@@ -504,6 +504,9 @@ public sealed partial class GameWorld
     /// <summary>The players whose spare a project's round cut to their daily share (their card says so)</summary>
     private readonly HashSet<(string Station, long Company)> _projectCapped = new();
 
+    /// <summary>The station a project belongs to (its big station's corner)</summary>
+    public StationRef StationOf(StationProject project) => StationOfKey(project.Station);
+
     /// <summary>When a stage last finished (the "This week" row shows it for a day)</summary>
     public DateTime? LastFinished(StationProject project) => project.Finished.Count == 0 ? null : project.Finished.Values.Max();
 

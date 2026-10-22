@@ -28,8 +28,7 @@ import { ParcelPanel } from "./components/ParcelPanel";
 import { SelectionPanel } from "./components/SelectionPanel";
 import { KeysHelp } from "./components/KeysHelp";
 import { PipeTierBar } from "./components/PipeTierBar";
-import { ReportDialog } from "./components/ReportDialog";
-import { ReturnDialog } from "./components/ReturnDialog";
+import { ReturnCard } from "./components/ReturnCard";
 import { LoneCard } from "./components/LoneCard";
 import { BlueprintPanel, BlueprintSaveDialog } from "./components/BlueprintPanel";
 import { DeepParcelPanel, DeepVignette, LayerSwitch } from "./components/DeepPanel";
@@ -313,14 +312,11 @@ export function App() {
           <ErrorBoundary name="SeasonPanel">
             <SeasonPanel />
           </ErrorBoundary>
-          <ErrorBoundary name="ReturnDialog">
-            <ReturnDialog />
+          <ErrorBoundary name="ReturnCard">
+            <ReturnCard />
           </ErrorBoundary>
           <ErrorBoundary name="LoneCard">
             <LoneCard />
-          </ErrorBoundary>
-          <ErrorBoundary name="ReportDialog">
-            <ReportDialog />
           </ErrorBoundary>
           <ConnectionOverlay />
         </>

@@ -144,6 +144,17 @@ public static class PlaytestEndpoints
 
         group.MapGet("/companies", (WorldHost host) => host.RunAsync(Companies, changesWorld: false));
 
+        // The return card a company would see if its player came back now (F5's gate), without waking it
+        group.MapGet("/card/{companyId:long}", (long companyId, WorldHost host) => host.RunAsync(world =>
+        {
+            if (world.Company(companyId) is not { } company)
+            {
+                return null;
+            }
+            var away = new GameViews.AwayFacts(world.Now - company.LastSeenAt, company.Report, company.StandIn?.Name, company.Asleep, company.Asleep && company.Packed != null);
+            return GameViews.ReturnCard(world, company, away, null);
+        }));
+
         // Every station's project starts its stage again, by today's rules (old baskets in a replayed snapshot)
         group.MapPost("/restage", (WorldHost host) => host.RunAsync(world =>
         {

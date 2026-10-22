@@ -94,6 +94,25 @@ public sealed partial class GameWorld
         return ran <= 1e-9 ? 0 : units.Sum() / ran;
     }
 
+    /// <summary>What each buyer took of a seller's goods since a moment (by whole days, at most a week): the return card's "Ben took your sand"</summary>
+    public Dictionary<(long Buyer, string Resource), double> TakenSince(Company seller, DateTime since)
+    {
+        var today = WorldDay;
+        var first = (int)Math.Floor((since - DateTime.UnixEpoch).TotalDays);
+        var taken = new Dictionary<(long, string), double>();
+        foreach (var (key, trade) in seller.UsualTrades)
+        {
+            var (units, _) = UsualBuckets(trade, today);
+            var sum = Enumerable.Range(0, Math.Min(UsualTradeDays, today - first + 1)).Sum(i => units[i]);
+            var parts = key.Split(':', 2);
+            if (sum > 1e-6 && parts.Length == 2 && long.TryParse(parts[0], out var buyer))
+            {
+                taken[(buyer, parts[1])] = sum;
+            }
+        }
+        return taken;
+    }
+
     /// <summary>Usual trades older than a week are forgotten (once a day)</summary>
     private void ForgetOldUsualTrades()
     {

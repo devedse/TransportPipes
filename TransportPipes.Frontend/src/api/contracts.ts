@@ -263,56 +263,40 @@ export interface ResearchStateDto {
   diffusion: number;
 }
 
-export interface ReportDto {
-  since: string;
-  goldEarned: number;
-  goldSpent: number;
-  sold: Record<string, number>;
-  produced: Record<string, number>;
-  levelsGained: number;
-  buildingsCompleted: number;
-  notes: string[];
-  researchDone: string[];
-  contracts: string[];
-  newNeighbours: string[];
-  ordersCompleted: number;
-  likesReceived: number;
-  fullStorages: FullStorageDto[];
-}
-
-/** A full storage in the offline report, with a one-tap upgrade */
-export interface FullStorageDto {
-  building: number;
-  type: string;
-  level: number;
-  capacity: number;
-  upgradeCost: number | null;
-}
-
 export interface HelloDto {
   user: UserInfo;
   company: CompanyDto | null;
-  report: ReportDto | null;
+  /** The return card (F5): what happened since the last session */
+  card: ReturnCardDto | null;
   serverTime: string;
   era: number;
   unread: number;
-  /** The way back after three or more days away (v1.2 §10) */
-  return: ReturnDto | null;
 }
 
-/** The way back: what happened, that the estate is safe, and where it can land */
-export interface ReturnDto {
-  daysAway: number;
+/**
+ * The return card (F5): one card for every return with news, built on the server's clock. Gold and level, the fine
+ * print, at most six lines in their sections, and where to land after the Quiet Isles.
+ */
+export interface ReturnCardDto {
+  /** How long the player was away: "2 days", "5 h 10 min" */
+  away: string;
   earned: number;
-  caretakerFee: number;
-  tendedDays: number;
-  standIn: string | null;
-  wasAsleep: boolean;
-  fromQuietIsles: boolean;
-  station: string;
-  links: number;
-  crates: number;
+  levelFrom: number;
+  level: number;
+  fine: string[];
+  lines: ReturnLineDto[];
   landing: LandingCardDto[];
+  hint: string | null;
+}
+
+/** A line of the return card: its section, and its one button with what it costs */
+export interface ReturnLineDto {
+  kind: "people" | "look" | "project" | "social" | "today" | "invest";
+  icon: string;
+  text: string;
+  action: "repairAll" | "show" | "project" | "upgrade" | null;
+  building: number | null;
+  cost: number | null;
 }
 
 /** A place to land: your seat, next to your crew, a lively station, the Frontier */
@@ -1448,6 +1432,8 @@ export interface InviteDto {
   needsApproval: boolean;
   /** A company name nobody uses yet */
   name: string | null;
+  /** Who the seat was kept for ("Ben") */
+  friendName: string | null;
 }
 
 export interface CrewMemberDto {
@@ -1484,6 +1470,8 @@ export interface HeldSeatDto {
   for: number | null;
   forName: string | null;
   station: string | null;
+  /** Who the seat is for, as the crew calls them ("Ben") */
+  friendName: string | null;
 }
 
 export interface CrewDto {

@@ -18,6 +18,9 @@ public sealed class SeatHold
     /// <summary>A seat kept for a member (a crew move, or an asleep friend's seat after the crew moved): only they take it</summary>
     public long? For { get; init; }
 
+    /// <summary>Who the seat is for, as the crew calls them ("Ben", F9): the link says it, and the crew sees "Riverside Co. (Ben)"</summary>
+    public string? FriendName { get; set; }
+
     public EstateKey Seat => new(new DistrictCoord(DistrictX, DistrictY), Slot);
 }
 
@@ -284,6 +287,29 @@ public sealed partial class GameWorld
             : CommandResult.Fail("There is no free seat left in your station (or your crew is full).");
     }
 
+    /// <summary>Who a held seat is for (F9): the crew calls the friend by that name once they move in</summary>
+    public CommandResult NameHold(long companyId, string code, string? name)
+    {
+        if (Company(companyId) is not { } company || CrewOf(company) is not { } crew || crew.Holds.FirstOrDefault(t => t.Code == NormalizeCode(code)) is not { } hold)
+        {
+            return CommandResult.Fail("No such held seat.");
+        }
+        var trimmed = name?.Trim();
+        if (trimmed is { Length: > 20 })
+        {
+            return CommandResult.Fail("A name of 20 letters at most.");
+        }
+        hold.FriendName = string.IsNullOrEmpty(trimmed) ? null : trimmed;
+        CrewChanged(crew);
+        return CommandResult.Ok;
+    }
+
+    /// <summary>A company as its crew mates see it: "Riverside Co. (Ben)" when the seat it took was kept for "Ben" (F9)</summary>
+    public string NameFor(Company company, Company viewer) =>
+        company.KnownAs is { } name && viewer.Id != company.Id && viewer.CrewId != null && viewer.CrewId == company.CrewId && !company.Name.Contains(name, StringComparison.OrdinalIgnoreCase)
+            ? $"{company.Name} ({name})"
+            : company.Name;
+
     /// <summary>Gives a held seat free again</summary>
     public CommandResult ReleaseHold(long companyId, string code)
     {
@@ -324,6 +350,7 @@ public sealed partial class GameWorld
                 return CommandResult.Fail("That crew is full.");
             }
             company.CrewId = held.Crew.Id;
+            company.KnownAs = held.Hold.FriendName ?? company.KnownAs;
             company.Touch();
             var seat = held.Hold.Seat;
             RemoveHold(held.Crew, held.Hold);

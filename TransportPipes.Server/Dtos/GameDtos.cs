@@ -28,23 +28,25 @@ public record CommandResultDto(bool Success, string? Error, string? Code = null)
 }
 
 /// <summary>Everything the client needs right after connecting</summary>
-public record HelloDto(UserInfo User, CompanyDto? Company, ReportDto? Report, DateTime ServerTime, int Era, int Unread, ReturnDto? Return = null);
+public record HelloDto(UserInfo User, CompanyDto? Company, ReturnCardDto? Card, DateTime ServerTime, int Era, int Unread);
 
 /// <summary>
-/// The way back after three or more days (v1.2 §10): what happened, that the estate is safe, and where it can land
+/// The return card (F5): one card for every return with news, built on the server's clock. Gold and level, the fine
+/// print (the caretaker, the rest, research done), at most six lines in their sections, and where to land after the
+/// Quiet Isles.
 /// </summary>
-public record ReturnDto(
-    double DaysAway,
+public record ReturnCardDto(
+    string Away,
     double Earned,
-    double CaretakerFee,
-    int TendedDays,
-    string? StandIn,
-    bool WasAsleep,
-    bool FromQuietIsles,
-    string Station,
-    int Links,
-    int Crates,
-    IReadOnlyList<LandingCardDto> Landing);
+    int LevelFrom,
+    int Level,
+    IReadOnlyList<string> Fine,
+    IReadOnlyList<ReturnLineDto> Lines,
+    IReadOnlyList<LandingCardDto> Landing,
+    string? Hint);
+
+/// <summary>A line of the return card: its section, and its one button (repairAll, show, project, upgrade) with what it costs</summary>
+public record ReturnLineDto(string Kind, string Icon, string Text, string? Action, long? Building, double? Cost);
 
 /// <summary>A place to land: your seat, next to your crew, a lively station, the Frontier; with the crates it would mean</summary>
 public record LandingCardDto(string Kind, SeatRefDto Seat, string Station, int Crates, bool Here, int Neighbours);
@@ -199,25 +201,6 @@ public record MarketDto(int DistrictX, int DistrictY, string District, IReadOnly
 
 /// <summary>A tech as one company sees it</summary>
 public record ResearchStateDto(string Id, string State, double Cost, string? Reason, double Diffusion);
-
-public record ReportDto(
-    DateTime Since,
-    double GoldEarned,
-    double GoldSpent,
-    IReadOnlyDictionary<string, double> Sold,
-    IReadOnlyDictionary<string, double> Produced,
-    int LevelsGained,
-    int BuildingsCompleted,
-    IReadOnlyList<string> Notes,
-    IReadOnlyList<string> ResearchDone,
-    IReadOnlyList<string> Contracts,
-    IReadOnlyList<string> NewNeighbours,
-    int OrdersCompleted,
-    int LikesReceived,
-    IReadOnlyList<FullStorageDto> FullStorages);
-
-/// <summary>A full storage in the offline report, with a one-tap upgrade</summary>
-public record FullStorageDto(long Building, string Type, int Level, double Capacity, double? UpgradeCost);
 
 public record BuildingDto(long Id, string Type, long Owner, int X, int Y, int Size, int Level, DateTime? ConstructionEndsAt, int? Network, bool Damaged, long? Link = null);
 
@@ -657,8 +640,8 @@ public record StationsDto(int DistrictX, int DistrictY, string District, IReadOn
 
 public record DistrictRefDto(int DistrictX, int DistrictY, string Name);
 
-/// <summary>What a seat code or crew link opens: the crew, who invites, the station and (for a seat code) the seat kept</summary>
-public record InviteDto(bool Valid, string? CrewName, string? Emblem, string? Color, string? Color2, string? From, StationDto? Station, int? Slot, bool SeatCode, bool NeedsApproval, string? Name);
+/// <summary>What a seat code or crew link opens: the crew, who invites, the station and (for a seat code) the seat kept, and for whom</summary>
+public record InviteDto(bool Valid, string? CrewName, string? Emblem, string? Color, string? Color2, string? From, StationDto? Station, int? Slot, bool SeatCode, bool NeedsApproval, string? Name, string? FriendName = null);
 
 /// <summary>A crew mate; CanTend: you may tend their estate today (v1.2 §12), Tended: someone did lately, Asleep: a stand-in runs their trades</summary>
 public record CrewMemberDto(long Id, string Name, string Color, int Level, string? Activity, string Station, int Slot, bool You, bool CanTend = false, bool Tended = false, bool Asleep = false);
@@ -667,7 +650,7 @@ public record CrewMemberDto(long Id, string Name, string Color, int Level, strin
 public record KeepCardDto(long Id, string Name, DateTime Ends);
 
 /// <summary>A seat the crew keeps: for a friend (with its code), or for a member (For: a crew move, an asleep friend's seat)</summary>
-public record HeldSeatDto(string Code, int DistrictX, int DistrictY, int Slot, string Primary, string? Secondary, DateTime Until, long? For = null, string? ForName = null, string? Station = null);
+public record HeldSeatDto(string Code, int DistrictX, int DistrictY, int Slot, string Primary, string? Secondary, DateTime Until, long? For = null, string? ForName = null, string? Station = null, string? FriendName = null);
 
 /// <summary>Your crew: its members, the seats it keeps for friends (with their codes), its invite link and who asked to join</summary>
 public record CrewDto(

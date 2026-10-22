@@ -464,6 +464,18 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
+    /// <summary>Repairs every damaged building the company can pay for, the cheapest first (the return card's Repair all)</summary>
+    public CommandResult RepairAll(long companyId)
+    {
+        var damaged = BuildingsOf(companyId).Where(t => t.Damaged).OrderBy(RepairCost).ToList();
+        if (damaged.Count == 0)
+        {
+            return CommandResult.Fail("Nothing is damaged.");
+        }
+        var repaired = damaged.Count(t => Repair(companyId, t.Id).Success);
+        return repaired > 0 ? CommandResult.Ok : CommandResult.Fail("Not enough gold for a repair.");
+    }
+
     // ---------------------------------------------------------------- Shortage orders
 
     private void AddShortageOrder(Company company, GameEvent shortage)

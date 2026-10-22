@@ -10,7 +10,7 @@ import { useAppStore } from "../state/store";
  */
 export function LoneCard() {
   const show = useAppStore((s) => s.company?.loneCard ?? false);
-  const welcomeBack = useAppStore((s) => s.welcomeBack);
+  const returnCard = useAppStore((s) => s.returnCard);
   const [stations, setStations] = useState<LandingCardDto[] | null>(null);
   useEffect(() => {
     if (!show) {
@@ -22,7 +22,7 @@ export function LoneCard() {
       cancelled = true;
     };
   }, [show]);
-  if (!show || welcomeBack !== null) {
+  if (!show || returnCard !== null) {
     return null;
   }
   const dismiss = () => void gameClient.crewCommand(gameClient.connection.dismissLoneCard());

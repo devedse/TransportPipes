@@ -406,6 +406,7 @@ public sealed partial class GameWorld
         if (held is { } joined && HoldOn(joined.Hold.Seat) is not null && KeyOf(estate) == joined.Hold.Seat && CrewMembers(joined.Crew).Count() < MaxCrewSize)
         {
             company.CrewId = joined.Crew.Id;
+            company.KnownAs = joined.Hold.FriendName;
             RemoveHold(joined.Crew, joined.Hold);
             AnnounceArrival(joined.Crew, company);
         }

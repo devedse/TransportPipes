@@ -66,7 +66,9 @@ export function InviteScreen({ onLogin }: { onLogin?: () => void }) {
           <span>{emblemIcon(dto.emblem)}</span> <strong>{dto.crewName}</strong>
         </div>
         <h2>
-          {dto.from ?? "A friend"} invites you to {dto.crewName}
+          {dto.friendName !== null && dto.seatCode
+            ? `${dto.from ?? "A friend"} kept this seat for ${dto.friendName}`
+            : `${dto.from ?? "A friend"} invites you to ${dto.crewName}`}
         </h2>
         {station !== null && (
           <>

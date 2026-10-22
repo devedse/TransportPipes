@@ -70,30 +70,69 @@ export function HeldSeats({ holds, crewName }: { holds: HeldSeatDto[]; crewName:
             </li>
           );
         }
-        const link = inviteLink(hold.code, true);
-        return (
-          <li key={hold.code}>
-            <div>
-              <strong className="code">{hold.code}</strong>{" "}
-              <span className="muted small">
-                {landText(hold.primary, hold.secondary)} · kept{" "}
-                {formatDuration(Math.max(0, (new Date(hold.until).getTime() - now) / 1000))} more
-              </span>
-            </div>
-            <span className="button-row">
-              <button onClick={() => void share(link, `A seat next to me in ${crewName}`)}>Send</button>
-              <button onClick={() => void copy(link)}>Copy link</button>
-              <button
-                className="link small"
-                onClick={() => void gameClient.crewCommand(gameClient.connection.releaseHold(hold.code))}
-              >
-                give free
-              </button>
-            </span>
-          </li>
-        );
+        return <FriendSeat key={hold.code} hold={hold} crewName={crewName} now={now} />;
       })}
     </ul>
+  );
+}
+
+/**
+ * A seat kept for a friend (F9): who it is for ("Ben"), so the link says "Copy Ben's link", the move-in screen
+ * "Ana kept this seat for Ben", and the crew sees "Riverside Co. (Ben)"
+ */
+function FriendSeat({ hold, crewName, now }: { hold: HeldSeatDto; crewName: string; now: number }) {
+  const [friend, setFriend] = useState(hold.friendName ?? "");
+  const [saved, setSaved] = useState(hold.friendName ?? "");
+  const link = inviteLink(hold.code, true);
+  const save = () => {
+    const name = friend.trim();
+    if (name !== saved) {
+      setSaved(name);
+      void gameClient.connection.nameHold(hold.code, name === "" ? null : name);
+    }
+  };
+  const whose = saved === "" ? "" : `${saved}'s `;
+  return (
+    <li>
+      <div>
+        <strong className="code">{hold.code}</strong>{" "}
+        <span className="muted small">
+          {landText(hold.primary, hold.secondary)} · kept{" "}
+          {formatDuration(Math.max(0, (new Date(hold.until).getTime() - now) / 1000))} more
+        </span>
+      </div>
+      <label className="friend-name small">
+        Who is it for?
+        <input
+          value={friend}
+          maxLength={20}
+          placeholder="a friend's name"
+          onChange={(e) => setFriend(e.target.value)}
+          onBlur={save}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              save();
+            }
+          }}
+        />
+      </label>
+      <span className="button-row">
+        <button
+          onClick={() =>
+            void share(link, `A seat next to me in ${crewName}${saved === "" ? "" : ` for ${saved}`}`)
+          }
+        >
+          {saved === "" ? "Send" : `Send to ${saved}`}
+        </button>
+        <button onClick={() => void copy(link)}>Copy {whose}link</button>
+        <button
+          className="link small"
+          onClick={() => void gameClient.crewCommand(gameClient.connection.releaseHold(hold.code))}
+        >
+          give free
+        </button>
+      </span>
+    </li>
   );
 }
 

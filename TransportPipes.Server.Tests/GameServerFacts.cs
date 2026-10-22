@@ -253,7 +253,9 @@ public class GameServerFacts
                 var earned = hello.Company.Gold - (2000 - 202);
                 Assert.IsGreaterThan(hello.Company.GoldPerMinute * 60.5 / 1.3, earned);
                 Assert.IsLessThanOrEqualTo(hello.Company.GoldPerMinute * 60.5 * 1.001, earned);
-                Assert.IsNotNull(hello.Report, "an offline report after an hour away");
+                Assert.IsNotNull(hello.Card, "a return card after an hour away");
+                Assert.IsGreaterThan(0, hello.Card.Earned);
+                StringAssert.StartsWith(hello.Card.Away, "1 h", "on the server's clock");
                 Assert.IsTrue(await server.World.RunAsync(w => w.BuildingAt(moily)?.Type == "windMoily", changesWorld: false));
             }
         }

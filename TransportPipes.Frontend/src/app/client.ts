@@ -10,6 +10,7 @@ import type {
   CorporationRole,
   LeaderboardKind,
   NextStepDto,
+  ReturnLineDto,
   SeatRefDto,
   ToastDto,
 } from "../api/contracts";
@@ -300,8 +301,7 @@ export class GameClient {
       user: hello.user,
       era: hello.era,
       serverOffsetMs: new Date(hello.serverTime).getTime() - Date.now(),
-      report: hello.report,
-      welcomeBack: hello.return,
+      returnCard: hello.card,
       unread: hello.unread,
     });
     if (hello.company === null) {
@@ -1802,19 +1802,24 @@ export class GameClient {
     }
   }
 
-  closeReport() {
-    setState({ report: null });
-  }
-
-  /** The one-tap upgrade of a full storage in the offline report */
-  async upgradeFromReport(building: number) {
-    if (await this.command(this.connection.upgrade(building, 1), "Upgraded: room for more")) {
-      const report = appStore.getState().report;
-      if (report !== null) {
-        setState({
-          report: { ...report, fullStorages: report.fullStorages.filter((t) => t.building !== building) },
-        });
-      }
+  /** The return card's buttons: each closes the card on what it shows, Repair all keeps it open */
+  async returnAction(line: ReturnLineDto): Promise<boolean> {
+    switch (line.action) {
+      case "repairAll":
+        return await this.command(this.connection.repairAll(), "Repaired: full speed again");
+      case "show":
+      case "upgrade":
+        setState({ returnCard: null });
+        if (line.building !== null) {
+          this.showBuilding(line.building);
+        }
+        return true;
+      case "project":
+        setState({ returnCard: null });
+        await this.openProject();
+        return true;
+      default:
+        return false;
     }
   }
 

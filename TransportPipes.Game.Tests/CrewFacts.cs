@@ -45,6 +45,25 @@ public class CrewFacts
     }
 
     [TestMethod]
+    public void TheCrewCallsAFriendByTheNameTheSeatWasKeptFor()
+    {
+        // Run 1: Ana never learned that Riverside Co. was Ben (F9)
+        var (game, ana, crew) = Founded();
+        var hold = crew.Holds.Single(t => t.Slot == 6);
+        Assert.IsTrue(game.World.NameHold(ana.Id, GameWorld.ShowCode(hold.Code), " Ben ").Success);
+        Assert.AreEqual("Ben", hold.FriendName);
+
+        var ben = game.World.CreateCompany(99, "Riverside Co.", "#2d6fb4", code: GameWorld.ShowCode(hold.Code));
+
+        Assert.AreEqual("Ben", ben.KnownAs);
+        Assert.AreEqual("Riverside Co. (Ben)", game.World.NameFor(ben, ana), "to the crew");
+        Assert.AreEqual("Riverside Co.", game.World.NameFor(ben, ben), "not to himself");
+        var stranger = game.NewCompany("Stranger");
+        Assert.AreEqual("Riverside Co.", game.World.NameFor(ben, stranger), "nor to strangers");
+        StringAssert.Contains(game.World.NameHold(ana.Id, "NOPE-NOPE", "Cleo").Error, "No such");
+    }
+
+    [TestMethod]
     public void AFriendWithTheCrewLinkSettlesNextToTheCrew()
     {
         var (game, ana, crew) = Founded(holds: 2);

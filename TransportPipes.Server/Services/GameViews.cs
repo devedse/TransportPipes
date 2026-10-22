@@ -8,7 +8,7 @@ using TransportPipes.Server.Dtos;
 namespace TransportPipes.Server.Services;
 
 /// <summary>Turns the game world into what clients see. Only call these while the world is locked.</summary>
-public static class GameViews
+public static partial class GameViews
 {
     public static string Camel<T>(T value) where T : struct, Enum => JsonNamingPolicy.CamelCase.ConvertName(value.ToString());
 
@@ -257,39 +257,6 @@ public static class GameViews
                 : "locked";
             return new ResearchStateDto(tech.Id, state, world.ResearchCost(company, tech), state == "locked" ? world.ResearchBlocker(company, tech) : null, world.ResearchDiffusion(company, tech.Id));
         }).ToList();
-
-    public static ReportDto Report(GameWorld world, Company company)
-    {
-        var report = company.Report;
-        var full = world.FullStorages(company.Id)
-            .Select(t =>
-            {
-                var definition = world.Content.Building(t.Type);
-                var upgradable = t.Level < world.Content.Progression.MaxBuildingLevel;
-                return new FullStorageDto(t.Id, t.Type, t.Level, world.StorageCapacity(t, definition), upgradable ? world.UpgradeCost(t, 1) : null);
-            })
-            .ToList();
-        return new ReportDto(
-            report.Since,
-            report.GoldEarned,
-            report.GoldSpent,
-            report.Sold,
-            report.Produced,
-            report.LevelsGained,
-            report.BuildingsCompleted,
-            report.Notes,
-            report.ResearchDone,
-            report.Contracts,
-            report.NewNeighbours,
-            report.OrdersCompleted,
-            report.LikesReceived,
-            full);
-    }
-
-    /// <summary>Whether a report has anything to tell</summary>
-    public static bool HasNews(CompanyReport report) =>
-        report.GoldEarned > 0 || report.BuildingsCompleted > 0 || report.LevelsGained > 0 || report.ResearchDone.Count > 0
-        || report.Contracts.Count > 0 || report.NewNeighbours.Count > 0 || report.OrdersCompleted > 0 || report.LikesReceived > 0;
 
     public static BuildingDto Building(GameWorld world, Building building) => new(
         building.Id,
@@ -1194,7 +1161,7 @@ public static class GameViews
         {
             var from = world.CrewMembers(held.Crew).FirstOrDefault(t => t.Id == held.Crew.Founder) ?? world.CrewMembers(held.Crew).FirstOrDefault();
             var station = WorldLayout.StationOf(held.Hold.Seat.District, held.Hold.Seat.Slot);
-            return new InviteDto(true, held.Crew.Name, held.Crew.Emblem, held.Crew.Color, held.Crew.Color2, from?.Name, Station(world, station, null), held.Hold.Slot, true, false, world.FreeCompanyName(held.Hold.Seat));
+            return new InviteDto(true, held.Crew.Name, held.Crew.Emblem, held.Crew.Color, held.Crew.Color2, from?.Name, Station(world, station, null), held.Hold.Slot, true, false, world.FreeCompanyName(held.Hold.Seat), held.Hold.FriendName);
         }
         if (world.CrewByInvite(code) is { } crew)
         {
@@ -1210,7 +1177,7 @@ public static class GameViews
     {
         var profile = world.Generator.Estate(hold.Seat.District, hold.Seat.Slot);
         return new HeldSeatDto(GameWorld.ShowCode(hold.Code), hold.DistrictX, hold.DistrictY, hold.Slot, Camel(profile.Primary), profile.Secondary is { } secondary ? Camel(secondary) : null, hold.Until,
-            hold.For, hold.For is { } member ? world.Company(member)?.Name : null, WorldNames.Station(WorldLayout.StationOf(hold.Seat.District, hold.Seat.Slot)));
+            hold.For, hold.For is { } member ? world.Company(member)?.Name : null, WorldNames.Station(WorldLayout.StationOf(hold.Seat.District, hold.Seat.Slot)), hold.FriendName);
     }
 
     public static CrewViewDto Crew(GameWorld world, Company me)
@@ -1220,7 +1187,7 @@ public static class GameViews
             return new CrewViewDto(null, GameWorld.CrewEmblems);
         }
         CrewMemberDto Member(Company t) =>
-            new(t.Id, t.Name, t.Color, t.Level, t.Id == me.Id ? null : t.Asleep ? "asleep" : ActivityBucket(world, t),
+            new(t.Id, world.NameFor(t, me), t.Color, t.Level, t.Id == me.Id ? null : t.Asleep ? "asleep" : ActivityBucket(world, t),
                 world.EstateOf(t) is { } estate ? WorldNames.Station(estate.Station) : t.Asleep ? "the Quiet Isles" : "on the way", t.Slot, t.Id == me.Id,
                 world.CanTend(me, t), world.Tended(t), t.Asleep);
         var home = world.EstateOf(me)?.Station;
@@ -1239,7 +1206,7 @@ public static class GameViews
             home is { } h && crew.OpenStations.Contains($"{h.District.X},{h.District.Y},{h.Index}"),
             closed,
             GameWorld.MaxCrewSize,
-            crew.KeepCards.Select(world.Company).OfType<Company>().Select(t => new KeepCardDto(t.Id, t.Name, world.HoldEnds(t))).ToList(),
+            crew.KeepCards.Select(world.Company).OfType<Company>().Select(t => new KeepCardDto(t.Id, world.NameFor(t, me), world.HoldEnds(t))).ToList(),
             crew.ConsolidationOpen,
             world.CrewMembers(crew).Count() > 1 ? WorldNames.Station(WorldLayout.StationOf(world.CrewMoveSeat(me).District, world.CrewMoveSeat(me).Slot)) : null), GameWorld.CrewEmblems);
     }
@@ -1418,20 +1385,6 @@ public static class GameViews
             return new LandingCardDto(t.Kind, Ref(t.Seat), WorldNames.Station(station), t.Crates, t.Here, neighbours);
         }).ToList();
 
-    public static ReturnDto Return(GameWorld world, Company company, TimeSpan away, double earned, double fee, int tended, string? standIn, bool wasAsleep, bool fromIsles) =>
-        new(
-            Math.Round(away.TotalDays, 1),
-            earned,
-            fee,
-            tended,
-            standIn,
-            wasAsleep,
-            fromIsles,
-            world.EstateOf(company) is { } estate ? WorldNames.Station(estate.Station) : "",
-            world.LinksOf(company.Id).Count(t => t.State != LinkState.Offered),
-            company.Crates.Count,
-            fromIsles ? Landing(world, company) : []);
-
     public static AskDto Ask(CompanyAsk ask) =>
         new(ask.Resource, ask.Amount, ask.Got, ask.Until, ask.Renew, ask.Incoming.Values.Sum());
 
@@ -1558,7 +1511,7 @@ public static class GameViews
             estate.YardGate.X,
             estate.YardGate.Y,
             connected,
-            residents.Select(t => new YardResidentDto(t.Company.Id, t.Company.Name, t.Company.Color, t.Company.Level, t.Company.IsNpc, t.Slot, t.Connected,
+            residents.Select(t => new YardResidentDto(t.Company.Id, world.NameFor(t.Company, me), t.Company.Color, t.Company.Level, t.Company.IsNpc, t.Slot, t.Connected,
                 t.Company.IsNpc ? null : Camel(world.ActivityOf(t.Company)), Rates(t.Spare), Rates(t.Lacks), me.TradeBlocked.Contains(t.Company.Id),
                 t.Company.House is { } kind ? Camel(kind) : null, t.Company.StandIn?.Name,
                 t.Company.PinMakes.Order().ToList(), t.Company.PinNeeds.Order().ToList(),
