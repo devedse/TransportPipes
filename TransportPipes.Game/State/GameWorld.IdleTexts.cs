@@ -22,8 +22,8 @@ public enum IdleFixKind
     Build,
 }
 
-/// <summary>The one fix button of a building's panel: what it does, its label, and what it needs</summary>
-public sealed record IdleFix(IdleFixKind Kind, string Label, PipePlan? Pipe = null, long? Building = null, string? BuildingType = null, double Cost = 0);
+/// <summary>The one fix button of a building's panel: what it does, its label, and what it needs; OwnNeed: a pipe to your own short building</summary>
+public sealed record IdleFix(IdleFixKind Kind, string Label, PipePlan? Pipe = null, long? Building = null, string? BuildingType = null, double Cost = 0, bool OwnNeed = false);
 
 /// <summary>A building's panel head (F2): the status pill (the cause in five words), the reach line, and the one fix</summary>
 public sealed record IdleStatus(IdleReason Reason, string? Pill, string? Reach, IdleFix? Fix);
@@ -63,6 +63,15 @@ public sealed partial class GameWorld
             }
             return new IdleFix(IdleFixKind.LayPipe, $"Lay the pipe to your {BuildingName(pipe.Target!)} · {Tiles(pipe.NewTiles)} · {Gold(pipe.Cost)}", pipe, Cost: pipe.Cost);
         }
+        // Your own short building first, else the trading post or a Storage
+        IdleFix? FixOwnNeedFirst()
+        {
+            if (plan && reason.Resource is { } made && PlanOwnNeedPipe(building, made) is { } own)
+            {
+                return new IdleFix(IdleFixKind.LayPipe, $"Lay the pipe to your {BuildingName(own.Target!)} · {Tiles(own.NewTiles)} · {Gold(own.Cost)}", own, Cost: own.Cost, OwnNeed: true);
+            }
+            return FixPipe();
+        }
         switch (reason.Cause)
         {
             case IdleCause.Damaged:
@@ -70,7 +79,7 @@ public sealed partial class GameWorld
             case IdleCause.Stuck:
                 return new IdleStatus(reason, $"⛔ Stuck: {good} can't leave",
                     (PipeReach(building).Count == 0 ? "Its pipes reach nothing yet." : $"Its pipes reach only: {ReachNames(building)}.") + " Goods never pass through a building.",
-                    FixPipe());
+                    FixOwnNeedFirst());
             case IdleCause.TakerStuck when reason.Other is { } other && Building(other) is { } taker:
                 return new IdleStatus(reason, $"Idle: {BuildingName(taker)} is stuck",
                     $"Its pipe reaches only the {BuildingName(taker)}, and its {(IdleReasonOf(taker).Resource is { } r ? GoodsWord(r) : "goods")} can't leave.",
@@ -82,7 +91,7 @@ public sealed partial class GameWorld
             case IdleCause.TakersFull when reason.Other is { } other && Building(other) is { } taker:
                 var only = PipeReach(building).Where(t => ToFlowNode(t) is { Kind: FlowNodeKind.Building } n && n.In.ContainsKey(reason.Resource!)).Select(BuildingName).Distinct().ToList();
                 return new IdleStatus(reason, $"Slowed: only {(only.Count == 1 ? $"the {only[0]}" : "the buildings on its pipe")} takes its {good}",
-                    $"It sells nothing: its pipe reaches no trading post or Storage, and goods never pass through a building.", FixPipe());
+                    $"It sells nothing: its pipe reaches no trading post or Storage, and goods never pass through a building.", FixOwnNeedFirst());
             case IdleCause.Full when definition.Kind == BuildingKind.Storage:
                 return new IdleStatus(reason, "Full", "What comes now goes on to your trading post, or waits.", null);
             case IdleCause.Full:

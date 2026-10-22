@@ -336,8 +336,9 @@ export function BuildingPanel() {
             {details.status.pill}
           </p>
           {details.status.reach !== null && <p className="muted small reach">{details.status.reach}</p>}
-          {mine && send !== null ? (
-            // Step 4: a neighbour or the project wants its goods, so the one fix is the Send that lays the pipe too
+          {mine && send !== null && details.status.fix?.ownNeed !== true ? (
+            // Step 4: a neighbour or the project wants its goods, so the one fix is the Send that lays the pipe too (your
+            // own short building comes first: run 2, Cleo's mines)
             <button
               className="primary wide fix"
               onClick={() =>

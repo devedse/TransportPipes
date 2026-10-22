@@ -20,6 +20,34 @@ public sealed partial class GameWorld
     /// building): over the owner's own estate by the player's own pipe rules (any parcel of it, no mountains, bridges
     /// over water at three times the price), along the owner's pipes for free. Null when there is no way.
     /// </summary>
+    /// <summary>
+    /// The cheapest pipe from a building to one of its owner's own buildings short of a good it makes (the one fix serves
+    /// your own need before a neighbour's: run 2, Cleo's stuck Wind Moily offered to send to Ana while her own Iron Mines
+    /// got 17 of the 52 energy they need). Null when none is short or there is no way.
+    /// </summary>
+    public PipePlan? PlanOwnNeedPipe(Building building, string resource)
+    {
+        if (Company(building.Owner) is not { } company)
+        {
+            return null;
+        }
+        var reach = PipeReach(building).Select(t => t.Id).ToHashSet();
+        var short_ = BuildingsOf(company.Id)
+            .Where(t => t.Id != building.Id && !t.UnderConstruction && !reach.Contains(t.Id)
+                && IdleReasonOf(t) is { Cause: IdleCause.InputMissing or IdleCause.InputShort, Resource: var r } && r == resource)
+            .OrderBy(t => Math.Abs(t.X - building.X) + Math.Abs(t.Y - building.Y))
+            .Take(4);
+        foreach (var target in short_)
+        {
+            var goal = target.Border().ToHashSet();
+            if (PlanPipe(company, building, goal.Contains) is { } plan)
+            {
+                return plan with { Target = target };
+            }
+        }
+        return null;
+    }
+
     public PipePlan? PlanFixPipe(Building building)
     {
         if (Company(building.Owner) is not { } company)

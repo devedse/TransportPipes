@@ -1,6 +1,6 @@
 // A dead end explains itself (F2): Ana's day-4 layout (an Iron Mine piped to the trading post and a windmill, a Small
 // Factory piped to the mine and another windmill: its ingots can't leave), then the panel's pill, reach line and one
-// fix button, the planned pipe as a ghost, and the factory running after one more click.
+// fix button, and the factory running after that one tap (no preview to confirm).
 //   node deadend.mjs shots/deadend
 import { start, newPlayer } from "./lib.mjs";
 
@@ -84,13 +84,13 @@ const head = await page.evaluate(() => ({
 console.log("panel", JSON.stringify(head));
 await shot("1-stuck-panel");
 
+// One tap lays it (run 2: the preview's second "Lay it" was missed twice)
 await page.click(".building-panel .idle-status .fix");
-await page.waitForSelector(".route-banner", { timeout: 10000 });
-await page.waitForTimeout(800);
-console.log("banner", await page.textContent(".route-banner"));
-await shot("2-planned-pipe");
-await page.click(".route-banner button.primary");
-await page.waitForTimeout(4000);
+await page.waitForTimeout(1200);
+const banner = await page.locator(".route-banner").count();
+console.log("banner after the tap:", banner);
+await shot("2-laid");
+await page.waitForTimeout(3000);
 const after = await page.evaluate(() => ({
   pill: document.querySelector(".building-panel .idle-status .status")?.textContent ?? null,
   status: document.querySelector(".building-panel .status")?.textContent ?? null,
@@ -98,7 +98,7 @@ const after = await page.evaluate(() => ({
 console.log("after", JSON.stringify(after));
 await shot("3-running");
 
-const pass = head.pill?.includes("Stuck: iron ingots can't leave") && head.fix?.startsWith("Lay the pipe to your Trading Post") && after.pill === null;
+const pass = head.pill?.includes("Stuck: iron ingots can't leave") && head.fix?.startsWith("Lay the pipe to your Trading Post") && banner === 0 && after.pill === null;
 console.log(pass ? "PASS" : "FAIL", "errors:", errors.length ? errors.join(" | ") : "none");
 await browser.close();
 process.exit(pass ? 0 : 1);

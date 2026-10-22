@@ -130,4 +130,22 @@ public class IdleFacts
         Assert.AreEqual(IdleCause.None, game.World.IdleReasonOf(map[(0, 2)]).Cause, "the moily sells to the trading post");
         Assert.AreEqual(new IdleReason(IdleCause.InputShort, "ironOre"), game.World.IdleReasonOf(factory));
     }
+
+    [TestMethod]
+    public void AStuckMoilyPipesToItsOwnShortMineFirst()
+    {
+        // Cleo's run 2 evening: her new Wind Moily was stuck while her own Iron Mine had no energy; the one fix offered to
+        // send to a neighbour. Your own short building comes first.
+        var (game, _, map) = Setup("W", "", "", "M+T");
+        var moily = map[(0, 0)];
+        var mine = map[(0, 3)];
+        Assert.AreEqual(new IdleReason(IdleCause.InputMissing, "energy"), game.World.IdleReasonOf(mine));
+        Assert.IsTrue(game.World.IdleReasonOf(moily).IsStuck);
+
+        var status = game.World.IdleStatusOf(moily);
+
+        Assert.IsTrue(status.Fix is { Kind: IdleFixKind.LayPipe, OwnNeed: true }, status.Fix?.Label);
+        StringAssert.StartsWith(status.Fix!.Label, "Lay the pipe to your Iron Mine");
+        Assert.AreEqual(mine.Id, status.Fix.Pipe!.Target!.Id);
+    }
 }

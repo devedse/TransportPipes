@@ -618,6 +618,8 @@ export interface BuildingFixDto {
   buildingType: string | null;
   /** Where a pipe goes (a building's name) */
   target: string | null;
+  /** The pipe goes to one of your own buildings short of what this one makes: it comes before a neighbour's Send */
+  ownNeed: boolean;
 }
 
 export interface MaxMoreDto {

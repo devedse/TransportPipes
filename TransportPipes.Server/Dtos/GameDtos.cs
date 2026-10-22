@@ -324,7 +324,7 @@ public record BuildingStatusDto(string Cause, string? Pill, string? Reach, Build
 /// The one fix button: Kind layPipe (Tiles as x,y pairs, to show as a ghost and lay), open (Building), repair, upgrade
 /// (Building by a level) or build (the build tool with BuildingType); Target names where a pipe goes
 /// </summary>
-public record BuildingFixDto(string Kind, string Label, int[] Tiles, int NewTiles, double Cost, long? Building, string? BuildingType, string? Target);
+public record BuildingFixDto(string Kind, string Label, int[] Tiles, int NewTiles, double Cost, long? Building, string? BuildingType, string? Target, bool OwnNeed = false);
 
 /// <summary>
 /// Smart Max (F8): the Max button buys MaxAffordableLevels, the levels its pipes can feed; these are the levels the gold

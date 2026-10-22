@@ -523,9 +523,8 @@ export class GameClient {
     const name = appStore.getState().content?.building(details.building.type)?.name ?? "It";
     switch (fix.kind) {
       case "layPipe":
-        this.showPlannedPipe(
+        await this.layPipeNow(
           fix.tiles,
-          `your ${fix.target ?? "Trading Post"}`,
           `${name} runs: its goods go to your ${fix.target ?? "Trading Post"}`,
         );
         break;
@@ -551,8 +550,41 @@ export class GameClient {
   }
 
   /**
-   * A pipe the game planned (F2's fix button, an advisor step): shown as a ghost on the map with its price, laid with
-   * one click on the banner. Tiles are x, y pairs; target names where it goes, done is said once it is laid.
+   * A pipe the game planned, laid on the first tap (F2's fix button, an advisor step): the button already says where it
+   * goes and what it costs (run 2: the preview's second "Lay it" was missed twice, and the buildings stayed stuck for
+   * six days each). Tiles are x, y pairs; done is said once it is laid.
+   */
+  async layPipeNow(tiles: number[], done: string) {
+    const state = appStore.getState();
+    if (state.company === null || this.world === null) {
+      return;
+    }
+    const route: TilePosition[] = [];
+    for (let i = 0; i + 1 < tiles.length; i += 2) {
+      route.push({ x: tiles[i]!, y: tiles[i + 1]! });
+    }
+    if (route.length === 0) {
+      return;
+    }
+    const middle = route[Math.floor(route.length / 2)]!;
+    this.engine?.lookAt(middle.x, middle.y, 0.8);
+    const fresh = newPipeTiles(this.world, state.company, route, state.content ?? undefined);
+    if (
+      await this.command(
+        this.connection.placePipes(
+          fresh.flatMap((t) => [t.x, t.y]),
+          1,
+        ),
+        done,
+      )
+    ) {
+      void this.refreshDetails();
+    }
+  }
+
+  /**
+   * A pipe the game planned for Loady's Show me: shown as a ghost on the map with its price, laid with one click on the
+   * banner. Tiles are x, y pairs; target names where it goes, done is said once it is laid.
    */
   showPlannedPipe(tiles: number[], target: string, done: string) {
     const route: TilePosition[] = [];
@@ -1493,7 +1525,7 @@ export class GameClient {
         }
         break;
       case "layPipe":
-        this.showPlannedPipe(step.tiles, "the pipe", "Laid: its goods can leave now");
+        await this.layPipeNow(step.tiles, "Laid: its goods can leave now");
         break;
       case "pipes":
         if (step.network !== null && step.x !== null && step.y !== null) {

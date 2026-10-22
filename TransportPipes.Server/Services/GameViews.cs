@@ -926,7 +926,7 @@ public static partial class GameViews
         var status = world.IdleStatusOf(building);
         var fix = status.Fix is { } f
             ? new BuildingFixDto(Camel(f.Kind), f.Label, f.Pipe?.Tiles.SelectMany(t => new[] { t.X, t.Y }).ToArray() ?? [], f.Pipe?.NewTiles ?? 0, Math.Round(f.Cost, 2),
-                f.Building, f.BuildingType, f.Pipe?.Target is { } target ? world.Content.Building(target.Type).Name : null)
+                f.Building, f.BuildingType, f.Pipe?.Target is { } target ? world.Content.Building(target.Type).Name : null, f.OwnNeed)
             : null;
         return new BuildingStatusDto(Camel(status.Reason.Cause), status.Pill, status.Reach, fix);
     }
