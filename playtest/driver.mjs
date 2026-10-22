@@ -75,6 +75,9 @@ async function open(name, session, url) {
     isMobile: phone,
     // The game's clock in the answers is UTC: the game's own times (chat, calendar) must read the same
     timezoneId: "UTC",
+    // An address of its own (the server takes it in Playtest mode): all players share this machine, and one address on
+    // one day makes the same-device guard price every trade between them at the hub's (run 2, unseen until after)
+    extraHTTPHeaders: { "X-Playtest-Ip": `10.0.${[...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 250, 7) + 1}.1` },
     storageState: existsSync(storage) ? storage : undefined,
     // Copied links can be pasted into the group chat (the clipboard command)
     permissions: ["clipboard-read", "clipboard-write"],

@@ -101,6 +101,12 @@ public sealed class GameHub : Hub<IGameClient>
         var http = Context.GetHttpContext();
         var browserId = http?.Request.Query["bid"].ToString();
         var ip = http?.Connection.RemoteIpAddress?.ToString();
+        // The playtest's players all connect from one machine: each gets an address of its own, or every pair would
+        // count as one device and trade at the hub price (run 2 did, unseen; TransportPipes:Playtest only)
+        if (_options.Playtest && http?.Request.Headers["X-Playtest-Ip"].ToString() is { Length: > 0 } playtestIp)
+        {
+            ip = playtestIp;
+        }
         var ipDay = string.IsNullOrEmpty(ip) ? null
             : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{ip}|{DateTime.UtcNow:yyyy-MM-dd}")))[..16];
         var user = new UserInfo(userId, UserName);

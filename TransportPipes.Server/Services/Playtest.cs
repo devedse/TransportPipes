@@ -181,7 +181,13 @@ public static class PlaytestEndpoints
             return new
             {
                 residents = world.YardResidents(estate.Station).Select(t => new { id = t.Company.Id, name = t.Company.Name, house = t.Company.IsNpc, connected = t.Connected, spare = t.Spare, lacks = t.Lacks }),
-                trades = world.YardTrades(estate).Select(t => new { partner = t.Partner, resource = t.Resource, perMinute = t.PerMinute, selling = t.Selling }),
+                trades = world.YardTrades(estate).Select(t => new
+                {
+                    partner = t.Partner, resource = t.Resource, perMinute = t.PerMinute, selling = t.Selling,
+                    price = world.Company(t.Partner) is { } partner ? world.YardPrice(company, partner, t.Resource, t.Selling) : 0,
+                    sameDevice = world.Company(t.Partner) is { } other && world.SameDevice(company, other),
+                }),
+                devices = company.Devices.Keys,
                 sends = company.Sends.Select(t => new { to = t.To, resource = t.Resource, building = t.Building, idle = world.SendIdleReason(company, t) }),
             };
         }, changesWorld: false));
