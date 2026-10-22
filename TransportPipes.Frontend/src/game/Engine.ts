@@ -3424,6 +3424,15 @@ export class Engine {
       g.stroke({ color: 0x2b1d0e, width: 12 + 4 * pulse, alpha: 0.55 });
       traceFootprint(g, state.hintTile.x, state.hintTile.y, state.hintTile.size);
       g.stroke({ color: 0xffe08a, width: 6 + 4 * pulse, alpha: 0.95 });
+      // And a golden arrow bobbing over it, so it can't be missed (run 2's replay: Ana didn't see the tile at all)
+      const top = tileCenter(
+        state.hintTile.x + (state.hintTile.size - 1) / 2,
+        state.hintTile.y + (state.hintTile.size - 1) / 2,
+      );
+      const lift = 70 + 14 * state.hintTile.size + 10 * pulse;
+      g.poly([top.x - 26, top.y - lift - 34, top.x + 26, top.y - lift - 34, top.x, top.y - lift])
+        .fill({ color: 0xf6c744, alpha: 0.95 })
+        .stroke({ color: 0x2b1d0e, width: 5, alpha: 0.7 });
     }
     if (state.selectedNetwork !== null) {
       for (const conductor of this.world.conductors.values()) {

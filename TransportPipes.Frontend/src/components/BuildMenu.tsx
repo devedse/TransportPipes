@@ -121,8 +121,14 @@ function supplyLine(definition: BuildingDefinition, companyId: number, content: 
     (t) =>
       t.owner === companyId && t.type !== definition.id && (content.building(t.type)?.out[good] ?? 0) > 0,
   );
+  // What it takes of what you sell now, so a Lab's dip in income comes as no surprise (run 2's replay: 144 → 94 g/min)
+  const worth = Object.entries(definition.in).reduce(
+    (sum, [r, a]) => sum + a * (content.resource(r)?.price ?? 0),
+    0,
+  );
+  const cost = worth >= 1 ? ` · about ${formatAmount(worth)} g a minute of sales` : "";
   if (own !== undefined) {
-    return `Uses ${amount}: your ${content.building(own.type)!.name} makes ${words.endsWith("s") ? "them" : "it"}`;
+    return `Uses ${amount}: your ${content.building(own.type)!.name} makes ${words.endsWith("s") ? "them" : "it"}${cost}`;
   }
   const maker = content.buildings
     .filter((t) => t.buildable && (t.out[good] ?? 0) > 0)
