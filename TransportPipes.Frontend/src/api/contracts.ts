@@ -1234,6 +1234,14 @@ export interface TutorialDto {
   chapter: number;
   chapterStep: number;
   chapterSteps: number;
+  /** The step's text on a phone, when it differs */
+  phoneText: string | null;
+  /** The pipe Show me lays (x, y pairs), its price and where it goes; null: Show me does what the hint says */
+  pipe: number[] | null;
+  pipeCost: number;
+  pipeTarget: string | null;
+  /** When the step began: open two days, it shrinks to one line */
+  since: string | null;
 }
 
 /** Expeditions (GDD §11.3) */

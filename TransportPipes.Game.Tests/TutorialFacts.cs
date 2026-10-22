@@ -49,18 +49,64 @@ public class TutorialFacts
     }
 
     [TestMethod]
-    public void ExperiencedPlayersSkipTheGuide()
+    public void ChapterOneRetiresAtLevelTen()
     {
         var game = new TestGame(content: TestGame.PlainContent, tutorial: true);
         var veteran = game.NewCompany(level: 12);
         var newcomer = game.NewCompany("New");
+        var climber = game.NewCompany("Climber");
+        climber.TutorialStep = 4;
 
         game.Pass(1);
+        Assert.AreEqual(1, game.World.CurrentTutorialStep(climber)!.Chapter);
+        game.World.GainXp(climber, game.World.Content.Progression.XpForLevel(10) - climber.Xp, "test", "level");
+        game.Pass(1);
 
-        Assert.IsNull(game.World.CurrentTutorialStep(veteran));
-        Assert.IsNotNull(game.World.CurrentTutorialStep(newcomer));
+        Assert.AreEqual(2, game.World.CurrentTutorialStep(veteran)!.Chapter, "a veteran starts with chapter 2");
+        Assert.AreEqual(2, game.World.CurrentTutorialStep(climber)!.Chapter, "at Level 10 chapter 1 is over for everyone");
+        Assert.IsTrue(game.World.TakeChanges().Events.Any(t => t.Company == climber.Id && t.Text.Contains("past my first chapter")));
+        Assert.AreEqual(1, game.World.CurrentTutorialStep(newcomer)!.Chapter);
         Assert.IsTrue(game.World.SkipTutorial(newcomer.Id).Success);
         Assert.IsNull(game.World.CurrentTutorialStep(newcomer));
+    }
+
+    [TestMethod]
+    public void AStarterKitCountsFromStepThree()
+    {
+        var game = new TestGame(tutorial: true);
+        game.World.TenantsEnabled = true;
+        game.World.OpenNextDistrict();
+        var company = game.NewCompany(gold: 20_000, slot: 3);
+        var pipes = game.World.Conductors.Select(t => t.Pos).ToHashSet();
+        var panel = game.Build(company, "solarPanel", game.Spot(company, "solarPanel", t => !TestGame.Neighbours(t).Any(pipes.Contains)));
+        game.Connect(company, panel, game.TradingPost(company));
+        game.Pass(1);
+        Assert.AreEqual("firstUpgrade", game.World.CurrentTutorialStep(company)!.Id, "steps 1 and 2 are the player's own");
+        game.World.TakeChanges();
+
+        Assert.IsTrue(game.World.Upgrade(company.Id, panel.Id, 1).Success);
+        game.Pass(2);
+
+        Assert.AreEqual("firstMine", game.World.CurrentTutorialStep(company)!.Id, "the kit's moilies and its gate pipe do steps 4 and 5");
+        var loady = game.World.TakeChanges().Events.Where(t => t.Company == company.Id && t.Text.StartsWith("Loady")).Select(t => t.Text).ToList();
+        // The upgrade and the two steps the kit did come in the same check: one thank-you for all three
+        Assert.HasCount(1, loady, string.Join(" | ", loady));
+        StringAssert.Contains(loady[0], "starter kit already did steps 3–5");
+    }
+
+    [TestMethod]
+    public void AStepWaitingForAnIngotSaysWhy()
+    {
+        var game = new TestGame(content: TestGame.PlainContent, tutorial: true);
+        var company = game.NewCompany(level: 3);
+        company.TutorialStep = game.World.Content.Tutorial.ToList().FindIndex(t => t.Id == "firstIngot");
+        game.Map(company, game.Local(company, 2, 2), "T+M+F+W\n  +\n  W");
+        game.Pass(1);
+        var step = game.World.CurrentTutorialStep(company)!;
+
+        StringAssert.StartsWith(game.World.TutorialTip(company, step), "Built, but stuck: its iron ingots can't leave. Show me lays the pipe to your Trading Post");
+        Assert.IsNotNull(game.World.TutorialPipe(company, step), "Show me lays it");
+        StringAssert.Contains(step.Text, "Goods never pass through a building");
     }
 
     [TestMethod]

@@ -87,6 +87,33 @@ public class AdvisorFacts
     }
 
     [TestMethod]
+    public void ADemolishedTypeIsNotSuggestedForAWeek()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany();
+        var moily = game.Build(company, "windMoily");
+        Assert.IsTrue(game.World.Demolish(company.Id, moily.Id).Success);
+
+        var steps = game.World.NextSteps(company);
+
+        Assert.IsFalse(steps.Any(t => t.Action == AdvisorAction.Build && t.BuildingType == "windMoily"), string.Join(" | ", steps.Select(t => t.Title)));
+        game.Pass(8 * 24 * 60);
+        Assert.IsFalse(game.World.DemolishedRecently(company, "windMoily"), "a week later it may come back");
+    }
+
+    [TestMethod]
+    public void NoTwoStepsShareATitle()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 6, gold: 200_000);
+        game.Map(company, game.Local(company, 2, 2), "W+T+W\n\nS+F+M\n\nM+F+S");
+
+        var steps = game.World.NextSteps(company, count: 6);
+
+        Assert.AreEqual(steps.Count, steps.Select(t => t.Title).Distinct().Count(), string.Join(" | ", steps.Select(t => t.Title)));
+    }
+
+    [TestMethod]
     public void AnUpgradeStepEarnsWhatItSays()
     {
         var game = new TestGame(content: TestGame.PlainContent);

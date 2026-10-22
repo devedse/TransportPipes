@@ -86,8 +86,7 @@ public static class GameViews
                 return new BranchDto(t.District.X, t.District.Y, WorldNames.District(t.District), t.Slot, t.Origin.X, t.Origin.Y, t.UnlockedParcels, cost, level);
             }).ToList(),
             world.CurrentTutorialStep(company) is { } step
-                ? new TutorialDto(company.TutorialStep, world.Content.Tutorial.Count, step.Id, step.Text, world.TutorialProgress(company, step), step.Amount, step.Gold, step.Hint, world.TutorialWaitLevel(company, step), world.TutorialTip(company, step),
-                    step.Chapter, world.TutorialChapter(step).Index, world.TutorialChapter(step).Count)
+                ? Tutorial(world, company, step)
                 : null,
             new ExpeditionDto(
                 company.Expedition?.Hours,
@@ -774,6 +773,16 @@ public static class GameViews
                 ? new MaxMoreDto(max.AffordableLevels, Math.Round(max.AffordableCost), Math.Round(max.AffordableShare, 3), max.Resource, Math.Round(max.Have, 2), Math.Round(max.Need, 2), max.Output)
                 : null,
             Status(world, building));
+    }
+
+    /// <summary>Loady's step as the player sees it, with the pipe its Show me lays (F2, F3)</summary>
+    private static TutorialDto Tutorial(GameWorld world, Company company, TutorialStep step)
+    {
+        var pipe = world.TutorialPipe(company, step);
+        return new TutorialDto(company.TutorialStep, world.Content.Tutorial.Count, step.Id, step.Text, world.TutorialProgress(company, step), step.Amount, step.Gold, step.Hint,
+            world.TutorialWaitLevel(company, step), world.TutorialTip(company, step), step.Chapter, world.TutorialChapter(step).Index, world.TutorialChapter(step).Count,
+            step.PhoneText, pipe?.Tiles.SelectMany(t => new[] { t.X, t.Y }).ToArray(), Math.Round(pipe?.Cost ?? 0, 2),
+            pipe?.Target is { } target ? world.Content.Building(target.Type).Name : null, company.TutorialStepSince);
     }
 
     /// <summary>The panel head (F2): the cause, the pill, the reach line and the one fix, for the owner's eyes (others see the pill)</summary>

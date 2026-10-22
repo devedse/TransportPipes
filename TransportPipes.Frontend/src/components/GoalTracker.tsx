@@ -7,6 +7,12 @@ import type { Content } from "../game/content";
 import { useAppStore } from "../state/store";
 import { NextSteps } from "./NextSteps";
 
+/** A step's first clause, for its one-line form: "Built, but stuck", "Mine the iron on your land" */
+function firstClause(text: string) {
+  const end = text.search(/[.:!]/);
+  return end > 0 ? text.slice(0, end) : text;
+}
+
 /**
  * Always three goals in view (GDD §10.1): Loady's next step (or the next Company Level), today's order and something
  * for this week. Loady himself helps through the first session.
@@ -32,9 +38,18 @@ export function GoalTracker() {
     return null;
   }
   const step = company.tutorial;
-  // The advisor from Loady's second chapter on, or while a step waits for a level: it covers the pump and trading
-  // post alerts and the neighbour who needs something
-  const advisor = step === null || step.chapter >= 2 || step.waitLevel != null;
+  // The advisor for everyone from Level 3 (F3: a single line hid it from 4 of 5 players in run 1), and before that
+  // when Loady is done or a step waits for a level: it covers the pump and trading post alerts and the neighbour who
+  // needs something
+  const advisor = level >= 3 || step === null || step.chapter >= 2 || step.waitLevel != null;
+  const phone = window.matchMedia?.("(max-width: 720px)").matches === true;
+  const text = step === null ? "" : phone && step.phoneText !== null ? step.phoneText : step.text;
+  // A step open for two days shrinks to one line, with what holds it up
+  // (on the server's clock, which a playtest runs fast)
+  const stale =
+    step !== null &&
+    step.since !== null &&
+    new Date(company.serverTime).getTime() - new Date(step.since).getTime() > 2 * 86_400_000;
   const opportunity = advisor ? null : bestOpportunity(company.id, neighbours, content);
   const alerts = (company.alerts ?? []).filter((t) => !advisor || t.text.startsWith("A storage"));
   const order = company.dailyOrders.find((t) => t.delivered < t.amount);
@@ -44,7 +59,26 @@ export function GoalTracker() {
   );
   return (
     <aside className="goal-tracker" aria-label="Goals">
-      {step !== null && step.chapter >= 2 && (
+      {step !== null && stale && (
+        <div className="panel loady-line" aria-live="polite">
+          <img className="loady-mini" src="/art/ui/loady-point.webp" alt="Loady" />
+          <span className="small">
+            <strong>
+              Loady {step.chapterStep}/{step.chapterSteps}
+            </strong>{" "}
+            · {firstClause(step.tip ?? text)}
+          </span>
+          {step.waitLevel == null && (
+            <button className="small" onClick={() => gameClient.showTutorialHint()}>
+              Show me
+            </button>
+          )}
+          <button className="link small" onClick={() => void gameClient.skipTutorial()}>
+            Skip
+          </button>
+        </div>
+      )}
+      {step !== null && !stale && step.chapter >= 2 && (
         <div className="panel loady-goal" aria-live="polite">
           <img className="loady-mini" src="/art/ui/loady-point.webp" alt="Loady" />
           <div className="loady-goal-body">
@@ -54,7 +88,7 @@ export function GoalTracker() {
                 {step.chapterStep}/{step.chapterSteps} · +{formatAmount(step.gold)} g
               </span>
             </div>
-            <p>{step.text}</p>
+            <p>{text}</p>
             {step.tip != null && <p className="loady-wait small">{step.tip}</p>}
             {step.waitLevel != null ? (
               <p className="loady-wait small">
@@ -81,7 +115,7 @@ export function GoalTracker() {
           </div>
         </div>
       )}
-      {step !== null && step.chapter < 2 && (
+      {step !== null && !stale && step.chapter < 2 && (
         <div className="loady-card" aria-live="polite">
           <img
             className="loady"
@@ -89,7 +123,7 @@ export function GoalTracker() {
             alt="Loady"
           />
           <div className="loady-bubble">
-            <p>{step.text}</p>
+            <p>{text}</p>
             {step.tip != null && <p className="loady-wait small">{step.tip}</p>}
             {step.waitLevel != null && (
               <p className="loady-wait small">

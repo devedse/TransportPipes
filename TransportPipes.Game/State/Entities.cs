@@ -154,6 +154,9 @@ public sealed class Company : Entity
     /// <summary>The starter kit a House left it (v1.2 §5): Loady counts only what the player builds</summary>
     public HashSet<long> KitBuildings { get; set; } = new();
 
+    /// <summary>When the company's current step of Loady's guide began (a step open two days shrinks to one line)</summary>
+    public DateTime? TutorialStepSince { get; set; }
+
     /// <summary>A stranger in a crew's station is on probation for its first 14 days (v1.2 §6)</summary>
     public DateTime? ProbationUntil { get; set; }
 

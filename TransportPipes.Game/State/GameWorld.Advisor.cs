@@ -130,6 +130,9 @@ public sealed partial class GameWorld
     /// </summary>
     private const double AdvisorEffortMinutes = 10;
 
+    /// <summary>A step's effort is at least this share of the bank, so a big bank ranks steps by what they bring</summary>
+    private const double AdvisorEffortBankShare = 0.02;
+
     /// <summary>Fixing what is broken (a shortage, too few pumps) ranks this many times higher than an investment</summary>
     private const double AdvisorFixFactor = 3;
 
@@ -143,7 +146,8 @@ public sealed partial class GameWorld
         _spots.Clear();
         _whatIfs = 0;
         var income = Math.Max(0, GoldPerMinute().GetValueOrDefault(company.Id));
-        var effort = Math.Max(200, AdvisorEffortMinutes * income);
+        // With a big bank a step's gold matters less than what it brings (F3: run 1's Cleo was told "+16 for 353 g" with 4.8M banked)
+        var effort = Math.Max(200, Math.Max(AdvisorEffortMinutes * income, AdvisorEffortBankShare * company.Gold));
         // Gold per minute gained per gold spent (and effort), scaled to a readable number
         double Worth(double gain, double cost) => 1000 * gain / (cost + effort);
         var own = Networks.Where(t => t.Buildings.Any(b => _buildings[b].Owner == company.Id)).ToList();
@@ -154,6 +158,11 @@ public sealed partial class GameWorld
         var candidates = new List<(AdvisorStep Step, double Score)>();
         void Add(AdvisorStep step, double factor)
         {
+            // Nothing the player demolished this week (F3)
+            if (step.Action == AdvisorAction.Build && step.BuildingType is { } type && DemolishedRecently(company, type))
+            {
+                return;
+            }
             var score = step.Kind switch
             {
                 AdvisorKind.Research => Math.Max(AdvisorResearchFloor, Worth(step.GainPerMinute, 0)),
@@ -184,8 +193,8 @@ public sealed partial class GameWorld
         ParcelStep(company, Add);
         StartSteps(company, Add);
 
-        // The best of each kind first, then the next best of any kind
-        var ranked = candidates.OrderByDescending(t => t.Score).ToList();
+        // The best of each kind first, then the next best of any kind; never two steps with the same title
+        var ranked = candidates.OrderByDescending(t => t.Score).DistinctBy(t => t.Step.Title).ToList();
         var steps = ranked.GroupBy(t => t.Step.Kind).Select(t => t.First()).OrderByDescending(t => t.Score).Take(count).ToList();
         steps.AddRange(ranked.Except(steps).Take(count - steps.Count));
         return steps.OrderByDescending(t => t.Score).Select(t => t.Step).ToList();

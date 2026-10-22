@@ -136,7 +136,11 @@ public record ExpeditionDto(int? Hours, DateTime? EndsAt, IReadOnlyDictionary<in
 /// done yet although the player did what it says
 /// </summary>
 /// <summary>Loady's current step; Chapter, ChapterStep (1-based) and ChapterSteps place it in its chapter</summary>
-public record TutorialDto(int Step, int Steps, string Id, string Text, double Progress, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint, int? WaitLevel, string? Tip, int Chapter, int ChapterStep, int ChapterSteps);
+/// <param name="PhoneText">The step's text on a phone, when it differs</param>
+/// <param name="Pipe">The pipe Show me lays (tiles as x, y pairs; empty: Show me does what the hint says), with its price</param>
+/// <param name="Since">When the step began (open two days: it shrinks to one line)</param>
+public record TutorialDto(int Step, int Steps, string Id, string Text, double Progress, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint, int? WaitLevel, string? Tip, int Chapter, int ChapterStep, int ChapterSteps,
+    string? PhoneText = null, int[]? Pipe = null, double PipeCost = 0, string? PipeTarget = null, DateTime? Since = null);
 
 /// <summary>A branch estate opened by a franchise (its index for BuyParcel is its place in this list plus one)</summary>
 public record BranchDto(int DistrictX, int DistrictY, string DistrictName, int Slot, int X, int Y, int UnlockedParcels, double NextParcelCost, int NextParcelLevel);

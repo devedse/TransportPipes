@@ -4735,6 +4735,22 @@ kbd {
 }
 
 /* Loady's chapter 2: one goal at a time, above the advisor */
+.loady-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+}
+
+.loady-line .loady-mini {
+  width: 28px;
+  height: 28px;
+}
+
+.loady-line span {
+  flex: 1;
+}
+
 .loady-goal {
   display: grid;
   grid-template-columns: 44px 1fr;

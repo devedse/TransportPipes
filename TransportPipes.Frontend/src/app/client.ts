@@ -1498,6 +1498,16 @@ export class GameClient {
     if (step == null || company === null || this.world === null || state.content === null) {
       return;
     }
+    // A pipe Loady can lay (a stuck building's way out, or on a phone the first pipe: no drag there)
+    const phone = window.matchMedia?.("(max-width: 720px)").matches === true;
+    if (step.pipe !== null && (step.id !== "firstSale" || phone)) {
+      this.showPlannedPipe(
+        step.pipe,
+        `your ${step.pipeTarget ?? "Trading Post"}`,
+        "Laid: what it makes is sold now",
+      );
+      return;
+    }
     const hint = step.hint;
     if (hint.overlay !== undefined) {
       setState({ overlay: hint.overlay as Overlay });

@@ -813,10 +813,16 @@ public sealed partial class GameWorld
         var refund = DemolishRefund(building);
         RemoveBuilding(building);
         company.Gold += refund;
+        // The advisor doesn't suggest it again for a week (F3): the minute of the world it went
+        company.Stats[$"demolished:{building.Type}"] = (LastTick - DateTime.UnixEpoch).TotalMinutes;
         company.Touch();
         Changes.Companies.Add(company.Id);
         return CommandResult.Ok;
     }
+
+    /// <summary>Whether a company demolished a building of this type in the last days (the advisor then doesn't suggest it)</summary>
+    public bool DemolishedRecently(Company company, string type, double days = 7) =>
+        company.Stats.TryGetValue($"demolished:{type}", out var minute) && (LastTick - DateTime.UnixEpoch).TotalMinutes - minute < days * 24 * 60;
 
     /// <summary>Half the gold back, all of it with a Recycler (rearranging and evolving the estate costs nothing then)</summary>
     public double DemolishRefund(Building building) =>
