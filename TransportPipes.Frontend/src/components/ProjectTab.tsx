@@ -70,7 +70,7 @@ function HelperRing({ helpers }: { helpers: ProjectHelperDto[] }) {
 
 /**
  * The station's project (v1.2 §12): Foundation → Water Tower → Workshop → Foundry Hall → Landmark. It buys what its
- * basket lacks from everyone's spare at the hub's full price, with no button; every finished stage lifts every seat.
+ * basket lacks from everyone's spare at the one player price, with no button; every finished stage lifts every seat.
  */
 export function ProjectTab() {
   const project = useAppStore((s) => s.project);
@@ -139,7 +139,7 @@ export function ProjectTab() {
                       ? good.makers.length > 0
                         ? `${capital(names(good.makers))} can make it${good.makerBuilding === null ? "" : `: ${good.makerBuilding}`}`
                         : "Nobody here can make it yet."
-                      : `Pays ${good.price.toFixed(2)} g, the hub's full price${good.keystone ? ", and 20% more credit" : ""}.`}
+                      : `Pays ${good.price.toFixed(2)} g a unit, the one player price${good.keystone ? ", and 20% more credit" : ""}.`}
                   </span>
                   {(first || makes.has(good.resource)) && (
                     <label className="check small">

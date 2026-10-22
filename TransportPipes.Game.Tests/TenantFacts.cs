@@ -212,7 +212,9 @@ public class TenantFacts
             + game.World.NetworkOf(t.Id)!.GateFlows.Where(f => f.Building == t.Id && !f.Import && f.Resource == "energy").Sum(f => f.Sent));
         Assert.IsTrue(sold > 0, "the works buy the player's spare energy");
         Assert.IsTrue(sold <= 0.25 * made + 1e-6, $"Houses buy at most a quarter of what a player makes ({sold:0.##} of {made:0.##})");
-        Assert.AreEqual(Math.Min(game.World.HubBuyPrice(player, "energy") * 1.25, 1.25 * game.World.BasePrice("energy")), game.World.HouseBuyPrice(player, "energy"), 1e-9);
+        var houseBuy = game.World.Content.Progression.Together.HouseBuy;
+        Assert.AreEqual(1.15, houseBuy, "a little more than your hub (step 5)");
+        Assert.AreEqual(Math.Min(game.World.HubBuyPrice(player, "energy") * houseBuy, houseBuy * game.World.BasePrice("energy")), game.World.HouseBuyPrice(player, "energy"), 1e-9);
     }
 
     [TestMethod]

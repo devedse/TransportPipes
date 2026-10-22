@@ -1482,14 +1482,14 @@ public static partial class GameViews
                 ? $"The Foundry Hall opens in {Span(at - world.Now)}: until then the station grows."
                 : keystone != null && !made.Contains(keystone) && project.Delivered.GetValueOrDefault(keystone) < project.Basket.GetValueOrDefault(keystone)
                     ? $"Wanted by the {GameWorld.StageName(project.Stage)}: {Name(keystone)}. Nobody here makes it yet."
-                    : $"The {GameWorld.StageName(project.Stage)} takes your spare at the hub's full price: pipe it to your Yard gate.";
+                    : $"The {GameWorld.StageName(project.Stage)} takes your spare at the one player price: pipe it to your Yard gate.";
         var card = world.ProjectCardFor(project, me);
         ProjectGoodDto Good(string good, double target)
         {
             // Who could make what nobody here makes yet (the keystone always): the others first, and the building it takes
             var makers = good == keystone || !made.Contains(good) ? world.MakersOf(project, good) : [];
             var producer = makers.Where(t => t.Maker.Id == me.Id).Concat(makers).Select(t => t.Producer).FirstOrDefault();
-            return new ProjectGoodDto(good, target, Math.Min(target, project.Delivered.GetValueOrDefault(good)), good == keystone, made.Contains(good), world.BasePrice(good),
+            return new ProjectGoodDto(good, target, Math.Min(target, project.Delivered.GetValueOrDefault(good)), good == keystone, made.Contains(good), world.PlayerPrice(good),
                 MakerNames(makers.Select(t => t.Maker), me),
                 producer == null ? null : $"a {producer.Name} (Level {producer.Unlock.Level}) {WhereItStands(world, producer)}".TrimEnd());
         }

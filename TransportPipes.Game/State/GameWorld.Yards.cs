@@ -172,8 +172,12 @@ public sealed partial class GameWorld
     private double GateSellerPrice(long owner, string resource) =>
         owner == HouseSeller ? HouseSellPrice(resource) : PlayerPrice(resource);
 
-    /// <summary>What Houses charge players</summary>
-    public double HouseSellPrice(string resource) => Math.Round(BasePrice(resource) * Content.Progression.Together.HouseSell, 4);
+    /// <summary>What Houses charge players (dealt land: less for the land goods, so a chain on a neighbour's good pays)</summary>
+    public double HouseSellPrice(string resource) =>
+        Math.Round(BasePrice(resource) * (IsLandGood(resource) ? Content.Progression.Together.HouseSellLand : Content.Progression.Together.HouseSell), 4);
+
+    /// <summary>Dealt land: a good the stations deal (copper ore, coal, sand, wood, stone)</summary>
+    public bool IsLandGood(string resource) => Generator.DealtLand && WorldGenerator.LandGoods.Contains(resource);
 
     /// <summary>What Houses pay a company for a good: a little more than its hub, never more than the House price times the base</summary>
     public double HouseBuyPrice(Company seller, string resource)
@@ -475,6 +479,14 @@ public sealed partial class GameWorld
             }
             var member = new YardMember { Key = KeyOf(estate), Company = company, Network = network };
             MeasureSpare(member);
+            // Dealt land: a House sells land goods from its stock, beyond what its buildings make: it always sends what it was matched
+            if (company.IsNpc && Generator.DealtLand && _gateTerms.TryGetValue(member.Key, out var houseTerms))
+            {
+                foreach (var (resource, amount) in houseTerms.Export.Where(t => IsLandGood(t.Key)))
+                {
+                    member.Sent[resource] = Math.Max(member.Sent.GetValueOrDefault(resource), amount);
+                }
+            }
             foreach (var (resource, amount) in member.Spare)
             {
                 member.SpareMeasured[resource] = amount;
@@ -827,6 +839,70 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
+    /// Dealt land (step 5): what Houses sell of a land good. A House whose seat holds the good sells it from its stock:
+    /// it fully feeds one building of every player that uses it (the floor), and v1.2's cap beyond that. When no seat of
+    /// the station will sell a player the good (the seats that hold it are free, held, away 3+ days, or don't trade
+    /// with them), any House of the station sells them what they still lack, with no cap (the backstop).
+    /// </summary>
+    private void LandGoodHouses(List<YardMember> members, string resource, double[] spare, double[] maySell)
+    {
+        if (members.Count == 0)
+        {
+            return;
+        }
+        var seats = BigStation(WorldLayout.StationOf(members[0].Key.District, members[0].Key.Slot)).SelectMany(StationSeats)
+            .Where(t => Generator.LandOf(t.District, t.Slot).Contains(resource))
+            .ToList();
+        var holders = seats.Select(t => Estate(t.District, t.Slot)?.OwnerId is { } id ? Company(id) : null).ToList();
+        for (var s = 0; s < members.Count; s++)
+        {
+            if (members[s].Company.IsNpc && holders.Any(t => t?.Id == members[s].Company.Id))
+            {
+                spare[s] = Math.Max(spare[s], 1e6);
+            }
+        }
+        for (var b = 0; b < members.Count; b++)
+        {
+            var buyer = members[b].Company;
+            if (buyer.IsNpc)
+            {
+                continue;
+            }
+            var covered = holders.Any(t => t != null && (t.IsNpc || (ActivityOf(t) == Activity.Active && TradesWith(t, buyer) && TradesWith(buyer, t))));
+            if (!covered)
+            {
+                // The backstop: any House of the station sells what nobody here will
+                maySell[b] = double.MaxValue;
+                for (var s = 0; s < members.Count; s++)
+                {
+                    if (members[s].Company.IsNpc)
+                    {
+                        spare[s] = Math.Max(spare[s], 1e6);
+                    }
+                }
+                continue;
+            }
+            maySell[b] = Math.Max(maySell[b], OneBuildingNeed(members[b], resource));
+        }
+    }
+
+    /// <summary>
+    /// What one building of a member uses of a good at full speed, measured at the gate (with what its own pipe loses on
+    /// the way): the hungriest one, which a House feeds fully
+    /// </summary>
+    private static double OneBuildingNeed(YardMember member, string resource)
+    {
+        if (member.Network is not { } network)
+        {
+            return 0;
+        }
+        return network.Nodes.Where(t => t.Kind == FlowNodeKind.Building && t.Owner == member.Company.Id && t.In.ContainsKey(resource))
+            .Select(t => t.In[resource] * t.MaxRate / Math.Max(0.5, network.GateLinks.Where(l => l.Building == t.Id && (l.Resources == null || l.Resources.Contains(resource)))
+                .Select(l => l.Efficiency).DefaultIfEmpty(1).Max()))
+            .DefaultIfEmpty(0).Max();
+    }
+
+    /// <summary>
     /// The matching of one station for this round: players first (between them), then what is left between players and
     /// Houses, within the one NPC cap (Houses buy at most a quarter of what a player makes of a good, and sell at most a
     /// quarter of what it uses)
@@ -834,7 +910,9 @@ public sealed partial class GameWorld
     private Dictionary<(EstateKey Seller, EstateKey Buyer, string Resource), double> MatchYard(List<YardMember> members, bool kept)
     {
         var result = new Dictionary<(EstateKey, EstateKey, string), double>();
-        var resources = members.SelectMany(t => t.Spare.Keys).Intersect(members.SelectMany(t => t.Lacks.Keys)).Order(StringComparer.Ordinal).ToList();
+        // Dealt land: a land good somebody lacks is matched even when nobody has it spare (the Houses sell it from stock)
+        var resources = members.SelectMany(t => t.Spare.Keys).Concat(!kept && Generator.DealtLand ? WorldGenerator.LandGoods : [])
+            .Intersect(members.SelectMany(t => t.Lacks.Keys)).Order(StringComparer.Ordinal).ToList();
         var cap = Content.Progression.Together.NpcCap;
         var index = members.Select((t, i) => (t.Company.Id, i)).GroupBy(t => t.Id).ToDictionary(t => t.Key, t => t.First().i);
         foreach (var resource in resources)
@@ -859,6 +937,10 @@ public sealed partial class GameWorld
                 var mayBuy = members.Select(t => t.Company.IsNpc ? 0 : cap * t.Makes.GetValueOrDefault(resource)).ToArray();
                 Record(Share(spare, lacks, (s, b) => !members[s].Company.IsNpc && members[b].Company.IsNpc && Allowed(s, b), sellerCap: mayBuy));
                 var maySell = members.Select(t => t.Company.IsNpc ? 0 : cap * t.Uses.GetValueOrDefault(resource)).ToArray();
+                if (IsLandGood(resource))
+                {
+                    LandGoodHouses(members, resource, spare, maySell);
+                }
                 Record(Share(spare, lacks, (s, b) => members[s].Company.IsNpc && !members[b].Company.IsNpc && Allowed(s, b), buyerCap: maySell));
                 continue;
             }

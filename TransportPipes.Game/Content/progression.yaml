@@ -53,8 +53,11 @@ together:
   # The one price between players: the Yard, links, contracts and the Exchange
   playerPrice: 1.75
   # Houses (NPC companies) buy at this many times what the hub pays you (at most this times the base) and sell at houseSell
-  houseBuy: 1.25
+  houseBuy: 1.15
   houseSell: 2.0
+  # Dealt land (step 5): Houses sell the land goods (copper ore, coal, sand, wood, stone) at this, and fully feed one
+  # building of yours per land good beyond the cap; the station's backstop sells at it too
+  houseSellLand: 1.4
   # All NPCs together buy at most this share of a company's output of a good, and sell at most this share of its need
   npcCap: 0.25
   # The hub pays base × clamp(√(Hub Order ÷ what you sell), min, max): your own order, nobody else's sales move it

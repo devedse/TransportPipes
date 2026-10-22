@@ -16,7 +16,7 @@ public enum ProjectStage
 /// <summary>
 /// A station's project (v1.2 §12): one shared building over the chapter, Foundation → Water Tower → Workshop → Foundry
 /// Hall → Landmark. It is a buyer in the Yard: it takes what its basket lacks from the residents' spare and pays the
-/// hub's full price.
+/// one player price.
 /// </summary>
 public sealed class StationProject : Entity
 {
@@ -569,7 +569,7 @@ public sealed partial class GameWorld
                     // Houses deliver on their own, at most a quarter of the basket
                     ? Math.Max(0, houseShare * project.Basket[good] - project.Delivered.GetValueOrDefault($"house:{good}"))
                     : free ? double.MaxValue
-                    : Math.Min(project.Allowance.GetValueOrDefault(member.Company.Id), AllowancePerDay(member.Company) / (24 * 60)) / BasePrice(good);
+                    : Math.Min(project.Allowance.GetValueOrDefault(member.Company.Id), AllowancePerDay(member.Company) / (24 * 60)) / PlayerPrice(good);
                 var offer = Math.Min(member.Spare[good], allowance);
                 if (!member.Company.IsNpc && member.Spare[good] > allowance * 1.01 && lacks > offer)
                 {
@@ -612,7 +612,7 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>What was sent to the projects arrives and is paid (the hub's full price), counted as credit; finished stages give way to the next</summary>
+    /// <summary>What was sent to the projects arrives and is paid (the one player price), counted as credit; finished stages give way to the next</summary>
     private void SettleProjects(double minutes)
     {
         foreach (var project in _projects.Values.Where(t => t.Incoming.Count > 0).ToList())
@@ -630,7 +630,8 @@ public sealed partial class GameWorld
                     {
                         continue;
                     }
-                    var worth = units * BasePrice(good);
+                    // The project pays the one player price (step 5: one price for a friend and the project)
+                    var worth = units * PlayerPrice(good);
                     Add(project.Delivered, good, units);
                     AddStat(seller, "projectGold", worth);
                     seller.Gold += worth;

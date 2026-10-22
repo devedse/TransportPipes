@@ -544,6 +544,7 @@ public sealed class GameContent
         public double PlayerPrice { get; set; } = 1.75;
         public double HouseBuy { get; set; } = 1.25;
         public double HouseSell { get; set; } = 2.0;
+        public double HouseSellLand { get; set; } = 1.4;
         public double NpcCap { get; set; } = 0.25;
         public double HubMaxMultiplier { get; set; } = 1.0;
         public double HubMinMultiplier { get; set; } = 0.25;
@@ -558,6 +559,7 @@ public sealed class GameContent
             PlayerPrice = PlayerPrice,
             HouseBuy = HouseBuy,
             HouseSell = HouseSell,
+            HouseSellLand = HouseSellLand,
             NpcCap = NpcCap,
             HubMaxMultiplier = HubMaxMultiplier,
             HubMinMultiplier = HubMinMultiplier,

@@ -211,6 +211,9 @@ public sealed class TogetherSettings
 
     public double HouseSell { get; init; } = 2.0;
 
+    /// <summary>Dealt land (step 5): what a House sells a land good at (copper ore, coal, sand, wood, stone)</summary>
+    public double HouseSellLand { get; init; } = 1.4;
+
     /// <summary>All NPCs together buy at most this share of a company's output of a good (and sell this share of its need)</summary>
     public double NpcCap { get; init; } = 0.25;
 

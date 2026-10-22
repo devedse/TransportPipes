@@ -135,6 +135,65 @@ public class DealtLandFacts
         Assert.IsTrue(worths.Average() is >= 93 and <= 104, $"on average {worths.Average():F0}");
     }
 
+    /// <summary>
+    /// A copper seat of a corner station (in small mode, Houses on the other seats) whose player has a Smelter: copper
+    /// from its own kit, coal from the station (no seat holds both)
+    /// </summary>
+    private static (TestGame Game, Company Ana, Building Smelter, int CoalSlot) SmelterOnCopper()
+    {
+        var game = new TestGame(content: TestGame.LosslessContent, dealtLand: true);
+        game.World.TenantsEnabled = true;
+        game.World.OpenNextDistrict();
+        var district = new DistrictCoord(0, 0);
+        var generator = game.World.Generator;
+        var copperSlot = Enumerable.Range(0, WorldLayout.EstatesPerDistrict)
+            .First(t => generator.LandOf(district, t).Contains("copperOre") && WorldLayout.StationSlots(WorldLayout.StationOfSlot(t)).Count == 4);
+        var coalSlot = WorldLayout.StationSlots(WorldLayout.StationOfSlot(copperSlot)).First(t => generator.LandOf(district, t).Contains("coal"));
+        var ana = game.NewCompany("Ana", level: 6, slot: copperSlot);
+        var smelter = game.Build(ana, "smelter");
+        game.ConnectToGate(ana, smelter);
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            game.ConnectToGate(ana, game.Build(ana, "windMoily"));
+        }
+        return (game, ana, smelter, coalSlot);
+    }
+
+    private static double Imported(TestGame game, Building building, string resource) =>
+        game.World.NetworkOf(building.Id)?.GateFlows.Where(t => t.Import && t.Building == building.Id && t.Resource == resource).Sum(t => t.Delivered) ?? 0;
+
+    [TestMethod]
+    public void AHouseFullyFeedsOneBuildingOfALandGoodAtTheLandPrice()
+    {
+        var (game, ana, smelter, coalSlot) = SmelterOnCopper();
+        var house = game.World.Company(game.World.Estate(new DistrictCoord(0, 0), coalSlot)!.OwnerId!.Value)!;
+        Assert.IsTrue(house.IsNpc, "a House keeps the coal seat warm");
+
+        game.Pass(20);
+
+        // The floor: the Smelter's whole 4 coal a minute, where the 25% cap would give a quarter of it
+        Assert.AreEqual(4, Imported(game, smelter, "coal"), 0.2, "one building fully fed");
+        Assert.AreEqual(1.4 * game.World.BasePrice("coal"), game.World.YardPrice(ana, house, "coal", selling: false), 1e-9, "at the Houses' land price");
+    }
+
+    [TestMethod]
+    public void TheBackstopSellsWhatNoSeatWill()
+    {
+        var (game, ana, smelter, coalSlot) = SmelterOnCopper();
+        // A second Smelter: beyond the floor
+        var second = game.Build(ana, "smelter");
+        game.ConnectToGate(ana, second);
+        game.ConnectToGate(ana, game.Build(ana, "windMoily"));
+        game.ConnectToGate(ana, game.Build(ana, "copperMine", game.Spot(ana, "copperMine", t => game.World.Tile(t).Deposit == "copperOre")));
+        // The coal seat's player doesn't trade with Ana (Blocked: the hour's notice is over)
+        var dev = game.NewCompany("Dev", level: 6, slot: coalSlot);
+        dev.TradeBlocked.Add(ana.Id);
+
+        game.Pass(20);
+
+        Assert.AreEqual(8, Imported(game, smelter, "coal") + Imported(game, second, "coal"), 0.6, "a House of the station sells all the coal she lacks");
+    }
+
     [TestMethod]
     public void ALumberCampNeedsTheOldForest()
     {
