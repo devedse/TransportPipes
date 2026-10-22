@@ -68,6 +68,17 @@ public sealed partial class GameWorld
             return Math.Min(1, share);
         }
 
+        /// <summary>How fast its inputs alone would let it run (1: all it needs comes or could come)</summary>
+        public double InputShare()
+        {
+            var share = 1.0;
+            foreach (var (resource, amount) in node.In)
+            {
+                share = Math.Min(share, inputs.GetValueOrDefault(resource) / Math.Max(1e-12, amount * node.MaxRate));
+            }
+            return share;
+        }
+
         /// <summary>What holds it back at that factor: the scarcest input or output, what its pipes manage of it and what it would need</summary>
         public (string? Resource, double Have, double Need, bool Output) Limit(double factor)
         {

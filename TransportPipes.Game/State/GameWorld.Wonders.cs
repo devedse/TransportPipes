@@ -109,7 +109,7 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// A Wonder stage sized like a project's basket (v1.2 §13): six hours of T(L) for every active player of the district
+    /// A Wonder stage sized like a project's basket (v1.2 §13, F4): six hours of measured income I(c) for every active player of the district
     /// (everywhere for the Era Wonder), at least one, in the stage's own mix of goods, so a district of one human still
     /// finishes its stage
     /// </summary>
@@ -117,8 +117,8 @@ public sealed partial class GameWorld
     {
         var people = _companies.Values.Where(t => !t.IsNpc && IsActive(t) && (district == null || t.District == district)).ToList();
         var worth = people.Count > 0
-            ? people.Sum(t => WonderHours * 60 * TypicalIncome(t.Level))
-            : WonderHours * 60 * TypicalIncome(5);
+            ? people.Sum(t => WonderHours * 60 * MeasuredIncome(t))
+            : WonderHours * 60 * MinMeasuredIncome;
         var goods = definition.Stages[stage];
         var base_ = goods.Sum(t => t.Value * BasePrice(t.Key));
         var scale = base_ <= 0 ? 1 : worth / base_;

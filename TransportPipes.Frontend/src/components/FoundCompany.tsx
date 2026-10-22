@@ -31,13 +31,15 @@ export function Swatches({
   value,
   onChange,
   colors,
+  label = "Colour",
 }: {
   value: string;
   onChange: (c: string) => void;
   colors: string[];
+  label?: string;
 }) {
   return (
-    <div className="swatches" role="radiogroup" aria-label="Colour">
+    <div className="swatches" role="radiogroup" aria-label={label}>
       {colors.map((c) => (
         <button
           key={c}
@@ -94,15 +96,19 @@ export function CrewFields({
         ))}
       </div>
       <div className="crew-colors">
+        <span className="muted small">The banner&apos;s left half</span>
         <Swatches
           value={colors[0]}
           onChange={(c) => onChange(name, emblem, [c, colors[1]])}
           colors={CREW_COLORS}
+          label="The banner's left half"
         />
+        <span className="muted small">and its right half</span>
         <Swatches
           value={colors[1]}
           onChange={(c) => onChange(name, emblem, [colors[0], c])}
           colors={CREW_COLORS}
+          label="The banner's right half"
         />
       </div>
       <div

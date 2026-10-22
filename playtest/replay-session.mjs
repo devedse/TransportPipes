@@ -1,7 +1,8 @@
 // Agent replays (docs/playtest-fixes.html §6): run 1's own sessions played again on today's build, from the snapshot
 // before them, by agents with that day's prompt (it carries the player's memory). A scripted replay checks that a line
 // is true; only a player checks that it is understood.
-//   node playtest/replay-session.mjs <replay run> <snapshot> <player>:<session> [<player>:<session> …] [--from story1]
+//   node playtest/replay-session.mjs <replay run> <snapshot> <player>:<session> [<player>:<session> …] [--from story1] [--fresh]
+// (--fresh: the players start without run 1's logins, for a snapshot from before they had accounts)
 // prepares runs/<replay run>/ (players.json, story.json, each player's login and memory, the prompt pointed at the new
 // folder, the group chat up to the snapshot's moment) and restores the snapshot on the playtest server (paused). Then:
 //   PLAYTEST_RUN=<replay run> node playtest/driver.mjs &     (the browsers; Vite on :5174 with TP_SERVER=:5090)
@@ -16,6 +17,7 @@ const ROOT = path.dirname(new URL(import.meta.url).pathname);
 const args = process.argv.slice(2);
 const fromIndex = args.indexOf("--from");
 const from = fromIndex >= 0 ? args[fromIndex + 1] : "story1";
+const fresh = args.includes("--fresh");
 const [run, snapshot, ...sessions] = args.filter((t, i) => !t.startsWith("--") && args[i - 1] !== "--from");
 if (!run || !snapshot || sessions.length === 0) {
   console.log(readFileSync(new URL(import.meta.url), "utf8").split("\n").filter((t) => t.startsWith("//")).join("\n"));
@@ -37,7 +39,7 @@ for (const entry of sessions) {
   const dir = path.join(target, player);
   mkdirSync(path.join(dir, "diary"), { recursive: true });
   const login = path.join(source, player, "storage.json");
-  if (existsSync(login)) copyFileSync(login, path.join(dir, "storage.json"));
+  if (existsSync(login) && !fresh) copyFileSync(login, path.join(dir, "storage.json"));
   const prompt = readFileSync(path.join(source, player, `prompt-${session}.md`), "utf8").replaceAll(`/runs/${from}/`, `/runs/${run}/`);
   writeFileSync(path.join(dir, `prompt-${session}.md`), prompt);
   // The memory the prompt quotes is the one this session started with

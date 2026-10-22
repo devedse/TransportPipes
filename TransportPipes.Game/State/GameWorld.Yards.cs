@@ -575,17 +575,25 @@ public sealed partial class GameWorld
             {
                 continue;
             }
-            var least = node.In.Count == 0 ? 1 : node.In.Min(t => received.GetValueOrDefault((node.Id, t.Key)) / Math.Max(1e-12, t.Value * node.MaxRate));
-            if (least >= 0.999 && rate < node.MaxRate - 1e-9 && _buildings.TryGetValue(node.Id, out var building) && !IdleReasonOf(building).IsStuck)
+            if (rate >= node.MaxRate - 1e-9 || !_buildings.TryGetValue(node.Id, out var building) || IdleReasonOf(building).IsStuck)
             {
-                // It has all it needs but nobody takes all it could make: spare for the station (and what it makes is
-                // what it could make, else the Houses' cap would shrink with every round nobody takes it all)
+                continue;
+            }
+            // How fast its inputs would let it run: what they bring now, or what its own suppliers on its pipes could
+            // bring (a mine whose ore can only go to the gate runs only once somebody takes the ore, so it gets no energy
+            // until then)
+            var least = node.In.Count == 0 ? 1 : node.In.Min(t => received.GetValueOrDefault((node.Id, t.Key)) / Math.Max(1e-12, t.Value * node.MaxRate));
+            var could = least >= 0.999 ? 1 : Math.Max(least, LevelReach(network, node).InputShare());
+            if (could * node.MaxRate - rate > 1e-9)
+            {
+                // Nobody takes all it could make: spare for the station (and what it makes is what it could make, else
+                // the Houses' cap would shrink with every round nobody takes it all)
                 foreach (var (resource, amount) in node.Out)
                 {
-                    Add(member.Makes, resource, amount * (node.MaxRate - rate));
+                    Add(member.Makes, resource, amount * (could * node.MaxRate - rate));
                     if (reach.Efficiency(node.Id, resource) is > 0 and var toGate)
                     {
-                        Add(member.Spare, resource, amount * (node.MaxRate - rate) * toGate);
+                        Add(member.Spare, resource, amount * (could * node.MaxRate - rate) * toGate);
                     }
                 }
             }

@@ -3667,6 +3667,19 @@ select option {
   letter-spacing: 0.05em;
 }
 
+/* The project's row opens it: a line of text that is a button */
+.goals button.goal-text {
+  padding: 0;
+  text-align: left;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.goals button.goal-text:hover {
+  color: var(--info);
+}
+
 .goal-bar {
   grid-column: 2;
   height: 5px;
@@ -5532,6 +5545,10 @@ button.link.danger {
   fill: none;
   stroke: rgba(0, 0, 0, 0.1);
   stroke-width: 7;
+}
+
+.helper-ring .ring-edge {
+  stroke: rgba(40, 30, 20, 0.45);
 }
 
 /* The Plan board and Asks (v1.2 §12) */

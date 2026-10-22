@@ -226,6 +226,9 @@ public static class PlaytestEndpoints
                 projectStage = project?.Stage.ToString(),
                 projectFinished = project?.Finished.Keys.Select(t => t.ToString()).ToList(),
                 projectCredit = project?.Credit.GetValueOrDefault(company.Id) ?? 0,
+                // The stage's basket (good: delivered / target, the keystone marked) and the This week line
+                projectBasket = project?.Basket.ToDictionary(t => t.Key == project.Keystone ? $"{t.Key}*" : t.Key, t => $"{project.Delivered.GetValueOrDefault(t.Key):0} / {t.Value:0}"),
+                week = GameViews.Week(world, company)?.Text,
             };
         }).ToList();
         return new

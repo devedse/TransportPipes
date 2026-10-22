@@ -187,6 +187,37 @@ public sealed partial class GameWorld
         {
             AdvanceNetwork(network, minutes);
         }
+        MeasureIncome(minutes);
+    }
+
+    /// <summary>Measured income I(c) is never below this many gold a minute (a newcomer's projects and allowances have a size)</summary>
+    public const double MinMeasuredIncome = 60;
+
+    /// <summary>A company's measured income I(c) (F4): the 24-hour average of what it earns by producing, at least 60 a minute</summary>
+    public double MeasuredIncome(Company company) => Math.Max(MinMeasuredIncome, company.MeasuredIncome);
+
+    /// <summary>What a company has earned by producing, all told: hub sales, what the Yard, Houses and stand-ins paid, the project</summary>
+    private static double ProductionEarned(Company company) =>
+        company.Stats.GetValueOrDefault("hubGold") + company.Stats.GetValueOrDefault("yardPaid") + company.Stats.GetValueOrDefault("yardFloor")
+        + company.Stats.GetValueOrDefault("npcGold") + company.Stats.GetValueOrDefault("projectGold");
+
+    /// <summary>Every company's measured income moves towards what it earned this step (a 24-hour average)</summary>
+    private void MeasureIncome(double minutes)
+    {
+        foreach (var company in _companies.Values.Where(t => !t.IsNpc))
+        {
+            var earned = ProductionEarned(company);
+            if (company.MeasuredEarned <= 0)
+            {
+                // The first measure (a new company, or a world from before I(c)): from what its networks earn now
+                company.MeasuredEarned = earned;
+                company.MeasuredIncome = Math.Max(company.MeasuredIncome, _networks.Values.Sum(t => t.Solution.GoldPerMinute.GetValueOrDefault(company.Id)));
+                continue;
+            }
+            var rate = Math.Max(0, earned - company.MeasuredEarned) / minutes;
+            company.MeasuredIncome += (rate - company.MeasuredIncome) * Math.Min(1, minutes / (24 * 60));
+            company.MeasuredEarned = earned;
+        }
     }
 
     private void AdvanceNetwork(Network network, double minutes)

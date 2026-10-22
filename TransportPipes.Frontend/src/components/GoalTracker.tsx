@@ -199,7 +199,22 @@ export function GoalTracker() {
             </span>
           </li>
         )}
-        {company.nextParcelCost !== null && company.nextParcelLevel !== null && (
+        {company.week !== null && (
+          <li>
+            <span className="goal-label">This week</span>
+            <button
+              className="goal-text link"
+              title="The station's project: open it"
+              onClick={() => void gameClient.openProject()}
+            >
+              {company.week.text} ›
+            </button>
+            <span className="goal-bar">
+              <span style={{ width: `${Math.round(company.week.share * 100)}%` }} />
+            </span>
+          </li>
+        )}
+        {company.week === null && company.nextParcelCost !== null && company.nextParcelLevel !== null && (
           <li>
             <span className="goal-label">This week</span>
             <span className="goal-text">

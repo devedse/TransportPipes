@@ -105,7 +105,92 @@ public static class GameViews
                 : null,
             company.Tailwind,
             company.LoneCard,
-            company.League);
+            company.League,
+            Week(world, company));
+    }
+
+    /// <summary>
+    /// The "This week" row while the station builds its project (F4): its stage and share, and the one thing to know
+    /// (the stage that just stood, when the next opens, the keystone and who can make it, your goods going in, what it
+    /// wants). Only active residents are named, and nothing scolds.
+    /// </summary>
+    public static ProjectWeekDto? Week(GameWorld world, Company me)
+    {
+        if (!world.ProjectsEnabled || world.EstateOf(me) is not { } estate || world.ExistingProject(estate.Station) is not { } project)
+        {
+            return null;
+        }
+        string Name(string resource) => world.Content.Resources.TryGetValue(resource, out var r) ? r.Name.ToLowerInvariant() : resource;
+        if (project.Finished.Count > 0 && project.Finished.MaxBy(t => t.Value) is var (done, at) && world.Now - at < TimeSpan.FromHours(2))
+        {
+            return new ProjectWeekDto(done switch
+            {
+                ProjectStage.Landmark => "🏗 The Landmark is finished",
+                ProjectStage.FoundryHall => $"🏗 The Foundry Hall stands: +10% on {string.Join(" and ", project.FoundryChains.Select(Name))}",
+                _ => $"🏗 The {GameWorld.StageName(done)} stands: +{world.ProjectBonus(project) * 100:0}% for every seat",
+            }, 1);
+        }
+        if (project.Stage == ProjectStage.Done)
+        {
+            return null;
+        }
+        var stage = GameWorld.StageName(project.Stage);
+        if (project.Stage == ProjectStage.FoundryHall && project.StartedAt + TimeSpan.FromDays(14) is var opens && opens > world.Now)
+        {
+            return new ProjectWeekDto($"🏗 The {stage} opens in {Span(opens - world.Now)}", 0);
+        }
+        var card = world.ProjectCardFor(project, me);
+        var head = $"🏗 {stage} {Math.Floor(card.Share * 100):0}%";
+        var lacking = project.Basket.Keys.Where(t => project.Delivered.GetValueOrDefault(t) < project.Basket[t] * 0.995).ToList();
+        if (project.Keystone is { } keystone && lacking.Contains(keystone) && !world.StationMakes(estate.Station).Contains(keystone))
+        {
+            var makers = MakerNames(world.MakersOf(project, keystone).Select(t => t.Maker).ToList(), me);
+            return new ProjectWeekDto($"{head} · wants {Name(keystone)}{(makers.Count > 0 ? $" · {Capital(And(makers))} can" : "")}", card.Share);
+        }
+        if (card.GoingIn.Count > 0)
+        {
+            return new ProjectWeekDto($"{head} · your {And(card.GoingIn.Select(Name).ToList())} {(card.GoingIn.Count == 1 ? "goes" : "go")} in", card.Share);
+        }
+        return new ProjectWeekDto(lacking.Count > 0 ? $"{head} · wants {And(lacking.Select(Name).ToList())}" : head, card.Share);
+    }
+
+    /// <summary>Who can make a good, as a line says it: the others first, then "you"</summary>
+    private static List<string> MakerNames(IEnumerable<Company> makers, Company me) =>
+        makers.OrderBy(t => t.Id == me.Id ? 1 : 0).Select(t => t.Id == me.Id ? "you" : t.Name).ToList();
+
+    /// <summary>"Ben", "Ben and Dev", "Ben, Dev and you"</summary>
+    private static string And(IReadOnlyList<string> items) =>
+        items.Count <= 1 ? items.FirstOrDefault() ?? "" : $"{string.Join(", ", items.Take(items.Count - 1))} and {items[^1]}";
+
+    private static string Capital(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
+
+    /// <summary>Where a building stands, as the keystone's card says it: "on a beach", "on a copper deposit", "by the water"</summary>
+    private static string WhereItStands(GameWorld world, BuildingDefinition definition)
+    {
+        var placement = definition.Placement;
+        if (placement.Deposit is { } deposit)
+        {
+            return deposit == "anyMetal" ? "on a metal deposit"
+                : $"on a {(world.Content.Resources.TryGetValue(deposit, out var r) ? r.Name.ToLowerInvariant() : deposit)} deposit";
+        }
+        if (placement.Forest)
+        {
+            return "in a forest";
+        }
+        if (placement.Shore)
+        {
+            return "by the water";
+        }
+        return placement.Terrain.Count != 1 ? "" : placement.Terrain[0] switch
+        {
+            TerrainType.Beach => "on a beach",
+            TerrainType.Desert => "in the desert",
+            TerrainType.Hills => "on hills",
+            TerrainType.Water => "on the water",
+            TerrainType.Mountain => "on a mountain",
+            TerrainType.Forest => "in a forest",
+            _ => "",
+        };
     }
 
     private static ExperienceDto Experience(GameWorld world, Company company, double goldPerMinute)
@@ -1374,13 +1459,22 @@ public static class GameViews
                 : keystone != null && !made.Contains(keystone) && project.Delivered.GetValueOrDefault(keystone) < project.Basket.GetValueOrDefault(keystone)
                     ? $"Wanted by the {GameWorld.StageName(project.Stage)}: {Name(keystone)}. Nobody here makes it yet."
                     : $"The {GameWorld.StageName(project.Stage)} takes your spare at the hub's full price: pipe it to your Yard gate.";
+        var card = world.ProjectCardFor(project, me);
+        ProjectGoodDto Good(string good, double target)
+        {
+            // Who could make what nobody here makes yet (the keystone always): the others first, and the building it takes
+            var makers = good == keystone || !made.Contains(good) ? world.MakersOf(project, good) : [];
+            var producer = makers.Where(t => t.Maker.Id == me.Id).Concat(makers).Select(t => t.Producer).FirstOrDefault();
+            return new ProjectGoodDto(good, target, Math.Min(target, project.Delivered.GetValueOrDefault(good)), good == keystone, made.Contains(good), world.BasePrice(good),
+                MakerNames(makers.Select(t => t.Maker), me),
+                producer == null ? null : $"a {producer.Name} (Level {producer.Unlock.Level}) {WhereItStands(world, producer)}".TrimEnd());
+        }
         return new ProjectDto(
             WorldNames.Station(estate.Station),
             GameWorld.StageName(project.Stage),
             (int)project.Stage,
             Enum.GetValues<ProjectStage>().Where(t => t != ProjectStage.Done).Select(GameWorld.StageName).ToList(),
-            project.Basket.OrderBy(t => t.Key == keystone ? 1 : 0).ThenBy(t => t.Key)
-                .Select(t => new ProjectGoodDto(t.Key, t.Value, Math.Min(t.Value, project.Delivered.GetValueOrDefault(t.Key)), t.Key == keystone, made.Contains(t.Key))).ToList(),
+            project.Basket.OrderBy(t => t.Key == keystone ? 1 : 0).ThenBy(t => t.Key).Select(t => Good(t.Key, t.Value)).ToList(),
             helpers,
             world.ProjectBonus(project),
             project.FoundryChains,
@@ -1388,7 +1482,15 @@ public static class GameViews
             project.Credit.GetValueOrDefault(me.Id),
             project.Allowance.GetValueOrDefault(me.Id),
             me.ProjectFirst.Order().ToList(),
-            line);
+            line,
+            card.Share,
+            card.MinutesLeft,
+            card.GoingIn,
+            card.ShareCapped,
+            card.SharePerDay,
+            card.Bonus,
+            card.YourGain,
+            card.StationGain);
     }
 
     /// <summary>The project's stage and progress for a station card in the picker</summary>

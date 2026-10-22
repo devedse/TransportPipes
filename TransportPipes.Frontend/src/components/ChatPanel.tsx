@@ -68,6 +68,10 @@ export function ChatPanel() {
     event.preventDefault();
     if (await gameClient.sendChat(text)) {
       setText("");
+      // The keys belong to the map again (P picks the pipe, not a letter in the box); T or a click comes back here
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
     }
   };
   const current = chat?.channels.find((t) => t.id === channel);

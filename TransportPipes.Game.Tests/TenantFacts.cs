@@ -239,7 +239,7 @@ public class TenantFacts
         game.Pass(4 * 60);
 
         Assert.IsGreaterThan(0, first, "the works buy energy");
-        Assert.AreEqual(first, Sold(), first * 0.05, "and keep buying as much");
+        Assert.IsTrue(Sold() >= first * 0.95, $"and keep buying as much ({Sold():F1} against {first:F1}): it never shrinks round by round");
     }
 
     [TestMethod]

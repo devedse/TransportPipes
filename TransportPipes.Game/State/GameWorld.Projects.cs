@@ -54,6 +54,9 @@ public sealed class StationProject : Entity
     /// <summary>Who delivered to the Landmark (its heirloom is theirs)</summary>
     public HashSet<long> LandmarkHelpers { get; set; } = new();
 
+    /// <summary>The residents who sized this stage's made goods, with their share: a part comes off when its resident stops (F4)</summary>
+    public Dictionary<long, double> Counted { get; set; } = new();
+
     /// <summary>The progress the map shows (in tenths: the district is sent again when it moves)</summary>
     public int ShownTenths { get; set; }
 }
@@ -70,17 +73,45 @@ public sealed partial class GameWorld
 
     private const double FoundryBonus = 0.10;
     private const double KeystoneCredit = 1.2;
-    private const double BasketHours = 6;
-    private const double FoundryHours = 9;
     private const double AllowanceHoursPerDay = 2;
     private const double AllowanceBankDays = 3;
-    private const double DeliveringMinutes = 30;
     private const double LandmarkHours = 6;
     private static readonly TimeSpan FoundryOpensAfter = TimeSpan.FromDays(14);
     private static readonly TimeSpan DeliveringWithin = TimeSpan.FromDays(3);
 
-    /// <summary>The Foundation's fixed basket: 15 minutes of a Level-3 player's energy and iron ore</summary>
-    public static readonly IReadOnlyDictionary<string, double> FoundationBasket = new Dictionary<string, double> { ["energy"] = 600, ["ironOre"] = 150 };
+    /// <summary>A counted resident's part of a basket comes off after this long without a session (F4)</summary>
+    private static readonly TimeSpan BasketShrinksAfter = TimeSpan.FromDays(3);
+
+    /// <summary>A stage's made goods are this many hours of the station's spare of them (at least of one level-1 building)</summary>
+    private static double StageHours(ProjectStage stage) => stage switch
+    {
+        ProjectStage.WaterTower => 4,
+        ProjectStage.Workshop => 6,
+        _ => 9,
+    };
+
+    /// <summary>The keystone is this many hours of one level-1 building that makes it</summary>
+    private const double KeystoneHours = 6;
+
+    /// <summary>The whole basket is worth at most this many times the stage's hours of the delivering residents' summed I(c)</summary>
+    private const double BasketCapFactor = 1.5;
+
+    /// <summary>The Company Level a stage's goods may need to be made (one building unlocked by then)</summary>
+    private static int StageHorizon(ProjectStage stage) => stage switch
+    {
+        ProjectStage.WaterTower => 5,
+        ProjectStage.Workshop => 7,
+        _ => 10,
+    };
+
+    /// <summary>How often a stage with an empty basket (nobody counted when it started) tries to size itself again</summary>
+    private static readonly TimeSpan EmptyStageRetry = TimeSpan.FromHours(1);
+
+    /// <summary>A good of a basket is done at this share, or with less than a unit left (no 18-hour tail, F4)</summary>
+    private const double DoneShare = 0.995;
+
+    /// <summary>The Foundation's fixed basket: about a quarter of an hour of a kit's energy for a few residents (F4: 900 energy)</summary>
+    public static readonly IReadOnlyDictionary<string, double> FoundationBasket = new Dictionary<string, double> { ["energy"] = 900 };
 
     /// <summary>Stations' projects buy in the Yards (on in the server, off in tests about other things)</summary>
     public bool ProjectsEnabled { get; set; }
@@ -152,81 +183,148 @@ public sealed partial class GameWorld
     /// <summary>The players of a project's station</summary>
     private List<Company> ProjectResidents(StationProject project) => StationPlayers(StationOfKey(project.Station));
 
-    /// <summary>The goods a station is at home with: what its seats' land is rich in, and what is made from that</summary>
-    private HashSet<string> HomeGoods(StationRef station)
+    /// <summary>
+    /// The players who count for a project: active and awake, and only one of several accounts on one device (an alt
+    /// never makes a basket bigger)
+    /// </summary>
+    private List<Company> CountedResidents(StationProject project)
     {
-        var raw = new HashSet<string>();
-        foreach (var seat in BigStation(station).SelectMany(StationSeats))
+        var counted = new List<Company>();
+        foreach (var resident in ProjectResidents(project).Where(t => !t.Asleep && IsActive(t)).OrderBy(t => t.Id))
         {
-            var profile = Generator.Estate(seat.District, seat.Slot);
-            foreach (var specialty in new[] { profile.Primary }.Concat(profile.Secondary is { } s ? [s] : []))
+            if (!counted.Any(t => SameDevice(t, resident)))
             {
-                raw.UnionWith(specialty switch
-                {
-                    EstateSpecialty.WindyHeights or EstateSpecialty.SunnyFlats => ["energy"],
-                    EstateSpecialty.Riverside => ["water", "sand"],
-                    EstateSpecialty.CopperGulch => ["copperOre"],
-                    EstateSpecialty.CoalValley => ["coal"],
-                    EstateSpecialty.OldForest => ["wood"],
-                    _ => ["stone"],
-                });
+                counted.Add(resident);
             }
         }
-        raw.Add("ironOre");
-        var made = Content.Buildings.Values
-            .Where(t => t.In.Count > 0 && t.In.Keys.All(raw.Contains) && t.In.Keys.Any(k => k != "energy"))
-            .SelectMany(t => t.Out.Keys);
-        return raw.Concat(made).ToHashSet();
+        return counted;
     }
 
     /// <summary>
-    /// A later stage's recipe (v1.2 §12): three goods of the stage's tier, two the station is at home with and one that no
-    /// seat makes (the keystone, +20% credit); tier 3 only from Era 2
+    /// What the station's counted residents have spare at their Yard gates now, per good: running output that reaches a
+    /// gate ("makes", F4: StationMakes counted goods nobody could deliver)
     /// </summary>
-    private (List<string> Goods, string? Keystone) Recipe(StationRef station, ProjectStage stage)
+    private Dictionary<string, double> StationSpare(StationRef station, IReadOnlyCollection<Company> residents)
     {
-        var tier = stage switch
+        var ids = residents.Select(t => t.Id).ToHashSet();
+        var spare = new Dictionary<string, double>();
+        foreach (var member in YardMembers(BigStation(station)[0]).Where(t => ids.Contains(t.Company.Id) && t.Network != null))
         {
-            ProjectStage.WaterTower => 1,
-            ProjectStage.Workshop => 2,
-            _ => Era >= 2 ? 3 : 2,
-        };
-        var candidates = Content.Resources.Values.Where(t => t.Tier == tier && t.Era <= Era).Select(t => t.Id).Order(StringComparer.Ordinal).ToList();
-        var home = HomeGoods(station);
-        var seed = StableHash($"{station.District.X},{station.District.Y},{station.Index},{(int)stage}") & 0x7fffffff;
-        // A stable order per station and stage (string hashes change between runs)
-        string Order(string id) => $"{(StableHash(id) ^ seed) & 0xffff:x5}{id}";
-        var atHome = candidates.Where(home.Contains).OrderBy(Order, StringComparer.Ordinal).Take(2).ToList();
-        // A station at home with every good of the tier finds its keystone a tier up
-        var away = candidates.Where(t => !home.Contains(t)).OrderBy(Order, StringComparer.Ordinal).FirstOrDefault()
-            ?? Content.Resources.Values.Where(t => t.Tier == tier + 1 && t.Era <= Era && !home.Contains(t.Id)).Select(t => t.Id).OrderBy(Order, StringComparer.Ordinal).FirstOrDefault();
-        var goods = atHome.ToList();
-        foreach (var other in candidates.Where(t => !goods.Contains(t) && t != away).OrderBy(Order, StringComparer.Ordinal))
-        {
-            if (goods.Count >= (away == null ? 3 : 2))
+            foreach (var (good, amount) in member.SpareMeasured.Where(t => t.Value > 1e-6))
             {
-                break;
+                Add(spare, good, amount);
             }
-            goods.Add(other);
         }
-        if (away != null)
+        return spare;
+    }
+
+    /// <summary>Whether a building could stand somewhere on a company's estate (any parcel: it can buy the rest), by its placement rules</summary>
+    private bool FitsOnEstate(Company company, BuildingDefinition definition)
+    {
+        if (EstateOf(company) is not { } estate)
         {
-            goods.Add(away);
+            return false;
         }
-        return (goods, away);
+        var terrain = definition.Placement.Terrain.Count > 0 ? definition.Placement.Terrain : BuildingPlacement.DefaultTerrain;
+        for (var y = 0; y < WorldLayout.EstateSize; y++)
+        {
+            for (var x = 0; x < WorldLayout.EstateSize; x++)
+            {
+                var tile = Tile(estate.Origin.Offset(x, y));
+                if (terrain.Contains(tile.Terrain) && (definition.Placement.Deposit == null || DepositMatches(definition.Placement.Deposit, tile.Deposit))
+                    && (!definition.Placement.Forest || tile.Terrain == TerrainType.Forest))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// The producers of a good that one of these residents could build and run by a Company Level: unlocked by then,
+    /// needing only energy and what that resident makes already, standing somewhere on its estate; with who can
+    /// </summary>
+    private List<(BuildingDefinition Producer, Company Maker)> Makers(string good, IEnumerable<Company> residents, int horizon, IReadOnlyDictionary<long, HashSet<string>> made)
+    {
+        var makers = new List<(BuildingDefinition Producer, Company Maker)>();
+        foreach (var producer in Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.ContainsKey(good) && t.Unlock.Level <= horizon && t.Unlock.Era <= Era && t.Unlock.Research == null))
+        {
+            foreach (var resident in residents)
+            {
+                var own = made.GetValueOrDefault(resident.Id) ?? [];
+                if (producer.In.Keys.All(t => t == "energy" || own.Contains(t)) && FitsOnEstate(resident, producer))
+                {
+                    makers.Add((producer, resident));
+                }
+            }
+        }
+        return makers;
+    }
+
+    /// <summary>What one level-1 building that makes a good makes of it a minute (the cheapest such producer)</summary>
+    private double OneBuildingRate(string good) =>
+        Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.ContainsKey(good))
+            .OrderBy(t => t.Unlock.Level).ThenBy(t => t.Cost.Gold).Select(t => t.Out[good]).FirstOrDefault(1);
+
+    /// <summary>
+    /// A stage's recipe (F4): two goods the station's counted residents make now (running output that reaches a gate),
+    /// filled in from what they could make with one building by the stage's horizon, goods other than energy first; and
+    /// a keystone, a good nobody makes yet that one of them can make with one building on land they have or can buy
+    /// (none when none qualifies). Stable per station and stage.
+    /// </summary>
+    private (List<string> Made, string? Keystone) Recipe(StationRef station, ProjectStage stage, List<Company> residents)
+    {
+        var horizon = StageHorizon(stage);
+        var spare = StationSpare(station, residents);
+        var made = residents.ToDictionary(t => t.Id, t => BuildingsOf(t.Id).Where(b => !b.UnderConstruction).SelectMany(b => Content.Building(b.Type).Out.Keys).ToHashSet());
+        var seed = StableHash($"{station.District.X},{station.District.Y},{station.Index},{(int)stage}") & 0x7fffffff;
+        string Order(string id) => $"{(StableHash(id) ^ seed) & 0xffff:x5}{id}";
+        var goods = new List<string>();
+        // Made now, the most valuable kind first (a later stage wants more than ore), energy last
+        foreach (var good in spare.Keys.Where(t => Content.Resources.TryGetValue(t, out var r) && r.Era <= Era)
+                     .OrderBy(t => t == "energy" ? 1 : 0).ThenByDescending(t => Content.Resources[t].Tier).ThenBy(Order, StringComparer.Ordinal).Take(2))
+        {
+            goods.Add(good);
+        }
+        // Too few made: what one building by the horizon would make
+        if (goods.Count < 2)
+        {
+            foreach (var good in Content.Resources.Values.Where(t => t.Era <= Era && !goods.Contains(t.Id) && Makers(t.Id, residents, horizon, made).Count > 0)
+                         .OrderBy(t => t.Id == "energy" ? 1 : 0).ThenBy(t => t.Tier).ThenBy(t => Order(t.Id), StringComparer.Ordinal).Select(t => t.Id))
+            {
+                if (goods.Count >= 2)
+                {
+                    break;
+                }
+                goods.Add(good);
+            }
+        }
+        var everybodyMakes = made.Values.SelectMany(t => t).ToHashSet();
+        var keystone = Content.Resources.Values
+            .Where(t => t.Era <= Era && t.Id != "energy" && !goods.Contains(t.Id) && !everybodyMakes.Contains(t.Id) && Makers(t.Id, residents, horizon, made).Count > 0)
+            .OrderBy(t => t.Tier).ThenBy(t => Order(t.Id), StringComparer.Ordinal)
+            .Select(t => t.Id)
+            .FirstOrDefault();
+        return (goods, keystone);
     }
 
     private static int StableHash(string text) => text.Aggregate(17, (hash, c) => unchecked(hash * 31 + c));
 
-    /// <summary>The players who count for a basket: active, and delivered half an hour of their output in the last three days (at least one)</summary>
+    /// <summary>The players who size a basket (F4): counted residents who delivered to this stage or the last within 3 days (at least one)</summary>
     private List<Company> DeliveringResidents(StationProject project)
     {
-        var residents = ProjectResidents(project).Where(t => !t.Asleep && IsActive(t)).ToList();
+        var residents = CountedResidents(project);
         var delivering = residents.Where(t => project.DeliveredAt.TryGetValue(t.Id, out var at) && LastTick - at < DeliveringWithin).ToList();
-        return delivering.Count > 0 ? delivering : residents.OrderByDescending(t => t.Level).Take(1).ToList();
+        return delivering.Count > 0 ? delivering : residents.OrderByDescending(t => MeasuredIncome(t)).Take(1).ToList();
     }
 
-    /// <summary>The next stage starts: its recipe and its basket, sized by who delivers now</summary>
+    /// <summary>
+    /// The next stage starts (F4): its recipe and its basket, sized by what the station makes and who delivers now. Made
+    /// goods are the stage's hours of the station's spare of them (at least of one level-1 building), the keystone 6 h of
+    /// one level-1 building; the whole basket is at most 1.5 × the stage's hours of the delivering residents' summed
+    /// measured income (the made goods shrink to fit, the keystone stays).
+    /// </summary>
     private void StartStage(StationProject project, ProjectStage stage)
     {
         var station = StationOfKey(project.Station);
@@ -236,36 +334,188 @@ public sealed partial class GameWorld
         project.Credit = new Dictionary<long, double>();
         project.Basket = new Dictionary<string, double>();
         project.Keystone = null;
+        project.Counted = new Dictionary<long, double>();
         if (stage is ProjectStage.Done)
         {
             project.Touch();
             return;
         }
-        var (goods, keystone) = Recipe(station, stage);
         var people = DeliveringResidents(project);
-        var hours = stage == ProjectStage.FoundryHall ? FoundryHours : BasketHours;
-        var count = stage == ProjectStage.FoundryHall ? Math.Max(2, people.Count) : Math.Max(1, people.Count);
-        var level = people.Count > 0 ? people.Select(t => t.Level).Order().ElementAt(people.Count / 2) : 5;
-        var worth = stage == ProjectStage.Landmark
-            // The Landmark: a flow worth half the summed T(L) for six hours
-            ? 0.5 * people.Sum(t => TypicalIncome(t.Level)) * LandmarkHours * 60
-            : people.Sum(t => hours * 60 * TypicalIncome(t.Level)) + (count - people.Count) * hours * 60 * TypicalIncome(level);
-        foreach (var good in goods)
+        var income = people.Sum(MeasuredIncome);
+        foreach (var person in people)
         {
-            project.Basket[good] = Math.Ceiling(worth / goods.Count / BasePrice(good));
+            project.Counted[person.Id] = income <= 0 ? 1.0 / people.Count : MeasuredIncome(person) / income;
         }
-        project.Keystone = keystone;
+        if (stage == ProjectStage.Landmark)
+        {
+            // The Landmark: half the summed measured income for six hours, in the station's two most valuable goods
+            var (goods, _) = Recipe(station, stage, CountedResidents(project));
+            var worth = 0.5 * income * LandmarkHours * 60;
+            foreach (var good in goods.DefaultIfEmpty("energy"))
+            {
+                project.Basket[good] = Math.Ceiling(worth / Math.Max(1, goods.Count) / BasePrice(good));
+            }
+            project.Touch();
+            return;
+        }
+        var (made, keystone) = Recipe(station, stage, CountedResidents(project));
+        var spare = StationSpare(station, CountedResidents(project));
+        var hours = StageHours(stage);
+        foreach (var good in made)
+        {
+            project.Basket[good] = Math.Ceiling(hours * 60 * Math.Max(spare.GetValueOrDefault(good), OneBuildingRate(good)));
+        }
+        var cap = BasketCapFactor * hours * 60 * income;
+        var madeWorth = project.Basket.Sum(t => t.Value * BasePrice(t.Key));
+        if (keystone != null)
+        {
+            project.Basket[keystone] = Math.Ceiling(KeystoneHours * 60 * OneBuildingRate(keystone));
+            project.Keystone = keystone;
+        }
+        var keystoneWorth = keystone != null ? project.Basket[keystone] * BasePrice(keystone) : 0;
+        if (madeWorth > 1e-9 && madeWorth + keystoneWorth > cap)
+        {
+            var factor = Math.Max(0, cap - keystoneWorth) / madeWorth;
+            foreach (var good in made)
+            {
+                project.Basket[good] = Math.Max(1, Math.Ceiling(project.Basket[good] * factor));
+            }
+        }
         project.Touch();
     }
 
-    /// <summary>What a project still takes of a good (for the Landmark: what fills its tank to two hours of the flow)</summary>
+    /// <summary>
+    /// Once a day: a counted resident who hasn't played for 3 days takes its part of the made goods with it (baskets only
+    /// shrink), and a keystone nobody active can make any more is chosen again (F4)
+    /// </summary>
+    private void UpdateBaskets()
+    {
+        foreach (var project in _projects.Values.Where(t => t.Stage is not (ProjectStage.Foundation or ProjectStage.Done)))
+        {
+            var station = StationOfKey(project.Station);
+            foreach (var (residentId, share) in project.Counted.ToList())
+            {
+                if (Company(residentId) is { } resident && LastTick - resident.LastSeenAt < BasketShrinksAfter && !resident.Asleep)
+                {
+                    continue;
+                }
+                project.Counted.Remove(residentId);
+                foreach (var good in project.Basket.Keys.Where(t => t != project.Keystone).ToList())
+                {
+                    project.Basket[good] = Math.Max(project.Delivered.GetValueOrDefault(good), Math.Ceiling(project.Basket[good] * (1 - share)));
+                }
+                project.Touch();
+            }
+            if (project.Keystone is { } keystone && ProjectLacks(project, keystone) > 1e-6)
+            {
+                var residents = CountedResidents(project);
+                var made = residents.ToDictionary(t => t.Id, t => BuildingsOf(t.Id).Where(b => !b.UnderConstruction).SelectMany(b => Content.Building(b.Type).Out.Keys).ToHashSet());
+                if (Makers(keystone, residents, StageHorizon(project.Stage), made).Count == 0)
+                {
+                    var (_, next) = Recipe(station, project.Stage, residents);
+                    project.Basket.Remove(keystone);
+                    project.Keystone = next != null && !project.Basket.ContainsKey(next) ? next : null;
+                    if (project.Keystone is { } chosen)
+                    {
+                        project.Basket[chosen] = Math.Ceiling(KeystoneHours * 60 * OneBuildingRate(chosen));
+                    }
+                    project.Touch();
+                    Changes.Districts.Add(station.District);
+                }
+            }
+            if (project.Basket.Count > 0 && project.Basket.Keys.All(t => ProjectLacks(project, t) <= 1e-6))
+            {
+                FinishStage(project);
+            }
+        }
+    }
+
+    /// <summary>The makers of a good a project's card shows, kept for 10 minutes (the card is built on every company update)</summary>
+    private readonly Dictionary<(string Station, ProjectStage Stage, string Good), (DateTime At, List<(Company Maker, BuildingDefinition Producer)> Makers)> _makersShown = new();
+
+    /// <summary>
+    /// Who in a project's station can make a good with one building by the stage's horizon, and with which building (the
+    /// cheapest one each can): the keystone's card names them
+    /// </summary>
+    public List<(Company Maker, BuildingDefinition Producer)> MakersOf(StationProject project, string good)
+    {
+        var key = (project.Station, project.Stage, good);
+        if (_makersShown.TryGetValue(key, out var shown) && LastTick - shown.At < TimeSpan.FromMinutes(10))
+        {
+            return shown.Makers;
+        }
+        var residents = CountedResidents(project);
+        var made = residents.ToDictionary(t => t.Id, t => BuildingsOf(t.Id).Where(b => !b.UnderConstruction).SelectMany(b => Content.Building(b.Type).Out.Keys).ToHashSet());
+        var makers = Makers(good, residents, StageHorizon(project.Stage), made)
+            .GroupBy(t => t.Maker.Id)
+            .Select(t => t.OrderBy(m => m.Producer.Unlock.Level).ThenBy(m => m.Producer.Cost.Gold).First())
+            .Select(t => (t.Maker, t.Producer))
+            .ToList();
+        _makersShown[key] = (LastTick, makers);
+        return makers;
+    }
+
+    /// <summary>What a project's card tells one resident (F4)</summary>
+    /// <param name="Share">How much of the stage is in, by worth</param>
+    /// <param name="MinutesLeft">At this pace (null: a good nobody brings now)</param>
+    /// <param name="GoingIn">The goods this resident's spare brings now</param>
+    /// <param name="ShareCapped">Its spare is more than its daily share takes</param>
+    /// <param name="SharePerDay">Its daily share, in gold</param>
+    /// <param name="Bonus">What the stage gives every seat when it stands (0: the Foundry Hall's chains, the Landmark)</param>
+    /// <param name="YourGain">That bonus for this resident, in gold a minute</param>
+    /// <param name="StationGain">That bonus for the whole station, in gold a minute</param>
+    public sealed record ProjectCard(double Share, double? MinutesLeft, IReadOnlyList<string> GoingIn, bool ShareCapped, double SharePerDay, double Bonus, double YourGain, double StationGain);
+
+    public ProjectCard ProjectCardFor(StationProject project, Company me)
+    {
+        var target = project.Basket.Sum(t => t.Value * BasePrice(t.Key));
+        var done = project.Basket.Sum(t => Math.Min(t.Value, project.Delivered.GetValueOrDefault(t.Key)) * BasePrice(t.Key));
+        var coming = new Dictionary<string, double>();
+        foreach (var goods in project.Incoming.Values)
+        {
+            foreach (var (good, perMinute) in goods)
+            {
+                Add(coming, good, perMinute);
+            }
+        }
+        double? left = 0;
+        foreach (var good in project.Basket.Keys)
+        {
+            var lacks = ProjectLacks(project, good);
+            if (lacks <= 1e-6)
+            {
+                continue;
+            }
+            var rate = coming.GetValueOrDefault(good);
+            left = rate <= 1e-9 || left == null ? null : Math.Max(left.Value, lacks / rate);
+        }
+        var bonus = StageBonus.GetValueOrDefault(project.Stage);
+        return new ProjectCard(
+            target <= 0 ? 0 : done / target,
+            project.Stage == ProjectStage.Done ? null : left,
+            project.Incoming.GetValueOrDefault(me.Id)?.Where(t => t.Value > 1e-9).Select(t => t.Key).Order(StringComparer.Ordinal).ToList() ?? [],
+            _projectCapped.Contains((project.Station, me.Id)),
+            AllowancePerDay(me),
+            bonus,
+            bonus * MeasuredIncome(me),
+            bonus * ProjectResidents(project).Sum(MeasuredIncome));
+    }
+
+    /// <summary>The players whose spare a project's round cut to their daily share (their card says so)</summary>
+    private readonly HashSet<(string Station, long Company)> _projectCapped = new();
+
+    /// <summary>When a stage last finished (the "This week" row shows it for a day)</summary>
+    public DateTime? LastFinished(StationProject project) => project.Finished.Count == 0 ? null : project.Finished.Values.Max();
+
+    /// <summary>What a project still takes of a good: nothing once 99.5% of it is in, or less than a unit is left (no tail)</summary>
     private double ProjectLacks(StationProject project, string good)
     {
         if (!project.Basket.TryGetValue(good, out var basket))
         {
             return 0;
         }
-        return Math.Max(0, basket - project.Delivered.GetValueOrDefault(good));
+        var left = basket - project.Delivered.GetValueOrDefault(good);
+        return left < 1 || project.Delivered.GetValueOrDefault(good) >= basket * DoneShare ? 0 : left;
     }
 
     /// <summary>Whether a station's project is open for deliveries now (the Foundry Hall waits for day 14)</summary>
@@ -273,9 +523,11 @@ public sealed partial class GameWorld
         project.Stage != ProjectStage.Done && (project.Stage != ProjectStage.FoundryHall || LastTick - project.StartedAt >= FoundryOpensAfter);
 
     /// <summary>
-    /// The project's share of a station's round (v1.2 §12): after the residents (and Houses), it takes what its basket
-    /// still lacks from what is spare, from each company at most what its allowance lets; a seller's "project first"
-    /// goods come to it before the Yard. Returns what each seller sends per minute.
+    /// The project's share of a station's round (v1.2 §12, F4): after the residents (and Houses), it takes all that is
+    /// offered of what its basket still lacks, up to what is left, from everybody who has some spare in the same share
+    /// (the ring of colours shows it); a player offers at most its allowance's daily rate (the Foundation and the
+    /// keystone take what comes); a seller's "project first" goods come to it before the Yard. Returns what each seller
+    /// sends per minute.
     /// </summary>
     private Dictionary<(EstateKey Seller, string Resource), double> MatchProject(StationProject project, List<YardMember> members, bool first)
     {
@@ -285,20 +537,41 @@ public sealed partial class GameWorld
             return result;
         }
         RefreshAllowances(project);
+        if (first)
+        {
+            _projectCapped.RemoveWhere(t => t.Station == project.Station);
+            // A stage that started while nobody counted has an empty basket: it is sized again once somebody is back (an
+            // hour apart), or it would never finish
+            if (project.Basket.Count == 0 && LastTick - project.StageStartedAt >= EmptyStageRetry)
+            {
+                if (CountedResidents(project).Count > 0)
+                {
+                    StartStage(project, project.Stage);
+                }
+                else
+                {
+                    project.StageStartedAt = LastTick;
+                }
+            }
+        }
         var houseShare = Content.Progression.Together.NpcCap;
         foreach (var good in project.Basket.Keys.Order(StringComparer.Ordinal))
         {
-            // It takes in an hour at most what is left (the round comes again within a minute while it flows), from
-            // everybody who has some spare in the same share, so all of them help (the ring of colours shows it)
-            var lacks = ProjectLacks(project, good) / 60;
+            var lacks = ProjectLacks(project, good);
+            var free = project.Stage == ProjectStage.Foundation || good == project.Keystone;
             var offers = new List<(YardMember Member, double Offer)>();
             foreach (var member in members.Where(t => t.Spare.GetValueOrDefault(good) > 1e-9 && !t.Company.Asleep && first == t.Company.ProjectFirst.Contains(good)).OrderBy(t => t.Company.Id))
             {
                 var allowance = member.Company.IsNpc
                     // Houses deliver on their own, at most a quarter of the basket
-                    ? Math.Max(0, houseShare * project.Basket[good] - project.Delivered.GetValueOrDefault($"house:{good}")) / 60
-                    : project.Allowance.GetValueOrDefault(member.Company.Id) / BasePrice(good) / 60;
+                    ? Math.Max(0, houseShare * project.Basket[good] - project.Delivered.GetValueOrDefault($"house:{good}"))
+                    : free ? double.MaxValue
+                    : Math.Min(project.Allowance.GetValueOrDefault(member.Company.Id), AllowancePerDay(member.Company) / (24 * 60)) / BasePrice(good);
                 var offer = Math.Min(member.Spare[good], allowance);
+                if (!member.Company.IsNpc && member.Spare[good] > allowance * 1.01 && lacks > offer)
+                {
+                    _projectCapped.Add((project.Station, member.Company.Id));
+                }
                 if (offer > 1e-9)
                 {
                     offers.Add((member, offer));
@@ -320,14 +593,17 @@ public sealed partial class GameWorld
         return result;
     }
 
-    /// <summary>Every company's allowance grows by two hours of its output a day, banked for three days</summary>
+    /// <summary>A player's project allowance a day: two hours of its measured income</summary>
+    private double AllowancePerDay(Company company) => AllowanceHoursPerDay * 60 * MeasuredIncome(company);
+
+    /// <summary>Every company's allowance grows by two hours of its measured income a day, banked for three days</summary>
     private void RefreshAllowances(StationProject project)
     {
         var days = (LastTick - project.AllowanceAt).TotalDays;
         project.AllowanceAt = LastTick;
         foreach (var resident in ProjectResidents(project))
         {
-            var perDay = AllowanceHoursPerDay * 60 * TypicalIncome(resident.Level);
+            var perDay = AllowancePerDay(resident);
             var have = project.Allowance.TryGetValue(resident.Id, out var a) ? a : perDay;
             project.Allowance[resident.Id] = Math.Min(perDay * AllowanceBankDays, have + perDay * days);
         }
@@ -365,13 +641,13 @@ public sealed partial class GameWorld
                         Add(project.Delivered, $"house:{good}", units);
                         continue;
                     }
-                    project.Allowance[seller.Id] = Math.Max(0, project.Allowance.GetValueOrDefault(seller.Id) - worth);
-                    project.Credit[seller.Id] = project.Credit.GetValueOrDefault(seller.Id) + worth * (good == project.Keystone ? KeystoneCredit : 1);
-                    // Half an hour of its output makes a delivering resident
-                    if (project.Credit[seller.Id] >= DeliveringMinutes * TypicalIncome(seller.Level) * 0.999 || project.DeliveredAt.ContainsKey(seller.Id))
+                    if (project.Stage != ProjectStage.Foundation && good != project.Keystone)
                     {
-                        project.DeliveredAt[seller.Id] = LastTick;
+                        project.Allowance[seller.Id] = Math.Max(0, project.Allowance.GetValueOrDefault(seller.Id) - worth);
                     }
+                    project.Credit[seller.Id] = project.Credit.GetValueOrDefault(seller.Id) + worth * (good == project.Keystone ? KeystoneCredit : 1);
+                    // Whoever delivers to this stage (or did to the last within 3 days) sizes the next basket
+                    project.DeliveredAt[seller.Id] = LastTick;
                     if (project.Stage == ProjectStage.Landmark)
                     {
                         project.LandmarkHelpers.Add(seller.Id);
@@ -486,8 +762,17 @@ public sealed partial class GameWorld
     /// <summary>For replays and the dev cheat: every project's current stage starts again, sized and chosen by today's rules</summary>
     public void RestageProjects()
     {
-        foreach (var project in _projects.Values.Where(t => t.Stage is not (ProjectStage.Foundation or ProjectStage.Done)).ToList())
+        foreach (var project in _projects.Values.Where(t => t.Stage is not ProjectStage.Done).ToList())
         {
+            if (project.Stage == ProjectStage.Foundation)
+            {
+                // The Foundation's basket is fixed: what was delivered of it stays
+                project.Basket = FoundationBasket.ToDictionary(t => t.Key, t => t.Value);
+                project.Delivered = project.Delivered.Where(t => project.Basket.ContainsKey(t.Key)).ToDictionary(t => t.Key, t => Math.Min(t.Value, project.Basket[t.Key]));
+                project.Keystone = null;
+                project.Touch();
+                continue;
+            }
             StartStage(project, project.Stage);
         }
         WakeCoupling();

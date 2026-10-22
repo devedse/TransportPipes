@@ -109,7 +109,9 @@ public record CompanyDto(
     /// <summary>The lone-human card waits: nobody else in the station played lately</summary>
     bool LoneCard,
     /// <summary>The league it plays in this week (null: none)</summary>
-    int? League);
+    int? League,
+    /// <summary>The station's project on the "This week" row (null: none, the next parcel shows)</summary>
+    ProjectWeekDto? Week = null);
 
 /// <summary>A company's crew as the top bar and the map show it</summary>
 public record CrewBadgeDto(long Id, string Name, string Emblem, string Color, string Color2, int Members);
@@ -774,8 +776,25 @@ public record ProjectDto(
     double YourCredit,
     double YourAllowance,
     IReadOnlyList<string> ProjectFirst,
-    string Line);
+    string Line,
+    /// <summary>How much of the stage is in, by worth</summary>
+    double Share,
+    /// <summary>At this pace (null: a good nobody brings now)</summary>
+    double? MinutesLeft,
+    /// <summary>Your goods that go in now</summary>
+    IReadOnlyList<string> GoingIn,
+    /// <summary>Your spare is more than your daily share takes (the card says so only then)</summary>
+    bool ShareCapped,
+    double SharePerDay,
+    /// <summary>What the stage gives every seat when it stands, and that in gold a minute for you and for the station</summary>
+    double StageBonus,
+    double YourGain,
+    double StationGain);
 
-public record ProjectGoodDto(string Resource, double Target, double Delivered, bool Keystone, bool MadeHere);
+/// <summary>A good of a project's basket: what it pays, and for one nobody makes yet who could and with what building</summary>
+public record ProjectGoodDto(string Resource, double Target, double Delivered, bool Keystone, bool MadeHere, double Price, IReadOnlyList<string> Makers, string? MakerBuilding);
+
+/// <summary>The "This week" row while the station builds its project (F4): "🏗 Water Tower 12% · wants sand · Ben can"</summary>
+public record ProjectWeekDto(string Text, double Share);
 
 public record ProjectHelperDto(string Color, double Share, bool You);

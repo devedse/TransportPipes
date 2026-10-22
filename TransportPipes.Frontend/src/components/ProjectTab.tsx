@@ -6,6 +6,15 @@ import type { ProjectHelperDto } from "../api/contracts";
 import { useAppStore } from "../state/store";
 import { ResourceIcon } from "./ResourceIcon";
 
+/** "Ben", "Ben and Dev", "Ben, Dev and you" */
+function names(items: string[]): string {
+  return items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+}
+
+function capital(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 /** Who helped, as a ring of colours (shares of the credit), never a list of who didn't */
 function HelperRing({ helpers }: { helpers: ProjectHelperDto[] }) {
   const size = 64;
@@ -26,6 +35,21 @@ function HelperRing({ helpers }: { helpers: ProjectHelperDto[] }) {
       aria-hidden="true"
     >
       <circle cx={size / 2} cy={size / 2} r={r} className="ring-track" />
+      {/* A dark edge under every arc, so a white or pale company colour still shows on the cream panel */}
+      {arcs.map(({ helper, length, start }, i) => (
+        <circle
+          key={`edge-${i}`}
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          className="ring-edge"
+          strokeWidth={(helper.you ? 10 : 7) + 2}
+          strokeDasharray={`${length} ${circumference - length}`}
+          strokeDashoffset={-start}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      ))}
       {arcs.map(({ helper, length, start }, i) => (
         <circle
           key={i}
@@ -50,6 +74,7 @@ function HelperRing({ helpers }: { helpers: ProjectHelperDto[] }) {
  */
 export function ProjectTab() {
   const project = useAppStore((s) => s.project);
+  const companyId = useAppStore((s) => s.company?.id ?? null);
   const content = useAppStore((s) => s.content);
   const serverOffset = useAppStore((s) => s.serverOffsetMs);
   const now = useNow(30000) + serverOffset;
@@ -61,6 +86,13 @@ export function ProjectTab() {
     return <p className="muted">Loading…</p>;
   }
   const done = project.stageIndex >= project.stages.length;
+  // What your own buildings make: only those goods can go to the project first
+  const makes = new Set<string>();
+  for (const building of gameClient.world?.buildings.values() ?? []) {
+    if (building.owner === companyId && building.constructionEndsAt === null) {
+      Object.keys(content.building(building.type)?.out ?? {}).forEach((t) => makes.add(t));
+    }
+  }
   return (
     <>
       <ol className="project-stages">
@@ -94,7 +126,6 @@ export function ProjectTab() {
                         keystone
                       </span>
                     )}
-                    {!good.madeHere && <span className="muted small"> · nobody here makes it yet</span>}
                     <span className="grow" />
                     <span className="small">
                       {formatAmount(good.delivered)} / {formatAmount(good.target)}
@@ -103,24 +134,42 @@ export function ProjectTab() {
                   <span className="tank-bar">
                     <span style={{ width: `${Math.min(100, share * 100)}%` }} />
                   </span>
-                  <label className="check small">
-                    <input
-                      type="checkbox"
-                      checked={first}
-                      onChange={() =>
-                        void gameClient.connection
-                          .setProjectFirst(good.resource, !first)
-                          .then(() => gameClient.refreshProject())
-                      }
-                    />
-                    My spare {content.resourceName(good.resource).toLowerCase()} goes here before my
-                    neighbours
-                  </label>
+                  <span className="muted small">
+                    {!good.madeHere || good.keystone
+                      ? good.makers.length > 0
+                        ? `${capital(names(good.makers))} can make it${good.makerBuilding === null ? "" : `: ${good.makerBuilding}`}`
+                        : "Nobody here can make it yet."
+                      : `Pays ${good.price.toFixed(2)} g, the hub's full price${good.keystone ? ", and 20% more credit" : ""}.`}
+                  </span>
+                  {(first || makes.has(good.resource)) && (
+                    <label className="check small">
+                      <input
+                        type="checkbox"
+                        checked={first}
+                        onChange={() =>
+                          void gameClient.connection
+                            .setProjectFirst(good.resource, !first)
+                            .then(() => gameClient.refreshProject())
+                        }
+                      />
+                      My spare {content.resourceName(good.resource).toLowerCase()} goes here before my
+                      neighbours
+                    </label>
+                  )}
                 </li>
               );
             })}
           </ul>
         </section>
+      )}
+      {!done && (
+        <p className="small">
+          {project.goingIn.length > 0 &&
+            `Your ${names(project.goingIn.map((t) => content.resourceName(t).toLowerCase()))} ${project.goingIn.length === 1 ? "goes" : "go"} in now. `}
+          {project.minutesLeft !== null &&
+            project.minutesLeft > 0 &&
+            `At this pace: about ${formatDuration(project.minutesLeft * 60)}.`}
+        </p>
       )}
       {project.opensAt !== null && new Date(project.opensAt).getTime() > now && (
         <p className="muted small">
@@ -140,12 +189,23 @@ export function ProjectTab() {
               {project.yourCredit > 0 && `: your part is worth ${formatAmount(project.yourCredit)} g`}
             </span>
           )}
-          <div className="muted">
-            You may still bring {formatAmount(project.yourAllowance)} g worth: two hours of a player&apos;s
-            output a day, banked for three days, so nobody carries it alone.
-          </div>
+          {project.shareCapped && (
+            <div className="muted">
+              Your share is {formatAmount(project.sharePerDay)} g a day (two hours of your output), so nobody
+              carries it alone: the rest of your spare goes to your neighbours and the hub.
+            </div>
+          )}
         </div>
       </section>
+      {!done && (
+        <p className="small">
+          {project.stageBonus > 0
+            ? `When it stands: every seat makes ${Math.round(project.stageBonus * 100)}% more, about +${formatAmount(project.yourGain)} g/min for you${project.stationGain > project.yourGain * 1.01 ? ` and +${formatAmount(project.stationGain)} for ${project.station}` : ""}.`
+            : project.stage === "Foundry Hall"
+              ? "When it stands: +10% on the station's two most-traded chains."
+              : "When it stands: the station's Landmark, and its heirloom for everyone who helped."}
+        </p>
+      )}
       {(project.bonus > 0 || project.foundryChains.length > 0) && (
         <p className="small">
           🏗 Every seat of {project.station} makes {Math.round(project.bonus * 100)}% more

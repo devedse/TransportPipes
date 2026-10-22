@@ -108,6 +108,8 @@ export interface CompanyDto {
   loneCard: boolean;
   /** The league it plays in this week (v1.2 §13; none in small mode) */
   league: number | null;
+  /** The station's project on the "This week" row (null: none, the next parcel shows) */
+  week: ProjectWeekDto | null;
 }
 
 export type ActivityStage = "active" | "resting" | "dormant" | "asleep";
@@ -1670,14 +1672,37 @@ export interface ProjectDto {
   yourAllowance: number;
   projectFirst: string[];
   line: string;
+  /** How much of the stage is in, by worth */
+  share: number;
+  /** At this pace (null: a good nobody brings now) */
+  minutesLeft: number | null;
+  /** Your goods that go in now */
+  goingIn: string[];
+  /** Your spare is more than your daily share takes */
+  shareCapped: boolean;
+  sharePerDay: number;
+  /** What the stage gives every seat when it stands, and that in gold a minute for you and for the station */
+  stageBonus: number;
+  yourGain: number;
+  stationGain: number;
 }
 
+/** A good of a project's basket: what it pays, and for one nobody makes yet who could and with what building */
 export interface ProjectGoodDto {
   resource: string;
   target: number;
   delivered: number;
   keystone: boolean;
   madeHere: boolean;
+  price: number;
+  makers: string[];
+  makerBuilding: string | null;
+}
+
+/** The "This week" row while the station builds its project (F4): "🏗 Water Tower 12% · wants sand · Ben can" */
+export interface ProjectWeekDto {
+  text: string;
+  share: number;
 }
 
 export interface ProjectHelperDto {

@@ -11,7 +11,7 @@ public class WonderFacts
     /// <summary>A company whose storage holds plenty of everything a Wonder stage needs</summary>
     private static Building Stocked(TestGame game, Company company, IReadOnlyDictionary<string, double> needs)
     {
-        var storage = game.World.BuildingsOf(company.Id).FirstOrDefault(t => t.Type == "silo")
+        var storage = game.World.BuildingsOf(company.Id).FirstOrDefault(t => t.Type is "silo" or "storage")
             ?? game.Map(company, game.Local(company, 1, 1), "O").Values.Single();
         foreach (var (resource, amount) in needs)
         {

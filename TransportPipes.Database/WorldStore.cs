@@ -112,6 +112,8 @@ public sealed class WorldStore
                 KitBuildings = settings.KitBuildings ?? new HashSet<long>(),
                 TutorialStepSince = settings.TutorialStepSince,
                 Devices = settings.Devices ?? new Dictionary<string, DateTime>(),
+                MeasuredIncome = settings.MeasuredIncome,
+                MeasuredEarned = settings.MeasuredEarned,
                 UsualTrades = settings.UsualTrades ?? new Dictionary<string, UsualTrade>(),
                 League = settings.League,
                 EraOutput = settings.EraOutput,
@@ -417,6 +419,8 @@ public sealed class WorldStore
                     KitBuildings = company.KitBuildings,
                     TutorialStepSince = company.TutorialStepSince,
                     Devices = company.Devices,
+                    MeasuredIncome = company.MeasuredIncome,
+                    MeasuredEarned = company.MeasuredEarned,
                     UsualTrades = company.UsualTrades,
                     League = company.League,
                     EraOutput = company.EraOutput,
@@ -765,6 +769,8 @@ public sealed class WorldStore
         public HashSet<long>? KitBuildings { get; init; }
         public DateTime? TutorialStepSince { get; init; }
         public Dictionary<string, DateTime>? Devices { get; init; }
+        public double MeasuredIncome { get; init; }
+        public double MeasuredEarned { get; init; }
         public Dictionary<string, UsualTrade>? UsualTrades { get; init; }
         public int? League { get; init; }
         public double EraOutput { get; init; }

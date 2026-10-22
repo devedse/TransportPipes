@@ -117,6 +117,7 @@ export function Toolbar() {
       key: "corporation",
       label: "Corp",
       badge: invites,
+      badgeTitle: "invitations to answer",
       icon: "🏢",
       hotkey: "C",
       active: corporationOpen,
@@ -126,6 +127,7 @@ export function Toolbar() {
       key: "hub",
       label: "Hub",
       badge: ordersOpen,
+      badgeTitle: "of today's hub orders open",
       icon: "🏛",
       hotkey: "M",
       active: hubOpen,
@@ -186,7 +188,13 @@ export function Toolbar() {
           <span className="tool-label">
             {t.label}
             {"badge" in t && typeof t.badge === "number" && t.badge > 0 && (
-              <span className="badge">{t.badge}</span>
+              <span
+                className="badge"
+                title={`${t.badge} ${t.badgeTitle}`}
+                aria-label={`${t.badge} ${t.badgeTitle}`}
+              >
+                {t.badge}
+              </span>
             )}
           </span>
           <kbd>{t.hotkey}</kbd>

@@ -167,6 +167,13 @@ public sealed class Company : Entity
     public DateTime? TutorialStepSince { get; set; }
 
     /// <summary>
+    /// Measured income I(c) (F4): a 24-hour average of the gold a minute the company earns by producing (hub sales, what
+    /// the Yard and Houses pay, the project), and the running total it is measured from
+    /// </summary>
+    public double MeasuredIncome { get; set; }
+    public double MeasuredEarned { get; set; }
+
+    /// <summary>
     /// The device signals its player was seen with (v1.2 §3, "same device"): a browser id ("b:…") and a day's hash of
     /// the IP address ("ip:…", never the address itself), each with when it was last seen (kept 30 days)
     /// </summary>
