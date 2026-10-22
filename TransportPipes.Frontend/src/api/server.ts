@@ -52,6 +52,25 @@ import type {
 
 export const HUB_URL = "/hubs/game";
 
+/**
+ * A random id this browser keeps (v1.2 §3, "same device"): two accounts that used one browser trade at the hub's price
+ * and never size a project for two. Kept in the browser only; a new one when storage is blocked.
+ */
+function browserId(): string {
+  const make = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  try {
+    const known = localStorage.getItem("tp.browserId");
+    if (known !== null) {
+      return known;
+    }
+    const id = make();
+    localStorage.setItem("tp.browserId", id);
+    return id;
+  } catch {
+    return make();
+  }
+}
+
 export type ConnectionStatus = "connecting" | "connected" | "reconnecting" | "disconnected";
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
@@ -163,7 +182,7 @@ export class GameConnection {
 
   constructor(url: string = HUB_URL) {
     this.connection = new HubConnectionBuilder()
-      .withUrl(url)
+      .withUrl(`${url}${url.includes("?") ? "&" : "?"}bid=${encodeURIComponent(browserId())}`)
       .withAutomaticReconnect()
       .configureLogging(LogLevel.Warning)
       .build();

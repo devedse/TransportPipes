@@ -23,11 +23,9 @@ public class AskFacts
     }
 
     [TestMethod]
-    public void NeighboursFillAnAskIntoTheAskersStorageAtThePlayerPrice()
+    public void NeighboursFillAnAskIntoTheAskersStorageAtTheSellersHubPrice()
     {
         var (game, a, b, storage) = Neighbours();
-        var goldA = a.Gold;
-
         Assert.IsTrue(game.World.Ask(b.Id, "energy", 300, 24, renew: false).Success);
         Assert.IsTrue(game.World.Changes.Events.Any(t => t.Company == a.Id && t.Text.Contains("asks the station")), "the neighbours hear about it");
         game.Pass(60);
@@ -35,7 +33,8 @@ public class AskFacts
         var ask = b.Asks.Single();
         Assert.IsGreaterThan(0, ask.Got, "A's spare energy goes to B's Ask");
         Assert.AreEqual(ask.Got, storage.Contents.GetValueOrDefault("energy"), 1e-6, "into B's storage");
-        Assert.IsGreaterThan(goldA, a.Gold);
+        // Goods that only fill a Storage carry no premium: an alt could pass its bank on by reselling them (step 2's guard)
+        Assert.AreEqual(ask.Got * game.World.HubBuyPrice(a, "energy"), game.World.StatValue(b, "askPaid"), 1e-6, "B paid A's hub price for it");
     }
 
     [TestMethod]

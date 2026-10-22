@@ -33,6 +33,7 @@ public sealed partial class GameWorld
         if (TenantsEnabled)
         {
             UpdateHouses();
+            ForgetOldUsualTrades();
         }
         foreach (var company in _companies.Values.Where(t => !t.IsNpc && t.LastSeenAt >= LastTick - ActivePeriod))
         {

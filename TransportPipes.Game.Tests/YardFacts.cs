@@ -272,6 +272,44 @@ public class YardFacts
     }
 
     [TestMethod]
+    public void TwoAccountsOnOneDeviceTradeAtTheSellersHubPrice()
+    {
+        var (game, a, b, _, mine) = Neighbours();
+        game.World.SeenOn(a, "one-browser", null);
+        game.World.SeenOn(b, "one-browser", null);
+        Assert.IsTrue(game.World.SameDevice(a, b));
+        game.Pass(5);
+        var paid = game.World.StatValue(a, "yardPaid");
+        var taken = game.World.NetworkOf(mine.Id)!.GateFlows.Where(t => t.Import).Sum(t => t.Sent);
+        game.Pass(10);
+
+        Assert.IsTrue(taken > 1, "the trade goes on");
+        Assert.AreEqual(taken * game.World.HubBuyPrice(a, "energy") * 10, game.World.StatValue(a, "yardPaid") - paid, 1e-6, "no premium moves between an account and its alt");
+    }
+
+    [TestMethod]
+    public void ANewcomerDoesntCutAUsualTrade()
+    {
+        // Mia sold Ana coal for days; Dev moves in with coal of his own: Mia keeps what she was selling (step 2's guard)
+        var (game, a, b, _, mine) = Neighbours();
+        game.Pass(60);
+        Assert.AreEqual(10, ImportedBy(game, mine, "energy"), 1e-6);
+        var station = game.EstateOf(a).Station;
+        var slot = GameWorld.StationSeats(station).First(t => game.World.Estate(t.District, t.Slot)?.OwnerId == null).Slot;
+        var c = game.NewCompany("C", slot: slot);
+        for (var i = 0; i < 3; i++)
+        {
+            var moily = game.Build(c, "windMoily");
+            game.ConnectToGate(c, moily);
+        }
+        game.Pass(10);
+
+        var fromA = game.World.YardTrades(game.EstateOf(b)).Where(t => !t.Selling && t.Partner == a.Id && t.Resource == "energy").Sum(t => t.PerMinute);
+        Assert.AreEqual(10, ImportedBy(game, mine, "energy"), 1e-6, "B's mine still gets all it needs");
+        Assert.IsTrue(fromA >= 9.9, $"and all of it still from A ({fromA:F2}), though C has three moilies spare and nowhere else to sell");
+    }
+
+    [TestMethod]
     public void TheYardPanelListsOnlyWhatArrives()
     {
         var (game, a) = TradeThenTheBuyerStops(gateOnly: false);

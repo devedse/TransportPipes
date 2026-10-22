@@ -182,9 +182,15 @@ public sealed partial class GameWorld
         return Math.Round(Math.Min(HubBuyPrice(seller, resource) * together.HouseBuy, BasePrice(resource) * together.HouseBuy), 4);
     }
 
-    /// <summary>The gold per unit a seller gets for what a buyer took at the gate</summary>
+    /// <summary>
+    /// The gold per unit a seller gets for what a buyer took at the gate: a House's price, or the one player price; two
+    /// players on one device trade at the seller's hub price (no premium moves between an account and its alt)
+    /// </summary>
     private double SettlementPrice(Company seller, Company buyer, string resource) =>
-        seller.IsNpc ? HouseSellPrice(resource) : buyer.IsNpc ? HouseBuyPrice(seller, resource) : PlayerPrice(resource);
+        seller.IsNpc ? HouseSellPrice(resource)
+        : buyer.IsNpc ? HouseBuyPrice(seller, resource)
+        : SameDevice(seller, buyer) ? HubBuyPrice(seller, resource)
+        : PlayerPrice(resource);
 
     /// <summary>
     /// The sellers of what a network's gates delivered get their pay (what the buyer paid, in proportion to what each of
@@ -221,6 +227,7 @@ public sealed partial class GameWorld
             ContractDelivered(seller.Id, buyer.Id, payment.Resource, units);
             AddStat(seller, "soldToPlayers", units);
             AddStat(buyer, "boughtFromPlayers", units);
+            CountUsualTrade(seller, buyer, payment.Resource, units, minutes);
             seller.Touch();
             Changes.Companies.Add(seller.Id);
         }
@@ -362,8 +369,11 @@ public sealed partial class GameWorld
             {
                 foreach (var (sellerId, perMinute) in ask.Incoming)
                 {
-                    Add(sellerId, perMinute * PlayerPrice(ask.Resource));
-                    Add(asker.Id, -perMinute * PlayerPrice(ask.Resource));
+                    if (Company(sellerId) is { } seller)
+                    {
+                        Add(sellerId, perMinute * HubBuyPrice(seller, ask.Resource));
+                        Add(asker.Id, -perMinute * HubBuyPrice(seller, ask.Resource));
+                    }
                 }
             }
         }
@@ -377,7 +387,7 @@ public sealed partial class GameWorld
             {
                 foreach (var (sellerId, perMinute) in sources.Where(t => Company(t.Key) is { Asleep: false }))
                 {
-                    Add(sellerId, perMinute * StandInBuyPrice(sleeper.StandIn!, Company(sellerId)!, resource));
+                    Add(sellerId, perMinute * StandInBuyPrice(sleeper, Company(sellerId)!, resource));
                 }
             }
         }
@@ -840,6 +850,35 @@ public sealed partial class GameWorld
                 }
             }
 
+            // Usual partners next: a player's running trade with a player (its rate over the last 7 days) comes before
+            // anything new, so nobody's trade is cut by someone else's arrival (Mia's coal when Dev moves in)
+            for (var s = 0; s < members.Count; s++)
+            {
+                var seller = members[s].Company;
+                if (seller.IsNpc || seller.UsualTrades.Count == 0)
+                {
+                    continue;
+                }
+                for (var b = 0; b < members.Count; b++)
+                {
+                    var buyer = members[b].Company;
+                    if (buyer.IsNpc || b == s || spare[s] <= 1e-9 || lacks[b] <= 1e-9 || !Allowed(s, b))
+                    {
+                        continue;
+                    }
+                    var usual = UsualRate(seller, buyer, resource);
+                    if (usual <= 1e-9)
+                    {
+                        continue;
+                    }
+                    var amount = Math.Min(usual, Math.Min(spare[s], lacks[b]));
+                    spare[s] -= amount;
+                    lacks[b] -= amount;
+                    var key = (members[s].Key, members[b].Key, resource);
+                    result[key] = result.GetValueOrDefault(key) + amount;
+                }
+            }
+
             void Record(Dictionary<(int Seller, int Buyer), double> flows)
             {
                 foreach (var ((s, b), amount) in flows.Where(t => t.Value > 1e-9))
@@ -1040,10 +1079,21 @@ public sealed partial class GameWorld
             }
             else
             {
-                // Within the tolerance: the network keeps solving with what it has; what was matched still counts
+                // Within the tolerance: the network keeps solving with what it has; what was matched still counts, and so
+                // does who sends it now (each seller's share, at the total the network was solved with), else a seller
+                // the Yard just matched would send for nothing while the old one is paid
                 before.Matched = after.Matched;
                 before.HubShare = after.HubShare;
                 before.HubBound = after.HubBound;
+                foreach (var (importKey, sources) in after.Import)
+                {
+                    var solvedTotal = before.Import.TryGetValue(importKey, out var old) ? old.Values.Sum() : 0;
+                    var total = sources.Values.Sum();
+                    if (solvedTotal > 1e-12 && total > 1e-12)
+                    {
+                        before.Import[importKey] = sources.ToDictionary(t => t.Key, t => t.Value * solvedTotal / total);
+                    }
+                }
             }
         }
         _couplingInterval = changed ? CouplingInterval : TimeSpan.FromTicks(Math.Min(MaxCouplingInterval.Ticks, _couplingInterval.Ticks * 2));

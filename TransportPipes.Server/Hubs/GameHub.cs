@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using TransportPipes.Game.State;
@@ -95,6 +97,12 @@ public sealed class GameHub : Hub<IGameClient>
     public async Task<HelloDto> Hello()
     {
         var userId = UserId;
+        // The same-device signals (v1.2 §3): the browser's random id, and a day's hash of the IP address (never the address)
+        var http = Context.GetHttpContext();
+        var browserId = http?.Request.Query["bid"].ToString();
+        var ip = http?.Connection.RemoteIpAddress?.ToString();
+        var ipDay = string.IsNullOrEmpty(ip) ? null
+            : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{ip}|{DateTime.UtcNow:yyyy-MM-dd}")))[..16];
         var user = new UserInfo(userId, UserName);
         var (isAdmin, _, _) = await _accounts.ModerationAsync(userId);
         user = user with { IsAdmin = isAdmin, IsGuest = await _accounts.IsGuestAsync(userId) };
@@ -121,6 +129,7 @@ public sealed class GameHub : Hub<IGameClient>
                 company.Touch();
             }
             company.LastSeenAt = world.Now;
+            world.SeenOn(company, browserId, ipDay);
             world.CountPlayDay(company);
             // Back from sleep (in place, or from the Quiet Isles)
             world.WakeUp(company);

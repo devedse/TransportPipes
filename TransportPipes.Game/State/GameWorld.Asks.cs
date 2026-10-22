@@ -228,7 +228,10 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>What the neighbours brought goes into the asker's storages and is paid (the one player price)</summary>
+    /// <summary>
+    /// What the neighbours brought goes into the asker's storages and is paid at the seller's hub price: goods that only
+    /// fill a Storage carry no premium (an alt could pass on its bank by reselling them to the hub)
+    /// </summary>
     private void SettleAsks(double minutes)
     {
         foreach (var asker in _companies.Values.Where(t => t.Asks.Count > 0))
@@ -246,9 +249,10 @@ public sealed partial class GameWorld
                     {
                         continue;
                     }
-                    var gold = units * PlayerPrice(ask.Resource);
+                    var gold = units * HubBuyPrice(seller, ask.Resource);
                     ask.Got += units;
                     asker.Gold -= gold;
+                    AddStat(asker, "askPaid", gold);
                     seller.Gold += gold;
                     seller.Report.GoldEarned += gold;
                     Add(seller.Report.Sold, ask.Resource, units);

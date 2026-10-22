@@ -10,6 +10,15 @@ public abstract class Entity
     public void Touch() => Dirty = true;
 }
 
+/// <summary>A trade with one partner over the last 7 days, by day: the units taken and the minutes it ran</summary>
+public sealed class UsualTrade
+{
+    /// <summary>The world's day (since the epoch) of the newest bucket</summary>
+    public int Day { get; set; }
+    public double[] Units { get; set; } = new double[7];
+    public double[] Minutes { get; set; } = new double[7];
+}
+
 public sealed class Company : Entity
 {
     public long Id { get; init; }
@@ -156,6 +165,18 @@ public sealed class Company : Entity
 
     /// <summary>When the company's current step of Loady's guide began (a step open two days shrinks to one line)</summary>
     public DateTime? TutorialStepSince { get; set; }
+
+    /// <summary>
+    /// The device signals its player was seen with (v1.2 §3, "same device"): a browser id ("b:…") and a day's hash of
+    /// the IP address ("ip:…", never the address itself), each with when it was last seen (kept 30 days)
+    /// </summary>
+    public Dictionary<string, DateTime> Devices { get; set; } = new();
+
+    /// <summary>
+    /// What this company sold its usual buyers over the last 7 days, per "buyerId:good" (taken and paid units only):
+    /// a usual partner's running trade comes first in the Yard, before anything new (step 2 of the redesign)
+    /// </summary>
+    public Dictionary<string, UsualTrade> UsualTrades { get; set; } = new();
 
     /// <summary>A stranger in a crew's station is on probation for its first 14 days (v1.2 §6)</summary>
     public DateTime? ProbationUntil { get; set; }

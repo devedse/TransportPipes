@@ -67,6 +67,23 @@ public class StandInFacts
     }
 
     [TestMethod]
+    public void ACrewMatesStandInKeepsTheOldPriceForAWeekButNotForTheSameDevice()
+    {
+        var (game, a, b, _, _) = Neighbours();
+        b.DistinctDays = 10;
+        game.World.SeenOn(a, "browser-a", null);
+        game.World.SeenOn(b, "browser-b", null);
+        Days(game, 31, a);
+        Assert.IsTrue(b.Asleep);
+        Assert.IsTrue(b.StandIn!.OldPriceWeek, "a crew mate who played on 10 days");
+        Assert.AreEqual(game.World.PlayerPrice("energy"), game.World.StandInBuyPrice(b, a, "energy"), 1e-9, "the old price for a week");
+
+        game.World.SeenOn(a, "browser-b", null);
+        Assert.IsTrue(game.World.SharedDeviceWithSleeper(b, a));
+        Assert.AreEqual(game.World.HouseBuyPrice(a, "energy"), game.World.StandInBuyPrice(b, a, "energy"), 1e-9, "never for an account on the sleeper's own device");
+    }
+
+    [TestMethod]
     public void TheStandInKeepsSellingToTheFriendWhoStays()
     {
         var (game, a, b, _, mine) = Neighbours();
@@ -87,22 +104,20 @@ public class StandInFacts
     }
 
     [TestMethod]
-    public void TheStandInBuysFromTheFriendWhoStaysThenGlidesToHouseTerms()
+    public void AStrangersStandInBuysAtHouseTermsFromTheFirstDay()
     {
         var (game, a, b, moily, _) = Neighbours();
         Days(game, 31, a);
         Assert.IsTrue(b.Asleep);
         var standIn = b.StandIn!;
-        var days = (game.World.Now - standIn.Since).TotalDays;
-        Assert.AreEqual(days / 14, game.World.StandInGlide(standIn), 1e-9, "fewer than five days of play: the glide starts at once");
-        Assert.IsGreaterThan(game.World.HouseBuyPrice(a, "energy"), game.World.StandInBuyPrice(standIn, a, "energy"), "still near the old price");
+        Assert.IsFalse(standIn.OldPriceWeek, "not a crew member with 10 days of play");
+        Assert.AreEqual(game.World.HouseBuyPrice(a, "energy"), game.World.StandInBuyPrice(b, a, "energy"), 1e-9, "House terms at once: a fake quitter farms nothing");
 
         var goldA = a.Gold;
         Days(game, 1, a);
         Assert.IsGreaterThan(goldA + 24 * 60 * game.World.GoldPerMinute()[a.Id] + 1, a.Gold, "A is paid for what the stand-in takes");
 
         Days(game, 14, a);
-        Assert.AreEqual(game.World.HouseBuyPrice(a, "energy"), game.World.StandInBuyPrice(standIn, a, "energy"), 1e-9, "House terms after the glide");
         var exported = game.World.NetworkOf(moily.Id)!.GateFlows.Where(t => !t.Import).Sum(t => t.Delivered);
         Assert.AreEqual(0.25 * standIn.Buys["energy"], exported, 0.05 * standIn.Buys["energy"], "and a quarter of the volume: the rest goes to the Yard and the hub");
     }

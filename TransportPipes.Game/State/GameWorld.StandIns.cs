@@ -15,7 +15,10 @@ public sealed class StandIn
     public Dictionary<string, double> Sells { get; init; } = new();
     public Dictionary<string, double> Buys { get; init; } = new();
 
-    /// <summary>A crew member who played on 5+ days: its partners keep the old price for a week</summary>
+    /// <summary>
+    /// A crew member who played on 10+ days: its partners on other devices keep the old price for a week, then it glides
+    /// to House terms; everyone else gets House terms from the first day (an alt can't farm a fake quitter)
+    /// </summary>
     public bool OldPriceWeek { get; init; }
 }
 
@@ -33,7 +36,7 @@ public sealed partial class GameWorld
     public static readonly TimeSpan StandInNoticeAfter = TimeSpan.FromDays(23);
     private const double StandInFullDays = 14;
     private const double StandInGlideDays = 14;
-    private const int StandInOldPriceDays = 5;
+    private const int StandInOldPriceDays = 10;
 
     private static readonly string[] StandInNames =
     [
@@ -73,9 +76,17 @@ public sealed partial class GameWorld
     public double StandInGlide(StandIn standIn) =>
         Math.Clamp((StandInDays(standIn) - (standIn.OldPriceWeek ? 7 : 0)) / StandInGlideDays, 0, 1);
 
-    /// <summary>What the stand-in pays a partner for a good: the player price, gliding to what a House pays</summary>
-    public double StandInBuyPrice(StandIn standIn, Company seller, string resource)
+    /// <summary>
+    /// What a sleeper's stand-in pays a partner for a good: for a crew member's partners on another device the old price,
+    /// gliding to what a House pays; for everyone else what a House pays
+    /// </summary>
+    public double StandInBuyPrice(Company sleeper, Company seller, string resource)
     {
+        var standIn = sleeper.StandIn!;
+        if (!standIn.OldPriceWeek || SharedDeviceWithSleeper(sleeper, seller))
+        {
+            return HouseBuyPrice(seller, resource);
+        }
         var glide = StandInGlide(standIn);
         return PlayerPrice(resource) * (1 - glide) + HouseBuyPrice(seller, resource) * glide;
     }
@@ -117,7 +128,7 @@ public sealed partial class GameWorld
                         continue;
                     }
                     var units = perMinute * minutes;
-                    var gold = units * StandInBuyPrice(sleeper.StandIn!, seller, resource);
+                    var gold = units * StandInBuyPrice(sleeper, seller, resource);
                     AddStat(seller, "npcGold", gold);
                     seller.Gold += gold;
                     seller.Report.GoldEarned += gold;
