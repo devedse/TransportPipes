@@ -384,7 +384,8 @@ function tiles() {
 function marksSection() {
   if (!findings.marks?.length && !findings.sinceRun1) return "";
   const status = (t) => pill(/pass/i.test(t) ? "pass" : /fail/i.test(t) ? "fail" : t);
-  const rows = (findings.marks ?? []).map((m) => `<tr><td><b>${esc(m.mark)}</b>${m.evidence ? `<div class="small muted">${md(m.evidence)}</div>` : ""}</td><td>${esc(m.pass ?? "")}</td><td>${esc(m.run1 ?? "")}</td><td>${esc(m.run2 ?? "")}</td><td>${status(m.status ?? "")}</td></tr>`).join("");
+  // The evidence on its own line under each mark, across the table (in the first cell it made a tall narrow column)
+  const rows = (findings.marks ?? []).map((m) => `<tr class="mark"><td><b>${esc(m.mark)}</b></td><td>${esc(m.pass ?? "")}</td><td>${esc(m.run1 ?? "")}</td><td>${esc(m.run2 ?? "")}</td><td>${status(m.status ?? "")}</td></tr>${m.evidence ? `<tr class="mark-evidence"><td colspan="5" class="small muted">${md(m.evidence)}</td></tr>` : ""}`).join("");
   return `<section class="page">
   <h2>The marks</h2>
   <p>The plan's marks for run 2 (docs/playtest-redesign.html §7), measured from the server's numbers and the logs, with
@@ -541,6 +542,9 @@ p { margin:0 0 10px; max-width:78ch; } ul { margin:0 0 10px; padding-left:20px; 
 .pill.good { background:var(--good-bg); color:var(--green); } .pill.bad { background:var(--bad-bg); color:var(--red); }
 .pill.warn { background:var(--warn-bg); color:var(--gold); } .pill.info { background:#dde9f3; color:#24507a; }
 .scroll { overflow-x:auto; } .scroll.tall { max-height:640px; overflow-y:auto; }
+/* Long paths and names in the findings break rather than push the page wider (run 2's evidence cites absolute paths) */
+.page { overflow-wrap:anywhere; }
+tr.mark td { border-bottom:none; padding-bottom:2px; } tr.mark-evidence td { padding-top:0; }
 table { width:100%; border-collapse:collapse; margin:8px 0 16px; font-size:.9rem; }
 th { text-align:left; background:var(--cream); color:var(--teal-dark); padding:7px 10px; font-weight:800; position:sticky; top:0; }
 td { padding:7px 10px; border-top:1px solid var(--line); vertical-align:top; } td.num { text-align:right; font-variant-numeric:tabular-nums; }
