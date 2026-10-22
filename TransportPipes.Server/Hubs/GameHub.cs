@@ -358,8 +358,21 @@ public sealed class GameHub : Hub<IGameClient>
             : null, changesWorld: false);
     }
 
-    public Task<BuildingDetailsDto?> GetBuilding(long id) =>
-        _world.RunAsync(world => world.Building(id) is { } building ? GameViews.BuildingDetails(world, building) : null, changesWorld: false);
+    public Task<BuildingDetailsDto?> GetBuilding(long id)
+    {
+        var userId = UserId;
+        return _world.RunAsync(world => world.Building(id) is { } building ? GameViews.BuildingDetails(world, building, world.CompanyOfUser(userId)) : null, changesWorld: false);
+    }
+
+    /// <summary>A Send (step 4): a good's spare goes to a neighbour (to: a company) or the station's project (to: null) first</summary>
+    public Task<CommandResultDto> SendGood(string resource, long? to, long? building) =>
+        Command((world, company) => world.SendGood(company, resource, to, building));
+
+    public Task<CommandResultDto> StopSend(string resource, long? to) =>
+        Command((world, company) => world.StopSend(company, resource, to));
+
+    public Task<CommandResultDto> Thank(long giver, string resource) =>
+        Command((world, company) => world.Thank(company, giver, resource));
 
     public Task<IReadOnlyList<ResearchStateDto>> GetResearch() =>
         _world.RunAsync<IReadOnlyList<ResearchStateDto>>(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Research(world, company) : [], changesWorld: false);

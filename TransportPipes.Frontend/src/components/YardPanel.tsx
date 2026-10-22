@@ -122,15 +122,100 @@ export function YardPanel() {
               Plan the pipe to my Yard gate
             </button>
           )}
+          <p className="muted small">
+            To give a neighbour something, pipe the building that makes it to your Yard gate (G). It goes to
+            whoever here lacks it, and to the station&apos;s project. Send ▸ names who gets it first.
+          </p>
           {yard.yours.length > 0 && (
             <section>
               <h4>Your trades</h4>
               <ul className="yard-trades">
                 {yard.yours.map((t) => (
                   <li key={`${t.partner}-${t.resource}-${t.selling}`}>
-                    <ResourceIcon resource={t.resource} /> {t.selling ? "You sell" : "You buy"}{" "}
-                    {formatAmount(t.perMinute)}/min {content.resourceName(t.resource).toLowerCase()}{" "}
-                    {t.selling ? "to" : "from"} <strong>{t.partnerName}</strong> at {t.price.toFixed(2)} g
+                    <span>
+                      <ResourceIcon resource={t.resource} /> {t.selling ? "You sell" : "You buy"}{" "}
+                      {formatAmount(t.perMinute)}/min {content.resourceName(t.resource).toLowerCase()}{" "}
+                      {t.selling ? "to" : "from"} <strong>{t.partnerName}</strong> at {t.price.toFixed(2)} g
+                      {t.sent && (t.selling ? " · you send it 💛" : " · sent to you 💛")}
+                    </span>
+                    {t.canThank && (
+                      <button
+                        className="small"
+                        onClick={() => void gameClient.thank(t.partner, t.resource, t.partnerName)}
+                      >
+                        💛 Thanks
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {yard.bids.length > 0 && (
+            <section>
+              <h4>Who could use your goods</h4>
+              <ul className="yard-trades">
+                {yard.bids.map((b) => (
+                  <li key={`${b.buyer}-${b.resource}`}>
+                    <span>
+                      <ResourceIcon resource={b.resource} /> <strong>{b.buyerName}</strong>
+                      {b.building !== null && `'s ${b.building}`} could use {formatAmount(b.perMinute)}/min{" "}
+                      {content.resourceName(b.resource).toLowerCase()}
+                      {b.house !== null && <span className="muted"> · it buys from {b.house} ⚙ now</span>}
+                    </span>
+                    <button
+                      className="small"
+                      disabled={yard.sendCount >= yard.maxSends}
+                      onClick={() => void gameClient.sendGood(b.resource, b.buyer, b.buyerName, b.buildingId)}
+                    >
+                      Send to {b.buyerName} ▸
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {yard.sends.length > 0 && (
+            <section>
+              <h4>
+                Your Sends · {yard.sendCount} of {yard.maxSends}
+              </h4>
+              <ul className="yard-trades">
+                {yard.sends.map((t) => (
+                  <li key={`${t.to ?? "project"}-${t.resource}`}>
+                    <span>
+                      💛 <ResourceIcon resource={t.resource} /> {content.resourceName(t.resource)} to{" "}
+                      <strong>{t.toName}</strong>
+                      {t.building !== null && `'s ${t.building}`} first
+                      {t.to !== null &&
+                        (t.perMinute > 0
+                          ? ` · ${formatAmount(t.perMinute)}/min now`
+                          : " · nothing they lack now")}
+                    </span>
+                    <button className="link small" onClick={() => void gameClient.stopSend(t.resource, t.to)}>
+                      stop
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {yard.gifts.length > 0 && (
+            <section>
+              <h4>This week between you and your neighbours</h4>
+              <ul className="yard-trades">
+                {yard.gifts.map((g) => (
+                  <li key={`${g.partner}-${g.resource}`}>
+                    <span>
+                      <ResourceIcon resource={g.resource} /> <strong>{g.name}</strong>:{" "}
+                      {[
+                        g.given > 0 && `you gave ${formatAmount(g.given)}${g.youSend ? " 💛" : ""}`,
+                        g.received > 0 && `you got ${formatAmount(g.received)}${g.theySend ? " 💛" : ""}`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}{" "}
+                      {content.resourceName(g.resource).toLowerCase()}
+                    </span>
                   </li>
                 ))}
               </ul>

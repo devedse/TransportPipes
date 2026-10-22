@@ -18,6 +18,8 @@ function actionLabel(line: ReturnLineDto): string | null {
       return `Repair all · ${formatAmount(line.cost ?? 0)} g`;
     case "project":
       return "Open";
+    case "send":
+      return "Send ▸";
     case "show":
     case "upgrade":
       return "Show me";

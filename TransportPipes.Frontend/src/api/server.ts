@@ -397,6 +397,10 @@ export class GameConnection {
   demolish = (building: number) => this.invoke<CommandResult>("Demolish", building);
   repair = (building: number) => this.invoke<CommandResult>("Repair", building);
   repairAll = () => this.invoke<CommandResult>("RepairAll");
+  sendGood = (resource: string, to: number | null, building: number | null) =>
+    this.invoke<CommandResult>("SendGood", resource, to, building);
+  stopSend = (resource: string, to: number | null) => this.invoke<CommandResult>("StopSend", resource, to);
+  thank = (giver: number, resource: string) => this.invoke<CommandResult>("Thank", giver, resource);
   dig = (parcel: number) => this.invoke<CommandResult>("Dig", parcel);
   evolve = (building: number) => this.invoke<CommandResult>("Evolve", building);
   skipTutorial = () => this.invoke<CommandResult>("SkipTutorial");

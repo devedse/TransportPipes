@@ -1751,6 +1751,40 @@ select {
   gap: 6px;
 }
 
+/* A trade line with its one button (Send ▸, 💛 Thanks, stop) at the end, below it when the line is long */
+.yard-trades li,
+.trade-lines li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 0.86rem;
+}
+
+.yard-trades li > span,
+.trade-lines li > span {
+  min-width: 0;
+  flex: 1 1 14em;
+}
+
+.yard-trades li > button,
+.trade-lines li > button {
+  margin-left: auto;
+  max-width: 100%;
+}
+
+.trade-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.trade-lines li > span:first-child {
+  flex: none;
+}
+
 .yard-residents li {
   display: grid;
   gap: 4px;

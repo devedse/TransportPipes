@@ -271,7 +271,7 @@ public class ProjectFacts
     }
 
     [TestMethod]
-    public void ProjectFirstPutsTheProjectBeforeTheNeighbours()
+    public void ASendToTheProjectTakesWhatWentToTheHubNotANeighboursTrade()
     {
         var game = new TestGame(content: TestGame.PlainContent);
         game.World.ProjectsEnabled = true;
@@ -279,21 +279,24 @@ public class ProjectFacts
         var b = game.NewCompany("B", level: 2);
         var moily = game.Build(a, "windMoily");
         game.ConnectToGate(a, moily);
+        game.Connect(a, moily, game.TradingPost(a));
         var mine = game.Build(b, "ironMine", game.Spot(b, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
         game.ConnectToGate(b, mine);
         game.Connect(b, mine, game.TradingPost(b));
         game.Pass(3);
         double ToB() => game.World.YardTrades(game.EstateOf(b)).Where(t => !t.Selling && t.Partner == a.Id && t.Resource == "energy").Sum(t => t.PerMinute);
         var before = ToB();
-        Assert.IsGreaterThan(0, before, "the neighbour first, normally");
+        Assert.IsGreaterThan(0, before, "B buys A's energy");
         var project = ProjectOf(game, a);
-        // A basket that takes all of A's energy
+        // A basket that would take all of A's energy
         project.Basket["energy"] = 1_000_000;
 
-        Assert.IsTrue(game.World.SetProjectFirst(a.Id, "energy", true).Success);
+        Assert.IsTrue(game.World.SendGood(a.Id, "energy", null, null).Success);
+        Assert.IsTrue(a.ProjectFirst.Contains("energy"), "a Send to the project is the project-first box");
         game.Pass(3);
 
-        Assert.IsLessThan(before - 1e-6, ToB(), "project first: the Foundation gets A's energy before B");
-        Assert.IsGreaterThan(0, project.Incoming.GetValueOrDefault(a.Id)?.GetValueOrDefault("energy") ?? 0);
+        // Step 4: the Yard's order is the usual partners' running trade, then Sends: nobody's trade is cut by a Send
+        Assert.AreEqual(before, ToB(), before * 0.02, "B keeps its energy");
+        Assert.IsGreaterThan(0, project.Incoming.GetValueOrDefault(a.Id)?.GetValueOrDefault("energy") ?? 0, "the project gets the rest");
     }
 }

@@ -45,8 +45,8 @@ public record ReturnCardDto(
     IReadOnlyList<LandingCardDto> Landing,
     string? Hint);
 
-/// <summary>A line of the return card: its section, and its one button (repairAll, show, project, upgrade) with what it costs</summary>
-public record ReturnLineDto(string Kind, string Icon, string Text, string? Action, long? Building, double? Cost);
+/// <summary>A line of the return card: its section, and its one button (repairAll, show, project, upgrade, send: Partner's Resource) with what it costs</summary>
+public record ReturnLineDto(string Kind, string Icon, string Text, string? Action, long? Building, double? Cost, long? Partner = null, string? Resource = null);
 
 /// <summary>A place to land: your seat, next to your crew, a lively station, the Frontier; with the crates it would mean</summary>
 public record LandingCardDto(string Kind, SeatRefDto Seat, string Station, int Crates, bool Here, int Neighbours);
@@ -273,7 +273,33 @@ public record BuildingDetailsDto(
     EvolveDto? Evolve = null,
     StorageKeepDto? Keep = null,
     MaxMoreDto? MaxMore = null,
-    BuildingStatusDto? Status = null);
+    BuildingStatusDto? Status = null,
+    BuildingTradeDto? Trade = null);
+
+/// <summary>
+/// A building's trade with its neighbours, for its owner (step 4): who takes its goods and who sends it its inputs (both
+/// ends named), who could use its goods, what the project wants of them, and the pipe to the gate a Send lays first
+/// </summary>
+public record BuildingTradeDto(
+    IReadOnlyList<TradeEndDto> Takers,
+    IReadOnlyList<TradeEndDto> Suppliers,
+    IReadOnlyList<BidDto> Bids,
+    IReadOnlyList<ProjectWantDto> Project,
+    bool ReachesGate,
+    BuildingFixDto? GatePipe,
+    /// <summary>"runs on Ben's sand 💛": its biggest supplier among the players</summary>
+    string? RunsOn,
+    int Sends,
+    int MaxSends);
+
+/// <summary>One end of a Yard trade: the partner, its building, how much a minute at what price; Sent: a Send; CanThank: Thanks today</summary>
+public record TradeEndDto(string Resource, long Partner, string PartnerName, string? PartnerBuilding, long? PartnerBuildingId, double PerMinute, double Price, bool Sent, bool House, bool CanThank);
+
+/// <summary>"Ana's Glassworks could use 15/min · it buys from Bertha ⚙ now · Send to Ana ▸"</summary>
+public record BidDto(string Resource, long Buyer, string BuyerName, string? Building, long? BuildingId, double PerMinute, string? House);
+
+/// <summary>"🏗 The Water Tower wants 5,400 · you make it · Send ▸"</summary>
+public record ProjectWantDto(string Resource, string Stage, double Wants, double PerMinute, bool Sent);
 
 /// <summary>
 /// A building's panel head (F2): why it doesn't run fully (Cause, from IdleReason), the status pill (the cause in five
@@ -586,7 +612,14 @@ public record YardResidentDto(long Id, string Name, string Color, int Level, boo
 public record AskDto(string Resource, double Amount, double Got, DateTime Until, bool Renew, double PerMinute);
 
 /// <summary>One of your trades through the Yard: with whom, what, how much per minute, which way, at what price</summary>
-public record YardTradeDto(long Partner, string PartnerName, string Resource, double PerMinute, bool Selling, double Price);
+/// <summary>A Yard trade of yours; Sent: a Send (yours, or theirs to you), CanThank: Thanks today, House: an NPC partner</summary>
+public record YardTradeDto(long Partner, string PartnerName, string Resource, double PerMinute, bool Selling, double Price, bool Sent = false, bool CanThank = false, bool House = false);
+
+/// <summary>A Send of yours (step 4): the good, who it goes to (null: the project), the building it's for, what it brings now</summary>
+public record SendDto(string Resource, long? To, string ToName, string? Building, double PerMinute);
+
+/// <summary>What you and a neighbour gave each other this week, in units each way; Sent: by a Send (yours, theirs)</summary>
+public record GiftDto(long Partner, string Name, string Resource, double Given, double Received, bool YouSend, bool TheySend);
 
 /// <summary>
 /// Your station and its Yard (v1.2 §7): its name and place, its residents, your trades with them, what goes through the
@@ -606,7 +639,13 @@ public record YardDto(
     IReadOnlyList<YardTradeDto> Yours,
     IReadOnlyList<ResourceRateDto> Totals,
     string Line,
-    IReadOnlyList<DiscoveryDto> Discoveries);
+    IReadOnlyList<DiscoveryDto> Discoveries,
+    IReadOnlyList<SendDto> Sends,
+    int SendCount,
+    int MaxSends,
+    /// <summary>Who could use your goods ("Ana's Glassworks could use your sand · Send ▸")</summary>
+    IReadOnlyList<BidDto> Bids,
+    IReadOnlyList<GiftDto> Gifts);
 
 /// <summary>A Discovery (v1.2 §13): where, until when its markers are given, which stations got one, the three who brought most</summary>
 public record DiscoveryDto(string Resource, int X, int Y, string Near, DateTime MarkingEnds, IReadOnlyList<string> Stations, IReadOnlyList<string> Top, bool YourStation);

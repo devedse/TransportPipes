@@ -27,6 +27,36 @@ public class AdvisorFacts
     }
 
     [TestMethod]
+    public void ANeighboursSpareSuggestsAFactoryByTheGate()
+    {
+        // F6, interdependence: Cleo mines iron ore and sells it to the hub; Ana makes energy and could turn Cleo's ore into ingots
+        var game = new TestGame(content: TestGame.PlainContent);
+        var ana = game.NewCompany("Ana", level: 3);
+        var cleo = game.NewCompany("Cleo", level: 3);
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var moily = game.Build(ana, "windMoily");
+            game.ConnectToGate(ana, moily);
+            game.Connect(ana, moily, game.TradingPost(ana));
+        }
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var mine = game.Build(cleo, "ironMine", game.Spot(cleo, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
+            game.ConnectToGate(cleo, mine);
+            game.Connect(cleo, mine, game.TradingPost(cleo));
+        }
+        game.Pass(3);
+
+        var steps = game.World.NextSteps(ana, 8);
+
+        var step = steps.FirstOrDefault(t => t.Title.StartsWith("Cleo has"));
+        Assert.IsNotNull(step, string.Join(" | ", steps.Select(t => t.Title)));
+        StringAssert.Contains(step.Title, "iron ore spare a minute: build a Small Factory by your Yard gate");
+        Assert.AreEqual("smallFactory", step.BuildingType);
+        Assert.IsGreaterThan(0, step.GainPerMinute);
+    }
+
+    [TestMethod]
     public void AFactoryWhoseIngotsCantLeaveIsNotShortOfEnergy()
     {
         // Ana's day 4: the factory piped to the mine and a windmill, the mine to the trading post and a windmill of its

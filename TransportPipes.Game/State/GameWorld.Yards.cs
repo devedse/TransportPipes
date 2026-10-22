@@ -228,6 +228,7 @@ public sealed partial class GameWorld
             AddStat(seller, "soldToPlayers", units);
             AddStat(buyer, "boughtFromPlayers", units);
             CountUsualTrade(seller, buyer, payment.Resource, units, minutes);
+            AnnounceGift(seller, buyer, payment.Resource, payment.Units);
             seller.Touch();
             Changes.Companies.Add(seller.Id);
         }
@@ -830,7 +831,7 @@ public sealed partial class GameWorld
     /// Houses, within the one NPC cap (Houses buy at most a quarter of what a player makes of a good, and sell at most a
     /// quarter of what it uses)
     /// </summary>
-    private Dictionary<(EstateKey Seller, EstateKey Buyer, string Resource), double> MatchYard(List<YardMember> members)
+    private Dictionary<(EstateKey Seller, EstateKey Buyer, string Resource), double> MatchYard(List<YardMember> members, bool kept)
     {
         var result = new Dictionary<(EstateKey, EstateKey, string), double>();
         var resources = members.SelectMany(t => t.Spare.Keys).Intersect(members.SelectMany(t => t.Lacks.Keys)).Order(StringComparer.Ordinal).ToList();
@@ -841,6 +842,26 @@ public sealed partial class GameWorld
             var spare = members.Select(t => t.Spare.GetValueOrDefault(resource)).ToArray();
             var lacks = members.Select(t => t.Lacks.GetValueOrDefault(resource)).ToArray();
             bool Allowed(int s, int b) => YardTradeAllowed(members[s].Company, members[b].Company, resource);
+            void Record(Dictionary<(int Seller, int Buyer), double> flows)
+            {
+                foreach (var ((s, b), amount) in flows.Where(t => t.Value > 1e-9))
+                {
+                    var key = (members[s].Key, members[b].Key, resource);
+                    result[key] = result.GetValueOrDefault(key) + amount;
+                }
+            }
+
+            if (!kept)
+            {
+                // Players with players
+                Record(Share(spare, lacks, (s, b) => !members[s].Company.IsNpc && !members[b].Company.IsNpc && Allowed(s, b)));
+                // Houses buy what players have left, and sell what players still lack, within one cap per player
+                var mayBuy = members.Select(t => t.Company.IsNpc ? 0 : cap * t.Makes.GetValueOrDefault(resource)).ToArray();
+                Record(Share(spare, lacks, (s, b) => !members[s].Company.IsNpc && members[b].Company.IsNpc && Allowed(s, b), sellerCap: mayBuy));
+                var maySell = members.Select(t => t.Company.IsNpc ? 0 : cap * t.Uses.GetValueOrDefault(resource)).ToArray();
+                Record(Share(spare, lacks, (s, b) => members[s].Company.IsNpc && !members[b].Company.IsNpc && Allowed(s, b), buyerCap: maySell));
+                continue;
+            }
 
             // Contracts first, up to their rate
             foreach (var contract in _contracts.Values.Where(t => t.State == ContractState.Active && t.Resource == resource).OrderBy(t => t.Id))
@@ -887,23 +908,23 @@ public sealed partial class GameWorld
                 }
             }
 
-            void Record(Dictionary<(int Seller, int Buyer), double> flows)
+            // Sends next (step 4): a giver's spare goes to the neighbour it names, up to their honest lack, in the order
+            // they were made; a Send to a sleeper goes to its stand-in
+            for (var s = 0; s < members.Count; s++)
             {
-                foreach (var ((s, b), amount) in flows.Where(t => t.Value > 1e-9))
+                foreach (var send in members[s].Company.Sends.Where(t => t.Resource == resource).OrderBy(t => t.Since))
                 {
+                    if (spare[s] <= 1e-9 || !index.TryGetValue(send.To, out var b) || b == s || lacks[b] <= 1e-9 || !Allowed(s, b))
+                    {
+                        continue;
+                    }
+                    var amount = Math.Min(spare[s], lacks[b]);
+                    spare[s] -= amount;
+                    lacks[b] -= amount;
                     var key = (members[s].Key, members[b].Key, resource);
                     result[key] = result.GetValueOrDefault(key) + amount;
                 }
             }
-
-            // Players with players
-            Record(Share(spare, lacks, (s, b) => !members[s].Company.IsNpc && !members[b].Company.IsNpc && Allowed(s, b)));
-            // Houses buy what players have left, and sell what players still lack, within one cap per player
-            var mayBuy = members.Select(t => t.Company.IsNpc ? 0 : cap * t.Makes.GetValueOrDefault(resource)).ToArray();
-            Record(Share(spare, lacks, (s, b) => !members[s].Company.IsNpc && members[b].Company.IsNpc && Allowed(s, b), sellerCap: mayBuy));
-            var maySell = members.Select(t => t.Company.IsNpc ? 0 : cap * t.Uses.GetValueOrDefault(resource)).ToArray();
-            var sold = Share(spare, lacks, (s, b) => members[s].Company.IsNpc && !members[b].Company.IsNpc && Allowed(s, b), buyerCap: maySell);
-            Record(sold);
         }
         return result;
     }
@@ -1022,22 +1043,33 @@ public sealed partial class GameWorld
                     toProject[key] = toProject.GetValueOrDefault(key) + amount;
                 }
             }
-            // A seller's "project first" goods go to the project before the Yard
-            if (project != null)
-            {
-                Send(MatchProject(project, members, first: true));
-            }
-            if (members.Count >= 2)
+            void Trade(Dictionary<(EstateKey Seller, EstateKey Buyer, string Resource), double> matched)
             {
                 var byKey = members.ToDictionary(t => t.Key);
-                foreach (var ((sellerKey, buyerKey, resource), amount) in MatchYard(members))
+                foreach (var ((sellerKey, buyerKey, resource), amount) in matched)
                 {
                     var terms = TermsOf(sellerKey);
                     terms.Export[resource] = terms.Export.GetValueOrDefault(resource) + amount;
                     terms.Matched[(buyerKey, resource)] = terms.Matched.GetValueOrDefault((buyerKey, resource)) + amount;
                     terms.HubShare[resource] = byKey[sellerKey].HubShare(resource);
                     Add(byKey[sellerKey].Spare, resource, -amount);
+                    byKey[buyerKey].Lacks[resource] = Math.Max(0, byKey[buyerKey].Lacks.GetValueOrDefault(resource) - amount);
                 }
+            }
+            // Contracts, the usual partners' running trade and Sends first: nobody's trade is cut by another's Send
+            if (members.Count >= 2)
+            {
+                Trade(MatchYard(members, kept: true));
+            }
+            // A seller's Sends to the project ("project first") next
+            if (project != null)
+            {
+                Send(MatchProject(project, members, first: true));
+            }
+            // Then everyone else, pro rata
+            if (members.Count >= 2)
+            {
+                Trade(MatchYard(members, kept: false));
             }
             // Then the project takes what the residents left
             if (project != null)

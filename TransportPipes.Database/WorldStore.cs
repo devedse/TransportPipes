@@ -107,6 +107,9 @@ public sealed class WorldStore
                 LoneCard = settings.LoneCard,
                 ProbationUntil = settings.ProbationUntil,
                 ProjectFirst = settings.ProjectFirst ?? new HashSet<string>(),
+                Sends = settings.Sends ?? new List<GoodSend>(),
+                ThankedOn = settings.ThankedOn ?? new Dictionary<long, int>(),
+                GiftsAnnounced = settings.GiftsAnnounced ?? new HashSet<string>(),
                 PinMakes = settings.PinMakes ?? new HashSet<string>(),
                 PinNeeds = settings.PinNeeds ?? new HashSet<string>(),
                 Asks = settings.Asks ?? new List<CompanyAsk>(),
@@ -415,6 +418,9 @@ public sealed class WorldStore
                     LoneCard = company.LoneCard,
                     ProbationUntil = company.ProbationUntil,
                     ProjectFirst = company.ProjectFirst,
+                    Sends = company.Sends,
+                    ThankedOn = company.ThankedOn,
+                    GiftsAnnounced = company.GiftsAnnounced,
                     PinMakes = company.PinMakes,
                     PinNeeds = company.PinNeeds,
                     Asks = company.Asks,
@@ -766,6 +772,9 @@ public sealed class WorldStore
         public bool LoneCard { get; init; }
         public DateTime? ProbationUntil { get; init; }
         public HashSet<string>? ProjectFirst { get; init; }
+        public List<GoodSend>? Sends { get; init; }
+        public Dictionary<long, int>? ThankedOn { get; init; }
+        public HashSet<string>? GiftsAnnounced { get; init; }
         public HashSet<string>? PinMakes { get; init; }
         public HashSet<string>? PinNeeds { get; init; }
         public List<CompanyAsk>? Asks { get; init; }

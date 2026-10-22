@@ -107,7 +107,7 @@ export function Toolbar() {
     },
     {
       key: "neighbours",
-      label: "Station",
+      label: "Neighbours",
       icon: "🤝",
       hotkey: "N",
       active: yardOpen,

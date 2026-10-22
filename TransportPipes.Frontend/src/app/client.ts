@@ -1802,9 +1802,70 @@ export class GameClient {
     }
   }
 
-  /** The return card's buttons: each closes the card on what it shows, Repair all keeps it open */
+  /**
+   * Send ▸ (step 4): a good's spare goes to a neighbour (to: null, the station's project) first, from now on. When the
+   * building's pipes don't reach the gate, the same tap lays the pipe to it (gatePipe: x, y pairs).
+   */
+  async sendGood(
+    resource: string,
+    to: number | null,
+    toName: string,
+    building: number | null = null,
+    gatePipe: number[] | null = null,
+  ) {
+    const state = appStore.getState();
+    if (gatePipe !== null && gatePipe.length > 0 && this.world !== null && state.company !== null) {
+      const route: TilePosition[] = [];
+      for (let i = 0; i + 1 < gatePipe.length; i += 2) {
+        route.push({ x: gatePipe[i]!, y: gatePipe[i + 1]! });
+      }
+      const tiles = newPipeTiles(this.world, state.company, route, state.content ?? undefined);
+      if (
+        tiles.length > 0 &&
+        !(await this.command(
+          this.connection.placePipes(
+            tiles.flatMap((t) => [t.x, t.y]),
+            1,
+          ),
+        ))
+      ) {
+        return false;
+      }
+    }
+    const good = state.content?.resourceName(resource).toLowerCase() ?? resource;
+    const ok = await this.command(
+      this.connection.sendGood(resource, to, building),
+      `💛 Your ${good} goes to ${toName} first`,
+    );
+    if (ok) {
+      void this.refreshDetails();
+      void this.refreshYard();
+    }
+    return ok;
+  }
+
+  async stopSend(resource: string, to: number | null) {
+    if (await this.command(this.connection.stopSend(resource, to))) {
+      void this.refreshDetails();
+      void this.refreshYard();
+    }
+  }
+
+  /** 💛 Thanks: once a day per neighbour, no gold, no XP; they hear it */
+  async thank(giver: number, resource: string, name: string) {
+    if (await this.command(this.connection.thank(giver, resource), `💛 ${name} hears your thanks`)) {
+      void this.refreshDetails();
+      void this.refreshYard();
+    }
+  }
+
+  /** The return card's buttons: each closes the card on what it shows, Repair all and Send keep it open */
   async returnAction(line: ReturnLineDto): Promise<boolean> {
     switch (line.action) {
+      case "send":
+        return line.resource !== null && line.partner !== null
+          ? await this.sendGood(line.resource, line.partner, "them")
+          : false;
       case "repairAll":
         return await this.command(this.connection.repairAll(), "Repaired: full speed again");
       case "show":

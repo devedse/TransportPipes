@@ -240,6 +240,10 @@ public static class PlaytestEndpoints
                 // The stage's basket (good: delivered / target, the keystone marked) and the This week line
                 projectBasket = project?.Basket.ToDictionary(t => t.Key == project.Keystone ? $"{t.Key}*" : t.Key, t => $"{project.Delivered.GetValueOrDefault(t.Key):0} / {t.Value:0}"),
                 week = GameViews.Week(world, company)?.Text,
+                // Step 4's measures: its Sends, the first gifts it heard of, who thanked it
+                sends = company.Sends.Select(t => $"{t.Resource}>{t.To}").Concat(company.ProjectFirst.Select(t => $"{t}>project")).ToList(),
+                giftsAnnounced = company.GiftsAnnounced.ToList(),
+                thanks = company.Report.Thanks.Count,
             };
         }).ToList();
         return new

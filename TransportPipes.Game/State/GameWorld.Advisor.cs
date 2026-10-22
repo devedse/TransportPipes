@@ -190,6 +190,7 @@ public sealed partial class GameWorld
         UpgradeSteps(company, own, Base, Add);
         ChainSteps(company, own, Base, Add);
         PartnerStep(company, Add);
+        NeighbourChainStep(company, Add);
         ParcelStep(company, Add);
         StartSteps(company, Add);
 
@@ -1052,6 +1053,59 @@ public sealed partial class GameWorld
         add(new AdvisorStep(AdvisorKind.Partner, $"Pipe to your Yard gate: {first.Who.Name} lacks {ResourceWord(first.Resource)}",
             $"You sell it to the hub; your neighbours pay more: about +{Gold(gain)}/min for a pipe of about {Gold(cost)}.",
             AdvisorAction.Partner, cost, gain, Partner: first.Who.Id, At: mine.YardGate), 1);
+    }
+
+    /// <summary>
+    /// Interdependence (F6): a factory whose missing input a neighbour has spare, by the Yard gate so it gets it by itself
+    /// ("Cleo has 6 iron ingots spare a minute: build a Lab by your Yard gate")
+    /// </summary>
+    private void NeighbourChainStep(Company company, Action<AdvisorStep, double> add)
+    {
+        if (company.Level < 3 || EstateOf(company) is not { } estate || GateNetwork(estate) == null)
+        {
+            return;
+        }
+        var made = BuildingsOf(company.Id).Where(t => !t.UnderConstruction).SelectMany(t => Content.Building(t.Type).Out.Keys).ToHashSet();
+        var spare = new Dictionary<string, (double Amount, Company Who)>();
+        foreach (var resident in YardResidents(estate.Station).Where(t => t.Connected && !t.Company.IsNpc && t.Company.Id != company.Id && TradesWith(company, t.Company) && TradesWith(t.Company, company)))
+        {
+            foreach (var (resource, amount) in resident.Spare.Where(t => t.Value > spare.GetValueOrDefault(t.Key).Amount))
+            {
+                spare[resource] = (amount, resident.Company);
+            }
+        }
+        if (spare.Count == 0)
+        {
+            return;
+        }
+        (BuildingDefinition Definition, double Gain, string Good)? best = null;
+        foreach (var definition in Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.Count > 0 && t.In.Keys.Any(k => k != "energy") && IsUnlocked(company, t, out _)))
+        {
+            var bought = definition.In.Keys.Where(t => !made.Contains(t)).ToList();
+            if (bought.Count == 0 || !bought.All(spare.ContainsKey))
+            {
+                continue;
+            }
+            // As fast as the neighbours' spare lets it run, at the Yard's price for what it buys and the hub's for the rest
+            var rate = Math.Min(1, bought.Min(t => spare[t].Amount / definition.In[t]));
+            var value = definition.Out.Sum(t => t.Value * BasePrice(t.Key))
+                - bought.Sum(t => definition.In[t] * PlayerPrice(t))
+                - definition.In.Where(t => !bought.Contains(t.Key)).Sum(t => t.Value * HubBuyPrice(company, t.Key));
+            var gain = rate * value;
+            if (rate >= 0.25 && gain > 0.5 && (best == null || gain > best.Value.Gain))
+            {
+                best = (definition, gain, bought.OrderByDescending(t => spare[t].Amount * BasePrice(t)).First());
+            }
+        }
+        if (best is not { } chosen)
+        {
+            return;
+        }
+        var who = spare[chosen.Good].Who;
+        add(new AdvisorStep(AdvisorKind.Chain,
+            $"{NameFor(who, company)} has {Amount(spare[chosen.Good].Amount)} {ResourceWord(chosen.Good)} spare a minute: build {Article(chosen.Definition.Name)} by your Yard gate",
+            $"Piped to your gate it gets them by itself: about +{Gold(chosen.Gain)}/min.",
+            AdvisorAction.Build, BuildCost(company, chosen.Definition), chosen.Gain, BuildingType: chosen.Definition.Id, At: FindSpot(company, chosen.Definition, estate.YardGate)), 1);
     }
 
     private void ParcelStep(Company company, Action<AdvisorStep, double> add)

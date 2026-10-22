@@ -26,8 +26,8 @@ public static partial class GameViews
     {
         var report = away.Report;
         var lines = new List<(int Rank, ReturnLineDto Line)>();
-        void Add(int rank, string kind, string icon, string text, string? action = null, long? building = null, double? cost = null) =>
-            lines.Add((rank, new ReturnLineDto(kind, icon, text, action, building, cost)));
+        void Add(int rank, string kind, string icon, string text, string? action = null, long? building = null, double? cost = null, long? partner = null, string? resource = null) =>
+            lines.Add((rank, new ReturnLineDto(kind, icon, text, action, building, cost, partner, resource)));
         string Kind(Building building) => world.Content.Building(building.Type).Name;
 
         // Your people
@@ -64,17 +64,24 @@ public static partial class GameViews
         {
             Add(2, "people", "🏘", $"{And(report.NewNeighbours.Distinct().Take(3).ToList())} moved in next door");
         }
+        // What your goods did for them; the first time they ran a neighbour's building by themselves: make it yours, Send ▸
         var taken = world.TakenSince(me, report.Since)
             .Where(t => world.Company(t.Key.Buyer) is { IsNpc: false })
             .OrderByDescending(t => t.Value * world.BasePrice(t.Key.Resource))
             .Take(2)
-            .Select((t, i) => i == 0
-                ? $"{world.NameFor(world.Company(t.Key.Buyer)!, me)} took {Amount(t.Value)} of your {world.GoodsWord(t.Key.Resource)}"
-                : $"{world.NameFor(world.Company(t.Key.Buyer)!, me)} {Amount(t.Value)} {world.GoodsWord(t.Key.Resource)}")
             .ToList();
-        if (taken.Count > 0)
+        if (taken.FirstOrDefault(t => world.OfferSendOnce(me, world.Company(t.Key.Buyer)!, t.Key.Resource)) is { Key.Buyer: > 0 } offer)
         {
-            Add(3, "people", "🤝", string.Join("; ", taken));
+            var buyer = world.Company(offer.Key.Buyer)!;
+            var building = world.TradeNeed(buyer, offer.Key.Resource);
+            Add(2, "people", "💛", $"Your {world.GoodsWord(offer.Key.Resource)} ran {world.NameFor(buyer, me)}'s {building ?? "buildings"} while you were away: {Amount(offer.Value)} of it. Make it yours:",
+                "send", null, null, buyer.Id, offer.Key.Resource);
+        }
+        else if (taken.Count > 0)
+        {
+            Add(3, "people", "🤝", string.Join("; ", taken.Select((t, i) => i == 0
+                ? $"{world.NameFor(world.Company(t.Key.Buyer)!, me)} took {Amount(t.Value)} of your {world.GoodsWord(t.Key.Resource)}"
+                : $"{world.NameFor(world.Company(t.Key.Buyer)!, me)} {Amount(t.Value)} {world.GoodsWord(t.Key.Resource)}")));
         }
         if (chatLine != null)
         {
@@ -127,8 +134,12 @@ public static partial class GameViews
             }
         }
 
-        // The social line (step 4 gives it its own news): likes for now
-        if (report.LikesReceived > 0)
+        // The social line: who thanked you, else who liked your estate
+        if (report.Thanks.Count > 0)
+        {
+            Add(3, "social", "💛", report.Thanks.Count == 1 ? report.Thanks[0] : $"{report.Thanks[^1]}, and {report.Thanks.Count - 1} more thanks");
+        }
+        else if (report.LikesReceived > 0)
         {
             Add(5, "social", "♥", $"{Plural(report.LikesReceived, "visitor")} liked your estate");
         }

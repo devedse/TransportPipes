@@ -649,6 +649,7 @@ public sealed partial class GameWorld
                         project.Allowance[seller.Id] = Math.Max(0, project.Allowance.GetValueOrDefault(seller.Id) - worth);
                     }
                     project.Credit[seller.Id] = project.Credit.GetValueOrDefault(seller.Id) + worth * (good == project.Keystone ? KeystoneCredit : 1);
+                    AnnounceProjectGift(seller, project, good, units / minutes);
                     // Whoever delivers to this stage (or did to the last within 3 days) sizes the next basket
                     project.DeliveredAt[seller.Id] = LastTick;
                     if (project.Stage == ProjectStage.Landmark)

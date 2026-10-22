@@ -153,8 +153,17 @@ public sealed class Company : Entity
     /// <summary>The worth (base prices) of what it made this Era: the Era Wonder's tiers are a share of it (v1.2 §13)</summary>
     public double EraOutput { get; set; }
 
-    /// <summary>Goods whose spare goes to the station's project before the Yard (v1.2 §7)</summary>
+    /// <summary>Goods whose spare goes to the station's project before the Yard (v1.2 §7): a Send to the project</summary>
     public HashSet<string> ProjectFirst { get; set; } = new();
+
+    /// <summary>Its Sends (step 4): goods whose spare goes to a neighbour first</summary>
+    public List<GoodSend> Sends { get; set; } = new();
+
+    /// <summary>The day it last thanked each giver (once a day per pair)</summary>
+    public Dictionary<long, int> ThankedOn { get; set; } = new();
+
+    /// <summary>The first gifts it was told about ("receiver:good", "project:stage:good"): each is announced once</summary>
+    public HashSet<string> GiftsAnnounced { get; set; } = new();
 
     /// <summary>The Plan board (v1.2 §12): what the company pinned it makes and needs</summary>
     public HashSet<string> PinMakes { get; set; } = new();
@@ -286,6 +295,9 @@ public sealed class CompanyReport
     public double CaretakerFee { get; set; }
     public int OrdersCompleted { get; set; }
     public int LikesReceived { get; set; }
+
+    /// <summary>Who thanked it for its goods ("Ana thanked you for your coal 💛"): the return card's social line</summary>
+    public List<string> Thanks { get; set; } = new();
 }
 
 public sealed class Estate : Entity

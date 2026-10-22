@@ -294,9 +294,12 @@ export interface ReturnLineDto {
   kind: "people" | "look" | "project" | "social" | "today" | "invest";
   icon: string;
   text: string;
-  action: "repairAll" | "show" | "project" | "upgrade" | null;
+  action: "repairAll" | "show" | "project" | "upgrade" | "send" | null;
   building: number | null;
   cost: number | null;
+  /** send: whose building, which good */
+  partner: number | null;
+  resource: string | null;
 }
 
 /** A place to land: your seat, next to your crew, a lively station, the Frontier */
@@ -515,6 +518,59 @@ export interface BuildingDetailsDto {
   maxMore: MaxMoreDto | null;
   /** Why it doesn't run fully (F2): the cause, the status pill, the reach line and the one fix button */
   status: BuildingStatusDto | null;
+  /** Its trade with the neighbours, for its owner (step 4) */
+  trade: BuildingTradeDto | null;
+}
+
+/**
+ * A building's trade with its neighbours, for its owner (step 4): who takes its goods and who sends it its inputs (both
+ * ends named), who could use its goods, what the project wants of them, and the pipe to the gate a Send lays first
+ */
+export interface BuildingTradeDto {
+  takers: TradeEndDto[];
+  suppliers: TradeEndDto[];
+  bids: BidDto[];
+  project: ProjectWantDto[];
+  reachesGate: boolean;
+  gatePipe: BuildingFixDto | null;
+  /** "runs on Ben's sand 💛" */
+  runsOn: string | null;
+  sends: number;
+  maxSends: number;
+}
+
+/** One end of a Yard trade; sent: a Send, canThank: Thanks today, house: an NPC partner */
+export interface TradeEndDto {
+  resource: string;
+  partner: number;
+  partnerName: string;
+  partnerBuilding: string | null;
+  partnerBuildingId: number | null;
+  perMinute: number;
+  price: number;
+  sent: boolean;
+  house: boolean;
+  canThank: boolean;
+}
+
+/** "Ana's Glassworks could use 15/min · it buys from Bertha ⚙ now · Send to Ana ▸" */
+export interface BidDto {
+  resource: string;
+  buyer: number;
+  buyerName: string;
+  building: string | null;
+  buildingId: number | null;
+  perMinute: number;
+  house: string | null;
+}
+
+/** "🏗 The Water Tower wants 5,400 · you make it · Send ▸" */
+export interface ProjectWantDto {
+  resource: string;
+  stage: string;
+  wants: number;
+  perMinute: number;
+  sent: boolean;
 }
 
 export interface BuildingStatusDto {
@@ -1324,6 +1380,30 @@ export interface YardTradeDto {
   perMinute: number;
   selling: boolean;
   price: number;
+  /** A Send: yours (selling) or theirs to you (buying) */
+  sent: boolean;
+  canThank: boolean;
+  house: boolean;
+}
+
+/** A Send of yours (step 4): the good, who it goes to (null: the project), the building it's for, what it brings now */
+export interface SendDto {
+  resource: string;
+  to: number | null;
+  toName: string;
+  building: string | null;
+  perMinute: number;
+}
+
+/** What you and a neighbour gave each other this week, in units each way */
+export interface GiftDto {
+  partner: number;
+  name: string;
+  resource: string;
+  given: number;
+  received: number;
+  youSend: boolean;
+  theySend: boolean;
 }
 
 /** Your station and its Yard */
@@ -1344,6 +1424,12 @@ export interface YardDto {
   totals: ResourceRateDto[];
   line: string;
   discoveries: DiscoveryDto[];
+  sends: SendDto[];
+  sendCount: number;
+  maxSends: number;
+  /** Who could use your goods */
+  bids: BidDto[];
+  gifts: GiftDto[];
 }
 
 // ---------------------------------------------------------------- Crews and seats (v1.2 §4–6)

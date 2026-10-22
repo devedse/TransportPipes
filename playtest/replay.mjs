@@ -8,6 +8,8 @@
 //   row10-yard    day 14 19:00 + 6 h, nobody acting: incomes, what the Yard sends that nobody takes, Cleo's Lab
 //   return-d27    day 14 19:00 to day 27 02:30, nobody acting: Ana's return card names Ben's stand-in (F5)
 //   return-phone  day 36 18:00: Ben opens the game on his phone; one card, then the map in at most two taps (F5)
+//   send-desktop  day 14 19:00: Dev's stuck Sand Dredger, one tap lays its pipe and sends to the Water Tower; his sand
+//   send-phone    arrives within 20 game minutes and the first gift is announced (step 4; on a desktop, on a phone)
 //                 (needs Vite on :5174 with TP_SERVER=http://localhost:5090)
 import { execSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
@@ -53,6 +55,67 @@ function check(name, ok, detail) {
 }
 const round = (x, d = 1) => Number(x).toFixed(d);
 
+/** A player's browser on the playtest client with run 1's login: a desktop, or a phone with touch */
+async function browserFor(player, phone) {
+  const { chromium } = createRequire(new URL("../e2e/package.json", import.meta.url))("playwright-core");
+  const executablePath = process.env.CHROMIUM ?? `${process.env.HOME}/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome`;
+  const browser = await chromium.launch({ executablePath, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
+  const context = await browser.newContext({
+    viewport: phone ? { width: 420, height: 860 } : { width: 1600, height: 1000 },
+    hasTouch: phone,
+    isMobile: phone,
+    storageState: path.join(ROOT, "runs", from, player, "storage.json"),
+  });
+  const page = await context.newPage();
+  await page.goto(process.env.PLAYTEST_URL ?? "http://localhost:5174");
+  await page.waitForSelector(".toolbar", { timeout: 90_000 });
+  await page.waitForTimeout(3000);
+  // The return card first: Continue
+  for (let i = 0; i < 3 && (await page.locator("[role=dialog]:visible").count()) > 0; i++) {
+    await page.locator("[role=dialog]:visible button.primary").last().click();
+    await page.waitForTimeout(800);
+  }
+  return { browser, page };
+}
+
+/** Step 4's gate: Dev's stuck dredger, one tap, his sand at the Water Tower within 20 game minutes, the first gift announced */
+async function sendScenario(phone) {
+  console.log(director("restore", "row10"));
+  const before = (await companies())[DEV];
+  const dredger = before.idle.find((t) => t.type === "sandDredger");
+  console.log("Dev's dredger:", JSON.stringify(dredger ?? null), "basket:", JSON.stringify(before.projectBasket));
+  const { browser, page } = await browserFor("dev", phone);
+  const dir = path.join(ROOT, "runs", `replay-send-${phone ? "phone" : "desktop"}`);
+  mkdirSync(dir, { recursive: true });
+  try {
+    const id = dredger?.id ?? (await page.evaluate(() => [...tp.gameClient.world.buildings.values()].find((t) => t.type === "sandDredger" && t.owner === tp.appStore.getState().company.id)?.id));
+    await page.evaluate((building) => tp.gameClient.showBuilding(building), id);
+    await page.waitForSelector(".neighbour-trade", { timeout: 20_000 });
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: path.join(dir, "1-panel.png") });
+    // The panel's one fix button is the Send that lays the pipe (or the Neighbours line's own)
+    const button = page.locator("button", { hasText: /send to the Water Tower|^Send ▸$/ }).first();
+    const label = await button.innerText();
+    console.log("the button:", label);
+    if (phone) await button.tap();
+    else await button.click();
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: path.join(dir, "2-sent.png") });
+    const sent = (await companies())[DEV];
+    check("one tap sends Dev's sand to the project", sent.sends.includes("sand>project"), sent.sends.join(", "));
+    await advance(20 / 60, 5 / 60);
+    await page.waitForTimeout(1500);
+    const after = (await companies())[DEV];
+    const delivered = (basket) => Number(String(basket?.sand ?? basket?.["sand*"] ?? "0").split(" / ")[0]);
+    console.log("basket after:", JSON.stringify(after.projectBasket));
+    check("his sand is at the Water Tower within 20 game minutes", delivered(after.projectBasket) > delivered(before.projectBasket), `${delivered(before.projectBasket)} → ${delivered(after.projectBasket)}`);
+    check("the first gift is announced", after.giftsAnnounced.some((t) => t.startsWith("project:") && t.endsWith(":sand")), after.giftsAnnounced.join(", "));
+    await page.screenshot({ path: path.join(dir, "3-after.png") });
+  } finally {
+    await browser.close();
+  }
+}
+
 const scenarios = {
   /** F5: Ana comes back on day 27, after Ben's stand-in was announced (row 13 of run 1): her one card says so */
   async "return-d27"() {
@@ -68,6 +131,16 @@ const scenarios = {
     check("it names Ben's stand-in", lines.some((t) => /Riverside Co\./.test(t.text) && /stand/.test(t.text)), lines.map((t) => t.text).join(" | "));
     check("six lines at most", lines.length <= 6, `${lines.length}`);
     check("on the server's clock", /day|h|min/.test(card?.away ?? ""), card?.away);
+  },
+
+  /** Step 4: Dev sends his sand to the Water Tower with one tap, on a desktop */
+  async "send-desktop"() {
+    await sendScenario(false);
+  },
+
+  /** Step 4: the same on a phone, with touch */
+  async "send-phone"() {
+    await sendScenario(true);
   },
 
   /** F5: Ben comes back on his phone on day 36 (row 14 of run 1, after three dialogs): one card, then the map */

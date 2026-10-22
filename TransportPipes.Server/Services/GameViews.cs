@@ -751,7 +751,7 @@ public static partial class GameViews
         return new NetworkFlowsDto(network.Id, network.Solution.Rates, flows);
     }
 
-    public static BuildingDetailsDto BuildingDetails(GameWorld world, Building building)
+    public static BuildingDetailsDto BuildingDetails(GameWorld world, Building building, Company? viewer = null)
     {
         var definition = world.Content.Building(building.Type);
         var owner = world.Company(building.Owner);
@@ -774,6 +774,19 @@ public static partial class GameViews
             {
                 sent[flow.Resource] = (sent.TryGetValue(flow.Resource, out var v) ? v : 0) + flow.Sent;
                 flows.Add(Partner("out", flow, flow.To, flow.Sent));
+            }
+        }
+
+        // What crosses its Yard gate counts too: goods the Yard brings it, and goods it sends to the Yard
+        foreach (var flow in network?.GateFlows.Where(t => t.Building == building.Id) ?? [])
+        {
+            if (flow.Import)
+            {
+                received[flow.Resource] = received.GetValueOrDefault(flow.Resource) + flow.Delivered;
+            }
+            else
+            {
+                sent[flow.Resource] = sent.GetValueOrDefault(flow.Resource) + flow.Sent;
             }
         }
 
@@ -824,7 +837,46 @@ public static partial class GameViews
             max != null && max.AffordableLevels > max.Levels
                 ? new MaxMoreDto(max.AffordableLevels, Math.Round(max.AffordableCost), Math.Round(max.AffordableShare, 3), max.Resource, Math.Round(max.Have, 2), Math.Round(max.Need, 2), max.Output)
                 : null,
-            Status(world, building));
+            Status(world, building),
+            viewer != null && viewer.Id == building.Owner && definition.Kind is not (BuildingKind.Hq or BuildingKind.Gate or BuildingKind.Decoration) ? Trade(world, building, viewer) : null);
+    }
+
+    /// <summary>
+    /// A building's trade with its neighbours, for its owner only (step 4): who takes its goods and who sends it its
+    /// inputs (both ends named), who could use its goods (Send ▸), what the project wants of them, and the pipe to the
+    /// gate a Send lays first when its pipes don't reach it
+    /// </summary>
+    private static BuildingTradeDto? Trade(GameWorld world, Building building, Company me)
+    {
+        var trade = world.TradeOf(building);
+        var definition = world.Content.Building(building.Type);
+        string Name(Building? b) => b == null ? "" : world.Content.Building(b.Type).Name;
+        TradeEndDto End(TradeEnd t, bool supplier) => new(t.Resource, t.Partner.Id, world.NameFor(t.Partner, me), t.PartnerBuilding == null ? null : Name(t.PartnerBuilding),
+            t.PartnerBuilding?.Id, Math.Round(t.PerMinute, 3), Math.Round(t.Price, 3), t.Sent, t.Partner.IsNpc, supplier && !t.Partner.IsNpc && !world.ThankedToday(me, t.Partner.Id));
+        var project = world.ProjectsEnabled && world.EstateOf(me) is { } estate ? world.ExistingProject(estate.Station) : null;
+        var wants = project == null || project.Stage == ProjectStage.Done ? []
+            : definition.Out.Keys
+                .Where(t => project.Basket.ContainsKey(t) && (project.Delivered.GetValueOrDefault(t) < project.Basket[t] * 0.995 || me.ProjectFirst.Contains(t)))
+                .Select(t => new ProjectWantDto(t, GameWorld.StageName(project.Stage), Math.Max(0, project.Basket[t] - project.Delivered.GetValueOrDefault(t)),
+                    Math.Round(trade.ToProject.GetValueOrDefault(t), 3), me.ProjectFirst.Contains(t)))
+                .ToList();
+        if (trade.Takers.Count == 0 && trade.Suppliers.Count == 0 && trade.Bids.Count == 0 && wants.Count == 0)
+        {
+            return null;
+        }
+        var pipe = trade.ReachesGate ? null : world.PlanGatePipe(building);
+        var runsOn = trade.Suppliers.Where(t => !t.Partner.IsNpc).OrderByDescending(t => t.PerMinute).FirstOrDefault();
+        return new BuildingTradeDto(
+            trade.Takers.Select(t => End(t, false)).ToList(),
+            trade.Suppliers.Select(t => End(t, true)).ToList(),
+            trade.Bids.Take(3).Select(t => new BidDto(t.Resource, t.Buyer.Id, world.NameFor(t.Buyer, me), t.Building == null ? null : Name(t.Building), t.Building?.Id, Math.Round(t.PerMinute, 2), t.House?.Name)).ToList(),
+            wants,
+            trade.ReachesGate,
+            pipe == null ? null : new BuildingFixDto("layPipe", $"Lay the pipe to your gate · {(pipe.NewTiles == 1 ? "1 tile" : $"{pipe.NewTiles} tiles")} · {pipe.Cost:0} g",
+                pipe.Tiles.SelectMany(t => new[] { t.X, t.Y }).ToArray(), pipe.NewTiles, Math.Round(pipe.Cost, 2), building.Id, null, "your gate"),
+            runsOn == null ? null : $"runs on {world.NameFor(runsOn.Partner, me)}'s {world.GoodsWord(runsOn.Resource)}{(runsOn.Sent ? " 💛" : "")}",
+            world.SendCount(me),
+            GameWorld.MaxSends);
     }
 
     /// <summary>Loady's step as the player sees it, with the pipe its Show me lays (F2, F3)</summary>
@@ -1480,7 +1532,10 @@ public static partial class GameViews
             rates.Where(t => t.Value > 0.01).OrderByDescending(t => t.Value * world.BasePrice(t.Key)).Select(t => new ResourceRateDto(t.Key, t.Value)).ToList();
         var yours = world.YardTrades(estate)
             .Where(t => t.PerMinute > 1e-6 && world.Company(t.Partner) != null)
-            .Select(t => new YardTradeDto(t.Partner, world.Company(t.Partner)!.Name, t.Resource, t.PerMinute, t.Selling, world.YardPrice(me, world.Company(t.Partner)!, t.Resource, t.Selling)))
+            .Select(t => new YardTradeDto(t.Partner, world.NameFor(world.Company(t.Partner)!, me), t.Resource, t.PerMinute, t.Selling, world.YardPrice(me, world.Company(t.Partner)!, t.Resource, t.Selling),
+                t.Selling ? world.SendsTo(me, t.Partner, t.Resource) : world.SendsTo(world.Company(t.Partner)!, me.Id, t.Resource),
+                !t.Selling && !world.Company(t.Partner)!.IsNpc && !world.ThankedToday(me, t.Partner),
+                world.Company(t.Partner)!.IsNpc))
             .OrderByDescending(t => t.PerMinute * t.Price)
             .ToList();
         var connected = residents.FirstOrDefault(t => t.Company.Id == me.Id)?.Connected ?? false;
@@ -1519,7 +1574,25 @@ public static partial class GameViews
             yours,
             world.YardTotals(station).Select(t => new ResourceRateDto(t.Key, t.Value)).OrderByDescending(t => t.PerMinute).ToList(),
             line,
-            Discoveries(world, station));
+            Discoveries(world, station),
+            me.Sends.Select(t => new SendDto(t.Resource, t.To, world.Company(t.To) is { } to ? world.NameFor(to, me) : "?",
+                t.Building is { } b && world.Building(b) is { } building ? world.Content.Building(building.Type).Name : null,
+                Math.Round(yours.Where(y => y.Selling && y.Partner == t.To && y.Resource == t.Resource).Sum(y => y.PerMinute), 3)))
+                .Concat(me.ProjectFirst.Order().Select(t => new SendDto(t, null, world.ExistingProject(station) is { } p ? $"the {GameWorld.StageName(p.Stage)}" : "the project", null, 0)))
+                .ToList(),
+            world.SendCount(me),
+            GameWorld.MaxSends,
+            world.BuildingsOf(me.Id).Where(t => !t.UnderConstruction).SelectMany(t => world.Content.Building(t.Type).Out.Keys).Distinct()
+                .Where(t => t != GameContent.ResearchPoints)
+                .SelectMany(t => world.Bids(me, t, residents))
+                .OrderByDescending(t => t.PerMinute * world.BasePrice(t.Resource))
+                .Take(4)
+                .Select(t => new BidDto(t.Resource, t.Buyer.Id, world.NameFor(t.Buyer, me), t.Building == null ? null : world.Content.Building(t.Building.Type).Name, t.Building?.Id, Math.Round(t.PerMinute, 2), t.House?.Name))
+                .ToList(),
+            world.GiftsThisWeek(me).Take(8)
+                .Select(t => new GiftDto(t.Partner.Id, world.NameFor(t.Partner, me), t.Resource, Math.Round(t.Given), Math.Round(t.Received),
+                    world.SendsTo(me, t.Partner.Id, t.Resource), world.SendsTo(t.Partner, me.Id, t.Resource)))
+                .ToList());
     }
 
     /// <summary>The Discoveries of the last week: where they are, their markers</summary>
