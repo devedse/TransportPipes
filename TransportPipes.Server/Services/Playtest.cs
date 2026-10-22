@@ -144,6 +144,32 @@ public static class PlaytestEndpoints
 
         group.MapGet("/companies", (WorldHost host) => host.RunAsync(Companies, changesWorld: false));
 
+        // Run 2's Jo (docs/playtest-fixes.html §6): a scripted solo human, seated by placement like anyone who comes
+        // alone, whose factories lack the energy a neighbour's kit makes; no agent, never chats
+        group.MapPost("/jo", (WorldHost host) => host.RunAsync(world =>
+        {
+            if (world.Companies.FirstOrDefault(t => t.Name == "Jo's Works") is { } existing)
+            {
+                return new { id = existing.Id, created = false, buildings = world.BuildingsOf(existing.Id).Count() };
+            }
+            var seat = world.SuggestSeat(Placement.Neighbours);
+            var jo = world.CreateCompany(900_001, "Jo's Works", "#7d5ba6", seat: seat);
+            world.PlaceScripted(jo, "ironMine", 2);
+            world.PlaceScripted(jo, "smallFactory", 4);
+            return new { id = jo.Id, created = true, buildings = world.BuildingsOf(jo.Id).Count() };
+        }));
+
+        // A scripted player was here (it stays an active neighbour)
+        group.MapPost("/seen/{companyId:long}", (long companyId, WorldHost host) => host.RunAsync(world =>
+        {
+            if (world.Company(companyId) is { } company)
+            {
+                company.LastSeenAt = world.Now;
+                company.Touch();
+            }
+            return new { seen = companyId };
+        }));
+
         // The return card a company would see if its player came back now (F5's gate), without waking it
         group.MapGet("/card/{companyId:long}", (long companyId, WorldHost host) => host.RunAsync(world =>
         {

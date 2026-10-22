@@ -42,4 +42,86 @@ public class StrangerFacts
         var second = game.NewCompany("Second");
         Assert.IsFalse(game.World.TakeChanges().Events.Any(t => t.Company == second.Id && t.Text.StartsWith("You're the first")), "once, for the first only");
     }
+
+    /// <summary>
+    /// The squatter probe (step 6): a stranger the game seats next to the crew and who never plays again holds nothing the
+    /// crew needs (their corner station holds all five land goods), so the crew's chains are fed as well as without her.
+    /// Slow (three minutes): run it with TP_BALANCE=1.
+    /// </summary>
+    [TestMethod]
+    public void ASquatterNextDoorChangesNoChain()
+    {
+        if (Environment.GetEnvironmentVariable("TP_BALANCE") != "1")
+        {
+            Assert.Inconclusive("Set TP_BALANCE=1 to run the squatter probe.");
+        }
+        var without = CrewChains(squatter: false);
+        var with = CrewChains(squatter: true);
+        foreach (var (name, alone) in without)
+        {
+            var beside = with[name];
+            Assert.IsTrue(alone.Chain > 0, $"{name} runs a chain that buys an input");
+            Assert.IsTrue(beside.Short <= alone.Short + 1e-9 * alone.Chain, $"{name}: short {beside.Short:N0} of {beside.Chain:N0} building-hours beside her, {alone.Short:N0} of {alone.Chain:N0} without");
+            Assert.IsTrue(beside.Gold >= 0.99 * alone.Gold, $"{name}: {beside.Gold:N0} gold beside her, {alone.Gold:N0} without");
+        }
+    }
+
+    /// <summary>Three light bots in a crew for five evenings: per member the building-hours its processors were short of an input they buy, all of them, and the gold</summary>
+    private static Dictionary<string, (double Short, double Chain, double Gold)> CrewChains(bool squatter)
+    {
+        var game = new TestGame(seed: 4242, tutorial: true, surveys: true, dealtLand: true);
+        var world = game.World;
+        world.TenantsEnabled = true;
+        world.ProjectsEnabled = true;
+        world.OpenNextDistrict();
+        game.Pass(20 * 60);
+        var ana = game.NewCompany("Ana", gold: world.StartingGold);
+        var (_, crew) = world.FoundCrew(ana.Id, "Kettle & Co.", "kettle", "#236b69", "#c9963a", 2);
+        var members = new List<Company> { ana };
+        foreach (var name in new[] { "Ben", "Cleo" })
+        {
+            var member = game.NewCompany(name, gold: world.StartingGold);
+            Assert.IsTrue(world.JoinCrew(member.Id, crew!.InviteCode).Success);
+            members.Add(member);
+        }
+        if (squatter)
+        {
+            var mia = world.CreateCompany(99, "Mia", "#e84393", seat: world.SuggestSeat(Placement.Neighbours));
+            Assert.IsTrue(mia.SeatedNextDoor);
+        }
+        var bots = members.Select(t => new BalanceSimulation.Bot(game, t) { MaxBuildings = 15 }).ToList();
+        var chains = members.ToDictionary(t => t.Name, _ => (Short: 0.0, Chain: 0.0, Gold: 0.0));
+        for (var day = 1; day <= 5; day++)
+        {
+            for (var minute = 0; minute < 20; minute += 5)
+            {
+                bots.ForEach(t => t.CheckIn(advisor: true));
+                game.Pass(5);
+            }
+            for (var hour = 0; hour < 24; hour++)
+            {
+                game.Pass(hour == 0 ? 40 : 60);
+                foreach (var member in members)
+                {
+                    var own = world.Generator.LandOf(member.District, member.Slot);
+                    var (shortHours, chainHours, _) = chains[member.Name];
+                    foreach (var building in world.BuildingsOf(member.Id).Where(t => !t.UnderConstruction))
+                    {
+                        var bought = world.Content.Building(building.Type).In.Keys.Where(t => t != "energy" && !own.Contains(t) && t != "ironOre").ToList();
+                        if (bought.Count == 0)
+                        {
+                            continue;
+                        }
+                        chainHours++;
+                        if (world.IdleReasonOf(building) is { Cause: IdleCause.InputMissing or IdleCause.InputShort, Resource: var resource } && bought.Contains(resource!))
+                        {
+                            shortHours++;
+                        }
+                    }
+                    chains[member.Name] = (shortHours, chainHours, member.Gold);
+                }
+            }
+        }
+        return chains;
+    }
 }

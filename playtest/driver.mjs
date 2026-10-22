@@ -73,6 +73,8 @@ async function open(name, session, url) {
     viewport: phone ? { width: 420, height: 860 } : { width: 1600, height: 1000 },
     hasTouch: phone,
     isMobile: phone,
+    // The game's clock in the answers is UTC: the game's own times (chat, calendar) must read the same
+    timezoneId: "UTC",
     storageState: existsSync(storage) ? storage : undefined,
     // Copied links can be pasted into the group chat (the clipboard command)
     permissions: ["clipboard-read", "clipboard-write"],
@@ -314,6 +316,10 @@ async function tapAt(player, p) {
   }
 }
 
+// A person's tap never times out: the limit is for a stuck page, not for a busy machine (five browsers on four cores
+// made Ben's phone taps miss 5 s in run 2's first row)
+const TAP_TIMEOUT = 15000;
+
 const ROLES = ["button", "link", "tab", "radio", "checkbox", "menuitem", "option", "switch", "combobox", "textbox"];
 
 async function clickLabel(player, label, nth = 1) {
@@ -326,8 +332,8 @@ async function clickLabel(player, label, nth = 1) {
       for (let i = 0; i < count; i++) {
         const item = found.nth(i);
         if ((await item.isVisible()) && ++seen === nth) {
-          if (player.config.device === "phone") await item.tap({ timeout: 5000 });
-          else await item.click({ timeout: 5000 });
+          if (player.config.device === "phone") await item.tap({ timeout: TAP_TIMEOUT });
+          else await item.click({ timeout: TAP_TIMEOUT });
           return `Clicked the ${role} "${label}".`;
         }
       }
@@ -335,30 +341,42 @@ async function clickLabel(player, label, nth = 1) {
   }
   const text = page.getByText(label, { exact: false });
   if ((await text.count()) > 0 && (await text.first().isVisible())) {
-    if (player.config.device === "phone") await text.first().tap({ timeout: 5000 });
-    else await text.first().click({ timeout: 5000 });
+    if (player.config.device === "phone") await text.first().tap({ timeout: TAP_TIMEOUT });
+    else await text.first().click({ timeout: TAP_TIMEOUT });
     return `Clicked the text "${label}".`;
   }
   return `Nothing called "${label}" is on the screen.`;
 }
 
-async function fill(player, label, value) {
+async function fill(player, label, value, nth = 1) {
   const page = player.page;
   for (const locator of [page.getByLabel(label, { exact: false }), page.getByPlaceholder(label, { exact: false }), page.getByRole("textbox", { name: label })]) {
-    if ((await locator.count()) > 0 && (await locator.first().isVisible())) {
-      // A drop-down: choose the option with that text (Dev's replay couldn't pick a good on the Plan board)
-      if ((await locator.first().evaluate((t) => t.tagName)) === "SELECT") {
-        const options = await locator.first().locator("option").allTextContents();
-        const option = options.find((t) => t.trim().toLowerCase() === value.trim().toLowerCase()) ?? options.find((t) => t.toLowerCase().includes(value.trim().toLowerCase()));
-        if (option === undefined) return `"${label}" has no option "${value}". It offers: ${options.join(", ")}.`;
-        await locator.first().selectOption({ label: option });
-        return `Chose "${option.trim()}" in "${label}".`;
-      }
-      await locator.first().fill(value);
-      return `Typed "${value}" into "${label}".`;
+    // The nth visible field of that name (Ana's second seat name went into the first field in run 2)
+    const visible = [];
+    for (let i = 0; i < (await locator.count()); i++) {
+      if (await locator.nth(i).isVisible()) visible.push(locator.nth(i));
     }
+    const field = visible[nth - 1];
+    if (field === undefined) {
+      if (visible.length > 0) return `There are only ${visible.length} fields called "${label}" on the screen.`;
+      continue;
+    }
+    // A drop-down: choose the option with that text (Dev's replay couldn't pick a good on the Plan board)
+    if ((await field.evaluate((t) => t.tagName)) === "SELECT") {
+      const options = await field.locator("option").allTextContents();
+      const option = options.find((t) => t.trim().toLowerCase() === value.trim().toLowerCase()) ?? options.find((t) => t.toLowerCase().includes(value.trim().toLowerCase()));
+      if (option === undefined) return `"${label}" has no option "${value}". It offers: ${options.join(", ")}.`;
+      await field.selectOption({ label: option });
+      return `Chose "${option.trim()}" in "${label}".`;
+    }
+    await field.fill(value);
+    return `Typed "${value}" into "${label}"${nth > 1 ? ` (the ${ordinal(nth)})` : ""}.`;
   }
   return `No field called "${label}" is on the screen.`;
+}
+
+function ordinal(n) {
+  return n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`;
 }
 
 async function chat(player, { channel, text }) {
@@ -385,6 +403,8 @@ async function chat(player, { channel, text }) {
 
 /** The friends' group chat outside the game (like a messenger group): everyone reads all of it */
 async function group(player, text) {
+  // Mia knows nobody who plays: she has no friends' group
+  if (player.name.startsWith("mia")) return "You have no group chat for this game: nobody you know plays it.";
   const file = path.join(RUN_DIR, "group.jsonl");
   if (text) {
     appendFileSync(file, JSON.stringify({ at: new Date().toISOString(), game: await gameNow(), from: player.name, text }) + "\n");
@@ -415,7 +435,7 @@ const HELP = `Commands (node playtest/pt.mjs <you> <command> …):
   rclick <x> <y>              right-click the map on that tile
   hover <x> <y>               move the mouse over that tile (to see what the game shows there)
   drag <x1> <y1> <x2> <y2>    drag on the map from one tile to another (pipes, areas)
-  fill "<field>" "<text>"     type into the field with that label or placeholder (or choose that option of a drop-down)
+  fill "<field>" "<text>" [--nth 2]  type into the field with that label or placeholder (or choose that option of a drop-down)
   type "<text>" / key <Key>   type with the keyboard / press a key (Escape, Enter, b, p, …)
   goto <url>                  open a link someone sent you (only links to the game)
   wait <seconds>              wait (up to 120 s) and look again
@@ -498,7 +518,7 @@ async function run(name, cmd, args) {
       }
       return `${moved ? "(The view moved.) " : ""}Dragged from (${num(0)},${num(1)}) to (${num(2)},${num(3)}).\n\n${await look(player, {})}`;
     }
-    case "fill": return (await fill(player, rest[0], rest.slice(1).join(" "))) + "\n\n" + (await look(player, {}));
+    case "fill": return (await fill(player, rest[0], rest.slice(1).join(" "), Number(flags.nth ?? 1))) + "\n\n" + (await look(player, {}));
     case "type":
       await player.page.keyboard.type(rest.join(" "));
       return `Typed "${rest.join(" ")}".`;

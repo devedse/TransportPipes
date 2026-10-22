@@ -500,6 +500,36 @@ public sealed partial class GameWorld
         _kit = kit ? (tenant.Name, kept) : null;
     }
 
+    /// <summary>
+    /// For the playtest's scripted players (run 2's Jo): buildings placed as a House places them (the start area
+    /// first, piped to the Yard gate) and piped to the trading post too; returns those that found a spot
+    /// </summary>
+    public List<Building> PlaceScripted(Company company, string type, int count)
+    {
+        var placed = new List<Building>();
+        if (EstateOf(company) is not { } estate)
+        {
+            return placed;
+        }
+        var post = _buildings.Values.FirstOrDefault(t => t.Owner == company.Id && Content.Building(t.Type).Kind == BuildingKind.TradingPost);
+        for (var i = 0; i < count; i++)
+        {
+            if (AddHouseBuilding(company, estate, type, 1) is not { } building)
+            {
+                break;
+            }
+            if (post != null)
+            {
+                var border = post.Border().ToHashSet();
+                LayTenantPipe(company, estate, building, border.Contains, intoHqArea: true);
+            }
+            company.BuiltTypes.Add(type);
+            placed.Add(building);
+        }
+        MarkCompanyNetworksDirty(company.Id);
+        return placed;
+    }
+
     /// <summary>What a dealt land's kit is worth a day-1 minute: about 100 g at the hub, on every seat (step 5: 93–104)</summary>
     public const double LandKitIncome = 100;
 

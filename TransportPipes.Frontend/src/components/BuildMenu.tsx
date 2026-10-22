@@ -2,7 +2,8 @@ import { gameClient } from "../app/client";
 import { formatAmount, formatDuration } from "../app/format";
 import type { BuildingDefinition, LandDto } from "../api/contracts";
 import { CATEGORY_NAMES, CATEGORY_ORDER, type Content } from "../game/content";
-import { currentGold, setState, useAppStore } from "../state/store";
+import { usePhone } from "../app/usePhone";
+import { currentGold, setState, toast, useAppStore } from "../state/store";
 import { ResourceIcon } from "./ResourceIcon";
 
 function Recipe({ definition, content }: { definition: BuildingDefinition; content: Content }) {
@@ -93,6 +94,7 @@ export function BuildMenu() {
   const selectedCategory = useAppStore((state) => state.buildCategory);
   const tool = useAppStore((state) => state.tool);
   const deep = useAppStore((state) => state.deepView);
+  const phone = usePhone();
   if (!open || content === null || company === null) {
     return null;
   }
@@ -154,7 +156,14 @@ export function BuildMenu() {
                   !affordable ? "expensive" : "",
                 ].join(" ")}
                 disabled={lock !== null || missing !== null}
-                onClick={() => gameClient.setTool({ kind: "build", type: definition.id })}
+                onClick={() => {
+                  gameClient.setTool({ kind: "build", type: definition.id });
+                  // On a phone the menu covers half the map, where the building goes (Ben's run 2 evening)
+                  if (phone) {
+                    setState({ buildMenuOpen: false });
+                    toast(`Tap where your ${definition.name} goes`);
+                  }
+                }}
                 title={definition.description}
               >
                 {thumbnail !== undefined && <img className="thumb" src={thumbnail} alt="" />}

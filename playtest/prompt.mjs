@@ -12,7 +12,7 @@ mkdirSync(path.join(dir, "diary"), { recursive: true });
 
 const card = readFileSync(path.join(ROOT, "players", `${id}.md`), "utf8").trim();
 const name = card.match(/^# (.+)$/m)[1];
-const friends = id !== "mia";
+const friends = !id.startsWith("mia");
 const help = execSync(`node ${path.join(ROOT, "pt.mjs")} ${id} help`).toString().trim().replace(/^\[#\d+[^\]]*\] /, "");
 const memoryFile = path.join(dir, "memory.md");
 const memory = existsSync(memoryFile)
