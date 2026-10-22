@@ -185,10 +185,14 @@ const dot = (p) => `<span class="key" style="background:${p.color}"></span>`;
 
 // ---------------------------------------------------------------------------------------------- the series
 
+/** Jo (run 2 on): a scripted solo human with no agent and no logs, only numbers; a grey line beside the players */
+const joId = metrics.at(-1)?.players.find((t) => t.name === "Jo's Works")?.id;
+const charted = [...players.filter((p) => p.company), ...(joId ? [{ id: "jo", name: "Jo (scripted)", color: "#9a8f7a", company: { id: joId } }] : [])];
+
 /** One line per player of a number from the samples (a field, or a function of a sample's player) */
 function series(field) {
   const value = typeof field === "function" ? field : (c) => Number(c[field] ?? 0);
-  return players.filter((p) => p.company).map((p) => ({
+  return charted.map((p) => ({
     id: p.id,
     name: p.name,
     color: p.color,
@@ -200,7 +204,7 @@ function series(field) {
 }
 /** Gold earned a minute between samples (lifetime earnings: hub, Yard, orders and rewards), over at least an hour */
 function earnedSeries() {
-  return players.filter((p) => p.company).map((p) => {
+  return charted.map((p) => {
     const points = [];
     let last = null;
     for (const m of metrics) {
@@ -225,6 +229,49 @@ const charts = {
   neighbour: { title: "What the Yard matched to sell to neighbours (gold a minute; not all of it was paid — see the bugs)", unit: " g/min", series: series("neighbourIncome") },
   buildings: { title: "Buildings", unit: "", series: series("buildings") },
 };
+/**
+ * Run by run (run 3 on): each player's Level and what they earned a minute, averaged over each game day, in every
+ * earlier story run (story1, story2, …) beside this one; one small chart per player
+ */
+const runNumber = Number(RUN.match(/^story(\d+)$/)?.[1] ?? 0);
+const RUN_SHADES = ["#c9bfae", "#8f8472"];
+function dailyRun(dir, id) {
+  const company = JSON.parse(read(path.join(dir, id, "company.json"), "null"));
+  const m = lines(path.join(dir, "metrics.jsonl"));
+  const d1 = new Date(JSON.parse(read(path.join(dir, "story.json"), "{}")).day1 ?? m[0]?.now).getTime();
+  if (!company || m.length === 0) return null;
+  const byDay = new Map();
+  for (const sample of m) {
+    const c = sample.players.find((t) => t.id === company.id);
+    if (c) byDay.set(Math.floor((new Date(sample.now).getTime() - d1) / 86400e3) + 1, c);
+  }
+  const days = [...byDay.keys()].sort((a, b) => a - b);
+  return {
+    level: days.map((d) => [d, byDay.get(d).level]),
+    earned: days.slice(1).map((d, i) => [d, Math.max(0, (byDay.get(d).earned - byDay.get(days[i]).earned) / ((d - days[i]) * 1440))]),
+  };
+}
+const runCharts = {};
+if (runNumber >= 2) {
+  for (const p of players.filter((t) => t.company)) {
+    const runs = [];
+    for (let n = 1; n <= runNumber; n++) {
+      const data = dailyRun(path.join(ROOT, "runs", `story${n}`), p.id);
+      if (data) runs.push({ n, data, color: n === runNumber ? p.color : RUN_SHADES[(runNumber - 1 - n) % RUN_SHADES.length] });
+    }
+    if (runs.length < 2) continue;
+    for (const key of ["earned", "level"]) {
+      runCharts[`${key}-${p.id}`] = {
+        title: `${p.name}: ${key === "earned" ? "earned a minute (each day's average)" : "Level at each day's end"}`,
+        unit: key === "earned" ? " g/min" : "",
+        player: p.id,
+        h: 200,
+        series: runs.map((r) => ({ id: `run${r.n}`, name: `Run ${r.n}`, color: r.color, points: r.data[key] })),
+      };
+    }
+  }
+}
+Object.assign(charts, runCharts);
 const sessionMarks = sessions.map((s) => ({ player: s.player, color: playerOf(s.player).color, start: dayOf(s.start), end: dayOf(s.end), label: s.session }));
 
 // ---------------------------------------------------------------------------------------------- sections
@@ -380,18 +427,22 @@ function tiles() {
   return `<div class="tiles">${items.map(([k, v]) => `<div class="tile"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>`;
 }
 
-/** Run 2's marks (docs/playtest-redesign.html §7): each against its pass, with run 1 beside it, and what changed since */
+/** The run's marks (docs/playtest-redesign.html §7): each against its pass, with the earlier runs beside it, and what changed since */
 function marksSection() {
-  if (!findings.marks?.length && !findings.sinceRun1) return "";
+  const since = Object.keys(findings).filter((t) => /^sinceRun\d+$/.test(t)).sort();
+  if (!findings.marks?.length && !since.length) return "";
   const status = (t) => pill(/pass/i.test(t) ? "pass" : /fail/i.test(t) ? "fail" : t);
+  // One column per run the marks name (run 2: run1 and run2; run 3: run1, run2 and run3)
+  const runs = [...new Set((findings.marks ?? []).flatMap((m) => Object.keys(m).filter((t) => /^run\d+$/.test(t))))].sort();
+  const run = runs.at(-1)?.slice(3) ?? "";
   // The evidence on its own line under each mark, across the table (in the first cell it made a tall narrow column)
-  const rows = (findings.marks ?? []).map((m) => `<tr class="mark"><td><b>${esc(m.mark)}</b></td><td>${esc(m.pass ?? "")}</td><td>${esc(m.run1 ?? "")}</td><td>${esc(m.run2 ?? "")}</td><td>${status(m.status ?? "")}</td></tr>${m.evidence ? `<tr class="mark-evidence"><td colspan="5" class="small muted">${md(m.evidence)}</td></tr>` : ""}`).join("");
+  const rows = (findings.marks ?? []).map((m) => `<tr class="mark"><td><b>${esc(m.mark)}</b></td><td>${esc(m.pass ?? "")}</td>${runs.map((r) => `<td>${esc(m[r] ?? "")}</td>`).join("")}<td>${status(m.status ?? "")}</td></tr>${m.evidence ? `<tr class="mark-evidence"><td colspan="${runs.length + 3}" class="small muted">${md(m.evidence)}</td></tr>` : ""}`).join("");
   return `<section class="page">
   <h2>The marks</h2>
-  <p>The plan's marks for run 2 (docs/playtest-redesign.html §7), measured from the server's numbers and the logs, with
-  run 1 beside them.</p>
-  ${rows ? `<div class="scroll"><table><tr><th>Mark</th><th>Pass</th><th>Run 1</th><th>Run 2</th><th></th></tr>${rows}</table></div>` : ""}
-  ${findings.sinceRun1 ? `<h3>Since run 1</h3>${md(findings.sinceRun1)}` : ""}
+  <p>The plan's marks (docs/playtest-redesign.html §7), measured from the server's numbers and the logs for run ${esc(run)},
+  with the earlier runs beside them.</p>
+  ${rows ? `<div class="scroll"><table><tr><th>Mark</th><th>Pass</th>${runs.map((r) => `<th>Run ${esc(r.slice(3))}</th>`).join("")}<th></th></tr>${rows}</table></div>` : ""}
+  ${since.map((k) => `<h3>Since run ${esc(k.slice(8))}</h3>${md(findings[k])}`).join("")}
 </section>`;
 }
 
@@ -439,6 +490,16 @@ ${marksSection()}
   <div class="chart" data-chart="neighbour"></div>
   <div class="chart" data-chart="buildings"></div>
 </section>
+
+${Object.keys(runCharts).length ? `<section class="page">
+  <h2>Run by run</h2>
+  <p>Each player in every run so far: what they earned a minute (each game day's average, from their lifetime
+  earnings) and their Level at the end of each day. This run in the player's colour, the earlier runs in grey (the
+  darker one is the most recent); the shaded bands are this run's sessions. The runs played the same story on
+  different builds: run 1 on the first v1.2, run 2 on the redesign (dealt land), run ${runNumber} on the build after run
+  ${runNumber - 1}'s fixes.</p>
+  <div class="runs">${players.filter((p) => runCharts[`earned-${p.id}`]).map((p) => `<div class="chart" data-chart="earned-${p.id}"></div><div class="chart" data-chart="level-${p.id}"></div>`).join("")}</div>
+</section>` : ""}
 
 <section class="page">
   <h2>How each session felt</h2>
@@ -572,7 +633,7 @@ blockquote { margin:0; background:var(--cream); border-radius:12px; padding:14px
 blockquote p { margin:0 0 6px; } cite { font-family:Nunito, sans-serif; font-style:normal; font-size:.84rem; color:var(--muted); }
 .rec { display:flex; gap:14px; margin-bottom:14px; } .rec .n { flex:none; width:32px; height:32px; border-radius:50%; background:var(--teal); color:#fff; display:grid; place-items:center; font-weight:800; }
 .calendar svg { width:100%; height:auto; display:block; }
-.chart { margin:8px 0 26px; } .chart h3 { margin-bottom:6px; } .chart svg { width:100%; height:auto; display:block; overflow:visible; }
+.chart { margin:8px 0 26px; } .runs .chart { margin:4px 0 14px; } .runs .chart:nth-child(2n) { margin-bottom:34px; } .chart h3 { margin-bottom:6px; } .chart svg { width:100%; height:auto; display:block; overflow:visible; }
 .chart .legend { display:flex; flex-wrap:wrap; gap:6px 16px; font-size:.86rem; margin:4px 0 6px; }
 .chart .legend span { display:inline-flex; align-items:center; gap:6px; } .chart .legend i { width:16px; height:3px; border-radius:2px; display:inline-block; }
 .chart details { font-size:.84rem; } .chart details table { font-size:.82rem; }
@@ -606,14 +667,14 @@ function axis(max, whole) {
 function draw(el) {
   const chart = DATA.charts[el.dataset.chart];
   if (!chart || chart.series.length === 0) { el.innerHTML = "<h3>" + (chart ? chart.title : "") + "</h3><p class='muted'>No data.</p>"; return; }
-  const W = 1000, H = 300, L = 56, R = 96, T = 10, B = 30;
+  const W = 1000, H = chart.h ?? 300, L = 56, R = 96, T = 10, B = 30;
   const all = chart.series.flatMap((s) => s.points);
   const x0 = Math.min(...all.map((p) => p[0])), x1 = Math.max(...all.map((p) => p[0]), x0 + 0.1);
   const { top: yMax, step: yStep } = axis(Math.max(...all.map((p) => p[1])), all.every((p) => Number.isInteger(p[1])));
   const X = (x) => L + ((x - x0) / (x1 - x0)) * (W - L - R), Y = (y) => T + (1 - y / yMax) * (H - T - B);
   let svg = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + chart.title + '">';
   for (const m of DATA.sessionMarks) {
-    if (m.end < x0 || m.start > x1) continue;
+    if (m.end < x0 || m.start > x1 || (chart.player && m.player !== chart.player)) continue;
     svg += '<rect x="' + X(m.start) + '" y="' + T + '" width="' + Math.max(2, X(m.end) - X(m.start)) + '" height="' + (H - T - B) + '" fill="' + m.color + '" opacity="0.10"></rect>';
   }
   for (let v = 0; v <= yMax + 1e-9; v += yStep) {

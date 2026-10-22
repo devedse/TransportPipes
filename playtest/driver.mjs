@@ -367,8 +367,9 @@ async function clickLabel(player, label, nth = 1) {
       }
     }
   }
-  // No exact name: the closest one, as a person reads it ("Build" is the toolbar's "Build B", not a step's "Show me: Build
-  // a Big Factory"; run 3's row 10 clicked the step)
+  // No exact name: the closest one, as a person reads it: a name that starts with the words first, then the shortest
+  // ("Build" is the toolbar's "Build B", not a step's "Show me: Build a Big Factory", run 3's row 10; "Small Factory" is
+  // the menu's "Small Factory 1,500 g · …", not the Lab's shorter "Lab … a Small Factory does", row 12)
   const loose = [];
   for (const role of ROLES) {
     const found = page.getByRole(role, { name: label, exact: false });
@@ -377,11 +378,11 @@ async function clickLabel(player, label, nth = 1) {
       const item = found.nth(i);
       if (await item.isVisible()) {
         const name = await item.evaluate((el) => (el.getAttribute("aria-label") ?? el.textContent ?? "").trim());
-        loose.push({ role, item, length: name.length, order: loose.length });
+        loose.push({ role, item, starts: name.toLowerCase().startsWith(label.toLowerCase()) ? 0 : 1, length: name.length, order: loose.length });
       }
     }
   }
-  loose.sort((a, b) => a.length - b.length || a.order - b.order);
+  loose.sort((a, b) => a.starts - b.starts || a.length - b.length || a.order - b.order);
   if (loose[nth - 1] !== undefined) {
     const { role, item } = loose[nth - 1];
     if (!(await press(player, item))) return `Your click on the ${role} "${label}" landed on something lying over it.`;
