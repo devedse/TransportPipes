@@ -351,7 +351,7 @@ public sealed partial class GameWorld
         }
         if (HoldByCode(code) is { } held)
         {
-            if (company.CrewId is { } current && current != held.Crew.Id)
+            if (company.CrewId is { } current && current != held.Crew.Id && !CloseCrewOfOne(company))
             {
                 return CommandResult.Fail("Leave your crew first.");
             }
@@ -385,7 +385,7 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("You are in this crew already.");
         }
-        if (company.CrewId != null)
+        if (company.CrewId != null && !CloseCrewOfOne(company))
         {
             return CommandResult.Fail("Leave your crew first.");
         }
@@ -405,6 +405,29 @@ public sealed partial class GameWorld
         }
         AddToCrew(crew, company);
         return CommandResult.Ok;
+    }
+
+    /// <summary>
+    /// A friend's invite closes a crew the company is alone in, with its held seats (run 3: Ben started his own crew
+    /// before Ana's link reached him, and "Join and move" said only "Leave your crew first"). False when others are in it.
+    /// </summary>
+    private bool CloseCrewOfOne(Company company)
+    {
+        if (CrewOf(company) is not { } crew || CrewMembers(crew).Any(t => t.Id != company.Id))
+        {
+            return false;
+        }
+        company.CrewId = null;
+        company.Touch();
+        foreach (var hold in crew.Holds.ToList())
+        {
+            RemoveHold(crew, hold);
+        }
+        _crews.Remove(crew.Id);
+        Deleted.Add(crew);
+        Changes.Crews.Add(crew.Id);
+        Changes.Companies.Add(company.Id);
+        return true;
     }
 
     private void AddToCrew(Crew crew, Company company)

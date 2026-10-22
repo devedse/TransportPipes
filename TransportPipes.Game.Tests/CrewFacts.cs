@@ -250,4 +250,31 @@ public class CrewFacts
         Assert.IsFalse(game.World.FoundCrew(ana.Id, "Sh1t Pipes", "kettle", "#236b69", "#c9963a").Result.Success);
         Assert.IsTrue(NameFilter.IsAllowed("Peacock Grapes of Sussex"), "no false alarms on ordinary words");
     }
+
+    [TestMethod]
+    public void AFriendsInviteClosesACrewOfOne()
+    {
+        // Run 3: Ben started his own crew before Ana's link reached him; "Join and move" said "Leave your crew first"
+        var game = new TestGame();
+        var ana = game.NewCompany("Ana");
+        var (_, crew) = game.World.FoundCrew(ana.Id, "Teapot Four", "kettle", "#236b69", "#c9963a", 2);
+        var ben = game.NewCompany("Ben");
+        var (_, own) = game.World.FoundCrew(ben.Id, "Ana and Ben", "kettle", "#236b69", "#c9963a", 2);
+        var seat = crew!.Holds[0];
+
+        var result = game.World.JoinCrew(ben.Id, seat.Code);
+
+        Assert.IsTrue(result.Success, result.Error);
+        Assert.AreEqual(crew.Id, ben.CrewId);
+        Assert.IsNull(game.World.Crew(own!.Id), "his crew of one is closed, with its held seats");
+        game.Pass(24 * 60);
+        Assert.AreEqual(seat.Seat, new EstateKey(ben.District, ben.Slot), "and he lives in the seat Ana kept, once moved");
+
+        // A crew with others in it still has to be left first
+        var cleo = game.NewCompany("Cleo");
+        var (_, cleos) = game.World.FoundCrew(cleo.Id, "Cleo's", "kettle", "#236b69", "#c9963a", 1);
+        var dee = game.NewCompany("Dee");
+        Assert.IsTrue(game.World.JoinCrew(dee.Id, cleos!.Holds[0].Code).Success);
+        StringAssert.Contains(game.World.JoinCrew(cleo.Id, crew.Holds[0].Code).Error, "Leave your crew first");
+    }
 }

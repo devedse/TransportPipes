@@ -3,7 +3,7 @@ import { gameClient } from "../app/client";
 import { formatAmount, formatDuration } from "../app/format";
 import { useNow } from "../app/useNow";
 import type { GameEventDto, MarketResourceDto } from "../api/contracts";
-import { setState, useAppStore, type HubTab } from "../state/store";
+import { setState, toast, useAppStore, type HubTab } from "../state/store";
 import { WondersTab } from "./WondersTab";
 import { EVENT_ICONS, eventTime } from "../app/events";
 import { ResourceIcon } from "./ResourceIcon";
@@ -241,6 +241,8 @@ export function HubPanel() {
                       onClick={() => {
                         setState({ hubOpen: false });
                         gameClient.setTool({ kind: "build", type: "storage" });
+                        // Say what's in hand (run 3: Cleo thought the button did nothing)
+                        toast("Storage in hand: click a free tile by your buildings, then pipe one into it");
                       }}
                     >
                       Build a Storage
