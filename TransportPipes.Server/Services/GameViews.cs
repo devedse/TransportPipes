@@ -110,7 +110,8 @@ public static partial class GameViews
             Week(world, company),
             Land(world, company),
             company.ResearchQueue.ToList(),
-            company.KeepResearching);
+            company.KeepResearching,
+            world.ResearchOpen(company));
     }
 
     /// <summary>Dealt land (step 5): the goods your seat holds, and who in your station holds the others (null on old land)</summary>
@@ -272,7 +273,7 @@ public static partial class GameViews
             var how = $"you can: {GameWorld.Article(mine.Producer.Name)} {WhereItStands(world, mine.Producer)}".TrimEnd();
             return (how, spot is { } at
                 ? NextStep(new AdvisorStep(AdvisorKind.Chain, $"Build {GameWorld.Article(mine.Producer.Name)}", $"The {GameWorld.StageName(project.Stage)} waits on {Name(good)}", AdvisorAction.Build,
-                    world.BuildCost(me, mine.Producer), 0, BuildingType: mine.Producer.Id, At: at))
+                    world.BuildCost(me, mine.Producer), 0, BuildingType: mine.Producer.Id, At: at), world)
                 : null);
         }
         if (makers.Count > 0)
@@ -1095,10 +1096,13 @@ public static partial class GameViews
     private static List<string> Issues(GameWorld world, Building building, FlowNode? node, Network? network) => [];
 
     /// <summary>A network as a company sees it (its own pump stations and speed)</summary>
-    public static NextStepDto NextStep(AdvisorStep step) => new(
+    public static NextStepDto NextStep(AdvisorStep step, GameWorld? world = null) => new(
         JsonNamingPolicy.CamelCase.ConvertName(step.Kind.ToString()),
         step.Title,
-        step.Reason,
+        // A step names every cost (run 3: the Big Factory's step said 12k gold; it also takes 100 bricks, ana d21 #286)
+        world != null && step.Action == AdvisorAction.Build && step.BuildingType is { } type && world.Content.Building(type).Cost.Materials is { Count: > 0 } materials
+            ? $"{step.Reason.TrimEnd()} It also takes {string.Join(" and ", materials.Select(t => $"{t.Value:N0} {world.GoodsWord(t.Key)}"))} from your Storages."
+            : step.Reason,
         JsonNamingPolicy.CamelCase.ConvertName(step.Action.ToString()),
         Math.Round(step.Cost, 2),
         Math.Round(step.GainPerMinute, 2),
@@ -1636,7 +1640,6 @@ public static partial class GameViews
             .OrderByDescending(t => t.Value)
             .Select(t => new ProjectHelperDto(world.Company(t.Key)!.Color, total <= 0 ? 0 : t.Value / total, t.Key == me.Id))
             .ToList();
-        string Name(string resource) => world.Content.Resources.TryGetValue(resource, out var r) ? r.Name.ToLowerInvariant() : resource;
         var opens = project.Stage == ProjectStage.FoundryHall ? project.StartedAt + TimeSpan.FromDays(14) : (DateTime?)null;
         var keystone = project.Keystone;
         var line = project.Stage == ProjectStage.Done

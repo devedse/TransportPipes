@@ -245,7 +245,12 @@ export function TopBar() {
               → {content.research(company.currentResearch)?.name}
             </span>
           ) : (
-            company.researchPerMinute > 0 && <span className="small current-research pick">pick one!</span>
+            company.researchPerMinute > 0 &&
+            (company.researchOpen ? (
+              <span className="small current-research pick">pick one!</span>
+            ) : (
+              <span className="small current-research muted">nothing left this Era</span>
+            ))
           )}
         </button>
       ) : null}

@@ -61,8 +61,10 @@ public sealed partial class GameWorld
                 BuildingKind.Storage => StorageCapacity(t, Content.Building(t.Type)) - t.StoredTotal > StorageEpsilon,
                 _ => false,
             })
-            // The trading post first: it sells, a Storage only keeps
-            .OrderBy(t => Content.Building(t.Type).Kind == BuildingKind.TradingPost ? 0 : 1)
+            // One whose pipes also bring what it needs first (run 3: Mia's "Unstick" pipe left her pump without energy for
+            // four weeks), then the trading post: it sells, a Storage only keeps
+            .OrderBy(t => MissingAfterPipe(building, t).Count)
+            .ThenBy(t => Content.Building(t.Type).Kind == BuildingKind.TradingPost ? 0 : 1)
             .ToList();
         foreach (var target in targets)
         {
@@ -73,6 +75,21 @@ public sealed partial class GameWorld
             }
         }
         return null;
+    }
+
+    /// <summary>The inputs a building would still lack with a pipe to a target: nothing on its own pipes or the target's makes them</summary>
+    public List<string> MissingAfterPipe(Building building, Building target)
+    {
+        var needs = Content.Building(building.Type).In.Keys.ToList();
+        if (needs.Count == 0)
+        {
+            return needs;
+        }
+        bool Makes(Network? network, string resource) =>
+            network != null && network.Buildings.Any(t => t != building.Id && Building(t) is { UnderConstruction: false } b && Content.Building(b.Type).Out.ContainsKey(resource));
+        var own = NetworkOf(building.Id);
+        var theirs = NetworkOf(target.Id);
+        return needs.Where(t => !Makes(own, t) && !Makes(theirs, t)).Order(StringComparer.Ordinal).ToList();
     }
 
     /// <summary>The cheapest grey pipe from a building to the inside of its owner's Yard gate (F2's fix when the best taker is at the gate)</summary>

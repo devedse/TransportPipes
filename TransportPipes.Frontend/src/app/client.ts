@@ -990,7 +990,18 @@ export class GameClient {
     const state = appStore.getState();
     const placement = state.placement;
     if (placement !== null && !placement.ok) {
-      toast(placement.reason ?? "You can't build here.", "error");
+      // A refusal points at the nearest tile that works (run 3: Ana clicked the pond three times, then gave up for nine days)
+      const near = this.nearestSpot(type, x, y);
+      if (near !== null) {
+        const size = state.content?.building(type)?.size ?? 1;
+        setState({ hintTile: { x: near.x, y: near.y, size } });
+        toast(
+          `${(placement.reason ?? "You can't build here").replace(/\.$/, "")}: the golden tile nearby works`,
+          "error",
+        );
+      } else {
+        toast(placement.reason ?? "You can't build here.", "error");
+      }
       return;
     }
     const name = state.content?.building(type)?.name ?? type;
@@ -1007,6 +1018,34 @@ export class GameClient {
       // Keep building more of the same until the player switches tools
       void this.refreshCompany();
     }
+  }
+
+  /** The closest tile within a few steps where a building can stand (null: none near) */
+  private nearestSpot(type: string, x: number, y: number): TilePosition | null {
+    const state = appStore.getState();
+    const definition = state.content?.building(type);
+    if (definition === undefined || state.content === null || state.company === null || this.world === null) {
+      return null;
+    }
+    for (let r = 1; r <= 8; r++) {
+      let best: TilePosition | null = null;
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) {
+            continue;
+          }
+          if (canPlace(state.content, this.world, state.company, state.era, definition, x + dx, y + dy).ok) {
+            if (best === null || Math.abs(dx) + Math.abs(dy) < Math.abs(best.x - x) + Math.abs(best.y - y)) {
+              best = { x: x + dx, y: y + dy };
+            }
+          }
+        }
+      }
+      if (best !== null) {
+        return best;
+      }
+    }
+    return null;
   }
 
   /** A painted row or area: built in one command, as far as the gold goes */

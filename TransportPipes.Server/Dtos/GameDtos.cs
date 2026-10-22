@@ -122,7 +122,9 @@ public record CompanyDto(
     /// <summary>The research queue (F11): techs that start by themselves, in order</summary>
     IReadOnlyList<string>? ResearchQueue = null,
     /// <summary>With nothing queued, the cheapest tech the points cover starts by itself</summary>
-    bool KeepResearching = true);
+    bool KeepResearching = true,
+    /// <summary>Something can be researched now (run 3: "pick one!" over 449k points with every tech locked)</summary>
+    bool ResearchOpen = true);
 
 /// <summary>Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there</summary>
 public record LandDto(IReadOnlyList<string> Goods, IReadOnlyList<LandSeatDto> Station);

@@ -74,6 +74,10 @@ public sealed partial class GameWorld
 
     public bool ResearchedEverything(Company company) => Content.ResearchList.All(t => company.Researched.Contains(t.Id));
 
+    /// <summary>Whether something can be researched now, points or not: a tech nothing blocks, or Mastery after the whole tree</summary>
+    public bool ResearchOpen(Company company) =>
+        ResearchedEverything(company) || Content.ResearchList.Any(t => !company.Researched.Contains(t.Id) && ResearchBlocker(company, t) == null);
+
     public static double MasteryCost(Company company) => Math.Round(20_000 * Math.Pow(1.25, company.Mastery) / 100) * 100;
 
     public static double MasteryMinutes(Company company) => Math.Min(24 * 60, 120 + 30 * company.Mastery);

@@ -122,6 +122,8 @@ export interface CompanyDto {
   researchQueue: string[] | null;
   /** With nothing queued, the cheapest tech the points cover starts by itself */
   keepResearching: boolean;
+  /** Something can be researched now (run 3: "pick one!" over 449k points with every tech locked) */
+  researchOpen: boolean;
 }
 
 /** Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there */

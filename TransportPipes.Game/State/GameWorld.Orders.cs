@@ -26,6 +26,7 @@ public sealed partial class GameWorld
     private void NewDay()
     {
         _likesToday.Clear();
+        _fitsOnEstate.Clear();
         PlanEvents();
         CheckActivity();
         CheckHolds();

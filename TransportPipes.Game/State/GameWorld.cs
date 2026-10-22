@@ -594,16 +594,35 @@ public sealed partial class GameWorld
                     ? "Someone else's pipe runs here."
                     : "Something is already standing here.");
             }
-            var terrain = Tile(tile).Terrain;
-            if (!definition.Placement.Terrain.Contains(terrain))
+        }
+        return SiteRule(definition, pos);
+    }
+
+    /// <summary>
+    /// What the land itself asks of a building at a spot, whoever owns it and whatever stands there: its terrain, its
+    /// deposit, water beside it, the forest around it. The build command and every "you can make it" use this one rule
+    /// (run 3: the project said Ana "can make" wood on dealt land where no marked tree stood, and "Not on water" refused
+    /// a pump the card had sent to "the water")
+    /// </summary>
+    public CommandResult SiteRule(BuildingDefinition definition, TilePos pos)
+    {
+        for (var dy = 0; dy < definition.Size; dy++)
+        {
+            for (var dx = 0; dx < definition.Size; dx++)
             {
-                return CommandResult.Fail($"{definition.Name} can't be built on {terrain.ToString().ToLowerInvariant()}.");
+                var terrain = Tile(pos.Offset(dx, dy)).Terrain;
+                if (!definition.Placement.Terrain.Contains(terrain))
+                {
+                    return CommandResult.Fail(definition.Placement.Shore && terrain == TerrainType.Water
+                        ? $"{definition.Name} stands beside the water, not on it."
+                        : $"{definition.Name} can't be built on {terrain.ToString().ToLowerInvariant()}.");
+                }
             }
         }
-
         if (definition.Placement.Deposit is { } deposit)
         {
-            var best = footprint.Select(Tile).Where(t => DepositMatches(deposit, t.Deposit)).Select(t => t.Richness).DefaultIfEmpty(0).Max();
+            var best = Enumerable.Range(0, definition.Size * definition.Size).Select(t => Tile(pos.Offset(t % definition.Size, t / definition.Size)))
+                .Where(t => DepositMatches(deposit, t.Deposit)).Select(t => t.Richness).DefaultIfEmpty(0).Max();
             if (best == 0)
             {
                 return CommandResult.Fail($"{definition.Name} needs {(DepositName(deposit) is var name && "aeiou".Contains(name[0]) ? "an" : "a")} {DepositName(deposit)} deposit.");
@@ -613,9 +632,7 @@ public sealed partial class GameWorld
                 return CommandResult.Fail($"{definition.Name} needs a deposit of at least {definition.Placement.MinRichness} stars.");
             }
         }
-
-        var border = BorderTiles(pos, definition.Size).ToList();
-        if (definition.Placement.Shore && !border.Any(t => Tile(t).Terrain == TerrainType.Water))
+        if (definition.Placement.Shore && !BorderTiles(pos, definition.Size).Any(t => Tile(t).Terrain == TerrainType.Water))
         {
             return CommandResult.Fail($"{definition.Name} has to stand next to water.");
         }

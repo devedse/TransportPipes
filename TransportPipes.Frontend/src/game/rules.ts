@@ -237,7 +237,12 @@ export function canPlace(
         return fail("Loading…");
       }
       if (!definition.placement.terrain.includes(terrain)) {
-        return fail(`Not on ${terrain}`);
+        // Run 3: Ana clicked the pond three times for a Water Pump and read only "Not on water"
+        return fail(
+          definition.placement.shore && terrain === "water"
+            ? "Beside the water, not on it"
+            : `Not on ${terrain}`,
+        );
       }
     }
   }

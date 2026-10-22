@@ -51,6 +51,26 @@ public class MaxFacts
     }
 
     [TestMethod]
+    public void MaxStopsWhereThePipeIsFull()
+    {
+        // Run 3: Cleo's Coal Pit went to level 25 for 117k and made 882 coal a minute; its grey pipe to the trading post
+        // carried 100 (cleo d06 #184, d21 #393). A grey connection carries 100 a minute: Max stops where that is full.
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(gold: 10_000_000, level: 30);
+        var map = game.Map(company, game.Local(company, 1, 1), "W+T", pipeTier: 1);
+        game.Pass(2);
+        var moily = map[(0, 0)];
+
+        var plan = game.World.SmartMax(company, moily);
+
+        var output = game.World.ToFlowNode(moily)!.Out["energy"];
+        var multiplier = (int levels) => game.World.Content.Progression.OutputMultiplier(moily.Level + levels) / game.World.Content.Progression.OutputMultiplier(moily.Level);
+        Assert.IsTrue(output * multiplier(plan.Levels) <= 100 / GameWorld.UsefulShare + 1e-6, $"the pipe carries what it makes at the useful level ({output * multiplier(plan.Levels):0.#} a minute)");
+        Assert.IsTrue(output * multiplier(plan.Levels + 1) > 100 / GameWorld.UsefulShare, "one level more would make more than its pipe carries");
+        Assert.IsTrue(plan.Output, "its output holds it back");
+    }
+
+    [TestMethod]
     public void MaxIsPricedLikeTheUpgrade()
     {
         var game = new TestGame(content: TestGame.PlainContent);

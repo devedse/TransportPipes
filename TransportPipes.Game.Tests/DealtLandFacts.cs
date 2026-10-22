@@ -236,4 +236,51 @@ public class DealtLandFacts
         Assert.IsTrue(CanStandSomewhere(withWood), "by its marked trees");
         Assert.IsFalse(CanStandSomewhere(without), "plain trees aren't wood");
     }
+
+    [TestMethod]
+    public void TheProjectSaysOnlyWhoCanReallyBuildItCanMakeIt()
+    {
+        // Run 3: the project told Ben, Ana and Cleo "you can" make wood on seats with plain trees only (ben d01-2300
+        // #34, dev d08 #12), because its check looked at forest tiles, not the build command's rule
+        var game = new TestGame(dealtLand: true);
+        game.World.ProjectsEnabled = true;
+        var generator = game.World.Generator;
+        var district = new DistrictCoord(0, 0);
+        var wood = Enumerable.Range(0, WorldLayout.EstatesPerDistrict).First(t => generator.LandOf(district, t).Contains("wood"));
+        var plain = WorldLayout.StationSlots(WorldLayout.StationOfSlot(wood)).First(t => !generator.LandOf(district, t).Contains("wood"));
+        var woody = game.NewCompany("Woody", level: 5, slot: wood);
+        var other = game.NewCompany("Plain", level: 5, slot: plain);
+        foreach (var company in new[] { woody, other })
+        {
+            company.LastSeenAt = game.World.Now;
+        }
+        var project = game.World.ProjectOf(WorldLayout.StationOf(district, wood));
+
+        var makers = game.World.MakersOf(project, "wood").Select(t => t.Maker.Name).ToList();
+
+        CollectionAssert.Contains(makers, "Woody");
+        CollectionAssert.DoesNotContain(makers, "Plain", "plain trees aren't wood");
+    }
+
+    [TestMethod]
+    public void AWaterPumpOnThePondIsToldItStandsBesideIt()
+    {
+        // Run 3, Ana's day 27: three clicks on the pond's tiles and "Not on water" (ana d27-2000 #341–#347)
+        var game = new TestGame(dealtLand: true);
+        var pump = game.World.Content.Building("waterPump");
+        TilePos? Pond(Company company) => Enumerable.Range(0, WorldLayout.EstateSize * WorldLayout.EstateSize)
+            .Select(t => game.Local(company, t % WorldLayout.EstateSize, t / WorldLayout.EstateSize))
+            .Where(t => game.World.Tile(t).Terrain == TerrainType.Water).Select(t => (TilePos?)t).FirstOrDefault();
+        var company = game.NewCompany("Ana", slot: 0);
+        for (var slot = 1; Pond(company) == null; slot++)
+        {
+            company = game.NewCompany($"Ana {slot}", slot: slot);
+        }
+        var water = Pond(company)!.Value;
+
+        var result = game.World.SiteRule(pump, water);
+
+        Assert.IsFalse(result.Success);
+        Assert.AreEqual("Water Pump stands beside the water, not on it.", result.Error);
+    }
 }

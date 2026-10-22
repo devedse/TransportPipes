@@ -61,7 +61,10 @@ public sealed partial class GameWorld
             {
                 return null;
             }
-            return new IdleFix(IdleFixKind.LayPipe, $"Lay the pipe to your {BuildingName(pipe.Target!)} · {Tiles(pipe.NewTiles)} · {Gold(pipe.Cost)}", pipe, Cost: pipe.Cost);
+            // A fix that leaves it idle says so: what it will still need
+            var missing = MissingAfterPipe(building, pipe.Target!);
+            return new IdleFix(IdleFixKind.LayPipe, $"Lay the pipe to your {BuildingName(pipe.Target!)} · {Tiles(pipe.NewTiles)} · {Gold(pipe.Cost)}"
+                + (missing.Count > 0 ? $" · then it needs {string.Join(" and ", missing.Select(GoodsWord))}" : ""), pipe, Cost: pipe.Cost);
         }
         // Your own short building first, else the trading post or a Storage
         IdleFix? FixOwnNeedFirst()

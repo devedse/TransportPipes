@@ -354,7 +354,7 @@ public sealed class GameHub : Hub<IGameClient>
     {
         var userId = UserId;
         return _world.RunAsync(world => world.CompanyOfUser(userId) is { } company
-            ? world.NextSteps(company).Select(GameViews.NextStep).ToList()
+            ? world.NextSteps(company).Select(t => GameViews.NextStep(t, world)).ToList()
             : [], changesWorld: false);
     }
 

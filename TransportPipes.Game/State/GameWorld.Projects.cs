@@ -274,28 +274,35 @@ public sealed partial class GameWorld
         return spare;
     }
 
-    /// <summary>Whether a building could stand somewhere on a company's estate (any parcel: it can buy the rest), by its placement rules</summary>
+    /// <summary>
+    /// Whether a building could stand somewhere on a company's estate (any parcel: it can buy the rest), by the same site
+    /// rule the build command uses; cached per company and building until the estate's buildings change
+    /// </summary>
     private bool FitsOnEstate(Company company, BuildingDefinition definition)
     {
         if (EstateOf(company) is not { } estate)
         {
             return false;
         }
-        var terrain = definition.Placement.Terrain.Count > 0 ? definition.Placement.Terrain : BuildingPlacement.DefaultTerrain;
-        for (var y = 0; y < WorldLayout.EstateSize; y++)
+        var key = (company.Id, definition.Id);
+        if (_fitsOnEstate.TryGetValue(key, out var known) && known.At == estate.Origin)
         {
-            for (var x = 0; x < WorldLayout.EstateSize; x++)
+            return known.Fits;
+        }
+        var fits = false;
+        for (var y = 0; y <= WorldLayout.EstateSize - definition.Size && !fits; y++)
+        {
+            for (var x = 0; x <= WorldLayout.EstateSize - definition.Size && !fits; x++)
             {
-                var tile = Tile(estate.Origin.Offset(x, y));
-                if (terrain.Contains(tile.Terrain) && (definition.Placement.Deposit == null || DepositMatches(definition.Placement.Deposit, tile.Deposit))
-                    && (!definition.Placement.Forest || tile.Terrain == TerrainType.Forest))
-                {
-                    return true;
-                }
+                fits = SiteRule(definition, estate.Origin.Offset(x, y)).Success;
             }
         }
-        return false;
+        _fitsOnEstate[key] = (estate.Origin, fits);
+        return fits;
     }
+
+    /// <summary>The land doesn't change under an estate: whether a building fits on it, per company and building, with the estate's corner</summary>
+    private readonly Dictionary<(long Company, string Building), (TilePos At, bool Fits)> _fitsOnEstate = new();
 
     /// <summary>
     /// The producers of a good that one of these residents could build and run by a Company Level: unlocked by then,

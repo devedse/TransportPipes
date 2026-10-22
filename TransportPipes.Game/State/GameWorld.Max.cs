@@ -112,15 +112,18 @@ public sealed partial class GameWorld
                 {
                     continue;
                 }
+                // A connection carries at most its pipe's throughput (run 3: a grey pipe's 100 a minute capped Cleo's Coal Pit)
+                var onLink = solution.Flows.Where(t => t.From == other.Id && t.To == node.Id && t.Resource == resource).Sum(t => t.Sent);
+                var linkLeft = Math.Max(0, link.Capacity - onLink) * link.Efficiency;
                 if ((other.Kind == FlowNodeKind.Storage && other.StorageContents.Contains(resource)) || (other.Kind == FlowNodeKind.TradingPost && other.Imports.Contains(resource)))
                 {
-                    potential = double.MaxValue;
-                    break;
+                    potential += linkLeft;
+                    continue;
                 }
                 if (other.Kind == FlowNodeKind.Building && other.Out.TryGetValue(resource, out var makes))
                 {
                     var toBuildings = solution.Flows.Where(t => t.From == other.Id && t.Resource == resource && t.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.Contract).Sum(t => t.Sent);
-                    potential += Math.Max(0, makes * other.MaxRate - toBuildings) * link.Efficiency;
+                    potential += Math.Min(Math.Max(0, makes * other.MaxRate - toBuildings) * link.Efficiency, linkLeft);
                 }
             }
             inputs[resource] = potential;
@@ -137,18 +140,18 @@ public sealed partial class GameWorld
                 }
                 if (other.Owner == node.Owner && other.Kind == FlowNodeKind.Storage && other.StorageCanAccept)
                 {
-                    room = double.MaxValue;
-                    break;
+                    room += link.Capacity;
+                    continue;
                 }
                 if (other.Owner == node.Owner && other.Kind == FlowNodeKind.TradingPost && _buildings.TryGetValue(other.Id, out var post))
                 {
                     var sold = solution.Flows.Where(t => t.To == other.Id && t.Kind == FlowKind.Sale).Sum(t => t.Sent);
                     var mine = solution.Flows.Where(t => t.From == node.Id && t.To == other.Id && t.Kind == FlowKind.Sale).Sum(t => t.Sent);
-                    room += Math.Max(0, TradingPostThroughput(post, Content.Building(post.Type)) - sold) + mine;
+                    room += Math.Min(Math.Max(0, TradingPostThroughput(post, Content.Building(post.Type)) - sold) + mine, link.Capacity);
                 }
                 else if (other.Kind == FlowNodeKind.Building && other.In.TryGetValue(resource, out var uses))
                 {
-                    room += uses * other.MaxRate / Math.Max(1e-12, link.Efficiency);
+                    room += Math.Min(uses * other.MaxRate / Math.Max(1e-12, link.Efficiency), link.Capacity);
                 }
             }
             outputs[resource] = room;

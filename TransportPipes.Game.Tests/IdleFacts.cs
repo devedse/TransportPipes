@@ -157,6 +157,31 @@ public class IdleFacts
     }
 
     [TestMethod]
+    public void AFixThatLeavesItIdleSaysWhatItWillStillNeed()
+    {
+        // Run 3, Mia's day 8: the "Unstick" pipe took her Water Pump to the trading post, and then it had no energy for
+        // four weeks, and nothing said so (mia d08 #96, metrics idle "InputMissing energy")
+        var (game, _, map) = Setup("M   T");
+        var fix = game.World.IdleStatusOf(map[(0, 0)]).Fix;
+
+        Assert.AreEqual(IdleFixKind.LayPipe, fix?.Kind);
+        StringAssert.EndsWith(fix!.Label, "· then it needs energy");
+    }
+
+    [TestMethod]
+    public void AFixPipeGoesWhereItsInputsAreToo()
+    {
+        // A Storage with a moily on its pipes, and a trading post with nothing: the pipe goes where the energy is, though
+        // a trading post comes first otherwise
+        var (game, _, map) = Setup("O+W", "", "", "M", "", "", "T");
+        var fix = game.World.IdleStatusOf(map[(0, 3)]).Fix;
+
+        Assert.AreEqual(IdleFixKind.LayPipe, fix?.Kind);
+        StringAssert.StartsWith(fix!.Label, "Lay the pipe to your Storage");
+        Assert.IsFalse(fix.Label.Contains("then it needs"), fix.Label);
+    }
+
+    [TestMethod]
     public void AStuckMoilyPipesToItsOwnShortMineFirst()
     {
         // Cleo's run 2 evening: her new Wind Moily was stuck while her own Iron Mine had no energy; the one fix offered to
