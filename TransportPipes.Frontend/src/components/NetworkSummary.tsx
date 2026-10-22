@@ -8,19 +8,24 @@ import { ResourceIcon } from "./ResourceIcon";
 const SEGMENTS = [
   { key: "used", name: "used by buildings", className: "seg-used" },
   { key: "sold", name: "sold to the hub", className: "seg-sold" },
+  { key: "toYard", name: "sold to neighbours", className: "seg-yard" },
   { key: "stored", name: "stored", className: "seg-stored" },
   { key: "lost", name: "lost in the pipes", className: "seg-lost" },
 ] as const;
 
 function ResourceRow({ r, content }: { r: NetworkResourceDto; content: Content }) {
   const made = r.produced + r.imported + r.fromStorage;
+  // What the Yard brings is part of what its buildings get, said apart from what it makes (run 2: "sand 15 short"
+  // while Ben's sand ran the Glassworks)
+  const got = made + r.fromYard;
   const short = Math.max(0, r.needed - r.used);
-  const spare = Math.max(0, r.sold + r.stored);
+  const spare = Math.max(0, r.sold + r.stored + r.toYard);
   const isShort = r.needed > 0 && short > Math.max(0.05, r.needed * 0.01);
-  const total = Math.max(made, r.used + r.sold + r.stored + r.lost, 1e-9);
+  const total = Math.max(got, r.used + r.sold + r.toYard + r.stored + r.lost, 1e-9);
   const values: Record<(typeof SEGMENTS)[number]["key"], number> = {
     used: r.used,
     sold: r.sold,
+    toYard: r.toYard,
     stored: r.stored,
     lost: r.lost,
   };
@@ -38,7 +43,17 @@ function ResourceRow({ r, content }: { r: NetworkResourceDto; content: Content }
         )}
       </div>
       <div className="net-numbers">
-        makes <strong>{formatAmount(made)}</strong>
+        {(made > 0.05 || r.fromYard <= 0.05) && (
+          <>
+            makes <strong>{formatAmount(made)}</strong>
+          </>
+        )}
+        {r.fromYard > 0.05 && (
+          <>
+            {made > 0.05 ? " · " : ""}
+            the Yard brings <strong>{formatAmount(r.fromYard)}</strong>
+          </>
+        )}
         {r.needed > 0 && (
           <>
             {" "}
@@ -47,7 +62,7 @@ function ResourceRow({ r, content }: { r: NetworkResourceDto; content: Content }
         )}
         <span className="muted"> per minute</span>
       </div>
-      {made > 0 && (
+      {got > 0 && (
         <div
           className="net-bar"
           title={SEGMENTS.map((s) => `${formatAmount(values[s.key])} ${s.name}`).join(" · ")}

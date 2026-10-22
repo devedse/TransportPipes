@@ -1913,13 +1913,19 @@ export class GameClient {
     }
   }
 
-  /** The return card's buttons: each closes the card on what it shows, Repair all and Send keep it open */
+  /** The return card's buttons: each closes the card on what it shows, Repair all, Send and Thanks keep it open */
   async returnAction(line: ReturnLineDto): Promise<boolean> {
     switch (line.action) {
       case "send":
         return line.resource !== null && line.partner !== null
           ? await this.sendGood(line.resource, line.partner, "them")
           : false;
+      case "thank":
+        if (line.partner === null || line.resource === null) {
+          return false;
+        }
+        await this.thank(line.partner, line.resource, line.partnerName ?? "They");
+        return true;
       case "repairAll":
         return await this.command(this.connection.repairAll(), "Repaired: full speed again");
       case "show":

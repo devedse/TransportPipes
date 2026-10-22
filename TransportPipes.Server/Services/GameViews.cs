@@ -165,11 +165,22 @@ public static partial class GameViews
             var makers = MakerNames(world.MakersOf(project, keystone).Select(t => t.Maker).ToList(), me);
             return new ProjectWeekDto($"{head} · wants {Name(keystone)}{(makers.Count > 0 ? $" · {Capital(And(makers))} can" : "")}", card.Share);
         }
-        if (card.GoingIn.Count > 0)
+        if (lacking.Count == 0)
         {
-            return new ProjectWeekDto($"{head} · your {And(card.GoingIn.Select(Name).ToList())} {(card.GoingIn.Count == 1 ? "goes" : "go")} in", card.Share);
+            return new ProjectWeekDto(head, card.Share);
         }
-        return new ProjectWeekDto(lacking.Count > 0 ? $"{head} · wants {And(lacking.Select(Name).ToList())}" : head, card.Share);
+        // What it still wants, each with who makes it now ("wants iron ingot (Ana) and stone (you)"), and what of yours
+        // goes in (run 2: from the Workshop on nobody could tell what a stage wanted or who it waited for)
+        string Who(string good) => MakerNames(world.MakersNow(project, good), me) switch
+        {
+            { Count: 0 } => "nobody here yet",
+            { Count: > 2 } names => $"{names[0]}, {names[1]} +{names.Count - 2}",
+            var names => And(names),
+        };
+        var wants = $"wants {And(lacking.Select(t => $"{Name(t)} ({Who(t)})").ToList())}";
+        return new ProjectWeekDto(card.GoingIn.Count > 0
+            ? $"{head} · your {And(card.GoingIn.Select(Name).ToList())} {(card.GoingIn.Count == 1 ? "goes" : "go")} in · {wants}"
+            : $"{head} · {wants}", card.Share);
     }
 
     /// <summary>Who can make a good, as a line says it: the others first, then "you"</summary>
@@ -894,7 +905,7 @@ public static partial class GameViews
             trade.ReachesGate,
             pipe == null ? null : new BuildingFixDto("layPipe", $"Lay the pipe to your gate · {(pipe.NewTiles == 1 ? "1 tile" : $"{pipe.NewTiles} tiles")} · {pipe.Cost:0} g",
                 pipe.Tiles.SelectMany(t => new[] { t.X, t.Y }).ToArray(), pipe.NewTiles, Math.Round(pipe.Cost, 2), building.Id, null, "your gate"),
-            runsOn == null ? null : $"runs on {world.NameFor(runsOn.Partner, me)}'s {world.GoodsWord(runsOn.Resource)}{(runsOn.Sent ? " 💛" : "")}",
+            runsOn == null ? null : $"runs on {world.PossessiveFor(runsOn.Partner, me)} {world.GoodsWord(runsOn.Resource)}{(runsOn.Sent ? " 💛" : "")}",
             world.SendCount(me),
             GameWorld.MaxSends);
     }
@@ -995,7 +1006,8 @@ public static partial class GameViews
             : isMachine[id] = world.Building(id) is { } b && world.Content.Building(b.Type).Kind is not (BuildingKind.Storage or BuildingKind.TradingPost);
 
         var resources = new Dictionary<string, double[]>();
-        double[] Row(string resource) => resources.TryGetValue(resource, out var row) ? row : resources[resource] = new double[8];
+        // Made, used, sold, hub imports, traded, stored, from storage, lost; then what the Yard brings and takes at the gate
+        double[] Row(string resource) => resources.TryGetValue(resource, out var row) ? row : resources[resource] = new double[10];
         // Per company: made, used, sold; and its money: hub sales, neighbour sales, neighbour purchases, hub imports
         var perOwner = new Dictionary<(long, string), double[]>();
         var money = new Dictionary<long, double[]>();
@@ -1051,6 +1063,24 @@ public static partial class GameViews
             row[7] += flow.Sent - flow.Delivered;
         }
 
+        // The Yard gate: what neighbours' goods bring to its buildings, and what its buildings sell to neighbours (run 2:
+        // Ana's card said "sand 15 short" while her Glassworks ran on Ben's sand)
+        foreach (var gate in network.GateFlows.Where(t => viewer == null || world.Building(t.Building)?.Owner == viewer))
+        {
+            var row = Row(gate.Resource);
+            if (gate.Import)
+            {
+                row[1] += gate.Delivered;
+                row[8] += gate.Delivered;
+            }
+            else
+            {
+                row[0] += gate.Sent;
+                row[9] += gate.Delivered;
+                row[7] += gate.Sent - gate.Delivered;
+            }
+        }
+
         // What the buildings need of each resource: of what holds them back their full need, of the rest what they get
         // (the advisor's shortages are the same numbers)
         var needed = world.NetworkNeeds(network).ToDictionary(t => t.Key, t => t.Value.Needed);
@@ -1093,9 +1123,9 @@ public static partial class GameViews
             owners,
             resources
                 .Select(t => (Resource: t.Key, Row: t.Value, Needed: needed.GetValueOrDefault(t.Key)))
-                .Concat(needed.Where(t => !resources.ContainsKey(t.Key)).Select(t => (Resource: t.Key, Row: new double[8], Needed: t.Value)))
+                .Concat(needed.Where(t => !resources.ContainsKey(t.Key)).Select(t => (Resource: t.Key, Row: new double[10], Needed: t.Value)))
                 .OrderBy(t => world.Content.Resources.TryGetValue(t.Resource, out var r) ? r.Tier : 99).ThenBy(t => t.Resource)
-                .Select(t => new NetworkResourceDto(t.Resource, t.Row[0], t.Row[1], t.Row[2], t.Row[3], t.Row[4], t.Row[5], t.Row[6], t.Row[7], t.Needed))
+                .Select(t => new NetworkResourceDto(t.Resource, t.Row[0], t.Row[1], t.Row[2], t.Row[3], t.Row[4], t.Row[5], t.Row[6], t.Row[7], t.Needed, t.Row[8], t.Row[9]))
                 .ToList(),
             bottlenecks,
             network.Buildings.Select(world.Building).OfType<Building>()
@@ -1261,7 +1291,7 @@ public static partial class GameViews
         var what = kinds.Count == 1
             ? repairs.Count == 1 ? kinds[0].Key : $"{repairs.Count} {kinds[0].Key}s"
             : $"{repairs.Count} buildings";
-        return $"💛 Tend: repair {world.NameFor(friend, me)}'s storm-damaged {what}";
+        return $"💛 Tend: repair {world.PossessiveFor(friend, me)} storm-damaged {what}";
     }
 
     public static CrewViewDto Crew(GameWorld world, Company me)

@@ -926,6 +926,10 @@ kbd {
   background: #5b84c4;
 }
 
+.seg-yard {
+  background: #c66b9e;
+}
+
 .seg-lost {
   background: repeating-linear-gradient(45deg, #d4574a 0 4px, #e98d82 4px 8px);
 }

@@ -310,6 +310,16 @@ public sealed partial class GameWorld
             ? $"{company.Name} ({name})"
             : company.Name;
 
+    /// <summary>
+    /// Whose something is, as a line says it: "Ben's" for a crew mate the crew calls Ben (not "Riverside Co. (Ben)'s"),
+    /// "ana_pm Pipes'" for a name ending in s, else "Jo's Works's"
+    /// </summary>
+    public string PossessiveFor(Company company, Company viewer)
+    {
+        var name = NameFor(company, viewer) == company.Name ? company.Name : company.KnownAs!;
+        return name.EndsWith('s') ? $"{name}'" : $"{name}'s";
+    }
+
     /// <summary>Gives a held seat free again</summary>
     public CommandResult ReleaseHold(long companyId, string code)
     {

@@ -774,6 +774,13 @@ public sealed partial class GameWorld
             .SelectMany(t => Content.Building(t.Type).Out.Keys)
             .ToHashSet();
 
+    /// <summary>Who in a project's station makes a good now (a finished building of theirs makes it), players who play first</summary>
+    public List<Company> MakersNow(StationProject project, string good) =>
+        ProjectResidents(project)
+            .Where(t => !t.Asleep && BuildingsOf(t.Id).Any(b => !b.UnderConstruction && Content.Building(b.Type).Out.ContainsKey(good)))
+            .OrderBy(t => IsActive(t) ? 0 : 1).ThenBy(t => t.Id)
+            .ToList();
+
     /// <summary>For replays and the dev cheat: every project's current stage starts again, sized and chosen by today's rules</summary>
     public void RestageProjects()
     {

@@ -314,12 +314,14 @@ export interface ReturnLineDto {
   kind: "people" | "look" | "project" | "social" | "today" | "invest";
   icon: string;
   text: string;
-  action: "repairAll" | "show" | "project" | "upgrade" | "send" | "links" | null;
+  action: "repairAll" | "show" | "project" | "upgrade" | "send" | "thank" | "links" | null;
   building: number | null;
   cost: number | null;
-  /** send: whose building, which good */
+  /** send: whose building, which good; thank: whose goods, which good */
   partner: number | null;
   resource: string | null;
+  /** thank: what the giver is called */
+  partnerName: string | null;
 }
 
 /** A place to land: your seat, next to your crew, a lively station, the Frontier */
@@ -840,6 +842,10 @@ export interface NetworkResourceDto {
   lost: number;
   /** What its buildings would use at full speed */
   needed: number;
+  /** What neighbours' goods bring to its buildings through the Yard gate */
+  fromYard: number;
+  /** What its buildings sell to neighbours through the Yard gate */
+  toYard: number;
 }
 
 export interface NetworkDetailsDto {

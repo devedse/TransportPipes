@@ -45,8 +45,11 @@ public record ReturnCardDto(
     IReadOnlyList<LandingCardDto> Landing,
     string? Hint);
 
-/// <summary>A line of the return card: its section, and its one button (repairAll, show, project, upgrade, links, send: Partner's Resource) with what it costs</summary>
-public record ReturnLineDto(string Kind, string Icon, string Text, string? Action, long? Building, double? Cost, long? Partner = null, string? Resource = null);
+/// <summary>
+/// A line of the return card: its section, and its one button (repairAll, show, project, upgrade, links, send: Partner's
+/// Resource, thank: PartnerName for their Resource) with what it costs
+/// </summary>
+public record ReturnLineDto(string Kind, string Icon, string Text, string? Action, long? Building, double? Cost, long? Partner = null, string? Resource = null, string? PartnerName = null);
 
 /// <summary>A place to land: your seat, next to your crew, a lively station, the Frontier; with the crates it would mean</summary>
 public record LandingCardDto(string Kind, SeatRefDto Seat, string Station, int Crates, bool Here, int Neighbours);
@@ -390,7 +393,9 @@ public record TeleporterCandidateDto(long Id, int X, int Y, double Distance, str
 public record ToastDto(string Kind, string Text, long? Building);
 
 /// <summary>A resource in a network per minute; Needed: what its buildings would use at full speed</summary>
-public record NetworkResourceDto(string Resource, double Produced, double Used, double Sold, double Imported, double Traded, double Stored, double FromStorage, double Lost, double Needed);
+/// <param name="FromYard">What neighbours' goods bring to its buildings through the Yard gate</param>
+/// <param name="ToYard">What its buildings sell to neighbours through the Yard gate</param>
+public record NetworkResourceDto(string Resource, double Produced, double Used, double Sold, double Imported, double Traded, double Stored, double FromStorage, double Lost, double Needed, double FromYard, double ToYard);
 
 /// <summary>What one company's buildings in a network make, use and sell of a resource, per minute</summary>
 public record OwnerResourceDto(string Resource, double Made, double Used, double Sold);

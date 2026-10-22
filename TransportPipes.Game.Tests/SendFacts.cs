@@ -42,6 +42,22 @@ public class SendFacts
         game.World.YardTrades(game.EstateOf(buyer)).Where(t => !t.Selling && t.Partner == seller.Id && t.Resource == resource).Sum(t => t.PerMinute);
 
     [TestMethod]
+    public void ABuyerHearsWhoseGoodsItGot()
+    {
+        // Run 2: Ana's ingots ran Dev's Lab and he never heard; the receiver's card needs what it got from whom
+        var (game, a, b, c) = Station();
+        var since = game.World.Now;
+
+        game.Pass(60);
+
+        var bought = game.World.BoughtSince(b, since);
+        Assert.IsTrue(bought.TryGetValue((a.Id, "energy"), out var units) && units > 1, $"B got A's energy: {string.Join(", ", bought.Select(t => $"{t.Key}={t.Value:F1}"))}");
+        var taken = game.World.TakenSince(a, since);
+        Assert.AreEqual(taken[(b.Id, "energy")], units, 1e-9, "the same trade from the other end");
+        Assert.IsFalse(game.World.BoughtSince(a, since).ContainsKey((b.Id, "energy")), "A bought nothing from B");
+    }
+
+    [TestMethod]
     public void ASendGoesToTheNamedNeighbourFirstUpToTheirLack()
     {
         var (game, a, b, c) = Station();

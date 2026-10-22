@@ -26,8 +26,8 @@ public static partial class GameViews
     {
         var report = away.Report;
         var lines = new List<(int Rank, ReturnLineDto Line)>();
-        void Add(int rank, string kind, string icon, string text, string? action = null, long? building = null, double? cost = null, long? partner = null, string? resource = null) =>
-            lines.Add((rank, new ReturnLineDto(kind, icon, text, action, building, cost, partner, resource)));
+        void Add(int rank, string kind, string icon, string text, string? action = null, long? building = null, double? cost = null, long? partner = null, string? resource = null, string? partnerName = null) =>
+            lines.Add((rank, new ReturnLineDto(kind, icon, text, action, building, cost, partner, resource, partnerName)));
         string Kind(Building building) => world.Content.Building(building.Type).Name;
 
         // Your people
@@ -64,24 +64,50 @@ public static partial class GameViews
         {
             Add(2, "people", "🏘", $"{And(report.NewNeighbours.Distinct().Take(3).ToList())} moved in next door");
         }
-        // What your goods did for them; the first time they ran a neighbour's building by themselves: make it yours, Send ▸
+        // What your goods did for them, as a sale with its money (run 2: "X took N of your energy" read as taking without
+        // asking); the first time they ran a neighbour's building by themselves: make it yours, Send ▸. The first such
+        // line says once that the Yard sells your spare by itself.
         var taken = world.TakenSince(me, report.Since)
             .Where(t => world.Company(t.Key.Buyer) is { IsNpc: false })
             .OrderByDescending(t => t.Value * world.BasePrice(t.Key.Resource))
             .Take(2)
             .ToList();
+        string Sold(Company buyer, string resource, double units) => $"+{Amount(units * world.YardPrice(me, buyer, resource, selling: true))} g";
+        var why = taken.Count > 0 && !me.YardSalesExplained ? " (the Yard sells your spare to neighbours who lack it, at the one price, by itself)" : "";
         if (taken.FirstOrDefault(t => world.OfferSendOnce(me, world.Company(t.Key.Buyer)!, t.Key.Resource)) is { Key.Buyer: > 0 } offer)
         {
             var buyer = world.Company(offer.Key.Buyer)!;
             var building = world.TradeNeed(buyer, offer.Key.Resource);
-            Add(2, "people", "💛", $"Your {world.GoodsWord(offer.Key.Resource)} ran {world.NameFor(buyer, me)}'s {building ?? "buildings"} while you were away: {Amount(offer.Value)} of it. Make it yours:",
+            Add(2, "people", "💛", $"Your {world.GoodsWord(offer.Key.Resource)} ran {world.PossessiveFor(buyer, me)} {building ?? "buildings"} while you were away: {Amount(offer.Value)} of it, {Sold(buyer, offer.Key.Resource, offer.Value)}{why}. Make it yours:",
                 "send", null, null, buyer.Id, offer.Key.Resource);
         }
         else if (taken.Count > 0)
         {
-            Add(3, "people", "🤝", string.Join("; ", taken.Select((t, i) => i == 0
-                ? $"{world.NameFor(world.Company(t.Key.Buyer)!, me)} took {Amount(t.Value)} of your {world.GoodsWord(t.Key.Resource)}"
-                : $"{world.NameFor(world.Company(t.Key.Buyer)!, me)} {Amount(t.Value)} {world.GoodsWord(t.Key.Resource)}")));
+            Add(3, "people", "🤝", string.Join("; ", taken.Select((t, i) =>
+            {
+                var buyer = world.Company(t.Key.Buyer)!;
+                var building = world.TradeNeed(buyer, t.Key.Resource);
+                return i == 0
+                    ? $"{world.PossessiveFor(buyer, me)} {building ?? "buildings"} bought {Amount(t.Value)} of your {world.GoodsWord(t.Key.Resource)} · {Sold(buyer, t.Key.Resource, t.Value)}"
+                    : $"{world.NameFor(buyer, me)} {Amount(t.Value)} {world.GoodsWord(t.Key.Resource)} · {Sold(buyer, t.Key.Resource, t.Value)}";
+            })) + why);
+        }
+        if (why.Length > 0)
+        {
+            me.YardSalesExplained = true;
+            me.Touch();
+        }
+        // What a neighbour's goods did for you: the biggest, with 💛 Thanks (run 2: Dev asked how to feed the Lab that Ana's
+        // ingots were feeding, and Thanks was never pressed)
+        var got = world.BoughtSince(me, report.Since)
+            .Where(t => world.Company(t.Key.Seller) is { IsNpc: false })
+            .OrderByDescending(t => t.Value * world.BasePrice(t.Key.Resource))
+            .FirstOrDefault();
+        if (got.Value > 1e-6 && world.Company(got.Key.Seller) is { } giver)
+        {
+            var building = world.TradeNeed(me, got.Key.Resource);
+            Add(2, "people", "💛", $"{world.PossessiveFor(giver, me)} {world.GoodsWord(got.Key.Resource)} ran your {building ?? "buildings"} while you were away: {Amount(got.Value)} of it",
+                world.ThankedToday(me, giver.Id) ? null : "thank", null, null, giver.Id, got.Key.Resource, world.NameFor(giver, me));
         }
         if (chatLine != null)
         {
@@ -127,7 +153,7 @@ public static partial class GameViews
             var good = world.GoodsWord(linkOffer.Resource);
             Add(2, "look", "🔗", offers.Count == 1
                     ? $"{world.NameFor(offerer, me)} offers a link: {(linkOffer.Seller == me.Id ? $"your {good} to them" : $"their {good} to you")}"
-                    : $"{offers.Count} link offers wait for you, {world.NameFor(offerer, me)}'s first",
+                    : $"{offers.Count} link offers wait for you, {world.PossessiveFor(offerer, me)} first",
                 "links");
         }
 

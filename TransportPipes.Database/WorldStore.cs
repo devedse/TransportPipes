@@ -106,6 +106,7 @@ public sealed class WorldStore
                 StandInAnnounced = settings.StandInAnnounced,
                 KnownAs = settings.KnownAs,
                 SeatedNextDoor = settings.SeatedNextDoor,
+                YardSalesExplained = settings.YardSalesExplained,
                 HoldUntil = settings.HoldUntil,
                 KeepAsked = settings.KeepAsked,
                 TendedBy = settings.TendedBy ?? new Dictionary<long, int>(),
@@ -419,6 +420,7 @@ public sealed class WorldStore
                     StandInAnnounced = company.StandInAnnounced,
                     KnownAs = company.KnownAs,
                     SeatedNextDoor = company.SeatedNextDoor,
+                    YardSalesExplained = company.YardSalesExplained,
                     HoldUntil = company.HoldUntil,
                     KeepAsked = company.KeepAsked,
                     TendedBy = company.TendedBy,
@@ -775,6 +777,7 @@ public sealed class WorldStore
         public bool StandInAnnounced { get; init; }
         public string? KnownAs { get; init; }
         public bool SeatedNextDoor { get; init; }
+        public bool YardSalesExplained { get; init; }
         public DateTime? HoldUntil { get; init; }
         public bool KeepAsked { get; init; }
         public Dictionary<long, int>? TendedBy { get; init; }

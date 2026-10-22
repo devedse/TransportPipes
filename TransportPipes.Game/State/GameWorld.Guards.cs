@@ -113,6 +113,26 @@ public sealed partial class GameWorld
         return taken;
     }
 
+    /// <summary>
+    /// What a buyer got from each seller since a moment (by whole days, at most a week): the return card's "Ana's iron
+    /// ingots ran your Lab" (run 2: receivers never heard who fed them)
+    /// </summary>
+    public Dictionary<(long Seller, string Resource), double> BoughtSince(Company buyer, DateTime since)
+    {
+        var bought = new Dictionary<(long, string), double>();
+        foreach (var seller in _companies.Values.Where(t => t.Id != buyer.Id && t.UsualTrades.Count > 0))
+        {
+            foreach (var ((buyerId, resource), units) in TakenSince(seller, since))
+            {
+                if (buyerId == buyer.Id)
+                {
+                    bought[(seller.Id, resource)] = units;
+                }
+            }
+        }
+        return bought;
+    }
+
     /// <summary>Usual trades older than a week are forgotten (once a day)</summary>
     private void ForgetOldUsualTrades()
     {
