@@ -13,9 +13,11 @@ const RUN_DIR = path.join(ROOT, "runs", RUN);
 const OUT = path.join(RUN_DIR, "report");
 mkdirSync(OUT, { recursive: true });
 
-const ORDER = ["ana", "ben", "cleo", "dev", "mia"];
+const ORDER = ["ana", "ben", "cleo", "dev", "mia", "mia2"];
 // The categorical palette (validated on the page's cream surface; legend, direct labels and tables carry identity too)
-const COLORS = { ana: "#2a78d6", ben: "#eb6834", cleo: "#1baf7a", dev: "#eda100", mia: "#e87ba4" };
+const COLORS = { ana: "#2a78d6", ben: "#eb6834", cleo: "#1baf7a", dev: "#eda100", mia: "#e87ba4", mia2: "#8b5fbf" };
+// Run 2 plays Mia twice (docs/playtest-redesign.html step 7): the second one is told apart by name
+const NAMES = { mia2: "Mia-B" };
 
 const lines = (file) => (existsSync(file) ? readFileSync(file, "utf8").split("\n").filter((t) => t.trim() !== "").map((t) => JSON.parse(t)) : []);
 const read = (file, fallback = null) => (existsSync(file) ? readFileSync(file, "utf8") : fallback);
@@ -96,7 +98,7 @@ const players = ORDER.filter((id) => existsSync(path.join(RUN_DIR, id, "actions.
       hasDiary: diaryText !== "",
     };
   });
-  return { id, name: card.match(/^# (.+)$/m)?.[1] ?? id, device: config.device ?? "desktop", color: COLORS[id], company, sessions, actions };
+  return { id, name: NAMES[id] ?? card.match(/^# (.+)$/m)?.[1] ?? id, device: config.device ?? "desktop", color: COLORS[id], company, sessions, actions };
 });
 const sessions = players.flatMap((p) => p.sessions).sort((a, b) => new Date(a.start) - new Date(b.start));
 const playerOf = (id) => players.find((p) => p.id === id);
@@ -176,7 +178,7 @@ function md(text) {
 
 const pill = (status) => {
   const s = String(status ?? "").toLowerCase();
-  const cls = s === "kept" || s === "yes" ? "good" : s === "late" || s === "partly" || s === "maybe" || s === "medium" ? "warn" : s === "missed" || s === "no" || s === "high" ? "bad" : "info";
+  const cls = s === "kept" || s === "yes" || s === "pass" ? "good" : s === "late" || s === "partly" || s === "maybe" || s === "medium" ? "warn" : s === "missed" || s === "no" || s === "high" || s === "fail" ? "bad" : "info";
   return `<span class="pill ${cls}">${esc(status ?? "—")}</span>`;
 };
 const dot = (p) => `<span class="key" style="background:${p.color}"></span>`;
@@ -378,6 +380,20 @@ function tiles() {
   return `<div class="tiles">${items.map(([k, v]) => `<div class="tile"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>`;
 }
 
+/** Run 2's marks (docs/playtest-redesign.html §7): each against its pass, with run 1 beside it, and what changed since */
+function marksSection() {
+  if (!findings.marks?.length && !findings.sinceRun1) return "";
+  const status = (t) => pill(/pass/i.test(t) ? "pass" : /fail/i.test(t) ? "fail" : t);
+  const rows = (findings.marks ?? []).map((m) => `<tr><td><b>${esc(m.mark)}</b>${m.evidence ? `<div class="small muted">${md(m.evidence)}</div>` : ""}</td><td>${esc(m.pass ?? "")}</td><td>${esc(m.run1 ?? "")}</td><td>${esc(m.run2 ?? "")}</td><td>${status(m.status ?? "")}</td></tr>`).join("");
+  return `<section class="page">
+  <h2>The marks</h2>
+  <p>The plan's marks for run 2 (docs/playtest-redesign.html §7), measured from the server's numbers and the logs, with
+  run 1 beside them.</p>
+  ${rows ? `<div class="scroll"><table><tr><th>Mark</th><th>Pass</th><th>Run 1</th><th>Run 2</th><th></th></tr>${rows}</table></div>` : ""}
+  ${findings.sinceRun1 ? `<h3>Since run 1</h3>${md(findings.sinceRun1)}` : ""}
+</section>`;
+}
+
 // ---------------------------------------------------------------------------------------------- the page
 
 const body = `
@@ -393,6 +409,8 @@ const body = `
   ${tiles()}
   ${(findings.verdict ?? []).map((v) => `<div class="callout ${esc(v.kind ?? "")}"><strong>${esc(v.title)}</strong>${md(v.text)}</div>`).join("")}
 </section>
+
+${marksSection()}
 
 <section class="page">
   <h2>How the playtest ran</h2>

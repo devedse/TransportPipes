@@ -7,7 +7,7 @@ import path from "node:path";
 const ROOT = path.dirname(new URL(import.meta.url).pathname);
 const RUN = process.env.PLAYTEST_RUN ?? "pilot";
 const RUN_DIR = path.join(ROOT, "runs", RUN);
-const ORDER = ["ana", "ben", "cleo", "dev", "mia"];
+const ORDER = ["ana", "ben", "cleo", "dev", "mia", "mia2"];
 const lines = (file) => (existsSync(file) ? readFileSync(file, "utf8").split("\n").filter((t) => t.trim() !== "").map((t) => JSON.parse(t)) : []);
 const read = (file) => (existsSync(file) ? readFileSync(file, "utf8") : "");
 
