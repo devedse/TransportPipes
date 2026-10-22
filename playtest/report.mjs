@@ -226,7 +226,7 @@ const charts = {
   level: { title: "Company Level", unit: "", series: series("level") },
   earned: { title: "What they really earned (gold a minute, from their lifetime earnings)", unit: " g/min", series: earnedSeries() },
   gpm: { title: "What the top bar showed (hub sales, gold a minute)", unit: " g/min", series: series("goldPerMinute") },
-  neighbour: { title: "What the Yard matched to sell to neighbours (gold a minute; not all of it was paid — see the bugs)", unit: " g/min", series: series("neighbourIncome") },
+  neighbour: { title: "What the Yard matched to sell to other players (gold a minute)", unit: " g/min", series: series("neighbourIncome") },
   buildings: { title: "Buildings", unit: "", series: series("buildings") },
 };
 /**
@@ -234,7 +234,8 @@ const charts = {
  * earlier story run (story1, story2, …) beside this one; one small chart per player
  */
 const runNumber = Number(RUN.match(/^story(\d+)$/)?.[1] ?? 0);
-const RUN_SHADES = ["#c9bfae", "#8f8472"];
+// The most recent earlier run darker, the one before it lighter
+const RUN_SHADES = ["#8f8472", "#c9bfae"];
 function dailyRun(dir, id) {
   const company = JSON.parse(read(path.join(dir, id, "company.json"), "null"));
   const m = lines(path.join(dir, "metrics.jsonl"));
@@ -463,6 +464,13 @@ const body = `
 </section>
 
 ${marksSection()}
+
+${findings.chores ? `<section class="page">
+  <h2>Chores</h2>
+  <p>How much of the players' time went to upkeep (storm repair, hub-order deliveries, a full Storage, pipe fixes)
+  against growing their estates and playing together, counted from the logs.</p>
+  ${md(findings.chores)}
+</section>` : ""}
 
 <section class="page">
   <h2>How the playtest ran</h2>
