@@ -355,19 +355,37 @@ const ROLES = ["button", "link", "tab", "radio", "checkbox", "menuitem", "option
 
 async function clickLabel(player, label, nth = 1) {
   const page = player.page;
-  for (const exact of [true, false]) {
-    for (const role of ROLES) {
-      const found = page.getByRole(role, { name: label, exact });
-      const count = await found.count();
-      let seen = 0;
-      for (let i = 0; i < count; i++) {
-        const item = found.nth(i);
-        if ((await item.isVisible()) && ++seen === nth) {
-          if (!(await press(player, item))) return `Your click on the ${role} "${label}" landed on something lying over it.`;
-          return `Clicked the ${role} "${label}".`;
-        }
+  for (const role of ROLES) {
+    const found = page.getByRole(role, { name: label, exact: true });
+    const count = await found.count();
+    let seen = 0;
+    for (let i = 0; i < count; i++) {
+      const item = found.nth(i);
+      if ((await item.isVisible()) && ++seen === nth) {
+        if (!(await press(player, item))) return `Your click on the ${role} "${label}" landed on something lying over it.`;
+        return `Clicked the ${role} "${label}".`;
       }
     }
+  }
+  // No exact name: the closest one, as a person reads it ("Build" is the toolbar's "Build B", not a step's "Show me: Build
+  // a Big Factory"; run 3's row 10 clicked the step)
+  const loose = [];
+  for (const role of ROLES) {
+    const found = page.getByRole(role, { name: label, exact: false });
+    const count = await found.count();
+    for (let i = 0; i < count; i++) {
+      const item = found.nth(i);
+      if (await item.isVisible()) {
+        const name = await item.evaluate((el) => (el.getAttribute("aria-label") ?? el.textContent ?? "").trim());
+        loose.push({ role, item, length: name.length, order: loose.length });
+      }
+    }
+  }
+  loose.sort((a, b) => a.length - b.length || a.order - b.order);
+  if (loose[nth - 1] !== undefined) {
+    const { role, item } = loose[nth - 1];
+    if (!(await press(player, item))) return `Your click on the ${role} "${label}" landed on something lying over it.`;
+    return `Clicked the ${role} "${label}".`;
   }
   const text = page.getByText(label, { exact: false });
   if ((await text.count()) > 0 && (await text.first().isVisible())) {
