@@ -8,11 +8,13 @@
 //   row10-yard    day 14 19:00 + 6 h, nobody acting: incomes, what the Yard sends that nobody takes, Cleo's Lab
 //   return-d27    day 14 19:00 to day 27 02:30, nobody acting: Ana's return card names Ben's stand-in (F5)
 //   return-phone  day 36 18:00: Ben opens the game on his phone; one card, then the map in at most two taps (F5)
+//   keystone      run 3 (--from story3) from day 10 19:55 to day 22, everyone playing when the story has them play:
+//                 Capital SE's Workshop and NW's Water Tower move on instead of waiting weeks on water (after run 3, row 1)
 //   send-desktop  day 14 19:00: Dev's stuck Sand Dredger, one tap lays its pipe and sends to the Water Tower; his sand
 //   send-phone    arrives within 20 game minutes and the first gift is announced (step 4; on a desktop, on a phone)
 //                 (needs Vite on :5174 with TP_SERVER=http://localhost:5090)
 import { execSync } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
@@ -180,6 +182,28 @@ const scenarios = {
     } finally {
       await browser.close();
     }
+  },
+
+  /** Run 3's frozen projects (docs/playtest-run3-review.html, row 1): the residents play when run 3's story had them play */
+  async keystone() {
+    const S3 = { jo: 25, mia: 26, ana: 27, ben: 28, mia2: 29, cleo: 30, dev: 31 };
+    mkdirSync(path.join(ROOT, "runs", env.PLAYTEST_RUN), { recursive: true });
+    writeFileSync(path.join(ROOT, "runs", env.PLAYTEST_RUN, "story.json"), readFileSync(path.join(ROOT, "runs", from, "story.json")));
+    console.log(director("restore", "row09"));
+    const sessions = [[10, "20:00", ["cleo", "dev", "jo"]], [14, "19:00", ["ana", "cleo", "dev", "jo"]], [15, "21:00", ["mia", "mia2", "jo"]], [21, "19:00", ["ana", "cleo", "dev", "jo"]]];
+    const stage = (c) => `${c.projectStage} [${(c.projectFinished ?? []).join(", ")}] ${JSON.stringify(c.projectBasket)}`;
+    const seen = [];
+    for (const [day, time, who] of [...sessions, [22, "20:00", []]]) {
+      console.log(director("goto", day, time));
+      for (const id of who) await api("POST", `seen/${S3[id]}`);
+      const c = await companies();
+      seen.push({ day, se: c[S3.ana], nw: c[S3.mia] });
+      console.log(`day ${day} ${time}  SE: ${stage(c[S3.ana])}\n            NW: ${stage(c[S3.mia])}\n            SE says: ${c[S3.ana].week}`);
+    }
+    const end = seen.at(-1);
+    check("Capital SE's Workshop doesn't wait on water to day 22", !(end.se.projectStage === "Workshop" && "water*" in (end.se.projectBasket ?? {})), stage(end.se));
+    check("Capital SE stands past the Workshop by day 22", (end.se.projectFinished ?? []).includes("Workshop"), stage(end.se));
+    check("Capital NW's Water Tower doesn't wait on water to day 22", !(end.nw.projectStage === "WaterTower" && "water*" in (end.nw.projectBasket ?? {})), stage(end.nw));
   },
 
   /** Every middle-game Yard bug at once: six hours of nobody acting from day 14 19:00 (A2 row10, step 1) */

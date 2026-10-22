@@ -234,6 +234,136 @@ public class ProjectFacts
         Assert.AreEqual(ProjectStage.WaterTower, project.Stage, "the energy still has to come");
     }
 
+    /// <summary>Ana and Ben at the Water Tower, its energy (a million) still to come and a keystone nobody makes yet: coal</summary>
+    private static (TestGame Game, Company Ana, Company Ben, StationProject Project) WaitingOnCoal(double energyLeft = 1_000_000)
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        game.World.ProjectsEnabled = true;
+        var ana = game.NewCompany("Ana", level: 3);
+        var ben = game.NewCompany("Ben", level: 3);
+        foreach (var company in new[] { ana, ben })
+        {
+            game.ConnectToGate(company, game.Build(company, "windMoily"));
+            company.MeasuredIncome = 100;
+        }
+        game.Pass(3);
+        var station = game.EstateOf(ana).Station;
+        var project = game.World.ProjectOf(station);
+        project.DeliveredAt[ana.Id] = game.World.Now;
+        project.DeliveredAt[ben.Id] = game.World.Now;
+        game.World.FinishStageNow(station);
+        project.Basket = new Dictionary<string, double> { ["energy"] = 1_000_000, ["coal"] = 500 };
+        project.Delivered = new Dictionary<string, double> { ["energy"] = 1_000_000 - energyLeft };
+        project.Keystone = "coal";
+        project.KeystoneSince = game.World.Now;
+        project.KeystoneSeen.Clear();
+        project.KeystoneMarks.Clear();
+        // Both were playing when coal was chosen
+        foreach (var company in new[] { ana, ben })
+        {
+            company.SessionStartedAt = game.World.Now.AddMinutes(-30);
+        }
+        game.Pass(1);
+        ana.LastSeenAt = ben.LastSeenAt = game.World.Now;
+        return (game, ana, ben, project);
+    }
+
+    /// <summary>Passes days in six-hour steps, both playing once a day, with something happening at each step</summary>
+    private static void Days(TestGame game, double days, Company[] playing, Action? step = null)
+    {
+        for (var i = 0; i < (int)Math.Round(days * 4); i++)
+        {
+            if (i % 4 == 0)
+            {
+                foreach (var company in playing)
+                {
+                    company.LastSeenAt = company.SessionStartedAt = game.World.Now;
+                }
+            }
+            step?.Invoke();
+            game.Pass(6 * 60);
+        }
+    }
+
+    [TestMethod]
+    public void AHousesQuarterOfAKeystoneDoesntHoldTheStage()
+    {
+        // Run 3: Capital SE's Workshop waited 27 days at 96% on water: a House had brought its quarter (1,800 of 7,200),
+        // and the old rule passed a keystone over only when nothing at all had come
+        var (game, ana, ben, project) = WaitingOnCoal();
+        project.Delivered["coal"] = 125;
+        project.Delivered["house:coal"] = 125;
+
+        Days(game, 3, [ana, ben]);
+
+        CollectionAssert.Contains(project.PassedKeystones.ToList(), "coal", "a House's delivery is not the players'");
+        Assert.IsFalse(project.Basket.ContainsKey("coal"));
+        Assert.AreEqual(125, project.Delivered["coal"], "what came stays paid and counted");
+    }
+
+    [TestMethod]
+    public void ATrickleDoesntHoldTheStage()
+    {
+        // Ben's Send moved 0.6 a minute into the Water Tower (run 3, ben d02-0800 #70): a trickle that would take weeks
+        var (game, ana, ben, project) = WaitingOnCoal();
+
+        Days(game, 3, [ana, ben], () => project.Delivered["coal"] = project.Delivered.GetValueOrDefault("coal") + 1);
+
+        CollectionAssert.Contains(project.PassedKeystones.ToList(), "coal");
+    }
+
+    [TestMethod]
+    public void AKeystoneComingInAtPaceStays()
+    {
+        var (game, ana, ben, project) = WaitingOnCoal();
+
+        // 40 every six hours: the 500 are in within four days
+        Days(game, 2.5, [ana, ben], () => project.Delivered["coal"] = project.Delivered.GetValueOrDefault("coal") + 40);
+
+        Assert.AreEqual("coal", project.Keystone, "on pace: it stays");
+        Assert.IsNull(game.World.KeystonePassesAt(project), "and the line shows no deadline");
+        Assert.IsEmpty(project.PassedKeystones);
+    }
+
+    [TestMethod]
+    public void AKeystonesClockWaitsTillEveryActiveResidentHasPlayed()
+    {
+        // The plain rule would decide while friends are away: Ben, still counted, hasn't played since coal was chosen
+        var (game, ana, ben, project) = WaitingOnCoal();
+        ben.LastSeenAt = ben.SessionStartedAt = game.World.Now.AddHours(-12);
+
+        Days(game, 2.25, [ana]);
+
+        Assert.AreEqual("coal", project.Keystone, "Ben hasn't seen it yet");
+        Assert.IsNull(game.World.KeystoneClockStart(project));
+
+        ben.LastSeenAt = ben.SessionStartedAt = game.World.Now;
+        var benPlayed = game.World.Now;
+        game.Pass(30);
+        Assert.AreEqual(benPlayed, game.World.KeystoneClockStart(project), "its clock starts when the last of them has played");
+        Assert.AreEqual(benPlayed.AddDays(2), game.World.KeystonePassesAt(project), "and the line can say when it goes");
+
+        Days(game, 1.5, [ana, ben]);
+        Assert.AreEqual("coal", project.Keystone, "two days from Ben's session, not from the choice");
+
+        Days(game, 1, [ana, ben]);
+        CollectionAssert.Contains(project.PassedKeystones.ToList(), "coal");
+    }
+
+    [TestMethod]
+    public void AfterTwoKeystonesTheStageStandsOnItsOtherGoods()
+    {
+        var (game, ana, ben, project) = WaitingOnCoal(energyLeft: 0);
+        game.World.TakeChanges();
+
+        Days(game, 6, [ana, ben]);
+
+        Assert.IsTrue(project.Finished.ContainsKey(ProjectStage.WaterTower), $"the Water Tower stands on its energy (passed: {string.Join(", ", project.PassedKeystones)})");
+        var events = game.World.TakeChanges().Events;
+        Assert.IsTrue(events.Any(t => t.Company == ana.Id && t.Text.Contains("Water Tower stopped waiting on coal (none came for 2 days)")), string.Join(" | ", events.Select(t => t.Text)));
+        Assert.IsTrue(events.Any(t => t.Company == ben.Id && t.Text.Contains("stopped waiting on coal")), "every resident hears it");
+    }
+
     [TestMethod]
     public void EveryoneWithSpareHelpsAtOnce()
     {

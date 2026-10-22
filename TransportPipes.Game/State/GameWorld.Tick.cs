@@ -89,6 +89,10 @@ public sealed partial class GameWorld
                 UpdateMarkets();
                 UpdateTailwinds();
                 RunManagers();
+                if (ProjectsEnabled)
+                {
+                    CheckKeystones();
+                }
             }));
         }
         for (var at = NextDay(LastTick); at <= now; at = NextDay(at))

@@ -31,9 +31,22 @@ public sealed class StationProject : Entity
     public Dictionary<string, double> Delivered { get; set; } = new();
     public string? Keystone { get; set; }
 
-    /// <summary>Since when the keystone is wanted, and the keystones this stage passed over because nobody brought any</summary>
+    /// <summary>Since when the keystone is wanted, and the keystones this stage passed over (they don't come back in it)</summary>
     public DateTime KeystoneSince { get; set; }
     public HashSet<string> PassedKeystones { get; set; } = new();
+
+    /// <summary>When each resident first played after the keystone was chosen (its clock starts once every active one has)</summary>
+    public Dictionary<long, DateTime> KeystoneSeen { get; set; } = new();
+
+    /// <summary>The players' own deliveries of the keystone, sampled every 6 hours (its pace: a House's quarter doesn't count)</summary>
+    public List<KeystoneMark> KeystoneMarks { get; set; } = new();
+
+    /// <summary>The keystone passed over last, and when (the station's line says so for a day)</summary>
+    public string? LastPassed { get; set; }
+    public DateTime? LastPassedAt { get; set; }
+
+    /// <summary>The station keys that shared this project's Yard (a small station that leaves keeps the stages it stood with)</summary>
+    public HashSet<string> JoinedStations { get; set; } = new();
 
     /// <summary>This stage's credit per company (the gold worth it delivered, the keystone counting 20% more)</summary>
     public Dictionary<long, double> Credit { get; set; } = new();
@@ -65,6 +78,13 @@ public sealed class StationProject : Entity
     public int ShownTenths { get; set; }
 }
 
+/// <summary>What the players had delivered of a keystone at a moment</summary>
+public sealed class KeystoneMark
+{
+    public DateTime At { get; set; }
+    public double Units { get; set; }
+}
+
 public sealed partial class GameWorld
 {
     /// <summary>The stages' bonuses for every seat of the station (v1.2 §12): production, and the Foundry Hall on two chains</summary>
@@ -89,8 +109,14 @@ public sealed partial class GameWorld
     /// <summary>A counted resident's part of a basket comes off after this long without a session (F4)</summary>
     private static readonly TimeSpan BasketShrinksAfter = TimeSpan.FromDays(3);
 
-    /// <summary>A keystone nobody brought any of for this long is passed over for another</summary>
+    /// <summary>
+    /// A keystone's clock: this long after every active resident has seen it, it is passed over unless the players' own
+    /// deliveries of the last this-long would bring the rest within this long again
+    /// </summary>
     private static readonly TimeSpan KeystoneStallsAfter = TimeSpan.FromDays(2);
+
+    /// <summary>After this many keystones passed over, a stage stands on its other goods</summary>
+    private const int MaxPassedKeystones = 2;
 
     /// <summary>A stage's made goods are this many hours of the station's spare of them (at least of one level-1 building)</summary>
     private static double StageHours(ProjectStage stage) => stage switch
@@ -140,21 +166,41 @@ public sealed partial class GameWorld
     /// <summary>The station's project (it starts with the Foundation the first time anybody asks)</summary>
     public StationProject ProjectOf(StationRef station)
     {
-        var corner = BigStation(station)[0];
+        var big = BigStation(station);
+        var corner = big[0];
         var key = ProjectKey(corner);
         if (!_projects.TryGetValue(key, out var project))
         {
+            // A small station that shared a Yard and left keeps the stages it stood with (run 3: Capital W began again
+            // at the Foundation on day 18 when its neighbour's held seats lapsed, and lost its Water Tower)
+            var shared = _projects.Values.FirstOrDefault(t => t.JoinedStations.Contains(key));
             project = new StationProject
             {
                 Station = key,
                 Stage = ProjectStage.Foundation,
-                StartedAt = LastTick,
+                StartedAt = shared?.StartedAt ?? LastTick,
                 StageStartedAt = LastTick,
                 Basket = FoundationBasket.ToDictionary(),
                 AllowanceAt = LastTick,
             };
             _projects[key] = project;
             Changes.Districts.Add(corner.District);
+            if (shared != null)
+            {
+                shared.JoinedStations.Remove(key);
+                shared.Touch();
+                // The stages every seat's bonus comes from (the Foundry Hall's chains and the Landmark stay where they stood)
+                project.Finished = shared.Finished.Where(t => t.Key < ProjectStage.FoundryHall).ToDictionary();
+                if (project.Finished.Count > 0)
+                {
+                    StartStage(project, project.Finished.Keys.Max() + 1);
+                }
+            }
+        }
+        foreach (var joined in big.Skip(1).Select(ProjectKey).Where(t => !project.JoinedStations.Contains(t)).ToList())
+        {
+            project.JoinedStations.Add(joined);
+            project.Touch();
         }
         return project;
     }
@@ -345,6 +391,8 @@ public sealed partial class GameWorld
         project.Basket = new Dictionary<string, double>();
         project.Keystone = null;
         project.PassedKeystones = new HashSet<string>();
+        project.KeystoneSeen = new Dictionary<long, DateTime>();
+        project.KeystoneMarks = new List<KeystoneMark>();
         project.Counted = new Dictionary<long, double>();
         if (stage is ProjectStage.Done)
         {
@@ -398,7 +446,7 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// Once a day: a counted resident who hasn't played for 3 days takes its part of what the made goods still lack with it
-    /// (baskets only shrink), and a keystone nobody active can make any more is chosen again (F4). A stage stands only by
+    /// (baskets only shrink, F4; the keystone moves on in <see cref="CheckKeystones"/>). A stage stands only by
     /// delivery: the last counted resident never takes the rest with it, and with nobody active the stage waits as it is
     /// (run 2: from day 12 stages stood by themselves while everyone was away, with empty baskets)
     /// </summary>
@@ -406,7 +454,6 @@ public sealed partial class GameWorld
     {
         foreach (var project in _projects.Values.Where(t => t.Stage is not (ProjectStage.Foundation or ProjectStage.Done)))
         {
-            var station = StationOfKey(project.Station);
             foreach (var (residentId, share) in project.Counted.ToList())
             {
                 if (Company(residentId) is { } resident && LastTick - resident.LastSeenAt < BasketShrinksAfter && !resident.Asleep || project.Counted.Count == 1)
@@ -422,37 +469,142 @@ public sealed partial class GameWorld
                 }
                 project.Touch();
             }
-            var active = CountedResidents(project);
-            if (project.Keystone is { } keystone && ProjectLacks(project, keystone) > 1e-6 && active.Count > 0)
-            {
-                var residents = active;
-                var made = residents.ToDictionary(t => t.Id, t => BuildingsOf(t.Id).Where(b => !b.UnderConstruction).SelectMany(b => Content.Building(b.Type).Out.Keys).ToHashSet());
-                // A keystone nobody brought any of for two days is passed over: a stage never waits on the one resident
-                // who could make it and doesn't (run 2: Capital NW's coal lay on Jo's land, and Jo never built a Coal Pit)
-                var since = project.KeystoneSince > project.StageStartedAt ? project.KeystoneSince : project.StageStartedAt;
-                var stalled = project.Delivered.GetValueOrDefault(keystone) < 1e-6 && LastTick - since >= KeystoneStallsAfter;
-                if (stalled || Makers(keystone, residents, StageHorizon(project.Stage), made).Count == 0)
-                {
-                    if (stalled)
-                    {
-                        project.PassedKeystones.Add(keystone);
-                    }
-                    var (_, next) = Recipe(station, project.Stage, residents, project.PassedKeystones);
-                    project.Basket.Remove(keystone);
-                    project.Keystone = next != null && !project.Basket.ContainsKey(next) ? next : null;
-                    project.KeystoneSince = LastTick;
-                    if (project.Keystone is { } chosen)
-                    {
-                        project.Basket[chosen] = Math.Ceiling(KeystoneHours * 60 * OneBuildingRate(chosen));
-                    }
-                    project.Touch();
-                    Changes.Districts.Add(station.District);
-                }
-            }
             if (project.Basket.Count > 0 && project.Basket.Keys.All(t => ProjectLacks(project, t) <= 1e-6))
             {
                 FinishStage(project);
             }
+        }
+    }
+
+    /// <summary>
+    /// Every quarter of an hour, the keystones move on (run 3: the crew's Workshop waited 27 days at 96% on water, a House's
+    /// quarter of it delivered, which kept the old "nobody brought any" rule from ever passing it over). A keystone's
+    /// clock starts once every active resident has played since it was chosen, so a stage doesn't decide for friends who
+    /// are away; two days on, it is passed over unless the players' own deliveries of the last two days would bring the
+    /// rest within two more (a House's quarter and a trickle don't hold a stage). One nobody active can make any more goes
+    /// at once. A passed keystone doesn't come back in that stage, after two the stage stands on its other goods, and
+    /// every resident hears it.
+    /// </summary>
+    private void CheckKeystones()
+    {
+        foreach (var project in _projects.Values.Where(t => t.Keystone != null && t.Stage is not (ProjectStage.Foundation or ProjectStage.Done)).ToList())
+        {
+            var keystone = project.Keystone!;
+            var active = CountedResidents(project);
+            if (ProjectLacks(project, keystone) <= 1e-6 || active.Count == 0)
+            {
+                continue;
+            }
+            var since = KeystoneWantedSince(project);
+            foreach (var resident in active.Where(t => !project.KeystoneSeen.ContainsKey(t.Id) && t.LastSeenAt > since))
+            {
+                // Played since it was chosen: from that session's start, or from the moment itself when they were playing
+                project.KeystoneSeen[resident.Id] = resident.SessionStartedAt > since ? resident.SessionStartedAt : since;
+                project.Touch();
+            }
+            if (project.KeystoneMarks.Count == 0 || LastTick - project.KeystoneMarks[^1].At >= TimeSpan.FromHours(6))
+            {
+                project.KeystoneMarks.Add(new KeystoneMark { At = LastTick, Units = PlayersDelivered(project, keystone) });
+                project.KeystoneMarks.RemoveAll(t => LastTick - t.At > KeystoneStallsAfter + TimeSpan.FromDays(1));
+                project.Touch();
+            }
+            var made = active.ToDictionary(t => t.Id, t => BuildingsOf(t.Id).Where(b => !b.UnderConstruction).SelectMany(b => Content.Building(b.Type).Out.Keys).ToHashSet());
+            if (Makers(keystone, active, StageHorizon(project.Stage), made).Count == 0)
+            {
+                PassKeystone(project, active, "nobody here can make it now");
+            }
+            else if (KeystonePassesAt(project) is { } at && at <= LastTick)
+            {
+                PassKeystone(project, active, $"none came for {KeystoneStallsAfter.TotalDays:0} days");
+            }
+        }
+    }
+
+    /// <summary>Since when a stage wants its keystone</summary>
+    private static DateTime KeystoneWantedSince(StationProject project) =>
+        project.KeystoneSince > project.StageStartedAt ? project.KeystoneSince : project.StageStartedAt;
+
+    /// <summary>What players (not Houses) delivered of a good to the stage</summary>
+    private static double PlayersDelivered(StationProject project, string good) =>
+        project.Delivered.GetValueOrDefault(good) - project.Delivered.GetValueOrDefault($"house:{good}");
+
+    /// <summary>When the keystone's clock started: once every active resident had played since it was chosen (null: not yet)</summary>
+    public DateTime? KeystoneClockStart(StationProject project)
+    {
+        var active = CountedResidents(project);
+        return project.Keystone == null || active.Count == 0 || active.Any(t => !project.KeystoneSeen.ContainsKey(t.Id))
+            ? null
+            : active.Max(t => project.KeystoneSeen[t.Id]);
+    }
+
+    /// <summary>The players' pace on the keystone over the last two days, a minute (null: too early to tell)</summary>
+    private double? KeystonePace(StationProject project)
+    {
+        if (project.Keystone is not { } keystone || project.KeystoneMarks.Count == 0)
+        {
+            return null;
+        }
+        var from = project.KeystoneMarks.LastOrDefault(t => t.At <= LastTick - KeystoneStallsAfter) ?? project.KeystoneMarks[0];
+        var minutes = (LastTick - from.At).TotalMinutes;
+        return minutes < 60 ? null : Math.Max(0, PlayersDelivered(project, keystone) - from.Units) / minutes;
+    }
+
+    /// <summary>
+    /// When the keystone will be passed over if nothing changes: two days after its clock started, unless the players'
+    /// pace brings the rest within two more days (null: its clock hasn't started, or it's on pace)
+    /// </summary>
+    public DateTime? KeystonePassesAt(StationProject project)
+    {
+        if (project.Keystone is not { } keystone || KeystoneClockStart(project) is not { } start)
+        {
+            return null;
+        }
+        var lacks = ProjectLacks(project, keystone);
+        if (lacks <= 1e-6 || KeystonePace(project) is { } pace && pace > 1e-9 && lacks / pace <= KeystoneStallsAfter.TotalMinutes)
+        {
+            return null;
+        }
+        return start + KeystoneStallsAfter;
+    }
+
+    /// <summary>The keystone is passed over: it leaves the basket (what came stays paid), the next is chosen unless two went already, and every resident hears</summary>
+    private void PassKeystone(StationProject project, List<Company> active, string reason)
+    {
+        var keystone = project.Keystone!;
+        var station = StationOfKey(project.Station);
+        project.PassedKeystones.Add(keystone);
+        project.Basket.Remove(keystone);
+        project.LastPassed = keystone;
+        project.LastPassedAt = LastTick;
+        string? next = null;
+        if (project.PassedKeystones.Count < MaxPassedKeystones)
+        {
+            (_, next) = Recipe(station, project.Stage, active, project.PassedKeystones);
+            next = next != null && !project.Basket.ContainsKey(next) ? next : null;
+        }
+        project.Keystone = next;
+        project.KeystoneSince = LastTick;
+        project.KeystoneSeen = new Dictionary<long, DateTime>();
+        project.KeystoneMarks = new List<KeystoneMark>();
+        if (next != null)
+        {
+            project.Basket[next] = Math.Ceiling(KeystoneHours * 60 * OneBuildingRate(next));
+        }
+        string Name(string good) => Content.Resources.TryGetValue(good, out var r) ? r.Name.ToLowerInvariant() : good;
+        var rest = project.Basket.Keys.Where(t => ProjectLacks(project, t) > 1e-6).Select(Name).ToList();
+        var then = next != null ? $"it wants {Name(next)} now"
+            : rest.Count == 0 ? "it stands now"
+            : $"it stands once its {(rest.Count == 1 ? rest[0] : $"{string.Join(", ", rest.Take(rest.Count - 1))} and {rest[^1]}")} {(rest.Count == 1 ? "is" : "are")} in";
+        var text = $"{WorldNames.Station(station)}'s {StageName(project.Stage)} stopped waiting on {Name(keystone)} ({reason}): {then}";
+        foreach (var resident in ProjectResidents(project))
+        {
+            Changes.Events.Add(new WorldEvent(resident.Id, WorldEventKind.Wonder, text));
+        }
+        project.Touch();
+        Changes.Districts.Add(station.District);
+        if (project.Basket.Count == 0 || project.Basket.Keys.All(t => ProjectLacks(project, t) <= 1e-6))
+        {
+            FinishStage(project);
         }
     }
 

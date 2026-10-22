@@ -159,12 +159,12 @@ public static class PlaytestEndpoints
             return new { id = jo.Id, created = true, buildings = world.BuildingsOf(jo.Id).Count() };
         }));
 
-        // A scripted player was here (it stays an active neighbour)
+        // A scripted player was here, a session of its own (it stays an active neighbour and has seen what's new)
         group.MapPost("/seen/{companyId:long}", (long companyId, WorldHost host) => host.RunAsync(world =>
         {
             if (world.Company(companyId) is { } company)
             {
-                company.LastSeenAt = world.Now;
+                company.LastSeenAt = company.SessionStartedAt = world.Now;
                 company.Touch();
             }
             return new { seen = companyId };

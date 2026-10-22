@@ -31,6 +31,36 @@ public class StrangerFacts
     }
 
     [TestMethod]
+    public void AStrangerWhoseYardSplitsKeepsTheStagesSheStoodWith()
+    {
+        // Run 3: Capital W shared Capital SW's project until its held seats lapsed (day 17); then it began again at the
+        // Foundation and lost its Water Tower, against "expansion over rebuilding"
+        var game = new TestGame();
+        game.World.TenantsEnabled = true;
+        game.World.ProjectsEnabled = true;
+        game.World.OpenNextDistrict();
+        var ana = game.NewCompany("Ana", slot: 0);
+        game.World.FoundCrew(ana.Id, "Kettle & Co.", "kettle", "#236b69", "#c9963a", 3);
+        var corner = WorldLayout.StationOf(ana.District, ana.Slot);
+        var mia = game.World.CreateCompany(99, "Mia", "#e84393", seat: game.World.SuggestSeat(Placement.Neighbours));
+        var home = WorldLayout.StationOf(mia.District, mia.Slot);
+        var shared = game.World.ProjectOf(home);
+        Assert.AreSame(game.World.ProjectOf(corner), shared, "she shares the crew's project");
+        game.World.FinishStageNow(home);
+        game.World.FinishStageNow(home);
+        Assert.AreEqual(ProjectStage.Workshop, shared.Stage);
+
+        Assert.IsTrue(game.World.LeaveCrew(ana.Id).Success);
+        CollectionAssert.DoesNotContain(game.World.BigStation(corner).ToList(), home, "her Yard is her own now");
+
+        var own = game.World.ProjectOf(home);
+        Assert.AreNotSame(shared, own);
+        CollectionAssert.AreEquivalent(new[] { ProjectStage.Foundation, ProjectStage.WaterTower }, own.Finished.Keys.ToList(), "the stages she stood with stay");
+        Assert.AreEqual(ProjectStage.Workshop, own.Stage, "and her station goes on from there");
+        Assert.AreEqual(shared.StartedAt, own.StartedAt, "the Foundry Hall opens on the same day");
+    }
+
+    [TestMethod]
     public void TheFirstComerReadsWhoComesNext()
     {
         var game = new TestGame();
