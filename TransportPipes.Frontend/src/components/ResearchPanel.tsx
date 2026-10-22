@@ -91,7 +91,14 @@ function TechCard({
               <span className="muted"> (−{Math.round((1 - cost / tech.cost) * 100)}%)</span>
             )}
           </span>
-          <span className="muted"> · {formatDuration(tech.minutes * 60)}</span>
+          <span className="muted"> · then {formatDuration(tech.minutes * 60)}</span>
+          {/* The points come first (Cleo's replay read "5 min" as the whole wait) */}
+          {status === "available" && points < cost && (company?.researchPerMinute ?? 0) > 0 && (
+            <span className="muted">
+              {" "}
+              · enough points in {formatDuration(((cost - points) / company!.researchPerMinute) * 60)}
+            </span>
+          )}
         </div>
       )}
       {status === "available" && (

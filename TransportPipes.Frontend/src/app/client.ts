@@ -908,7 +908,8 @@ export class GameClient {
       return;
     }
     if (await this.command(this.connection.placeBuilding(type, x, y), `${name} is being built`)) {
-      setState({ hintTile: null });
+      const size = state.content?.building(type)?.size ?? 1;
+      setState({ hintTile: null, justBuilt: { x, y, size, name } });
       // Keep building more of the same until the player switches tools
       void this.refreshCompany();
     }

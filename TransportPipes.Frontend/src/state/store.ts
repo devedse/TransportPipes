@@ -122,6 +122,8 @@ export interface AppState {
   plannedPartner: number | null;
   /** Where a planned pipe goes, when it isn't to a neighbour ("your Trading Post"), and what to say once it is laid */
   plannedTarget: string | null;
+  /** The building just placed (its corner and size): until the pointer leaves it, the hover tip says so, not "in the way" */
+  justBuilt: { x: number; y: number; size: number; name: string } | null;
   plannedDone: string | null;
 
   corporationOpen: boolean;
@@ -234,6 +236,7 @@ export const initialState: AppState = {
   plannedRoute: null,
   plannedPartner: null,
   plannedTarget: null,
+  justBuilt: null,
   plannedDone: null,
   corporationOpen: false,
   crewOpen: false,

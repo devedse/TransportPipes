@@ -26,6 +26,7 @@ export function HoverTip() {
   const route = useAppStore((state) => state.pipeRoute);
   const content = useAppStore((state) => state.content);
   const company = useAppStore((state) => state.company);
+  const justBuilt = useAppStore((state) => state.justBuilt);
   const world = gameClient.world;
   if (tile === null || content === null || world === null) {
     return null;
@@ -46,6 +47,16 @@ export function HoverTip() {
           .join(", ");
         const spot = definition.modifier !== "none" ? ` · this spot ×${placement.multiplier.toFixed(2)}` : "";
         text = `Click to build ${definition.name}${outputs ? ` → ${outputs}` : ""}${spot}`;
+        tone = "good";
+      } else if (
+        justBuilt !== null &&
+        tile.x >= justBuilt.x &&
+        tile.x < justBuilt.x + justBuilt.size &&
+        tile.y >= justBuilt.y &&
+        tile.y < justBuilt.y + justBuilt.size
+      ) {
+        // The pointer still rests on what it just built: not "in the way" (Cleo's replay)
+        text = `${justBuilt.name} is being built here · move to place another (Esc to stop)`;
         tone = "good";
       } else {
         text = placement.reason;

@@ -130,6 +130,8 @@ export function BuildMenu() {
                     <>
                       <div className="build-cost">
                         <span className="gold-text">{formatAmount(cost)} g</span>
+                        {/* Every copy costs more: the price is for the next one (Cleo's replay read it as an overcharge) */}
+                        {copies > 0 && <span className="muted"> for another</span>}
                         {Object.entries(definition.cost.materials).map(([resource, amount]) => (
                           <span key={resource}>
                             {" "}
