@@ -258,6 +258,20 @@ public class YardFacts
     }
 
     [TestMethod]
+    public void TheTopBarDoesntDipWhenATradeStarts()
+    {
+        // The round a trade is matched, the seller's goods leave for the gate and are paid only the round after
+        var (game, a, _, _, _) = Neighbours();
+        var alone = game.World.GoldPerMinute()[a.Id];
+        for (var minute = 0; minute < 4; minute++)
+        {
+            game.Pass(1);
+            Assert.IsTrue(game.World.GoldPerMinute()[a.Id] >= alone - 1e-6, $"minute {minute + 1}: {game.World.GoldPerMinute()[a.Id]:F2} against {alone:F2}");
+        }
+        Assert.IsTrue(game.World.StatValue(a, "yardPaid") > 0, "and the trade is paid");
+    }
+
+    [TestMethod]
     public void TheYardPanelListsOnlyWhatArrives()
     {
         var (game, a) = TradeThenTheBuyerStops(gateOnly: false);

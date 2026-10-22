@@ -323,6 +323,28 @@ public sealed partial class GameWorld
                 Add(payment.Seller.Id, payment.Gold);
             }
         }
+        // A trade the Yard just matched: the seller's goods are on their way (they leave its network now and arrive at
+        // the buyer the round after), so the rate counts them now; it would otherwise dip for a round (Ana's replay:
+        // 233 → 128 → 298 g/min)
+        foreach (var (sellerKey, terms) in _gateTerms)
+        {
+            if (Estate(sellerKey.District, sellerKey.Slot)?.OwnerId is not { } sellerId || Company(sellerId) is not { Asleep: false } seller)
+            {
+                continue;
+            }
+            foreach (var ((buyerKey, resource), matched) in terms.Matched)
+            {
+                if (Estate(buyerKey.District, buyerKey.Slot)?.OwnerId is not { } buyerId || Company(buyerId) is not { } buyer)
+                {
+                    continue;
+                }
+                var arriving = _gateTerms.GetValueOrDefault(buyerKey)?.Import.GetValueOrDefault((resource, seller.IsNpc ? 1 : 0))?.GetValueOrDefault(sellerId) ?? 0;
+                if (matched - arriving > 1e-9)
+                {
+                    Add(sellerId, (matched - arriving) * SettlementPrice(seller, buyer, resource));
+                }
+            }
+        }
         foreach (var project in _projects.Values.Where(t => t.Incoming.Count > 0))
         {
             foreach (var (sellerId, goods) in project.Incoming)
