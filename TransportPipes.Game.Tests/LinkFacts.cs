@@ -141,7 +141,7 @@ public class LinkFacts
     }
 
     [TestMethod]
-    public void AnOfferNobodyTakesIsRefundedAfterThreeDays()
+    public void AnOfferWaitsADayAfterTheOtherSidesNextSessionThenIsRefunded()
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var ana = game.NewCompany("Ana", slot: 0);
@@ -154,10 +154,32 @@ public class LinkFacts
         Assert.AreEqual(2.0 * link.Length, link.Paid, 1e-9, "grey pipe: 2 gold a tile");
         CollectionAssert.Contains(game.World.Changes.Events.Where(t => t.Company == ana.Id).Select(t => t.Kind).ToList(), WorldEventKind.Link);
 
+        // F11: Ana hasn't played since: the offer waits for her
         game.Pass(73 * 60);
+        Assert.IsNotNull(game.World.Link(link.Id), "it waits for Ana's next session");
+
+        ana.LastSeenAt = game.World.Now;
+        game.Pass(23 * 60);
+        Assert.IsNotNull(game.World.Link(link.Id), "a day to answer");
+        game.Pass(2 * 60);
 
         Assert.IsNull(game.World.Link(link.Id));
         Assert.AreEqual(gold, dee.Gold, 1e-6, "refunded");
+    }
+
+    [TestMethod]
+    public void AnOfferToSomeoneWhoNeverComesLapsesInTwoWeeks()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var ana = game.NewCompany("Ana", slot: 0);
+        var dee = game.NewCompany("Dee", slot: 8);
+        var (_, link) = game.World.OfferLink(dee.Id, ana.Id, "coal", selling: false);
+        ana.LastSeenAt = game.World.Now - TimeSpan.FromDays(1);
+
+        game.Pass(13 * 24 * 60);
+        Assert.IsNotNull(game.World.Link(link!.Id));
+        game.Pass(24 * 60 + 5);
+        Assert.IsNull(game.World.Link(link.Id), "at most two weeks");
     }
 
     [TestMethod]

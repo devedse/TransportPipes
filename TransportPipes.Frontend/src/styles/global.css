@@ -1547,9 +1547,33 @@ kbd {
   top: var(--hud-top, 82px);
   left: 50%;
   translate: -50% 0;
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+}
+
+.overlay-chips {
   display: flex;
   gap: 5px;
-  padding: 6px;
+}
+
+/* Wind and Sun: what the colours mean (F10) */
+.overlay-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.overlay-legend .legend-bar {
+  flex: 1;
+  min-width: 60px;
+  height: 8px;
+  border-radius: 4px;
+}
+
+.app:has(.overlay-legend) .event-bar {
+  top: calc(var(--hud-top, 82px) + 76px);
 }
 
 .pipe-tiers {
@@ -2643,6 +2667,35 @@ button.liked {
   align-items: center;
 }
 
+/* Day stamps and "new since you left" (F10) */
+.chat-day,
+.chat-new {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 2px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.chat-day::before,
+.chat-day::after,
+.chat-new::before,
+.chat-new::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.3;
+}
+
+.chat-new {
+  color: var(--accent);
+}
+
 .chat-form input {
   margin: 0;
 }
@@ -2934,6 +2987,34 @@ button.liked {
 
 .top-company.clickable {
   cursor: pointer;
+}
+
+/* The crew's own spot in the top bar (F9) */
+.top-crew {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 220px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.top-crew .crew-banner-dot {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 1rem;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.6);
+}
+
+.top-crew-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .company-panel {
@@ -3748,6 +3829,10 @@ select option {
   .top-company {
     max-width: 120px;
     min-width: 0;
+  }
+
+  .top-crew-name {
+    display: none;
   }
 
   .company-name {
@@ -5277,16 +5362,6 @@ button.big {
 .held-seats .code {
   font-family: ui-monospace, monospace;
   letter-spacing: 0.08em;
-}
-
-button.crew-chip {
-  border: none;
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
-  margin-left: 6px;
-  padding: 0 8px;
-  border-radius: 999px;
-  cursor: pointer;
 }
 
 .keep-link {

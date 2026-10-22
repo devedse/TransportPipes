@@ -44,16 +44,23 @@ public sealed partial class GameWorld
         "Old Ned", "Mother Rook", "Sir Barnaby", "Cousin Ottilie",
     ];
 
-    /// <summary>A stand-in takes over: what the sleeper's gate traded now (its Yard flows and its links)</summary>
+    /// <summary>
+    /// A stand-in takes over: what the sleeper's partners actually took from it and what its buildings took (F9: not
+    /// what was matched, which a buyer that couldn't use it froze into the stand-in), in the Yard and over its links
+    /// </summary>
     private StandIn NewStandIn(Company company)
     {
         var sells = new Dictionary<string, double>();
         var buys = new Dictionary<string, double>();
-        if (EstateOf(company) is { } estate && GateNetwork(estate) is { } network)
+        if (EstateOf(company) is { } estate)
         {
-            foreach (var flow in network.GateFlows.Where(t => t.Estate == KeyOf(estate)))
+            foreach (var trade in YardTrades(estate))
             {
-                Add(flow.Import ? buys : sells, flow.Resource, flow.Import ? flow.Sent : flow.Delivered);
+                Add(trade.Selling ? sells : buys, trade.Resource, trade.PerMinute);
+            }
+            foreach (var link in LinksOf(company.Id).Where(t => t.State == LinkState.Active && t.Rate > 1e-9))
+            {
+                Add(link.Seller == company.Id ? sells : buys, link.Resource, link.Rate);
             }
         }
         return new StandIn

@@ -153,5 +153,30 @@ public class ResearchFacts
         game.World.FinishResearch(company.Id);
         Assert.AreEqual(before + GameWorld.MasteryBonus, game.World.OutputBonus(company, moily, "energy"), 1e-9);
     }
-}
 
+    [TestMethod]
+    public void TheQueueStartsEachTechByItselfInOrder()
+    {
+        // F11: a research queue of five
+        var game = new TestGame();
+        var company = game.NewCompany(level: 5);
+        company.ResearchPoints = 600;
+        Assert.IsTrue(game.World.QueueResearch(company.Id, "oreWashing", true).Success);
+        Assert.AreEqual("oreWashing", company.CurrentResearch, "the Labs were free: it starts at once");
+        Assert.IsTrue(game.World.QueueResearch(company.Id, "doubleFurnace", true).Success);
+        Assert.IsTrue(game.World.QueueResearch(company.Id, "betterBearings", true).Success);
+        CollectionAssert.AreEqual(new[] { "doubleFurnace", "betterBearings" }, company.ResearchQueue.ToArray());
+
+        game.Pass(11);
+        Assert.IsTrue(company.Researched.Contains("oreWashing"));
+        Assert.AreEqual("doubleFurnace", company.CurrentResearch, "the next starts by itself, once its prerequisite is done");
+
+        foreach (var tech in new[] { "solarTracking", "hydroWheel", "copperPipes", "valves" })
+        {
+            game.World.QueueResearch(company.Id, tech, true);
+        }
+        StringAssert.Contains(game.World.QueueResearch(company.Id, "bigFactory", true).Error, "5");
+        Assert.IsTrue(game.World.QueueResearch(company.Id, "valves", false).Success);
+        Assert.HasCount(4, company.ResearchQueue);
+    }
+}

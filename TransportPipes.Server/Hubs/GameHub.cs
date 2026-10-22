@@ -115,6 +115,7 @@ public sealed class GameHub : Hub<IGameClient>
             }
             // The return card (F5): what happened since the last session (from before the company wakes and its next report starts)
             var away = new GameViews.AwayFacts(world.Now - company.LastSeenAt, company.Report, company.StandIn?.Name, company.Asleep, company.Asleep && company.Packed != null);
+            var leftAt = company.LastSeenAt;
             var hasCard = world.Now - company.Report.Since >= ReportAfter;
             if (hasCard)
             {
@@ -127,7 +128,7 @@ public sealed class GameHub : Hub<IGameClient>
             // Back from sleep (in place, or from the Quiet Isles)
             world.WakeUp(company);
             world.EnsureOrders(company);
-            return (Hello: new HelloDto(user, CompanyView(world, company), null, world.Now, world.Era, 0), Away: hasCard ? away : null, Company: company, Crew: world.CrewOf(company) != null);
+            return (Hello: new HelloDto(user, CompanyView(world, company), null, world.Now, world.Era, 0, leftAt), Away: hasCard ? away : null, Company: company, Crew: world.CrewOf(company) != null);
         });
         var hello = start.Hello;
         if (start is { Away: { } facts, Company: { } me })
@@ -379,6 +380,10 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<CommandResultDto> StartResearch(string tech) =>
         Command((world, company) => world.StartResearch(company, tech));
+
+    /// <summary>The research queue (F11): up to five techs that start by themselves, in order</summary>
+    public Task<CommandResultDto> QueueResearch(string tech, bool queued) =>
+        Command((world, company) => world.QueueResearch(company, tech, queued));
 
     public Task<MarketDto?> GetMarket() =>
         _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Market(world, company) : null, changesWorld: false);

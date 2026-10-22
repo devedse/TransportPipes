@@ -89,7 +89,7 @@ public static partial class GameViews
         }
         if (report.TendedDays > 0)
         {
-            Add(4, "people", "💛", $"Your crew tended your estate on {Days(report.TendedDays)}");
+            Add(4, "people", "💛", $"Your crew repaired your storm damage on {Days(report.TendedDays)}");
         }
 
         // To look at
@@ -118,6 +118,17 @@ public static partial class GameViews
         if (world.FullStorages(me.Id).FirstOrDefault() is { } full)
         {
             Add(6, "look", "🛢", $"Your {Kind(full)} is full: what comes now waits", "show", full.Id);
+        }
+
+        // Link offers that waited for you (F11)
+        var offers = world.LinksOf(me.Id).Where(t => t.State == LinkState.Offered && t.OfferedBy != me.Id).ToList();
+        if (offers.FirstOrDefault() is { } linkOffer && world.Company(linkOffer.OfferedBy) is { } offerer)
+        {
+            var good = world.GoodsWord(linkOffer.Resource);
+            Add(2, "look", "🔗", offers.Count == 1
+                    ? $"{world.NameFor(offerer, me)} offers a link: {(linkOffer.Seller == me.Id ? $"your {good} to them" : $"their {good} to you")}"
+                    : $"{offers.Count} link offers wait for you, {world.NameFor(offerer, me)}'s first",
+                "links");
         }
 
         // The project

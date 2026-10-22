@@ -87,11 +87,11 @@ public class TutorialFacts
         Assert.IsTrue(game.World.Upgrade(company.Id, panel.Id, 1).Success);
         game.Pass(2);
 
-        Assert.AreEqual("firstMine", game.World.CurrentTutorialStep(company)!.Id, "the kit's moilies and its gate pipe do steps 4 and 5");
+        Assert.AreEqual("firstMine", game.World.CurrentTutorialStep(company)!.Id, "the kit's moilies and its gate pipe do steps 4 and 5 (and the gift step passes on a world without projects)");
         var loady = game.World.TakeChanges().Events.Where(t => t.Company == company.Id && t.Text.StartsWith("Loady")).Select(t => t.Text).ToList();
         // The upgrade and the two steps the kit did come in the same check: one thank-you for all three
         Assert.HasCount(1, loady, string.Join(" | ", loady));
-        StringAssert.Contains(loady[0], "starter kit already did steps 3–5");
+        StringAssert.Contains(loady[0], "starter kit already did steps 3–6");
     }
 
     [TestMethod]
@@ -116,7 +116,7 @@ public class TutorialFacts
         var tutorial = game.World.Content.Tutorial;
         var firstOfTwo = tutorial.First(t => t.Chapter == 2);
 
-        Assert.AreEqual(11, tutorial.Count(t => t.Chapter == 1), "chapter 1 is as it was");
+        Assert.AreEqual(12, tutorial.Count(t => t.Chapter == 1), "chapter 1, with Loady's gift step (step 4 of the redesign)");
         Assert.AreEqual(8, tutorial.Count(t => t.Chapter == 2));
         Assert.AreEqual((2, 1, 8), game.World.TutorialChapter(firstOfTwo));
         Assert.IsTrue(tutorial.SkipWhile(t => t.Chapter == 1).All(t => t.Chapter == 2), "chapter 2 comes after chapter 1");

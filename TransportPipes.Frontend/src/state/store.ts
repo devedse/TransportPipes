@@ -87,6 +87,8 @@ export interface AppState {
   project: ProjectDto | null;
   /** The return card (F5): what happened since the last session, until the player continues */
   returnCard: ReturnCardDto | null;
+  /** When the player last left (the chat marks what came since) */
+  leftAt: string | null;
   links: LinksDto | null;
   /** Every link on the map, and the one the Links tab points at */
   mapLinks: MapLinkDto[];
@@ -206,6 +208,7 @@ export const initialState: AppState = {
   yardTab: "yard",
   project: null,
   returnCard: null,
+  leftAt: null,
   links: null,
   mapLinks: [],
   focusLink: null,

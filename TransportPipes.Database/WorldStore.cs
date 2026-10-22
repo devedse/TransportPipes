@@ -137,6 +137,7 @@ public sealed class WorldStore
                 XpLog = settings.XpLog,
                 Researched = settings.Researched,
                 CurrentResearch = settings.CurrentResearch,
+                ResearchQueue = settings.ResearchQueue ?? new List<string>(),
                 ResearchEndsAt = settings.ResearchEndsAt,
                 ContractScore = settings.ContractScore,
                 ContractsCompleted = settings.ContractsCompleted,
@@ -448,6 +449,7 @@ public sealed class WorldStore
                     BuiltTypes = company.BuiltTypes,
                     XpLog = company.XpLog,
                     Researched = company.Researched,
+                    ResearchQueue = company.ResearchQueue,
                     CurrentResearch = company.CurrentResearch,
                     ResearchEndsAt = company.ResearchEndsAt,
                     ContractScore = company.ContractScore,
@@ -803,6 +805,7 @@ public sealed class WorldStore
         public HashSet<string> BuiltTypes { get; init; } = new();
         public Dictionary<string, Dictionary<string, double>> XpLog { get; init; } = new();
         public HashSet<string> Researched { get; init; } = new();
+        public List<string>? ResearchQueue { get; init; }
         public string? CurrentResearch { get; init; }
         public DateTime? ResearchEndsAt { get; init; }
         public double ContractScore { get; init; } = 1;

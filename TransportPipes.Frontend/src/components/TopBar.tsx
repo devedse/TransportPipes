@@ -63,21 +63,6 @@ export function TopBar() {
         <div>
           <div className="company-name">
             {company.name}
-            {company.crew !== null && (
-              <button
-                className="crew-chip small-tag"
-                title="Your crew"
-                style={{
-                  background: `linear-gradient(90deg, ${company.crew.color} 50%, ${company.crew.color2} 50%)`,
-                }}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  void gameClient.openCrew();
-                }}
-              >
-                {emblemIcon(company.crew.emblem)} {company.crew.name}
-              </button>
-            )}
             {company.corporationTag !== null && (
               <button
                 className="corp-tag small-tag"
@@ -117,6 +102,25 @@ export function TopBar() {
           </div>
         </div>
       </div>
+
+      {/* F9: the crew where people look, its own spot (it was clipped inside the company's name) */}
+      {company.crew !== null && (
+        <button
+          className="panel top-crew"
+          title={`Your crew: ${company.crew.name} · ${company.crew.members} ${company.crew.members === 1 ? "member" : "members"}`}
+          onClick={() => void gameClient.openCrew()}
+        >
+          <span
+            className="crew-banner-dot"
+            style={{
+              background: `linear-gradient(90deg, ${company.crew.color} 50%, ${company.crew.color2} 50%)`,
+            }}
+          >
+            {emblemIcon(company.crew.emblem)}
+          </span>
+          <span className="top-crew-name">{company.crew.name}</span>
+        </button>
+      )}
 
       <div className="panel top-gold" title="Gold: sales to the hub and to neighbours, minus what you buy">
         <span className="gold-coin" />

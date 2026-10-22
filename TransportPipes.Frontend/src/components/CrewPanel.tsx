@@ -124,7 +124,12 @@ function FriendSeat({ hold, crewName, now }: { hold: HeldSeatDto; crewName: stri
         >
           {saved === "" ? "Send" : `Send to ${saved}`}
         </button>
-        <button onClick={() => void copy(link)}>Copy {whose}link</button>
+        <button
+          onClick={() => void copy(link)}
+          aria-label={`Copy ${whose === "" ? `the link of seat ${hold.code}` : `${saved}'s link`}`}
+        >
+          Copy {whose}link
+        </button>
         <button
           className="link small"
           onClick={() => void gameClient.crewCommand(gameClient.connection.releaseHold(hold.code))}
@@ -293,15 +298,15 @@ export function CrewPanel() {
                     {m.canTend && (
                       <button
                         className="small"
-                        title="A favour while they're away: they'll read on how many days their crew tended it (never who)"
+                        title="A chore while they're away: their estate pays the repair, and they'll read their crew tended it (never who)"
                         onClick={() =>
                           void gameClient.crewCommand(
                             gameClient.connection.tend(m.id),
-                            `You tended ${m.name}'s estate`,
+                            `You repaired ${m.name}'s storm damage`,
                           )
                         }
                       >
-                        💛 Tend
+                        {m.tendLabel ?? "💛 Tend"}
                       </button>
                     )}
                   </li>

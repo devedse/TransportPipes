@@ -43,6 +43,8 @@ public sealed partial class GameWorld
         "maxLevel" => BuildingsOf(company.Id).Where(t => Content.Building(t.Type).Kind != BuildingKind.Hq).Select(t => t.Level).DefaultIfEmpty(0).Max(),
         // Gold a minute neighbours pay now (trades and contracts)
         "neighbourIncome" => NeighbourIncome(company),
+        // Its Sends (Loady's gift step); without projects the step is done by itself
+        "sends" => ProjectsEnabled ? company.Sends.Count + company.ProjectFirst.Count : 1,
         _ => company.Stats.GetValueOrDefault(stat),
     };
 

@@ -71,6 +71,9 @@ public sealed class Company : Entity
 
     /// <summary>The tech being researched now, and when it is done</summary>
     public string? CurrentResearch { get; set; }
+
+    /// <summary>The techs to research next, in order (F11: at most five); each starts when the last is done and the points are there</summary>
+    public List<string> ResearchQueue { get; set; } = new();
     public DateTime? ResearchEndsAt { get; set; }
 
     /// <summary>The crew this company is in (v1.2 §6), and when it last left one (an extra free move once a month)</summary>

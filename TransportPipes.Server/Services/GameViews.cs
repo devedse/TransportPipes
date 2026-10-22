@@ -107,7 +107,8 @@ public static partial class GameViews
             company.LoneCard,
             company.League,
             Week(world, company),
-            Land(world, company));
+            Land(world, company),
+            company.ResearchQueue.ToList());
     }
 
     /// <summary>Dealt land (step 5): the goods your seat holds, and who in your station holds the others (null on old land)</summary>
@@ -1252,6 +1253,17 @@ public static partial class GameViews
             hold.For, hold.For is { } member ? world.Company(member)?.Name : null, WorldNames.Station(WorldLayout.StationOf(hold.Seat.District, hold.Seat.Slot)), hold.FriendName);
     }
 
+    /// <summary>"💛 Tend: repair Ben's 2 storm-damaged Wind Moilies" (F9: a tend that does a chore)</summary>
+    private static string TendLabel(GameWorld world, Company friend, Company me)
+    {
+        var repairs = world.TendRepairs(friend);
+        var kinds = repairs.GroupBy(t => world.Content.Building(t.Type).Name).ToList();
+        var what = kinds.Count == 1
+            ? repairs.Count == 1 ? kinds[0].Key : $"{repairs.Count} {kinds[0].Key}s"
+            : $"{repairs.Count} buildings";
+        return $"💛 Tend: repair {world.NameFor(friend, me)}'s storm-damaged {what}";
+    }
+
     public static CrewViewDto Crew(GameWorld world, Company me)
     {
         if (world.CrewOf(me) is not { } crew)
@@ -1261,7 +1273,8 @@ public static partial class GameViews
         CrewMemberDto Member(Company t) =>
             new(t.Id, world.NameFor(t, me), t.Color, t.Level, t.Id == me.Id ? null : t.Asleep ? "asleep" : ActivityBucket(world, t),
                 world.EstateOf(t) is { } estate ? WorldNames.Station(estate.Station) : t.Asleep ? "the Quiet Isles" : "on the way", t.Slot, t.Id == me.Id,
-                world.CanTend(me, t), world.Tended(t), t.Asleep);
+                world.CanTend(me, t), world.Tended(t), t.Asleep,
+                world.CanTend(me, t) ? TendLabel(world, t, me) : null);
         var home = world.EstateOf(me)?.Station;
         var closed = home is { } station && !world.StationOpenToStrangers(station);
         return new CrewViewDto(new CrewDto(
@@ -1306,7 +1319,7 @@ public static partial class GameViews
         var tankTime = link.Need > 1e-9 && tank > 1e-6 ? Span(TimeSpan.FromMinutes(tank / link.Need)) : null;
         if (link.State == LinkState.Offered)
         {
-            var left = Span(link.CreatedAt + GameWorld.LinkOfferLifetime - world.Now);
+            var left = Span(world.OfferLapsesAt(link) - world.Now);
             return link.OfferedBy == me.Id
                 ? ("info", $"Waiting for {name} to accept (the offer stays {left} more; the pipe is refunded if they don't)")
                 : ("info", selling ? $"{name} would like to buy your {good} at {price:0.##} g: accept to start" : $"{name} offers you their {good} at {price:0.##} g: accept to start");
@@ -1378,7 +1391,7 @@ public static partial class GameViews
             link.NoticeEnds,
             link.NoticeBy == me.Id,
             link.State == LinkState.Paused ? link.PausedBy == me.Id || link.PausedBy == null : link.NoticeAt != null && link.NoticeBy == me.Id,
-            link.State == LinkState.Offered ? link.CreatedAt + GameWorld.LinkOfferLifetime : null,
+            link.State == LinkState.Offered ? world.OfferLapsesAt(link) : null,
             tone,
             line,
             Flat(link.Route));

@@ -20,6 +20,8 @@ function actionLabel(line: ReturnLineDto): string | null {
       return "Open";
     case "send":
       return "Send ▸";
+    case "links":
+      return "Look";
     case "show":
     case "upgrade":
       return "Show me";

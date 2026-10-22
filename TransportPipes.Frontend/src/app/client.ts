@@ -266,33 +266,62 @@ export class GameClient {
       if (t.kind === "constructionFinished" && t.building !== null) {
         this.engine?.celebrate(t.building);
       }
-      if (t.kind === "levelUp") {
-        const level = Number(/\d+/.exec(t.text)?.[0] ?? 0);
-        if (level > 0) {
-          // The celebration says it: no toast as well
-          setState({ levelUp: level });
-          sounds.levelUp();
-          return;
-        }
+      // The first screen (the plan's first evening): the level card and achievements wait until Loady's first step
+      if ((t.kind === "levelUp" || t.kind === "achievement") && this.onLoadysFirstStep()) {
+        this.waiting.push(t);
+        return;
       }
-      toast(
-        t.text,
-        t.kind === "levelUp" ||
-          t.kind === "researchFinished" ||
-          t.kind === "orderCompleted" ||
-          t.kind === "achievement" ||
-          t.kind === "wonder"
-          ? "level"
-          : "success",
-        t.kind === "constructionFinished" ? 4500 : 7000,
-      );
-      if (t.kind === "achievement" && appStore.getState().companyOpen) {
-        void this.refreshCompanyDetails();
-      }
-      if (t.building !== null && t.building === appStore.getState().selectedBuilding) {
-        void this.refreshDetails();
-      }
+      this.showToast(t);
     });
+  }
+
+  /** The overlay Loady's Show me turned on, and for which step: it turns off when the step is done (F10) */
+  private hintOverlay: { step: string; overlay: Overlay } | null = null;
+
+  /** What waits for Loady's first step to be done (level cards, achievements) */
+  private readonly waiting: ToastDto[] = [];
+
+  private onLoadysFirstStep(): boolean {
+    return appStore.getState().company?.tutorial?.step === 0;
+  }
+
+  /** What waited for Loady's first step, now that it's done */
+  private releaseWaiting() {
+    if (this.waiting.length === 0 || this.onLoadysFirstStep()) {
+      return;
+    }
+    for (const t of this.waiting.splice(0)) {
+      this.showToast(t);
+    }
+  }
+
+  private showToast(t: ToastDto) {
+    if (t.kind === "levelUp") {
+      const level = Number(/\d+/.exec(t.text)?.[0] ?? 0);
+      if (level > 0) {
+        // The celebration says it: no toast as well
+        setState({ levelUp: level });
+        sounds.levelUp();
+        return;
+      }
+    }
+    toast(
+      t.text,
+      t.kind === "levelUp" ||
+        t.kind === "researchFinished" ||
+        t.kind === "orderCompleted" ||
+        t.kind === "achievement" ||
+        t.kind === "wonder"
+        ? "level"
+        : "success",
+      t.kind === "constructionFinished" ? 4500 : 7000,
+    );
+    if (t.kind === "achievement" && appStore.getState().companyOpen) {
+      void this.refreshCompanyDetails();
+    }
+    if (t.building !== null && t.building === appStore.getState().selectedBuilding) {
+      void this.refreshDetails();
+    }
   }
 
   private async hello() {
@@ -302,6 +331,7 @@ export class GameClient {
       era: hello.era,
       serverOffsetMs: new Date(hello.serverTime).getTime() - Date.now(),
       returnCard: hello.card,
+      leftAt: hello.leftAt,
       unread: hello.unread,
     });
     if (hello.company === null) {
@@ -325,6 +355,13 @@ export class GameClient {
     }
     const previous = appStore.getState().company;
     setState({ company, companyAt: Date.now(), era: company.era });
+    this.releaseWaiting();
+    if (this.hintOverlay !== null && company.tutorial?.id !== this.hintOverlay.step) {
+      if (appStore.getState().overlay === this.hintOverlay.overlay) {
+        setState({ overlay: "none" });
+      }
+      this.hintOverlay = null;
+    }
     this.world?.setDeepLevel(company.estateX, company.estateY, company.deep.parcels);
     if (company.season.endedAt !== null && previous?.season.endedAt === null) {
       // The ceremony
@@ -1424,6 +1461,7 @@ export class GameClient {
                 : null;
         if (overlay !== null) {
           setState({ overlay });
+          this.hintOverlay = { step: appStore.getState().company?.tutorial?.id ?? "", overlay };
         }
         if (step.x !== null && step.y !== null) {
           this.engine?.lookAt(step.x, step.y, 0.8);
@@ -1516,6 +1554,11 @@ export class GameClient {
     const hint = step.hint;
     if (hint.overlay !== undefined) {
       setState({ overlay: hint.overlay as Overlay });
+      this.hintOverlay = { step: step.id, overlay: hint.overlay as Overlay };
+    }
+    if (hint.panel === "project") {
+      void this.openProject();
+      return;
     }
     if (hint.panel === "yard") {
       void this.openYard();
@@ -1854,6 +1897,14 @@ export class GameClient {
     }
   }
 
+  /** The research queue (F11): a tech in or out; it starts by itself when the Labs are free and the points are there */
+  async queueResearch(tech: string, queued: boolean, name: string) {
+    await this.command(
+      this.connection.queueResearch(tech, queued),
+      queued ? `${name} is in the queue: it starts by itself` : undefined,
+    );
+  }
+
   /** 💛 Thanks: once a day per neighbour, no gold, no XP; they hear it */
   async thank(giver: number, resource: string, name: string) {
     if (await this.command(this.connection.thank(giver, resource), `💛 ${name} hears your thanks`)) {
@@ -1881,6 +1932,10 @@ export class GameClient {
       case "project":
         setState({ returnCard: null });
         await this.openProject();
+        return true;
+      case "links":
+        setState({ returnCard: null });
+        await this.openLinks();
         return true;
       default:
         return false;

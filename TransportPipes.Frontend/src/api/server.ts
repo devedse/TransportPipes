@@ -370,6 +370,8 @@ export class GameConnection {
     this.invoke<CommandResult>("SetTradeBlocked", other, blocked);
   setTradeWith = (tradeWith: string) => this.invoke<CommandResult>("SetTradeWith", tradeWith);
   startResearch = (tech: string) => this.invoke<CommandResult>("StartResearch", tech);
+  queueResearch = (tech: string, queued: boolean) =>
+    this.invoke<CommandResult>("QueueResearch", tech, queued);
   placeBuilding = (type: string, x: number, y: number) =>
     this.invoke<CommandResult>("PlaceBuilding", type, x, y);
   placePipes = (tiles: number[], tier: number) => this.invoke<CommandResult>("PlacePipes", tiles, tier);

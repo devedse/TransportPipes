@@ -67,7 +67,7 @@ function TechCard({
     progress = Math.max(0, Math.min(1, 1 - left / (tech.minutes * 60000)));
   }
   return (
-    <div className={`tech ${status}`} title={tech.description}>
+    <div className={`tech ${status}`} title={tech.description} role="group" aria-label={tech.name}>
       <div className="tech-name">
         {status === "done" && "✔ "}
         {tech.name}
@@ -105,13 +105,44 @@ function TechCard({
         <button
           className="primary"
           disabled={points < cost}
+          aria-label={
+            points < cost
+              ? `${tech.name}: need ${formatAmount(cost - points)} more points`
+              : `Research ${tech.name}`
+          }
           onClick={() => void gameClient.startResearch(tech.id)}
         >
           {points < cost ? `Need ${formatAmount(cost - points)} more` : "Research"}
         </button>
       )}
       {status === "locked" && state?.reason && <div className="lock small">🔒 {state.reason}</div>}
+      {status !== "done" &&
+        status !== "researching" &&
+        company !== null &&
+        !(state?.reason ?? "").startsWith("Needs Era") && (
+          <QueueButton tech={tech} queue={company.researchQueue ?? []} />
+        )}
     </div>
+  );
+}
+
+/** Puts a tech in the research queue or takes it out (F11: five, in order; each starts when it can) */
+function QueueButton({ tech, queue }: { tech: ResearchDefinition; queue: string[] }) {
+  const position = queue.indexOf(tech.id);
+  const queued = position >= 0;
+  return (
+    <button
+      className="link small"
+      disabled={!queued && queue.length >= 5}
+      aria-label={queued ? `Take ${tech.name} out of the queue` : `Queue ${tech.name}`}
+      onClick={() => void gameClient.queueResearch(tech.id, !queued, tech.name)}
+    >
+      {queued
+        ? `#${position + 1} in the queue · take out`
+        : queue.length >= 5
+          ? "the queue is full"
+          : "Queue it"}
+    </button>
   );
 }
 
@@ -151,6 +182,17 @@ export function ResearchPanel() {
           Labs turn energy and iron ingots into research points. Techs get cheaper the more active companies
           already have them.
         </p>
+        {(company.researchQueue?.length ?? 0) > 0 && (
+          <p className="small research-queue">
+            Next, by themselves:{" "}
+            {company.researchQueue!.map((t, i) => (
+              <span key={t}>
+                {i > 0 && " → "}
+                {content.research(t)?.name ?? t}
+              </span>
+            ))}
+          </p>
+        )}
         {company !== null && company.mastery.available && (
           <div className="mastery">
             <strong>

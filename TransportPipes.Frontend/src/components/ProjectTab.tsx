@@ -152,8 +152,8 @@ export function ProjectTab() {
                             .then(() => gameClient.refreshProject())
                         }
                       />
-                      My spare {content.resourceName(good.resource).toLowerCase()} goes here before my
-                      neighbours
+                      Send ▸ my spare {content.resourceName(good.resource).toLowerCase()} here first (what my
+                      neighbours already take stays theirs)
                     </label>
                   )}
                 </li>

@@ -90,22 +90,30 @@ public class ReturnFacts
     }
 
     [TestMethod]
-    public void TendingBanksThreeDaysAndCountsEveryDayOnce()
+    public void TendingRepairsAFriendsStormDamageAndBanksThreeDays()
     {
         var (game, ana, ben, _) = Crew();
         var cleo = game.NewCompany("Cleo");
         game.World.JoinCrew(cleo.Id, game.World.CrewOf(ana)!.InviteCode);
+        var moily = game.Build(ben, "windMoily");
         Assert.IsFalse(game.World.Tend(ana.Id, ben.Id).Success, "Ben was here today");
 
         Days(game, 2, ana, cleo);
+        Assert.IsFalse(game.World.Tend(ana.Id, ben.Id).Success, "F9: a tend shows only when it does a chore");
+        moily.Damaged = true;
+        var gold = ben.Gold;
         Assert.IsTrue(game.World.Tend(ana.Id, ben.Id).Success);
+        Assert.IsFalse(moily.Damaged, "it repairs the storm damage");
+        Assert.IsLessThan(gold, ben.Gold, "Ben's estate pays the repair, as it would");
         Assert.AreEqual(GameWorld.TendBanksDays, ben.Report.TendedDays, "it banks for three days");
+        moily.Damaged = true;
         Assert.IsFalse(game.World.Tend(ana.Id, ben.Id).Success, "once a day");
         Assert.IsTrue(game.World.Tend(cleo.Id, ben.Id).Success);
         Assert.AreEqual(GameWorld.TendBanksDays, ben.Report.TendedDays, "the same days count once");
         Assert.IsTrue(game.World.Tended(ben));
 
         Days(game, 1, ana, cleo);
+        moily.Damaged = true;
         Assert.IsTrue(game.World.Tend(ana.Id, ben.Id).Success);
         Assert.AreEqual(GameWorld.TendBanksDays + 1, ben.Report.TendedDays, "one more day");
         Assert.IsFalse(game.World.Tend(ana.Id, game.NewCompany("Stranger").Id).Success, "only crew mates");

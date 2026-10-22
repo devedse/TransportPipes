@@ -110,6 +110,62 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
+    public const int ResearchQueueLength = 5;
+
+    /// <summary>Puts a tech in the research queue (or takes it out): it starts by itself when the Labs are free and the points are there</summary>
+    public CommandResult QueueResearch(long companyId, string techId, bool queued)
+    {
+        if (Company(companyId) is not { } company || !Content.Research.TryGetValue(techId, out _))
+        {
+            return CommandResult.Fail("Unknown research.");
+        }
+        if (!queued)
+        {
+            company.ResearchQueue.Remove(techId);
+        }
+        else
+        {
+            if (company.Researched.Contains(techId) || company.CurrentResearch == techId)
+            {
+                return CommandResult.Fail("That's researched already.");
+            }
+            if (!company.ResearchQueue.Contains(techId))
+            {
+                if (company.ResearchQueue.Count >= ResearchQueueLength)
+                {
+                    return CommandResult.Fail($"The queue holds {ResearchQueueLength} techs.");
+                }
+                company.ResearchQueue.Add(techId);
+            }
+        }
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        StartQueuedResearch(company);
+        return CommandResult.Ok;
+    }
+
+    /// <summary>The Labs are free: the first queued tech that can start (its prerequisites done, its points there) starts</summary>
+    private void StartQueuedResearch(Company company)
+    {
+        if (company.CurrentResearch != null || company.ResearchQueue.Count == 0)
+        {
+            return;
+        }
+        company.ResearchQueue.RemoveAll(company.Researched.Contains);
+        foreach (var techId in company.ResearchQueue.ToList())
+        {
+            if (Content.Research.TryGetValue(techId, out var tech) && ResearchBlocker(company, tech) == null)
+            {
+                if (company.ResearchPoints >= ResearchCost(company, tech) - 1e-9 && StartResearch(company.Id, techId).Success)
+                {
+                    company.ResearchQueue.Remove(techId);
+                }
+                // The first that could start waits for its points: the order is the player's
+                return;
+            }
+        }
+    }
+
     private CommandResult StartMastery(Company company)
     {
         if (!ResearchedEverything(company))
@@ -156,6 +212,7 @@ public sealed partial class GameWorld
         company.ResearchEndsAt = null;
         company.Touch();
         Changes.Companies.Add(company.Id);
+        StartQueuedResearch(company);
         if (Content.Research.TryGetValue(techId, out var tech))
         {
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ResearchFinished, $"Research done: {tech.Name}"));

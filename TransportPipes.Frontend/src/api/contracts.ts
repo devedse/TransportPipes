@@ -112,6 +112,8 @@ export interface CompanyDto {
   week: ProjectWeekDto | null;
   /** Dealt land: your seat's goods and who in your station holds the others (null on old land) */
   land: LandDto | null;
+  /** The research queue (F11): techs that start by themselves, in order */
+  researchQueue: string[] | null;
 }
 
 /** Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there */
@@ -287,6 +289,8 @@ export interface HelloDto {
   serverTime: string;
   era: number;
   unread: number;
+  /** When the player last left: the chat's "new since you left" */
+  leftAt: string | null;
 }
 
 /**
@@ -310,7 +314,7 @@ export interface ReturnLineDto {
   kind: "people" | "look" | "project" | "social" | "today" | "invest";
   icon: string;
   text: string;
-  action: "repairAll" | "show" | "project" | "upgrade" | "send" | null;
+  action: "repairAll" | "show" | "project" | "upgrade" | "send" | "links" | null;
   building: number | null;
   cost: number | null;
   /** send: whose building, which good */
@@ -1553,10 +1557,12 @@ export interface CrewMemberDto {
   station: string;
   slot: number;
   you: boolean;
-  /** You may tend their estate today (v1.2 §12) */
+  /** You may tend their estate today (v1.2 §12): only when it repairs their storm damage (F9) */
   canTend: boolean;
   tended: boolean;
   asleep: boolean;
+  /** "💛 Tend: repair Ben's storm-damaged Wind Moily" */
+  tendLabel: string | null;
 }
 
 /** An asleep crew mate's seat whose hold ends soon: keep it 60 more days? */

@@ -399,21 +399,31 @@ public sealed partial class GameWorld
     // ---------------------------------------------------------------- Tending
 
     /// <summary>Whether a crew mate may tend a friend's estate now (once a day each, only friends who are away)</summary>
+    /// <summary>A crew mate who is away can be tended when the tend does a chore: their storm-damaged buildings (F9)</summary>
     public bool CanTend(Company tender, Company friend) =>
         tender.Id != friend.Id && tender.CrewId != null && tender.CrewId == friend.CrewId && EstateOf(friend) != null
-        && LastTick - friend.LastSeenAt >= TimeSpan.FromDays(1) && friend.TendedBy.GetValueOrDefault(tender.Id) != DayNumber;
+        && LastTick - friend.LastSeenAt >= TimeSpan.FromDays(1) && friend.TendedBy.GetValueOrDefault(tender.Id) != DayNumber
+        && BuildingsOf(friend.Id).Any(t => t.Damaged);
+
+    /// <summary>What a tend would repair of a friend's estate: its storm-damaged buildings</summary>
+    public IReadOnlyList<Building> TendRepairs(Company friend) => BuildingsOf(friend.Id).Where(t => t.Damaged).ToList();
 
     private int DayNumber => (int)(LastTick - DateTime.UnixEpoch).TotalDays;
 
     /// <summary>
-    /// Tends a friend's estate (v1.2 §12): a one-tap favour once a day that banks for three days; when they come back they
-    /// read on how many days their crew tended it, never who. It carries no stat bonus, so it can't be farmed.
+    /// Tends a friend's estate (v1.2 §12, F9): a one-tap chore while they're away, the repair of their storm damage
+    /// (their estate pays it, as it would); when they come back they read on how many days their crew tended it, never
+    /// who. It carries no stat bonus and waives no fee, so it can't be farmed.
     /// </summary>
     public CommandResult Tend(long companyId, long friendId)
     {
         if (Company(companyId) is not { } tender || Company(friendId) is not { } friend || !CanTend(tender, friend))
         {
-            return CommandResult.Fail("You can tend a crew mate's estate once a day while they are away.");
+            return CommandResult.Fail("Nothing to tend: a crew mate's estate needs it once a storm damaged it while they're away.");
+        }
+        foreach (var building in TendRepairs(friend))
+        {
+            Repair(friend.Id, building.Id);
         }
         friend.TendedBy[tender.Id] = DayNumber;
         var until = LastTick.Date.AddDays(TendBanksDays);

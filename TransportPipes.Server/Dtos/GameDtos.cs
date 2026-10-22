@@ -27,8 +27,8 @@ public record CommandResultDto(bool Success, string? Error, string? Code = null)
     public static CommandResultDto Fail(string error, string? code = null) => new(false, error, code);
 }
 
-/// <summary>Everything the client needs right after connecting</summary>
-public record HelloDto(UserInfo User, CompanyDto? Company, ReturnCardDto? Card, DateTime ServerTime, int Era, int Unread);
+/// <summary>Everything the client needs right after connecting; LeftAt: when the player last left (the chat's "new since you left")</summary>
+public record HelloDto(UserInfo User, CompanyDto? Company, ReturnCardDto? Card, DateTime ServerTime, int Era, int Unread, DateTime? LeftAt = null);
 
 /// <summary>
 /// The return card (F5): one card for every return with news, built on the server's clock. Gold and level, the fine
@@ -45,7 +45,7 @@ public record ReturnCardDto(
     IReadOnlyList<LandingCardDto> Landing,
     string? Hint);
 
-/// <summary>A line of the return card: its section, and its one button (repairAll, show, project, upgrade, send: Partner's Resource) with what it costs</summary>
+/// <summary>A line of the return card: its section, and its one button (repairAll, show, project, upgrade, links, send: Partner's Resource) with what it costs</summary>
 public record ReturnLineDto(string Kind, string Icon, string Text, string? Action, long? Building, double? Cost, long? Partner = null, string? Resource = null);
 
 /// <summary>A place to land: your seat, next to your crew, a lively station, the Frontier; with the crates it would mean</summary>
@@ -115,7 +115,9 @@ public record CompanyDto(
     /// <summary>The station's project on the "This week" row (null: none, the next parcel shows)</summary>
     ProjectWeekDto? Week = null,
     /// <summary>Dealt land: your seat's goods and who in your station holds the others (null on old land)</summary>
-    LandDto? Land = null);
+    LandDto? Land = null,
+    /// <summary>The research queue (F11): techs that start by themselves, in order</summary>
+    IReadOnlyList<string>? ResearchQueue = null);
 
 /// <summary>Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there</summary>
 public record LandDto(IReadOnlyList<string> Goods, IReadOnlyList<LandSeatDto> Station);
@@ -693,7 +695,7 @@ public record DistrictRefDto(int DistrictX, int DistrictY, string Name);
 public record InviteDto(bool Valid, string? CrewName, string? Emblem, string? Color, string? Color2, string? From, StationDto? Station, int? Slot, bool SeatCode, bool NeedsApproval, string? Name, string? FriendName = null);
 
 /// <summary>A crew mate; CanTend: you may tend their estate today (v1.2 §12), Tended: someone did lately, Asleep: a stand-in runs their trades</summary>
-public record CrewMemberDto(long Id, string Name, string Color, int Level, string? Activity, string Station, int Slot, bool You, bool CanTend = false, bool Tended = false, bool Asleep = false);
+public record CrewMemberDto(long Id, string Name, string Color, int Level, string? Activity, string Station, int Slot, bool You, bool CanTend = false, bool Tended = false, bool Asleep = false, string? TendLabel = null);
 
 /// <summary>The keep card (v1.2 §10): an asleep crew mate's seat whose hold ends soon</summary>
 public record KeepCardDto(long Id, string Name, DateTime Ends);

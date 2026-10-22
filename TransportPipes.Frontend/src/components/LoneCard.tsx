@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { gameClient } from "../app/client";
 import { plural } from "../app/format";
-import type { LandingCardDto } from "../api/contracts";
+import type { LandingCardDto, LinkSuggestionDto } from "../api/contracts";
 import { useAppStore } from "../state/store";
 
 /**
@@ -12,12 +12,19 @@ export function LoneCard() {
   const show = useAppStore((s) => s.company?.loneCard ?? false);
   const returnCard = useAppStore((s) => s.returnCard);
   const [stations, setStations] = useState<LandingCardDto[] | null>(null);
+  const [link, setLink] = useState<LinkSuggestionDto | null>(null);
+  const content = useAppStore((s) => s.content);
   useEffect(() => {
     if (!show) {
       return;
     }
     let cancelled = false;
     void gameClient.connection.getLivelierStations().then((t) => !cancelled && setStations(t));
+    // F11: a link only for a real pair (they lack what you have spare, or have spare what you lack)
+    void gameClient.connection
+      .getLinks()
+      .then((t) => !cancelled && setLink(t?.suggestions[0] ?? null))
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
@@ -35,10 +42,18 @@ export function LoneCard() {
         onClick={(e) => e.stopPropagation()}
       >
         <h2>Nobody else here has played lately</h2>
-        <p className="muted">
-          Trade is better with people. These stations are lively right now and have a free seat: your whole
-          estate moves with you, for free.
-        </p>
+        {stations !== null && stations.length === 0 ? (
+          // F11: honest when there's nowhere livelier to go
+          <p className="muted">
+            No station with people playing has a free seat right now. You stay put, and the next player who
+            comes alone is seated next to you.
+          </p>
+        ) : (
+          <p className="muted">
+            Trade is better with people. These stations are lively right now and have a free seat: your whole
+            estate moves with you, for free.
+          </p>
+        )}
         {stations === null ? (
           <p className="muted">Looking…</p>
         ) : (
@@ -60,6 +75,22 @@ export function LoneCard() {
               </button>
             ))}
           </div>
+        )}
+        {link !== null && content !== null && (
+          <p className="small">
+            Or a link: <strong>{link.partnerName}</strong> in {link.station}{" "}
+            {link.youSell ? "lacks" : "has spare"} {content.resourceName(link.resource).toLowerCase()}{" "}
+            {link.youSell ? "you have spare" : "you lack"}.{" "}
+            <button
+              className="link small"
+              onClick={() => {
+                dismiss();
+                void gameClient.openLinks();
+              }}
+            >
+              Look at it
+            </button>
+          </p>
         )}
         <div className="button-row return-buttons">
           <button type="button" onClick={dismiss}>

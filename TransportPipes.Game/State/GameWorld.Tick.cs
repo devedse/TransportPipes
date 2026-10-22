@@ -371,6 +371,7 @@ public sealed partial class GameWorld
                 company.ResearchPoints += research * minutes;
                 company.Touch();
                 Changes.Companies.Add(companyId);
+                StartQueuedResearch(company);
             }
         }
 

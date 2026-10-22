@@ -13,6 +13,22 @@ function time(at: string): string {
   return new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+/** A day stamp between messages (F10): "Today", "Yesterday", "Tue 20 Oct" */
+function day(at: string, now: number): string {
+  const date = new Date(at);
+  const today = new Date(now);
+  const days = Math.round(
+    (new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() -
+      new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()) /
+      86400000,
+  );
+  return days === 0
+    ? "Today"
+    : days === 1
+      ? "Yesterday"
+      : date.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
+}
+
 function Message({ message, mine }: { message: ChatMessageDto; mine: boolean }) {
   const [menu, setMenu] = useState(false);
   return (
@@ -48,6 +64,8 @@ export function ChatPanel() {
   const messages = useAppStore((s) => (s.chatChannel === null ? undefined : s.chatMessages[s.chatChannel]));
   const unread = useAppStore((s) => s.chatUnread);
   const company = useAppStore((s) => s.company);
+  const leftAt = useAppStore((s) => s.leftAt);
+  const now = (company === null ? 0 : new Date(company.serverTime).getTime()) || 0;
   const [text, setText] = useState("");
   const list = useRef<HTMLDivElement>(null);
   const total = Object.values(unread).reduce((sum, n) => sum + n, 0);
@@ -108,9 +126,23 @@ export function ChatPanel() {
                 : "Only the two of you read this."}
           </p>
         )}
-        {messages?.map((m) => (
-          <Message key={m.id} message={m} mine={m.sender === company?.id} />
-        ))}
+        {messages?.map((m, i) => {
+          const before = messages[i - 1];
+          const newDay = before === undefined || day(before.sentAt, now) !== day(m.sentAt, now);
+          // The first message since the player last left
+          const fresh =
+            leftAt !== null &&
+            m.sender !== company?.id &&
+            new Date(m.sentAt) > new Date(leftAt) &&
+            (before === undefined || new Date(before.sentAt) <= new Date(leftAt));
+          return (
+            <div key={m.id}>
+              {newDay && <div className="chat-day">{day(m.sentAt, now)}</div>}
+              {fresh && <div className="chat-new">New since you left</div>}
+              <Message message={m} mine={m.sender === company?.id} />
+            </div>
+          );
+        })}
       </div>
       <form className="chat-form" onSubmit={(event) => void send(event)}>
         <input

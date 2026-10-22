@@ -51,6 +51,10 @@ public sealed class Link : Entity
     public int Tier { get; set; } = 1;
 
     public long OfferedBy { get; init; }
+
+    /// <summary>When the side it was offered to first played after the offer (F11: the offer waits 24 h from then)</summary>
+    public DateTime? PartnerSeenAt { get; set; }
+
     public LinkState State { get; set; }
     public DateTime CreatedAt { get; init; }
     public DateTime? AcceptedAt { get; set; }
@@ -93,7 +97,21 @@ public sealed class Link : Entity
 
 public sealed partial class GameWorld
 {
-    public static readonly TimeSpan LinkOfferLifetime = TimeSpan.FromHours(72);
+    /// <summary>F11: an offer waits until a day after the other side's next session, at most two weeks</summary>
+    public static readonly TimeSpan LinkOfferAfterSeen = TimeSpan.FromHours(24);
+    public static readonly TimeSpan LinkOfferLongest = TimeSpan.FromDays(14);
+
+    /// <summary>When an offer lapses: a day after the side it was offered to played again (at most two weeks after it was made)</summary>
+    public DateTime OfferLapsesAt(Link link)
+    {
+        if (link.PartnerSeenAt == null && Company(link.Partner(link.OfferedBy)) is { } partner && partner.LastSeenAt > link.CreatedAt)
+        {
+            link.PartnerSeenAt = partner.LastSeenAt;
+            link.Touch();
+        }
+        var longest = link.CreatedAt + LinkOfferLongest;
+        return link.PartnerSeenAt is { } seen && seen + LinkOfferAfterSeen < longest ? seen + LinkOfferAfterSeen : longest;
+    }
     public static readonly TimeSpan LinkNotice = TimeSpan.FromHours(1);
 
     /// <summary>The tank at the buyer's gate holds this many minutes of the link's flow</summary>
@@ -548,9 +566,9 @@ public sealed partial class GameWorld
     {
         foreach (var link in _links.Values.OrderBy(t => t.Id))
         {
-            if (link.State == LinkState.Offered && link.CreatedAt + LinkOfferLifetime <= to)
+            if (link.State == LinkState.Offered && OfferLapsesAt(link) is var lapses && lapses <= to)
             {
-                yield return (link.CreatedAt + LinkOfferLifetime, () => LapseOffer(link));
+                yield return (lapses, () => LapseOffer(link));
             }
             else if (link.NoticeAt is { } at && at <= to)
             {
@@ -567,7 +585,7 @@ public sealed partial class GameWorld
         }
         RemoveLink(link, refund: true);
         Changes.Events.Add(new WorldEvent(link.OfferedBy, WorldEventKind.Link,
-            $"Nobody took your {LinkName(link)} offer in three days; the pipe is refunded"));
+            $"Your {LinkName(link)} offer wasn't taken; the pipe is refunded"));
     }
 
     private void NoticeEnds(Link link)
