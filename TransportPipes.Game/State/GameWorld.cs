@@ -94,10 +94,11 @@ public sealed partial class GameWorld
     /// <summary>The gold a new company starts with (the content's value unless the server configures another)</summary>
     public double StartingGold { get; set; }
 
-    public GameWorld(GameContent content, int seed, Func<DateTime> clock)
+    /// <param name="dealtLand">The land goods are dealt per station (step 5); old worlds keep their land</param>
+    public GameWorld(GameContent content, int seed, Func<DateTime> clock, bool dealtLand = false)
     {
         Content = content;
-        Generator = new WorldGenerator(seed);
+        Generator = new WorldGenerator(seed, dealtLand);
         _clock = clock;
         LastTick = clock();
         StartingGold = content.Progression.StartingGold;
@@ -401,7 +402,14 @@ public sealed partial class GameWorld
 
         AddBuilding(company, "hq", estate.Origin.Offset(HqLocal.X, HqLocal.Y), finished: true);
         AddBuilding(company, "tradingPost", estate.Origin.Offset(TradingPostLocal.X, TradingPostLocal.Y), finished: true);
-        HandOverKit(company);
+        if (Generator.DealtLand)
+        {
+            GiveLandKit(company);
+        }
+        else
+        {
+            HandOverKit(company);
+        }
         company.BuiltTypes.Clear();
         if (held is { } joined && HoldOn(joined.Hold.Seat) is not null && KeyOf(estate) == joined.Hold.Seat && CrewMembers(joined.Crew).Count() < MaxCrewSize)
         {
@@ -595,7 +603,7 @@ public sealed partial class GameWorld
         }
         if (definition.Placement.Forest && ForestAround(pos, definition.Size) < 3)
         {
-            return CommandResult.Fail($"{definition.Name} needs a forest nearby.");
+            return CommandResult.Fail(Generator.DealtLand ? $"{definition.Name} needs the old forest nearby: its trees are marked on the Deposits map." : $"{definition.Name} needs a forest nearby.");
         }
         return CommandResult.Ok;
     }
@@ -659,7 +667,8 @@ public sealed partial class GameWorld
             for (var x = pos.X - 2; x < pos.X + size + 2; x++)
             {
                 var tile = new TilePos(x, y);
-                if (Tile(tile).Terrain == TerrainType.Forest && !_buildingAt.ContainsKey(tile))
+                // Dealt land: only the old forest's marked trees (the wood of a seat that was dealt it)
+                if (Tile(tile) is { Terrain: TerrainType.Forest } info && (!Generator.DealtLand || info.Deposit == "wood") && !_buildingAt.ContainsKey(tile))
                 {
                     count++;
                 }

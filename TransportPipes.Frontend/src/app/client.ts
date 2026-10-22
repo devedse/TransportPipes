@@ -320,6 +320,9 @@ export class GameClient {
   }
 
   private setCompany(company: CompanyDto) {
+    if (this.world !== null) {
+      this.world.dealtLand = company.land !== null;
+    }
     const previous = appStore.getState().company;
     setState({ company, companyAt: Date.now(), era: company.era });
     this.world?.setDeepLevel(company.estateX, company.estateY, company.deep.parcels);

@@ -724,6 +724,13 @@ kbd {
   color: var(--warning);
 }
 
+/* Dealt land: a good your land doesn't hold, and who in your station makes it */
+.land-line {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: normal;
+}
+
 /* ---------- Building and parcel panels ---------- */
 
 .building-panel,

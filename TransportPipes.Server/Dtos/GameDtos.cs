@@ -113,7 +113,14 @@ public record CompanyDto(
     /// <summary>The league it plays in this week (null: none)</summary>
     int? League,
     /// <summary>The station's project on the "This week" row (null: none, the next parcel shows)</summary>
-    ProjectWeekDto? Week = null);
+    ProjectWeekDto? Week = null,
+    /// <summary>Dealt land: your seat's goods and who in your station holds the others (null on old land)</summary>
+    LandDto? Land = null);
+
+/// <summary>Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there</summary>
+public record LandDto(IReadOnlyList<string> Goods, IReadOnlyList<LandSeatDto> Station);
+
+public record LandSeatDto(int Slot, string? Owner, bool House, bool You, IReadOnlyList<string> Goods);
 
 /// <summary>A company's crew as the top bar and the map show it</summary>
 public record CrewBadgeDto(long Id, string Name, string Emblem, string Color, string Color2, int Members);
@@ -230,7 +237,8 @@ public record OutpostCheckDto(string? Error, int X, int Y, double Lease, int Siz
 
 public record TerrainOverrideDto(int X, int Y, string Terrain);
 
-public record EstateDto(int Slot, int X, int Y, long? OwnerId, string? OwnerName, string? OwnerColor, int OwnerLevel, int UnlockedParcels, string Primary, string? Secondary, string? CorporationTag, string? Activity, string? ReservedFor);
+/// <summary>An estate on the map; Goods: the land goods dealt to it (step 5), House: a House lives there</summary>
+public record EstateDto(int Slot, int X, int Y, long? OwnerId, string? OwnerName, string? OwnerColor, int OwnerLevel, int UnlockedParcels, string Primary, string? Secondary, string? CorporationTag, string? Activity, string? ReservedFor, IReadOnlyList<string>? Goods = null, bool House = false);
 
 /// <summary>A hub structure; corporation HQs have the corporation's tag, colour and HQ level</summary>
 public record HubStructureDto(string Type, int X, int Y, int Size, string? Label = null, string? Color = null, int Level = 0, long? Corporation = null, string? Variant = null, int Stages = 0);

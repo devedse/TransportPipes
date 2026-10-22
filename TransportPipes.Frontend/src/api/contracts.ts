@@ -110,6 +110,22 @@ export interface CompanyDto {
   league: number | null;
   /** The station's project on the "This week" row (null: none, the next parcel shows) */
   week: ProjectWeekDto | null;
+  /** Dealt land: your seat's goods and who in your station holds the others (null on old land) */
+  land: LandDto | null;
+}
+
+/** Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there */
+export interface LandDto {
+  goods: string[];
+  station: LandSeatDto[];
+}
+
+export interface LandSeatDto {
+  slot: number;
+  owner: string | null;
+  house: boolean;
+  you: boolean;
+  goods: string[];
 }
 
 export type ActivityStage = "active" | "resting" | "dormant" | "asleep";
@@ -417,6 +433,10 @@ export interface EstateDto {
   activity: ActivityStage | null;
   /** A corporation block: the tag of the corporation it is kept for */
   reservedFor: string | null;
+  /** The land goods dealt to it (step 5; empty on old land) */
+  goods: string[] | null;
+  /** A House lives there */
+  house: boolean;
 }
 
 /** A hub structure; corporation HQs have the corporation's tag, colour and HQ level */

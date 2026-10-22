@@ -147,7 +147,7 @@ public sealed class WorldHost : BackgroundService
 
     private async Task<GameWorld> LoadWorldAsync(CancellationToken cancellationToken)
     {
-        var world = await _store.LoadAsync(GameContent.Default, () => Now, _options.WorldSeed, cancellationToken);
+        var world = await _store.LoadAsync(GameContent.Default, () => Now, _options.WorldSeed, cancellationToken, keepOlder: _options.Playtest);
         if (_options.StartingGold is { } startingGold)
         {
             world.StartingGold = startingGold;

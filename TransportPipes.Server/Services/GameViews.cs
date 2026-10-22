@@ -106,7 +106,24 @@ public static partial class GameViews
             company.Tailwind,
             company.LoneCard,
             company.League,
-            Week(world, company));
+            Week(world, company),
+            Land(world, company));
+    }
+
+    /// <summary>Dealt land (step 5): the goods your seat holds, and who in your station holds the others (null on old land)</summary>
+    private static LandDto? Land(GameWorld world, Company me)
+    {
+        if (!world.Generator.DealtLand || world.EstateOf(me) is not { } home)
+        {
+            return null;
+        }
+        var seats = world.BigStation(home.Station).SelectMany(GameWorld.StationSeats).Select(seat =>
+        {
+            var owner = world.Estate(seat.District, seat.Slot)?.OwnerId is { } id ? world.Company(id) : null;
+            return new LandSeatDto(seat.Slot, owner == null ? null : world.NameFor(owner, me), owner?.IsNpc ?? false, owner?.Id == me.Id,
+                world.Generator.LandOf(seat.District, seat.Slot));
+        }).ToList();
+        return new LandDto(world.Generator.LandOf(home.District, home.Slot), seats);
     }
 
     /// <summary>
@@ -436,7 +453,9 @@ public static partial class GameViews
                 profile.Secondary is { } secondary ? Camel(secondary) : null,
                 owner != null ? world.CorporationOf(owner)?.Tag : null,
                 owner is { IsNpc: false } ? Camel(world.ActivityOf(owner)) : null,
-                estate?.ReservedFor is { } corporationId && estate.ReservedUntil > world.Now ? world.Corporation(corporationId)?.Tag : null));
+                estate?.ReservedFor is { } corporationId && estate.ReservedUntil > world.Now ? world.Corporation(corporationId)?.Tag : null,
+                profile.Goods,
+                owner?.IsNpc ?? false));
         }
         var hub = WorldLayout.HubOrigin(district);
         return new DistrictDto(

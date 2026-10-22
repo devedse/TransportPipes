@@ -500,6 +500,80 @@ public sealed partial class GameWorld
         _kit = kit ? (tenant.Name, kept) : null;
     }
 
+    /// <summary>What a dealt land's kit is worth a day-1 minute: about 100 g at the hub, on every seat (step 5: 93–104)</summary>
+    public const double LandKitIncome = 100;
+
+    /// <summary>
+    /// The dealt land's kit (step 5): the producer of the seat's own good first, on its deposit, beach or old forest
+    /// beside the HQ, then Wind Moilies and Solar Panels up to about 100 g a minute on day 1; piped to the Yard gate and
+    /// the trading post. Whatever a House left on the seat goes first.
+    /// </summary>
+    private void GiveLandKit(Company company)
+    {
+        if (_kit is { } housed)
+        {
+            foreach (var building in housed.Buildings)
+            {
+                RemoveBuilding(building);
+            }
+        }
+        var house = _kit?.House;
+        _kit = null;
+        if (EstateOf(company) is not { } estate)
+        {
+            return;
+        }
+        var kit = new List<Building>();
+        double income = 0;
+        double Worth(Building building)
+        {
+            var definition = Content.Building(building.Type);
+            var at = LocationMultiplier(building, definition);
+            return at * (definition.Out.Sum(t => t.Value * BasePrice(t.Key)) - definition.In.Sum(t => t.Value * BasePrice(t.Key)));
+        }
+        void Add(string type)
+        {
+            if (AddHouseBuilding(company, estate, type, 1) is { } added)
+            {
+                kit.Add(added);
+                income += Worth(added);
+            }
+        }
+        if (Generator.LandOf(estate.District, estate.Slot).FirstOrDefault() is { } good
+            && Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.ContainsKey(good) && t.In.Keys.All(k => k == "energy"))
+                .OrderBy(t => t.Unlock.Level).FirstOrDefault() is { } producer)
+        {
+            Add(producer.Id);
+        }
+        var moily = Content.Building("windMoily").Out["energy"] * BasePrice("energy");
+        var panel = Content.Building("solarPanel").Out["energy"] * BasePrice("energy");
+        for (var i = 0; i < 6 && income + moily <= LandKitIncome + 4; i++)
+        {
+            Add("windMoily");
+        }
+        for (var i = 0; i < 12 && income + panel <= LandKitIncome + 4; i++)
+        {
+            Add("solarPanel");
+        }
+        if (kit.Count == 0)
+        {
+            return;
+        }
+        company.KitBuildings = kit.Select(t => t.Id).ToHashSet();
+        if (_buildings.Values.FirstOrDefault(t => t.Owner == company.Id && Content.Building(t.Type).Kind == BuildingKind.TradingPost) is { } post)
+        {
+            var border = post.Border().ToHashSet();
+            foreach (var building in kit)
+            {
+                LayTenantPipe(company, estate, building, border.Contains, intoHqArea: true);
+            }
+        }
+        var names = kit.GroupBy(t => Content.Building(t.Type).Name)
+            .Select(t => t.Count() == 1 ? $"a {t.Key}" : $"{t.Count()} {t.Key}s");
+        Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Neighbour,
+            $"{(house != null ? $"{house} ⚙ moved out: " : "")}your starter kit is {string.Join(", ", names)}, piped to your Yard gate and your trading post already"));
+    }
+
     /// <summary>The starter kit goes to the newcomer: the House's buildings (at most level five), piped to the gate</summary>
     private void HandOverKit(Company company)
     {

@@ -415,7 +415,7 @@ class ChunkView {
   readonly cx: number;
   readonly cy: number;
   ground: Container | null = null;
-  overlay: Graphics | null = null;
+  overlay: Container | null = null;
   mini: Sprite | null = null;
   objects: ObjectView[] = [];
   loaded = false;
@@ -1534,6 +1534,10 @@ export class Engine {
             if (tile.deposit !== null) {
               color = content.resourceColor(tile.deposit);
               alpha = 0.45 + tile.richness * 0.1;
+            } else if (tile.terrain === "beach") {
+              // A beach is sand: the Sand Dredger's ground
+              color = content.resourceColor("sand");
+              alpha = 0.7;
             } else {
               color = 0x0b1d24;
               alpha = 0.6;
@@ -1555,8 +1559,43 @@ export class Engine {
         }
       }
     }
-    chunk.overlay = g;
-    this.overlayLayer.addChild(g);
+    const overlay = new Container();
+    overlay.addChild(g);
+    // Dealt land (step 5): every seat's goods on it, so a player sees who in the station holds what
+    if (this.overlay === "deposits") {
+      for (const district of this.world.districts.values()) {
+        for (const estate of district.estates) {
+          const cx = estate.x + ESTATE_SIZE / 2;
+          const cy = estate.y + ESTATE_SIZE / 2;
+          if (
+            estate.goods === null ||
+            estate.goods.length === 0 ||
+            cx < x0 ||
+            cx >= x0 + CHUNK_SIZE ||
+            cy < y0 ||
+            cy >= y0 + CHUNK_SIZE
+          ) {
+            continue;
+          }
+          const label = new Text({
+            text: estate.goods.map((t) => content.resourceName(t).toLowerCase()).join(" · "),
+            style: {
+              fontFamily: "system-ui",
+              fontSize: 34,
+              fontWeight: "800",
+              fill: "#ffffff",
+              stroke: { color: "#0b1d24", width: 8 },
+            },
+          });
+          label.anchor.set(0.5);
+          const at = tileCenter(cx, cy);
+          label.position.set(at.x, at.y);
+          overlay.addChild(label);
+        }
+      }
+    }
+    chunk.overlay = overlay;
+    this.overlayLayer.addChild(overlay);
   }
 
   /** The far view of a chunk: one small picture of its terrain and buildings */

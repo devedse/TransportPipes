@@ -1,6 +1,6 @@
 import { gameClient } from "../app/client";
 import { formatAmount, formatDuration } from "../app/format";
-import type { BuildingDefinition } from "../api/contracts";
+import type { BuildingDefinition, LandDto } from "../api/contracts";
 import { CATEGORY_NAMES, CATEGORY_ORDER, type Content } from "../game/content";
 import { currentGold, setState, useAppStore } from "../state/store";
 import { ResourceIcon } from "./ResourceIcon";
@@ -40,6 +40,48 @@ function Recipe({ definition, content }: { definition: BuildingDefinition; conte
       {inputs.length + outputs.length > 0 && <span className="muted"> /min</span>}
     </div>
   );
+}
+
+/** "Cleo", "Cleo and Dev" */
+function names(items: string[]): string {
+  return items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+}
+
+/**
+ * Dealt land (step 5): where a land good is missing, who makes it and which House sells it, and the building that gets
+ * it by itself ("there's no copper on your land. Cleo makes it, and Bertha ⚙ sells it: build a Smelter, and its copper
+ * comes by itself"); null when it lies on your land, or on old land
+ */
+function landLine(definition: BuildingDefinition, land: LandDto | null, content: Content): string | null {
+  if (land === null) {
+    return null;
+  }
+  const good = Object.keys(definition.out).find((t) =>
+    ["copperOre", "coal", "sand", "wood", "stone"].includes(t),
+  );
+  if (
+    good === undefined ||
+    land.goods.includes(good) ||
+    Object.keys(definition.in).some((t) => t !== "energy")
+  ) {
+    return null;
+  }
+  const word = content.resourceName(good).toLowerCase().replace(" ore", "");
+  const seats = land.station.filter((t) => t.goods.includes(good));
+  const players = seats.filter((t) => t.owner !== null && !t.house).map((t) => t.owner!);
+  const houses = seats.filter((t) => t.owner !== null && t.house).map((t) => `${t.owner} ⚙`);
+  const free = seats.some((t) => t.owner === null);
+  const who = [
+    players.length > 0 && `${names(players)} ${players.length === 1 ? "makes" : "make"} it`,
+    houses.length > 0 && `${names(houses)} ${houses.length === 1 ? "sells" : "sell"} it`,
+    players.length === 0 && houses.length === 0 && free && "a free seat of your station holds it",
+  ]
+    .filter(Boolean)
+    .join(", and ");
+  const user = content.buildings
+    .filter((t) => t.buildable && Object.keys(t.in).includes(good) && t.unlock.era <= 1)
+    .sort((a, b) => a.unlock.level - b.unlock.level)[0];
+  return `There's no ${word} on your land.${who === "" ? "" : ` ${who.charAt(0).toUpperCase()}${who.slice(1)}`}${user !== undefined ? `: build ${/^[aeiou]/i.test(user.name) ? "an" : "a"} ${user.name}, and its ${word} comes by itself` : ""}.`;
 }
 
 export function BuildMenu() {
@@ -96,6 +138,7 @@ export function BuildMenu() {
       <ul className="build-list">
         {buildings.map((definition) => {
           const lock = content.lockReason(definition, company, era);
+          const missing = landLine(definition, company.land, content);
           const copies = company.buildingCounts[definition.id] ?? 0;
           const cost = content.buildCost(definition, copies);
           const affordable = gold >= cost;
@@ -110,7 +153,7 @@ export function BuildMenu() {
                   lock !== null ? "locked" : "",
                   !affordable ? "expensive" : "",
                 ].join(" ")}
-                disabled={lock !== null}
+                disabled={lock !== null || missing !== null}
                 onClick={() => gameClient.setTool({ kind: "build", type: definition.id })}
                 title={definition.description}
               >
@@ -124,7 +167,9 @@ export function BuildMenu() {
                       </span>
                     )}
                   </div>
-                  {lock !== null ? (
+                  {missing !== null ? (
+                    <div className="land-line">{missing}</div>
+                  ) : lock !== null ? (
                     <div className="lock">🔒 {lock}</div>
                   ) : (
                     <>

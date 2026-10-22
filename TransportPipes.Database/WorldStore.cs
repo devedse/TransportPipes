@@ -37,6 +37,9 @@ public sealed class WorldStore
     private readonly List<object> _orphans = new();
     private bool _worldExists;
 
+    /// <summary>The rules the loaded world was made with (a new world: today's)</summary>
+    private int _worldRules = CurrentRules;
+
     public WorldStore(TransportPipesDbFactory dbFactory)
     {
         _dbFactory = dbFactory;
@@ -46,16 +49,20 @@ public sealed class WorldStore
     /// The version of the rules: a world saved with older rules is thrown away when the server starts (v1.2 changed how
     /// players play together so much that the owner chose a fresh world); accounts stay
     /// </summary>
-    public const int CurrentRules = 2;
+    public const int CurrentRules = 3;
+
+    /// <summary>The first rules with dealt land (step 5 of the redesign): older worlds keep the land they were made with</summary>
+    public const int DealtLandRules = 3;
 
     /// <summary>Whether the last load threw an old world away</summary>
     public bool WorldReset { get; private set; }
 
-    public async Task<GameWorld> LoadAsync(GameContent content, Func<DateTime> clock, int newWorldSeed, CancellationToken cancellationToken = default)
+    /// <param name="keepOlder">The playtest server: a world made with older rules stays as it was (run 1's snapshots replay on their own land)</param>
+    public async Task<GameWorld> LoadAsync(GameContent content, Func<DateTime> clock, int newWorldSeed, CancellationToken cancellationToken = default, bool keepOlder = false)
     {
         await using var db = _dbFactory.CreateDbContext();
         var dbWorld = await db.Worlds.SingleOrDefaultAsync(cancellationToken);
-        if (dbWorld != null && dbWorld.Rules < CurrentRules)
+        if (dbWorld != null && dbWorld.Rules < CurrentRules && !keepOlder)
         {
             await ResetWorldAsync(db, cancellationToken);
             dbWorld = null;
@@ -64,7 +71,8 @@ public sealed class WorldStore
         _worldExists = dbWorld != null;
         dbWorld ??= new DbWorld { Seed = newWorldSeed, CreatedAt = clock(), LastTick = clock() };
 
-        var world = new GameWorld(content, dbWorld.Seed, clock) { Era = dbWorld.Era };
+        _worldRules = dbWorld.Rules == 0 ? CurrentRules : dbWorld.Rules;
+        var world = new GameWorld(content, dbWorld.Seed, clock, dealtLand: _worldRules >= DealtLandRules) { Era = dbWorld.Era };
 
         foreach (var row in await db.Companies.ToListAsync(cancellationToken))
         {
@@ -359,7 +367,7 @@ public sealed class WorldStore
                 Era = world.Era,
                 LastTick = world.LastTick,
                 CreatedAt = world.Now,
-                Rules = CurrentRules,
+                Rules = _worldRules,
                 Exchange = JsonSerializer.Serialize(new ExchangeState(world.ExchangeOrders.ToList(), world.Shipments.ToList()), Json),
                 Events = JsonSerializer.Serialize(new EventsState(world.Events.ToList(), world.PlannedDays.ToList()), Json),
                 Wonders = JsonSerializer.Serialize(new WondersState(world.EraStartedAt, world.EraWonder, world.DistrictWonders.Values.ToList()), Json),
