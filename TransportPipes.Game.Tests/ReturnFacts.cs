@@ -228,4 +228,21 @@ public class ReturnFacts
         game.World.GainXp(ben, 10, "test", "test");
         Assert.AreEqual(xp + 18, ben.Xp, 1e-9);
     }
+
+    [TestMethod]
+    public void StormDamageStaysOnTheGoalTrackerUntilItIsRepaired()
+    {
+        // Run 2: Repair all lived only on the return card; Ben tapped Continue first and found no way back
+        var game = new TestGame(content: TestGame.PlainContent);
+        var ben = game.NewCompany("Ben");
+        var moily = game.Build(ben, "windMoily");
+        moily.Damaged = true;
+
+        var alert = game.World.Alerts(ben).Single(t => t.Kind == "damage");
+        Assert.AreEqual(moily.Id, alert.Building);
+        StringAssert.Contains(alert.Text, "Wind Moily");
+
+        Assert.IsTrue(game.World.RepairAll(ben.Id).Success);
+        Assert.IsFalse(game.World.Alerts(ben).Any(t => t.Kind == "damage"), "gone once repaired");
+    }
 }

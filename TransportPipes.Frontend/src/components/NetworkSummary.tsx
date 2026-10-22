@@ -85,6 +85,8 @@ function ResourceRow({ r, content }: { r: NetworkResourceDto; content: Content }
           </div>
           <span className="small">
             the buildings get {formatAmount(r.used)} of the {formatAmount(r.needed)} they need
+            {/* Both spare and short: the spare can't reach them (run 2: Cleo's "two numbers that disagree") */}
+            {spare > 0.05 && ": the spare can't reach them, since goods never pass through a building"}
           </span>
         </div>
       )}

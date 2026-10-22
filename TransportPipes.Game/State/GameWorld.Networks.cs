@@ -743,27 +743,35 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// What holds a company back right now, for the goal tracker: networks short of pump stations, full trading posts,
-    /// full storages (each with the building to look at)
+    /// full storages and storm damage (each with its kind and the building to look at). Damage stays while it lasts:
+    /// Repair all lived only on the return card (run 2: Ben tapped Continue first and found no way back).
     /// </summary>
-    public List<(string Text, long? Building)> Alerts(Company company)
+    public List<(string Text, long? Building, string Kind)> Alerts(Company company)
     {
-        var alerts = new List<(string, long?)>();
+        var alerts = new List<(string, long?, string)>();
         foreach (var network in _networks.Values.Where(t => t.PumpFactorOf(company.Id) < 0.999))
         {
             var count = network.Buildings.Count(b => _buildings[b].Owner == company.Id);
             alerts.Add(($"Your network of {count} buildings runs at {network.PumpFactorOf(company.Id):P0}: a long network loses pressure, and every {BuildingsPerPump} buildings in one network need a Pump Station to keep it up. Build one anywhere on its pipes.",
-                network.Buildings.FirstOrDefault(b => _buildings[b].Owner == company.Id)));
+                network.Buildings.FirstOrDefault(b => _buildings[b].Owner == company.Id), "pumps"));
         }
         foreach (var post in BuildingsOf(company.Id).Where(TradingPostFull))
         {
-            alerts.Add(($"Your {Content.Building(post.Type).Name} sells all it can: upgrade it to sell more.", post.Id));
+            alerts.Add(($"Your {Content.Building(post.Type).Name} sells all it can: upgrade it to sell more.", post.Id, "post"));
         }
         if (FullStorages(company.Id).FirstOrDefault() is { } storage)
         {
             var (holds, waiting, _) = StorageLine(storage);
             alerts.Add((waiting != null
                 ? $"Your Storage is full of {holds}: {waiting} slow behind it. Pipe them to your trading post, or upgrade the Storage."
-                : $"Your Storage is full of {holds}: what comes now goes on to your trading post. Upgrade it to keep more.", storage.Id));
+                : $"Your Storage is full of {holds}: what comes now goes on to your trading post. Upgrade it to keep more.", storage.Id, "storage"));
+        }
+        var damaged = BuildingsOf(company.Id).Where(t => t.Damaged).ToList();
+        if (damaged.Count > 0)
+        {
+            alerts.Add((damaged.Count == 1
+                ? $"The storm damaged your {Content.Building(damaged[0].Type).Name}: half speed until it's repaired."
+                : $"The storm damaged {damaged.Count} of your buildings: half speed until they're repaired.", damaged[0].Id, "damage"));
         }
         return alerts;
     }

@@ -90,7 +90,13 @@ export interface CompanyDto {
   expedition: ExpeditionDto;
   mastery: { level: number; available: boolean; cost: number; minutes: number; bonus: number };
   /** What holds the company back right now */
-  alerts: Array<{ text: string; building: number | null }>;
+  /** What holds it back: pumps, post, storage or damage (with what Repair all costs) */
+  alerts: Array<{
+    text: string;
+    building: number | null;
+    kind: "pumps" | "post" | "storage" | "damage" | "";
+    cost: number | null;
+  }>;
   serverTime: string;
   /** XP per minute from earnings, where the XP came from (per source per item) and what gives XP */
   experience: {
@@ -318,13 +324,13 @@ export interface ReturnLineDto {
   kind: "people" | "look" | "project" | "social" | "today" | "invest";
   icon: string;
   text: string;
-  action: "repairAll" | "show" | "project" | "upgrade" | "send" | "thank" | "links" | null;
+  action: "repairAll" | "show" | "project" | "upgrade" | "send" | "thank" | "tend" | "links" | null;
   building: number | null;
   cost: number | null;
-  /** send: whose building, which good; thank: whose goods, which good */
+  /** send: whose building, which good; thank: whose goods, which good; tend: whose estate */
   partner: number | null;
   resource: string | null;
-  /** thank: what the giver is called */
+  /** thank, tend: what they are called */
   partnerName: string | null;
 }
 

@@ -40,7 +40,7 @@ import {
   upgradablePipeTiles,
 } from "../game/rules";
 import { WorldModel } from "../game/world";
-import { formatAmount } from "./format";
+import { formatAmount, possessive } from "./format";
 import { notify } from "./notifications";
 import { sounds } from "./sound";
 import { appStore, initialState, MODALS, setState, toast, type HubTab } from "../state/store";
@@ -1964,7 +1964,14 @@ export class GameClient {
     }
   }
 
-  /** The return card's buttons: each closes the card on what it shows, Repair all, Send and Thanks keep it open */
+  /** Repairs every storm-damaged building (the goal tracker's alert keeps it while damage lasts) */
+  async repairAll() {
+    if (await this.command(this.connection.repairAll(), "Repaired: full speed again")) {
+      await this.refreshCompany();
+    }
+  }
+
+  /** The return card's buttons: each closes the card on what it shows, Repair all, Send, Thanks and Tend keep it open */
   async returnAction(line: ReturnLineDto): Promise<boolean> {
     switch (line.action) {
       case "send":
@@ -1977,6 +1984,13 @@ export class GameClient {
         }
         await this.thank(line.partner, line.resource, line.partnerName ?? "They");
         return true;
+      case "tend":
+        return line.partner !== null
+          ? await this.command(
+              this.connection.tend(line.partner),
+              `💛 You repaired ${line.partnerName === null ? "their" : line.partnerName + possessive(line.partnerName)} storm damage`,
+            )
+          : false;
       case "repairAll":
         return await this.command(this.connection.repairAll(), "Repaired: full speed again");
       case "show":

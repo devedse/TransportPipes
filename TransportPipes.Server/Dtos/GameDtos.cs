@@ -139,7 +139,8 @@ public record ExperienceDto(double PerMinute, IReadOnlyDictionary<string, IReadO
 public record XpRuleDto(string Source, string Text);
 
 /// <summary>Something that holds the company back, with the building to look at</summary>
-public record AlertDto(string Text, long? Building);
+/// <summary>What holds a company back (the goal tracker): pumps, post, storage or damage (Repair all), with the building to look at and what repairing all costs</summary>
+public record AlertDto(string Text, long? Building, string Kind = "", double? Cost = null);
 
 /// <summary>Mastery research after the whole tree: the level reached and the next step</summary>
 public record MasteryDto(int Level, bool Available, double Cost, double Minutes, double Bonus);

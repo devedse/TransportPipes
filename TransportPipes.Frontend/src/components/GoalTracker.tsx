@@ -51,7 +51,11 @@ export function GoalTracker() {
     step.since !== null &&
     new Date(company.serverTime).getTime() - new Date(step.since).getTime() > 2 * 86_400_000;
   const opportunity = advisor ? null : bestOpportunity(company.id, neighbours, content);
-  const alerts = (company.alerts ?? []).filter((t) => !advisor || t.text.startsWith("A storage"));
+  // The advisor's steps cover pumps and a full trading post; a full Storage and storm damage stay (damage with Repair
+  // all while it lasts: run 2, Ben lost it with the return card)
+  const alerts = (company.alerts ?? []).filter(
+    (t) => !advisor || t.kind === "storage" || t.kind === "damage",
+  );
   const order = company.dailyOrders.find((t) => t.delivered < t.amount);
   const levelShare = Math.min(
     1,
@@ -150,9 +154,17 @@ export function GoalTracker() {
       {advisor && <NextSteps />}
       {alerts.slice(0, 2).map((alert) => (
         <div key={alert.text} className="panel opportunity alert">
-          <p>⚠ {alert.text}</p>
-          {alert.building !== null && (
-            <button onClick={() => gameClient.showBuilding(alert.building!)}>Show me</button>
+          <p>
+            {alert.kind === "damage" ? "⛈" : "⚠"} {alert.text}
+          </p>
+          {alert.kind === "damage" ? (
+            <button onClick={() => void gameClient.repairAll()}>
+              Repair all · {formatAmount(alert.cost ?? 0)} g
+            </button>
+          ) : (
+            alert.building !== null && (
+              <button onClick={() => gameClient.showBuilding(alert.building!)}>Show me</button>
+            )
           )}
         </div>
       ))}
