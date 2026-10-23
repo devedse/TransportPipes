@@ -1205,6 +1205,10 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> UpgradePipes(int[] tiles, int tier) =>
         Command((world, company) => world.UpgradePipes(company, Tiles(tiles), tier));
 
+    /// <summary>Widens Copper or Steel Pipe tiles ×2 or ×4 for hours of income (after run 3, step 9)</summary>
+    public Task<CommandResultDto> WidenPipes(int[] tiles, int factor) =>
+        Command((world, company) => world.WidenPipes(company, Tiles(tiles), factor));
+
     public Task<CommandResultDto> RemovePipes(int[] tiles) =>
         Command((world, company) => world.RemovePipes(company, Tiles(tiles)));
 

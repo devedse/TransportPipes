@@ -212,16 +212,18 @@ public sealed partial class GameWorld
     {
         foreach (var (resource, perRun) in node.Out.OrderBy(t => t.Key, StringComparer.Ordinal))
         {
-            if (network.GateFlows.Any(t => !t.Import && t.Building == building.Id && t.Resource == resource && t.Sent > 1e-9))
-            {
-                continue;
-            }
+            // What its Yard gate takes is what the station matched: like a taker that has all it needs
+            var gate = network.GateFlows.Where(t => !t.Import && t.Building == building.Id && t.Resource == resource).Sum(t => t.Sent);
             var used = network.Links
                 .Where(t => (t.A == building.Id || t.B == building.Id) && t.Allows(resource))
                 .Select(link => (link.Capacity, Sent: network.Solution.Flows.Where(f => f.From == building.Id && f.Resource == resource && link.Connects(f.From, f.To)).Sum(f => f.Sent)))
                 .Where(t => t.Sent > 1e-9)
+                .Select(t => (t.Capacity, t.Sent, Full: t.Sent >= t.Capacity * 0.98))
                 .ToList();
-            if (used.Count > 0 && used.All(t => t.Sent >= t.Capacity * 0.98) && used.Sum(t => t.Capacity) < perRun * maxRate * SlowedShare)
+            // A connection with room takes all its taker wants of a building that has plenty spare: it doesn't hide the
+            // full one beside it (step 9's e2e: a Moily that fed its own Coal Pit 6.6 energy a minute ran at 57% with no
+            // word, its pipe to the post full)
+            if (used.Any(t => t.Full) && used.Sum(t => t.Sent) + gate < perRun * maxRate * SlowedShare)
             {
                 return resource;
             }

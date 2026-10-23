@@ -245,6 +245,7 @@ public sealed class WorldStore
                 Kind = (ConductorKind)row.Kind,
                 Tier = row.Tier,
                 Owner = row.OwnerId,
+                Widen = Math.Max(1, row.Widen),
             });
             _conductors.Add(new TilePos(row.X, row.Y));
         }
@@ -550,6 +551,7 @@ public sealed class WorldStore
                 Kind = (int)conductor.Kind,
                 Tier = conductor.Tier,
                 OwnerId = conductor.Owner,
+                Widen = conductor.Widen,
             }));
         }
 

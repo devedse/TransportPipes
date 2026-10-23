@@ -437,7 +437,7 @@ public sealed partial class GameWorld
         }
         var tier = Content.PipeTier(conductor.Tier);
         // Stable temperatures down in the Deep Level: no losses
-        return (WorldLayout.IsDeep(conductor.Pos) ? 0 : tier.LossPerTile, tier.Throughput * (1 + ThroughputBonus(conductor.Owner)));
+        return (WorldLayout.IsDeep(conductor.Pos) ? 0 : tier.LossPerTile, tier.Throughput * Math.Max(1, conductor.Widen) * (1 + ThroughputBonus(conductor.Owner)));
     }
 
     private readonly record struct TileStats(double Loss, double Throughput, IReadOnlySet<string>? Filter, bool Priority);

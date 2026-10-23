@@ -686,9 +686,9 @@ export interface BuildingStatusDto {
   fix: BuildingFixDto | null;
 }
 
-/** The one fix button: lay a planned pipe (tiles as x, y pairs), open another building, repair, upgrade, or build */
+/** The one fix button: lay a planned pipe (tiles as x, y pairs), open another building, repair, upgrade, build, a pipe tier, or widen */
 export interface BuildingFixDto {
-  kind: "layPipe" | "open" | "repair" | "upgrade" | "build" | "pipeTier";
+  kind: "layPipe" | "open" | "repair" | "upgrade" | "build" | "pipeTier" | "widen";
   label: string;
   tiles: number[];
   newTiles: number;
@@ -699,7 +699,7 @@ export interface BuildingFixDto {
   target: string | null;
   /** The pipe goes to one of your own buildings short of what this one makes: it comes before a neighbour's Send */
   ownNeed: boolean;
-  /** pipeTier: the tier the tiles go to */
+  /** pipeTier: the tier the tiles go to; widen: ×2 or ×4 */
   tier: number;
 }
 

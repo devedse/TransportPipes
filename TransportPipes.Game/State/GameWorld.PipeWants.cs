@@ -59,6 +59,7 @@ public sealed partial class GameWorld
             if (_conductors.TryGetValue(pos, out var conductor) && conductor.Kind == ConductorKind.Pipe && conductor.Owner == owner.Id && conductor.Tier < ask.PipeTier)
             {
                 conductor.Tier = ask.PipeTier;
+                conductor.Widen = 1;
                 conductor.Touch();
                 MarkDirty(pos);
                 Changes.Tiles.Add(pos);

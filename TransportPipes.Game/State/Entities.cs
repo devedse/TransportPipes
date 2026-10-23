@@ -441,6 +441,9 @@ public sealed class Conductor : Entity
     public ConductorKind Kind { get; init; } = ConductorKind.Pipe;
     public int Tier { get; set; } = 1;
     public long Owner { get; set; }
+
+    /// <summary>A Copper or Steel Pipe widened for gold carries this many times its tier (after run 3, step 9: 1, 2 or 4)</summary>
+    public int Widen { get; set; } = 1;
 }
 
 public enum ContractState

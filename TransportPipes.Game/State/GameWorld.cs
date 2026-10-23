@@ -1307,6 +1307,7 @@ public sealed partial class GameWorld
         foreach (var conductor in upgrade)
         {
             conductor.Tier = tier;
+            conductor.Widen = 1;
             conductor.Touch();
             MarkDirty(conductor.Pos);
             Changes.Tiles.Add(conductor.Pos);

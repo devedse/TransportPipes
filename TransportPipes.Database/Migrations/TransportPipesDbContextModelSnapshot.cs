@@ -235,6 +235,9 @@ namespace TransportPipes.Database.Migrations
                     b.Property<int>("Tier")
                         .HasColumnType("integer");
 
+                    b.Property<int>("Widen")
+                        .HasColumnType("integer");
+
                     b.HasKey("X", "Y");
 
                     b.ToTable("Conductors", (string)null);

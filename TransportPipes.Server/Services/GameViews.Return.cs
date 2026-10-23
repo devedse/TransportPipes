@@ -286,8 +286,10 @@ public static partial class GameViews
                 var reason = world.IdleReasonOf(held);
                 var good = reason.Resource ?? world.Content.Building(held.Type).Out.Keys.First();
                 var (could, carried) = world.PipeCarry(held, good);
+                // Its key: Widen, the next pipe tier, a second trading post (after run 3, step 9)
+                var key = world.IdleStatusOf(held, plan: false).Fix?.Label.Split(" · ")[0];
                 Add(7, "invest", "🧱", reason.Cause == IdleCause.PipeFull
-                        ? $"What stops you: your {Kind(held)} sells {Amount(carried)} of the {Amount(could)} {world.GoodsWord(good)} it could make a minute: its pipes carry no more"
+                        ? $"What stops you: your {Kind(held)} sells {Amount(carried)} of the {Amount(could)} {world.GoodsWord(good)} it could make a minute: its pipes carry no more{(key != null ? $" · {key}" : "")}"
                         : $"What stops you: your {Kind(held)} could make more, and its trading post sells all it can",
                     "show", held.Id);
             }

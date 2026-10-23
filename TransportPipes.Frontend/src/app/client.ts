@@ -584,6 +584,18 @@ export class GameClient {
         void this.refreshCompany();
         break;
       }
+      case "widen":
+        // A full Copper or Steel Pipe carries ×2 or ×4 for hours of income (after run 3, step 9)
+        if (
+          await this.command(
+            this.connection.widenPipes(fix.tiles, fix.tier),
+            `Widened ×${fix.tier}: it carries more now`,
+          )
+        ) {
+          window.setTimeout(() => void this.refreshNetwork(), 1200);
+          void this.refreshCompany();
+        }
+        break;
     }
   }
 
