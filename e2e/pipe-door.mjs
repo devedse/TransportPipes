@@ -74,7 +74,7 @@ expect("no second button in the status", (await page.locator(".building-panel bu
 const words = await page.locator(".building-panel .spend-preview").first().innerText().catch(() => "");
 expect("the next level says it adds nothing, in words", !/\+0 g\/min/.test(words), words);
 const row = await page.locator(".goal-tracker li", { hasText: "Pipes" }).innerText().catch(() => "");
-expect("the tracker has a Pipes row", /🔧 Your Wind Moily's pipe is full · Copper Pipe on its link/.test(row), row.replace(/\s+/g, " "));
+expect("the tracker has a Pipes row", /🔧 Your .+'s pipe is full · /.test(row), row.replace(/\s+/g, " "));
 await shot("1-grey-door");
 
 const level = await page.evaluate((id) => tp.gameClient.world.buildings.get(id).level, moily);

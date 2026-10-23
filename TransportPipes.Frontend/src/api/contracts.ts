@@ -33,6 +33,8 @@ export interface CommandResult {
   error: string | null;
   /** A failure the client acts on: "seatTaken" (the picker loads the stations again) */
   code?: string | null;
+  /** Done, and what the player should know about how (said instead of the client's own success line) */
+  note?: string | null;
 }
 
 export interface CompanyDto {
@@ -1212,6 +1214,8 @@ export interface EstateVisitDto {
   guestbook: GuestbookNoteDto[];
   swapFromThem: boolean;
   swapFromYou: boolean;
+  /** What their scaffolds and pipes wait for, and what ordering it for them costs you (after run 4) */
+  wants?: WantNearDto[] | null;
 }
 
 export interface ChatMessageDto {
@@ -1747,6 +1751,8 @@ export interface SiteWantDto {
   order: string | null;
   /** What ordering the rest costs now (null: ordered already, or nothing left) */
   orderCost: number | null;
+  /** The building of the chain line, when you may build it (Show me) */
+  chainBuilding: string | null;
 }
 
 /** An own want: its target (a building's id, or minus a pipe want's number), what it wants, what is in and coming; tiles for a pipe */

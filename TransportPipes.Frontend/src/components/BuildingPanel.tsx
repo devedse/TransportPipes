@@ -283,7 +283,7 @@ function SiteWants({
 }) {
   return (
     <div className="site-wants">
-      <p className="status building">🏗 Waiting for its materials: it is built once they are in</p>
+      <p className="status building">🏗 A scaffold: it stands once its materials are in</p>
       <ul className="site-list">
         {site.wants.map((want) => {
           const name = content.resourceName(want.resource).toLowerCase();
@@ -301,7 +301,19 @@ function SiteWants({
                 />
               </span>
               {want.from.length > 0 && <span className="muted small">from {want.from.join(" · ")}</span>}
-              {want.chain !== null && <span className="small">{want.chain}</span>}
+              {want.chain !== null && (
+                <span className="small">
+                  {want.chain}
+                  {want.chainBuilding !== null && (
+                    <button
+                      className="link small"
+                      onClick={() => gameClient.handBuilding(want.chainBuilding!)}
+                    >
+                      Show me
+                    </button>
+                  )}
+                </span>
+              )}
               {want.order !== null && <span className="small">{want.order}</span>}
               {mine && want.orderCost !== null && (
                 <button className="small" onClick={() => void gameClient.orderRest(building)}>

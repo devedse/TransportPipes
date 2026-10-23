@@ -384,7 +384,7 @@ public sealed class GameHub : Hub<IGameClient>
     {
         var userId = UserId;
         return _world.RunAsync(world => world.CompanyOfUser(userId) is { } company
-            ? world.NextSteps(company).Select(t => GameViews.NextStep(t, world)).ToList()
+            ? world.NextSteps(company).Select(t => GameViews.NextStep(t, world, company)).ToList()
             : [], changesWorld: false);
     }
 
@@ -1033,7 +1033,9 @@ public sealed class GameHub : Hub<IGameClient>
                 return CommandResultDto.Fail("Found your company first.");
             }
             var result = command(world, company.Id);
-            return result.Success ? CommandResultDto.Ok : CommandResultDto.Fail(result.Error ?? "That didn't work.");
+            return result.Success
+                ? result.Note is { } note ? new CommandResultDto(true, null, null, note) : CommandResultDto.Ok
+                : CommandResultDto.Fail(result.Error ?? "That didn't work.");
         });
     }
 

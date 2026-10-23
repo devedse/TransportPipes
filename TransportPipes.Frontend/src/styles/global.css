@@ -6013,7 +6013,13 @@ button.link.danger {
 
 .site-wants .site-list li {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 3px;
+}
+
+/* One line under another, the buttons at their own size (run 4's e2e: Order the rest stood as a tall column) */
+.site-wants .site-list li > button {
+  justify-self: start;
 }
 
 /* The pipe door (after run 4): the way up a full pipe, where a player looks to spend */

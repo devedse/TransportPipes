@@ -189,7 +189,7 @@ export function YardPanel() {
           {/* Neighbours' scaffolds you can help with (after run 3, step 2): your Storage at a tap, or your spare by itself */}
           {company !== null && (company.wantsNear ?? []).length > 0 && (
             <section>
-              <h4>What your neighbours are building</h4>
+              <h4>What your neighbours and your crew are building</h4>
               <ul className="yard-trades">
                 {(company.wantsNear ?? []).map((w) => (
                   <li key={`${w.site}-${w.resource}`}>
@@ -200,7 +200,9 @@ export function YardPanel() {
                       <span className="muted">
                         {w.holds >= 1
                           ? ` · your Storage holds ${formatAmount(w.holds)}`
-                          : " · your spare goes there by itself"}
+                          : w.makes
+                            ? " · your spare goes there by itself"
+                            : ""}
                       </span>
                     </span>
                     {w.holds >= 1 && (

@@ -55,8 +55,15 @@ export function HoverTip() {
         tile.y >= justBuilt.y &&
         tile.y < justBuilt.y + justBuilt.size
       ) {
-        // The pointer still rests on what it just built: not "in the way" (Cleo's replay)
-        text = `${justBuilt.name} is being built here · move to place another (Esc to stop)`;
+        // The pointer still rests on what it just built: not "in the way" (Cleo's replay); a scaffold says it waits
+        // (run 4: "is being built", and it waited for bricks to the end)
+        const placed =
+          world === null
+            ? undefined
+            : [...world.buildings.values()].find((t) => t.x === justBuilt.x && t.y === justBuilt.y);
+        text = placed?.constructionEndsAt?.startsWith("9999")
+          ? `${justBuilt.name} waits here for its materials (its panel says what and from whom) · move to place another (Esc to stop)`
+          : `${justBuilt.name} is being built here · move to place another (Esc to stop)`;
         tone = "good";
       } else {
         text = placement.reason;

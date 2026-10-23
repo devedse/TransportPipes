@@ -606,21 +606,8 @@ export class GameClient {
    * new pipe carries; goods the pipe lacks come from a friend or an order (order: now, even when a friend makes them)
    */
   async climbPipe(building: number, order = false) {
-    const details = appStore.getState().buildingDetails;
-    const door = details?.building.id === building ? details.pipeDoor : null;
-    const done =
-      door === null
-        ? "Done"
-        : door.kind === "waits"
-          ? "Ordered: the hub brings them over six hours, then the pipe is laid"
-          : door.short.length > 0
-            ? order || (door.source ?? "").startsWith("nobody")
-              ? "Ordered: the hub brings what the pipe needs over six hours, then it is laid"
-              : `It waits for its ${door.short.map((t) => appStore.getState().content?.resourceName(t.resource).toLowerCase() ?? t.resource).join(" and ")}: ${door.source ?? "the Yard brings them"}`
-            : door.toLevel > 0
-              ? `${door.kind === "widen" ? "Widened" : "Laid"}, and Level ${door.toLevel}: it carries more now`
-              : `${door.kind === "widen" ? "Widened" : "Laid"}: it carries more now`;
-    if (await this.command(this.connection.climbPipe(building, order), done)) {
+    // The server says what happened: laid, widened, waiting for a friend's goods, or ordered
+    if (await this.command(this.connection.climbPipe(building, order))) {
       window.setTimeout(() => void this.refreshNetwork(), 1200);
       void this.refreshCompany();
       void this.refreshDetails();
@@ -1046,7 +1033,10 @@ export class GameClient {
         toast(result.error ?? "That didn't work.", "error");
         return false;
       }
-      if (success !== undefined) {
+      // The server's own word on what happened comes first (a scaffold that waits for its bricks, run 4)
+      if (result.note != null) {
+        toast(result.note, "success");
+      } else if (success !== undefined) {
         toast(success, "success");
       }
       this.scheduleNextSteps();

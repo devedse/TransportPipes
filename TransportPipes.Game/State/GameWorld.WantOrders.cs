@@ -24,8 +24,7 @@ public sealed partial class GameWorld
         {
             return Building(target) is { } site && IsSite(site) && Company(site.Owner) is { } owner ? (owner, WantsOf(site)) : null;
         }
-        var owners = EstateOf(near) is { } estate ? StationPlayers(estate.Station) : [near];
-        foreach (var owner in owners.Append(near).DistinctBy(t => t.Id))
+        foreach (var owner in NearPlayers(near, activeOnly: false))
         {
             var parts = owner.Asks.Where(t => t.PipeTiles != null && t.WantId == -target).ToList();
             if (parts.Count > 0)
@@ -52,9 +51,10 @@ public sealed partial class GameWorld
         var owner = want.Owner;
         if (owner.Id != payer.Id)
         {
-            if (EstateOf(payer) is not { } estate || !StationPlayers(estate.Station).Any(t => t.Id == owner.Id))
+            // Your station or your crew (after run 4: friends who live elsewhere could only watch)
+            if (!NearPlayers(payer, activeOnly: false).Any(t => t.Id == owner.Id))
             {
-                return CommandResult.Fail("Only your station's neighbours can order for it.");
+                return CommandResult.Fail("Only your station's neighbours and your crew can order for it.");
             }
             if (SameDevice(payer, owner))
             {
@@ -89,8 +89,10 @@ public sealed partial class GameWorld
         {
             Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.Neighbour,
                 $"{NameFor(payer, owner)} ordered the rest of what your {WantName(open[0])} wants: the hub brings it {OrderStartText(owner, open[0], owner)}"));
+            return CommandResult.Done($"💛 Ordered for {NameFor(owner, payer)}: the hub brings it {OrderStartText(owner, open[0], payer)}");
         }
-        return CommandResult.Ok;
+        // When the hub starts, as it is (after run 4: "after your friends' turn" when nobody near made it)
+        return CommandResult.Done($"Ordered: the hub brings the rest {OrderStartText(owner, open[0], payer)}");
     }
 
     private string WantName(CompanyAsk ask) =>

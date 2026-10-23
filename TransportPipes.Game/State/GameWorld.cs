@@ -4,11 +4,14 @@ using TransportPipes.Game.World;
 
 namespace TransportPipes.Game.State;
 
-public sealed record CommandResult(bool Success, string? Error = null)
+/// <param name="Note">Done, and what the player should know about how (a building placed as a scaffold that waits for its bricks)</param>
+public sealed record CommandResult(bool Success, string? Error = null, string? Note = null)
 {
     public static readonly CommandResult Ok = new(true);
 
     public static CommandResult Fail(string error) => new(false, error);
+
+    public static CommandResult Done(string note) => new(true, null, note);
 }
 
 public enum WorldEventKind
@@ -858,10 +861,12 @@ public sealed partial class GameWorld
             && definition.Cost.Materials.Any(t => Materials(company.Id).GetValueOrDefault(t.Key) < t.Value - 1e-9))
         {
             var xpAtSite = company.Xp;
+            // Said as it is (after run 4: "Big Factory is being built", and it waited for its bricks to the end)
+            var line = MaterialsLine(company, definition);
             var site = PlaceSite(company, definition, pos, cost);
             GainXp(company, Content.Progression.XpReward("building") + (company.BuiltTypes.Add(type) ? Content.Progression.XpReward("firstBuildingOfType") : 0), "buildings", type);
             RecordPurchase(company, PurchaseKind.Build, site, 0, cost, company.Xp - xpAtSite);
-            return CommandResult.Ok;
+            return CommandResult.Done($"Your {definition.Name} stands as a scaffold. {line?.Text}".TrimEnd());
         }
         var payment = Pay(company, cost, definition.Cost.Materials);
         if (!payment.Success)

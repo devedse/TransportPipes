@@ -20,7 +20,8 @@ public record GuestResult(bool Success, string? Error, UserInfo? User, string? P
 public record KeepRequest(string UserName, string Password, string? Email);
 
 /// <summary>A command's result; Code names a failure the client acts on ("seatTaken": the picker loads the stations again)</summary>
-public record CommandResultDto(bool Success, string? Error, string? Code = null)
+/// <param name="Note">Done, and what the player should know about how (said instead of the client's own success line)</param>
+public record CommandResultDto(bool Success, string? Error, string? Code = null, string? Note = null)
 {
     public static CommandResultDto Ok { get; } = new(true, null);
 
@@ -263,7 +264,8 @@ public record SiteDto(IReadOnlyList<SiteWantDto> Wants, double Refund);
 /// <param name="Chain">When nobody near makes it: the building that would, and who makes its inputs</param>
 /// <param name="Order">An order's state ("the hub brings it from Cleo's next session, at the latest Thu 20:00"); null: none</param>
 /// <param name="OrderCost">What ordering the rest costs now (null: ordered already, or nothing left)</param>
-public record SiteWantDto(string Resource, double Amount, double Got, double PerMinute, IReadOnlyList<string> From, string? Chain, string? Order = null, double? OrderCost = null);
+/// <param name="ChainBuilding">The building of the chain line, when the viewer may build it (Show me)</param>
+public record SiteWantDto(string Resource, double Amount, double Got, double PerMinute, IReadOnlyList<string> From, string? Chain, string? Order = null, double? OrderCost = null, string? ChainBuilding = null);
 
 /// <summary>A neighbour's scaffold this player could help: what it wants, what this player's Storages hold of it, and whether it makes it</summary>
 public record WantNearDto(long Site, string Owner, string Building, string Resource, double Left, double Holds, bool Makes, double? OrderCost = null);
@@ -611,7 +613,9 @@ public record EstateVisitDto(
     int Mentees,
     IReadOnlyList<GuestbookNoteDto> Guestbook,
     bool SwapFromThem,
-    bool SwapFromYou);
+    bool SwapFromYou,
+    /// <summary>What their scaffolds and pipes wait for, and what ordering it for them costs you (after run 4: a friend's want in sight where you visit)</summary>
+    IReadOnlyList<WantNearDto>? Wants = null);
 
 public record ChatMessageDto(long Id, string Channel, long Sender, string SenderName, string Text, DateTime SentAt);
 

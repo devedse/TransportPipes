@@ -198,8 +198,21 @@ public static partial class GameViews
             var there = WorldNames.Station(WorldLayout.StationOf(seatKept.Hold.Seat.District, seatKept.Hold.Seat.Slot));
             Add(1, "people", "🪑", $"{from} keeps a seat for you in {there}{(world.EstateOf(me) is { } myHome ? $" (you live in {WorldNames.Station(myHome.Station)})" : "")}: move in, free", "seat");
         }
+        // Your own scaffold, said as it is (after run 4: Dev's Big Factory and Ana's Cement Kiln read "is being built" and
+        // waited to the end for bricks nobody made): what it waits for, from whom, or Order the rest
+        if (world.OpenWants(me).Where(t => t.Want.Left > 1e-6).OrderByDescending(t => t.Want.Left * world.BasePrice(t.Want.Resource)).FirstOrDefault() is { Name: not null } waiting)
+        {
+            var good = world.GoodsWord(waiting.Want.Resource);
+            var maker = world.NearPlayers(me).FirstOrDefault(c => c.Id != me.Id && world.BuildingsOf(c.Id).Any(b => !b.UnderConstruction && world.Content.Building(b.Type).Out.ContainsKey(waiting.Want.Resource)));
+            var how = waiting.Want.Order != null ? $"ordered, the hub brings them {world.OrderStartText(me, waiting.Want, me)}"
+                : maker != null ? $"{world.NameFor(maker, me)} makes {good}: the Yard brings them"
+                : $"nobody near makes {good}";
+            Add(2, "invest", "🏗", $"Your {waiting.Name} waits for {waiting.Want.Left:N0} {good}: {how}",
+                waiting.Want.Order == null && world.OrderCost(me, waiting.Target) is { } own && own <= me.Gold ? "orderWant" : "show",
+                waiting.Target > 0 ? waiting.Target : null, waiting.Want.Order == null ? world.OrderCost(me, waiting.Target) : null);
+        }
         // A neighbour's scaffold you could help with (after run 3, step 2): your Storage at a tap, or your spare going there
-        if (world.WantsNear(me).OrderByDescending(t => t.Holds).FirstOrDefault() is { Owner: not null } near)
+        if (world.WantsNear(me).Where(t => t.Holds >= 1 || t.Makes).OrderByDescending(t => t.Holds).FirstOrDefault() is { Owner: not null } near)
         {
             var name = near.Name;
             var who = world.NameFor(near.Owner, me);
@@ -210,11 +223,11 @@ public static partial class GameViews
         }
         // A friend's want that waited, which you can't fill but can order for them (the designers' rule after run 3: Ben's
         // "I still can't help"): "Ana's Steel Mill wants 120 bricks · Order the rest for Ana ▸"
-        else if (world.EstateOf(me) is { } wantHome)
+        else
         {
-            var orderable = world.StationPlayers(wantHome.Station).Where(t => t.Id != me.Id)
-                .SelectMany(owner => world.OpenWants(owner).Where(w => w.Want.Order == null)
-                    .Select(w => (Owner: owner, w.Target, w.Name, w.Want, Cost: world.OrderCost(me, w.Target))))
+            // Your station and your crew, a friend away for a month too (after run 4: crew mates elsewhere could only watch)
+            var orderable = world.WantsNear(me).Where(w => w.Want.Order == null)
+                .Select(w => (w.Owner, w.Target, w.Name, w.Want, Cost: world.OrderCost(me, w.Target)))
                 .Where(t => t.Cost is { } cost && cost <= me.Gold)
                 .OrderBy(t => t.Owner.CrewId != null && t.Owner.CrewId == me.CrewId ? 0 : 1)
                 .ThenByDescending(t => t.Want.Left * world.BasePrice(t.Want.Resource))

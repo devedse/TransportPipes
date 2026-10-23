@@ -31,7 +31,9 @@ function actionLabel(line: ReturnLineDto): string | null {
     case "fillWant":
       return "Send them ▸";
     case "orderWant":
-      return `Order the rest for ${line.partnerName ?? "them"} · ${formatAmount(line.cost ?? 0)} g`;
+      return line.partnerName === null
+        ? `Order the rest · ${formatAmount(line.cost ?? 0)} g`
+        : `Order the rest for ${line.partnerName} · ${formatAmount(line.cost ?? 0)} g`;
     case "crew":
       return "Crew";
     case "show":

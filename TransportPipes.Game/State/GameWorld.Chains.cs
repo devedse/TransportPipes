@@ -59,14 +59,17 @@ public sealed partial class GameWorld
             .FirstOrDefault();
     }
 
-    /// <summary>You, your station's players and your crew who played this week: who a chain or a want can count on</summary>
-    public List<Company> NearPlayers(Company me)
+    /// <summary>
+    /// You, your station's players and your crew: who a chain can count on (activeOnly: those who played this week), or
+    /// whose wants you may help with and order for (all of them: a friend away for a month too)
+    /// </summary>
+    public List<Company> NearPlayers(Company me, bool activeOnly = true)
     {
         var since = LastTick - ActivePeriod;
         var station = EstateOf(me) is { } estate ? StationPlayers(estate.Station) : [];
         var crew = me.CrewId is { } id && Crew(id) is { } c ? CrewMembers(c) : [];
         return station.Concat(crew).Append(me)
-            .Where(t => !t.IsNpc && (t.Id == me.Id || (!t.Asleep && t.LastSeenAt >= since)))
+            .Where(t => !t.IsNpc && (t.Id == me.Id || !activeOnly || (!t.Asleep && t.LastSeenAt >= since)))
             .DistinctBy(t => t.Id)
             .ToList();
     }
@@ -112,6 +115,36 @@ public sealed partial class GameWorld
             text += chain.Inputs.Count > 1 ? "; the Yard brings them" : "; the Yard brings it";
         }
         return chain.Locked is { } why ? $"{text} · {why}" : text;
+    }
+
+    /// <summary>
+    /// What a building takes besides gold that the company's Storages don't hold (empty: they hold it all), and the line
+    /// that says so (after run 4: the step said "It also takes 100 bricks from your Storages" to players with no bricks,
+    /// the toast "is being built", and two buildings waited to the end for bricks nobody made)
+    /// </summary>
+    public (Dictionary<string, double> Short, string Text)? MaterialsLine(Company company, BuildingDefinition definition)
+    {
+        if (definition.Cost.Materials.Count == 0)
+        {
+            return null;
+        }
+        var have = Materials(company.Id);
+        var shortOf = definition.Cost.Materials.Where(t => have.GetValueOrDefault(t.Key) < t.Value - 1e-9)
+            .ToDictionary(t => t.Key, t => t.Value - have.GetValueOrDefault(t.Key));
+        var all = Join(definition.Cost.Materials.Select(t => $"{t.Value:N0} {GoodsWord(t.Key)}").ToList());
+        if (shortOf.Count == 0)
+        {
+            return (shortOf, $"It also takes {all} from your Storages.");
+        }
+        var near = NearPlayers(company);
+        var parts = shortOf.Select(t =>
+        {
+            var maker = near.FirstOrDefault(c => c.Id != company.Id && BuildingsOf(c.Id).Any(b => !b.UnderConstruction && Content.Building(b.Type).Out.ContainsKey(t.Key)));
+            return maker != null
+                ? $"{NameFor(maker, company)} makes {GoodsWord(t.Key)}: the Yard brings them"
+                : $"nobody near makes {GoodsWord(t.Key)}: order them at twice the price ({Gold(Math.Ceiling(t.Value * BasePrice(t.Key) * OrderPrice))})";
+        }).ToList();
+        return (shortOf, $"It waits for {all} before it stands: {string.Join("; ", parts)}.");
     }
 
     private static string Capitalized(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];

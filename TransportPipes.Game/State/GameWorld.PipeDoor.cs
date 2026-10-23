@@ -215,20 +215,24 @@ public sealed partial class GameWorld
                 if (door.Short.Count > 0)
                 {
                     // Its goods come first: from a friend through the Yard, or now when nobody near makes them (or when asked)
+                    var name = Content.PipeTier(door.Tier).Name;
+                    var goods = string.Join(" and ", door.Short.Select(t => $"{Amount(t.Value)} {GoodsWord(t.Key)}"));
                     var want = company.Asks.Where(t => t.PipeTiles != null && t.PipeTiles.Any(door.Tiles.Contains)).Select(t => t.WantId).DefaultIfEmpty(0).Max();
-                    if (want > 0 && (order || door.Source?.StartsWith("nobody", StringComparison.Ordinal) == true) && OrderCost(company, -want) is { } cost && cost <= company.Gold)
+                    if (want > 0 && (order || door.Source?.StartsWith("nobody", StringComparison.Ordinal) == true) && OrderCost(company, -want) is { } cost && cost <= company.Gold
+                        && OrderRest(companyId, -want).Success)
                     {
-                        OrderRest(companyId, -want);
+                        return CommandResult.Done($"Your {name} waits for {goods}: ordered, the hub brings them over six hours, then it is laid");
                     }
-                    return CommandResult.Ok;
+                    return CommandResult.Done($"Your {name} waits for {goods}: {door.Source}");
                 }
                 break;
             }
         }
-        if (door.ToLevel > building.Level)
+        var done = door.Kind == PipeDoorKind.Widen ? $"Widened ×{door.Tier}" : $"{Content.PipeTier(door.Tier).Name} laid";
+        if (door.ToLevel > building.Level && Upgrade(companyId, buildingId, door.ToLevel - building.Level).Success)
         {
-            Upgrade(companyId, buildingId, door.ToLevel - building.Level);
+            return CommandResult.Done($"{done}, and your {Content.Building(building.Type).Name} is Level {door.ToLevel}: it carries more now");
         }
-        return CommandResult.Ok;
+        return CommandResult.Done($"{done}: it carries more now");
     }
 }

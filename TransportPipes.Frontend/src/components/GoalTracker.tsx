@@ -242,6 +242,42 @@ export function GoalTracker() {
             </span>
           </li>
         )}
+        {(company.wants ?? []).length > 0 &&
+          (() => {
+            // Your own scaffold, said as it is (after run 4: "is being built", and it waited for bricks to the end)
+            const want = company.wants![0]!;
+            const left = Math.max(0, want.amount - want.got);
+            return (
+              <li>
+                <span className="goal-label">Waits</span>
+                <span className="goal-text">
+                  🏗 Your {want.name} waits for {formatAmount(left)}{" "}
+                  {content.resourceName(want.resource).toLowerCase()}
+                  {want.order !== null
+                    ? ` · ${want.order}`
+                    : want.perMinute > 0.005
+                      ? ` · ${formatAmount(want.perMinute)}/min coming`
+                      : ""}
+                </span>
+                {want.order === null && want.orderCost !== null && (
+                  <button
+                    className="small goal-show"
+                    disabled={company.gold < want.orderCost}
+                    onClick={() => void gameClient.orderRest(want.target)}
+                  >
+                    Order the rest · {formatAmount(want.orderCost)} g
+                  </button>
+                )}
+                <span className="goal-bar">
+                  <span
+                    style={{
+                      width: `${Math.round(Math.min(1, want.got / Math.max(1, want.amount)) * 100)}%`,
+                    }}
+                  />
+                </span>
+              </li>
+            );
+          })()}
         {company.pipes !== null && (
           // The pipe ladder while a pipe is full (after run 4: the way up was in nobody's sight)
           <li>

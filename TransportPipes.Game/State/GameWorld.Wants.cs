@@ -47,24 +47,33 @@ public sealed partial class GameWorld
         return site;
     }
 
-    /// <summary>The station's players who can fill a want hear of it once: who holds it in a Storage or makes it</summary>
+    /// <summary>
+    /// The station's players and the crew hear of a want once: who holds it in a Storage or makes it, how; a crew mate who
+    /// can't, that gold can (after run 4: five offers of gold in the group chat and no door, while Ana's Kiln waited)
+    /// </summary>
     private void AnnounceWant(Company owner, Building site)
     {
-        if (!IsSite(site) || EstateOf(owner) is not { } estate)
+        if (!IsSite(site))
         {
             return;
         }
         var name = Content.Building(site.Type).Name;
         foreach (var ask in WantsOf(site))
         {
-            foreach (var friend in StationPlayers(estate.Station).Where(t => t.Id != owner.Id && !t.Asleep && IsActive(t)))
+            var friends = NearPlayers(owner).Where(t => t.Id != owner.Id).ToList();
+            var anyMaker = friends.Any(f => BuildingsOf(f.Id).Any(b => !b.UnderConstruction && Content.Building(b.Type).Out.ContainsKey(ask.Resource)));
+            foreach (var friend in friends)
             {
                 var holds = Materials(friend.Id).GetValueOrDefault(ask.Resource);
                 var makes = BuildingsOf(friend.Id).Any(b => !b.UnderConstruction && Content.Building(b.Type).Out.ContainsKey(ask.Resource));
-                if (holds >= 1 || makes)
+                var mate = friend.CrewId != null && friend.CrewId == owner.CrewId;
+                var text = holds >= 1 ? $"your Storage holds {holds:N0}"
+                    : makes ? "your spare goes there first"
+                    : mate && !anyMaker ? $"nobody near makes {GoodsWord(ask.Resource)}: you can order them for {NameFor(owner, friend)} in the Yard ({Gold(Math.Ceiling(ask.Left * BasePrice(ask.Resource) * OrderPrice))})"
+                    : null;
+                if (text != null)
                 {
-                    Changes.Events.Add(new WorldEvent(friend.Id, WorldEventKind.Neighbour,
-                        $"{NameFor(owner, friend)}'s {name} wants {ask.Left:N0} {GoodsWord(ask.Resource)}: {(holds >= 1 ? $"your Storage holds {holds:N0}" : "your spare goes there first")}"));
+                    Changes.Events.Add(new WorldEvent(friend.Id, WorldEventKind.Neighbour, $"{PossessiveFor(owner, friend)} {name} wants {ask.Left:N0} {GoodsWord(ask.Resource)}: {text}"));
                 }
             }
         }
@@ -343,27 +352,21 @@ public sealed partial class GameWorld
     public double Stock(long companyId, string resource, double amount) => PutInStorages(companyId, resource, amount);
 
     /// <summary>
-    /// The wants in a company's station it could help with (a building's or a pipe's, with its target as OpenWants gives
-    /// it): what its Storages hold of them, and whether it makes them
+    /// The wants of a company's station and crew (a building's or a pipe's, with its target as OpenWants gives it): what
+    /// its Storages hold of them and whether it makes them; one it can do neither for, gold can still order (after run 4:
+    /// Dev had 12M gold and no bricks, so Ana's Cement Kiln never reached him)
     /// </summary>
     public List<(Company Owner, long Target, string Name, CompanyAsk Want, double Holds, bool Makes)> WantsNear(Company me)
     {
         var found = new List<(Company, long, string, CompanyAsk, double, bool)>();
-        if (EstateOf(me) is not { } estate)
-        {
-            return found;
-        }
         var materials = Materials(me.Id);
-        foreach (var owner in StationPlayers(estate.Station).Where(t => t.Id != me.Id))
+        foreach (var owner in NearPlayers(me, activeOnly: false).Where(t => t.Id != me.Id))
         {
             foreach (var (target, name, ask) in OpenWants(owner))
             {
                 var holds = materials.GetValueOrDefault(ask.Resource);
                 var makes = BuildingsOf(me.Id).Any(b => !b.UnderConstruction && Content.Building(b.Type).Out.ContainsKey(ask.Resource));
-                if (holds >= 1 || makes)
-                {
-                    found.Add((owner, target, name, ask, holds, makes));
-                }
+                found.Add((owner, target, name, ask, holds, makes));
             }
         }
         return found;

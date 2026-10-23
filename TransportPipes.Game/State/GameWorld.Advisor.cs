@@ -163,6 +163,15 @@ public sealed partial class GameWorld
             {
                 return;
             }
+            // A building whose materials the Storages lack earns once they're in, not from the click (after run 4: "+235
+            // g/min for 12k g, back in 51 min" for a Big Factory that waited for its bricks to the end)
+            if (step.Action == AdvisorAction.Build && step.BuildingType is { } built && Content.Buildings.TryGetValue(built, out var definition)
+                && MaterialsLine(company, definition) is { Short.Count: > 0 } waits)
+            {
+                var once = $" once its {Join(waits.Short.Keys.Select(GoodsWord).ToList())} {(waits.Short.Count == 1 && !GoodsWord(waits.Short.Keys.First()).EndsWith('s') ? "is" : "are")} in";
+                var reason = System.Text.RegularExpressions.Regex.Replace(step.Reason, @", back in [^.:]+", once);
+                step = step with { Reason = reason == step.Reason ? $"{step.Reason.TrimEnd('.')}{once}." : reason };
+            }
             var score = step.Kind switch
             {
                 AdvisorKind.Research => Math.Max(AdvisorResearchFloor, Worth(step.GainPerMinute, 0)),
@@ -189,6 +198,7 @@ public sealed partial class GameWorld
         ResearchStep(company, Add, income, own);
         UpgradeSteps(company, own, Base, Add);
         ChainSteps(company, own, Base, Add);
+        RoleStep(company, Add);
         PartnerStep(company, Add);
         NeighbourChainStep(company, Add);
         ParcelStep(company, Add);
@@ -437,6 +447,50 @@ public sealed partial class GameWorld
         add(new AdvisorStep(AdvisorKind.Pump, $"Build {Article(pump.Name)}: your network runs at {factor:P0}",
             $"Every {BuildingsPerPump} buildings in one network need a pump station. Put one on its pipes" + (gain > 0.05 ? $": {Plus(network, gain)}." : "."),
             AdvisorAction.Build, BuildCost(company, pump), gain, BuildingType: pump.Id, At: at), AdvisorFixFactor);
+    }
+
+    /// <summary>
+    /// A role for a friend with gold (after run 4: "I still don't know what I could do that matters next to Cleo", Dev,
+    /// with 12M gold, while Ana's Cement Kiln and the Great Dynamo waited for bricks nobody near made): what a friend's
+    /// scaffold or the Era Wonder waits for that nobody near makes, and the building that would make it
+    /// </summary>
+    private void RoleStep(Company company, Action<AdvisorStep, double> add)
+    {
+        var near = NearPlayers(company);
+        bool Made(string good) => near.Any(c => BuildingsOf(c.Id).Any(b => Content.Building(b.Type).Out.ContainsKey(good)));
+        var waits = new List<(string Good, string Who, double Units, bool Friend)>();
+        foreach (var want in WantsNear(company).Where(t => !t.Makes && t.Want.Order == null && !Made(t.Want.Resource)))
+        {
+            waits.Add((want.Want.Resource, $"{PossessiveFor(want.Owner, company)} {want.Name}", want.Want.Left, true));
+        }
+        if (company.District == Capital && EraWonder is { Finished: false } wonder && !Unsized(wonder))
+        {
+            foreach (var (good, required) in wonder.Required.Where(t => !Made(t.Key)))
+            {
+                var left = required - wonder.Delivered.GetValueOrDefault(good) - wonder.Orders.Where(o => o.Resource == good).Sum(o => o.Units - o.Shipped);
+                if (left >= 1)
+                {
+                    waits.Add((good, $"the {WonderDefinition(wonder).Name.Replace("The ", "")}", left, false));
+                }
+            }
+        }
+        foreach (var group in waits.GroupBy(t => t.Good).OrderByDescending(t => t.Sum(w => w.Units) * BasePrice(t.Key)).Take(1))
+        {
+            if (ChainFor(company, group.Key) is not { Locked: null } chain || FindSpot(company, chain.Building, EstateOf(company)?.YardGate ?? default) is not { } spot)
+            {
+                continue;
+            }
+            var good = GoodsWord(group.Key);
+            var waiting = group.Select(t => $"{t.Who} ({Amount(t.Units)})").Distinct().Take(2).ToList();
+            var who = $"{Join(waiting)} wait{(waiting.Count == 1 ? "s" : "")}";
+            // What it would sell for at base, a minute, as its gain: a maker of a good nobody near makes always has buyers
+            var gain = chain.Building.Out.GetValueOrDefault(group.Key) * BasePrice(group.Key);
+            // Who waits, as it is: a friend's building, or the Capital's Wonder (a newcomer alone has no friends waiting)
+            var whom = group.Any(t => t.Friend) ? "your friends wait for" : $"{group.First().Who} waits for";
+            add(new AdvisorStep(AdvisorKind.Chain, $"Make the {good} {whom}: build {Article(chain.Building.Name)}",
+                $"Nobody near makes {good}, and {who} for them. {ChainText(chain, group.Key, company)}.",
+                AdvisorAction.Build, chain.Cost, gain, BuildingType: chain.Building.Id, At: spot), 2);
+        }
     }
 
     /// <summary>The links of a network that carry all they can, as the network view shows them</summary>

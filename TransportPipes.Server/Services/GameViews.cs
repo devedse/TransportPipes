@@ -402,7 +402,7 @@ public static partial class GameViews
             var how = $"you can: {GameWorld.Article(mine.Producer.Name)} {WhereItStands(world, mine.Producer)}".TrimEnd();
             return (how, spot is { } at
                 ? NextStep(new AdvisorStep(AdvisorKind.Chain, $"Build {GameWorld.Article(mine.Producer.Name)}", $"The {GameWorld.StageName(project.Stage)} waits on {Name(good)}", AdvisorAction.Build,
-                    world.BuildCost(me, mine.Producer), 0, BuildingType: mine.Producer.Id, At: at), world)
+                    world.BuildCost(me, mine.Producer), 0, BuildingType: mine.Producer.Id, At: at), world, me)
                 : null);
         }
         if (makers.Count > 0)
@@ -547,32 +547,31 @@ public static partial class GameViews
             return null;
         }
         var wants = world.WantsOf(site);
-        var near = world.EstateOf(owner) is { } estate ? world.StationMakes(estate.Station) : [];
+        // What players near make (your station and crew, who played this week): the same rule as the placing toast and
+        // Next steps, so the panel never says less than they did
+        var near = world.NearPlayers(owner).SelectMany(c => world.BuildingsOf(c.Id).Where(b => !b.UnderConstruction))
+            .SelectMany(b => world.Content.Building(b.Type).Out.Keys).ToHashSet();
         var list = wants.Select(t => new SiteWantDto(t.Resource, t.Amount, Math.Round(t.Got, 1), Math.Round(t.Incoming.Values.Sum() + (t.Order?.Started != null ? t.Order.Rate : 0), 2),
             t.From.Where(f => f.Value >= 0.5).OrderByDescending(f => f.Value)
                 .Select(f => f.Key == owner.Id ? $"you: {f.Value:N0}"
                     : f.Key == GameWorld.HubSource ? $"bought: {f.Value:N0}"
                     : $"{(world.Company(f.Key) is { } who && viewer != null ? world.NameFor(who, viewer) : "a neighbour")}: {f.Value:N0}").ToList(),
-            near.Contains(t.Resource) ? null : Chain(world, t.Resource, near),
+            near.Contains(t.Resource) ? null : SiteChain(world, t.Resource, viewer ?? owner).Text,
             t.Order != null ? $"Ordered: the hub brings the rest {world.OrderStartText(owner, t, viewer ?? owner)}" : null,
-            t.Order == null && t.Left > 1e-6 ? Math.Ceiling(t.Left * world.BasePrice(t.Resource) * GameWorld.OrderPrice) : null)).ToList();
+            t.Order == null && t.Left > 1e-6 ? Math.Ceiling(t.Left * world.BasePrice(t.Resource) * GameWorld.OrderPrice) : null,
+            near.Contains(t.Resource) ? null : SiteChain(world, t.Resource, viewer ?? owner).Building)).ToList();
         var refund = wants.Sum(t => t.Paid) + (owner.Purchases.FirstOrDefault(p => p.Building == site.Id)?.Cost ?? world.BuildCost(owner, world.Content.Building(site.Type)));
         return new SiteDto(list, Math.Round(refund));
     }
 
-    /// <summary>"nobody near makes bricks yet: a Brickworks makes them from stone (Ana) and coal (nobody near)"</summary>
-    private static string Chain(GameWorld world, string good, HashSet<string> near)
-    {
-        var producer = world.Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.ContainsKey(good))
-            .OrderBy(t => t.Unlock.Level).ThenBy(t => t.Cost.Gold).FirstOrDefault();
-        if (producer == null)
-        {
-            return $"nobody near makes {world.GoodsWord(good)} yet";
-        }
-        var inputs = producer.In.Keys.Where(t => t != "energy").Select(t => $"{world.GoodsWord(t)}{(near.Contains(t) ? "" : " (nobody near yet)")}").ToList();
-        return $"nobody near makes {world.GoodsWord(good)} yet: {GameWorld.Article(producer.Name)} makes {(world.GoodsWord(good).EndsWith('s') ? "them" : "it")}"
-            + (inputs.Count > 0 ? $" from {string.Join(" and ", inputs)}" : "");
-    }
+    /// <summary>
+    /// "nobody near makes bricks yet: a Brickworks (1,400 g) makes them from coal and stone: the Houses sell coal and
+    /// stone through the Yard; …", and the building's type when the viewer may build it (for Show me)
+    /// </summary>
+    private static (string Text, string? Building) SiteChain(GameWorld world, string good, Company viewer) =>
+        world.ChainFor(viewer, good) is { } chain
+            ? ($"nobody near makes {world.GoodsWord(good)} yet · {world.ChainText(chain, good, viewer)}", chain.Locked == null ? chain.Building.Id : null)
+            : ($"nobody near makes {world.GoodsWord(good)} yet", null);
 
     public static ChunkObjectsDto ChunkObjects(GameWorld world, int cx, int cy)
     {
@@ -1059,7 +1058,12 @@ public static partial class GameViews
             world.Mentees(owner.Id),
             guestbook,
             owner.SwapWith == viewer.Id,
-            viewer.SwapWith == owner.Id);
+            viewer.SwapWith == owner.Id,
+            owner.Id == viewer.Id ? null
+                : world.WantsNear(viewer).Where(t => t.Owner.Id == owner.Id)
+                    .Select(t => new WantNearDto(t.Target, world.NameFor(t.Owner, viewer), t.Name, t.Want.Resource, Math.Round(t.Want.Left), Math.Floor(t.Holds), t.Makes,
+                        t.Want.Order == null ? world.OrderCost(viewer, t.Target) : null))
+                    .ToList());
     }
 
     public static NetworkFlowsDto Flows(GameWorld world, Network network)
@@ -1332,12 +1336,13 @@ public static partial class GameViews
     private static List<string> Issues(GameWorld world, Building building, FlowNode? node, Network? network) => [];
 
     /// <summary>A network as a company sees it (its own pump stations and speed)</summary>
-    public static NextStepDto NextStep(AdvisorStep step, GameWorld? world = null) => new(
+    public static NextStepDto NextStep(AdvisorStep step, GameWorld? world = null, Company? me = null) => new(
         JsonNamingPolicy.CamelCase.ConvertName(step.Kind.ToString()),
         step.Title,
-        // A step names every cost (run 3: the Big Factory's step said 12k gold; it also takes 100 bricks, ana d21 #286)
-        world != null && step.Action == AdvisorAction.Build && step.BuildingType is { } type && world.Content.Building(type).Cost.Materials is { Count: > 0 } materials
-            ? $"{step.Reason.TrimEnd()} It also takes {string.Join(" and ", materials.Select(t => $"{t.Value:N0} {world.GoodsWord(t.Key)}"))} from your Storages."
+        // A step names every cost (run 3: the Big Factory's step said 12k gold; it also takes 100 bricks, ana d21 #286),
+        // and when the Storages lack them, where they come from (run 4)
+        world != null && me != null && step.Action == AdvisorAction.Build && step.BuildingType is { } type && world.MaterialsLine(me, world.Content.Building(type)) is { } line
+            ? $"{step.Reason.TrimEnd()} {line.Text}"
             : step.Reason,
         JsonNamingPolicy.CamelCase.ConvertName(step.Action.ToString()),
         Math.Round(step.Cost, 2),
