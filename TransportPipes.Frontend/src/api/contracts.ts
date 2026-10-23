@@ -1646,6 +1646,10 @@ export interface SiteWantDto {
   from: string[];
   /** When nobody near makes it: the building that would, and who makes its inputs */
   chain: string | null;
+  /** An order's state ("Ordered: the hub brings the rest from Cleo's next session, at the latest Thu 20:00") */
+  order: string | null;
+  /** What ordering the rest costs now (null: ordered already, or nothing left) */
+  orderCost: number | null;
 }
 
 /** An own want: its target (a building's id, or minus a pipe want's number), what it wants, what is in and coming; tiles for a pipe */
@@ -1657,6 +1661,8 @@ export interface OwnWantDto {
   got: number;
   perMinute: number;
   tiles: number | null;
+  order: string | null;
+  orderCost: number | null;
 }
 
 /** A neighbour's scaffold this player could help with */
@@ -1668,6 +1674,7 @@ export interface WantNearDto {
   left: number;
   holds: number;
   makes: boolean;
+  orderCost: number | null;
 }
 
 /** A friend's kept seat: its code, who keeps it, their crew, where it is and where you live */

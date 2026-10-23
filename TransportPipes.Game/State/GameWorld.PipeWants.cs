@@ -22,7 +22,7 @@ public sealed partial class GameWorld
             company.Asks.Add(new CompanyAsk
             {
                 Resource = resource, Amount = amount, Until = DateTime.MaxValue, Hours = 0,
-                PipeTiles = pipes.Select(t => t.Pos).ToList(), PipeTier = tier.Tier, WantId = id, Paid = 0,
+                PipeTiles = pipes.Select(t => t.Pos).ToList(), PipeTier = tier.Tier, WantId = id, Paid = 0, Raised = LastTick,
             });
         }
         FillWantsFromStorages(company);
@@ -49,6 +49,10 @@ public sealed partial class GameWorld
         {
             return;
         }
+        foreach (var part in parts)
+        {
+            CloseOrder(part);
+        }
         var laid = 0;
         foreach (var pos in ask.PipeTiles!)
         {
@@ -63,7 +67,7 @@ public sealed partial class GameWorld
         }
         owner.Asks.RemoveAll(t => t.PipeTiles != null && t.WantId == ask.WantId);
         var tier = Content.PipeTier(ask.PipeTier);
-        var givers = parts.SelectMany(t => t.From.Where(f => f.Key != owner.Id && f.Value > 0.5).Select(f => (Who: f.Key, t.Resource, Units: f.Value))).ToList();
+        var givers = parts.SelectMany(t => t.From.Where(f => f.Key != owner.Id && f.Key != HubSource && f.Value > 0.5).Select(f => (Who: f.Key, t.Resource, Units: f.Value))).ToList();
         Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.ConstructionFinished,
             $"Your {tier.Name} is laid: {laid} tiles carry {tier.Throughput:N0} a minute{(givers.Count > 0 ? $", {string.Join(" and ", givers.Select(t => $"{Company(t.Who)?.Name}'s {GoodsWord(t.Resource)}").Distinct())} in it 💛" : "")}"));
         foreach (var (who, resource, units) in givers)
@@ -90,6 +94,10 @@ public sealed partial class GameWorld
             return CommandResult.Fail("That pipe has what it needs.");
         }
         var tier = Content.PipeTier(parts[0].PipeTier);
+        foreach (var part in parts)
+        {
+            CloseOrder(part);
+        }
         var refund = parts.Sum(t => t.Paid) + tier.Gold * parts[0].PipeTiles!.Count;
         foreach (var ask in parts)
         {

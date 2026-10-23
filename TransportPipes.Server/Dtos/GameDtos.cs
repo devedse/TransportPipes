@@ -133,7 +133,7 @@ public record CompanyDto(
     IReadOnlyList<OwnWantDto>? Wants = null);
 
 /// <summary>An own want: its target (a building's id, or minus a pipe want's number), what it wants, what is in and coming; Tiles for a pipe</summary>
-public record OwnWantDto(long Target, string Name, string Resource, double Amount, double Got, double PerMinute, int? Tiles);
+public record OwnWantDto(long Target, string Name, string Resource, double Amount, double Got, double PerMinute, int? Tiles, string? Order = null, double? OrderCost = null);
 
 /// <summary>A friend's kept seat: its code, who keeps it, their crew, and where it is and where you live</summary>
 public record KeptSeatDto(string Code, string From, string Crew, string Station, string? YourStation);
@@ -241,10 +241,12 @@ public record BuildingDto(long Id, string Type, long Owner, int X, int Y, int Si
 public record SiteDto(IReadOnlyList<SiteWantDto> Wants, double Refund);
 
 /// <param name="Chain">When nobody near makes it: the building that would, and who makes its inputs</param>
-public record SiteWantDto(string Resource, double Amount, double Got, double PerMinute, IReadOnlyList<string> From, string? Chain);
+/// <param name="Order">An order's state ("the hub brings it from Cleo's next session, at the latest Thu 20:00"); null: none</param>
+/// <param name="OrderCost">What ordering the rest costs now (null: ordered already, or nothing left)</param>
+public record SiteWantDto(string Resource, double Amount, double Got, double PerMinute, IReadOnlyList<string> From, string? Chain, string? Order = null, double? OrderCost = null);
 
 /// <summary>A neighbour's scaffold this player could help: what it wants, what this player's Storages hold of it, and whether it makes it</summary>
-public record WantNearDto(long Site, string Owner, string Building, string Resource, double Left, double Holds, bool Makes);
+public record WantNearDto(long Site, string Owner, string Building, string Resource, double Left, double Holds, bool Makes, double? OrderCost = null);
 
 public record ConductorDto(int X, int Y, string Kind, int Tier, long Owner, int? Network);
 

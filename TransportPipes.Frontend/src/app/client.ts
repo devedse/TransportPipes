@@ -1944,6 +1944,20 @@ export class GameClient {
     return ok;
   }
 
+  /** Orders the rest of a want from the hub (yours, or a neighbour's for them) */
+  async orderRest(target: number, forName: string | null = null) {
+    if (
+      await this.command(
+        this.connection.orderRest(target),
+        forName === null
+          ? "Ordered: the hub brings the rest after your friends' turn"
+          : `💛 Ordered for ${forName}`,
+      )
+    ) {
+      void this.refreshCompany();
+    }
+  }
+
   /** Gives up a scaffold: its gold comes back */
   async cancelSite(site: number) {
     if (await this.command(this.connection.cancelSite(site), "Given up: the gold is yours again")) {

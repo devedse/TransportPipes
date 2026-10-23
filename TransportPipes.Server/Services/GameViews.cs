@@ -114,9 +114,11 @@ public static partial class GameViews
             world.ResearchOpen(company),
             KeptSeat(world, company),
             world.WantsNear(company).Select(t => new WantNearDto(t.Target, world.NameFor(t.Owner, company), t.Name, t.Want.Resource,
-                Math.Round(t.Want.Left), Math.Floor(t.Holds), t.Makes)).ToList(),
+                Math.Round(t.Want.Left), Math.Floor(t.Holds), t.Makes, t.Want.Order == null ? Math.Ceiling(t.Want.Left * world.BasePrice(t.Want.Resource) * GameWorld.OrderPrice) : null)).ToList(),
             world.OpenWants(company).Select(t => new OwnWantDto(t.Target, t.Name, t.Want.Resource, t.Want.Amount, Math.Round(t.Want.Got, 1),
-                Math.Round(t.Want.Incoming.Values.Sum(), 2), t.Want.PipeTiles?.Count)).ToList());
+                Math.Round(t.Want.Incoming.Values.Sum() + (t.Want.Order?.Started != null ? t.Want.Order.Rate : 0), 2), t.Want.PipeTiles?.Count,
+                t.Want.Order != null ? $"Ordered: the hub brings the rest {world.OrderStartText(company, t.Want, company)}" : null,
+                t.Want.Order == null ? Math.Ceiling(t.Want.Left * world.BasePrice(t.Want.Resource) * GameWorld.OrderPrice) : null)).ToList());
     }
 
     /// <summary>A seat a friend keeps for a company that opened its link and lives elsewhere (run 3: Ben)</summary>
@@ -436,10 +438,14 @@ public static partial class GameViews
         }
         var wants = world.WantsOf(site);
         var near = world.EstateOf(owner) is { } estate ? world.StationMakes(estate.Station) : [];
-        var list = wants.Select(t => new SiteWantDto(t.Resource, t.Amount, Math.Round(t.Got, 1), Math.Round(t.Incoming.Values.Sum(), 2),
+        var list = wants.Select(t => new SiteWantDto(t.Resource, t.Amount, Math.Round(t.Got, 1), Math.Round(t.Incoming.Values.Sum() + (t.Order?.Started != null ? t.Order.Rate : 0), 2),
             t.From.Where(f => f.Value >= 0.5).OrderByDescending(f => f.Value)
-                .Select(f => f.Key == owner.Id ? $"you: {f.Value:N0}" : $"{(world.Company(f.Key) is { } who && viewer != null ? world.NameFor(who, viewer) : "a neighbour")}: {f.Value:N0}").ToList(),
-            near.Contains(t.Resource) ? null : Chain(world, t.Resource, near))).ToList();
+                .Select(f => f.Key == owner.Id ? $"you: {f.Value:N0}"
+                    : f.Key == GameWorld.HubSource ? $"bought: {f.Value:N0}"
+                    : $"{(world.Company(f.Key) is { } who && viewer != null ? world.NameFor(who, viewer) : "a neighbour")}: {f.Value:N0}").ToList(),
+            near.Contains(t.Resource) ? null : Chain(world, t.Resource, near),
+            t.Order != null ? $"Ordered: the hub brings the rest {world.OrderStartText(owner, t, viewer ?? owner)}" : null,
+            t.Order == null && t.Left > 1e-6 ? Math.Ceiling(t.Left * world.BasePrice(t.Resource) * GameWorld.OrderPrice) : null)).ToList();
         var refund = wants.Sum(t => t.Paid) + (owner.Purchases.FirstOrDefault(p => p.Building == site.Id)?.Cost ?? world.BuildCost(owner, world.Content.Building(site.Type)));
         return new SiteDto(list, Math.Round(refund));
     }

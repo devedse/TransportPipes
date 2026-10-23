@@ -158,6 +158,66 @@ public class WantFacts
     }
 
     [TestMethod]
+    public void AnOrderShipsTheRestOverSixHoursWhenNobodyNearMakesIt()
+    {
+        var (game, ana, _) = Station();
+        game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
+        var site = MarketHall(game, ana);
+        var gold = ana.Gold;
+
+        Assert.IsTrue(game.World.OrderRest(ana.Id, site.Id).Success);
+        Assert.AreEqual(gold - 500 * game.World.BasePrice("bricks") * GameWorld.OrderPrice, ana.Gold, 1, "paid up front at 2 × base");
+        game.Pass(3 * 60);
+        var want = game.World.WantsOf(site).Single();
+        Assert.AreEqual(250, want.Got, 15, "half in three hours");
+        game.Pass(3 * 60 + 5);
+
+        Assert.IsFalse(GameWorld.IsSite(site), "in six hours it has them all, and is built");
+    }
+
+    [TestMethod]
+    public void AnOrderWaitsForTheFriendWhoHoldsItThenFriendsComeFirst()
+    {
+        // The friends' window: Ben holds bricks and hasn't played since Ana's Market Hall wanted them
+        var (game, ana, ben) = Station();
+        Store(game, ben, "bricks", 800);
+        ben.LastSeenAt = game.World.Now.AddHours(-1);
+        game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
+        var site = MarketHall(game, ana);
+        game.World.OrderRest(ana.Id, site.Id);
+        var paid = ana.Gold;
+
+        game.Pass(60);
+        var want = game.World.WantsOf(site).Single();
+        Assert.AreEqual(0, want.Got, 1e-6, "the hub waits for Ben's turn");
+        StringAssert.Contains(game.World.OrderStartText(ana, want, ana), "Ben's next session");
+
+        // Ben comes and sends his: what he brings comes off the order, its gold back to Ana
+        ben.LastSeenAt = game.World.Now;
+        Assert.IsTrue(game.World.SendToSite(ben.Id, site.Id).Success);
+
+        Assert.IsFalse(GameWorld.IsSite(site));
+        Assert.AreEqual(paid + 500 * game.World.BasePrice("bricks") * GameWorld.OrderPrice - 500 * game.World.PlayerPrice("bricks"), ana.Gold, 1,
+            "the order's gold back, Ben's bricks paid at the one player price");
+    }
+
+    [TestMethod]
+    public void ANeighbourCanOrderTheRestForAFriend()
+    {
+        var (game, ana, ben) = Station();
+        game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
+        var site = MarketHall(game, ana);
+        var (anaGold, benGold) = (ana.Gold, ben.Gold);
+
+        Assert.IsTrue(game.World.OrderRest(ben.Id, site.Id).Success);
+
+        Assert.AreEqual(anaGold, ana.Gold, 1e-6, "Ana pays nothing");
+        Assert.IsLessThan(benGold, ben.Gold, "Ben paid the hub for her");
+        game.Pass(6 * 60 + 5);
+        Assert.IsFalse(GameWorld.IsSite(site));
+    }
+
+    [TestMethod]
     public void CancelGivesTheGoldBack()
     {
         var (game, ana, ben) = Station();

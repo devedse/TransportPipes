@@ -301,13 +301,21 @@ function SiteWants({
               </span>
               {want.from.length > 0 && <span className="muted small">from {want.from.join(" · ")}</span>}
               {want.chain !== null && <span className="small">{want.chain}</span>}
+              {want.order !== null && <span className="small">{want.order}</span>}
+              {mine && want.orderCost !== null && (
+                <button className="small" onClick={() => void gameClient.orderRest(building)}>
+                  Order the rest · {formatAmount(want.orderCost)} g
+                </button>
+              )}
             </li>
           );
         })}
       </ul>
       <p className="muted small">
         Your Storages give it what they hold; your spare and your neighbours&apos; reach it through the Yard
-        by themselves; a neighbour can send theirs from their Storage.
+        by themselves; a neighbour can send theirs from their Storage. An order waits for the friends who make
+        it to have had their turn, then the hub brings the rest over six hours; what friends bring comes off
+        it.
       </p>
       {mine && (
         <button className="small" onClick={() => void gameClient.cancelSite(building)}>

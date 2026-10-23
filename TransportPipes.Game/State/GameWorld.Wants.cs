@@ -35,7 +35,7 @@ public sealed partial class GameWorld
         site.ConstructionEndsAt = SiteWaiting;
         foreach (var (resource, amount) in definition.Cost.Materials)
         {
-            company.Asks.Add(new CompanyAsk { Resource = resource, Amount = amount, Until = DateTime.MaxValue, Hours = 0, Site = site.Id });
+            company.Asks.Add(new CompanyAsk { Resource = resource, Amount = amount, Until = DateTime.MaxValue, Hours = 0, Site = site.Id, Raised = LastTick });
         }
         FillWantsFromStorages(company);
         FinishWantsIfFull(company, site);
@@ -128,6 +128,7 @@ public sealed partial class GameWorld
                 PayForWant(owner, seller, ask, units);
             }
         }
+        ShipOrder(owner, ask, minutes);
         FillWantsFromStorages(owner);
         if (ask.Site is { } id && Building(id) is { } site)
         {
@@ -177,7 +178,11 @@ public sealed partial class GameWorld
         {
             Changes.Tiles.Add(tile);
         }
-        var givers = wants.SelectMany(t => t.From.Where(f => f.Key != owner.Id && f.Value > 0.5).Select(f => (Who: f.Key, t.Resource, Units: f.Value))).ToList();
+        foreach (var want in wants)
+        {
+            CloseOrder(want);
+        }
+        var givers = wants.SelectMany(t => t.From.Where(f => f.Key != owner.Id && f.Key != HubSource && f.Value > 0.5).Select(f => (Who: f.Key, t.Resource, Units: f.Value))).ToList();
         owner.Asks.RemoveAll(t => t.Site == site.Id);
         Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.ConstructionFinished, givers.Count == 0
             ? $"Your {definition.Name} has its materials: it's being built"
@@ -286,6 +291,10 @@ public sealed partial class GameWorld
             return CommandResult.Fail("Only a building that still waits for its materials can be given up.");
         }
         var wants = WantsOf(site);
+        foreach (var want in wants)
+        {
+            CloseOrder(want);
+        }
         var refund = wants.Sum(t => t.Paid) + (company.Purchases.FirstOrDefault(t => t.Building == siteId)?.Cost ?? BuildCost(company, Content.Building(site.Type)));
         // What its owner's own Storages gave goes back into them, as far as they hold it
         foreach (var ask in wants)

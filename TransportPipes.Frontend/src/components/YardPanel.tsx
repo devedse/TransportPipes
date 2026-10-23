@@ -171,7 +171,13 @@ export function YardPanel() {
                       {w.perMinute > 0.005 && (
                         <span className="muted"> · {formatAmount(w.perMinute)}/min coming</span>
                       )}
+                      {w.order !== null && <span className="muted"> · {w.order}</span>}
                     </span>
+                    {w.orderCost !== null && (
+                      <button className="small" onClick={() => void gameClient.orderRest(w.target)}>
+                        Order the rest · {formatAmount(w.orderCost)} g
+                      </button>
+                    )}
                     <button className="link small" onClick={() => void gameClient.cancelSite(w.target)}>
                       give it up
                     </button>
@@ -200,6 +206,14 @@ export function YardPanel() {
                     {w.holds >= 1 && (
                       <button className="small" onClick={() => void gameClient.sendToSite(w.site)}>
                         Send them ▸
+                      </button>
+                    )}
+                    {w.orderCost !== null && (
+                      <button
+                        className="link small"
+                        onClick={() => void gameClient.orderRest(w.site, w.owner)}
+                      >
+                        order it for {w.owner} · {formatAmount(w.orderCost)} g
                       </button>
                     )}
                   </li>
