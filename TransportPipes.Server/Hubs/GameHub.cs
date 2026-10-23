@@ -531,9 +531,6 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> CancelExchangeOrder(long order) =>
         Command((world, company) => world.CancelExchangeOrder(company, order));
 
-    public Task<CommandResultDto> DeliverOrder(int order) =>
-        Command((world, company) => world.DeliverOrder(company, order));
-
     public Task<CommandResultDto> SetNoTrade(string resource, bool noTrade) =>
         Command((world, company) => world.SetNoTrade(company, resource, noTrade));
 

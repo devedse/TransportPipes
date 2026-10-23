@@ -302,6 +302,9 @@ public sealed class DailyOrder
     /// <summary>A Shortage order: bigger, better paid, gone when the event ends</summary>
     public bool Urgent { get; set; }
 
+    /// <summary>What it paid over the hub's price so far (it buys at its own price as the goods pass the trading post)</summary>
+    public double Premium { get; set; }
+
     public bool Done => Delivered >= Amount - 1e-9;
 }
 
@@ -324,6 +327,10 @@ public sealed class CompanyReport
     public int TendedDays { get; set; }
     public double CaretakerFee { get; set; }
     public int OrdersCompleted { get; set; }
+
+    /// <summary>What filled hub orders paid over the hub's price, and their goods (the return card shows them once filled)</summary>
+    public double OrderGold { get; set; }
+    public List<string> OrdersFilled { get; set; } = new();
     public int LikesReceived { get; set; }
 
     /// <summary>Who thanked it for its goods ("Ana thanked you for your coal 💛"): the return card's social line</summary>

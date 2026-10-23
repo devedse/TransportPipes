@@ -56,7 +56,8 @@ export function GoalTracker() {
   const alerts = (company.alerts ?? []).filter(
     (t) => !advisor || t.kind === "storage" || t.kind === "damage",
   );
-  const order = company.dailyOrders.find((t) => t.delivered < t.amount);
+  // Hub orders show once they are filled, never as a task (after run 3, step 7)
+  const filled = company.dailyOrders.filter((t) => t.delivered >= t.amount - 1e-9);
   const levelShare = Math.min(
     1,
     (company.xp - company.levelXp) / Math.max(1, company.nextLevelXp - company.levelXp),
@@ -200,14 +201,20 @@ export function GoalTracker() {
             </span>
           </li>
         )}
-        {order !== undefined && (
+        {filled.length > 0 && (
           <li>
             <span className="goal-label">Today</span>
-            <span className="goal-text">
-              {formatAmount(order.amount)} {content.resourceName(order.resource).toLowerCase()} for the hub
-            </span>
+            <button
+              className="goal-text link"
+              title="The hub's daily orders: open them"
+              onClick={() => void gameClient.openHub("orders")}
+            >
+              ✔ {filled.map((t) => content.resourceName(t.resource).toLowerCase()).join(", ")} filled{" "}
+              {filled.length === 1 ? "a hub order" : `${filled.length} hub orders`}: +
+              {formatAmount(filled.reduce((sum, t) => sum + t.premium, 0))} g ›
+            </button>
             <span className="goal-bar">
-              <span style={{ width: `${Math.round((order.delivered / order.amount) * 100)}%` }} />
+              <span style={{ width: "100%" }} />
             </span>
           </li>
         )}

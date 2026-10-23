@@ -20,9 +20,9 @@
 - { id: firstIngot, stat: "produced:ironIngot", amount: 1, gold: 400, hint: { tool: build, building: smallFactory },
     text: "Put a Small Factory on the pipe from your Iron Mine to your Trading Post: it takes ore and energy there and sends its ingots on to be sold. Goods never pass through a building." }
 - { id: firstStorage, stat: "built:storage", amount: 1, gold: 300, hint: { tool: build, building: storage },
-    text: "Build a Storage on your pipes. It keeps what your buildings make, for the hub's daily orders." }
+    text: "Build a Storage on your pipes. It keeps what your buildings make for your next buildings and pipes: a building short of materials takes them from it." }
 - { id: firstOrder, stat: orders, amount: 1, gold: 500, hint: { panel: hub },
-    text: "The hub posts three orders a day. When your Storage holds enough, deliver one: a big reward and reputation." }
+    text: "The hub posts three orders a day and buys them at twice the price from what your trading post sells. Keep selling: one fills by itself." }
 - { id: firstResearch, stat: researched, amount: 1, gold: 800, hint: { tool: build, building: lab },
     text: "Build a Lab, connect energy and iron ingots, and pick your first research." }
 - { id: firstParcel, stat: parcels, amount: 5, gold: 1000, hint: { panel: parcel },
@@ -39,7 +39,7 @@
 - { id: threeResearches, chapter: 2, stat: researched, amount: 3, gold: 3000, hint: { panel: research },
     text: "Research is a plan, not a list: pick techs that help what you make. Finish three researches." }
 - { id: moreOrders, chapter: 2, stat: orders, amount: 4, gold: 3000, hint: { panel: hub },
-    text: "Deliver three more of the hub's daily orders. Your Storage keeps what they need; orders pay well and bring reputation." }
+    text: "Fill three more of the hub's daily orders: they buy at twice the price from what your trading post sells, and bring reputation." }
 - { id: neighbourIncome, chapter: 2, stat: neighbourIncome, amount: 30, gold: 4000, hint: { panel: yard },
     text: "Your station pays more than the hub. Earn 30 gold a minute from your neighbours: make what they lack (the Yard shows it)." }
 - { id: secondParcel, chapter: 2, stat: parcels, amount: 6, gold: 5000, hint: { panel: parcel },

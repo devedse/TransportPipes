@@ -3,7 +3,7 @@ import { gameClient } from "../app/client";
 import { formatAmount, formatDuration } from "../app/format";
 import { useNow } from "../app/useNow";
 import type { GameEventDto, MarketResourceDto } from "../api/contracts";
-import { setState, toast, useAppStore, type HubTab } from "../state/store";
+import { setState, useAppStore, type HubTab } from "../state/store";
 import { WondersTab } from "./WondersTab";
 import { EVENT_ICONS, eventTime } from "../app/events";
 import { ResourceIcon } from "./ResourceIcon";
@@ -125,8 +125,6 @@ export function HubPanel() {
   const now = useNow();
   const tab = useAppStore((state) => state.hubTab);
   const setTab = (hubTab: HubTab) => setState({ hubTab });
-  // What the last Deliver of each order did, on its own line
-  const [delivered, setDelivered] = useState<Record<number, string>>({});
   if (!open || company === null || content === null) {
     return null;
   }
@@ -189,13 +187,16 @@ export function HubPanel() {
         ) : tab === "orders" ? (
           <div className="orders">
             <p className="muted small">
-              The hub wants these today. Deliver them from your Storages for a reward, reputation and XP: pipe
-              a building into a Storage and it keeps what today&apos;s orders need. New orders at midnight.
+              The hub buys these today at twice the price, from what your trading posts sell: nothing to
+              deliver, they fill as your goods pass. New orders at midnight.
             </p>
             {company.dailyOrders.map((order) => {
               const done = order.delivered >= order.amount - 1e-9;
               const left = (new Date(order.expiresAt).getTime() - serverNow) / 1000;
               const resource = content.resource(order.resource);
+              const good = content.resourceName(order.resource).toLowerCase();
+              const eta =
+                order.selling > 1e-6 ? ((order.amount - order.delivered) / order.selling) * 60 : null;
               return (
                 <div key={order.id} className={done ? "order done" : order.urgent ? "order urgent" : "order"}>
                   <div className="order-icon" style={{ borderColor: resource?.color }}>
@@ -204,7 +205,7 @@ export function HubPanel() {
                   <div className="order-body">
                     <div className="order-title">
                       {order.urgent && <span className="urgent-tag">📢 Shortage</span>}
-                      {formatAmount(order.amount)} {content.resourceName(order.resource).toLowerCase()}
+                      {formatAmount(order.amount)} {good}
                     </div>
                     <div className="meter-bar">
                       <div
@@ -216,49 +217,19 @@ export function HubPanel() {
                       />
                     </div>
                     <div className="small muted">
-                      Reward <span className="gold-text">{formatAmount(order.rewardGold)} g</span> ·{" "}
+                      Pays <span className="gold-text">{formatAmount(order.rewardGold)} g</span> in all ·{" "}
                       {formatAmount(order.rewardXp)} XP · {formatAmount(order.rewardReputation)} reputation
                       {!done && ` · ${formatDuration(Math.max(0, left))} left`}
                     </div>
-                    {!done && (
-                      // Where it comes from (run 2: three players asked what a storage is)
-                      <div className="small order-stock">
-                        {order.hasStorage
-                          ? `In your Storages: ${formatAmount(order.inStorage)} ${content.resourceName(order.resource).toLowerCase()}`
-                          : "Comes out of a Storage: you have none yet"}
-                      </div>
-                    )}
-                    {delivered[order.id] !== undefined && (
-                      <div className="small order-result" role="status">
-                        {delivered[order.id]}
-                      </div>
-                    )}
+                    <div className="small order-stock">
+                      {done
+                        ? `Filled: +${formatAmount(order.premium)} g over the hub's price`
+                        : eta !== null
+                          ? `Your trading posts sell ${formatAmount(order.selling)} a minute: full in about ${formatDuration(eta)}`
+                          : `Your trading posts sell no ${good} now: pipe a building that makes it to one`}
+                    </div>
                   </div>
-                  {done ? (
-                    <span className="order-check">✔</span>
-                  ) : !order.hasStorage ? (
-                    <button
-                      onClick={() => {
-                        setState({ hubOpen: false });
-                        gameClient.setTool({ kind: "build", type: "storage" });
-                        // Say what's in hand (run 3: Cleo thought the button did nothing)
-                        toast("Storage in hand: click a free tile by your buildings, then pipe one into it");
-                      }}
-                    >
-                      Build a Storage
-                    </button>
-                  ) : (
-                    <button
-                      className="primary"
-                      onClick={() =>
-                        void gameClient
-                          .deliverOrder(order)
-                          .then((text) => setDelivered((all) => ({ ...all, [order.id]: text })))
-                      }
-                    >
-                      Deliver
-                    </button>
-                  )}
+                  {done && <span className="order-check">✔</span>}
                 </div>
               );
             })}

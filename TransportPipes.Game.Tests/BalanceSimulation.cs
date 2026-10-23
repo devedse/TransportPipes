@@ -296,7 +296,6 @@ public class BalanceSimulation
                     break;
                 }
             }
-            DeliverOrders();
         }
 
         /// <summary>One sensible thing to do, if there is one</summary>
@@ -390,8 +389,8 @@ public class BalanceSimulation
                 case "firstStorage":
                     return company.Gold >= Cost("storage") && Place("storage", preferMultiplier: false) ? ("built and piped a Storage", 30) : (null, 0);
                 case "firstOrder":
-                    var delivered = company.DailyOrders.Where(t => !t.Done).Select(t => World.DeliverOrder(company.Id, t.Id)).Count(t => t.Success);
-                    return delivered > 0 ? ($"delivered to {delivered} order(s)", 20) : (null, 0);
+                    // Orders fill by themselves from what the trading post sells (after run 3, step 7)
+                    return (null, 0);
                 case "firstParcel":
                     return TryParcel() ? ("bought a parcel", 20) : (null, 0);
                 case "firstResearch":
@@ -411,8 +410,7 @@ public class BalanceSimulation
                 case "threeResearches":
                     return company.CurrentResearch == null && TryResearch() ? (TakeNotes().TrimStart(' ', '·'), 20) : (null, 0);
                 case "moreOrders":
-                    var orders = company.DailyOrders.Where(t => !t.Done).Select(t => World.DeliverOrder(company.Id, t.Id)).Count(t => t.Success);
-                    return orders > 0 ? ($"delivered to {orders} order(s)", 20) : (null, 0);
+                    return (null, 0);
                 case "neighbourIncome":
                     return ConnectNeighbour() is { } partner ? ($"piped to {partner}", 45) : (null, 0);
                 case "secondParcel":
@@ -622,14 +620,6 @@ public class BalanceSimulation
                 return true;
             }
             return false;
-        }
-
-        private void DeliverOrders()
-        {
-            foreach (var order in company.DailyOrders.ToList())
-            {
-                World.DeliverOrder(company.Id, order.Id);
-            }
         }
 
         /// <summary>Places a building close to the trading post (or where it makes the most) and pipes it to the network</summary>

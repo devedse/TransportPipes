@@ -224,13 +224,12 @@ public static partial class GameViews
         return new LandDto(world.Generator.LandOf(home.District, home.Slot), seats);
     }
 
-    /// <summary>Today's hub orders, each with what the Storages hold of its good (orders come out of them)</summary>
+    /// <summary>Today's hub orders, each with what the trading posts sell of its good now (they fill from it)</summary>
     private static List<DailyOrderDto> Orders(GameWorld world, Company company)
     {
-        var stock = world.Materials(company.Id);
-        var hasStorage = world.HasStorage(company);
-        return company.DailyOrders.Select(t => new DailyOrderDto(t.Id, t.Resource, t.Amount, t.Delivered, t.RewardGold, t.RewardXp, t.RewardReputation, t.ExpiresAt, t.Urgent,
-            Math.Floor(stock.GetValueOrDefault(t.Resource)), hasStorage)).ToList();
+        var selling = world.SellingPerMinute(company);
+        return company.DailyOrders.Select(t => new DailyOrderDto(t.Id, t.Resource, t.Amount, Math.Floor(t.Delivered), t.RewardGold, t.RewardXp, t.RewardReputation, t.ExpiresAt, t.Urgent,
+            Math.Round(selling.GetValueOrDefault(t.Resource), 2), Math.Round(t.Premium))).ToList();
     }
 
     /// <summary>

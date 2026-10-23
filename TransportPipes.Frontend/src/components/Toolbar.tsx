@@ -76,9 +76,6 @@ export function Toolbar() {
   // Tools the player has not tried yet glow
   const [seen, setSeen] = useState(seenTools);
   useEffect(() => rememberSeen(seen), [seen]);
-  const ordersOpen = useAppStore(
-    (state) => state.company?.dailyOrders.filter((t) => t.delivered < t.amount).length ?? 0,
-  );
 
   const tools = [
     {
@@ -126,8 +123,9 @@ export function Toolbar() {
     {
       key: "hub",
       label: "Hub",
-      badge: ordersOpen,
-      badgeTitle: "of today's hub orders open",
+      // Hub orders fill by themselves: no badge asks for them (after run 3, step 7)
+      badge: 0,
+      badgeTitle: "",
       icon: "🏛",
       hotkey: "M",
       active: hubOpen,

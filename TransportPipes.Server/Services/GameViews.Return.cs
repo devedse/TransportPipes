@@ -234,6 +234,13 @@ public static partial class GameViews
             }
         }
 
+        // Hub orders show once they are filled, never as a task (after run 3, step 7)
+        if (report.OrdersCompleted > 0)
+        {
+            var goods = report.OrdersFilled.Select(world.GoodsWord).ToList();
+            Add(4, "orders", "📋", $"Your {And(goods)} filled {Plural(report.OrdersCompleted, "hub order")} at twice the price: +{report.OrderGold:N0} g over the hub's");
+        }
+
         // The social line: who thanked you, else who liked your estate
         if (report.Thanks.Count > 0)
         {

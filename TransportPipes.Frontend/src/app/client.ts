@@ -8,7 +8,6 @@ import type {
   CommandResult,
   CompanyDto,
   CorporationRole,
-  DailyOrderDto,
   LeaderboardKind,
   NextStepDto,
   ReturnLineDto,
@@ -730,29 +729,6 @@ export class GameClient {
   async cancelExchangeOrder(order: number) {
     if (await this.command(this.connection.cancelExchangeOrder(order))) {
       await this.refreshMarket();
-    }
-  }
-
-  /**
-   * Delivers what the Storages hold for an order and says what happened, for the order's own line: a toast hides behind
-   * the Hub, and a part delivery said nothing at all (run 2: "Hub Deliver silent again")
-   */
-  async deliverOrder(order: DailyOrderDto): Promise<string> {
-    try {
-      const result = await this.connection.deliverOrder(order.id);
-      if (!result.success) {
-        return result.error ?? "That didn't work.";
-      }
-      await this.refreshCompany();
-      this.scheduleNextSteps();
-      const after =
-        appStore.getState().company?.dailyOrders.find((t) => t.id === order.id)?.delivered ?? order.amount;
-      const left = Math.max(0, order.amount - after);
-      return left <= 1e-9
-        ? `Done: +${formatAmount(order.rewardGold)} g`
-        : `Delivered ${formatAmount(after - order.delivered)} of ${formatAmount(order.amount)} · ${formatAmount(left)} to go`;
-    } catch (error) {
-      return `The server didn't answer (${String(error)}).`;
     }
   }
 

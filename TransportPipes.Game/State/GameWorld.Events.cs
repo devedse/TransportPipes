@@ -496,8 +496,6 @@ public sealed partial class GameWorld
             ExpiresAt = shortage.EndsAt,
             Urgent = true,
         });
-        // Storages keep what the order needs
-        MarkCompanyNetworksDirty(company.Id);
         company.Touch();
         Changes.Companies.Add(company.Id);
     }

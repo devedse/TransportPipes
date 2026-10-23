@@ -314,6 +314,20 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
+    /// <summary>For tests: a scaffold gets all its materials, as if brought (it starts being built)</summary>
+    public void FillSite(long buildingId)
+    {
+        if (Building(buildingId) is not { } site || !IsSite(site) || Company(site.Owner) is not { } owner)
+        {
+            return;
+        }
+        foreach (var want in WantsOf(site))
+        {
+            want.Got = want.Amount;
+        }
+        FinishWantsIfFull(owner, site);
+    }
+
     /// <summary>For tests and the dev cheat: goods put into a company's Storages; returns how much fitted</summary>
     public double Stock(long companyId, string resource, double amount) => PutInStorages(companyId, resource, amount);
 

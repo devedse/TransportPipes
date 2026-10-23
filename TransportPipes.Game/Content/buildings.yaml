@@ -483,7 +483,7 @@
   size: 2
   evolvesTo: silo
   unlock: { level: 10 }
-  cost: { gold: 8000 }
+  cost: { gold: 8000, materials: { planks: 100 } }
   buildSeconds: 300
   capacity: 50000
   description: Holds up to 50,000 units.
@@ -505,7 +505,7 @@
   kind: cargoDepot
   size: 2
   unlock: { level: 12 }
-  cost: { gold: 10000 }
+  cost: { gold: 10000, materials: { planks: 100 } }
   buildSeconds: 300
   throughput: 200
   description: Trucks connect all your Cargo Depots (estate and outposts) like a pipe without losses, 200 per minute per level. Halves Exchange cargo times.

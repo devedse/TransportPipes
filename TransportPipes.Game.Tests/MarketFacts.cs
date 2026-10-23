@@ -82,31 +82,45 @@ public class MarketFacts
     }
 
     [TestMethod]
-    public void DailyOrdersAreDeliveredFromStoragesForGoldXpAndReputation()
+    public void DailyOrdersBuyAtTwiceThePriceFromWhatTheTradingPostSells()
+    {
+        // After run 3, step 7: no order was delivered after day 14, because they came out of a Storage nobody mentioned
+        var (game, company, post) = SolarSeller(5);
+        game.World.EnsureOrders(company);
+        var order = company.DailyOrders.Single();
+        Assert.AreEqual("energy", order.Resource, "what its post sells: one order a good");
+        var selling = game.World.SellingPerMinute(company)["energy"];
+        Assert.IsLessThanOrEqualTo(selling * 8 * 60 + 10, order.Amount, "it fills within eight hours of its own selling");
+        var price = SalePrice(game, post);
+        game.World.TakeChanges();
+
+        var minutes = 0;
+        while (!order.Done && minutes < 9 * 60)
+        {
+            game.Pass(1);
+            minutes++;
+        }
+
+        Assert.IsTrue(order.Done, "it filled by itself, from the sales");
+        Assert.AreEqual(order.Amount * (order.RewardGold / order.Amount - price), order.Premium, 1, "it paid twice the base price: the difference to the hub's on top");
+        Assert.AreEqual(order.RewardReputation, company.HubReputation, 1);
+        var events = game.World.TakeChanges().Events;
+        Assert.IsTrue(events.Any(t => t.Company == company.Id && t.Text.StartsWith("Your energy filled a hub order")), string.Join(" | ", events.Select(t => t.Text)));
+        Assert.AreEqual(1, company.Report.OrdersCompleted);
+    }
+
+    [TestMethod]
+    public void OrdersAreSizedAtMinutesOfIncome()
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var company = game.NewCompany();
+        company.MeasuredIncome = 6_000;
         game.World.EnsureOrders(company);
-        Assert.HasCount(GameWorld.OrdersPerDay, company.DailyOrders);
-        var order = company.DailyOrders[0];
-        Assert.AreEqual("energy", order.Resource, "a level 1 company can only make energy");
 
-        // It says how an order fills (run 2: "Your storages have no coal" left players asking what a storage is)
-        StringAssert.Contains(game.World.DeliverOrder(company.Id, order.Id).Error, "energy");
+        var value = company.DailyOrders.Sum(t => t.Amount * game.World.BasePrice(t.Resource));
 
-        var storage = game.Map(company, game.Local(company, 1, 1), "O").Values.Single();
-        storage.Contents["energy"] = order.Amount / 2;
-        Assert.IsTrue(game.World.DeliverOrder(company.Id, order.Id).Success);
-        Assert.AreEqual(order.Amount / 2, order.Delivered);
-        var gold = company.Gold;
-        storage.Contents["energy"] = order.Amount;
-        Assert.IsTrue(game.World.DeliverOrder(company.Id, order.Id).Success);
-
-        Assert.IsTrue(order.Done);
-        Assert.AreEqual(order.Amount / 2, storage.Contents["energy"], 1e-9, "only what was still missing is taken");
-        Assert.AreEqual(gold + order.RewardGold, company.Gold);
-        Assert.AreEqual(order.RewardReputation, company.HubReputation);
-        StringAssert.Contains(game.World.DeliverOrder(company.Id, order.Id).Error, "complete");
+        Assert.IsGreaterThan(GameWorld.OrderIncomeMinutes * 6_000 * 0.75 - 30, value);
+        Assert.IsLessThan(GameWorld.OrderIncomeMinutes * 6_000 * 1.25 + 30, value, "about half an hour of income in all");
     }
 
     [TestMethod]
@@ -135,7 +149,7 @@ public class MarketFacts
 
         game.Pass(60 * 24);
 
-        Assert.HasCount(GameWorld.OrdersPerDay, company.DailyOrders);
+        Assert.HasCount(first.Count, company.DailyOrders, "one a good it makes (here energy)");
         Assert.IsTrue(company.DailyOrders.All(t => !first.Contains(t.Id)));
         Assert.IsTrue(company.DailyOrders.All(t => t.ExpiresAt > game.Time));
     }

@@ -372,7 +372,6 @@ export class GameConnection {
   ) => this.invoke<CommandResult>("ProposeContract", partner, selling, resource, rate, price, days);
   acceptContract = (contract: number) => this.invoke<CommandResult>("AcceptContract", contract);
   declineContract = (contract: number) => this.invoke<CommandResult>("DeclineContract", contract);
-  deliverOrder = (order: number) => this.invoke<CommandResult>("DeliverOrder", order);
   setNoTrade = (resource: string, noTrade: boolean) =>
     this.invoke<CommandResult>("SetNoTrade", resource, noTrade);
   setNoBuy = (resource: string, noBuy: boolean) => this.invoke<CommandResult>("SetNoBuy", resource, noBuy);

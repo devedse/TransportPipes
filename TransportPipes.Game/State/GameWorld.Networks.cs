@@ -711,13 +711,12 @@ public sealed partial class GameWorld
     public const int PipeMaterialReserve = 100;
 
     /// <summary>
-    /// What a company needs of a resource in its storages: what today's orders and its corporation's weekly goal still
-    /// need, enough to build the building it can build that needs the most of it, and the materials for a stretch of
+    /// What a company needs of a resource in its storages: what its corporation's weekly goal still need, enough to build the building it can build that needs the most of it, and the materials for a stretch of
     /// the pipes it can lay (copper ingots for Copper Pipes)
     /// </summary>
     public double StorageNeed(Company company, string resource)
     {
-        var need = OrderNeed(company, resource);
+        var need = 0.0;
         if (CorporationOf(company)?.Goal is { Rewarded: false } goal && goal.Resource == resource)
         {
             need += Math.Max(0, goal.Amount - goal.Delivered);
@@ -734,10 +733,6 @@ public sealed partial class GameWorld
             .Max();
         return Math.Max(need, Math.Max(materials, pipes));
     }
-
-    /// <summary>What a company's open orders of today still need of a resource</summary>
-    public double OrderNeed(Company company, string resource) =>
-        company.DailyOrders.Where(t => t.Resource == resource && !t.Done && t.ExpiresAt > Now).Sum(t => t.Amount - t.Delivered);
 
     public double TradingPostThroughput(Building building, BuildingDefinition definition) =>
         definition.Throughput * Content.Progression.OutputMultiplier(building.Level) * (1 + Refined(Company(building.Owner), "trading"));

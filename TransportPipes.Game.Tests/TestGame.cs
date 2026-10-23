@@ -158,6 +158,8 @@ internal sealed class TestGame
         var building = World.BuildingAt(pos.Value)!;
         if (finish)
         {
+            // A building that wants materials gets them (wants have tests of their own)
+            World.FillSite(building.Id);
             World.FinishConstruction(building.Id);
         }
         return building;

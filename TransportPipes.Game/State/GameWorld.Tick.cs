@@ -359,6 +359,11 @@ public sealed partial class GameWorld
                     earnings[from.Owner] = (earnings.TryGetValue(from.Owner, out var e) ? e : 0) + income;
                     if (flow.Kind == FlowKind.Sale && Company(from.Owner) is { } seller)
                     {
+                        // Today's hub orders buy at their own price as the goods pass (after run 3, step 7)
+                        if (seller.DailyOrders.Count > 0 && !seller.IsNpc)
+                        {
+                            earnings[from.Owner] += FillOrders(seller, flow.Resource, flow.Delivered * minutes, flow.PricePerUnit);
+                        }
                         AddStat(seller, "hubGold", income);
                         Add(seller.Report.Sold, flow.Resource, flow.Delivered * minutes);
                         // The company's own order at the hub follows what it sells there
