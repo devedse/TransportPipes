@@ -2993,6 +2993,62 @@ button.liked {
   align-items: center;
 }
 
+.refinements {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+}
+
+.refinements > button {
+  align-self: flex-start;
+}
+
+.refine-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.refine-line {
+  display: grid;
+  grid-template-columns: 180px 1fr 110px 140px 100px;
+  gap: 8px;
+  align-items: center;
+}
+
+.refine-line.chosen .refine-name {
+  font-weight: 600;
+}
+
+.refine-name {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.refine-icon {
+  width: 18px;
+  text-align: center;
+}
+
+.refined-line {
+  color: var(--brass-dark, var(--gold));
+}
+
+@media (max-width: 700px) {
+  .refine-line {
+    grid-template-columns: 1fr auto;
+  }
+  .refine-line .meter-bar,
+  .refine-line > .muted {
+    grid-column: 1 / -1;
+  }
+}
+
 .wonder-need .wonder-order {
   grid-column: 2 / -1;
   display: flex;

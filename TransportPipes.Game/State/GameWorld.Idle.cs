@@ -48,6 +48,9 @@ public enum IdleCause
 
     /// <summary>What it makes (Resource) fills the pipe connections it leaves by, and they carry less than it could make</summary>
     PipeFull,
+
+    /// <summary>A Lab with nothing left to research: it rests and eats nothing</summary>
+    Resting,
 }
 
 /// <summary>Why a building doesn't run (fully): the cause, the good it is about, and the building it is about</summary>
@@ -102,6 +105,10 @@ public sealed partial class GameWorld
         if (definition.Kind == BuildingKind.TradingPost)
         {
             return network != null && TradingPostFull(building) ? new IdleReason(IdleCause.PostFull) : IdleReason.Running;
+        }
+        if (LabResting(building))
+        {
+            return new IdleReason(IdleCause.Resting);
         }
         if (ToFlowNode(building) is not { Kind: FlowNodeKind.Building } node || (node.In.Count == 0 && node.Out.Count == 0))
         {

@@ -132,7 +132,18 @@ public record CompanyDto(
     /// <summary>This player's own open wants, a building's or a pipe's</summary>
     IReadOnlyList<OwnWantDto>? Wants = null,
     /// <summary>The Era Wonder on the goal tracker (after run 3, step 5): its stage's share, and your part or what it wants</summary>
-    ProjectWeekDto? EraWonderLine = null);
+    ProjectWeekDto? EraWonderLine = null,
+    /// <summary>Refinements after an Era's tree (after run 3, step 6)</summary>
+    RefineDto? Refine = null);
+
+/// <summary>
+/// Refinements: whether they are open (the Era's tree is done), what the next costs, what the Labs refine now and next, the
+/// player's choice, whether the Labs rest, and every line with the station's percentage and whose research it is
+/// </summary>
+public record RefineDto(bool Open, double Cost, double Minutes, string? Current, string? Next, string? Choice, bool Resting, IReadOnlyList<RefineLineDto> Lines);
+
+/// <summary>A Refinement line: "pipes", "trading", "hubOrders" or a good; the station's percentage now, a step, your steps, who else</summary>
+public record RefineLineDto(string Id, string Name, bool Wall, double Now, double Step, int Mine, string? By, bool Capped);
 
 /// <summary>An own want: its target (a building's id, or minus a pipe want's number), what it wants, what is in and coming; Tiles for a pipe</summary>
 public record OwnWantDto(long Target, string Name, string Resource, double Amount, double Got, double PerMinute, int? Tiles, string? Order = null, double? OrderCost = null);
@@ -329,7 +340,9 @@ public record BuildingDetailsDto(
     double? UndoRefund = null,
     DateTime? UndoUntil = null,
     /// <summary>A scaffold that still wants materials (null: none)</summary>
-    SiteDto? Site = null);
+    SiteDto? Site = null,
+    /// <summary>The station's Refinements this building gets, named: "Bricks +6% · Cleo's research 💛"</summary>
+    IReadOnlyList<string>? Refined = null);
 
 /// <summary>
 /// A building's trade with its neighbours, for its owner (step 4): who takes its goods and who sends it its inputs (both

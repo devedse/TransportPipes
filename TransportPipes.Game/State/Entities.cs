@@ -139,13 +139,19 @@ public sealed class Company : Entity
     /// <summary>The return card has said once that the Yard sells its spare to neighbours by itself (run 2: "did I agree?")</summary>
     public bool YardSalesExplained { get; set; }
 
-    /// <summary>When its player's current (or last) session began; not stored (LastSeenAt moves on every tick they're online)</summary>
     /// <summary>How the last Era ended and this company's part (the return card says it once)</summary>
     public string? EraEnded { get; set; }
 
     /// <summary>Purchases it may take back for an hour (after run 3: spending is safe)</summary>
     public List<Purchase> Purchases { get; set; } = new();
 
+    /// <summary>Refinements researched after an Era's tree (after run 3, step 6), by line: a wall ("pipes", "trading", "hubOrders") or a good</summary>
+    public Dictionary<string, int> Refinements { get; set; } = new();
+
+    /// <summary>The line its Labs refine next (null: walls first, then its best-earning good)</summary>
+    public string? RefineChoice { get; set; }
+
+    /// <summary>When its player's current (or last) session began; not stored (LastSeenAt moves on every tick they're online)</summary>
     public DateTime SessionStartedAt { get; set; }
 
     /// <summary>When the research queue is empty and the Labs are free, the cheapest tech the points cover starts by itself</summary>

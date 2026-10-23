@@ -112,7 +112,7 @@ public sealed partial class GameWorld
                 Id = day * 10 + i,
                 Resource = resource,
                 Amount = amount,
-                RewardGold = Math.Round(amount * price * 2 * (1 + WonderOrderBonus(company))),
+                RewardGold = Math.Round(amount * price * 2 * (1 + WonderOrderBonus(company) + Refined(company, "hubOrders"))),
                 RewardXp = 30 + 8.0 * company.Level,
                 RewardReputation = 40,
                 ExpiresAt = expires,

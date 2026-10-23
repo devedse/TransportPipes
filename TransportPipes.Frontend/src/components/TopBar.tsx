@@ -7,6 +7,7 @@ import { currentGold, setState, useAppStore } from "../state/store";
 import { levelEta } from "../app/experience";
 import { ExperiencePanel } from "./ExperiencePanel";
 import { emblemIcon } from "../app/crews";
+import { researchName } from "../app/research";
 
 /** Gold that counts up smoothly between server updates */
 function useLiveGold(): number {
@@ -241,8 +242,12 @@ export function TopBar() {
           <span>🔬 {formatAmount(company.researchPoints)}</span>
           <span className="muted small">{formatRate(company.researchPerMinute)}</span>
           {company.currentResearch !== null && content !== null ? (
-            <span className="small current-research">
-              → {content.research(company.currentResearch)?.name}
+            <span className="small current-research">→ {researchName(company, content)}</span>
+          ) : company.refine.resting ? (
+            <span className="small current-research muted">Labs rest: nothing left</span>
+          ) : company.refine.open ? (
+            <span className="small current-research muted">
+              Refinement at {formatAmount(company.refine.cost)}
             </span>
           ) : (
             company.researchPerMinute > 0 &&

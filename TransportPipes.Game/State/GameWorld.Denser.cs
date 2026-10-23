@@ -117,9 +117,9 @@ public sealed partial class GameWorld
     }
 
     /// <summary>For testing: every tech at once</summary>
-    public void GrantAllResearch(Company company)
+    public void GrantAllResearch(Company company, bool thisEra = false)
     {
-        company.Researched.UnionWith(Content.ResearchList.Select(t => t.Id));
+        company.Researched.UnionWith(Content.ResearchList.Where(t => !thisEra || t.Era <= Era).Select(t => t.Id));
         company.Touch();
         Changes.Companies.Add(company.Id);
         MarkCompanyNetworksDirty(company.Id);

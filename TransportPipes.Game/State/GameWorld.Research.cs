@@ -92,6 +92,19 @@ public sealed partial class GameWorld
         {
             return StartMastery(company);
         }
+        if (techId.StartsWith(RefinePrefix, StringComparison.Ordinal))
+        {
+            // A Refinement: it becomes the line the Labs take, and starts now when they're free
+            if (ChooseRefinement(companyId, techId[RefinePrefix.Length..]) is { Success: false } refused)
+            {
+                return refused;
+            }
+            if (company.CurrentResearch == null && !StartRefinement(company))
+            {
+                return CommandResult.Fail($"You need {RefineCost(company):N0} research points. Labs make them.");
+            }
+            return CommandResult.Ok;
+        }
         if (!Content.Research.TryGetValue(techId, out var tech))
         {
             return CommandResult.Fail("Unknown research.");
@@ -165,6 +178,12 @@ public sealed partial class GameWorld
             if (company.KeepResearching && LastTick - company.LastSeenAt >= KeepResearchingAway && CheapestResearch(company) is { } next)
             {
                 StartResearch(company.Id, next.Id);
+                return;
+            }
+            // After the Era's tree, Refinements go on by themselves (after run 3, step 6)
+            if (company.KeepResearching)
+            {
+                StartRefinement(company);
             }
             return;
         }
@@ -236,6 +255,12 @@ public sealed partial class GameWorld
         {
             return;
         }
+        if (Refining(company) is { } line)
+        {
+            CompleteRefinement(company, line);
+            CheckRestingLabs([company]);
+            return;
+        }
         if (techId == MasteryId)
         {
             company.Mastery++;
@@ -274,6 +299,7 @@ public sealed partial class GameWorld
             MergeAllComplexes(company);
         }
         PlanNextResearch(company);
+        CheckRestingLabs([company]);
     }
 
     /// <summary>Finishes the current research right away (for tests and admins)</summary>
@@ -293,7 +319,7 @@ public sealed partial class GameWorld
             return 0;
         }
         var bonus = CorporationOutputBonus(company, resource) + ManagerOutputBonus(company, building) + AchievementOutputBonus(company, building, resource)
-            + ShareBonus(company) + company.Mastery * MasteryBonus;
+            + ShareBonus(company) + company.Mastery * MasteryBonus + Refined(company, resource);
         foreach (var techId in company.Researched)
         {
             if (Content.Research.TryGetValue(techId, out var tech))
@@ -312,7 +338,7 @@ public sealed partial class GameWorld
 
     public double ThroughputBonus(long companyId) =>
         (Company(companyId) is { } company ? company.Researched.Sum(t => Content.Research.TryGetValue(t, out var tech) ? tech.ThroughputBonus : 0) : 0)
-        + WonderPipeBonus(companyId);
+        + WonderPipeBonus(companyId) + Refined(Company(companyId), "pipes");
 
     public double BandWidthBonus(Company company) =>
         company.Researched.Sum(t => Content.Research.TryGetValue(t, out var tech) ? tech.BandWidthBonus : 0);

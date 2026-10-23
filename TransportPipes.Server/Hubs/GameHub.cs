@@ -269,6 +269,10 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> OrderForWonder(string resource) =>
         Command((world, company) => world.OrderForWonder(company, resource));
 
+    /// <summary>The line the Labs refine next (null: walls first, then the best-earning good)</summary>
+    public Task<CommandResultDto> ChooseRefinement(string? line) =>
+        Command((world, company) => world.ChooseRefinement(company, line));
+
     /// <summary>Orders the rest of a want, one's own or a neighbour's (after run 3, step 4): 2 × base, after the friends' window, over 6 hours</summary>
     public Task<CommandResultDto> OrderRest(long target) =>
         Command((world, company) => world.OrderRest(company, target));
@@ -1074,6 +1078,11 @@ public sealed class GameHub : Hub<IGameClient>
                     break;
                 case "alltech":
                     world.GrantAllResearch(company);
+                    break;
+                case "eratech":
+                    // This Era's tree done: Refinements open (after run 3, step 6)
+                    world.GrantAllResearch(company, thisEra: true);
+                    company.ResearchPoints += 100_000;
                     break;
                 case "district":
                     world.OpenNextDistrict();

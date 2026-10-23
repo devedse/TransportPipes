@@ -119,7 +119,8 @@ public static partial class GameViews
                 Math.Round(t.Want.Incoming.Values.Sum() + (t.Want.Order?.Started != null ? t.Want.Order.Rate : 0), 2), t.Want.PipeTiles?.Count,
                 t.Want.Order != null ? $"Ordered: the hub brings the rest {world.OrderStartText(company, t.Want, company)}" : null,
                 t.Want.Order == null ? Math.Ceiling(t.Want.Left * world.BasePrice(t.Want.Resource) * GameWorld.OrderPrice) : null)).ToList(),
-            EraWonderLine(world, company));
+            EraWonderLine(world, company),
+            Refine(world, company));
     }
 
     /// <summary>
@@ -148,6 +149,48 @@ public static partial class GameViews
             && world.BuildingsOf(c.Id).Any(b => !b.UnderConstruction && world.Content.Building(b.Type).Out.ContainsKey(good))).ToList();
         var wants = lacking.Select(t => makers(t) is { Count: > 0 } who ? $"{Name(t)} ({And(MakerNames(who.Take(2), me))})" : Name(t)).ToList();
         return new ProjectWeekDto($"{head} · wants {And(wants)}", share);
+    }
+
+    /// <summary>Refinements (after run 3, step 6): the walls and the goods this company makes, and any line its station refined</summary>
+    private static RefineDto Refine(GameWorld world, Company me)
+    {
+        var open = world.RefineLines(me);
+        var ids = new[] { "pipes", "trading", "hubOrders" }.Concat(world.MadeGoods(me))
+            .Concat(world.Content.Resources.Keys.Where(t => world.Refined(me, t) > 0).Order(StringComparer.Ordinal))
+            .Distinct().ToList();
+        var lines = ids.Select(id =>
+        {
+            var line = world.RefineLineOf(id);
+            var by = world.RefinedBy(me, id).Where(t => t.Company.Id != me.Id).Select(t => $"{world.NameFor(t.Company, me)} {t.Steps}").ToList();
+            var now = world.Refined(me, id);
+            return new RefineLineDto(id, line.Name, line.Wall, Math.Round(now, 3), line.Step, me.Refinements.GetValueOrDefault(id), by.Count > 0 ? string.Join(", ", by) : null,
+                now >= GameWorld.RefineCap - 1e-9);
+        }).ToList();
+        return new RefineDto(open.Count > 0, GameWorld.RefineCost(me), GameWorld.RefineTime.TotalMinutes, GameWorld.Refining(me), world.NextRefineLine(me), me.RefineChoice,
+            world.LabsRest(me), lines);
+    }
+
+    /// <summary>The station's Refinements a building gets, named by whose research they were ("Bricks +6% · Cleo's research 💛")</summary>
+    private static IReadOnlyList<string>? Refined(GameWorld world, Building building, Company? owner, Company? viewer)
+    {
+        if (owner == null || owner.IsNpc || viewer == null)
+        {
+            return null;
+        }
+        var definition = world.Content.Building(building.Type);
+        var lines = definition.Kind == BuildingKind.TradingPost ? ["trading"] : definition.Out.Keys.Where(t => t != GameContent.ResearchPoints).ToList();
+        var result = new List<string>();
+        foreach (var id in lines)
+        {
+            if (world.Refined(owner, id) is var now && now <= 0)
+            {
+                continue;
+            }
+            var who = world.RefinedBy(owner, id).Select(t => t.Company.Id == viewer.Id ? "your" : $"{world.NameFor(t.Company, viewer)}'s").ToList();
+            var heart = world.RefinedBy(owner, id).Any(t => t.Company.Id != owner.Id) ? " 💛" : "";
+            result.Add($"{world.RefineLineOf(id).Name} +{now * 100:0}% · {And(who)} research{heart}");
+        }
+        return result.Count > 0 ? result : null;
     }
 
     /// <summary>A seat a friend keeps for a company that opened its link and lives elsewhere (run 3: Ben)</summary>
@@ -1071,7 +1114,8 @@ public static partial class GameViews
             upgradable && owner != null && viewer?.Id == owner.Id && max != null && max.Levels > 1 ? NullIfEmpty(world.UpgradePreview(owner, building, max.Levels).Text) : null,
             owner != null && viewer?.Id == owner.Id && world.Undoable(owner, building) is { } undo ? undo.Refund : null,
             owner != null && viewer?.Id == owner.Id && world.Undoable(owner, building) is { } until ? until.Purchase.At + GameWorld.UndoFor : null,
-            Site(world, building, viewer));
+            Site(world, building, viewer),
+            Refined(world, building, owner, viewer));
     }
 
     private static string? NullIfEmpty(string text) => text.Length == 0 ? null : text;

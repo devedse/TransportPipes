@@ -131,6 +131,9 @@ public sealed partial class GameWorld
                 return new IdleStatus(reason, "Slowed: Trading Post full",
                     post == null ? null : $"It sells all it can: {Amount(TradingPostThroughput(post, Content.Building(post.Type)))} a minute.",
                     post == null ? null : new IdleFix(IdleFixKind.Upgrade, $"Upgrade the Trading Post · {Gold(UpgradeCost(post, 1))}", Building: post.Id, Cost: UpgradeCost(post, 1)));
+            case IdleCause.Resting:
+                return new IdleStatus(reason, "Rests: nothing to research",
+                    "Every tech this Era is done and every Refinement is at its cap: it eats nothing until the next Era's research.", null);
             case IdleCause.Pumps:
                 var network = NetworkOf(building.Id);
                 return new IdleStatus(reason, "Slowed: too few pumps",

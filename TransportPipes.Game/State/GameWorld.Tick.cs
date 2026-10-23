@@ -93,6 +93,7 @@ public sealed partial class GameWorld
                 {
                     CheckKeystones();
                 }
+                CheckRestingLabs();
             }));
         }
         for (var at = NextDay(LastTick); at <= now; at = NextDay(at))

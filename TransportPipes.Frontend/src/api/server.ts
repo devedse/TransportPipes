@@ -491,6 +491,7 @@ export class GameConnection {
   dismissManager = (manager: string) => this.invoke<CommandResult>("DismissManager", manager);
   deliverToWonder = (eraWonder: boolean) => this.invoke<CommandResult>("DeliverToWonder", eraWonder);
   orderForWonder = (resource: string) => this.invoke<CommandResult>("OrderForWonder", resource);
+  chooseRefinement = (line: string | null) => this.invoke<CommandResult>("ChooseRefinement", line);
   getBlueprints = () => this.invoke<BlueprintsDto | null>("GetBlueprints");
   saveBlueprint = (name: string, x: number, y: number, width: number, height: number) =>
     this.invoke<CommandResult>("SaveBlueprint", name, x, y, width, height);

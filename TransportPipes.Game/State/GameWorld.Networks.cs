@@ -740,7 +740,7 @@ public sealed partial class GameWorld
         company.DailyOrders.Where(t => t.Resource == resource && !t.Done && t.ExpiresAt > Now).Sum(t => t.Amount - t.Delivered);
 
     public double TradingPostThroughput(Building building, BuildingDefinition definition) =>
-        definition.Throughput * Content.Progression.OutputMultiplier(building.Level);
+        definition.Throughput * Content.Progression.OutputMultiplier(building.Level) * (1 + Refined(Company(building.Owner), "trading"));
 
     /// <summary>
     /// What holds a company back right now, for the goal tracker: networks short of pump stations, full trading posts,
@@ -827,14 +827,14 @@ public sealed partial class GameWorld
                     Id = building.Id,
                     Owner = building.Owner,
                     Kind = FlowNodeKind.TradingPost,
-                    Throughput = tenant ? TenantThroughput : definition.Throughput * level,
+                    Throughput = tenant ? TenantThroughput : definition.Throughput * level * (1 + Refined(company, "trading")),
                     // Hub reputation: +1% per level above 1
                     PriceBonus = definition.PriceBonus + (company == null ? 0 : (ReputationLevel(company) - 1) * 0.01) + ManagerPriceBonus(company),
                     // Imports cost gold: a company without gold can't import
                     Imports = tenant ? TenantInputs(company!) : company is { Gold: > 0 } ? building.Imports : new HashSet<string>(),
                 };
         }
-        if (definition.In.Count == 0 && definition.Out.Count == 0 && definition.ResearchPerMinute <= 0)
+        if ((definition.In.Count == 0 && definition.Out.Count == 0 && definition.ResearchPerMinute <= 0) || LabResting(building))
         {
             return null;
         }

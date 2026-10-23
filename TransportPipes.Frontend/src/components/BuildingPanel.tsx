@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { researchName } from "../app/research";
 import { gameClient } from "../app/client";
 import { formatAmount, formatDuration, possessive } from "../app/format";
 import { useNow } from "../app/useNow";
@@ -596,6 +597,14 @@ export function BuildingPanel() {
           ))}
         </section>
       )}
+      {details.refined !== null && (
+        <p
+          className="small refined-line"
+          title="Refinements: research after an Era's tree, for everyone in the station"
+        >
+          {details.refined.join(" · ")}
+        </p>
+      )}
       {details.outputs.length > 0 && (
         <section>
           <h4>Makes</h4>
@@ -614,8 +623,12 @@ export function BuildingPanel() {
       {definition.kind === "lab" && mine && company !== null && (
         <button className="primary wide" onClick={() => void gameClient.openResearch()}>
           {company.currentResearch !== null
-            ? `Researching ${content.research(company.currentResearch)?.name ?? ""} · open research`
-            : "🔬 Pick a research"}
+            ? `Researching ${researchName(company, content) ?? ""} · open research`
+            : company.refine.resting
+              ? "Rests: nothing left to research · open research"
+              : company.refine.open
+                ? "🔬 Refinements · open research"
+                : "🔬 Pick a research"}
         </button>
       )}
 

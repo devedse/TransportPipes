@@ -132,6 +132,35 @@ export interface CompanyDto {
   wants: OwnWantDto[] | null;
   /** The Era Wonder on the goal tracker (after run 3, step 5): its stage's share, and your part or what it wants */
   eraWonderLine: ProjectWeekDto | null;
+  /** Refinements after an Era's tree (after run 3, step 6) */
+  refine: RefineDto;
+}
+
+/**
+ * Refinements: whether they are open (the Era's tree is done), what the next costs, what the Labs refine now and next, the
+ * player's choice, whether the Labs rest, and every line with the station's percentage and whose research it is
+ */
+export interface RefineDto {
+  open: boolean;
+  cost: number;
+  minutes: number;
+  current: string | null;
+  next: string | null;
+  choice: string | null;
+  resting: boolean;
+  lines: RefineLineDto[];
+}
+
+/** A Refinement line: "pipes", "trading", "hubOrders" or a good; the station's share now, a step, your steps, who else */
+export interface RefineLineDto {
+  id: string;
+  name: string;
+  wall: boolean;
+  now: number;
+  step: number;
+  mine: number;
+  by: string | null;
+  capped: boolean;
 }
 
 /** Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there */
@@ -592,6 +621,8 @@ export interface BuildingDetailsDto {
   undoUntil: string | null;
   /** A scaffold that still wants materials */
   site: SiteDto | null;
+  /** The station's Refinements it gets, named: "Bricks +6% · Cleo's research 💛" */
+  refined: string[] | null;
 }
 
 /**

@@ -692,6 +692,13 @@ export class GameClient {
     }
   }
 
+  /** The line the Labs refine next (null: the walls first, then your best-earning good) */
+  async chooseRefinement(line: string | null) {
+    if (await this.command(this.connection.chooseRefinement(line))) {
+      void this.refreshCompany();
+    }
+  }
+
   /** Orders part of the Era Wonder from the hub: it ships over six hours and counts a quarter for your tier */
   async orderForWonder(resource: string) {
     if (
