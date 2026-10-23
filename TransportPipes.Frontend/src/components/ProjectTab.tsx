@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { gameClient } from "../app/client";
 import { formatAmount, formatDuration } from "../app/format";
 import { useNow } from "../app/useNow";
-import type { ProjectHelperDto } from "../api/contracts";
+import type { ProjectHelperDto, StoreyDto } from "../api/contracts";
 import { useAppStore } from "../state/store";
 import { ResourceIcon } from "./ResourceIcon";
 
@@ -68,6 +68,130 @@ function HelperRing({ helpers }: { helpers: ProjectHelperDto[] }) {
   );
 }
 
+/** The Landmark's picture: 578 × 632, its clock and dome above 268, the banner band 268–330 of the tower (x 190–390) */
+const LANDMARK = {
+  url: `${import.meta.env.BASE_URL}art/buildings/hub-project-landmark.webp`,
+  width: 578,
+  height: 632,
+  bandTop: 268,
+  bandBottom: 330,
+  columnLeft: 190,
+  columnRight: 390,
+};
+
+/**
+ * The Landmark rising storey by storey (after run 4): its own picture cut at the tower's banner band, one band more for
+ * every storey that stands, and the open one faint, as a plan
+ */
+function LandmarkTower({ storeys, rising }: { storeys: number; rising: boolean }) {
+  const width = 150;
+  const scale = width / LANDMARK.width;
+  const slice = (top: number, bottom: number, left = 0, right = LANDMARK.width) => ({
+    width: (right - left) * scale,
+    height: (bottom - top) * scale,
+    backgroundImage: `url(${LANDMARK.url})`,
+    backgroundSize: `${width}px ${LANDMARK.height * scale}px`,
+    backgroundPosition: `${-left * scale}px ${-top * scale}px`,
+  });
+  // The top and the bands are the tower's column; the base is the whole width
+  const shown = Math.min(storeys, 12);
+  return (
+    <div
+      className="landmark-tower"
+      aria-label={`The Landmark, ${storeys} ${storeys === 1 ? "storey" : "storeys"}`}
+    >
+      <div style={slice(0, LANDMARK.bandTop, LANDMARK.columnLeft, LANDMARK.columnRight)} />
+      {rising && (
+        <div
+          className="landmark-band rising"
+          style={slice(LANDMARK.bandTop, LANDMARK.bandBottom, LANDMARK.columnLeft, LANDMARK.columnRight)}
+        />
+      )}
+      {Array.from({ length: shown + 1 }, (_, i) => (
+        <div
+          key={i}
+          className="landmark-band"
+          style={slice(LANDMARK.bandTop, LANDMARK.bandBottom, LANDMARK.columnLeft, LANDMARK.columnRight)}
+        />
+      ))}
+      <div style={slice(LANDMARK.bandBottom, LANDMARK.height)} />
+    </div>
+  );
+}
+
+/**
+ * The Landmark's storeys (after run 4: once it stood, the crew had nothing to build together): the open storey's purse
+ * and Give, who gave in hours of their own income, the perk on the station's pipes, and the last plaque
+ */
+function Storeys({ storey, gold }: { storey: StoreyDto; gold: number }) {
+  const left = Math.max(0, storey.purse - storey.given);
+  const gives: Array<{ hours: number; label: string }> = [
+    { hours: 1, label: "an hour" },
+    { hours: 6, label: "6 hours" },
+    { hours: 24, label: "a day" },
+  ];
+  return (
+    <section className="storeys">
+      <LandmarkTower storeys={storey.storeys} rising={storey.open} />
+      <div className="storeys-text">
+        <h4>
+          {storey.open
+            ? `Storey ${storey.storeys + 1} of the Landmark`
+            : `The Landmark: ${storey.storeys} ${storey.storeys === 1 ? "storey" : "storeys"}`}
+        </h4>
+        {storey.pipeBonus > 0 && (
+          <p className="small">
+            Its storeys make the station&apos;s pipes carry +{Math.round(storey.pipeBonus * 100)}%.
+          </p>
+        )}
+        {storey.open && (
+          <>
+            <p className="small">
+              Its purse: <strong>{formatAmount(storey.given)}</strong> of {formatAmount(storey.purse)} g
+            </p>
+            <span className="tank-bar">
+              <span
+                style={{ width: `${Math.min(100, (100 * storey.given) / Math.max(1, storey.purse))}%` }}
+              />
+            </span>
+            {storey.givers.length > 0 && <p className="small">Given: {storey.givers.join(", ")}</p>}
+            {left >= 1 && (
+              <div className="button-row">
+                {gives.map((t) => {
+                  const cost = Math.min(t.hours * storey.yourHour, Math.ceil(left));
+                  return (
+                    <button
+                      key={t.hours}
+                      className="small"
+                      disabled={gold < cost}
+                      onClick={() => void gameClient.giveToStorey(t.hours)}
+                    >
+                      Give {t.label} · {formatAmount(cost)} g
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <p className="muted small">
+              An hour of your income is {formatAmount(storey.yourHour)} g. Anyone gives as often as they like,
+              named in hours of their own income, so an hour of yours stands beside a day of theirs. Its goods
+              come by the Yard: the basket below.
+            </p>
+          </>
+        )}
+        {!storey.open && storey.nextAt !== null && (
+          <p className="small">Storey {storey.storeys + 1} opens at midnight.</p>
+        )}
+        {storey.plaque.length > 0 && (
+          <p className="small">
+            Storey {storey.storeys}&apos;s plaque: {storey.plaque.join(", ")}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 /**
  * The station's project (v1.2 §12): Foundation → Water Tower → Workshop → Foundry Hall → Landmark. It buys what its
  * basket lacks from everyone's spare at the one player price, with no button; every finished stage lifts every seat.
@@ -75,6 +199,7 @@ function HelperRing({ helpers }: { helpers: ProjectHelperDto[] }) {
 export function ProjectTab() {
   const project = useAppStore((s) => s.project);
   const companyId = useAppStore((s) => s.company?.id ?? null);
+  const gold = useAppStore((s) => s.company?.gold ?? 0);
   const content = useAppStore((s) => s.content);
   const serverOffset = useAppStore((s) => s.serverOffsetMs);
   const now = useNow(30000) + serverOffset;
@@ -85,7 +210,8 @@ export function ProjectTab() {
   if (project === null || content === null) {
     return <p className="muted">Loading…</p>;
   }
-  const done = project.stageIndex >= project.stages.length;
+  // A storey's goods are a basket too (after run 4)
+  const done = project.stageIndex >= project.stages.length && project.storey?.open !== true;
   // What your own buildings make: only those goods can go to the project first
   const makes = new Set<string>();
   for (const building of gameClient.world?.buildings.values() ?? []) {
@@ -106,9 +232,14 @@ export function ProjectTab() {
         ))}
       </ol>
       <p className="yard-line">{project.line}</p>
+      {project.storey !== null && <Storeys storey={project.storey} gold={gold} />}
       {!done && (
         <section>
-          <h4>The {project.stage}&apos;s basket</h4>
+          <h4>
+            {project.storey?.open === true
+              ? `Storey ${project.storey.storeys + 1}'s goods`
+              : `The ${project.stage}'s basket`}
+          </h4>
           <ul className="project-basket">
             {project.basket.map((good) => {
               const share = good.target <= 0 ? 1 : good.delivered / good.target;
@@ -203,7 +334,9 @@ export function ProjectTab() {
             ? `When it stands: every seat makes ${Math.round(project.stageBonus * 100)}% more, about +${formatAmount(project.yourGain)} g/min for you${project.stationGain > project.yourGain * 1.01 ? ` and +${formatAmount(project.stationGain)} for ${project.station}` : ""}.`
             : project.stage === "Foundry Hall"
               ? "When it stands: +10% on the station's two most-traded chains."
-              : "When it stands: the station's Landmark, and its heirloom for everyone who helped."}
+              : project.storey?.open === true
+                ? "When its goods and its purse are in: another storey, and the station's pipes carry 10% more."
+                : "When it stands: the station's Landmark, and its heirloom for everyone who helped."}
         </p>
       )}
       {(project.bonus > 0 || project.foundryChains.length > 0) && (

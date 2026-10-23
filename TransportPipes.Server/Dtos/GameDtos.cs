@@ -148,8 +148,8 @@ public record CompanyDto(
 public record GoldUsesDto(GoldLineDto? Shared, GoldLineDto? Want, GrowPlanDto? Grow, double Hour);
 
 /// <summary>
-/// One line: its words, and what its button does ("wonder": order Resource for Gold, or all when Gold is null; "want":
-/// order the rest of Target for Cost, for ForName)
+/// One line: its words, and what its button does ("storey": give hours of your income to the station's storey, Cost an
+/// hour; "wonder": order Resource for Cost, or all; "want": order the rest of Target for Cost, for ForName)
 /// </summary>
 public record GoldLineDto(string Text, string Action, double? Cost = null, string? Resource = null, long? Target = null, string? ForName = null, double? AllCost = null);
 
@@ -317,7 +317,8 @@ public record TerrainOverrideDto(int X, int Y, string Terrain);
 public record EstateDto(int Slot, int X, int Y, long? OwnerId, string? OwnerName, string? OwnerColor, int OwnerLevel, int UnlockedParcels, string Primary, string? Secondary, string? CorporationTag, string? Activity, string? ReservedFor, IReadOnlyList<string>? Goods = null, bool House = false);
 
 /// <summary>A hub structure; corporation HQs have the corporation's tag, colour and HQ level</summary>
-public record HubStructureDto(string Type, int X, int Y, int Size, string? Label = null, string? Color = null, int Level = 0, long? Corporation = null, string? Variant = null, int Stages = 0);
+/// <param name="Storeys">A station Landmark's storeys: its tower rises one band a storey (after run 4)</param>
+public record HubStructureDto(string Type, int X, int Y, int Size, string? Label = null, string? Color = null, int Level = 0, long? Corporation = null, string? Variant = null, int Stages = 0, int Storeys = 0);
 
 public record DistrictDto(int X, int Y, int OriginX, int OriginY, string Name, IReadOnlyList<EstateDto> Estates, IReadOnlyList<HubStructureDto> Hub);
 
@@ -943,7 +944,15 @@ public record ProjectDto(
     /// <summary>What the stage gives every seat when it stands, and that in gold a minute for you and for the station</summary>
     double StageBonus,
     double YourGain,
-    double StationGain);
+    double StationGain,
+    /// <summary>The Landmark's storeys (after run 4): the open one's number, purse and givers, the pipe perk, an hour of yours</summary>
+    StoreyDto? Storey = null);
+
+/// <summary>
+/// The Landmark's storeys: how many stand, the open one (its purse, what was given, who gave in hours of their own
+/// income), the perk on the station's pipes, when the next opens, and the last plaque
+/// </summary>
+public record StoreyDto(int Storeys, bool Open, double Purse, double Given, IReadOnlyList<string> Givers, double PipeBonus, DateTime? NextAt, IReadOnlyList<string> Plaque, double YourHour);
 
 /// <summary>A good of a project's basket: what it pays, and for one nobody makes yet who could and with what building</summary>
 public record ProjectGoodDto(string Resource, double Target, double Delivered, bool Keystone, bool MadeHere, double Price, IReadOnlyList<string> Makers, string? MakerBuilding);

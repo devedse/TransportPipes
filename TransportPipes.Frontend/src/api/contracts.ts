@@ -533,6 +533,8 @@ export interface HubStructureDto {
   /** Wonders: the Wonder's id and how many stages it has (level = stages built) */
   variant: string | null;
   stages: number;
+  /** A station Landmark's storeys: its tower rises one band a storey (after run 4) */
+  storeys: number;
 }
 
 export interface DistrictDto {
@@ -707,7 +709,7 @@ export interface GoldUsesDto {
 /** One line: "wonder" orders resource for cost (a day of your income) or allCost; "want" orders the rest of target */
 export interface GoldLineDto {
   text: string;
-  action: "wonder" | "want";
+  action: "storey" | "wonder" | "want";
   cost: number | null;
   resource: string | null;
   target: number | null;
@@ -1541,7 +1543,8 @@ export interface NextStepDto {
     | "climb"
     | "connect"
     | "layPipe"
-    | "wonder";
+    | "wonder"
+    | "storey";
   cost: number;
   gainPerMinute: number;
   paybackMinutes: number | null;
@@ -2030,6 +2033,19 @@ export interface MapLinkDto {
  * A station's project (v1.2 §12): the stage, its basket (with the keystone nobody here makes), who helped (shares, as a
  * ring of colours), what the finished stages give every seat, and your own part
  */
+/** The Landmark's storeys: how many stand, the open one's purse and givers, the pipe perk, the next, the last plaque */
+export interface StoreyDto {
+  storeys: number;
+  open: boolean;
+  purse: number;
+  given: number;
+  givers: string[];
+  pipeBonus: number;
+  nextAt: string | null;
+  plaque: string[];
+  yourHour: number;
+}
+
 export interface ProjectDto {
   station: string;
   stage: string;
@@ -2057,6 +2073,8 @@ export interface ProjectDto {
   stageBonus: number;
   yourGain: number;
   stationGain: number;
+  /** The Landmark's storeys, once it stands (after run 4) */
+  storey: StoreyDto | null;
 }
 
 /** A good of a project's basket: what it pays, and for one nobody makes yet who could and with what building */

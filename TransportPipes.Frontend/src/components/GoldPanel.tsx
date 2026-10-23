@@ -35,7 +35,32 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
         {uses !== null && ` · an hour of it is ${formatAmount(uses.hour)} g`}
       </p>
       {uses === null && <p className="muted small">Looking…</p>}
-      {uses?.shared != null && (
+      {uses?.shared != null && uses.shared.action === "storey" && uses.shared.allCost !== null && (
+        // The station's storey: hours of your income, as often as you like (after run 4)
+        <div className="gold-use shared">
+          <span>🏗 {uses.shared.text}</span>
+          <span className="gold-use-buttons">
+            {[
+              { hours: 1, label: "an hour" },
+              { hours: 6, label: "6 hours" },
+              { hours: 24, label: "a day" },
+            ].map((t) => {
+              const cost = Math.min(t.hours * uses.hour, uses.shared!.allCost!);
+              return (
+                <button
+                  key={t.hours}
+                  className="small"
+                  disabled={gold < cost}
+                  onClick={() => void gameClient.giveToStorey(t.hours)}
+                >
+                  Give {t.label} · {formatAmount(cost)} g
+                </button>
+              );
+            })}
+          </span>
+        </div>
+      )}
+      {uses?.shared != null && uses.shared.action === "wonder" && (
         <div className="gold-use shared">
           <span>🏛 {uses.shared.text}</span>
           <span className="gold-use-buttons">
@@ -126,9 +151,14 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
       )}
       {(uses?.shared != null || uses?.want != null) && (
         <p className="muted small">
-          {uses?.shared != null && (
+          {uses?.shared?.action === "wonder" && (
             <button className="link small" onClick={() => void gameClient.openHub("wonders")}>
               Hub › Wonders
+            </button>
+          )}
+          {uses?.shared?.action === "storey" && (
+            <button className="link small" onClick={() => void gameClient.openProject()}>
+              The station&apos;s project
             </button>
           )}
         </p>

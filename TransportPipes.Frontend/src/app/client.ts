@@ -740,6 +740,17 @@ export class GameClient {
     }
   }
 
+  /** Gives hours of your income (1, 6 or 24) to your station's Landmark storey (after run 4) */
+  async giveToStorey(hours: number) {
+    if (await this.command(this.connection.giveToStorey(hours))) {
+      void this.refreshCompany();
+      void this.refreshProject();
+      if (appStore.getState().goldUses !== null) {
+        void this.loadGoldUses();
+      }
+    }
+  }
+
   async undoGrowth() {
     if (await this.command(this.connection.undoGrowth())) {
       void this.refreshCompany();
@@ -1690,6 +1701,9 @@ export class GameClient {
         break;
       case "wonder":
         await this.openHub("wonders");
+        break;
+      case "storey":
+        await this.openProject();
         break;
       case "climb":
         // Its panel shows the door with its preview

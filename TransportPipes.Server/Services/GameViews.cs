@@ -132,7 +132,13 @@ public static partial class GameViews
     {
         var hour = Math.Round(60 * Math.Max(GameWorld.MinMeasuredIncome, world.MeasuredIncome(me)));
         GoldLineDto? shared = null;
-        if (me.District == GameWorld.Capital && world.EraWonder is { Finished: false } wonder && !GameWorld.Unsized(wonder))
+        // The station's storey first: the shared goal after the Landmark (after run 4)
+        if (world.EstateOf(me) is { } home && world.ExistingProject(home.Station) is { Stage: ProjectStage.Storey } storey && GameWorld.PurseLeft(storey) >= 1)
+        {
+            shared = new GoldLineDto($"{WorldNames.Station(world.StationOf(storey))}'s Landmark, storey {storey.Storeys + 1}: its purse wants {Amount(GameWorld.PurseLeft(storey))} g more · each storey, its pipes carry 10% more",
+                "storey", Math.Min(hour, Math.Ceiling(GameWorld.PurseLeft(storey))), AllCost: Math.Ceiling(GameWorld.PurseLeft(storey)));
+        }
+        else if (me.District == GameWorld.Capital && world.EraWonder is { Finished: false } wonder && !GameWorld.Unsized(wonder))
         {
             var name = world.WonderDefinition(wonder).Name;
             var best = wonder.Required.Keys
@@ -328,18 +334,27 @@ public static partial class GameViews
         // Every project named by its station (after run 3, row 12: four Water Towers in one chat)
         var station = WorldNames.Station(world.BigStation(estate.Station)[0]);
         var of = station.EndsWith('s') ? $"{station}'" : $"{station}'s";
-        if (project.Finished.Count > 0 && project.Finished.MaxBy(t => t.Value) is var (done, at) && world.Now - at < TimeSpan.FromHours(2))
+        // The last stage that stood (the later one when two stood in one round)
+        if (project.Finished.Count > 0 && project.Finished.MaxBy(t => (t.Value, (int)t.Key)) is var (done, at) && world.Now - at < TimeSpan.FromHours(2))
         {
             return new ProjectWeekDto(done switch
             {
                 ProjectStage.Landmark => $"🏗 {of} Landmark is finished",
+                ProjectStage.Storey => $"🏗 {of} Landmark rose to storey {project.Storeys}: its pipes carry +{Math.Min(GameWorld.MaxStoreyPipeBonus, GameWorld.StoreyPipeBonus * project.Storeys) * 100:0}%",
                 ProjectStage.FoundryHall => $"🏗 {of} Foundry Hall stands: +10% on {string.Join(" and ", project.FoundryChains.Select(Name))}",
                 _ => $"🏗 {of} {GameWorld.StageName(done)} stands: +{world.ProjectBonus(project) * 100:0}% for every seat",
             }, 1);
         }
         if (project.Stage == ProjectStage.Done)
         {
-            return null;
+            return project.NextStoreyAt != null ? new ProjectWeekDto($"🏗 {of} Landmark, storey {project.Storeys}: storey {project.Storeys + 1} opens at midnight", 1) : null;
+        }
+        if (project.Stage == ProjectStage.Storey)
+        {
+            // The shared goal after the Landmark (after run 4): its goods and its purse, and Give
+            var left = GameWorld.PurseLeft(project);
+            return new ProjectWeekDto($"🏗 {of} Landmark, storey {project.Storeys + 1} · {100 * StoreyShare(world, project):0}%{(left >= 1 ? $" · its purse wants {Amount(left)} g: Give ›" : " · its goods come by the Yard")}",
+                StoreyShare(world, project));
         }
         var stage = GameWorld.StageName(project.Stage);
         if (project.Stage == ProjectStage.FoundryHall && project.StartedAt + TimeSpan.FromDays(14) is var opens && opens > world.Now)
@@ -865,13 +880,14 @@ public static partial class GameViews
             }
             var yard = WorldLayout.Yard(station);
             // What stands is the last finished stage; before the Foundation is built, its plan rises with the basket
-            var built = project.Finished.Keys.Where(t => t != ProjectStage.Done).DefaultIfEmpty(ProjectStage.Done).Max();
+            var built = project.Finished.Keys.Where(t => t is not (ProjectStage.Done or ProjectStage.Storey)).DefaultIfEmpty(ProjectStage.Done).Max();
             var stage = built == ProjectStage.Done ? ProjectStage.Foundation : built;
             var target = project.Basket.Sum(t => t.Value * world.BasePrice(t.Key));
             var done = built != ProjectStage.Done || target <= 0 ? 100
                 : (int)Math.Floor(100 * project.Basket.Sum(t => Math.Min(t.Value, project.Delivered.GetValueOrDefault(t.Key)) * world.BasePrice(t.Key)) / target);
             structures.Add(new HubStructureDto($"project-{Camel(stage)}", yard.X0 - hub.X, yard.Y0 - hub.Y, 4,
-                $"{GameWorld.StageName(stage)} · {WorldNames.Station(station)}", Level: Math.Min(100, done), Stages: 100));
+                $"{GameWorld.StageName(stage)}{(project.Storeys > 0 ? $", storey {project.Storeys}" : "")} · {WorldNames.Station(station)}", Level: Math.Min(100, done), Stages: 100,
+                Storeys: project.Storeys));
         }
         return structures;
     }
@@ -1940,7 +1956,11 @@ public static partial class GameViews
         var opens = project.Stage == ProjectStage.FoundryHall ? project.StartedAt + TimeSpan.FromDays(14) : (DateTime?)null;
         var keystone = project.Keystone;
         var line = project.Stage == ProjectStage.Done
-            ? "Every stage stands: the station's Landmark is finished."
+            ? project.NextStoreyAt is { } next
+                ? $"The Landmark rose to storey {project.Storeys}: storey {project.Storeys + 1} opens {(next - world.Now < TimeSpan.FromDays(1) ? "at midnight" : $"in {Span(next - world.Now)}")}."
+                : "Every stage stands: the station's Landmark is finished."
+            : project.Stage == ProjectStage.Storey
+                ? $"Storey {project.Storeys + 1} of the Landmark: its goods come by the Yard, and its purse from anyone who gives. Each storey makes the station's pipes carry 10% more."
             : opens is { } at && at > world.Now
                 ? $"The Foundry Hall opens in {Span(at - world.Now)}: until then the station grows."
                 : ProjectSentence(world, me, project) is { Parts.Count: > 0 } sentence
@@ -1960,7 +1980,7 @@ public static partial class GameViews
             WorldNames.Station(estate.Station),
             GameWorld.StageName(project.Stage),
             (int)project.Stage,
-            Enum.GetValues<ProjectStage>().Where(t => t != ProjectStage.Done).Select(GameWorld.StageName).ToList(),
+            Enum.GetValues<ProjectStage>().Where(t => t is not (ProjectStage.Done or ProjectStage.Storey)).Select(GameWorld.StageName).ToList(),
             project.Basket.OrderBy(t => t.Key == keystone ? 1 : 0).ThenBy(t => t.Key).Select(t => Good(t.Key, t.Value)).ToList(),
             helpers,
             world.ProjectBonus(project),
@@ -1977,7 +1997,35 @@ public static partial class GameViews
             card.SharePerDay,
             card.Bonus,
             card.YourGain,
-            card.StationGain);
+            card.StationGain,
+            Storey(world, project, me));
+    }
+
+    /// <summary>The Landmark's storeys, once it stands (after run 4)</summary>
+    private static StoreyDto? Storey(GameWorld world, StationProject project, Company me)
+    {
+        if (project.Stage is not (ProjectStage.Storey or ProjectStage.Done) || !project.Finished.ContainsKey(ProjectStage.Landmark))
+        {
+            return null;
+        }
+        string Named(long id, double hours) => world.Company(id) is { } c ? $"{(c.Id == me.Id ? "you" : world.NameFor(c, me))} {GameWorld.HoursWords(hours)}" : "";
+        double Hours(long id, double gold) => gold / (60 * Math.Max(GameWorld.MinMeasuredIncome, world.Company(id) is { } c ? world.MeasuredIncome(c) : GameWorld.MinMeasuredIncome));
+        var givers = project.GivenBy.OrderByDescending(t => t.Value).Select(t => Named(t.Key, Hours(t.Key, t.Value))).Where(t => t.Length > 0).ToList();
+        var plaque = project.Plaques.LastOrDefault() is { } last
+            ? last.Hours.OrderByDescending(t => t.Value).Take(6).Select(t => Named(t.Key, t.Value)).Where(t => t.Length > 0).ToList()
+            : [];
+        return new StoreyDto(project.Storeys, project.Stage == ProjectStage.Storey, Math.Round(project.Purse), Math.Round(project.GivenBy.Values.Sum()), givers,
+            Math.Min(GameWorld.MaxStoreyPipeBonus, GameWorld.StoreyPipeBonus * project.Storeys), project.NextStoreyAt, plaque,
+            Math.Round(60 * Math.Max(GameWorld.MinMeasuredIncome, world.MeasuredIncome(me))));
+    }
+
+    /// <summary>A storey's progress: its goods and its purse, half each</summary>
+    private static double StoreyShare(GameWorld world, StationProject project)
+    {
+        var target = project.Basket.Sum(t => t.Value * world.BasePrice(t.Key));
+        var goods = target <= 0 ? 1 : project.Basket.Sum(t => Math.Min(t.Value, project.Delivered.GetValueOrDefault(t.Key)) * world.BasePrice(t.Key)) / target;
+        var purse = project.Purse <= 0 ? 1 : Math.Min(1, project.GivenBy.Values.Sum() / project.Purse);
+        return (goods + purse) / 2;
     }
 
     /// <summary>The project's stage and progress for a station card in the picker</summary>
@@ -1989,7 +2037,11 @@ public static partial class GameViews
         }
         if (project.Stage == ProjectStage.Done)
         {
-            return "Landmark finished";
+            return project.Storeys > 0 ? $"Landmark, storey {project.Storeys}" : "Landmark finished";
+        }
+        if (project.Stage == ProjectStage.Storey)
+        {
+            return $"Landmark, storey {project.Storeys + 1} rising · {100 * StoreyShare(world, project):0}%";
         }
         var target = project.Basket.Sum(t => t.Value * world.BasePrice(t.Key));
         var done = project.Basket.Sum(t => Math.Min(t.Value, project.Delivered.GetValueOrDefault(t.Key)) * world.BasePrice(t.Key));

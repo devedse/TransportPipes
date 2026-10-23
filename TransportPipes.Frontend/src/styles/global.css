@@ -6120,3 +6120,42 @@ button.top-gold {
 .chat-message.system .chat-text {
   font-style: italic;
 }
+
+/* The Landmark's storeys (after run 4): its own picture, one banner band more a storey, the open one faint */
+.storeys {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  margin: 8px 0 12px;
+}
+
+.storeys-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.storeys-text h4 {
+  margin-top: 0;
+}
+
+.landmark-tower {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+  max-height: 340px;
+  overflow: hidden;
+  justify-content: flex-end;
+}
+
+.landmark-tower > div {
+  background-repeat: no-repeat;
+  flex: none;
+}
+
+.landmark-band.rising {
+  opacity: 0.35;
+  filter: grayscale(0.6);
+  outline: 2px dashed var(--brass, #c9963a);
+  outline-offset: -2px;
+}

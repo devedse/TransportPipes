@@ -393,6 +393,7 @@ export class GameConnection {
     this.invoke<CommandResult>("ClimbPipe", buildingId, order);
   getGoldUses = () => this.invoke<GoldUsesDto | null>("GetGoldUses");
   growEverything = () => this.invoke<CommandResult>("GrowEverything");
+  giveToStorey = (hours: number) => this.invoke<CommandResult>("GiveToStorey", hours);
   undoGrowth = () => this.invoke<CommandResult>("UndoGrowth");
   upgrade = (building: number, levels: number) => this.invoke<CommandResult>("Upgrade", building, levels);
   upgradeMany = (buildings: number[], levelsEach: number, budget: number | null) =>

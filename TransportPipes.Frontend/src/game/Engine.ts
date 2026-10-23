@@ -240,6 +240,50 @@ function placeArt(sprite: Sprite, art: BuildingTextures, anchor: { x: number; y:
   }
 }
 
+/**
+ * A station Landmark with storeys (after run 4): its own picture cut at the tower's banner band (as fractions of the
+ * picture: the band 268–330 of 632, the tower's column 190–390 of 578), the band once more for every storey, and the
+ * clock and dome lifted on top. Each part keeps the full picture's anchor, so the tower stands where the Landmark did.
+ */
+const LANDMARK_BAND = { top: 268 / 632, bottom: 330 / 632, left: 190 / 578, right: 390 / 578 };
+
+function landmarkStoreys(
+  texture: Texture,
+  anchorX: number,
+  anchorY: number,
+  scale: number,
+  storeys: number,
+): Sprite[] {
+  const frame = texture.frame;
+  const width = frame.width;
+  const height = frame.height;
+  const top = Math.round(LANDMARK_BAND.top * height);
+  const bottom = Math.round(LANDMARK_BAND.bottom * height);
+  const left = Math.round(LANDMARK_BAND.left * width);
+  const right = Math.round(LANDMARK_BAND.right * width);
+  const band = bottom - top;
+  const ax = anchorX * width;
+  const ay = anchorY * height;
+  // A part of the picture (x0..x1, y0..y1), drawn lifted by some pixels of the picture
+  const part = (x0: number, y0: number, x1: number, y1: number, lift: number) => {
+    const sprite = new Sprite(
+      new Texture({
+        source: texture.source,
+        frame: new Rectangle(frame.x + x0, frame.y + y0, x1 - x0, y1 - y0),
+      }),
+    );
+    sprite.anchor.set((ax - x0) / (x1 - x0), (ay - (y0 - lift)) / (y1 - y0));
+    sprite.scale.set(scale);
+    return sprite;
+  };
+  const parts = [part(0, top, width, height, 0)];
+  for (let k = 1; k <= storeys; k++) {
+    parts.push(part(left, top, right, bottom, k * band));
+  }
+  parts.push(part(left, 0, right, top, storeys * band));
+  return parts;
+}
+
 /** Which terrain bleeds over which at a border (man-made ground keeps a crisp edge) */
 const BLEND_PRIORITY: Partial<Record<TerrainType, number>> = {
   water: 0,
@@ -2897,6 +2941,25 @@ export class Engine {
         container.position.set(anchor.x, anchor.y);
         placeArt(sprite, art, { x: 0, y: 0 }, structure.size);
         container.addChild(sprite);
+        // A Landmark's storeys: its tower rises a band a storey (after run 4)
+        if (
+          structure.type === "project-landmark" &&
+          structure.storeys > 0 &&
+          art.placement !== undefined &&
+          structure.level >= structure.stages
+        ) {
+          sprite.visible = false;
+          for (const piece of landmarkStoreys(
+            sprite.texture,
+            art.placement.anchorX,
+            art.placement.anchorY,
+            art.placement.scale,
+            Math.min(structure.storeys, 12),
+          )) {
+            piece.position.copyFrom(sprite.position);
+            container.addChild(piece);
+          }
+        }
         // Wonders and the stations' projects rise stage by stage
         const wonder =
           structure.type === "wonderSite" ||

@@ -11,7 +11,17 @@ public enum ProjectStage
     FoundryHall,
     Landmark,
     Done,
+
+    /// <summary>
+    /// A storey of the Landmark (after run 4: once the Landmark stood on day 17, the crew had nothing shared to build):
+    /// a goods part by the Yard and a purse of gold, one after another without end. After Done, so saved stages keep
+    /// their numbers; between storeys the project is Done
+    /// </summary>
+    Storey,
 }
+
+/// <summary>A storey that stood: its number, when, and its givers' gold and goods in hours of their own income</summary>
+public sealed record StoreyPlaque(int Number, DateTime At, Dictionary<long, double> Hours);
 
 /// <summary>
 /// A station's project (v1.2 §12): one shared building over the chapter, Foundation → Water Tower → Workshop → Foundry
@@ -72,6 +82,13 @@ public sealed class StationProject : Entity
 
     /// <summary>What each player brought to this stage, by good (named at both ends when it stands: after run 4)</summary>
     public Dictionary<long, Dictionary<string, double>> StageGifts { get; set; } = new();
+
+    /// <summary>The Landmark's storeys that stand, the open storey's purse and who gave to it, and when the next opens</summary>
+    public int Storeys { get; set; }
+    public double Purse { get; set; }
+    public Dictionary<long, double> GivenBy { get; set; } = new();
+    public DateTime? NextStoreyAt { get; set; }
+    public List<StoreyPlaque> Plaques { get; set; } = new();
     public List<string> FoundryChains { get; set; } = new();
 
     /// <summary>Who delivered to the Landmark (its heirloom is theirs)</summary>
@@ -514,6 +531,29 @@ public sealed partial class GameWorld
         foreach (var person in people)
         {
             project.Counted[person.Id] = income <= 0 ? 1.0 / people.Count : MeasuredIncome(person) / income;
+        }
+        if (stage == ProjectStage.Storey)
+        {
+            // A storey: the Landmark's goods part again, and a purse of a day of the station's income, ×1.2 a storey
+            var (storeyGoods, _) = Recipe(station, ProjectStage.Landmark, CountedResidents(project));
+            var storeyWorth = 0.5 * income * LandmarkHours * 60;
+            foreach (var good in storeyGoods.DefaultIfEmpty("energy"))
+            {
+                project.Basket[good] = Math.Ceiling(storeyWorth / Math.Max(1, storeyGoods.Count) / BasePrice(good));
+            }
+            // The purse: a day of the income of everyone in the station who played this week, not only who delivered
+            var since = LastTick - ActivePeriod;
+            var stationIncome = ProjectResidents(project).Where(t => !t.Asleep && t.LastSeenAt >= since).Sum(MeasuredIncome);
+            project.Purse = Math.Ceiling(StoreyPurseDays * 24 * 60 * Math.Max(MinMeasuredIncome, stationIncome) * Math.Pow(StoreyPurseGrowth, project.Storeys));
+            project.GivenBy = new Dictionary<long, double>();
+            project.NextStoreyAt = null;
+            foreach (var resident in ProjectResidents(project))
+            {
+                Changes.Events.Add(new WorldEvent(resident.Id, WorldEventKind.Wonder,
+                    $"Your station's Landmark opens storey {project.Storeys + 1}: its goods by the Yard, and a purse of {Gold(project.Purse)} anyone may give to"));
+            }
+            project.Touch();
+            return;
         }
         if (stage == ProjectStage.Landmark)
         {
@@ -966,7 +1006,7 @@ public sealed partial class GameWorld
                 }
             }
             project.Touch();
-            if (project.Basket.Count > 0 && project.Basket.Keys.All(t => ProjectLacks(project, t) <= 1e-6))
+            if (project.Basket.Count > 0 && project.Basket.Keys.All(t => ProjectLacks(project, t) <= 1e-6) && PurseFull(project))
             {
                 FinishStage(project);
             }
@@ -999,7 +1039,8 @@ public sealed partial class GameWorld
         }
         var helpers = project.Credit.Keys.ToHashSet();
         var gifts = NameStageGifts(project, done);
-        foreach (var resident in ProjectResidents(project))
+        // A storey's news is its own (StoreyStands): its plaque and its pipes
+        foreach (var resident in done == ProjectStage.Storey ? [] : ProjectResidents(project))
         {
             // Who built it, strangers too (after run 4: Mia-B's wood finished the crew's Water Tower and no card said so)
             var by = gifts.Where(t => t.Giver != resident.Id).Take(2)
@@ -1030,7 +1071,16 @@ public sealed partial class GameWorld
             ProjectStage.FoundryHall => ProjectStage.Landmark,
             _ => ProjectStage.Done,
         };
+        if (done == ProjectStage.Storey)
+        {
+            StoreyStands(project);
+        }
         StartStage(project, next);
+        // The Landmark's first storey opens when it stands (after run 4: nothing to build together from day 17)
+        if (done == ProjectStage.Landmark)
+        {
+            StartStage(project, ProjectStage.Storey);
+        }
         WakeCoupling();
     }
 
@@ -1092,6 +1142,7 @@ public sealed partial class GameWorld
         ProjectStage.Workshop => "Workshop",
         ProjectStage.FoundryHall => "Foundry Hall",
         ProjectStage.Landmark => "Landmark",
+        ProjectStage.Storey => "Landmark's storey",
         _ => "project",
     };
 

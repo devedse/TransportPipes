@@ -279,7 +279,19 @@ public static partial class GameViews
         // The project
         if (world.ProjectsEnabled && world.EstateOf(me) is { } estate && world.ExistingProject(estate.Station) is { } project)
         {
-            var stood = project.Finished.Where(t => t.Value >= report.Since).OrderBy(t => t.Value).Select(t => GameWorld.StageName(t.Key)).ToList();
+            var stood = project.Finished.Where(t => t.Value >= report.Since && t.Key != ProjectStage.Storey).OrderBy(t => t.Value).Select(t => GameWorld.StageName(t.Key)).ToList();
+            // The Landmark's storeys (after run 4): one that rose while you were away, with its plaque; else the open one's purse
+            var rose = project.Plaques.Where(t => t.At >= report.Since).ToList();
+            if (rose.Count > 0)
+            {
+                var plaque = rose[^1].Hours.OrderByDescending(t => t.Value).Take(3)
+                    .Select(t => world.Company(t.Key) is { } who ? $"{(who.Id == me.Id ? "you" : world.NameFor(who, me))} {GameWorld.HoursWords(t.Value)}" : null).OfType<string>().ToList();
+                Add(1, "project", "🏗", $"Your Landmark rose to storey {rose[^1].Number}{(plaque.Count > 0 ? $" ({And(plaque)})" : "")} 💛: its pipes carry +{Math.Min(GameWorld.MaxStoreyPipeBonus, GameWorld.StoreyPipeBonus * project.Storeys) * 100:0}% now", "project");
+            }
+            else if (project.Stage == ProjectStage.Storey && GameWorld.PurseLeft(project) >= 1)
+            {
+                Add(2, "project", "🏗", $"Storey {project.Storeys + 1} of your Landmark: its purse wants {Amount(GameWorld.PurseLeft(project))} g more, given in hours of your income", "project");
+            }
             if (stood.Count > 0)
             {
                 Add(2, "project", "🏗", $"The {And(stood)} stood while you were away: every seat makes {world.ProjectBonus(project) * 100:0}% more now", "project");

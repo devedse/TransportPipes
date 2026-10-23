@@ -76,6 +76,9 @@ public enum AdvisorAction
 
     /// <summary>Opens Hub › Wonders (the Era Wonder's goods to order)</summary>
     Wonder,
+
+    /// <summary>Opens the station's project, its storey's Give (after run 4)</summary>
+    Storey,
 }
 
 /// <summary>
@@ -464,7 +467,19 @@ public sealed partial class GameWorld
     /// </summary>
     private void SharedStep(Company company, Action<AdvisorStep, double> add, double income)
     {
-        if (company.District != Capital || company.Gold < 24 * 60 * Math.Max(MinMeasuredIncome, income) || EraWonder is not { Finished: false } wonder || Unsized(wonder))
+        if (company.Gold < 24 * 60 * Math.Max(MinMeasuredIncome, income))
+        {
+            return;
+        }
+        var hour = 60 * Math.Max(MinMeasuredIncome, income);
+        // The station's storey first: the shared goal after the Landmark
+        if (EstateOf(company) is { } home && ExistingProject(home.Station) is { Stage: ProjectStage.Storey } storey && PurseLeft(storey) >= 1)
+        {
+            add(new AdvisorStep(AdvisorKind.Shared, $"Give to your Landmark's storey {storey.Storeys + 1}: its purse wants {Gold(PurseLeft(storey))} more",
+                $"An hour of your income is {Gold(hour)}, a day {Gold(24 * hour)}; anyone gives as often as they like, named in hours of their own income. Each storey makes the station's pipes carry 10% more.",
+                AdvisorAction.Storey, Math.Min(hour, PurseLeft(storey)), 0), 1.3);
+        }
+        if (company.District != Capital || EraWonder is not { Finished: false } wonder || Unsized(wonder))
         {
             return;
         }

@@ -1237,6 +1237,11 @@ public sealed class GameHub : Hub<IGameClient>
                     }
                     silo.Touch();
                     break;
+                case "storey":
+                    // The station's project to its Landmark, then a storey more (and the next one open)
+                    world.RaiseStorey(company);
+                    world.OpenStoreysNow();
+                    break;
                 case "wonderopen":
                     // A Wonder stage that waits for midnight opens now, sized to who played this week
                     world.SizeWonderStages();
@@ -1298,6 +1303,9 @@ public sealed class GameHub : Hub<IGameClient>
     }
 
     public Task<CommandResultDto> GrowEverything() => Command((world, company) => world.GrowEverything(company));
+
+    /// <summary>Gives hours of your income (1, 6 or 24) to the open storey of your station's Landmark, or the one next door</summary>
+    public Task<CommandResultDto> GiveToStorey(double hours) => Command((world, company) => world.GiveToStorey(company, hours));
 
     public Task<CommandResultDto> UndoGrowth() => Command((world, company) => world.UndoGrowth(company));
 

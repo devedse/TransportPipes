@@ -374,7 +374,7 @@ public sealed partial class GameWorld
 
     public double ThroughputBonus(long companyId) =>
         (Company(companyId) is { } company ? company.Researched.Sum(t => Content.Research.TryGetValue(t, out var tech) ? tech.ThroughputBonus : 0) : 0)
-        + WonderPipeBonus(companyId) + Refined(Company(companyId), "pipes");
+        + WonderPipeBonus(companyId) + Refined(Company(companyId), "pipes") + StoreyPipeBonusOf(companyId);
 
     public double BandWidthBonus(Company company) =>
         company.Researched.Sum(t => Content.Research.TryGetValue(t, out var tech) ? tech.BandWidthBonus : 0);

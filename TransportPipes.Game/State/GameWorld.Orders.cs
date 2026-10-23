@@ -30,6 +30,7 @@ public sealed partial class GameWorld
         _likesToday.Clear();
         _fitsOnEstate.Clear();
         SizeWonderStages();
+        OpenStoreys();
         PlanEvents();
         CheckActivity();
         CheckHolds();
