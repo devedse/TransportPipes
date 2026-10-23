@@ -419,7 +419,10 @@ public sealed partial class GameWorld
     {
         if (Company(companyId) is not { } tender || Company(friendId) is not { } friend || !CanTend(tender, friend))
         {
-            return CommandResult.Fail("Nothing to tend: a crew mate's estate needs it once a storm damaged it while they're away.");
+            // Run 4: Cleo's card said "the storm damaged Ben's Moily", and Ana had tended it two minutes before (never who)
+            return CommandResult.Fail(Company(friendId) is { } tended && tended.TendedBy.Any(t => t.Key != companyId && t.Value == DayNumber) && !BuildingsOf(tended.Id).Any(t => t.Damaged)
+                ? "A crew mate tended it already today 💛"
+                : "Nothing to tend: a crew mate's estate needs it once a storm damaged it while they're away.");
         }
         foreach (var building in TendRepairs(friend))
         {
