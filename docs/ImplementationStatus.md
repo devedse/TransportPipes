@@ -395,6 +395,20 @@ is the design's call (yes).
   nothing, Ben never found the crew. Chores: about 11–15% of commands, nobody called it one; what wore players down was
   warnings that never clear and nothing left to want. 9 of 22 promises, 11 marks pass and 7 fail; the analyst's twelve
   recommendations are in `runs/story3/findings.json` (the owner decides what's next).
+- **After run 3** (2026-10-23): a panel of three analysts (`docs/playtest-run3-review.html`) chose fixes first, then
+  one redesign; the owner's read ("nothing to do with your gold") went to the six designers, whose nine steps
+  (`docs/playtest-run3-design.html`, record in `docs/design-notes/after-run3/`) were all built, with the analysts'
+  remaining rows: the keystone moves on and a small station keeps its stages; a truthful project line with Show me;
+  only what works is offered; a friend's link first and a kept seat on every return; the stranger beside the crew
+  that plays. Then step 1 a preview before every buy, "what stops you" and an hour's Undo; step 2 wants (a building
+  short of materials is a scaffold the station fills: own Storage, a friend's one tap, the Yard); step 3 the pipe tier
+  is a want; step 4 Order the rest (2 × base after the friends' window, over six hours); step 5 the Era wonder buys the
+  Capital's spare by pipe, orders for half, stage perks, tiers in hours of income, an Era row; step 6 Refinements after
+  an Era's tree and resting Labs; step 7 hub orders fill from the trading post's sales; step 8 a keystone two friends
+  make together; step 9 Widen Copper and Steel pipes; and the rest: a falling gift told to both ends with its cause,
+  exact books, a card that folds (one people line, a crew line, "Still:", order for a friend, the bell only for what
+  you can act on), Crew and Station chat, projects named by station, friends elsewhere with Visit and Link, no
+  caretaker fee. Each with tests and an e2e script; run 4 checks them against the design's marks.
 
 ### After v1
 

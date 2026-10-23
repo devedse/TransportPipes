@@ -823,8 +823,8 @@ public sealed class GameHub : Hub<IGameClient>
         var userId = UserId;
         var me = await _world.RunAsync(world => world.CompanyOfUser(userId) is { } company
             ? (company.Id, company.District, world.CorporationOf(company) is { } c ? (c.Id, c.Name) : default((long Id, string Name)?),
-                Crew: world.CrewOf(company) is { } crew ? (crew.Id, crew.Name) : default((long Id, string Name)?),
-                Station: world.EstateOf(company) is { } estate && world.BigStation(estate.Station)[0] is var corner
+                world.CrewOf(company) is { } crew ? (crew.Id, crew.Name) : default((long Id, string Name)?),
+                world.EstateOf(company) is { } estate && world.BigStation(estate.Station)[0] is var corner
                     ? (SocialService.StationChannel(corner), WorldNames.Station(corner)) : default((string Id, string Name)?))
             : default((long, DistrictCoord, (long Id, string Name)?, (long Id, string Name)?, (string Id, string Name)?)?), changesWorld: false);
         if (me is not { } info)

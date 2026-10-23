@@ -41,7 +41,11 @@ const water = await page.evaluate(() => {
   const pump = s.content.building("waterPump");
   for (let y = co.estateY; y < co.estateY + 32; y++)
     for (let x = co.estateX; x < co.estateX + 32; x++)
-      if (tp.gameClient.world.terrain(x, y) === "water") return tp.rules.canPlace(s.content, tp.gameClient.world, co, s.era, pump, x, y).reason;
+      if (tp.gameClient.world.terrain(x, y) === "water") {
+        // A pond on a parcel you don't own yet answers "Buy this parcel first": the water's own rule is the one to see
+        const reason = tp.rules.canPlace(s.content, tp.gameClient.world, co, s.era, pump, x, y).reason;
+        if (reason !== "Buy this parcel first") return reason;
+      }
   return null;
 });
 console.log("a pump on water:", water);
