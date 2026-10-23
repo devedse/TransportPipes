@@ -21,7 +21,9 @@ const KIND_ICONS: Record<string, string> = {
 export function InboxPanel() {
   const open = useAppStore((s) => s.inboxOpen);
   const inbox = useAppStore((s) => s.inbox);
-  const now = useNow(30000);
+  // The server's clock, like every other panel (run 4: "instant ago" on every entry when the device's clock differs)
+  const serverOffset = useAppStore((s) => s.serverOffsetMs);
+  const now = useNow(30000) + serverOffset;
   if (!open) {
     return null;
   }

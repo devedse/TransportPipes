@@ -1168,16 +1168,21 @@ public sealed partial class GameWorld
             1);
     }
 
-    /// <summary>What a parcel holds: its deposits (with their best richness), water, forest</summary>
+    /// <summary>
+    /// What a parcel holds: its deposits (with their best richness), water, forest. On dealt land only what the seat may
+    /// make counts (run 4: Cleo bought a "forest" parcel for a Lumber Camp her land can't have)
+    /// </summary>
     public List<(string What, string Label, int Richness)> ParcelHoldings(Estate estate, int parcel)
     {
+        var dealt = Generator.DealtLand ? Generator.LandOf(estate.District, estate.Slot) : null;
+        bool Yours(string good) => dealt == null || !WorldGenerator.LandGoods.Contains(good) || dealt.Contains(good);
         var deposits = new Dictionary<string, int>();
         var water = 0;
         var forest = 0;
         foreach (var tile in ParcelTiles(estate, parcel))
         {
             var info = Tile(tile);
-            if (info.Deposit is { } deposit)
+            if (info.Deposit is { } deposit && Yours(deposit))
             {
                 deposits[deposit] = Math.Max(deposits.GetValueOrDefault(deposit), info.Richness);
             }
@@ -1189,7 +1194,7 @@ public sealed partial class GameWorld
         {
             holds.Add(("water", "a shore", 0));
         }
-        if (forest >= 6)
+        if (forest >= 6 && Yours("wood"))
         {
             holds.Add(("forest", "forest", 0));
         }

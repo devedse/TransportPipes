@@ -283,4 +283,28 @@ public class DealtLandFacts
         Assert.IsFalse(result.Success);
         Assert.AreEqual("Water Pump stands beside the water, not on it.", result.Error);
     }
+
+    [TestMethod]
+    public void AParcelOffersOnlyWhatTheSeatMayMake()
+    {
+        // Run 4: Cleo bought a parcel the advisor sold as "a shore, forest" for a Lumber Camp her land can't have
+        foreach (var seed in Seeds)
+        {
+            var game = new TestGame(seed: seed, dealtLand: true);
+            for (var i = 0; i < 4; i++)
+            {
+                var company = game.NewCompany($"P{i}");
+                var estate = game.EstateOf(company);
+                var dealt = game.World.Generator.LandOf(estate.District, estate.Slot);
+                for (var parcel = 0; parcel < WorldLayout.ParcelCount; parcel++)
+                {
+                    foreach (var (what, label, _) in game.World.ParcelHoldings(estate, parcel))
+                    {
+                        Assert.IsTrue(what == "water" || (what == "forest" ? dealt.Contains("wood") : !WorldGenerator.LandGoods.Contains(what) || dealt.Contains(what)),
+                            $"seed {seed}, seat with {string.Join(", ", dealt)}: parcel {parcel} offers {label}");
+                    }
+                }
+            }
+        }
+    }
 }
