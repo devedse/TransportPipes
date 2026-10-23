@@ -32,10 +32,24 @@ public sealed partial class GameWorld
         company.Touch();
     }
 
-    /// <summary>Whether two players share a device: a browser id both used in the last 30 days, or an IP address on the same day</summary>
-    public bool SameDevice(Company a, Company b) =>
+    /// <summary>
+    /// Whether two players share a device: a browser id both used in the last 30 days. The money's guards (the hub price
+    /// between them, no Sends or orders for each other) and the keystone go by this alone: one IP address is a whole house
+    /// on one Wi-Fi, or many phones on one mobile network (v1.2 §3: "a second signal next to the account, never the only
+    /// one"; friends playing together in one room were one player to the Yard)
+    /// </summary>
+    public bool SameDevice(Company a, Company b) => ShareDevice(a, b, ipToo: false);
+
+    /// <summary>
+    /// Whether two players may be one person: a shared browser id, or the same IP address the same day. A false match
+    /// (friends in one house) only keeps a basket from growing, never costs anything a player has (v1.2 §3)
+    /// </summary>
+    public bool MaybeSameDevice(Company a, Company b) => ShareDevice(a, b, ipToo: true);
+
+    private bool ShareDevice(Company a, Company b, bool ipToo) =>
         a.Id != b.Id && !a.IsNpc && !b.IsNpc
-        && a.Devices.Any(t => LastTick - t.Value < DeviceMemory && b.Devices.TryGetValue(t.Key, out var seen) && LastTick - seen < DeviceMemory);
+        && a.Devices.Any(t => (ipToo || t.Key.StartsWith("b:", StringComparison.Ordinal)) && LastTick - t.Value < DeviceMemory
+            && b.Devices.TryGetValue(t.Key, out var seen) && LastTick - seen < DeviceMemory);
 
     /// <summary>
     /// Whether a sleeper shared a device with a partner: a sleeper hasn't played for 30 days by definition, so the

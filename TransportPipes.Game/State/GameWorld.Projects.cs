@@ -280,15 +280,15 @@ public sealed partial class GameWorld
     private List<Company> ProjectResidents(StationProject project) => StationPlayers(StationOfKey(project.Station));
 
     /// <summary>
-    /// The players who count for a project: active and awake, and only one of several accounts on one device (an alt
-    /// never makes a basket bigger)
+    /// The players who count for a project: active and awake, and only one of several accounts that may be one person
+    /// (an alt never makes a basket bigger; friends on one Wi-Fi only make it smaller)
     /// </summary>
     private List<Company> CountedResidents(StationProject project)
     {
         var counted = new List<Company>();
         foreach (var resident in ProjectResidents(project).Where(t => !t.Asleep && IsActive(t)).OrderBy(t => t.Id))
         {
-            if (!counted.Any(t => SameDevice(t, resident)))
+            if (!counted.Any(t => MaybeSameDevice(t, resident)))
             {
                 counted.Add(resident);
             }

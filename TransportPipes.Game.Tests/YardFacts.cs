@@ -288,6 +288,22 @@ public class YardFacts
     }
 
     [TestMethod]
+    public void FriendsOnOneWifiTradeAtThePlayerPrice()
+    {
+        // Two browsers behind one IP address the same day: friends in one room (or phones on one mobile network), not
+        // an account and its alt (the owner, before playing with friends: the Yard paid them the hub price)
+        var (game, a, b, _, _) = Neighbours();
+        var price = game.World.YardPrice(a, b, "energy", selling: true);
+        game.World.SeenOn(a, "browser-a", "one-house-today");
+        game.World.SeenOn(b, "browser-b", "one-house-today");
+
+        Assert.IsFalse(game.World.SameDevice(a, b), "two browsers are two players");
+        Assert.IsTrue(game.World.MaybeSameDevice(a, b), "a project's basket still counts them once");
+        Assert.AreEqual(price, game.World.YardPrice(a, b, "energy", selling: true), 1e-9, "the player price");
+        Assert.IsGreaterThan(game.World.HubBuyPrice(a, "energy"), price, "more than the hub pays");
+    }
+
+    [TestMethod]
     public void ANewcomerDoesntCutAUsualTrade()
     {
         // Mia sold Ana coal for days; Dev moves in with coal of his own: Mia keeps what she was selling (step 2's guard)

@@ -160,6 +160,19 @@ public class SendFacts
     }
 
     [TestMethod]
+    public void FriendsOnOneWifiSendAtThePlayerPrice()
+    {
+        // Two browsers, one IP address the same day: friends in one room
+        var (game, a, _, c) = Station();
+        game.World.SeenOn(a, "browser-a", "one-house-today");
+        game.World.SeenOn(c, "browser-c", "one-house-today");
+        Assert.IsTrue(game.World.SendGood(a.Id, "energy", c.Id, null).Success);
+        game.Pass(3);
+
+        Assert.AreEqual(game.World.PlayerPrice("energy"), game.World.YardPrice(a, c, "energy", selling: true), 1e-9);
+    }
+
+    [TestMethod]
     public void ASendBetweenTwoAccountsOnOneDevicePaysTheHubPrice()
     {
         // The funnel probe: a Send can't move gold between alts faster than the hub would

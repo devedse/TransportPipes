@@ -442,6 +442,18 @@ is the design's call (yes).
   bots 2.7–18.9, its players 24–29) and Mia 5.9 (she plays every other day); Level 30 on days 20–25; paid trade between
   friends by day 14 5.8% (was 2.0%); nothing runs at a loss. Still open: the solo bot earns 15% more a building than the
   crew (the mark wants 8–15% less), because the crew's gold goes into the storey's purse
+- **Before playing with friends** (2026-10-23): the owner remembered a build taking 10 s in a moderately sized
+  network. Not reproduced on today's rules: on a grown estate (87 buildings, 317 pipe tiles; `e2e/big-estate.mjs`) a
+  build is on the map 60–160 ms after the click, 180–290 ms with the page six times slower; the play day's 10 s came
+  with one network over the whole district (68 buildings, 1,050 pipe tiles, every company), which can't happen since
+  pipes stay on their estate. Timing a build's steps on estates up to 216 buildings (`EstateSpeedFacts`, `TP_PERF=1`)
+  found the advisor at 1.5 s, Max and the upgrade preview at 20 ms, and every Yard round slow in a big station: each
+  building's why-it-idles, reach and spare went through all of its network's links and flows (20,000 links at 216
+  buildings). A network index (links, flows and gate flows by building, once per solve) brought them to 0.12 s and
+  1 ms, and the links between buildings are found 2.2× faster (arrays, one search per building). The server logs
+  every world operation that takes over half a second with where its time went (waiting, running, collecting,
+  sending). Friends on one Wi-Fi were one device to the Yard (hub price, no Sends or orders for each other, one
+  keystone resident): the same IP the same day now only sizes a project's baskets, as v1.2 §3 says
 
 ### After v1
 
@@ -456,6 +468,7 @@ Changes to [GameDesign.md](GameDesign.md) that came up while building; the desig
 | Date | Refinement | Reason |
 | --- | --- | --- |
 | 2026-10-18 | Buildings only connect through pipes (not by touching each other); resources never pass through a building | Original rule, keeps layouts meaningful |
+| 2026-10-23 | "Same device" for the money's guards and keystones is a shared browser id; the same IP address the same day only keeps a project's basket from growing | Friends playing in one room share an IP: they traded at the hub price and couldn't send or order for each other |
 | 2026-10-23 | Copper Pipes come with Company Level 8 and Steel Pipes with Era 2 for everyone (a Lab's research still gets them sooner) | Run 4: every pipe stayed grey for 36 days, five of seven players never researched, and the pipe tier is the real level cap |
 | 2026-10-23 | One order rule for every shared goal: while a player near makes a good, half comes by pipe; while nobody does, gold orders all of it at twice the price | Run 4: the Era Wonder stopped at its pipe half twice, and the order button vanished without a word |
 | 2026-10-23 | After the Landmark, storeys without end: the Landmark's basket again and a purse of a day of the station's income ×1.2 a storey, given in hours of each giver's income, +10% on the residents' pipes each (to +50%) | Run 4: from day 17 the crew had nothing to build together (fun 2.83, "come back" 2 of 6) |
