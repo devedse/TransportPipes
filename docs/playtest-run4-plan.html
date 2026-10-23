@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Pipe Ladder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --teal: #24575a; --teal-dark: #173c3f; --accent: #236b69; --brass: #c9963a; --brass-dark: #94692a;
+  --cream: #f4ead3; --cream-strong: #fbf5e7; --paper: #fffaf0; --ink: #2b2418; --muted: #6b5c43;
+  --green: #33761f; --red: #a12f1f; --gold: #8a5d00; --line: rgba(80, 60, 30, 0.18);
+  --good-bg: #d6eccd; --bad-bg: #f6d3cc; --warn-bg: #f3e6c4; --info-bg: #dde9f3; --info: #24507a;
+}
+* { box-sizing: border-box; }
+html { background: #e9dfc6; }
+body { margin: 0; font-family: Nunito, system-ui, sans-serif; color: var(--ink); line-height: 1.55; background: #e9dfc6;
+  padding-left: max(0px, env(safe-area-inset-left, 0px)); padding-right: max(0px, env(safe-area-inset-right, 0px)); }
+.page { max-width: 1100px; margin: 24px auto; padding: 48px 56px; background: var(--paper); border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(40, 30, 10, 0.18); border: 1px solid var(--line); overflow-wrap: break-word; }
+@media (max-width: 720px) { .page { margin: 12px 8px; padding: 24px 16px; border-radius: 12px; } }
+h1, h2, h3 { font-family: Fraunces, Georgia, serif; color: var(--teal-dark); line-height: 1.2; text-wrap: balance; }
+h1 { font-size: 2.6rem; margin: 0 0 10px; }
+h2 { font-size: 1.9rem; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 3px solid var(--brass); }
+h3 { font-size: 1.25rem; margin: 26px 0 8px; }
+p { margin: 0 0 12px; max-width: 74ch; }
+ul, ol { padding-left: 22px; margin: 0 0 12px; max-width: 80ch; }
+li { margin-bottom: 5px; }
+.kicker { text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; color: var(--brass-dark); font-size: 0.85rem; }
+.lead { font-size: 1.15rem; }
+.muted { color: var(--muted); }
+.small { font-size: 0.88rem; }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 0.9rem; }
+.scroll table { min-width: 760px; }
+th { text-align: left; background: var(--cream); color: var(--teal-dark); padding: 7px 10px; font-weight: 800; vertical-align: bottom; }
+td { padding: 8px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+td.num { white-space: nowrap; font-variant-numeric: tabular-nums; }
+tr.hl td { background: #e4efe9; }
+.callout { padding: 14px 18px; border-radius: 12px; background: var(--cream); border-left: 6px solid var(--brass); margin: 14px 0; }
+.callout.decision { border-left-color: var(--accent); background: #e4efe9; }
+.callout.problem { border-left-color: var(--red); background: #f8e7e2; }
+.callout strong:first-child { display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; margin-bottom: 4px; }
+.pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 0.76rem; font-weight: 800; white-space: nowrap; }
+.pill.keep { background: var(--good-bg); color: var(--green); }
+.pill.change { background: var(--warn-bg); color: var(--gold); }
+.pill.drop { background: var(--bad-bg); color: var(--red); }
+.pill.add { background: var(--info-bg); color: var(--info); }
+.cover { background: linear-gradient(160deg, var(--teal-dark), var(--teal)); color: var(--cream); border: 0; }
+.cover h1 { color: #fff; }
+.cover .kicker { color: #f2d27a; }
+.cover .lead { color: var(--cream); max-width: 80ch; }
+.votes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
+@media (max-width: 760px) { .votes { grid-template-columns: 1fr; } }
+.vote { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); border-radius: 12px; padding: 14px 16px; }
+.vote b { color: #f2d27a; display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; }
+.vote .v { display: inline-block; margin: 6px 0 4px; background: #f2d27a; color: #173c3f; font-weight: 800; border-radius: 999px; padding: 1px 10px; font-size: 0.82rem; }
+.vote span { color: #f4ead3; font-size: 0.9rem; display: block; }
+.cover code { background: rgba(255,255,255,0.14); color: #fff; }
+code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.84em; background: var(--cream); padding: 1px 5px; border-radius: 5px; }
+.step { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 14px; padding: 16px 0; border-top: 1px solid var(--line); }
+.step:first-of-type { border-top: 0; }
+.step .n { width: 44px; height: 44px; border-radius: 50%; background: var(--teal); color: #fff; font-weight: 800; display: grid; place-items: center; font-family: Fraunces, Georgia, serif; font-size: 1.15rem; }
+.step .n.gate { background: var(--brass); }
+.step h3 { margin: 4px 0 6px; }
+.step .days { font-size: 0.82rem; color: var(--muted); font-weight: 700; }
+.replaces { font-size: 0.88rem; color: var(--muted); }
+.ui { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.84rem; background: var(--cream-strong); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin: 8px 0 12px; display: block; max-width: 80ch; }
+</style>
+</head>
+<body>
+
+<section class="page cover">
+  <div class="kicker">TransportPipes · after AI playtest run 4 · my own reading of the designers' answer</div>
+  <h1>The pipe is the ladder</h1>
+  <p class="lead">You asked me to reason about the designers' answer myself, with the whole history in hand. I checked
+  their claims against the code and run 4's numbers, and found one thing they circled but didn't say outright:
+  <b>the pipe tier is the game's real level cap.</b> Upgrades keep paying back within hours at every level: the hub's
+  price falls with what you sell, but stops at a quarter of the base, after which revenue grows in step with output.
+  The only thing that stops a building earning more is the pipe that carries its goods. Everybody in run 4 stayed on
+  Grey Pipes all game, so from about day 7 nothing gold could buy made more money. The way up (Copper, then Steel)
+  was there, but behind research that four of the six AI players never did, and shown only in a stuck building's own panel.</p>
+  <p class="lead">So I keep the designers' plan in its shape, but rebuild it around one ladder that every player can
+  see and climb: <b>Grey → Copper → Steel</b>, each step opening a decade of upgrades that pay. Gold climbs the ladder,
+  friends' copper and steel make it cheaper, and the shared storeys raise everyone's pipes together.</p>
+  <div class="votes">
+    <div class="vote"><b>Diagnosis</b><span class="v">the pipe caps everything</span>
+      <span>Run 4: all 1,087 pipe tiles grey; 5 of 7 players never researched anything; Copper Pipes costs 200 points and 10 minutes.</span></div>
+    <div class="vote"><b>Plan</b><span class="v">6 steps · about 12 days + art</span>
+      <span>In two milestones, with cheap replays from run 4's snapshots between them, so we see whether gold moves before building the shared storeys.</span></div>
+    <div class="vote"><b>From the designers</b><span class="v">kept 6 · changed 2 · dropped 3 · added 1</span>
+      <span>Their draft is in <code>docs/design-notes/after-run4/team-shared.md</code>. They didn't sign it in a round C: you stopped the subagents first.</span></div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>What I found, beyond the designers</h2>
+
+  <h3>1 · The pipe tier is the real level cap</h3>
+  <p>The hub pays full price for each good up to its order (about 1,000 g/min of each good per player in Era 1, × 1.5
+  each Era), then √(order ÷ sold), but <b>never less than a quarter of the base</b> (<code>HubMarket.cs:54</code>,
+  <code>progression.yaml</code> <code>hubMinMultiplier: 0.25</code>). Past 16× the order, every extra unit sells at a quarter
+  price: revenue grows in step with output again. Levels cost × 1.15 for × 1.10 output, plus a doubling at 10, 25, 50
+  and 75. Put together, an upgrade pays back within a day at nearly every level. Here is Cleo's Iron Mine, from her
+  real level 21 (210 iron ore a minute), with the game's own formulas:</p>
+  <div class="scroll"><table>
+    <tr><th>Level</th><th>Next level costs</th><th>Pays back in</th><th>Makes a minute</th><th>Pipe it needs</th><th>Sells for</th><th>Spent from L21</th></tr>
+    <tr><td>21 (run 4)</td><td class="num">9k</td><td class="num">2.3 h</td><td class="num">210</td><td><b>Copper</b> (grey carries 100 per connection)</td><td class="num">630 g/min</td><td class="num">—</td></tr>
+    <tr><td>30</td><td class="num">30k</td><td class="num">6 h</td><td class="num">990</td><td>Copper (500 per connection)</td><td class="num">1,724 g/min</td><td class="num">0.2M</td></tr>
+    <tr><td>40</td><td class="num">122k</td><td class="num">15 h</td><td class="num">2,569</td><td><b>Steel</b> (Era 2)</td><td class="num">2,776 g/min</td><td class="num">0.9M</td></tr>
+    <tr><td>50</td><td class="num">492k</td><td class="num">8 h</td><td class="num">13,325</td><td>Steel, widened</td><td class="num">9,994 g/min</td><td class="num">3.7M</td></tr>
+    <tr><td>60</td><td class="num">2.0M</td><td class="num">13 h</td><td class="num">34,562</td><td>beyond Steel (Era 4 Glass)</td><td class="num">25,921 g/min</td><td class="num">15.2M</td></tr>
+  </table></div>
+  <p>So the levels are a sink that grows with income, with paybacks a player likes, as long as the pipe carries the
+  output. In run 4 it didn't: the panel said <i>"Level 21: +0 g/min: its pipes carry 205 iron ore a minute"</i> (cleo d06
+  #220), and that was true. <b>Each pipe tier opens about a decade of output, and with it millions of gold of upgrades
+  that pay.</b> That is the "reason to grow" you asked about, and it already exists in the game, one door away.</p>
+  <p>The light bots agree: they press the advisor's steps without reading. The seats that made copper climbed and held
+  2.7–5.1 days of income on day 28; the seats without copper held 10.8–18.9. The other exit is the Trading Post (600 a
+  minute at level 1, more with each level), but that one is gold-only already, and the advisor offers it.</p>
+
+  <h3>2 · Nobody climbed it</h3>
+  <ul>
+    <li><b>All 1,087 pipe tiles stayed grey</b> to day 36, though Cleo made 237k copper ingots.</li>
+    <li><b>Copper Pipes is a 200-point, 10-minute research</b> (<code>research.yaml</code>), but research needs a Lab with
+    energy and ingots. <b>Only Cleo and Dev researched anything</b>; Ana, Ben, Mia, Mia-B and Jo never did (their only
+    "research" was the station-wide Refinements Cleo and Dev made). Mia's Lab sat idle without energy all month.</li>
+    <li>The next tier was offered only inside a full building's idle status (<code>GameWorld.IdleTexts.cs:150</code>). Cleo
+    researched Copper Pipes on day 6 at 20:44, six hours after she last opened a full building, and never opened one
+    again. The upgrade panel, where every player looks to spend, pointed nowhere, and the advisor went quiet when you
+    already make the ingots (<code>GameWorld.Advisor.cs:548</code>).</li>
+  </ul>
+
+  <h3>3 · Gold isn't what limits growth, so gold has no job</h3>
+  <p>Prices already grow: parcels double (5k up to 10.2M), levels × 1.15, each copy of a building × 1.07. Cleo, at
+  Level 29, could have bought four more parcels for 300k and had two. She had nothing to put on them, because her
+  inputs, pipes and hub orders were all full. Outposts (from Level 15) were never seen by anyone. Making things dearer
+  wouldn't help. Gold needs to buy past the real limits: the pipe, a material nobody near makes, and a shared goal.</p>
+
+  <h3>4 · The designers were right about the rest</h3>
+  <ul>
+    <li><b>The Era wonder's size was a bug.</b> I confirmed the cause: the daily resize counts only players seen in 3
+    days, and a delivery freezes the size. Both stages were 21.6k of goods instead of about 1.6M.</li>
+    <li><b>Caps became dead buttons.</b> The order half was used up, the button vanished, and Ana and Ben were stuck.</li>
+    <li><b>The wish to spend was social.</b> Five offers of gold went into the chat, and all 30,660 g the new sinks
+    took went into the one shared door in sight.</li>
+    <li><b>After the Landmark the crew had nothing to build together.</b> Days 18–36: fun 2.83, "come back" yes 2 of 6.</li>
+  </ul>
+</section>
+
+<section class="page">
+  <h2>The designers' plan: what I keep, change and drop</h2>
+  <div class="scroll"><table>
+    <tr><th>Their point</th><th></th><th>My call, and why</th></tr>
+    <tr><td>Fix the sizing: 7 days, never from the floor, upward only</td><td><span class="pill keep">keep</span></td><td>It is a bug, and it also makes the Era wonder a real sink (its order half about 1.6M gold instead of 30k).</td></tr>
+    <tr><td>The pipe door on the upgrade panel, one button: research, tier, Max</td><td><span class="pill change">change</span></td><td>Make it the <b>pipe ladder</b>. Copper Pipes comes with Company Level 8 for everyone, not through a Lab; Steel Pipes with Era 2, again for everyone. Five of seven players never researched; a 200-point gate only hides the ladder. The Lab keeps the rest of the tree and the Refinements.</td></tr>
+    <tr><td>Grey Widen behind a switch</td><td><span class="pill drop">drop</span></td><td>Copper costs one ingot a tile, so a full link is about 30 ingots: about 1k gold by order. That is cheap enough that grey Widen adds nothing but a second, nearly equal door. Widen stays on Copper and Steel, charged per link (the designers found the one-price bug).</td></tr>
+    <tr><td>One order rule: all at once at 2× where nobody near makes it; else friends first and half by pipe</td><td><span class="pill keep">keep</span></td><td>One sentence a player can learn, and the button never vanishes: it says why, and names the chain that would make the good.</td></tr>
+    <tr><td>"Your gold can" on the top bar: the bank in days, three lines, shared first</td><td><span class="pill keep">keep</span></td><td>The ladder's next rung is its private line: <i>"Copper Pipe on 6 full links, then Max · 1.1M · +1,900 g/min"</i>.</td></tr>
+    <tr><td>"Grow everything that pays", payback ≤ 7 days, one tap with Undo</td><td><span class="pill keep">keep</span></td><td>On the return card too. Ben came back to 13M and spent 3.4k one Max at a time.</td></tr>
+    <tr><td>Landmark storeys: goods by pipe, a purse of 1 day × 1.2ⁿ, Give 1 h · 6 h · 1 day, +10% pipes each</td><td><span class="pill keep">keep</span></td><td>The +10% on pipes fits the ladder exactly: the shared goal raises everyone's ceiling.</td></tr>
+    <tr><td>Half per giver for 3 days</td><td><span class="pill drop">drop</span></td><td>In run 4 every cap became a dead button. The goods part still needs everyone's pipes, and the plaque in hours of each giver's income keeps a rich giver from shaming the rest.</td></tr>
+    <tr><td>The player alone: district channel first, gifts named at both ends</td><td><span class="pill keep">keep</span></td><td>One day of work for the worst "alive" scores of four runs.</td></tr>
+    <tr><td>The branch; the Works; a keystone in storeys</td><td><span class="pill drop">drop</span></td><td>Not now. The ladder and the order rule give a friend with gold and no role a job (Dev's Brickworks line).</td></tr>
+    <tr><td>Checks before run 5: light bots, pacing, a replay of day 21</td><td><span class="pill change">change</span></td><td>Keep all three, and add <b>replays from run 4's snapshots between two milestones</b>, plus counting every door shown and pressed, so run 5 can tell which door worked.</td></tr>
+    <tr><td>—</td><td><span class="pill add">add</span></td><td><b>The ladder in sight:</b> the goal tracker shows <i>"Your pipes: Grey · Copper ▸ · Steel (Era 2)"</i>, and Loady's tutorial teaches the first copper link on day 2 or 3, when the first grey pipe fills.</td></tr>
+  </table></div>
+</section>
+
+<section class="page">
+  <h2>The plan, in build order</h2>
+  <p>Each step is a playable commit with tests and an e2e script, as before. Days are for me, building alone.</p>
+
+  <h3>Milestone A · gold has a job (about 7 days)</h3>
+  <div class="step"><div class="n">1</div><div>
+    <h3>The fixes run 4 found <span class="days">· 1 day</span></h3>
+    <ul>
+      <li><b>Wonder sizing:</b> count players seen in 7 days, never size from the floor, resize upward only until a quarter has arrived.</li>
+      <li><b>The Wonders tab says what's ordered and why the rest comes by pipe:</b> <i>"The order half is in: Cleo, Ana · the rest comes by pipe · who can make it ▸"</i>.</li>
+      <li><b>A building that waits says so:</b> it shows "waits for 100 bricks" instead of "is being built".</li>
+      <li><b>The run-4 small breakers:</b> stale Next steps, the refusal toast left behind, Loady's +0 upgrade step.</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="n">2</div><div>
+    <h3>The pipe ladder <span class="days">· 3 days</span></h3>
+    <p>Copper Pipes for everyone at Company Level 8, Steel Pipes for everyone when Era 2 begins (the research nodes stay
+    as the Lab's prerequisites). On the upgrade panel of a building at its pipe, one button goes the whole way, with one
+    preview:</p>
+    <span class="ui">Its Grey Pipe is full: 205 iron ore a minute · [ Copper Pipe on its 2 links, then Max to 30 · 34 ingots + 212k · +1,094 g/min ▸ ]<br>ingots: 12 in your Storage · 22 from Cleo (Yard, 1.3×) or order now (2×)</span>
+    <ul>
+      <li><b>The ingots</b> come from your Storage, then a friend's spare through the Yard, then an order at 2× when nobody near makes them.</li>
+      <li><b>At Copper's limit:</b> Widen ×2 (1 hour of your income), then ×4, charged per link.</li>
+      <li><b>The ladder is in sight</b> in the goal tracker, and the advisor's three dead ends become the next rung.</li>
+    </ul>
+    <p class="replaces">Replaces: "+N would make nothing more", the door only in idle status, the research gate on the first two tiers, grey's silent wall.</p>
+  </div></div>
+  <div class="step"><div class="n">3</div><div>
+    <h3>One order rule, in words <span class="days">· 1½ days</span></h3>
+    <p><b>Nobody near makes the good:</b> anyone may order all of it at once at 2× base. <b>Someone near makes it:</b> they get
+    their window first, and half of a shared goal comes by pipe. This one rule covers wants, pipe ingots, Era stages and
+    storeys. The button never vanishes. A waiting building names the chain that would make its good, offered first to
+    the friend with gold and no maker role.</p>
+  </div></div>
+  <div class="step"><div class="n">4</div><div>
+    <h3>Your gold can <span class="days">· 2 days</span></h3>
+    <p>The top bar reads <i>"40.6M · 24 days ▸"</i>. Tapping it opens three lines:</p>
+    <ol>
+      <li>the open shared goal, with Give;</li>
+      <li>a want nobody near can fill;</li>
+      <li>"Grow everything that pays": the next rung on every full link, then Max where payback is within 7 days, in one preview, one tap, with Undo.</li>
+    </ol>
+    <p>The same top line leads the return card and never folds. Every door counts what was shown and what was pressed.</p>
+  </div></div>
+  <div class="step"><div class="n gate">✓</div><div>
+    <h3>Check A: replays from run 4's snapshots <span class="days">· ½ day + about 0.3M tokens</span></h3>
+    <p>Three single sessions on the new build, from the snapshots before them: <b>Cleo day 6</b> (her long session, first
+    full pipes), <b>Ana day 27</b> (the Cathedral and the Kiln), <b>Ben day 36</b> (back after a month, on his phone).
+    Plus the light bots and the pacing run. <b>Pass:</b>
+    <ul>
+      <li>each of the three replays spends at least 20% of the gold it opens with, by its own taps;</li>
+      <li>every bot holds 5 days of income or less on day 28;</li>
+      <li>Level 30 comes on day 25 ± 2.</li>
+    </ul>
+    <b>If it fails:</b> the doors still aren't enough, and we look again before building more.</p>
+  </div></div>
+
+  <h3>Milestone B · something to build together (about 5 days + art)</h3>
+  <div class="step"><div class="n">5</div><div>
+    <h3>The Landmark grows storeys <span class="days">· 3½ days + 1–2 days of art</span></h3>
+    <p>When a station's Landmark stands, its first storey opens; the next opens the day after one stands. A storey has:</p>
+    <ul>
+      <li><b>a goods part:</b> 6 hours of the station's own spare, in goods a playing resident makes;</li>
+      <li><b>a purse:</b> 1 day × 1.2ⁿ⁻¹ of the station's 7-day income, fixed when the storey opens. Givers give 1 h, 6 h or 1 day of their own income, as often as they like, with no cap.</li>
+    </ul>
+    <p>Each storey gives +10% on its residents' pipes (up to +50%) and a plaque naming the givers in hours of their own
+    income. On run 4's numbers, Capital SE's first four storeys would cost about 6.1M, 7.3M, 8.8M and 10.5M. Storey art
+    goes through <code>process.mjs</code> and <code>fit.mjs</code>.</p>
+  </div></div>
+  <div class="step"><div class="n">6</div><div>
+    <h3>The player alone is heard <span class="days">· 1 day</span></h3>
+    <p>If nobody else in her station has chatted, her chat opens on the district channel; a newcomer's hello shows as a
+    line in crews' chats; every gift that stands a stage is named at both ends, strangers included.</p>
+  </div></div>
+  <div class="step"><div class="n gate">✓</div><div>
+    <h3>Check B, then run 5 <span class="days">· the bots again, a replay of day 21, then the full story</span></h3>
+    <p>Run 5 plays the same story again on a fresh world (about 1.6M tokens for the players), so its numbers line up
+    with runs 1–4.</p>
+  </div></div>
+  <p><b>In all:</b> about 12 days of building and 1–2 of art, plus the checks. The designers' estimate was 11½–12½ plus
+  art: the ladder and the counting add a little, and dropping grey Widen and the per-giver cap takes a little away.</p>
+</section>
+
+<section class="page">
+  <h2>How run 5 shows it worked</h2>
+  <div class="scroll"><table>
+    <tr><th>Mark</th><th>Pass</th><th>Run 4</th></tr>
+    <tr class="hl"><td><b>Gold spent</b></td><td>The crew spends ≥ 20% of what it earns in days 14–36, by its own taps. Under 10%, with the doors logged as shown, proves this plan wrong</td><td>0.09%</td></tr>
+    <tr class="hl"><td><b>The ladder</b></td><td>≥ 3 of 4 crew lay Copper by day 14, and ≥ 2 lay Steel by day 30</td><td>none; 1,087 grey tiles</td></tr>
+    <tr><td>Returns</td><td>The median return after 4+ days away spends ≥ 10% of what came in while away (Ben's day 36 included)</td><td>1.4%, 0.5%, 0.03%</td></tr>
+    <tr><td>Givers</td><td>≥ 3 of 4 crew give gold to a storey, the Era wonder or a friend's building</td><td>1</td></tr>
+    <tr><td>The Era</td><td>The Dynamo and the Cathedral stand before their Eras end</td><td>89% and 50%</td></tr>
+    <tr><td>After the Landmark</td><td>Capital SE raises ≥ 2 storeys by day 36; "come back" yes ≥ 4 of 6 in days 18–36</td><td>nothing to build; 2 of 6</td></tr>
+    <tr><td>Friends still make</td><td>≥ ⅓ of the goods into Era stages and storeys come by pipe from players</td><td>26%</td></tr>
+    <tr><td>The player alone</td><td>Mia's first answer from a person by day 2; "alive" ≥ 3</td><td>day 15; 2, 2, 2, 3</td></tr>
+    <tr><td>Diaries</td><td>No "nothing to spend on" or "pointless" about gold after day 10</td><td>4</td></tr>
+    <tr><td>Pacing</td><td>Level 30 on day 25 ± 2 for the crew; nobody's income more than 10× the next friend's</td><td>Cleo L29 by day 36</td></tr>
+  </table></div>
+  <div class="callout decision"><strong>And a stopping rule for the redesigning</strong>If run 5 passes the gold and
+  ladder marks, I'd stop redesigning v1.2 and polish it toward merging PR #4: four runs of new mechanisms is enough,
+  and every step has added rules players must learn. If it fails with the doors shown, the cause is deeper than doors,
+  and we should talk before building anything more.</div>
+</section>
+
+<section class="page">
+  <h2>What I need from you</h2>
+  <ol>
+    <li><b>Copper and Steel Pipes without research</b> (Copper at Company Level 8, Steel with Era 2). This is my strongest
+    change to the designers' plan; it touches the tech tree as designed in the GDD. Yes or no?</li>
+    <li><b>Two milestones with replays in between</b>, or build all six steps and go straight to run 5? I recommend the
+    milestones: a cheap answer in about a week, before the storeys and their art.</li>
+    <li><b>The stopping rule</b> above: if run 5 passes, polish and merge rather than redesign again.</li>
+  </ol>
+  <p class="small muted">How this was made: I read the six designers' round-A and round-B papers and the economy
+  designer's draft (<code>docs/design-notes/after-run4/</code>), then checked their claims against the code (hub prices,
+  upgrade and parcel curves, the pipe tiers, research) and run 4's samples, events and light bots. The payback table
+  uses the game's own formulas for Cleo's Iron Mine. No subagents were used for this page.</p>
+</section>
+
+</body>
+</html>
