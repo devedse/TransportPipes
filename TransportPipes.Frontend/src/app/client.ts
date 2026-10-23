@@ -605,13 +605,15 @@ export class GameClient {
    * Goes through a building's pipe door (after run 4): the next pipe tier or Widen on its full links, then the levels the
    * new pipe carries; goods the pipe lacks come from a friend or an order (order: now, even when a friend makes them)
    */
-  async climbPipe(building: number, order = false) {
+  async climbPipe(building: number, order = false): Promise<boolean> {
     // The server says what happened: laid, widened, waiting for a friend's goods, or ordered
     if (await this.command(this.connection.climbPipe(building, order))) {
       window.setTimeout(() => void this.refreshNetwork(), 1200);
       void this.refreshCompany();
       void this.refreshDetails();
+      return true;
     }
+    return false;
   }
 
   /**
@@ -1618,8 +1620,11 @@ export class GameClient {
 
   private nextStepsTimer: number | null = null;
 
-  /** The advisor's steps again soon: after a command the network needs a moment to solve */
-  scheduleNextSteps(delay = 1500) {
+  /**
+   * The advisor's steps again soon (the advisor solves what a command changed itself; after run 4 a step stayed on
+   * screen seconds after it was done, and three players called the list stale)
+   */
+  scheduleNextSteps(delay = 300) {
     if (this.nextStepsTimer !== null) {
       clearTimeout(this.nextStepsTimer);
     }
@@ -1814,13 +1819,16 @@ export class GameClient {
       return;
     }
     if (hint.select !== undefined) {
-      // "highest": the building closest to its next milestone (the HQ grows with the Company Level)
+      // The server's choice where it made one: where a level pays (after run 4); "highest": the building closest to
+      // its next milestone (the HQ grows with the Company Level)
+      const target = hint.target !== undefined ? this.world.buildings.get(Number(hint.target)) : undefined;
       const own =
-        hint.select === "highest"
+        target ??
+        (hint.select === "highest"
           ? [...this.world.buildings.values()]
               .filter((t) => t.owner === company.id && t.type !== "hq" && t.level < 10)
               .sort((a, b) => b.level - a.level)[0]
-          : [...this.world.buildings.values()].find((t) => t.owner === company.id && t.type === hint.select);
+          : [...this.world.buildings.values()].find((t) => t.owner === company.id && t.type === hint.select));
       if (own !== undefined) {
         this.engine?.lookAt(own.x, own.y, 0.8);
         this.select(own.id);
@@ -2077,12 +2085,14 @@ export class GameClient {
     }
   }
 
-  async upgrade(building: number, levels: number) {
+  async upgrade(building: number, levels: number): Promise<boolean> {
     if (await this.command(this.connection.upgrade(building, levels))) {
       this.engine?.twinkle(building);
       sounds.click();
       await this.refreshDetails();
+      return true;
     }
+    return false;
   }
 
   async repair(building: number) {

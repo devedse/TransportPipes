@@ -73,6 +73,56 @@ public class PairKeystoneFacts
     }
 
     [TestMethod]
+    public void ItWaitsForAFriendAwayThreeDaysAndItsLineHoldsStill()
+    {
+        // Run 4: Ana's and Mia-B's pair was dropped "nobody here can make it now" the hour Mia-B's last session was three
+        // days old, while both were away for the keystone's whole life; Mia's maker line flipped as people came and went
+        var (game, ana, ben, project) = Station(["quarry"], ["coalPit"]);
+        game.World.FinishStageNow(game.EstateOf(ana).Station);
+        Assert.AreEqual("bricks", project.Keystone);
+
+        ben.LastSeenAt = ben.SessionStartedAt = game.World.Now.AddDays(-4);
+        game.Pass(30);
+
+        Assert.AreEqual("bricks", project.Keystone, "Ben played this week: the pair waits for him");
+        Assert.IsEmpty(project.PassedKeystones);
+        CollectionAssert.AreEquivalent(new[] { ana.Id, ben.Id }, game.World.MakersOf(project, "bricks").Select(t => t.Maker.Id).ToList(), "the line names both still");
+        Assert.IsNull(game.World.KeystonePassesAt(project), "its clock waits till Ben has seen it");
+
+        ben.LastSeenAt = ben.SessionStartedAt = game.World.Now.AddDays(-8);
+        game.Pass(30);
+        Assert.AreNotEqual("bricks", project.Keystone, "a week away: the pair can't make it now");
+    }
+
+    [TestMethod]
+    public void AFoundryHallChoosesItsKeystoneWhenItOpens()
+    {
+        // Run 4: Capital SE's Foundry Hall said "opens in 10 days" while its keystone was chosen and dropped twice
+        var (game, ana, ben, project) = Station(["quarry"], ["coalPit"]);
+        var station = game.EstateOf(ana).Station;
+        while (project.Stage != ProjectStage.FoundryHall)
+        {
+            game.World.FinishStageNow(station);
+        }
+
+        Assert.IsNull(project.Keystone, "nothing is chosen before it opens");
+        Assert.IsFalse(project.KeystoneChosen);
+        game.Pass(13 * 24 * 60);
+        Assert.IsNull(project.Keystone);
+
+        game.Pass(24 * 60);
+        foreach (var company in new[] { ana, ben })
+        {
+            company.LastSeenAt = company.SessionStartedAt = game.World.Now;
+        }
+        game.Pass(20);
+
+        Assert.IsTrue(project.KeystoneChosen, "chosen when it opens, from who plays now");
+        Assert.IsNotNull(project.Keystone);
+        Assert.IsGreaterThanOrEqualTo(game.World.Now.AddMinutes(-40), GameWorld.KeystoneWantedSince(project), "its clock starts at the opening");
+    }
+
+    [TestMethod]
     public void NotWhenOneMakesBothInputs()
     {
         var (game, ana, _, project) = Station(["quarry", "coalPit"], []);

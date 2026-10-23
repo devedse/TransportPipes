@@ -7,8 +7,8 @@
 - { id: firstSale, stat: "piped:solarPanel|windMoily", amount: 1, gold: 150, hint: { tool: pipe },
     text: "Now pipe it: pick the Pipe tool (P), then drag from your panel to the pipe next to it. Pipes carry what it makes to your Trading Post.",
     phoneText: "Now pipe it to your Trading Post: Show me plans the pipe, and one tap lays it. Pipes carry what it makes to be sold." }
-- { id: firstUpgrade, stat: levelsBought, amount: 1, gold: 150, hint: { select: solarPanel },
-    text: "Coins! Click the panel and upgrade it: every level makes 10% more, and level 10 doubles it." }
+- { id: firstUpgrade, stat: levelsBought, amount: 1, gold: 150, hint: { select: paying },
+    text: "Coins! Upgrade a building: every level makes 10% more, and level 10 doubles it. Show me opens the one where a level pays back soonest." }
 - { id: firstMoily, stat: "built:solarPanel|windMoily", amount: 2, gold: 200, hint: { tool: build, building: windMoily, overlay: wind },
     text: "More energy, more gold. Find a windy spot (the Wind overlay shows it) and build a Wind Moily: six times a panel." }
 - { id: firstYard, stat: yard, amount: 1, gold: 500, hint: { panel: yard },

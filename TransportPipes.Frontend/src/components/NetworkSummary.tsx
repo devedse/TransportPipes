@@ -2,13 +2,14 @@ import { gameClient } from "../app/client";
 import { formatAmount, formatRate } from "../app/format";
 import type { NetworkDetailsDto, NetworkResourceDto } from "../api/contracts";
 import type { Content } from "../game/content";
+import { useAppStore } from "../state/store";
 import { ResourceIcon } from "./ResourceIcon";
 
 /** Where a resource of a network goes: used by buildings, sold to the hub, stored, lost in the pipes */
 const SEGMENTS = [
   { key: "used", name: "used by buildings", className: "seg-used" },
   { key: "sold", name: "sold to the hub", className: "seg-sold" },
-  { key: "toYard", name: "sold to neighbours", className: "seg-yard" },
+  { key: "toYard", name: "sold through the Yard", className: "seg-yard" },
   { key: "stored", name: "stored", className: "seg-stored" },
   { key: "lost", name: "lost in the pipes", className: "seg-lost" },
 ] as const;
@@ -112,6 +113,8 @@ export function NetworkSummary({
       (b.id === ownCompany ? 1 : 0) - (a.id === ownCompany ? 1 : 0) || b.goldPerMinute - a.goldPerMinute,
   );
   const biggest = Math.max(1, ...owners.map((t) => Math.abs(t.goldPerMinute)));
+  const allMine = useAppStore((s) => s.company?.goldPerMinute ?? null);
+  const here = owners.find((t) => t.id === ownCompany)?.goldPerMinute ?? null;
   const lossy = details.resources
     .filter((r) => r.lost > 0.25 * (r.produced + r.imported + r.fromStorage) && r.lost > 1)
     .sort((a, b) => b.lost - a.lost)[0];
@@ -176,7 +179,13 @@ export function NetworkSummary({
                 <div className="net-breakdown small">
                   {owner.hubSales > 0.05 && <span className="plus">hub +{formatAmount(owner.hubSales)}</span>}
                   {owner.neighbourSales > 0.05 && (
-                    <span className="plus">neighbours +{formatAmount(owner.neighbourSales)}</span>
+                    <span className="plus">the Yard +{formatAmount(owner.neighbourSales)}</span>
+                  )}
+                  {owner.projectSales > 0.05 && (
+                    // The station's project pays for the goods it takes at the gate (after run 4)
+                    <span className="plus">
+                      the {owner.project ?? "project"} +{formatAmount(owner.projectSales)}
+                    </span>
                   )}
                   {owner.neighbourPurchases > 0.05 && (
                     <span className="minus">
@@ -192,6 +201,13 @@ export function NetworkSummary({
           );
         })}
       </div>
+      {/* After run 4: this network's +2,547, the top bar's +2,574 and "hub +2,598" side by side, unexplained */}
+      {allMine !== null && here !== null && Math.abs(allMine - here) >= 1 && (
+        <p className="muted small">
+          This network&apos;s pipes now. Your top bar&apos;s {formatRate(allMine)} counts all your pipes, and
+          what the Yard&apos;s Houses, the project and Asks pay too.
+        </p>
+      )}
       {details.owners.length > 1 && (
         <button className="wide" onClick={() => void gameClient.openTradeSettings()}>
           ⚙ Trade settings: who you sell to and buy from

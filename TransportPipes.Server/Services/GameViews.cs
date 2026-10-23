@@ -1471,7 +1471,8 @@ public static partial class GameViews
                     Money(to.Owner)[2] += value;
                     break;
                 case FlowKind.Import when to != null:
-                    Money(to.Owner)[3] += value;
+                    // What leaves the hub is paid, what the pipes lose on the way too (as the solver counts it)
+                    Money(to.Owner)[3] += flow.Sent * flow.PricePerUnit;
                     break;
             }
             var row = Row(flow.Resource);
@@ -1496,19 +1497,37 @@ public static partial class GameViews
 
         // The Yard gate: what neighbours' goods bring to its buildings, and what its buildings sell to neighbours (run 2:
         // Ana's card said "sand 15 short" while her Glassworks ran on Ben's sand)
-        foreach (var gate in network.GateFlows.Where(t => viewer == null || world.Building(t.Building)?.Owner == viewer))
+        // Its money too (after run 4: Cleo's panel said "+2,547/min · hub +2,598" with nothing for the 51 between, and
+        // her top bar a third number): what comes in at the gate is paid in the network's gold, what goes out the Yard
+        // pays apart, and the network at an estate's gate shows it
+        foreach (var gate in network.GateFlows)
         {
+            if (world.Building(gate.Building) is not { } building || (viewer != null && building.Owner != viewer))
+            {
+                continue;
+            }
             var row = Row(gate.Resource);
             if (gate.Import)
             {
                 row[1] += gate.Delivered;
                 row[8] += gate.Delivered;
+                // The buyer pays for all that leaves the Yard: what its pipes lose on the way too
+                Money(building.Owner)[2] += gate.Sent * gate.Price;
             }
             else
             {
                 row[0] += gate.Sent;
                 row[9] += gate.Delivered;
                 row[7] += gate.Sent - gate.Delivered;
+            }
+        }
+        var yardGold = new Dictionary<long, (double Neighbours, double Project, double Other)>();
+        foreach (var owner in network.Owners(world).Select(world.Company).OfType<Company>())
+        {
+            if (world.EstateOf(owner) is { } estate && world.GateNetwork(estate) == network)
+            {
+                yardGold[owner.Id] = world.TradeIncomeOf(owner.Id);
+                Money(owner.Id)[1] += yardGold[owner.Id].Neighbours + yardGold[owner.Id].Other;
             }
         }
 
@@ -1536,12 +1555,14 @@ public static partial class GameViews
         var owners = network.Owners(world)
             .Select(world.Company)
             .OfType<Company>()
-            .Select(t => new NetworkOwnerDto(t.Id, t.Name, t.Color, solution.GoldPerMinute.TryGetValue(t.Id, out var g) ? g : 0,
+            .Select(t => new NetworkOwnerDto(t.Id, t.Name, t.Color,
+                (solution.GoldPerMinute.TryGetValue(t.Id, out var g) ? g : 0) + (yardGold.TryGetValue(t.Id, out var y) ? y.Neighbours + y.Project + y.Other : 0),
                 perOwner.Where(p => p.Key.Item1 == t.Id && p.Value.Any(v => v > 0.005))
                     .OrderBy(p => world.Content.Resources.TryGetValue(p.Key.Item2, out var r) ? r.Tier : 99).ThenBy(p => p.Key.Item2)
                     .Select(p => new OwnerResourceDto(p.Key.Item2, p.Value[0], p.Value[1], p.Value[2]))
                     .ToList(),
-                Money(t.Id)[0], Money(t.Id)[1], Money(t.Id)[2], Money(t.Id)[3]))
+                Money(t.Id)[0], Money(t.Id)[1], Money(t.Id)[2], Money(t.Id)[3], yardGold.TryGetValue(t.Id, out var p) ? p.Project : 0,
+                world.EstateOf(t) is { } home && world.ExistingProject(home.Station) is { Stage: not ProjectStage.Done } project ? GameWorld.StageName(project.Stage) : null))
             .ToList();
         var pumps = network.Buildings.Count(t => world.Building(t) is { } b && (viewer == null || b.Owner == viewer) && world.Content.Building(b.Type).Kind == BuildingKind.Pump);
 
@@ -2128,7 +2149,37 @@ public static partial class GameViews
             world.GiftsThisWeek(me).Take(8)
                 .Select(t => new GiftDto(t.Partner.Id, world.NameFor(t.Partner, me), t.Resource, Math.Round(t.Given), Math.Round(t.Received),
                     world.SendsTo(me, t.Partner.Id, t.Resource), world.SendsTo(t.Partner, me.Id, t.Resource)))
-                .ToList());
+                .ToList(),
+            YardIncomeLine(world, me, station, yours));
+    }
+
+    /// <summary>
+    /// "Here the Yard pays you 40 g/min for what you send and the Foundation 62 g/min, of your +105/min: the hub pays the
+    /// rest" (the Yard pays for what neighbours and Houses take, and the hub's price for what nobody took)
+    /// (after run 4: the trades alone, against the top bar, left Cleo asking where the rest came from)
+    /// </summary>
+    private static string? YardIncomeLine(GameWorld world, Company me, StationRef station, IReadOnlyList<YardTradeDto> yours)
+    {
+        // What the Yard pays you, as the top bar counts it, less what you pay neighbours (that is in your networks' gold)
+        var (paid, project, _) = world.TradeIncomeOf(me.Id);
+        var neighbours = paid - yours.Where(t => !t.Selling).Sum(t => t.PerMinute * t.Price);
+        if (Math.Abs(neighbours) < 0.5 && project < 0.5)
+        {
+            return null;
+        }
+        var income = world.GoldPerMinute().GetValueOrDefault(me.Id);
+        var parts = new List<string>();
+        if (Math.Abs(neighbours) >= 0.5)
+        {
+            parts.Add(neighbours >= 0 ? $"the Yard pays you {Amount(neighbours)} g/min for what you send" : $"you pay neighbours {Amount(-neighbours)} g/min");
+        }
+        if (project >= 0.5 && world.ExistingProject(station) is { } stage)
+        {
+            parts.Add($"{(parts.Count == 0 ? "" : "and ")}the {GameWorld.StageName(stage.Stage)} {(parts.Count == 0 ? "pays you " : "")}{Amount(project)} g/min");
+        }
+        var rest = income - neighbours - project;
+        var line = $"Here {string.Join(" ", parts)}, of your {(income >= 0 ? "+" : "−")}{Amount(Math.Abs(income))}/min";
+        return rest >= 0.5 ? $"{line}: the hub pays the rest, for what nobody here takes." : $"{line}.";
     }
 
     /// <summary>The Discoveries of the last week: where they are, their markers</summary>

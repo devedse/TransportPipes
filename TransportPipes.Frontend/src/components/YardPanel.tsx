@@ -122,6 +122,8 @@ export function YardPanel() {
       ) : (
         <>
           <p className={yard.connected ? "yard-line" : "yard-line todo"}>{yard.line}</p>
+          {/* After run 4: Cleo added up 22 g/min of trades against her +112/min and asked where the rest came from */}
+          {yard.incomeLine !== null && <p className="muted small">{yard.incomeLine}</p>}
           {!yard.connected && (
             <button className="primary wide" onClick={() => void gameClient.planYardPipe()}>
               Plan the pipe to my Yard gate
@@ -297,6 +299,10 @@ export function YardPanel() {
           )}
           <section>
             <h4>Who lives here</h4>
+            <p className="muted small">
+              Spare: what each still sells to the hub, so a neighbour who lacks it gets it first. Lacks: what
+              nobody here brings them yet.
+            </p>
             <ul className="yard-residents">
               {yard.residents.map((r) => (
                 <li key={r.id} className={r.id === company.id ? "me" : undefined}>
@@ -348,8 +354,28 @@ export function YardPanel() {
                   )}
                   {r.connected && (
                     <div className="resident-rates small">
-                      <span className="muted">Spare</span>{" "}
+                      <span className="muted">{r.id === company.id ? "Spare (to the hub)" : "Spare"}</span>{" "}
                       <Rates rates={r.spare} content={content} kind="surplus" />
+                      {r.id === company.id && yard.yours.some((t) => t.selling) && (
+                        <>
+                          <span className="muted">To neighbours</span>{" "}
+                          <Rates
+                            rates={Object.values(
+                              yard.yours
+                                .filter((t) => t.selling)
+                                .reduce<Record<string, ResourceRateDto>>((all, t) => {
+                                  all[t.resource] = {
+                                    resource: t.resource,
+                                    perMinute: (all[t.resource]?.perMinute ?? 0) + t.perMinute,
+                                  };
+                                  return all;
+                                }, {}),
+                            )}
+                            content={content}
+                            kind="surplus"
+                          />
+                        </>
+                      )}
                       <span className="muted">Lacks</span>{" "}
                       <Rates rates={r.lacks} content={content} kind="needs" />
                     </div>
@@ -393,7 +419,7 @@ export function YardPanel() {
           )}
           {yard.totals.length > 0 && (
             <section>
-              <h4>Through the Yard</h4>
+              <h4>Through the Yard, all residents</h4>
               <Rates rates={yard.totals} content={content} kind="surplus" />
             </section>
           )}

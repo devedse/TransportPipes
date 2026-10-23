@@ -49,6 +49,57 @@ public class TutorialFacts
     }
 
     [TestMethod]
+    public void LoadysUpgradeStepOpensABuildingWhereALevelPays()
+    {
+        // Run 4: "upgrade it" opened a Solar Panel whose preview said "adds nothing" (Mia-B: "a bit odd to be told to
+        // upgrade something pointless")
+        var game = new TestGame(tutorial: true);
+        game.World.TenantsEnabled = true;
+        game.World.OpenNextDistrict();
+        var company = game.NewCompany(gold: 2000, slot: 3);
+        var pipes = game.World.Conductors.Select(t => t.Pos).ToHashSet();
+        var panel = game.Build(company, "solarPanel", game.Spot(company, "solarPanel", t => !TestGame.Neighbours(t).Any(pipes.Contains)));
+        game.Connect(company, panel, game.TradingPost(company));
+        game.Pass(2);
+        var step = game.World.CurrentTutorialStep(company)!;
+        Assert.AreEqual("firstUpgrade", step.Id);
+
+        var hint = game.World.TutorialHint(company, step);
+
+        Assert.IsTrue(hint.ContainsKey("target"), "Show me opens a building the server chose");
+        var target = game.World.Building(long.Parse(hint["target"]))!;
+        var preview = game.World.UpgradePreview(company, target, 1);
+        Assert.IsGreaterThan(0.05, preview.Gain, $"{target.Type}: {preview.Text}");
+        StringAssert.StartsWith(preview.Text, "+");
+        foreach (var other in game.World.BuildingsOf(company.Id).Where(t => t.Id != target.Id && game.World.UpgradePreview(company, t, 1).Gain > 0.05))
+        {
+            Assert.IsLessThanOrEqualTo(game.World.UpgradeCost(other, 1) / game.World.UpgradePreview(company, other, 1).Gain + 1e-9,
+                game.World.UpgradeCost(target, 1) / preview.Gain, $"the soonest payback: not {other.Type}'s");
+        }
+    }
+
+    [TestMethod]
+    public void LoadySaysWhyABuiltFactoryDoesntCountYet()
+    {
+        // Run 4: Loady's bubble kept "Put a Small Factory…" after Dev built it (the step counts its first ingot)
+        var game = new TestGame(content: TestGame.PlainContent, tutorial: true);
+        var company = game.NewCompany(gold: 100_000, level: 5);
+        company.TutorialStep = game.World.Content.Tutorial.ToList().FindIndex(t => t.Id == "firstIngot");
+        var step = game.World.CurrentTutorialStep(company)!;
+        game.Build(company, "smallFactory", finish: false);
+
+        StringAssert.Contains(game.World.TutorialTip(company, step), "Small Factory is being built");
+
+        // One on pipes with energy and no ore
+        var other = game.NewCompany("Other", gold: 100_000, level: 5);
+        other.TutorialStep = company.TutorialStep;
+        var map = game.Map(other, game.Local(other, 1, 1), "W+F+T");
+        game.Pass(2);
+        Assert.AreEqual(IdleCause.InputMissing, game.World.IdleReasonOf(map[(2, 0)]).Cause, "no ore on its pipes");
+        StringAssert.StartsWith(game.World.TutorialTip(other, step), "Your Small Factory stands but makes nothing yet");
+    }
+
+    [TestMethod]
     public void ChapterOneRetiresAtLevelTen()
     {
         var game = new TestGame(content: TestGame.PlainContent, tutorial: true);

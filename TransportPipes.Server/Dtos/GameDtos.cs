@@ -501,7 +501,9 @@ public record OwnerResourceDto(string Resource, double Made, double Used, double
 /// (bought from neighbours, imported from the hub)
 /// </summary>
 public record NetworkOwnerDto(long Id, string Name, string Color, double GoldPerMinute, IReadOnlyList<OwnerResourceDto> Resources,
-    double HubSales, double NeighbourSales, double NeighbourPurchases, double HubPurchases);
+    double HubSales, double NeighbourSales, double NeighbourPurchases, double HubPurchases,
+    /// <summary>What the station's project pays for goods through the gate, and its stage's name</summary>
+    double ProjectSales = 0, string? Project = null);
 
 public record BottleneckDto(long A, long B, double Capacity, double Used, IReadOnlyList<int> Path);
 
@@ -774,7 +776,9 @@ public record YardDto(
     int MaxSends,
     /// <summary>Who could use your goods ("Ana's Glassworks could use your sand · Send ▸")</summary>
     IReadOnlyList<BidDto> Bids,
-    IReadOnlyList<GiftDto> Gifts);
+    IReadOnlyList<GiftDto> Gifts,
+    /// <summary>What the Yard pays you of your income, and whom for it (after run 4: Cleo added up her trades and asked where the rest came from)</summary>
+    string? IncomeLine = null);
 
 /// <summary>A Discovery (v1.2 §13): where, until when its markers are given, which stations got one, the three who brought most</summary>
 public record DiscoveryDto(string Resource, int X, int Y, string Near, DateTime MarkingEnds, IReadOnlyList<string> Stations, IReadOnlyList<string> Top, bool YourStation);

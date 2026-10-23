@@ -53,7 +53,9 @@ public sealed partial class GameWorld
         var gain = Estimated(network)
             ? EstimateChange(network, company, node, up)
             : WhatIfGold(network, company.Id, t => t.Id == building.Id && up != null ? WithPumps(network, [up])[0] : t) - WhatIfGold(network, company.Id);
-        if (gain > 0.5)
+        // A small gain is still a gain (after run 4: a Solar Panel's level 2 sold half an energy more a minute, and the
+        // panel said "adds nothing: nothing on its pipes takes more energy" under Loady's "upgrade it")
+        if (gain > 0.05)
         {
             return new SpendPreview(gain, $"{(Estimated(network) ? "about " : "")}+{Gold(gain)}/min");
         }

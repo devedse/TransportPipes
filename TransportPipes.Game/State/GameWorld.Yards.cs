@@ -331,9 +331,44 @@ public sealed partial class GameWorld
     /// Gold a minute that companies get, or pay, besides their networks' own flows (F1.6: the screens show what is
     /// paid): Yard sales (and the floor), deliveries to the project, Asks, and what stand-ins buy
     /// </summary>
-    private void AddTradeIncome(Dictionary<long, double> total)
+    private void AddTradeIncome(Dictionary<long, double> total) =>
+        ForEachTradeIncome((company, gold, _) => total[company] = total.GetValueOrDefault(company) + gold);
+
+    /// <summary>
+    /// What the Yard pays a company a minute beside its networks' own gold: its neighbours and Houses, its station's
+    /// project, and the rest (Asks, stand-ins). The top bar, the Yard's line and the network panel all read this
+    /// (after run 4: three panels showed three incomes, and Cleo couldn't tell where her money came from)
+    /// </summary>
+    public (double Neighbours, double Project, double Other) TradeIncomeOf(long companyId)
     {
-        void Add(long company, double gold) => total[company] = total.GetValueOrDefault(company) + gold;
+        SolveNetworks();
+        var (neighbours, project, other) = (0.0, 0.0, 0.0);
+        ForEachTradeIncome((company, gold, kind) =>
+        {
+            if (company != companyId)
+            {
+                return;
+            }
+            switch (kind)
+            {
+                case TradeIncomeKind.Neighbours: neighbours += gold; break;
+                case TradeIncomeKind.Project: project += gold; break;
+                default: other += gold; break;
+            }
+        });
+        return (neighbours, project, other);
+    }
+
+    private enum TradeIncomeKind
+    {
+        Neighbours,
+        Project,
+        Other,
+    }
+
+    private void ForEachTradeIncome(Action<long, double, TradeIncomeKind> add)
+    {
+        void Add(long company, double gold) => add(company, gold, TradeIncomeKind.Neighbours);
         foreach (var network in _networks.Values)
         {
             foreach (var payment in GatePayments(network))
@@ -369,7 +404,7 @@ public sealed partial class GameWorld
             {
                 foreach (var (good, perMinute) in goods.Where(t => ProjectLacks(project, t.Key) > 1e-9))
                 {
-                    Add(sellerId, perMinute * BasePrice(good));
+                    add(sellerId, perMinute * BasePrice(good), TradeIncomeKind.Project);
                 }
             }
         }
@@ -382,8 +417,8 @@ public sealed partial class GameWorld
                 {
                     if (Company(sellerId) is { } seller)
                     {
-                        Add(sellerId, perMinute * HubBuyPrice(seller, ask.Resource));
-                        Add(asker.Id, -perMinute * HubBuyPrice(seller, ask.Resource));
+                        add(sellerId, perMinute * HubBuyPrice(seller, ask.Resource), TradeIncomeKind.Other);
+                        add(asker.Id, -perMinute * HubBuyPrice(seller, ask.Resource), TradeIncomeKind.Other);
                     }
                 }
             }
@@ -398,7 +433,7 @@ public sealed partial class GameWorld
             {
                 foreach (var (sellerId, perMinute) in sources.Where(t => Company(t.Key) is { Asleep: false }))
                 {
-                    Add(sellerId, perMinute * StandInBuyPrice(sleeper, Company(sellerId)!, resource));
+                    add(sellerId, perMinute * StandInBuyPrice(sleeper, Company(sellerId)!, resource), TradeIncomeKind.Other);
                 }
             }
         }

@@ -195,8 +195,21 @@ export function HubPanel() {
               const left = (new Date(order.expiresAt).getTime() - serverNow) / 1000;
               const resource = content.resource(order.resource);
               const good = content.resourceName(order.resource).toLowerCase();
+              // Orders of one good fill one after another, the shortage first (after run 4: two iron ore orders
+              // each counted Cleo's same 41 a minute)
+              const ahead = company.dailyOrders.filter(
+                (t) =>
+                  t.resource === order.resource &&
+                  t.id !== order.id &&
+                  t.delivered < t.amount - 1e-9 &&
+                  new Date(t.expiresAt).getTime() > serverNow &&
+                  (t.urgent !== order.urgent ? t.urgent : t.id < order.id),
+              );
+              const before = ahead.reduce((sum, t) => sum + t.amount - t.delivered, 0);
               const eta =
-                order.selling > 1e-6 ? ((order.amount - order.delivered) / order.selling) * 60 : null;
+                order.selling > 1e-6
+                  ? ((before + order.amount - order.delivered) / order.selling) * 60
+                  : null;
               return (
                 <div key={order.id} className={done ? "order done" : order.urgent ? "order urgent" : "order"}>
                   <div className="order-icon" style={{ borderColor: resource?.color }}>
@@ -225,7 +238,7 @@ export function HubPanel() {
                       {done
                         ? `Filled: +${formatAmount(order.premium)} g over the hub's price`
                         : eta !== null
-                          ? `Your trading posts sell ${formatAmount(order.selling)} a minute: full in about ${formatDuration(eta)}`
+                          ? `Your trading posts sell ${formatAmount(order.selling)} a minute${ahead.length > 0 ? `, which fill ${ahead.some((t) => t.urgent) ? "the shortage order" : "the order above"} first` : ""}: full in about ${formatDuration(eta)}${eta > left ? `, after it closes: only ${formatAmount(Math.max(0, order.selling * (left / 60) - before))} of it at this rate` : ""}`
                           : `Your trading posts sell no ${good} now: pipe a building that makes it to one`}
                     </div>
                   </div>

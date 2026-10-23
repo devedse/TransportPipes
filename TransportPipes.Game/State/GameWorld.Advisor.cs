@@ -320,6 +320,8 @@ public sealed partial class GameWorld
     /// The estimated gain of a building's node changed (an upgrade) or added (old: null): more of what it makes at what
     /// that is worth here, less what its extra inputs would have sold for. Nothing when it's held back (it lacks an
     /// input, or nothing takes its output), or when an input it needs more of is short; a third when its pipes are full.
+    /// It makes only as much more as its extra inputs are there for (after run 4: Cleo's Small Factory Max promised
+    /// +257 g/min on ore her mine didn't make, and brought +133).
     /// </summary>
     private double EstimateChange(Network network, Company company, FlowNode? old, FlowNode? changed)
     {
@@ -336,6 +338,7 @@ public sealed partial class GameWorld
             return TradingPostFull(_buildings[old.Id]) ? (changed.Throughput - old.Throughput) * price * 0.5 : 0;
         }
         var gain = 0.0;
+        var share = 1.0;
         foreach (var (resource, amount) in changed.In)
         {
             var more = amount - (old?.In.GetValueOrDefault(resource) ?? 0);
@@ -345,6 +348,7 @@ public sealed partial class GameWorld
                 {
                     return 0;
                 }
+                share = Math.Min(share, SpareHere(network, company, resource) / more);
                 gain -= more * HubBuyPrice(Company(network.Owner), network.District, resource);
             }
         }
@@ -352,11 +356,26 @@ public sealed partial class GameWorld
         {
             gain += (amount - (old?.Out.GetValueOrDefault(resource) ?? 0)) * values.Value.GetValueOrDefault(resource);
         }
+        gain *= Math.Max(0, share);
         if (old != null && values.OnFullLinks.Contains(old.Id))
         {
             gain *= 0.3;
         }
         return Math.Max(0, gain);
+    }
+
+    /// <summary>
+    /// What more of a resource a company's building could get in a network: what the company sells and trades of it
+    /// there now, and what its makers there could make on top
+    /// </summary>
+    private static double SpareHere(Network network, Company company, string resource)
+    {
+        var mine = network.Nodes.Where(t => t.Owner == company.Id).ToDictionary(t => t.Id);
+        var flows = network.Solution.Flows.Where(t => t.Resource == resource && mine.ContainsKey(t.From)).ToList();
+        var leaving = flows.Where(t => t.Kind is FlowKind.Sale or FlowKind.Trade).Sum(t => t.Sent);
+        var unused = mine.Values.Where(t => t.Out.ContainsKey(resource))
+            .Sum(t => Math.Max(0, t.Out[resource] * (t.MaxRate - network.Solution.Rate(t.Id))));
+        return leaving + unused;
     }
 
     /// <summary>What flows over the full links of a network is worth a minute</summary>

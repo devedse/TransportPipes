@@ -1028,6 +1028,9 @@ export interface NetworkDetailsDto {
     neighbourSales: number;
     neighbourPurchases: number;
     hubPurchases: number;
+    /** What the station's project pays for goods through the gate, and its stage's name */
+    projectSales: number;
+    project: string | null;
   }>;
   resources: NetworkResourceDto[];
   bottlenecks: Array<{ a: number; b: number; capacity: number; used: number; path: number[] }>;
@@ -1663,6 +1666,8 @@ export interface YardDto {
   /** Who could use your goods */
   bids: BidDto[];
   gifts: GiftDto[];
+  /** What the Yard pays you of your income, and whom for it (null: nothing yet) */
+  incomeLine: string | null;
 }
 
 // ---------------------------------------------------------------- Crews and seats (v1.2 §4–6)

@@ -58,13 +58,60 @@ public sealed partial class GameWorld
     /// <summary>The step's hint for this company: its building list without the mines its land can't hold</summary>
     public IReadOnlyDictionary<string, string> TutorialHint(Company company, TutorialStep step)
     {
-        if (!step.Hint.ContainsKey("building"))
+        if (!step.Hint.ContainsKey("building") && !(step.Hint.TryGetValue("select", out var select) && select is "paying" or "highest"))
         {
             return step.Hint;
         }
         var hint = step.Hint.ToDictionary();
-        hint["building"] = string.Join(",", TutorialBuildings(company, step));
+        if (step.Hint.ContainsKey("building"))
+        {
+            hint["building"] = string.Join(",", TutorialBuildings(company, step));
+        }
+        if (TutorialTarget(company, hint.GetValueOrDefault("select")) is { } target)
+        {
+            hint["target"] = target.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
         return hint;
+    }
+
+    /// <summary>
+    /// The building Loady's Show me opens for an upgrade step: "paying", where a level pays back soonest; "highest", the
+    /// highest under level 10 whose next levels pay (after run 4: Loady's "upgrade it" opened a Solar Panel whose
+    /// preview said it added nothing, and Mia-B called it "a bit odd to be told to upgrade something pointless")
+    /// </summary>
+    private Building? TutorialTarget(Company company, string? select)
+    {
+        if (select is not ("paying" or "highest"))
+        {
+            return null;
+        }
+        // A preview per building is a solve each: chosen once a minute
+        if (_tutorialTargets.TryGetValue(company.Id, out var known) && known.Select == select && LastTick - known.At < TimeSpan.FromMinutes(1)
+            && (known.Id is not { } id || Building(id) is { } still && still.Owner == company.Id))
+        {
+            return known.Id is { } kept ? Building(kept) : null;
+        }
+        var target = ChooseTutorialTarget(company, select);
+        _tutorialTargets[company.Id] = (LastTick, select, target?.Id);
+        return target;
+    }
+
+    private readonly Dictionary<long, (DateTime At, string Select, long? Id)> _tutorialTargets = new();
+
+    private Building? ChooseTutorialTarget(Company company, string select)
+    {
+        var candidates = BuildingsOf(company.Id)
+            .Where(t => !t.UnderConstruction && !IsSite(t) && Content.Building(t.Type) is { Buildable: true, Kind: not (BuildingKind.Hq or BuildingKind.Gate or BuildingKind.Decoration or BuildingKind.Storage) })
+            .Where(t => select == "paying" || t.Level < 10)
+            .ToList();
+        var paying = candidates
+            .Select(t => (Building: t, Gain: UpgradePreview(company, t, 1).Gain, Cost: UpgradeCost(t, 1)))
+            .Where(t => t.Gain > 0.05)
+            .ToList();
+        return select == "highest"
+            ? paying.OrderByDescending(t => t.Building.Level).ThenBy(t => t.Cost / t.Gain).Select(t => t.Building).FirstOrDefault()
+                ?? candidates.OrderByDescending(t => t.Level).FirstOrDefault()
+            : paying.OrderBy(t => t.Cost / t.Gain).Select(t => t.Building).FirstOrDefault();
     }
 
     public int? TutorialWaitLevel(Company company, TutorialStep step)
@@ -118,6 +165,28 @@ public sealed partial class GameWorld
             var reason = IdleReasonOf(stuck);
             var fix = PlanFixPipe(stuck);
             return $"Built, but stuck: its {GoodsWord(reason.Resource!)} can't leave." + (fix != null ? $" Show me lays the pipe to your {Content.Building(fix.Target!.Type).Name} ({Gold(fix.Cost)})." : "");
+        }
+        // Built, and not making it yet (after run 4: Loady's bubble kept "Put a Small Factory…" after Dev built it, with
+        // no word why): it is still being built, waits for its materials, or lacks an input
+        if (step.Stat.StartsWith("produced:", StringComparison.Ordinal) && TutorialProgress(company, step) < step.Amount
+            && BuildingsOf(company.Id).Where(t => TutorialBuildings(company, step).Contains(t.Type)).OrderBy(t => t.UnderConstruction ? 1 : 0).FirstOrDefault() is { } built)
+        {
+            var name = Content.Building(built.Type).Name;
+            if (IsSite(built))
+            {
+                return MaterialsLine(company, Content.Building(built.Type)) is { Short.Count: > 0 } waits
+                    ? $"Your {name} is placed: it waits for {Join(waits.Short.Select(t => $"{Amount(t.Value)} {GoodsWord(t.Key)}").ToList())}, then it is built."
+                    : $"Your {name} is placed: it is built when its materials are in.";
+            }
+            if (built.UnderConstruction)
+            {
+                var left = built.ConstructionEndsAt is { } ends ? Math.Max(1, Math.Ceiling((ends - LastTick).TotalMinutes)) : 1;
+                return $"Your {name} is being built: {left:0} min more, then this step counts what it makes.";
+            }
+            if (IdleReasonOf(built) is { Cause: IdleCause.InputMissing or IdleCause.InputShort, Resource: { } missing })
+            {
+                return $"Your {name} stands but makes nothing yet: not enough {GoodsWord(missing)} reaches it. {IdleStatusOf(built, plan: false).Reach}".TrimEnd();
+            }
         }
         if (step.Stat != "partners" || TutorialProgress(company, step) >= step.Amount || EstateOf(company) is not { } estate)
         {

@@ -54,6 +54,12 @@ public sealed class StationProject : Entity
     /// <summary>A two-friend keystone's pair (after run 3, step 8): the two residents who each make one of its inputs (empty: none)</summary>
     public List<long> KeystonePair { get; set; } = new();
 
+    /// <summary>
+    /// Whether the stage's keystone was chosen: a stage that opens later (the Foundry Hall) chooses it when it opens
+    /// (after run 4: one was chosen and dropped twice while the Hall said "opens in 10 days")
+    /// </summary>
+    public bool KeystoneChosen { get; set; } = true;
+
     /// <summary>The keystone passed over last, and when (the station's line says so for a day)</summary>
     public string? LastPassed { get; set; }
     public DateTime? LastPassedAt { get; set; }
@@ -574,18 +580,39 @@ public sealed partial class GameWorld
         {
             project.Basket[good] = Math.Ceiling(hours * 60 * Math.Max(spare.GetValueOrDefault(good), OneBuildingRate(good)));
         }
-        var cap = BasketCapFactor * hours * 60 * income;
+        project.KeystoneChosen = false;
+        if (ProjectOpen(project))
+        {
+            ChooseKeystone(project, keystone);
+        }
+        project.Touch();
+    }
+
+    /// <summary>
+    /// A stage's keystone, chosen when it opens: a two-friend one from the Water Tower on (after run 3, step 8), else
+    /// today's rule; the made goods shrink so the whole basket stays within its cap
+    /// </summary>
+    private void ChooseKeystone(StationProject project, string? keystone)
+    {
+        var station = StationOfKey(project.Station);
+        var made = project.Basket.Keys.ToList();
+        var income = DeliveringResidents(project).Sum(MeasuredIncome);
+        var cap = BasketCapFactor * StageHours(project.Stage) * 60 * income;
         var madeWorth = project.Basket.Sum(t => t.Value * BasePrice(t.Key));
-        // From the Water Tower on, two friends' goods before today's rule (after run 3, step 8)
-        if (PairKeystone(station, stage, null, made) is { } pair)
+        if (PairKeystone(station, project.Stage, null, made) is { } pair)
         {
             SetKeystone(project, pair.Good, pair.Pair);
             keystone = pair.Good;
         }
-        else if (keystone != null)
+        else if (keystone != null && !project.Basket.ContainsKey(keystone))
         {
             SetKeystone(project, keystone, null);
         }
+        else
+        {
+            keystone = null;
+        }
+        project.KeystoneChosen = true;
         var keystoneWorth = keystone != null ? project.Basket[keystone] * BasePrice(keystone) : 0;
         if (madeWorth > 1e-9 && madeWorth + keystoneWorth > cap)
         {
@@ -641,10 +668,18 @@ public sealed partial class GameWorld
     /// </summary>
     private void CheckKeystones()
     {
-        foreach (var project in _projects.Values.Where(t => t.Keystone != null && t.Stage is not (ProjectStage.Foundation or ProjectStage.Done)).ToList())
+        // A stage that opened since: its keystone now, from who lives and plays here now
+        foreach (var project in _projects.Values.Where(t => !t.KeystoneChosen && t.Stage is not (ProjectStage.Foundation or ProjectStage.Done) && ProjectOpen(t)).ToList())
+        {
+            var (_, keystone) = Recipe(StationOfKey(project.Station), project.Stage, CountedResidents(project));
+            ChooseKeystone(project, keystone);
+        }
+        foreach (var project in _projects.Values.Where(t => t.Keystone != null && t.Stage is not (ProjectStage.Foundation or ProjectStage.Done) && ProjectOpen(t)).ToList())
         {
             var keystone = project.Keystone!;
-            var active = CountedResidents(project);
+            // A two-friend keystone waits for both friends while they play this week, not only the last three days
+            // (after run 4: Ana's and Mia-B's pair was dropped the hour Mia-B's last session was three days old)
+            var active = KeystoneResidents(project);
             if (ProjectLacks(project, keystone) <= 1e-6 || active.Count == 0)
             {
                 continue;
@@ -682,10 +717,30 @@ public sealed partial class GameWorld
     private static double PlayersDelivered(StationProject project, string good) =>
         project.Delivered.GetValueOrDefault(good) - project.Delivered.GetValueOrDefault($"house:{good}");
 
+    /// <summary>
+    /// Who a keystone waits for, and whose makers its line names: the residents who played this week (one per device),
+    /// so a friend three days away doesn't drop it or flip its line (after run 4: Ana's and Mia-B's pair was dropped
+    /// the hour Mia-B's last session was three days old, and Mia's line went "you can" → "Jo's Works can" → "nobody here
+    /// can make it" and back for the same good and the same residents)
+    /// </summary>
+    private List<Company> KeystoneResidents(StationProject project)
+    {
+        var since = LastTick - ActivePeriod;
+        var counted = new List<Company>();
+        foreach (var resident in ProjectResidents(project).Where(t => !t.IsNpc && !t.Asleep && t.LastSeenAt >= since).OrderBy(t => t.Id))
+        {
+            if (!counted.Any(t => SameDevice(t, resident)))
+            {
+                counted.Add(resident);
+            }
+        }
+        return counted;
+    }
+
     /// <summary>When the keystone's clock started: once every active resident had played since it was chosen (null: not yet)</summary>
     public DateTime? KeystoneClockStart(StationProject project)
     {
-        var active = CountedResidents(project);
+        var active = KeystoneResidents(project);
         return project.Keystone == null || active.Count == 0 || active.Any(t => !project.KeystoneSeen.ContainsKey(t.Id))
             ? null
             : active.Max(t => project.KeystoneSeen[t.Id]);
@@ -779,7 +834,7 @@ public sealed partial class GameWorld
         {
             return shown.Makers;
         }
-        var residents = CountedResidents(project);
+        var residents = KeystoneResidents(project);
         var made = residents.ToDictionary(t => t.Id, t => BuildingsOf(t.Id).Where(b => !b.UnderConstruction).SelectMany(b => Content.Building(b.Type).Out.Keys).ToHashSet());
         if (good == project.Keystone)
         {

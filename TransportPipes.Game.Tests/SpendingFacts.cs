@@ -40,6 +40,32 @@ public class SpendingFacts
     }
 
     [TestMethod]
+    public void AFactoryOnABigNetworkPromisesOnlyWhatItsOreMakes()
+    {
+        // Run 4: Cleo's Small Factory Max promised +257 g/min and brought +133; a network this big is estimated, and
+        // the estimate counted ore her mine didn't make
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(gold: 100_000_000, level: 30);
+        var map = game.Map(company, game.Local(company, 1, 1), new string('S', 26) + "WWMFT\n" + new string('+', 31));
+        game.World.UpgradeMany(company.Id, [map[(26, 0)].Id, map[(27, 0)].Id], 20);
+        game.World.UpgradeMany(company.Id, [map[(28, 0)].Id], 9);
+        game.World.UpgradeMany(company.Id, [map[(30, 0)].Id], 15);
+        game.Pass(6 * 60);
+        var factory = map[(29, 0)];
+        double Income() => game.World.NetworkOf(factory.Id)!.Solution.GoldPerMinute.GetValueOrDefault(company.Id);
+        var before = Income();
+
+        var preview = game.World.UpgradePreview(company, factory, 20);
+
+        StringAssert.StartsWith(preview.Text, "about +", "a network this big is estimated");
+        game.World.UpgradeMany(company.Id, [factory.Id], 20);
+        game.Pass(1);
+        var got = Income() - before;
+        Assert.IsGreaterThan(0, got);
+        Assert.AreEqual(got, preview.Gain, got * 0.2, $"promised {preview.Text}, brought +{got:0}");
+    }
+
+    [TestMethod]
     public void UndoGivesThePriceBackLessWhatItEarnedAndTakesItsXp()
     {
         var game = new TestGame(content: TestGame.PlainContent);

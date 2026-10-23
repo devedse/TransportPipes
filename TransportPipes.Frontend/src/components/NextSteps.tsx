@@ -51,6 +51,11 @@ export function NextSteps() {
     held === null ? latest : held.flatMap((h) => latest.filter((l) => keyOf(l) === keyOf(h)).slice(0, 1));
   const company = useAppStore((s) => s.company);
   const companyAt = useAppStore((s) => s.companyAt);
+  // A step its own button just did says so at once, until the advisor's next list comes
+  const [done, setDone] = useState<{ list: NextStepDto[]; keys: string[] }>({ list: latest, keys: [] });
+  const doneKeys = done.list === latest ? done.keys : [];
+  const run = (step: NextStepDto, action: Promise<boolean>) =>
+    void action.then((ok) => ok && setDone({ list: latest, keys: [...doneKeys, keyOf(step)] }));
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const level = company?.level ?? 0;
   useEffect(() => {
@@ -98,8 +103,9 @@ export function NextSteps() {
         <ol className="next-step-list">
           {steps.map((step, i) => {
             const short = step.cost > gold + 0.5;
+            const isDone = doneKeys.includes(keyOf(step));
             return (
-              <li key={keyOf(step)} className={`next-step kind-${step.kind}`}>
+              <li key={keyOf(step)} className={`next-step kind-${step.kind}${isDone ? " done" : ""}`}>
                 <span className="next-step-icon" aria-hidden="true">
                   {ICONS[step.kind]}
                 </span>
@@ -109,12 +115,14 @@ export function NextSteps() {
                   </strong>
                   <span className="next-step-reason">{step.reason}</span>
                   <div className="next-step-actions">
-                    {step.action === "climb" && step.building !== null ? (
+                    {isDone ? (
+                      <span className="next-step-done">✓ Done</span>
+                    ) : step.action === "climb" && step.building !== null ? (
                       // The pipe door (after run 4): the pipe, then the levels it carries, in one tap
                       <button
                         className="primary"
                         disabled={short}
-                        onClick={() => void gameClient.climbPipe(step.building!)}
+                        onClick={() => run(step, gameClient.climbPipe(step.building!))}
                       >
                         {short && step.waitMinutes !== null
                           ? `In ${minutes(step.waitMinutes)}`
@@ -135,7 +143,7 @@ export function NextSteps() {
                         className="primary"
                         disabled={short}
                         title={short ? `You have ${formatAmount(gold)} g` : undefined}
-                        onClick={() => void gameClient.upgrade(step.building!, step.levels)}
+                        onClick={() => run(step, gameClient.upgrade(step.building!, step.levels))}
                       >
                         {short && step.waitMinutes !== null
                           ? `In ${minutes(step.waitMinutes)}`
@@ -147,22 +155,24 @@ export function NextSteps() {
                         <span className="next-step-wait">affordable in {minutes(step.waitMinutes)}</span>
                       )
                     )}
-                    <button
-                      className={
-                        step.action === "upgrade" || step.action === "climb" || step.action === "layPipe"
-                          ? "link small"
-                          : "small"
-                      }
-                      // Each its own name, for screen readers and the playtest's players alike
-                      aria-label={`${step.action === "research" ? "Open research" : step.action === "partner" ? "Plan the pipe" : "Show me"}: ${step.title}`}
-                      onClick={() => void gameClient.showNextStep(step)}
-                    >
-                      {step.action === "research"
-                        ? "Open research"
-                        : step.action === "partner"
-                          ? "Plan the pipe"
-                          : "Show me"}
-                    </button>
+                    {!isDone && (
+                      <button
+                        className={
+                          step.action === "upgrade" || step.action === "climb" || step.action === "layPipe"
+                            ? "link small"
+                            : "small"
+                        }
+                        // Each its own name, for screen readers and the playtest's players alike
+                        aria-label={`${step.action === "research" ? "Open research" : step.action === "partner" ? "Plan the pipe" : "Show me"}: ${step.title}`}
+                        onClick={() => void gameClient.showNextStep(step)}
+                      >
+                        {step.action === "research"
+                          ? "Open research"
+                          : step.action === "partner"
+                            ? "Plan the pipe"
+                            : "Show me"}
+                      </button>
+                    )}
                   </div>
                 </div>
               </li>
