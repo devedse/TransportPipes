@@ -353,10 +353,6 @@ public sealed partial class GameWorld
             ? $"{company.Name} ({name})"
             : company.Name;
 
-    /// <summary>
-    /// Whose something is, as a line says it: "Ben's" for a crew mate the crew calls Ben (not "Riverside Co. (Ben)'s"),
-    /// "ana_pm Pipes'" for a name ending in s, else "Jo's Works's"
-    /// </summary>
     /// <summary>A crew mate looks at your estate: your next card says so (after run 3, row 12: six promised visits, none seen)</summary>
     public void RecordVisit(Company owner, Company visitor)
     {
@@ -372,6 +368,10 @@ public sealed partial class GameWorld
         }
     }
 
+    /// <summary>
+    /// Whose something is, as a line says it: "Ben's" for a crew mate the crew calls Ben (not "Riverside Co. (Ben)'s"),
+    /// "ana_pm Pipes'" for a name ending in s, else "Jo's Works's"
+    /// </summary>
     public string PossessiveFor(Company company, Company viewer)
     {
         var name = NameFor(company, viewer) == company.Name ? company.Name : company.KnownAs!;
@@ -744,7 +744,7 @@ public sealed partial class GameWorld
     /// Where a friend with the crew link settles: a free seat in a station the crew lives in (the one with the most
     /// members first), else the free seat nearest to the crew's Yard
     /// </summary>
-    public EstateKey SeatNearCrew(Crew crew, string code)
+    public EstateKey SeatNearCrew(Crew crew, string? code)
     {
         var homes = CrewMembers(crew)
             .Select(EstateOf)

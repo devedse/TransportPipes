@@ -130,12 +130,16 @@ public static partial class GameViews
     private static ProjectWeekDto? EraWonderLine(GameWorld world, Company me)
     {
         // It is the Capital's want: elsewhere the District Wonder is the shared goal
-        if (!world.ProjectsEnabled || me.District != GameWorld.Capital || world.EraWonder is not { Finished: false } wonder || wonder.Required.Count == 0)
+        if (!world.ProjectsEnabled || me.District != GameWorld.Capital || world.EraWonder is not { Finished: false } wonder)
         {
             return null;
         }
-        string Name(string resource) => world.Content.Resources.TryGetValue(resource, out var r) ? r.Name.ToLowerInvariant() : resource;
+        string Name(string resource) => world.GoodsWord(resource);
         var definition = world.WonderDefinition(wonder);
+        if (GameWorld.Unsized(wonder))
+        {
+            return new ProjectWeekDto($"🏛 {definition.Name} opens at midnight, sized to six hours of what the Capital makes · {Span(world.EraDeadline - world.Now)} left", 0);
+        }
         var target = wonder.Required.Sum(t => t.Value * world.BasePrice(t.Key));
         var share = target <= 0 ? 0 : wonder.Required.Sum(t => Math.Min(t.Value, wonder.Delivered.GetValueOrDefault(t.Key)) * world.BasePrice(t.Key)) / target;
         var head = $"🏛 {definition.Name} {(definition.Stages.Count > 1 ? $"stage {wonder.Stage + 1} " : "")}{Math.Floor(share * 100):0}% · {Span(world.EraDeadline - world.Now)} left";
@@ -145,10 +149,13 @@ public static partial class GameViews
             return new ProjectWeekDto($"{head} · your {And(mine)} {(mine.Count == 1 ? "goes" : "go")} in", share);
         }
         var lacking = wonder.Required.Where(t => wonder.Delivered.GetValueOrDefault(t.Key) < t.Value - 1e-6).Select(t => t.Key).ToList();
-        var makers = (string good) => world.Companies.Where(c => !c.IsNpc && c.District == GameWorld.Capital
-            && world.BuildingsOf(c.Id).Any(b => !b.UnderConstruction && world.Content.Building(b.Type).Out.ContainsKey(good))).ToList();
-        var wants = lacking.Select(t => makers(t) is { Count: > 0 } who ? $"{Name(t)} ({And(MakerNames(who.Take(2), me))})" : Name(t)).ToList();
-        return new ProjectWeekDto($"{head} · wants {And(wants)}", share);
+        var wants = lacking.Select(t => world.WonderMakers(t) is { Count: > 0 } who ? $"{world.GoodsWord(t)} ({And(MakerNames(who.Take(2), me))})" : world.GoodsWord(t)).ToList();
+        // Nobody here makes them: gold may order all of it (after run 4, the Cathedral's steel and concrete)
+        var orderable = lacking.Where(t => world.WonderMakers(t).Count == 0 && world.WonderOrderOffer(t) != null).ToList();
+        var tail = orderable.Count == 0 ? ""
+            : orderable.Count == lacking.Count ? " · nobody here makes them: order them in Hub › Wonders"
+            : $" · nobody here makes {And(orderable.Select(world.GoodsWord).ToList())}: order in Hub › Wonders";
+        return new ProjectWeekDto($"{head} · wants {And(wants)}{tail}", share);
     }
 
     /// <summary>Refinements (after run 3, step 6): the walls and the goods this company makes, and any line its station refined</summary>
@@ -928,7 +935,9 @@ public static partial class GameViews
 
     public static WondersDto Wonders(GameWorld world, Company company)
     {
-        var district = world.DistrictWonder(company.District);
+        // The Capital builds the Era Wonder: its District Wonder would be a second, greyed goal beside it (run 4: Ben took
+        // the Observatory's "Deliver from storage" for the Cathedral's missing Order button)
+        var district = company.District == GameWorld.Capital && world.ProjectsEnabled ? null : world.DistrictWonder(company.District);
         return new WondersDto(
             world.Era,
             world.EraStartedAt,
@@ -944,6 +953,32 @@ public static partial class GameViews
         var materials = world.Materials(company.Id);
         var total = wonder.Contributions.Values.Sum();
         var (share, tier) = wonder.District == null ? world.EraWonderTier(company) : (total > 0 ? wonder.Contributions.GetValueOrDefault(company.Id) / total : 0, WonderTier.None);
+        var era = wonder.District == null && company.District == GameWorld.Capital;
+        WonderNeedDto Need(string good, double required)
+        {
+            var offer = era ? world.WonderOrderOffer(good) : null;
+            var orders = wonder.Orders.Where(o => o.Resource == good).ToList();
+            var orderers = orders.GroupBy(o => o.By)
+                .Select(g => world.Company(g.Key) is { } c ? $"{(c.Id == company.Id ? "you" : world.NameFor(c, company))} {g.Sum(o => o.Units):N0}" : null)
+                .OfType<string>()
+                .ToList();
+            var makers = era ? world.WonderMakers(good) : [];
+            // Nobody makes it: say which building would, and where its inputs come from (the friend with gold gets a role)
+            // What neither arrived nor is ordered: once it's all ordered, the line has nothing left to say
+            var lacks = wonder.Delivered.GetValueOrDefault(good) + orders.Sum(o => o.Units - o.Shipped) < required - 1;
+            var chain = era && lacks && makers.Count == 0 ? world.ChainFor(company, good) : null;
+            return new WonderNeedDto(good, required, wonder.Delivered.GetValueOrDefault(good), materials.GetValueOrDefault(good),
+                offer?.Units, offer?.Cost,
+                Math.Round(wonder.Incoming.Values.Sum(g => g.GetValueOrDefault(good)), 2),
+                Math.Floor(orders.Sum(o => o.Units - o.Shipped)),
+                Math.Floor(orders.Sum(o => o.Units)),
+                orderers,
+                era ? world.WonderOrderCap(good) : 0,
+                makers.Select(c => c.Id == company.Id ? "you" : world.NameFor(c, company)).ToList(),
+                chain == null ? null : world.ChainText(chain, good, company),
+                chain is { Locked: null } ? chain.Building.Id : null);
+        }
+        double Hours(Company c) => 60 * Math.Max(GameWorld.MinMeasuredIncome, world.MeasuredIncome(c));
         return new WonderDto(
             wonder.Type,
             definition.Name,
@@ -952,19 +987,17 @@ public static partial class GameViews
             wonder.Stage,
             definition.Stages.Count,
             wonder.Finished,
-            wonder.Required.Select(t => new WonderNeedDto(t.Key, t.Value, wonder.Delivered.GetValueOrDefault(t.Key), materials.GetValueOrDefault(t.Key),
-                wonder.District == null && company.District == GameWorld.Capital ? world.WonderOrderOffer(t.Key)?.Units : null,
-                wonder.District == null && company.District == GameWorld.Capital ? world.WonderOrderOffer(t.Key)?.Cost : null,
-                Math.Round(wonder.Incoming.Values.Sum(g => g.GetValueOrDefault(t.Key)), 2),
-                Math.Floor(wonder.Orders.Where(o => o.Resource == t.Key).Sum(o => o.Units - o.Shipped)))).ToList(),
+            wonder.Required.Select(t => Need(t.Key, t.Value)).ToList(),
             total,
             wonder.Contributions.GetValueOrDefault(company.Id),
             Camel(tier),
             share,
             wonder.Contributions.OrderByDescending(t => t.Value).Take(5)
-                .Select(t => world.Company(t.Key) is { } c ? new WonderBuilderDto(c.Id, c.Name, c.Color, t.Value) : null)
+                .Select(t => world.Company(t.Key) is { } c ? new WonderBuilderDto(c.Id, c.Name, c.Color, t.Value, Math.Round(t.Value / Hours(c), 1)) : null)
                 .OfType<WonderBuilderDto>()
-                .ToList());
+                .ToList(),
+            GameWorld.Unsized(wonder),
+            Math.Round(Hours(company)));
     }
 
     public static LeaderboardDto Leaderboard(GameWorld world, Company viewer, LeaderboardKind kind, bool district)

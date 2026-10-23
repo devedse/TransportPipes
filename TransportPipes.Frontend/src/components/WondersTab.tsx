@@ -1,6 +1,6 @@
 import { gameClient } from "../app/client";
 import { formatAmount, formatDuration } from "../app/format";
-import type { WonderDto, WonderTier } from "../api/contracts";
+import type { WonderDto, WonderNeedDto, WonderTier } from "../api/contracts";
 import { useAppStore } from "../state/store";
 import { ResourceIcon } from "./ResourceIcon";
 
@@ -11,6 +11,92 @@ const TIERS: Array<{ tier: WonderTier; share: number; name: string }> = [
   { tier: "gold", share: 0.07, name: "Gold" },
   { tier: "diamond", share: 0.15, name: "Diamond" },
 ];
+
+/** "40 min", "6 h", "2.5 days" */
+function hoursText(hours: number): string {
+  if (hours < 1) {
+    return `${Math.max(1, Math.round(hours * 60))} min`;
+  }
+  return hours < 24 ? `${hours.toFixed(hours < 10 ? 1 : 0)} h` : `${(hours / 24).toFixed(1)} days`;
+}
+
+/**
+ * An Era Wonder good: what comes by pipe, who ordered what, and either Order buttons (by the hour or all of it) or why
+ * not: the pipe half and who makes it, or the building that would make it (after run 4: the button vanished once half
+ * was ordered, and Ana and Ben looked for it in vain)
+ */
+function EraNeed({ need, yourHour }: { need: WonderNeedDto; yourHour: number }) {
+  const left = Math.max(0, need.required - need.delivered - need.ordered);
+  const lacks = need.delivered < need.required - 0.5;
+  const price =
+    need.orderUnits !== null && need.orderCost !== null && need.orderUnits > 0
+      ? need.orderCost / need.orderUnits
+      : 0;
+  // An hour and a day of your income, where they buy less than all of it
+  const amounts = [1, 24]
+    .map((hours) => ({ hours, gold: Math.floor((hours * yourHour) / Math.max(price, 1e-9)) * price }))
+    .filter((t) => price > 0 && t.gold >= price && need.orderCost !== null && t.gold < need.orderCost);
+  const why =
+    need.orderUnits !== null || !lacks
+      ? null
+      : need.makers.length > 0
+        ? `Half may be ordered and it is: the other ${formatAmount(left)} come by pipe from ${need.makers.join(" and ")}`
+        : left >= 1
+          ? `${formatAmount(left)} still to come`
+          : "All of it is ordered: the hub ships it over six hours";
+  return (
+    <div className="wonder-order">
+      {need.perMinute > 0.005 && (
+        <span className="small" title="Arriving by pipe from the Capital's gates, paid at base">
+          {formatAmount(need.perMinute)}/min coming by pipe
+        </span>
+      )}
+      {need.orderedTotal >= 1 && (
+        <span className="small" title="Ordered from the hub: it ships over six hours">
+          Ordered: {need.orderers.join(", ")}
+          {need.ordered >= 1 && ` · ${formatAmount(need.ordered)} on its way`}
+        </span>
+      )}
+      {need.orderUnits !== null && need.orderCost !== null && (
+        <span className="wonder-order-buttons">
+          {amounts.map((t) => (
+            <button
+              key={t.hours}
+              className="small"
+              title="As much as an hour or a day of your income buys, at 2 × base"
+              onClick={() => void gameClient.orderForWonder(need.resource, t.gold)}
+            >
+              Order {t.hours === 1 ? "1 h" : "1 day"} · {formatAmount(t.gold)} g
+            </button>
+          ))}
+          <button
+            className="small"
+            title={
+              need.orderCap >= 1
+                ? "Nobody in the Capital makes it, so all of it may be ordered: the hub ships it over six hours at 2 × base, and it counts a quarter for your tier"
+                : "Half of it may be ordered while someone in the Capital makes it (the rest comes by pipe): the hub ships it over six hours at 2 × base, and it counts a quarter for your tier"
+            }
+            onClick={() => void gameClient.orderForWonder(need.resource)}
+          >
+            Order {amounts.length > 0 ? "all " : ""}
+            {formatAmount(need.orderUnits)} · {formatAmount(need.orderCost)} g
+          </button>
+        </span>
+      )}
+      {why !== null && <span className="small wonder-why">{why}</span>}
+      {need.chain !== null && (
+        <span className="small wonder-chain">
+          {need.chain}
+          {need.chainBuilding !== null && (
+            <button className="small link" onClick={() => gameClient.handBuilding(need.chainBuilding!)}>
+              Show me
+            </button>
+          )}
+        </span>
+      )}
+    </div>
+  );
+}
 
 function WonderCard({ wonder, era }: { wonder: WonderDto; era: number }) {
   const content = useAppStore((s) => s.content)!;
@@ -39,7 +125,13 @@ function WonderCard({ wonder, era }: { wonder: WonderDto; era: number }) {
           </div>
         </div>
       </div>
-      {!wonder.finished && (
+      {wonder.opens && (
+        <p className="small wonder-opens">
+          Its stage opens at midnight, sized to six hours of what{" "}
+          {wonder.isEra ? "the Capital's builders" : "the district's builders"} make.
+        </p>
+      )}
+      {!wonder.finished && !wonder.opens && (
         <div className="wonder-needs">
           {wonder.needs.map((need) => (
             <div key={need.resource} className="wonder-need">
@@ -64,29 +156,7 @@ function WonderCard({ wonder, era }: { wonder: WonderDto; era: number }) {
                   you have {formatAmount(need.yourStock)}
                 </span>
               )}
-              {(need.perMinute > 0.005 || need.ordered >= 1 || need.orderUnits !== null) && (
-                <div className="wonder-order">
-                  {need.ordered >= 1 && (
-                    <span className="small" title="Ordered from the hub: it ships over six hours">
-                      {formatAmount(need.ordered)} ordered, on its way
-                    </span>
-                  )}
-                  {need.perMinute > 0.005 && (
-                    <span className="small" title="Arriving by pipe from the Capital's gates, paid at base">
-                      {formatAmount(need.perMinute)}/min coming
-                    </span>
-                  )}
-                  {need.orderUnits !== null && need.orderCost !== null && (
-                    <button
-                      className="small"
-                      title="The hub ships it over six hours at 2 × base; half of each good at most comes by order, and it counts a quarter for your tier"
-                      onClick={() => void gameClient.orderForWonder(need.resource)}
-                    >
-                      Order {formatAmount(need.orderUnits)} · {formatAmount(need.orderCost)} g
-                    </button>
-                  )}
-                </div>
-              )}
+              {wonder.isEra && <EraNeed need={need} yourHour={wonder.yourHour} />}
             </div>
           ))}
         </div>
@@ -116,10 +186,11 @@ function WonderCard({ wonder, era }: { wonder: WonderDto; era: number }) {
       </div>
       {wonder.isEra && (
         <div className="muted small">
-          It buys what the Capital's gates have spare, at base, all Era. When the next Era starts, its
-          builders get hours of their own income by the share of their Era output they brought: Bronze from 1%
-          (1 h), Silver from 3% (3 h), Gold from 7% (6 h), Diamond from 15% (12 h). Each stage lifts the
-          Capital: its pipes carry more, its Hub Orders pay more.
+          It buys what the Capital's gates have spare, at base, all Era. While someone in the Capital makes a
+          good, half of it comes by pipe and half may be ordered; while nobody does, all of it may be ordered.
+          When the next Era starts, its builders get hours of their own income by the share of their Era
+          output they brought: Bronze from 1% (1 h), Silver from 3% (3 h), Gold from 7% (6 h), Diamond from
+          15% (12 h). Each stage lifts the Capital: its pipes carry more, its Hub Orders pay more.
         </div>
       )}
       {wonder.topBuilders.length > 0 && (
@@ -127,7 +198,9 @@ function WonderCard({ wonder, era }: { wonder: WonderDto; era: number }) {
           {wonder.topBuilders.map((b, i) => (
             <span key={b.company} className="builder">
               {i + 1}. <span className="company-dot" style={{ background: b.color }} /> {b.name}{" "}
-              <span className="muted">{formatAmount(b.value)} g</span>
+              <span className="muted" title="What they built, and what that is in hours of their own income">
+                {formatAmount(b.value)} g · {hoursText(b.hours)} of their income
+              </span>
             </span>
           ))}
         </div>

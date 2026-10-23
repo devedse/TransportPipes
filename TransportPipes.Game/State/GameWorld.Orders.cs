@@ -29,7 +29,7 @@ public sealed partial class GameWorld
     {
         _likesToday.Clear();
         _fitsOnEstate.Clear();
-        ResizeIdleWonderStage();
+        SizeWonderStages();
         PlanEvents();
         CheckActivity();
         CheckHolds();

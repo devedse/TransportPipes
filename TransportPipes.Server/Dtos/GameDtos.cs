@@ -607,12 +607,21 @@ public record InboxDto(IReadOnlyList<InboxMessageDto> Messages, int Unread);
 
 // ---------------------------------------------------------------- Wonders and Eras (M5)
 
-/// <param name="OrderUnits">The Era Wonder: how much of it may be ordered now (half of each good at most comes by order), and for what</param>
+/// <param name="OrderUnits">The Era Wonder: how much of it may be ordered now (half of each good while a Capital player makes it, else all), and for what</param>
 /// <param name="Ordered">The Era Wonder: what the hub still ships of the orders on it</param>
-public record WonderNeedDto(string Resource, double Required, double Delivered, double YourStock, double? OrderUnits = null, double? OrderCost = null, double PerMinute = 0, double Ordered = 0);
+/// <param name="OrderedTotal">All the units ordered for it so far, and who ordered them ("Cleo 900")</param>
+/// <param name="OrderCap">The share of the good orders may bring: 0.5 while a Capital player makes it, else 1</param>
+/// <param name="Makers">The Capital's players who make it (the pipe half comes from them)</param>
+/// <param name="Chain">When nobody makes it: the building that would, and where its inputs come from ("A Brickworks (1,400 g) makes bricks from …")</param>
+/// <param name="ChainBuilding">That building's type, for Show me (null when you may not build it yet)</param>
+public record WonderNeedDto(string Resource, double Required, double Delivered, double YourStock, double? OrderUnits = null, double? OrderCost = null, double PerMinute = 0, double Ordered = 0,
+    double OrderedTotal = 0, IReadOnlyList<string>? Orderers = null, double OrderCap = 0.5, IReadOnlyList<string>? Makers = null, string? Chain = null, string? ChainBuilding = null);
 
-public record WonderBuilderDto(long Company, string Name, string Color, double Value);
+/// <param name="Hours">What they built in hours of their own income, so an hour of a small company's stands beside a day of a big one's</param>
+public record WonderBuilderDto(long Company, string Name, string Color, double Value, double Hours = 0);
 
+/// <param name="Opens">The stage waits to be sized: it opens at a midnight, from what the builders there make</param>
+/// <param name="YourHour">An hour of your income, for ordering by the hour</param>
 public record WonderDto(
     string Type,
     string Name,
@@ -626,7 +635,9 @@ public record WonderDto(
     double YourContribution,
     string YourTier,
     double YourShare,
-    IReadOnlyList<WonderBuilderDto> TopBuilders);
+    IReadOnlyList<WonderBuilderDto> TopBuilders,
+    bool Opens = false,
+    double YourHour = 0);
 
 public record WondersDto(int Era, DateTime EraStartedAt, DateTime EraDeadline, WonderDto? District, WonderDto? EraWonder, string DistrictName);
 

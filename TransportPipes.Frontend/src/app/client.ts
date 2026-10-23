@@ -729,9 +729,13 @@ export class GameClient {
   }
 
   /** Orders part of the Era Wonder from the hub: it ships over six hours and counts a quarter for your tier */
-  async orderForWonder(resource: string) {
+  /** Orders an Era Wonder good: all that may be ordered, or as much as some gold buys (an hour of your income) */
+  async orderForWonder(resource: string, gold: number | null = null) {
     if (
-      await this.command(this.connection.orderForWonder(resource), "Ordered: the hub ships it over six hours")
+      await this.command(
+        this.connection.orderForWonder(resource, gold),
+        "Ordered: the hub ships it over six hours",
+      )
     ) {
       await this.refreshWonders();
       void this.refreshCompany();
@@ -1795,34 +1799,48 @@ export class GameClient {
       );
       const list = hint.building.split(",").map((t) => t.trim());
       const type = list.find((t) => !owned.has(t)) ?? list.at(-1)!;
-      const definition = state.content.building(type);
-      if (definition === undefined) {
-        return;
-      }
-      this.setTool({ kind: "build", type });
-      // The best spot nearby for it: where it makes the most, else (a storage) close to the trading post
-      const post = [...this.world.buildings.values()].find(
-        (t) => t.owner === company.id && t.type === "tradingPost",
-      );
-      const score = (x: number, y: number, multiplier: number) =>
-        Object.keys(definition.out).length > 0 || post === undefined
-          ? multiplier
-          : -(Math.abs(x - post.x) + Math.abs(y - post.y));
-      let best: { x: number; y: number; m: number } | null = null;
-      for (let y = company.estateY; y < company.estateY + ESTATE_SIZE; y++) {
-        for (let x = company.estateX; x < company.estateX + ESTATE_SIZE; x++) {
-          const placement = canPlace(state.content, this.world, company, state.era, definition, x, y);
-          if (placement.ok && (best === null || score(x, y, placement.multiplier) > best.m)) {
-            best = { x, y, m: score(x, y, placement.multiplier) };
-          }
+      this.handBuilding(type);
+    }
+  }
+
+  /**
+   * Puts a building in hand on the best free spot of the estate (where it makes the most, else, a storage, close to the
+   * trading post), with a golden tile and a line that says so; false when no spot fits it
+   */
+  handBuilding(type: string): boolean {
+    const state = appStore.getState();
+    const company = state.company;
+    const definition = state.content?.building(type);
+    const world = this.world;
+    if (company === null || state.content === null || definition === undefined || world === null) {
+      return false;
+    }
+    this.setTool({ kind: "build", type });
+    // The best spot nearby for it: where it makes the most, else (a storage) close to the trading post
+    const post = [...world.buildings.values()].find(
+      (t) => t.owner === company.id && t.type === "tradingPost",
+    );
+    const score = (x: number, y: number, multiplier: number) =>
+      Object.keys(definition.out).length > 0 || post === undefined
+        ? multiplier
+        : -(Math.abs(x - post.x) + Math.abs(y - post.y));
+    let best: { x: number; y: number; m: number } | null = null;
+    for (let y = company.estateY; y < company.estateY + ESTATE_SIZE; y++) {
+      for (let x = company.estateX; x < company.estateX + ESTATE_SIZE; x++) {
+        const placement = canPlace(state.content, world, company, state.era, definition, x, y);
+        if (placement.ok && (best === null || score(x, y, placement.multiplier) > best.m)) {
+          best = { x, y, m: score(x, y, placement.multiplier) };
         }
       }
-      if (best !== null) {
-        this.engine?.lookAt(best.x, best.y, 0.8);
-        setState({ hintTile: { x: best.x, y: best.y, size: definition.size } });
-        toast(`${definition.name} in hand: ${PHONE() ? "tap" : "click"} the golden tile to build it there`);
-      }
     }
+    if (best === null) {
+      toast(`${definition.name} in hand, but no free spot on your estate fits it: buy a parcel first`);
+      return false;
+    }
+    this.engine?.lookAt(best.x, best.y, 0.8);
+    setState({ hintTile: { x: best.x, y: best.y, size: definition.size } });
+    toast(`${definition.name} in hand: ${PHONE() ? "tap" : "click"} the golden tile to build it there`);
+    return true;
   }
 
   async evolve(building: number, name: string) {

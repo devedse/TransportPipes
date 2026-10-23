@@ -6,7 +6,8 @@ namespace TransportPipes.Game.State;
 /// The Era Wonder as the Capital's want (after run 3, the design team's step 5, docs/playtest-run3-design.html): a buyer
 /// in every Capital station's Yard round after the station's project, at the base price, so the goods a crew planned for
 /// it go in by pipe while everyone sleeps (run 3: the Great Dynamo sat at 0 of 1,800 bricks while Cleo's bricks went to
-/// the hub behind a full Storage). Houses bring a quarter of each good at most; orders half at most, credited a quarter.
+/// the hub behind a full Storage). Houses bring a quarter of each good at most; orders half at most while a Capital
+/// player makes the good (all of it while nobody does), credited a quarter.
 /// Each stage is sized when it starts from the Capital's income, and each stage that stands lifts the Capital for the Era.
 /// </summary>
 public sealed partial class GameWorld
@@ -186,7 +187,25 @@ public sealed partial class GameWorld
         wonder.Orders.Clear();
     }
 
-    /// <summary>What ordering a good of the Era Wonder costs now, and how much: half of each good at most comes by order</summary>
+    /// <summary>
+    /// The Capital's players who make a good: played this week, awake, and own a finished building that makes it. While
+    /// one does, half of the Era Wonder's good comes by pipe; while nobody does, gold may order all of it (after run 4:
+    /// the Dynamo's bricks and the Cathedral's steel and concrete waited all Era on a pipe half nobody could fill)
+    /// </summary>
+    public List<Company> WonderMakers(string good)
+    {
+        var since = LastTick - ActivePeriod;
+        return _companies.Values
+            .Where(t => !t.IsNpc && !t.Asleep && t.District == Capital && t.LastSeenAt >= since
+                && BuildingsOf(t.Id).Any(b => !b.UnderConstruction && Content.Building(b.Type).Out.ContainsKey(good)))
+            .OrderBy(t => t.Id)
+            .ToList();
+    }
+
+    /// <summary>The share of an Era Wonder good that orders may bring: half while a Capital player makes it, else all of it</summary>
+    public double WonderOrderCap(string good) => WonderMakers(good).Count > 0 ? WonderOrderShare : 1;
+
+    /// <summary>What ordering a good of the Era Wonder costs now, and how much (half of it while somebody in the Capital makes it)</summary>
     public (double Units, double Cost)? WonderOrderOffer(string good)
     {
         if (EraWonder is not { Finished: false } wonder || !wonder.Required.TryGetValue(good, out var required))
@@ -194,12 +213,17 @@ public sealed partial class GameWorld
             return null;
         }
         var ordered = wonder.Orders.Where(t => t.Resource == good).Sum(t => t.Units);
-        var units = Math.Min(WonderOrderShare * required - ordered, WonderLacks(wonder, good));
-        return units < 1 ? null : (Math.Floor(units), Math.Ceiling(Math.Floor(units) * BasePrice(good) * OrderPrice));
+        // Whole units, the last one rounded up (what arrives past the need is clipped, and its gold comes back when the
+        // stage stands): never a 0.6 left over that nothing can order
+        var units = Math.Ceiling(Math.Min(WonderOrderCap(good) * required - ordered, WonderLacks(wonder, good)) - 1e-6);
+        return units < 1 ? null : (units, Math.Ceiling(units * BasePrice(good) * OrderPrice));
     }
 
-    /// <summary>Anyone in the Capital may order part of the Era Wonder (half of each good at most): 2 × base, over six hours, credited a quarter</summary>
-    public CommandResult OrderForWonder(long payerId, string good)
+    /// <summary>
+    /// Anyone in the Capital may order part of the Era Wonder: 2 × base, shipped over six hours, credited a quarter; all of
+    /// what may be ordered, or as much as some gold buys (an hour or a day of your income: several players can chip in)
+    /// </summary>
+    public CommandResult OrderForWonder(long payerId, string good, double? gold = null)
     {
         if (Company(payerId) is not { } payer || payer.District != Capital)
         {
@@ -207,32 +231,30 @@ public sealed partial class GameWorld
         }
         if (WonderOrderOffer(good) is not { } offer)
         {
-            return CommandResult.Fail("Half of it comes only by pipe: nothing more to order now.");
+            return CommandResult.Fail(WonderMakers(good) is { Count: > 0 } makers
+                ? $"Half of it comes by pipe, from {string.Join(" and ", makers.Take(2).Select(t => t.Name))}: that half is ordered already."
+                : "It has all it lacks, or on its way.");
         }
-        if (payer.Gold < offer.Cost)
+        var price = BasePrice(good) * OrderPrice;
+        var units = gold is { } amount ? Math.Min(offer.Units, Math.Floor(amount / price)) : offer.Units;
+        if (units < 1)
         {
-            return CommandResult.Fail($"It costs {offer.Cost:N0} gold.");
+            return CommandResult.Fail($"One costs {price:N0} gold.");
         }
-        payer.Gold -= offer.Cost;
-        payer.Report.GoldSpent += offer.Cost;
-        AddStat(payer, "goldSpent", offer.Cost);
-        AddStat(payer, "ordered", offer.Cost);
-        EraWonder!.Orders.Add(new WonderOrder { By = payer.Id, Resource = good, Units = offer.Units, Price = BasePrice(good) * OrderPrice, At = LastTick });
+        var cost = Math.Ceiling(units * price);
+        if (payer.Gold < cost)
+        {
+            return CommandResult.Fail($"It costs {cost:N0} gold.");
+        }
+        payer.Gold -= cost;
+        payer.Report.GoldSpent += cost;
+        AddStat(payer, "goldSpent", cost);
+        AddStat(payer, "ordered", cost);
+        EraWonder!.Orders.Add(new WonderOrder { By = payer.Id, Resource = good, Units = units, Price = price, At = LastTick });
         payer.Touch();
         Changes.Companies.Add(payer.Id);
         Changes.Wonders = true;
         return CommandResult.Ok;
-    }
-
-    /// <summary>Once a day: a stage nobody delivered to yet is sized again from the Capital as it is now (the first was sized at world start)</summary>
-    private void ResizeIdleWonderStage()
-    {
-        if (EraWonder is not { Finished: false } wonder || wonder.Delivered.Values.Any(t => t > 1e-6) || wonder.Orders.Count > 0)
-        {
-            return;
-        }
-        wonder.Required = StageRequirements(WonderDefinition(wonder), wonder.Stage, null);
-        Changes.Wonders = true;
     }
 
     /// <summary>The Capital's lift from the Era Wonder's stages that stand this Era: its pipes carry +50% after the first</summary>

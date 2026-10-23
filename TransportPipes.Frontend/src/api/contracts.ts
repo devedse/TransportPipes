@@ -1227,6 +1227,17 @@ export interface WonderNeedDto {
   perMinute: number;
   /** What the hub still ships of the orders on it */
   ordered: number;
+  /** All the units ordered for it so far, and who ordered them ("Cleo 900") */
+  orderedTotal: number;
+  orderers: string[];
+  /** The share orders may bring: 0.5 while a Capital player makes it, else 1 */
+  orderCap: number;
+  /** The Capital's players who make it (the pipe half comes from them) */
+  makers: string[];
+  /** When nobody makes it: the building that would, and where its inputs come from */
+  chain: string | null;
+  /** That building's type, for Show me (null when you may not build it yet) */
+  chainBuilding: string | null;
 }
 
 export interface WonderBuilderDto {
@@ -1234,6 +1245,8 @@ export interface WonderBuilderDto {
   name: string;
   color: string;
   value: number;
+  /** What they built in hours of their own income */
+  hours: number;
 }
 
 export type WonderTier = "none" | "bronze" | "silver" | "gold" | "diamond";
@@ -1252,6 +1265,10 @@ export interface WonderDto {
   yourTier: WonderTier;
   yourShare: number;
   topBuilders: WonderBuilderDto[];
+  /** The stage waits to be sized: it opens at a midnight, from what the builders there make */
+  opens: boolean;
+  /** An hour of your income, for ordering by the hour */
+  yourHour: number;
 }
 
 export interface WondersDto {

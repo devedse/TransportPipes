@@ -60,12 +60,13 @@ public sealed record BuildingUnlock(int Level, int Era, string? Research, string
 /// <summary>A manager (GDD §8.4); the automation and the bonus are in the code, by id</summary>
 public sealed record ManagerDefinition(string Id, string Name, double Cost, string Color, string Automation, string Bonus);
 
-/// <summary>An achievement (GDD §8.5): a stat that reaches an amount</summary>
 /// <summary>A relic expeditions bring back: a collectible with lore</summary>
 public sealed record RelicDefinition(string Id, string Name, string Lore);
 
-/// <summary>A step of Loady's guide (GDD §10.2): done when the stat reaches the amount</summary>
-/// <summary>One of Loady's steps; chapter 1 is the first session, chapter 2 the middle game (docs/v1.1-design.html §5)</summary>
+/// <summary>
+/// A step of Loady's guide (GDD §10.2), done when the stat reaches the amount; chapter 1 is the first session, chapter 2
+/// the middle game (docs/v1.1-design.html §5)
+/// </summary>
 /// <param name="DealtText">The text on dealt land (step 5), where a chain's two inputs never lie on one seat</param>
 public sealed record TutorialStep(string Id, string Text, string Stat, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint, int Chapter = 1, string? PhoneText = null, string? DealtText = null)
 {
@@ -73,6 +74,7 @@ public sealed record TutorialStep(string Id, string Text, string Stat, double Am
     public IReadOnlyList<string> HintBuildings => Hint.TryGetValue("building", out var list) ? list.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) : [];
 }
 
+/// <summary>An achievement (GDD §8.5): a stat that reaches an amount</summary>
 public sealed record AchievementDefinition(string Id, string Name, string Stat, double Amount, double Xp, double Gold, string? Title, OutputBonus? Output, string Description);
 
 /// <summary>A collection: every building of a list at a level; it unlocks a decoration</summary>

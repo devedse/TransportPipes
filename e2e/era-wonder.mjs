@@ -1,6 +1,8 @@
-// The Era Wonder as the Capital's want (after run 3, the design team's step 5): a Capital player's goal tracker has an
-// "Era" row with the Wonder's stage and what it wants; it opens the Wonders tab, where each good can be ordered (half of
-// it at most, at 2 × base) and what arrives by pipe shows as "/min coming".
+// The Era Wonder as the Capital's want (after run 3, the design team's step 5, and run 4's fixes): a Capital player's goal
+// tracker has an "Era" row with the Wonder's stage and what it wants; it opens the Wonders tab (no District Wonder beside
+// it in the Capital), where each good can be ordered by the hour or all of it (all, since nobody in the Capital makes it
+// yet), who ordered shows, and once it's all ordered a line says so instead of a vanished button; the chain line says
+// which building would make it.
 //   node era-wonder.mjs shots/era-wonder
 import { start } from "./lib.mjs";
 
@@ -34,6 +36,9 @@ await page.evaluate((s) => tp.gameClient.foundCompany(`Era ${Date.now() % 100000
 await page.waitForSelector(".top-bar", { timeout: 30000 });
 await page.waitForTimeout(3000);
 await cheat("gold");
+// The stage waits for midnight on a fresh world: open it now
+await cheat("wonderopen");
+await page.evaluate(() => tp.gameClient.refreshCompany());
 await page.waitForTimeout(1500);
 for (let i = 0; i < 3 && (await page.locator("[role=dialog]:visible").count()) > 0; i++) {
   await page.keyboard.press("Escape");
@@ -60,22 +65,30 @@ await page.waitForSelector(".wonder-card", { timeout: 15000 });
 await page.waitForTimeout(1500);
 const era = page.locator(".wonder-card", { hasText: "Era 1 Wonder" });
 expect("the Era card has no Deliver button", (await era.locator("button", { hasText: "Deliver from storage" }).count()) === 0);
-const order = era.locator(".wonder-order button").first();
-const label = await order.innerText().catch(() => "");
-expect("each good can be ordered", /^Order [\d.,k]+ · [\d.,kM]+ g$/.test(label), label);
+expect("no District Wonder beside it in the Capital", (await page.locator(".wonder-card", { hasText: "District Wonder" }).count()) === 0);
+const need = era.locator(".wonder-need").first();
+const all = need.locator(".wonder-order-buttons button").last();
+const label = await all.innerText().catch(() => "");
+expect("each good can be ordered, all of it since nobody here makes it", /^Order (all )?[\d.,k]+ · [\d.,kM]+ g$/.test(label), label);
+const chain = await need.locator(".wonder-chain").innerText().catch(() => "");
+expect("the chain line says what would make it", /^A .+ \([\d.,k]+ g\) makes /.test(chain), chain);
 await shot("2-wonders");
 
+const hour = need.locator(".wonder-order-buttons button", { hasText: "Order 1 h" });
+if ((await hour.count()) > 0) {
+  await hour.click();
+  await page.waitForTimeout(2500);
+  const ordered = await need.locator(".wonder-order span", { hasText: "Ordered:" }).innerText().catch(() => "");
+  expect("an hour's order shows who ordered", /^Ordered: you [\d.,k]+/.test(ordered), ordered);
+}
 const before = await page.evaluate(() => tp.appStore.getState().company.gold);
-await order.click();
+await need.locator(".wonder-order-buttons button").last().click();
 await page.waitForTimeout(2500);
-const after = await page.evaluate(() => ({
-  gold: tp.appStore.getState().company.gold,
-  buttons: [...document.querySelectorAll(".wonder-card .wonder-order button")].map((t) => t.textContent),
-  toast: document.querySelector(".toast")?.textContent ?? null,
-  onItsWay: [...document.querySelectorAll(".wonder-card .wonder-order span")].map((t) => t.textContent).find((t) => /ordered, on its way/.test(t)) ?? null,
-}));
-expect("ordering pays the hub and that good's offer is gone", after.gold < before && !after.buttons.includes(label), JSON.stringify(after));
-expect("the order shows on its way", after.onItsWay !== null, after.onItsWay ?? "");
+const after = await page.evaluate(() => tp.appStore.getState().company.gold);
+const why = await need.locator(".wonder-why").innerText().catch(() => "");
+expect("ordering pays the hub, and a line says it is all ordered instead of a vanished button", after < before && /All of it is ordered/.test(why), `${before} → ${after}: ${why}`);
+const onItsWay = await need.locator(".wonder-order span", { hasText: "on its way" }).count();
+expect("the order shows on its way", onItsWay > 0);
 await shot("3-ordered");
 
 console.log(results.every(Boolean) ? "PASS" : "FAIL", "errors:", errors.length ? errors.join(" | ") : "none");

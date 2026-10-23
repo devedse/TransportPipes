@@ -266,8 +266,9 @@ public sealed class GameHub : Hub<IGameClient>
         Command((world, company) => world.SendToSite(company, siteId));
 
     /// <summary>Orders part of the Capital's Era Wonder (after run 3, step 5): half of each good at most, 2 × base, over six hours</summary>
-    public Task<CommandResultDto> OrderForWonder(string resource) =>
-        Command((world, company) => world.OrderForWonder(company, resource));
+    /// <summary>Orders an Era Wonder good: all that may be ordered, or as much as the gold buys (null: all)</summary>
+    public Task<CommandResultDto> OrderForWonder(string resource, double? gold) =>
+        Command((world, company) => world.OrderForWonder(company, resource, gold));
 
     /// <summary>The line the Labs refine next (null: walls first, then the best-earning good)</summary>
     public Task<CommandResultDto> ChooseRefinement(string? line) =>
@@ -1189,6 +1190,10 @@ public sealed class GameHub : Hub<IGameClient>
                         silo.Contents[need] = silo.Contents.GetValueOrDefault(need) + required;
                     }
                     silo.Touch();
+                    break;
+                case "wonderopen":
+                    // A Wonder stage that waits for midnight opens now, sized to who played this week
+                    world.SizeWonderStages();
                     break;
                 case "away":
                     // The next Hello shows the report as if the player was away for an hour

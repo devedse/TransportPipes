@@ -3059,9 +3059,35 @@ button.liked {
   grid-column: 2 / -1;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px 10px;
   align-items: center;
   justify-content: flex-end;
+}
+
+.wonder-order-buttons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Why there is no Order button, and what would make the good: as readable as the button it stands for */
+.wonder-why,
+.wonder-chain {
+  flex-basis: 100%;
+  text-align: right;
+}
+
+.wonder-chain {
+  color: var(--muted, inherit);
+}
+
+.wonder-chain button.link {
+  margin-left: 6px;
+}
+
+.wonder-opens {
+  margin: 8px 0;
+  font-style: italic;
 }
 
 .wonder-need .muted {
