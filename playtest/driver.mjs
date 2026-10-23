@@ -440,7 +440,10 @@ async function chat(player, { channel, text }) {
     if ((await button.count()) === 0) {
       return `No chat channel called "${channel}". ${await page.locator(".chat-panel").ariaSnapshot()}`;
     }
-    await button.first().click();
+    // The channel called exactly that first (run 4: "Capital" took the station channel "Capital SE", which comes first)
+    const names = await button.evaluateAll((els) => els.map((t) => (t.getAttribute("title") ?? t.textContent ?? "").trim()));
+    const exact = names.findIndex((t) => t.toLowerCase() === channel.trim().toLowerCase());
+    await button.nth(exact >= 0 ? exact : 0).click();
     await page.waitForTimeout(800);
   }
   if (text) {
