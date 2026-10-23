@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -1067,7 +1068,7 @@ public sealed class GameHub : Hub<IGameClient>
 
     // ---------------------------------------------------------------- Commands
 
-    private Task<CommandResultDto> Command(Func<GameWorld, long, CommandResult> command)
+    private Task<CommandResultDto> Command(Func<GameWorld, long, CommandResult> command, [CallerMemberName] string what = "")
     {
         var userId = UserId;
         return _world.RunAsync(world =>
@@ -1080,7 +1081,7 @@ public sealed class GameHub : Hub<IGameClient>
             return result.Success
                 ? result.Note is { } note ? new CommandResultDto(true, null, null, note) : CommandResultDto.Ok
                 : CommandResultDto.Fail(result.Error ?? "That didn't work.");
-        });
+        }, what: what);
     }
 
     /// <summary>Testing only (TransportPipes:Cheats): gold, level, research, finish, away (show the offline report) or fill (fill the storages)</summary>

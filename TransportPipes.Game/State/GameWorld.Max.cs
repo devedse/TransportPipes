@@ -148,14 +148,14 @@ public sealed partial class GameWorld
     /// <param name="changeLink">What a link would carry instead (a better or wider pipe on it: the pipe door's levels)</param>
     private Reach LevelReach(Network network, FlowNode node, Func<FlowLink, FlowLink>? changeLink = null)
     {
-        var solution = network.Solution;
-        var nodes = network.Nodes.ToDictionary(t => t.Id);
-        var links = network.Links.Where(t => t.A == node.Id || t.B == node.Id).Select(changeLink ?? (t => t)).ToList();
+        var index = network.Index;
+        var nodes = index.Nodes;
+        var links = index.LinksOf(node.Id).Select(changeLink ?? (t => t)).ToList();
         var inputs = new Dictionary<string, double>();
         foreach (var resource in node.In.Keys)
         {
-            var potential = solution.Flows.Where(t => t.To == node.Id && t.Resource == resource).Sum(t => t.Delivered)
-                + network.GateFlows.Where(t => t.Import && t.Building == node.Id && t.Resource == resource).Sum(t => t.Delivered);
+            var potential = index.FlowsTo(node.Id).Where(t => t.Resource == resource).Sum(t => t.Delivered)
+                + index.GateFlowsOf(node.Id).Where(t => t.Import && t.Resource == resource).Sum(t => t.Delivered);
             foreach (var link in links.Where(t => t.Allows(resource)))
             {
                 if (!nodes.TryGetValue(link.A == node.Id ? link.B : link.A, out var other) || other.Owner != node.Owner)
@@ -163,7 +163,7 @@ public sealed partial class GameWorld
                     continue;
                 }
                 // A connection carries at most its pipe's throughput (run 3: a grey pipe's 100 a minute capped Cleo's Coal Pit)
-                var onLink = solution.Flows.Where(t => t.From == other.Id && t.To == node.Id && t.Resource == resource).Sum(t => t.Sent);
+                var onLink = index.FlowsFrom(other.Id).Where(t => t.To == node.Id && t.Resource == resource).Sum(t => t.Sent);
                 var linkLeft = Math.Max(0, link.Capacity - onLink) * link.Efficiency;
                 if ((other.Kind == FlowNodeKind.Storage && other.StorageContents.Contains(resource)) || (other.Kind == FlowNodeKind.TradingPost && other.Imports.Contains(resource)))
                 {
@@ -172,7 +172,7 @@ public sealed partial class GameWorld
                 }
                 if (other.Kind == FlowNodeKind.Building && other.Out.TryGetValue(resource, out var makes))
                 {
-                    var toBuildings = solution.Flows.Where(t => t.From == other.Id && t.Resource == resource && t.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.Contract).Sum(t => t.Sent);
+                    var toBuildings = index.FlowsFrom(other.Id).Where(t => t.Resource == resource && t.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.Contract).Sum(t => t.Sent);
                     potential += Math.Min(Math.Max(0, makes * other.MaxRate - toBuildings) * link.Efficiency, linkLeft);
                 }
             }
@@ -181,7 +181,7 @@ public sealed partial class GameWorld
         var outputs = new Dictionary<string, double>();
         foreach (var resource in node.Out.Keys)
         {
-            var room = network.GateFlows.Where(t => !t.Import && t.Building == node.Id && t.Resource == resource).Sum(t => t.Sent);
+            var room = index.GateFlowsOf(node.Id).Where(t => !t.Import && t.Resource == resource).Sum(t => t.Sent);
             foreach (var link in links.Where(t => t.Allows(resource)))
             {
                 if (!nodes.TryGetValue(link.A == node.Id ? link.B : link.A, out var other))
@@ -195,8 +195,8 @@ public sealed partial class GameWorld
                 }
                 if (other.Owner == node.Owner && other.Kind == FlowNodeKind.TradingPost && _buildings.TryGetValue(other.Id, out var post))
                 {
-                    var sold = solution.Flows.Where(t => t.To == other.Id && t.Kind == FlowKind.Sale).Sum(t => t.Sent);
-                    var mine = solution.Flows.Where(t => t.From == node.Id && t.To == other.Id && t.Kind == FlowKind.Sale).Sum(t => t.Sent);
+                    var sold = index.FlowsTo(other.Id).Where(t => t.Kind == FlowKind.Sale).Sum(t => t.Sent);
+                    var mine = index.FlowsFrom(node.Id).Where(t => t.To == other.Id && t.Kind == FlowKind.Sale).Sum(t => t.Sent);
                     room += Math.Min(Math.Max(0, TradingPostThroughput(post, Content.Building(post.Type)) - sold) + mine, link.Capacity);
                 }
                 else if (other.Kind == FlowNodeKind.Building && other.In.TryGetValue(resource, out var uses))

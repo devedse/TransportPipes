@@ -32,6 +32,11 @@ public sealed class Network
     /// <summary>The buildings as the last solve saw them</summary>
     public List<FlowNode> Nodes { get; set; } = new();
 
+    private NetworkIndex? _index;
+
+    /// <summary>Its links, flows and gate flows by building (made again after each solve)</summary>
+    public NetworkIndex Index => _index is { } index && index.IsFor(this) ? index : _index = new NetworkIndex(this);
+
     /// <summary>Buildings run at this fraction when the network has too few pump stations</summary>
     /// <summary>The lowest speed a company's buildings run at for lack of pump stations (1: enough pumps)</summary>
     public double PumpFactor { get; set; } = 1;
@@ -525,46 +530,65 @@ public sealed partial class GameWorld
                 .ToList();
         }
 
+        // The tiles by number, with what a step onto each costs, its neighbours (the four next tiles that conduct, then its
+        // cables) and whose estate and pipe it is: the searches below look these up in arrays (a search per building, and
+        // a hash lookup per step made a 200-building network's links take 100 ms)
+        var tiles = network.Conductors.ToList();
+        var numberOf = new Dictionary<TilePos, int>(tiles.Count);
+        for (var i = 0; i < tiles.Count; i++)
+        {
+            numberOf[tiles[i]] = i;
+        }
+        var stepCost = tiles.Select(t => -Math.Log(1 - stats[t].Loss)).ToArray();
+        var estateOwner = tiles.Select(t => owners[t]).ToArray();
+        var pipeOwner = tiles.Select(t => pipeOwners[t]).ToArray();
+        var neighbours = tiles.Select(tile =>
+        {
+            var next = Directions.Select(d => tile.Offset(d.X, d.Y)).Where(network.Conductors.Contains);
+            return (cables.TryGetValue(tile, out var cable) ? next.Concat(cable) : next).Select(t => numberOf[t]).ToArray();
+        }).ToArray();
+        var touchingTiles = touching.Select(t => (Tile: numberOf[t.Key], Buildings: t.Value)).ToList();
+        var borders = members.ToDictionary(t => t, t => _buildings[t].Border().Where(network.Conductors.Contains).Distinct().Select(b => numberOf[b]).ToArray());
+
         var best = new Dictionary<(long, long, string?), FlowLink>();
         var bestToGate = new Dictionary<(long, TilePos, string?), GateLink>();
         foreach (var resource in resources)
         {
-            bool Passable(TilePos tile) => resource == null || stats[tile].Filter is not { } filter || filter.Contains(resource);
+            var passable = tiles.Select(t => resource == null || stats[t].Filter is not { } filter || filter.Contains(resource)).ToArray();
             IReadOnlySet<string>? only = resource == null ? null : new HashSet<string> { resource };
 
-            // Dijkstra over the pipe tiles from a building, cost = -log(efficiency) so the best path has the highest efficiency
-            (Dictionary<TilePos, double> Cost, Dictionary<TilePos, TilePos> Previous, HashSet<TilePos> Done) Paths(long from, Func<TilePos, bool> allowed)
+            // Dijkstra over the pipe tiles from a building, cost = -log(efficiency) so the best path has the highest
+            // efficiency; only over tiles of no estate, of the two owners' estates, or with their pipes on (no transit)
+            (double[] Cost, int[] Previous, bool[] Done) Paths(long from, long fromOwner, long toOwner)
             {
-                var cost = new Dictionary<TilePos, double>();
-                var previous = new Dictionary<TilePos, TilePos>();
-                var queue = new PriorityQueue<TilePos, double>();
-                foreach (var border in _buildings[from].Border().Where(t => network.Conductors.Contains(t) && Passable(t) && allowed(t)).Distinct())
+                bool Allowed(int tile) =>
+                    estateOwner[tile] is not { } owner || owner == fromOwner || owner == toOwner || pipeOwner[tile] == fromOwner || pipeOwner[tile] == toOwner;
+                var cost = new double[tiles.Count];
+                Array.Fill(cost, double.PositiveInfinity);
+                var previous = new int[tiles.Count];
+                Array.Fill(previous, -1);
+                var done = new bool[tiles.Count];
+                var queue = new PriorityQueue<int, double>();
+                foreach (var border in borders[from].Where(t => passable[t] && Allowed(t)))
                 {
-                    var start = -Math.Log(1 - stats[border].Loss);
-                    cost[border] = start;
-                    queue.Enqueue(border, start);
+                    cost[border] = stepCost[border];
+                    queue.Enqueue(border, stepCost[border]);
                 }
-
-                var done = new HashSet<TilePos>();
                 while (queue.TryDequeue(out var tile, out var c))
                 {
-                    if (!done.Add(tile))
+                    if (done[tile])
                     {
                         continue;
                     }
-                    var neighbours = Directions.Select(d => tile.Offset(d.X, d.Y));
-                    if (cables.TryGetValue(tile, out var cable))
+                    done[tile] = true;
+                    foreach (var next in neighbours[tile])
                     {
-                        neighbours = neighbours.Concat(cable);
-                    }
-                    foreach (var next in neighbours)
-                    {
-                        if (!network.Conductors.Contains(next) || done.Contains(next) || !Passable(next) || !allowed(next))
+                        if (done[next] || !passable[next] || !Allowed(next))
                         {
                             continue;
                         }
-                        var nextCost = c - Math.Log(1 - stats[next].Loss);
-                        if (!cost.TryGetValue(next, out var known) || nextCost < known - 1e-12)
+                        var nextCost = c + stepCost[next];
+                        if (nextCost < cost[next] - 1e-12)
                         {
                             cost[next] = nextCost;
                             previous[next] = tile;
@@ -575,16 +599,14 @@ public sealed partial class GameWorld
                 return (cost, previous, done);
             }
 
-            (List<TilePos> Path, double Capacity) Trace(TilePos tile, Dictionary<TilePos, TilePos> previous)
+            (List<TilePos> Path, double Capacity) Trace(int tile, int[] previous)
             {
-                var path = new List<TilePos> { tile };
-                var capacity = stats[tile].Throughput;
-                var current = tile;
-                while (previous.TryGetValue(current, out var p))
+                var path = new List<TilePos> { tiles[tile] };
+                var capacity = stats[tiles[tile]].Throughput;
+                for (var p = previous[tile]; p >= 0; p = previous[p])
                 {
-                    path.Add(p);
-                    capacity = Math.Min(capacity, stats[p].Throughput);
-                    current = p;
+                    path.Add(tiles[p]);
+                    capacity = Math.Min(capacity, stats[tiles[p]].Throughput);
                 }
                 path.Reverse();
                 return (path, capacity);
@@ -596,47 +618,51 @@ public sealed partial class GameWorld
                 // through a third company's estate (no transit). So the routes from a building are found per owner of
                 // the buildings they lead to.
                 var fromOwner = _buildings[from].Owner;
+                (double[] Cost, int[] Previous, bool[] Done)? ownPaths = null;
                 foreach (var group in members.Where(t => t > from).GroupBy(t => _buildings[t].Owner))
                 {
                     var toOwner = group.Key;
-                    bool Allowed(TilePos tile) =>
-                        owners[tile] is not { } owner || owner == fromOwner || owner == toOwner
-                        || pipeOwners[tile] == fromOwner || pipeOwners[tile] == toOwner;
                     var targets = group.ToHashSet();
-                    var (cost, previous, done) = Paths(from, Allowed);
-
-                    foreach (var (tile, others) in touching)
+                    var (cost, previous, done) = Paths(from, fromOwner, toOwner);
+                    if (toOwner == fromOwner)
                     {
-                        if (!done.Contains(tile))
+                        ownPaths = (cost, previous, done);
+                    }
+
+                    // The tile beside each target its best path ends on (the first of equally good ones); only that path is traced
+                    var nearest = new Dictionary<long, (int Tile, double Efficiency)>();
+                    foreach (var (tile, others) in touchingTiles)
+                    {
+                        if (!done[tile])
                         {
                             continue;
                         }
                         foreach (var to in others)
                         {
-                            if (!targets.Contains(to))
+                            if (targets.Contains(to) && Math.Exp(-cost[tile]) is var efficiency
+                                && (!nearest.TryGetValue(to, out var known) || efficiency > known.Efficiency + 1e-12))
                             {
-                                continue;
-                            }
-                            var (path, capacity) = Trace(tile, previous);
-                            var link = new FlowLink(from, to, Math.Exp(-cost[tile]), capacity, path, only, path.Any(t => stats[t].Priority));
-                            if (!best.TryGetValue((from, to, resource), out var existing) || link.Efficiency > existing.Efficiency + 1e-12)
-                            {
-                                best[(from, to, resource)] = link;
+                                nearest[to] = (tile, efficiency);
                             }
                         }
                     }
+                    foreach (var (to, (tile, efficiency)) in nearest)
+                    {
+                        var (path, capacity) = Trace(tile, previous);
+                        best[(from, to, resource)] = new FlowLink(from, to, efficiency, capacity, path, only, path.Any(t => stats[t].Priority));
+                    }
                 }
 
-                // To the Yard gates of the building's owner (the gate takes what goes to the station, and brings what comes from it)
+                // To the Yard gates of the building's owner (the gate takes what goes to the station, and brings what
+                // comes from it), over its own land: the same search as to its own buildings
                 var ownGates = network.Gates.Where(t => _conductors.TryGetValue(t, out var gate) && gate.Owner == fromOwner).ToList();
                 if (ownGates.Count > 0)
                 {
-                    bool OwnLand(TilePos tile) => owners[tile] is not { } owner || owner == fromOwner || pipeOwners[tile] == fromOwner;
-                    var (cost, previous, done) = Paths(from, OwnLand);
-                    foreach (var gate in ownGates.Where(done.Contains))
+                    var (cost, previous, done) = ownPaths ?? Paths(from, fromOwner, fromOwner);
+                    foreach (var gate in ownGates.Where(t => done[numberOf[t]]))
                     {
-                        var (path, capacity) = Trace(gate, previous);
-                        var link = new GateLink(from, gate, Math.Exp(-cost[gate]), capacity, path, only);
+                        var (path, capacity) = Trace(numberOf[gate], previous);
+                        var link = new GateLink(from, gate, Math.Exp(-cost[numberOf[gate]]), capacity, path, only);
                         if (!bestToGate.TryGetValue((from, gate, resource), out var existing) || link.Efficiency > existing.Efficiency + 1e-12)
                         {
                             bestToGate[(from, gate, resource)] = link;

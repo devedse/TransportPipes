@@ -66,6 +66,7 @@ seats: a second server on its own database (`--ConnectionStrings:TransportPipes=
 | `numbers.mjs`, `loady-upgrade.mjs`, `map-clicks.mjs` | After run 4: one income everywhere; Loady's upgrade lands where a level pays; refusals, ghosts and clicks |
 | `exchange.mjs`, `phone-reading.mjs`, `post-max.mjs` | After run 4: the Exchange's price and expiry; phone panels and reading; a full Trading Post's Max and Grow |
 | `consistency.mjs` | After every kind of change, the playing tab matches a freshly loaded one |
+| `big-estate.mjs` | A grown estate (about 90 buildings on 300 pipe tiles, with the dev cheats): a building placed into its network shows on the map within the budget (1.5 s; `THROTTLE=4` runs the page four times slower). Start the server with `--TransportPipes:SlowWorldMilliseconds=30` to log where each slow world operation's time went |
 | `panels.mjs`, `panels-network.mjs`, `phone-pipe.mjs`, `deep.mjs` | Every panel under the theme; the post's flows; a phone's pipe; the Deep Level |
 
 `load.mjs [fast4g|slow4g] [seconds on the title]` measures how long a new and a returning player wait on a throttled

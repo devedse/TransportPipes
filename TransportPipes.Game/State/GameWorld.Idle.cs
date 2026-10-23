@@ -143,17 +143,18 @@ public sealed partial class GameWorld
 
         // From the last solve: how fast it runs, and what holds it back
         var rate = network.Solution.Rate(building.Id);
-        var maxRate = network.Nodes.FirstOrDefault(t => t.Id == building.Id)?.MaxRate ?? 1;
+        var index = network.Index;
+        var maxRate = index.Nodes.GetValueOrDefault(building.Id)?.MaxRate ?? 1;
         if (rate >= maxRate * SlowedShare)
         {
             return IdleReason.Running;
         }
         var received = new Dictionary<string, double>();
-        foreach (var flow in network.Solution.Flows.Where(t => t.To == building.Id))
+        foreach (var flow in index.FlowsTo(building.Id))
         {
             received[flow.Resource] = received.GetValueOrDefault(flow.Resource) + flow.Delivered;
         }
-        foreach (var flow in network.GateFlows.Where(t => t.Import && t.Building == building.Id))
+        foreach (var flow in index.GateFlowsOf(building.Id).Where(t => t.Import))
         {
             received[flow.Resource] = received.GetValueOrDefault(flow.Resource) + flow.Delivered;
         }
@@ -190,12 +191,12 @@ public sealed partial class GameWorld
             // Its goods can only go to buildings that don't run now (a factory with no ore, say)
             var takers = linked.Where(t => ToFlowNode(t) is { Kind: FlowNodeKind.Building } n && node.Out.Keys.Any(n.In.ContainsKey)).ToList();
             var sinks = linked.Any(t => t.Owner == building.Owner && Content.Building(t.Type).Kind is BuildingKind.Storage or BuildingKind.TradingPost)
-                || network.GateLinks.Any(t => t.Building == building.Id);
+                || index.GateLinksOf(building.Id).Count > 0;
             if (!sinks && takers.Count > 0)
             {
                 var least = takers.OrderBy(t => network.Solution.Rate(t.Id)).ThenBy(t => t.Id).First();
                 // A taker that runs fully isn't idle: it just can't use more (Ana's factory set into her windmills' pipe, run 2)
-                var full = network.Solution.Rate(least.Id) >= (network.Nodes.FirstOrDefault(t => t.Id == least.Id)?.MaxRate ?? 1) * SlowedShare;
+                var full = network.Solution.Rate(least.Id) >= (index.Nodes.GetValueOrDefault(least.Id)?.MaxRate ?? 1) * SlowedShare;
                 return new IdleReason(full ? IdleCause.TakersFull : IdleCause.TakerIdle, node.Out.Keys.First(), full ? takers.OrderBy(t => t.Id).First().Id : least.Id);
             }
         }
@@ -213,10 +214,11 @@ public sealed partial class GameWorld
         foreach (var (resource, perRun) in node.Out.OrderBy(t => t.Key, StringComparer.Ordinal))
         {
             // What its Yard gate takes is what the station matched: like a taker that has all it needs
-            var gate = network.GateFlows.Where(t => !t.Import && t.Building == building.Id && t.Resource == resource).Sum(t => t.Sent);
-            var used = network.Links
-                .Where(t => (t.A == building.Id || t.B == building.Id) && t.Allows(resource))
-                .Select(link => (link.Capacity, Sent: network.Solution.Flows.Where(f => f.From == building.Id && f.Resource == resource && link.Connects(f.From, f.To)).Sum(f => f.Sent)))
+            var index = network.Index;
+            var gate = index.GateFlowsOf(building.Id).Where(t => !t.Import && t.Resource == resource).Sum(t => t.Sent);
+            var used = index.LinksOf(building.Id)
+                .Where(t => t.Allows(resource))
+                .Select(link => (link.Capacity, Sent: index.FlowsFrom(building.Id).Where(f => f.Resource == resource && link.Connects(f.From, f.To)).Sum(f => f.Sent)))
                 .Where(t => t.Sent > 1e-9)
                 .Select(t => (t.Capacity, t.Sent, Full: t.Sent >= t.Capacity * 0.98))
                 .ToList();
@@ -235,14 +237,14 @@ public sealed partial class GameWorld
     public (double Could, double Carried) PipeCarry(Building building, string resource)
     {
         var network = NetworkOf(building.Id);
-        var node = network?.Nodes.FirstOrDefault(t => t.Id == building.Id);
-        var carried = network?.Solution.Flows.Where(t => t.From == building.Id && t.Resource == resource).Sum(t => t.Sent) ?? 0;
+        var node = network?.Index.Nodes.GetValueOrDefault(building.Id);
+        var carried = network?.Index.FlowsFrom(building.Id).Where(t => t.Resource == resource).Sum(t => t.Sent) ?? 0;
         return ((node?.Out.GetValueOrDefault(resource) ?? 0) * (node?.MaxRate ?? 1), carried);
     }
 
     /// <summary>Whether every building on its pipes that makes a resource stands still (and the Yard brings none of it)</summary>
     private bool SuppliersStandStill(Building building, Network network, string resource) =>
-        !network.GateFlows.Any(t => t.Import && t.Building == building.Id && t.Resource == resource && t.Delivered > 1e-9)
+        !network.Index.GateFlowsOf(building.Id).Any(t => t.Import && t.Resource == resource && t.Delivered > 1e-9)
         && LinkedBuildings(building, network)
             .Where(t => ToFlowNode(t) is { Kind: FlowNodeKind.Building } n && n.Out.ContainsKey(resource))
             .All(t => network.Solution.Rate(t.Id) < 1e-6);
@@ -252,8 +254,7 @@ public sealed partial class GameWorld
 
     /// <summary>The buildings a building's pipes reach directly (its links in the network), finished ones only</summary>
     private List<Building> LinkedBuildings(Building building, Network network) =>
-        network.Links
-            .Where(t => t.A == building.Id || t.B == building.Id)
+        network.Index.LinksOf(building.Id)
             .Select(t => Building(t.A == building.Id ? t.B : t.A))
             .OfType<Building>()
             .Where(t => !t.UnderConstruction)
@@ -274,7 +275,7 @@ public sealed partial class GameWorld
         {
             return new IdleReason(IdleCause.Stuck, node.Out.Keys.First());
         }
-        var links = network.Links.Where(t => t.A == building.Id || t.B == building.Id).ToList();
+        var links = network.Index.LinksOf(building.Id);
         foreach (var resource in node.Out.Keys.Order(StringComparer.Ordinal))
         {
             var takers = new List<Building>();
@@ -296,7 +297,7 @@ public sealed partial class GameWorld
                     takers.Add(other);
                 }
             }
-            if (sink || network.GateLinks.Any(t => t.Building == building.Id && (t.Resources == null || t.Resources.Contains(resource))))
+            if (sink || network.Index.GateLinksOf(building.Id).Any(t => t.Resources == null || t.Resources.Contains(resource)))
             {
                 continue;
             }
@@ -317,7 +318,7 @@ public sealed partial class GameWorld
     /// <summary>Whether something on a building's pipes can supply a good: a building that makes it, an own Storage holding it, an own trading post buying it, or the Yard gate</summary>
     private bool HasSupplier(Building building, Network network, string resource)
     {
-        foreach (var link in network.Links.Where(t => (t.A == building.Id || t.B == building.Id) && t.Allows(resource)))
+        foreach (var link in network.Index.LinksOf(building.Id).Where(t => t.Allows(resource)))
         {
             if (Building(link.A == building.Id ? link.B : link.A) is not { UnderConstruction: false } other)
             {
@@ -332,12 +333,12 @@ public sealed partial class GameWorld
                 return true;
             }
         }
-        return network.GateLinks.Any(t => t.Building == building.Id && (t.Resources == null || t.Resources.Contains(resource)));
+        return network.Index.GateLinksOf(building.Id).Any(t => t.Resources == null || t.Resources.Contains(resource));
     }
 
     /// <summary>Whether a building's only way out (for something it makes) is the Yard gate</summary>
     private bool OnlyOutletIsTheGate(Building building, FlowNode node, Network network) =>
-        network.GateLinks.Any(t => t.Building == building.Id)
+        network.Index.GateLinksOf(building.Id).Count > 0
         && !LinkedBuildings(building, network).Any(other =>
             (other.Owner == building.Owner && Content.Building(other.Type).Kind is BuildingKind.Storage or BuildingKind.TradingPost)
             || (ToFlowNode(other) is { Kind: FlowNodeKind.Building } taker && node.Out.Keys.Any(taker.In.ContainsKey)));

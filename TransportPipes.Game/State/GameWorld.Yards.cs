@@ -558,7 +558,7 @@ public sealed partial class GameWorld
         {
             if (!_best.TryGetValue((building, resource), out var best))
             {
-                best = network.GateLinks.Where(t => t.Building == building && t.Gate == gate && (t.Resources == null || t.Resources.Contains(resource)))
+                best = network.Index.GateLinksOf(building).Where(t => t.Gate == gate && (t.Resources == null || t.Resources.Contains(resource)))
                     .Select(t => (t.Efficiency, t.Capacity)).OrderByDescending(t => t.Efficiency).FirstOrDefault();
                 _best[(building, resource)] = best;
             }
@@ -695,7 +695,7 @@ public sealed partial class GameWorld
         double Potential(FlowNode node, string resource)
         {
             var potential = received.GetValueOrDefault((node.Id, resource));
-            foreach (var link in network.Links.Where(t => (t.A == node.Id || t.B == node.Id) && t.Allows(resource)))
+            foreach (var link in network.Index.LinksOf(node.Id).Where(t => t.Allows(resource)))
             {
                 if (!nodes.TryGetValue(link.A == node.Id ? link.B : link.A, out var other) || other.Owner != node.Owner)
                 {
@@ -707,7 +707,7 @@ public sealed partial class GameWorld
                 }
                 if (other.Kind == FlowNodeKind.Building && other.Out.TryGetValue(resource, out var makes))
                 {
-                    var toBuildings = solution.Flows.Where(t => t.From == other.Id && t.Resource == resource && t.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.Contract).Sum(t => t.Sent);
+                    var toBuildings = network.Index.FlowsFrom(other.Id).Where(t => t.Resource == resource && t.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.Contract).Sum(t => t.Sent);
                     potential += Math.Max(0, makes * other.MaxRate - toBuildings) * link.Efficiency;
                 }
             }
@@ -794,7 +794,7 @@ public sealed partial class GameWorld
         var full = linked.Any(t => t.Owner == building.Owner
             && ((Content.Building(t.Type).Kind == BuildingKind.TradingPost && TradingPostFull(t))
                 || (Content.Building(t.Type).Kind == BuildingKind.Storage && StorageCapacity(t, Content.Building(t.Type)) - t.StoredTotal <= StorageEpsilon)));
-        var otherWays = network.GateLinks.Any(t => t.Building == building.Id)
+        var otherWays = network.Index.GateLinksOf(building.Id).Count > 0
             || linked.Any(t => (t.Owner == building.Owner && Content.Building(t.Type).Kind is BuildingKind.TradingPost or BuildingKind.Storage && !(Content.Building(t.Type).Kind == BuildingKind.TradingPost ? TradingPostFull(t) : StorageCapacity(t, Content.Building(t.Type)) - t.StoredTotal <= StorageEpsilon))
                 || (ToFlowNode(t) is { Kind: FlowNodeKind.Building } taker && node.Out.Keys.Any(taker.In.ContainsKey)));
         return full && !otherWays ? network.Solution.Rate(building.Id) / Math.Max(1e-12, node.MaxRate) : 1;
@@ -803,9 +803,12 @@ public sealed partial class GameWorld
     /// <summary>Whether a building's pipes reach a trading post of its owner that can sell this good</summary>
     private static bool ReachesOwnPost(Network network, long building, string resource)
     {
-        var owner = network.Nodes.FirstOrDefault(t => t.Id == building)?.Owner;
-        var posts = network.Nodes.Where(t => t.Kind == FlowNodeKind.TradingPost && t.Owner == owner && t.Throughput > 0).Select(t => t.Id).ToHashSet();
-        return posts.Count > 0 && network.Links.Any(t => t.Allows(resource) && ((t.A == building && posts.Contains(t.B)) || (t.B == building && posts.Contains(t.A))));
+        if (!network.Index.Nodes.TryGetValue(building, out var node))
+        {
+            return false;
+        }
+        var posts = network.Index.PostsOf(node.Owner);
+        return posts.Count > 0 && network.Index.LinksOf(building).Any(t => t.Allows(resource) && ((t.A == building && posts.Contains(t.B)) || (t.B == building && posts.Contains(t.A))));
     }
 
     /// <summary>Whether a seller's goods may go to a buyer: their trade settings, Blocks, and the buyer's gold</summary>

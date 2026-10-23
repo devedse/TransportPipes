@@ -14,6 +14,9 @@ public class TransportPipesOptions
     /// </summary>
     public double SaveSeconds { get; set; } = 30;
 
+    /// <summary>A world operation (a command, a query, a tick) that takes this long is logged with where its time went</summary>
+    public double SlowWorldMilliseconds { get; set; } = 500;
+
     /// <summary>
     /// The seed of a new world (only used when the database has no world yet)
     /// </summary>
