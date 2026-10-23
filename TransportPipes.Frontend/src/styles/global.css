@@ -6184,3 +6184,9 @@ button.top-gold {
   outline: 2px dashed var(--brass, #c9963a);
   outline-offset: -2px;
 }
+
+/* The Exchange's terms, said before the click (after run 4) */
+.exchange-form .exchange-terms {
+  flex-basis: 100%;
+  margin: 0;
+}

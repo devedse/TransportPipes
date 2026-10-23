@@ -12,8 +12,9 @@ public sealed class ExchangeOrder
     public required string Resource { get; init; }
     public bool Selling { get; init; }
 
-    /// <summary>What is still open</summary>
+    /// <summary>What is still open, and what was placed (0: an order from before it was kept)</summary>
     public double Amount { get; set; }
+    public double Placed { get; init; }
     public double Price { get; init; }
     public DateTime CreatedAt { get; init; }
 
@@ -97,8 +98,14 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("Choose an amount.");
         }
-        // One price between players (v1.2 §8)
+        // One price between players (v1.2 §8), and it says so (after run 4: Cleo typed 3 g and got 1.95 without a word)
+        var typed = price;
         price = PlayerPrice(resource);
+        var good = GoodsWord(resource);
+        if (selling && StoredOf(companyId, resource) < amount - 1e-9)
+        {
+            return CommandResult.Fail($"A sell order holds its goods in your Storages: you have {Amount(StoredOf(companyId, resource))} {good} there, not {Amount(amount)}.");
+        }
         // Reserve what the order needs
         var reserve = selling
             ? Pay(company, 0, new Dictionary<string, double> { [resource] = amount })
@@ -116,6 +123,7 @@ public sealed partial class GameWorld
             Resource = resource,
             Selling = selling,
             Amount = amount,
+            Placed = amount,
             Price = price,
             CreatedAt = Now,
         };
@@ -126,8 +134,19 @@ public sealed partial class GameWorld
         }
         Changes.Exchange = true;
         Changes.Companies.Add(companyId);
-        return CommandResult.Ok;
+        var capped = typed > 0 && Math.Abs(typed - price) >= 0.005 ? $"The Exchange has one price between players: {price:0.##} g, not the {typed:0.##} g you typed. " : "";
+        var traded = amount - order.Amount;
+        var now = traded > 1e-9 ? $"{(selling ? "Sold" : "Bought")} {Amount(traded)} {good} at once{(selling ? "" : ": on its way by cargo")}" : null;
+        var waits = order.Amount > 1e-9
+            ? $"{(selling ? "selling" : "buying")} {Amount(order.Amount)} {good} at {price:0.##} g waits up to {OrderLifetime.TotalDays:0} days for a {(selling ? "buyer" : "seller")} ({(selling ? "the goods" : $"{Gold(order.Amount * price)}")} held till then)"
+            : null;
+        return CommandResult.Done(capped + string.Join("; ", new[] { now, waits is null ? null : now is null ? char.ToUpperInvariant(waits[0]) + waits[1..] : waits }.OfType<string>()));
     }
+
+    /// <summary>What a company's Storages hold of a good</summary>
+    public double StoredOf(long companyId, string resource) =>
+        _buildings.Values.Where(t => t.Owner == companyId && !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Storage)
+            .Sum(t => t.Contents.GetValueOrDefault(resource));
 
     /// <summary>Trades a new order against the waiting ones: best price first, then oldest</summary>
     private void Match(ExchangeOrder order)
@@ -250,6 +269,10 @@ public sealed partial class GameWorld
         }
     }
 
+    /// <summary>
+    /// A week on, an order closes: what is still open goes back, and its owner hears it (after run 4: Cleo's 3,000-stone
+    /// order vanished unfilled, and both friends read it as filled)
+    /// </summary>
     private void ExpireOrders()
     {
         foreach (var order in _orders.Where(t => t.CreatedAt + OrderLifetime <= LastTick).ToList())
@@ -257,6 +280,12 @@ public sealed partial class GameWorld
             Refund(order);
             _orders.Remove(order);
             Changes.Exchange = true;
+            var good = GoodsWord(order.Resource);
+            var done = order.Placed > 0 ? order.Placed - order.Amount : 0;
+            var came = order.Placed <= 0 ? "" : done < 1 ? $"none {(order.Selling ? "sold" : "came")}" : $"{Amount(done)} of {Amount(order.Placed)} {(order.Selling ? "sold" : "came")}";
+            Changes.Events.Add(new WorldEvent(order.Company, WorldEventKind.ExchangeTrade,
+                $"Your Exchange order to {(order.Selling ? "sell" : "buy")} {good} closed after {OrderLifetime.TotalDays:0} days{(came == "" ? "" : $": {came}")}; "
+                + (order.Selling ? $"the other {Amount(order.Amount)} {good} went back to your Storages" : $"{Gold(order.Amount * order.Price)} for the rest is back")));
         }
     }
 }

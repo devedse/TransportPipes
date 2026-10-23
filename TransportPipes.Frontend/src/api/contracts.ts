@@ -1102,6 +1102,9 @@ export interface ExchangeOrderDto {
   createdAt: string;
   mine: boolean;
   global: boolean;
+  /** What was placed (0: not kept), and when it closes */
+  placed: number;
+  expiresAt: string | null;
 }
 
 export interface ShipmentDto {
@@ -1129,6 +1132,9 @@ export interface ExchangeDto {
   fee: number;
   /** Global Exchange: orders trade with every hub */
   global: boolean;
+  /** The one player price of each good, and what your Storages hold */
+  prices: Record<string, number> | null;
+  stored: Record<string, number> | null;
 }
 
 // ---------------------------------------------------------------- Society

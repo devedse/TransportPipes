@@ -53,6 +53,44 @@ public class ExchangeFacts
     }
 
     [TestMethod]
+    public void AnOrderSaysItsOnePriceWhatItHoldsAndWhenItCloses()
+    {
+        // Run 4: Cleo typed 3 g and got 1.95 g without a word; her order expired a week later without a word either, and
+        // both friends read it as filled
+        var (game, _, buyer, _, _) = Traders();
+        var price = game.World.PlayerPrice("stone");
+
+        var placed = game.World.PlaceExchangeOrder(buyer.Id, "stone", false, 3000, 3);
+
+        Assert.IsTrue(placed.Success);
+        StringAssert.Contains(placed.Note, $"one price between players: {price:0.##} g, not the 3 g you typed");
+        StringAssert.Contains(placed.Note, "waits up to 7 days for a seller");
+        var gold = buyer.Gold;
+        game.World.TakeChanges();
+
+        // It closes at the first midnight after its week
+        game.Pass(8 * 24 * 60);
+
+        Assert.IsEmpty(game.World.ExchangeOrders);
+        Assert.AreEqual(gold + 3000 * price, buyer.Gold, 1, "the held gold is back");
+        var heard = game.World.TakeChanges().Events.Where(t => t.Company == buyer.Id).Select(t => t.Text).ToList();
+        Assert.IsTrue(heard.Any(t => t.StartsWith("Your Exchange order to buy stone closed after 7 days: none came;")), string.Join(" | ", heard));
+    }
+
+    [TestMethod]
+    public void ASellOrderSaysWhatYourStoragesHold()
+    {
+        // Run 4: Ana's sell order was refused, and the refusal never reached her text view
+        var (game, seller, _, storage, _) = Traders();
+        storage.Contents["stone"] = 120;
+
+        var refused = game.World.PlaceExchangeOrder(seller.Id, "stone", true, 500, 0);
+
+        Assert.IsFalse(refused.Success);
+        Assert.AreEqual("A sell order holds its goods in your Storages: you have 120 stone there, not 500.", refused.Error);
+    }
+
+    [TestMethod]
     public void CancellingAnOrderGivesEverythingBack()
     {
         var (game, seller, buyer, sellerStorage, _) = Traders();

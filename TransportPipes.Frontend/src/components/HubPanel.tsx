@@ -321,17 +321,30 @@ function ExchangeTab({ serverNow }: { serverNow: number }) {
   const [selling, setSelling] = useState(true);
   const [resource, setResource] = useState("ironOre");
   const [amount, setAmount] = useState(100);
-  const [price, setPrice] = useState(4);
+  const gold = useAppStore((state) => state.company?.gold ?? 0);
   if (exchange === null) {
     return <p className="muted">Loading…</p>;
   }
+  // One price between players, said before the click; what a sell order needs in your Storages (after run 4: Cleo's
+  // typed 3 g became 1.95 without a word, and Ana's sell order was refused for stone she didn't have stored)
+  const price = exchange.prices?.[resource] ?? content.resource(resource)?.price ?? 1;
+  const stored = exchange.stored?.[resource] ?? 0;
+  const good = content.resourceName(resource).toLowerCase();
+  const blocked = selling
+    ? stored < amount
+      ? `You have ${formatAmount(stored)} ${good} in your Storages: a sell order holds its goods there`
+      : null
+    : gold < amount * price
+      ? `It holds ${formatAmount(amount * price)} g till it fills: you have ${formatAmount(gold)} g`
+      : null;
   return (
     <div className="exchange">
       <p className="muted small">
         Trade with anyone {exchange.global ? "at every hub (Global Exchange)" : "in the district"} without a
         pipe. Sell orders hold their goods from your storages, buy orders hold their gold. Goods go by cargo
         (faster with a Cargo Depot and Trains); the seller pays a {Math.round(exchange.fee * 100)}% fee that
-        disappears.
+        disappears. <strong>Your station&apos;s neighbours and its project need no Exchange:</strong> what you
+        pipe to your Yard gate goes to them by itself.
       </p>
       {!exchange.hasOffice ? (
         <p className="status idle">Build an Exchange Office (Company Level 12) to place orders.</p>
@@ -352,13 +365,7 @@ function ExchangeTab({ serverNow }: { serverNow: number }) {
           </label>
           <label>
             Resource
-            <select
-              value={resource}
-              onChange={(e) => {
-                setResource(e.target.value);
-                setPrice(Math.round((content.resource(e.target.value)?.price ?? 1) * 150) / 100);
-              }}
-            >
+            <select value={resource} onChange={(e) => setResource(e.target.value)}>
               {content.resources
                 .filter((r) => r.era <= 2)
                 .map((r) => (
@@ -372,19 +379,18 @@ function ExchangeTab({ serverNow }: { serverNow: number }) {
             Amount
             <input type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
           </label>
-          <label>
-            Price (g)
-            <input
-              type="number"
-              min={0}
-              step={0.01}
-              value={price}
-              onChange={(e) => setPrice(Number(e.target.value))}
-            />
-          </label>
-          <button className="primary" type="submit">
+          <button className="primary" type="submit" disabled={blocked !== null}>
             Place order
           </button>
+          <p className="small exchange-terms">
+            At the one player price, <strong>{price.toFixed(2)} g</strong> each (every player pays and gets
+            the same here) ·{" "}
+            {selling
+              ? `${formatAmount(stored)} ${good} in your Storages`
+              : `holds ${formatAmount(amount * price)} g till it fills`}{" "}
+            · waits up to 7 days
+            {blocked !== null && <span className="warning-text"> · {blocked}</span>}
+          </p>
         </form>
       )}
       <table className="market-table">
@@ -426,6 +432,12 @@ function ExchangeTab({ serverNow }: { serverNow: number }) {
               <span>
                 {order.selling ? "Selling" : "Buying"} {formatAmount(order.amount)}{" "}
                 {content.resourceName(order.resource).toLowerCase()} @ {order.price.toFixed(2)} g
+                <span className="muted small">
+                  {order.placed > order.amount + 0.5 &&
+                    ` · ${formatAmount(order.placed - order.amount)} of ${formatAmount(order.placed)} ${order.selling ? "sold" : "came"}`}
+                  {order.expiresAt !== null &&
+                    ` · closes in ${formatDuration(Math.max(0, (new Date(order.expiresAt).getTime() - serverNow) / 1000))}, then the rest comes back`}
+                </span>
               </span>
               <button onClick={() => void gameClient.cancelExchangeOrder(order.id)}>Cancel</button>
             </div>

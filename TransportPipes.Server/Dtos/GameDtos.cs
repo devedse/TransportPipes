@@ -567,13 +567,17 @@ public record ContractDto(
 
 public record ContractsDto(IReadOnlyList<ContractDto> Mine, IReadOnlyList<ContractDto> Board);
 
-public record ExchangeOrderDto(long Id, string Resource, bool Selling, double Amount, double Price, DateTime CreatedAt, bool Mine, bool Global);
+public record ExchangeOrderDto(long Id, string Resource, bool Selling, double Amount, double Price, DateTime CreatedAt, bool Mine, bool Global,
+    /// <summary>What was placed (0: not kept), and when it closes</summary>
+    double Placed = 0, DateTime? ExpiresAt = null);
 
 public record ShipmentDto(long Id, string Resource, double Amount, DateTime ArrivesAt, bool Incoming, string Partner);
 
 public record ExchangeBookDto(string Resource, double BestBid, double BidAmount, double BestAsk, double AskAmount);
 
-public record ExchangeDto(bool HasOffice, IReadOnlyList<ExchangeBookDto> Books, IReadOnlyList<ExchangeOrderDto> Orders, IReadOnlyList<ShipmentDto> Shipments, double Fee, bool Global);
+public record ExchangeDto(bool HasOffice, IReadOnlyList<ExchangeBookDto> Books, IReadOnlyList<ExchangeOrderDto> Orders, IReadOnlyList<ShipmentDto> Shipments, double Fee, bool Global,
+    /// <summary>The one player price of each good, and what your Storages hold (a sell order holds its goods there; after run 4)</summary>
+    IReadOnlyDictionary<string, double>? Prices = null, IReadOnlyDictionary<string, double>? Stored = null);
 
 // ---------------------------------------------------------------- Society (M4)
 

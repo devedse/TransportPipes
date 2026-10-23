@@ -1290,7 +1290,7 @@ public static partial class GameViews
         // Run 4: Dev's wood "used by your own buildings" while it sold at his post; the Foundry Hall opened only on day 14
         if (project is { Stage: ProjectStage.FoundryHall } && project.StartedAt + TimeSpan.FromDays(14) is var opens && opens > world.Now)
         {
-            return $"the Foundry Hall opens in {Span(opens - world.Now)}: it takes nothing until then";
+            return $"the Foundry Hall opens in {Span(opens - world.Now)}: it takes nothing until then, and then your spare goes in through the Yard by itself";
         }
         return network.Solution.Flows.Any(t => t.From == building.Id && t.Resource == good && t.Kind == FlowKind.Sale && t.Sent > 1e-9)
             ? "the Yard takes none of it now: it sells at your trading post"
@@ -1983,7 +1983,7 @@ public static partial class GameViews
             : project.Stage == ProjectStage.Storey
                 ? $"Storey {project.Storeys + 1} of the Landmark: its goods come by the Yard, and its purse from anyone who gives. Each storey makes the station's pipes carry 10% more."
             : opens is { } at && at > world.Now
-                ? $"The Foundry Hall opens in {Span(at - world.Now)}: until then the station grows."
+                ? $"The Foundry Hall opens in {Span(at - world.Now)}: until then the station grows. When it opens, what everyone here has spare goes in through the Yard by itself: no Exchange, no Storage needed."
                 : ProjectSentence(world, me, project) is { Parts.Count: > 0 } sentence
                     ? $"The {GameWorld.StageName(project.Stage)}: {string.Join(" · ", sentence.Parts)}."
                     : $"The {GameWorld.StageName(project.Stage)} takes your spare at the one player price: pipe it to your Yard gate.";
@@ -2257,14 +2257,16 @@ public static partial class GameViews
         var mine = orders
             .Where(t => t.Company == me.Id)
             .OrderByDescending(t => t.Id)
-            .Select(t => new ExchangeOrderDto(t.Id, t.Resource, t.Selling, t.Amount, t.Price, t.CreatedAt, true, t.Global))
+            .Select(t => new ExchangeOrderDto(t.Id, t.Resource, t.Selling, t.Amount, t.Price, t.CreatedAt, true, t.Global, t.Placed, t.CreatedAt + GameWorld.OrderLifetime))
             .ToList();
         var shipments = world.Shipments
             .Where(t => t.To == me.Id || t.From == me.Id)
             .OrderBy(t => t.ArrivesAt)
             .Select(t => new ShipmentDto(t.Id, t.Resource, t.Amount, t.ArrivesAt, t.To == me.Id, world.Company(t.To == me.Id ? t.From : t.To)?.Name ?? ""))
             .ToList();
-        return new ExchangeDto(world.HasBuilding(me.Id, BuildingKind.ExchangeOffice), books, mine, shipments, GameWorld.ExchangeFee, global);
+        return new ExchangeDto(world.HasBuilding(me.Id, BuildingKind.ExchangeOffice), books, mine, shipments, GameWorld.ExchangeFee, global,
+            world.Content.ResourceList.Where(t => t.Era <= world.Era + 1).ToDictionary(t => t.Id, t => world.PlayerPrice(t.Id)),
+            world.Content.ResourceList.Select(t => (t.Id, Stored: world.StoredOf(me.Id, t.Id))).Where(t => t.Stored >= 0.5).ToDictionary(t => t.Id, t => Math.Floor(t.Stored)));
     }
 
     public static ToastDto Toast(WorldEvent worldEvent) => new(Camel(worldEvent.Kind), worldEvent.Text, worldEvent.Building);
