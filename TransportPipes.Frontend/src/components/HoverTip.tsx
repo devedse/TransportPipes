@@ -119,6 +119,10 @@ export function HoverTip() {
   if (text === null && info !== null) {
     const zone = zoneAt(tile.x, tile.y);
     const parts = [TERRAIN_NAMES[info.terrain] ?? info.terrain];
+    if (info.terrain === "forest" && world.dealtLand && info.deposit !== "wood") {
+      // Trees around the estates are scenery (after run 4: Cleo paid 5,000 g for a "forest" parcel for its wood)
+      parts[0] = "Forest: trees only, no wood to cut here";
+    }
     if (info.deposit !== null) {
       parts.push(`${content.resourceName(info.deposit)} ${"★".repeat(info.richness)}`);
     }

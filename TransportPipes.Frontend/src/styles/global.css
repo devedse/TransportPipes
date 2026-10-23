@@ -5587,6 +5587,22 @@ button.big {
   font-weight: 700;
 }
 
+/* A keep level reached: the link glows until it is tapped (it no longer opens by itself, after run 4) */
+.keep-link.nudge {
+  border-radius: 6px;
+  animation: keep-nudge 1.6s ease-in-out infinite;
+}
+
+@keyframes keep-nudge {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(232 168 56 / 0%);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgb(232 168 56 / 55%);
+  }
+}
+
 button.link.danger {
   color: var(--error);
   background: none;

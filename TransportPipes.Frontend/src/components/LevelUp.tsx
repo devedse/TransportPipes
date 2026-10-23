@@ -1,18 +1,28 @@
 import { useEffect } from "react";
 import { gameClient } from "../app/client";
 import { levelUnlocks } from "../app/roadmap";
-import { appStore, setState, useAppStore } from "../state/store";
+import { appStore, setState, toast, useAppStore } from "../state/store";
 
 /** The levels at which a guest is asked to keep the estate (v1.2 §5): the evening it starts to matter */
 const KEEP_AT = [3, 6, 10];
 
-/** Closes the celebration; a guest who reached a keep level then sees the keep card */
+/**
+ * Closes the celebration; a guest who reached a keep level is reminded to keep the estate, and the top bar's "Keep my
+ * estate" glows: the card opens on their own tap (after run 4: it opened by itself and took Dev's click on a tile)
+ */
 function close(level: number) {
   const guest = appStore.getState().user?.isGuest === true;
   setState({
     levelUp: null,
-    keepOpen: guest && KEEP_AT.includes(level) ? true : appStore.getState().keepOpen,
+    keepNudge: guest && KEEP_AT.includes(level) ? true : appStore.getState().keepNudge,
   });
+  if (guest && KEEP_AT.includes(level)) {
+    toast(
+      `Level ${level}: keep your estate with a name and a password, to play it anywhere: Keep my estate, top left`,
+      "info",
+      9000,
+    );
+  }
 }
 
 /** The moment a Company Level is reached: Loady cheers, and what the level brings (GDD §10.1, "visible growth") */

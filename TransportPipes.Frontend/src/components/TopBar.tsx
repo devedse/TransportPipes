@@ -21,6 +21,7 @@ function useLiveGold(): number {
 export function TopBar() {
   const company = useAppStore((state) => state.company);
   const user = useAppStore((state) => state.user);
+  const keepNudge = useAppStore((state) => state.keepNudge);
   const content = useAppStore((state) => state.content);
   const unread = useAppStore((state) => state.unread);
   const inboxOpen = useAppStore((state) => state.inboxOpen);
@@ -94,10 +95,10 @@ export function TopBar() {
           <div className="muted small">
             {user?.isGuest === true ? (
               <button
-                className="link small keep-link"
+                className={keepNudge ? "link small keep-link nudge" : "link small keep-link"}
                 onClick={(event) => {
                   event.stopPropagation();
-                  setState({ keepOpen: true });
+                  setState({ keepOpen: true, keepNudge: false });
                 }}
               >
                 Keep my estate

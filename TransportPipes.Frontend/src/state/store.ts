@@ -141,6 +141,8 @@ export interface AppState {
   shareCodes: HeldSeatDto[] | null;
   /** The form that turns a guest into an account */
   keepOpen: boolean;
+  /** A guest reached a keep level: the top bar's "Keep my estate" glows until it is tapped */
+  keepNudge: boolean;
   corporations: CorporationsDto | null;
   companyOpen: boolean;
   companyDetails: CompanyDetailsDto | null;
@@ -251,6 +253,7 @@ export const initialState: AppState = {
   invite: null,
   shareCodes: null,
   keepOpen: false,
+  keepNudge: false,
   corporations: null,
   companyOpen: false,
   companyDetails: null,
@@ -343,7 +346,8 @@ export function setState(partial: Partial<AppState>) {
 
 let nextToastId = 1;
 
-export function toast(text: string, kind: Toast["kind"] = "info", durationMs = 4500) {
+/** Shows a toast; returns its id (dismissToast takes it away early) */
+export function toast(text: string, kind: Toast["kind"] = "info", durationMs = 4500): number {
   const id = nextToastId++;
   const same = appStore.getState().toasts.find((t) => t.text === text && t.kind === kind);
   if (same !== undefined) {
@@ -352,10 +356,11 @@ export function toast(text: string, kind: Toast["kind"] = "info", durationMs = 4
       toasts: state.toasts.map((t) => (t.id === same.id ? { ...t, id, count: (t.count ?? 1) + 1 } : t)),
     }));
     setTimeout(() => dismissToast(id), durationMs);
-    return;
+    return id;
   }
   appStore.setState((state) => ({ toasts: [...state.toasts.slice(-4), { id, text, kind }] }));
   setTimeout(() => dismissToast(id), durationMs);
+  return id;
 }
 
 export function dismissToast(id: number) {

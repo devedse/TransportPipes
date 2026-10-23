@@ -149,7 +149,8 @@ function FriendSeat({ hold, crewName, now }: { hold: HeldSeatDto; crewName: stri
           onClick={() => void copy(link)}
           aria-label={`Copy ${whose === "" ? `the link of seat ${hold.code}` : `${saved}'s link`}`}
         >
-          Copy {whose}link
+          {/* Each its own words before the seat has a name (after run 4: three "Copy link" buttons, and Ana copied Dev's) */}
+          {whose === "" ? `Copy ${hold.code}'s link` : `Copy ${whose}link`}
         </button>
         <button
           className="link small"

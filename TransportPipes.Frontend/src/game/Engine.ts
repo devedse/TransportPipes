@@ -94,6 +94,8 @@ export interface EngineState {
   /** A wilderness tile the player looks at (an outpost or a claim), and whether that claim is possible */
   wildTile: TilePosition | null;
   hintTile: { x: number; y: number; size: number } | null;
+  /** The building just placed: build mode shows no ghost over it (after run 4: a red ghost sat on it, "a red tile over the wind moily") */
+  justBuilt: { x: number; y: number; size: number } | null;
   outpostCheck: { error: string | null; x: number; y: number } | null;
   /** Links between stations (v1.2 §7), drawn as covered channels along the corridors, and the one the Links tab shows */
   mapLinks: MapLinkDto[];
@@ -1277,7 +1279,9 @@ export class Engine {
     // A blueprint tool carries its whole layout: its id is enough
     const toolKey =
       (tool.kind === "blueprint" ? `blueprint:${tool.blueprint.id}` : JSON.stringify(tool)) +
-      (this.callbacks.getState().plannedRoute?.length ?? 0);
+      (this.callbacks.getState().plannedRoute?.length ?? 0) +
+      // A building just placed under the pointer: its ghost goes at once
+      JSON.stringify(this.callbacks.getState().justBuilt);
     const changed =
       this.hovered === null ||
       tile.x !== this.hovered.x ||
@@ -1588,6 +1592,10 @@ export class Engine {
               // A beach is sand: the Sand Dredger's ground
               color = content.resourceColor("sand");
               alpha = 0.7;
+            } else if (tile.terrain === "forest" && this.world.dealtLand) {
+              // Scenery trees: not wood (after run 4), and not quite the bare ground either
+              color = 0x31463a;
+              alpha = 0.72;
             } else {
               color = 0x0b1d24;
               alpha = 0.6;
@@ -3079,6 +3087,19 @@ export class Engine {
         return;
       }
       const origin = footprintOrigin(tile.x, tile.y, definition.size);
+      const just = state.justBuilt;
+      if (
+        tool.kind === "build" &&
+        just !== null &&
+        origin.x < just.x + just.size &&
+        just.x < origin.x + definition.size &&
+        origin.y < just.y + just.size &&
+        just.y < origin.y + definition.size
+      ) {
+        // Over the one just placed: its tip says so, and the ghost waits till the pointer moves on
+        this.callbacks.onHover(tile, null);
+        return;
+      }
       const placement = canPlace(
         state.content,
         this.world,

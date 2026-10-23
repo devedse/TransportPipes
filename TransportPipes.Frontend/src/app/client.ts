@@ -42,7 +42,7 @@ import { WorldModel } from "../game/world";
 import { formatAmount, possessive } from "./format";
 import { notify } from "./notifications";
 import { sounds } from "./sound";
-import { appStore, initialState, MODALS, setState, toast, type HubTab } from "../state/store";
+import { appStore, dismissToast, initialState, MODALS, setState, toast, type HubTab } from "../state/store";
 
 const DETAILS_REFRESH_MS = 2000;
 const INVITE_KEY = "tp.invite";
@@ -1014,6 +1014,7 @@ export class GameClient {
         serverOffsetMs: state.serverOffsetMs,
         wildTile: state.wildTile,
         hintTile: state.hintTile,
+        justBuilt: state.justBuilt,
         outpostCheck: state.outpostCheck,
         mapLinks: state.mapLinks,
         focusLink: state.focusLink,
@@ -1042,7 +1043,14 @@ export class GameClient {
         (error: unknown) => console.warn("Could not load a district", error),
       );
     },
-    onHover: (tile, placement) => setState({ hoverTile: tile, placement }),
+    onHover: (tile, placement) => {
+      // A refusal goes once the ghost fits (after run 4: "Buy this parcel first" stayed beside a green ghost)
+      if (placement?.ok === true && this.refusal !== null) {
+        dismissToast(this.refusal);
+        this.refusal = null;
+      }
+      setState({ hoverTile: tile, placement });
+    },
     onClick: (tile, building, modifiers) => this.clickTile(tile, building, modifiers),
     onSelectBuildings: (ids, add) => this.selectMany(ids, add),
     onPipeRoute: (route) => setState({ pipeRoute: route }),
@@ -1084,21 +1092,50 @@ export class GameClient {
     }
   }
 
+  /** The refusal toast of the last click in build mode (it goes once the ghost fits) */
+  private refusal: number | null = null;
+
   private async placeBuilding(type: string, x: number, y: number) {
     const state = appStore.getState();
-    const placement = state.placement;
+    // The clicked tile's own answer, not the ghost's last one (a click can come before the ghost moved there)
+    const definition = state.content?.building(type);
+    const placement =
+      definition !== undefined && state.content !== null && state.company !== null && this.world !== null
+        ? canPlace(
+            state.content,
+            this.world,
+            state.company,
+            state.era,
+            definition,
+            x,
+            y,
+            null,
+            state.tool.kind === "build" && state.tool.crate !== undefined,
+          )
+        : state.placement;
+    const just = state.justBuilt;
+    const size = state.content?.building(type)?.size ?? 1;
+    if (
+      just !== null &&
+      x < just.x + just.size &&
+      just.x < x + size &&
+      y < just.y + just.size &&
+      just.y < y + size
+    ) {
+      // A click on the one just placed places nothing (its tip says to move on)
+      return;
+    }
     if (placement !== null && !placement.ok) {
       // A refusal points at the nearest tile that works (run 3: Ana clicked the pond three times, then gave up for nine days)
       const near = this.nearestSpot(type, x, y);
       if (near !== null) {
-        const size = state.content?.building(type)?.size ?? 1;
         setState({ hintTile: { x: near.x, y: near.y, size } });
-        toast(
+        this.refusal = toast(
           `${(placement.reason ?? "You can't build here").replace(/\.$/, "")}: the golden tile nearby works`,
           "error",
         );
       } else {
-        toast(placement.reason ?? "You can't build here.", "error");
+        this.refusal = toast(placement.reason ?? "You can't build here.", "error");
       }
       return;
     }
@@ -1111,7 +1148,6 @@ export class GameClient {
       return;
     }
     if (await this.command(this.connection.placeBuilding(type, x, y), `${name} is being built`)) {
-      const size = state.content?.building(type)?.size ?? 1;
       setState({ hintTile: null, justBuilt: { x, y, size, name } });
       // Keep building more of the same until the player switches tools
       void this.refreshCompany();

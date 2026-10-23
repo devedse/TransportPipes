@@ -100,7 +100,25 @@ export function ReturnCard() {
       }
     };
     window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
+    // What lies under the card can't be reached while it is open: not by the pointer, not by a screen reader (after
+    // run 4: Ana's four clicks on the card's "Show me" found the Next steps' buttons of that name under it)
+    const backdrop = dialog.current?.parentElement;
+    const under = [...(backdrop?.parentElement?.children ?? [])].filter(
+      (t): t is HTMLElement =>
+        t instanceof HTMLElement &&
+        t !== backdrop &&
+        !t.classList.contains("toasts") &&
+        !t.hasAttribute("inert"),
+    );
+    for (const element of under) {
+      element.setAttribute("inert", "");
+    }
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      for (const element of under) {
+        element.removeAttribute("inert");
+      }
+    };
   }, [card]);
 
   if (card === null) {
@@ -169,7 +187,14 @@ export function ReturnCard() {
                     (done.has(line.text) ? (
                       <span className="small ok">Done</span>
                     ) : (
-                      <button type="button" className="small" disabled={busy} onClick={() => void act(line)}>
+                      <button
+                        type="button"
+                        className="small"
+                        disabled={busy}
+                        // Its own name: "Show me: Your Small Factory is stuck" (many lines say Show me)
+                        aria-label={`${label}: ${line.text.split(/[:(·]/)[0]!.trim()}`}
+                        onClick={() => void act(line)}
+                      >
                         {label}
                       </button>
                     ))}
