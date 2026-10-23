@@ -96,11 +96,12 @@ public sealed partial class GameWorld
     /// Storage holding it or a post buying it; per output, what its takers on its pipes use, what its own trading posts
     /// can still sell, and without end an own Storage with room
     /// </summary>
-    private Reach LevelReach(Network network, FlowNode node)
+    /// <param name="changeLink">What a link would carry instead (a better or wider pipe on it: the pipe door's levels)</param>
+    private Reach LevelReach(Network network, FlowNode node, Func<FlowLink, FlowLink>? changeLink = null)
     {
         var solution = network.Solution;
         var nodes = network.Nodes.ToDictionary(t => t.Id);
-        var links = network.Links.Where(t => t.A == node.Id || t.B == node.Id).ToList();
+        var links = network.Links.Where(t => t.A == node.Id || t.B == node.Id).Select(changeLink ?? (t => t)).ToList();
         var inputs = new Dictionary<string, double>();
         foreach (var resource in node.In.Keys)
         {

@@ -120,7 +120,30 @@ public static partial class GameViews
                 t.Want.Order != null ? $"Ordered: the hub brings the rest {world.OrderStartText(company, t.Want, company)}" : null,
                 t.Want.Order == null ? Math.Ceiling(t.Want.Left * world.BasePrice(t.Want.Resource) * GameWorld.OrderPrice) : null)).ToList(),
             EraWonderLine(world, company),
-            Refine(world, company));
+            Refine(world, company),
+            PipesLine(world, company));
+    }
+
+    /// <summary>
+    /// The pipe ladder while a pipe is full (after run 4: the way up showed only in a stuck building's own panel, and all
+    /// 1,087 pipe tiles stayed grey): the building that would gain most, its door in words, and the ladder
+    /// </summary>
+    private static PipesLineDto? PipesLine(GameWorld world, Company me)
+    {
+        var full = world.BuildingsOf(me.Id).Where(t => world.IdleReasonOf(t).Cause == IdleCause.PipeFull).ToList();
+        if (full.Count == 0)
+        {
+            return null;
+        }
+        var best = full.OrderByDescending(t => world.Content.Building(t.Type).Out.Sum(o => o.Value * world.BasePrice(o.Key)) * world.Content.Progression.OutputMultiplier(t.Level)).First();
+        var name = world.Content.Building(best.Type).Name;
+        var door = world.PipeDoorFor(me, best, preview: false);
+        var text = door != null ? $"Your {name}'s pipe is full · {door.Text}" : $"Your {name}'s pipe is full";
+        var ladder = string.Join(" · ", world.Content.PipeTiers.Where(t => t.Era <= Math.Max(2, world.Era)).Select(t =>
+            t.Research == null || world.HasResearch(me, t.Research) ? (t.Era <= world.Era ? t.Name : $"{t.Name} with Era {t.Era}")
+            : world.Content.Research.GetValueOrDefault(t.Research) is { Grant: > 0 } grant ? $"{t.Name} at Level {grant.Grant}{(t.Era > world.Era ? $" in Era {t.Era}" : "")}"
+            : $"{t.Name} by research"));
+        return new PipesLineDto(full.Count > 1 ? $"{text} ({full.Count} buildings at their pipe's limit)" : text, best.Id, full.Count, ladder);
     }
 
     /// <summary>
@@ -1156,8 +1179,22 @@ public static partial class GameViews
             owner != null && viewer?.Id == owner.Id && world.Undoable(owner, building) is { } undo ? undo.Refund : null,
             owner != null && viewer?.Id == owner.Id && world.Undoable(owner, building) is { } until ? until.Purchase.At + GameWorld.UndoFor : null,
             Site(world, building, viewer),
-            Refined(world, building, owner, viewer));
+            Refined(world, building, owner, viewer),
+            owner != null && viewer?.Id == owner.Id && world.PipeDoorFor(owner, building) is { } door ? Door(world, door) : null);
     }
+
+    private static PipeDoorDto Door(GameWorld world, PipeDoor door) => new(
+        Camel(door.Kind),
+        door.Text,
+        world.DoorLabel(door),
+        Math.Round(door.Gold),
+        Math.Round(door.LevelCost),
+        door.ToLevel,
+        Math.Round(door.Gain, 1),
+        door.Materials.Select(t => new ResourceAmountDto(t.Key, t.Value, t.Value)).ToList(),
+        door.Short.Select(t => new ResourceAmountDto(t.Key, t.Value, t.Value)).ToList(),
+        door.Source,
+        door.OrderCost);
 
     private static string? NullIfEmpty(string text) => text.Length == 0 ? null : text;
 

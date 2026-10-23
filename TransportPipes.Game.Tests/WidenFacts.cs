@@ -4,7 +4,8 @@ namespace TransportPipes.Game.Tests;
 
 /// <summary>
 /// Widen (after run 3, the design team's step 9): a full Copper or Steel Pipe carries ×2 for an hour of income, ×4 for
-/// two hours more; Grey doesn't widen (run 3: Cleo's Coal Pit could make 882 coal a minute, its pipe carried 100)
+/// two hours more, for each link; Grey doesn't widen (run 3: Cleo's Coal Pit could make 882 coal a minute, its pipe
+/// carried 100). After run 4 it is the pipe door's first step at a Copper or Steel Pipe's limit
 /// </summary>
 [TestClass]
 public class WidenFacts
@@ -35,32 +36,70 @@ public class WidenFacts
         Assert.AreEqual(IdleCause.PipeFull, game.World.IdleReasonOf(moily).Cause, $"it makes {game.World.PipeCarry(moily, "energy").Could:0} a minute");
         Assert.AreEqual(500, Carried(game, moily), 1, "a Copper Pipe carries 500");
 
-        var fix = game.World.IdleStatusOf(moily).Fix!;
-        Assert.AreEqual(IdleFixKind.Widen, fix.Kind);
-        Assert.AreEqual(2, fix.Tier);
+        // Its fix is its pipe door: Widen ×2 on its one link, an hour of its income
+        Assert.AreEqual(IdleFixKind.Climb, game.World.IdleStatusOf(moily).Fix!.Kind);
+        var door = game.World.PipeDoorFor(company, moily)!;
+        Assert.AreEqual(PipeDoorKind.Widen, door.Kind);
+        Assert.AreEqual(2, door.Tier);
         var income = game.World.MeasuredIncome(company);
-        Assert.AreEqual(60 * income, fix.Cost, 1, "an hour of its income");
-        StringAssert.Contains(fix.Label, "(1 hour of your income) · carries 1,000 a minute");
-        StringAssert.StartsWith(fix.Label, "Widen its pipe ×2 · ");
+        Assert.AreEqual(60 * income, door.Gold, 1, "an hour of its income");
+        StringAssert.StartsWith(door.Text, "Widen its link ×2");
         var gold = company.Gold;
 
-        Assert.IsTrue(game.World.WidenPipes(company.Id, fix.Tiles!, 2).Success);
-        Assert.AreEqual(gold - fix.Cost, company.Gold, 1);
+        Assert.IsTrue(game.World.ClimbPipe(company.Id, moily.Id).Success);
+        Assert.AreEqual(gold - door.Gold - door.LevelCost, company.Gold, 1);
         game.Pass(1);
 
         Assert.AreEqual(2, PipeTile(game, company).Widen);
         Assert.AreEqual(1_000, Carried(game, moily), 1, "it carries twice as much");
-        var next = game.World.IdleStatusOf(moily).Fix!;
-        Assert.AreEqual(IdleFixKind.Widen, next.Kind);
+        var next = game.World.PipeDoorFor(company, moily)!;
+        Assert.AreEqual(PipeDoorKind.Widen, next.Kind);
         Assert.AreEqual(4, next.Tier);
-        Assert.AreEqual(120 * game.World.MeasuredIncome(company), next.Cost, 1, "×4: two more hours");
-        StringAssert.Contains(next.Label, "(2 more hours of your income)");
+        Assert.AreEqual(120 * game.World.MeasuredIncome(company), next.Gold, 1, "×4: two more hours");
 
-        Assert.IsTrue(game.World.WidenPipes(company.Id, next.Tiles!, 4).Success);
+        Assert.IsTrue(game.World.ClimbPipe(company.Id, moily.Id).Success);
         game.Pass(1);
         Assert.AreEqual(2_000, Carried(game, moily), 1);
-        Assert.AreNotEqual(IdleFixKind.Widen, game.World.IdleStatusOf(moily).Fix?.Kind, "×4 is the cap: past it, the next tier");
-        StringAssert.Contains(game.World.WidenPipes(company.Id, next.Tiles!, 4).Error, "already");
+        var steel = game.World.PipeDoorFor(company, moily)!;
+        Assert.AreEqual(PipeDoorKind.Locked, steel.Kind, "×4 is the cap: past it, the next tier, which comes with Era 2");
+        StringAssert.Contains(steel.Text, "with Era 2");
+        StringAssert.Contains(game.World.WidenPipes(company.Id, next.Tiles, 4).Error, "already");
+    }
+
+    [TestMethod]
+    public void WidenGoesStraightToFourWhenOnlyThatCarriesTheNextLevels()
+    {
+        // Run 4's e2e: a level-24 moily made 537 a minute on a 500 Copper Pipe; level 25 doubles it, so ×2 freed 37 a
+        // minute and carried no level, ×4 carries the next ones
+        var (game, company, moily, _) = FullPipe(2, 23);
+        Assert.AreEqual(IdleCause.PipeFull, game.World.IdleReasonOf(moily).Cause);
+
+        var door = game.World.PipeDoorFor(company, moily)!;
+
+        Assert.AreEqual(PipeDoorKind.Widen, door.Kind);
+        Assert.AreEqual(4, door.Tier, door.Text);
+        Assert.IsGreaterThan(moily.Level, door.ToLevel, "the levels ×4 carries");
+        Assert.AreEqual(180 * game.World.MeasuredIncome(company), door.Gold, 1, "three hours of income");
+    }
+
+    [TestMethod]
+    public void WidenIsPaidForEachLinkItWidens()
+    {
+        // After run 4: one price widened any number of links
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(gold: 100_000_000, level: 40);
+        company.Researched.Add("copperPipes");
+        company.MeasuredIncome = 1_000;
+        var map = game.Map(company, game.Local(company, 1, 1), "T+W+T", pipeTier: 2);
+        game.World.UpgradeMany(company.Id, [map[(2, 0)].Id], 60);
+        game.World.UpgradeMany(company.Id, [map[(0, 0)].Id, map[(4, 0)].Id], 9);
+        game.Pass(2);
+
+        var door = game.World.PipeDoorFor(company, map[(2, 0)])!;
+
+        Assert.AreEqual(PipeDoorKind.Widen, door.Kind);
+        StringAssert.StartsWith(door.Text, "Widen its 2 links ×2");
+        Assert.AreEqual(2 * 60 * game.World.MeasuredIncome(company), door.Gold, 1, "an hour of income for each link");
     }
 
     [TestMethod]
@@ -75,7 +114,8 @@ public class WidenFacts
         game.Pass(2);
 
         Assert.AreEqual(IdleCause.PipeFull, game.World.IdleReasonOf(map[(0, 0)]).Cause);
-        Assert.AreEqual(IdleFixKind.PipeTier, game.World.IdleStatusOf(map[(0, 0)]).Fix?.Kind);
+        Assert.AreEqual(IdleFixKind.Climb, game.World.IdleStatusOf(map[(0, 0)]).Fix?.Kind);
+        Assert.AreEqual(PipeDoorKind.Tier, game.World.PipeDoorFor(company, map[(0, 0)])!.Kind);
     }
 
     [TestMethod]
@@ -105,17 +145,18 @@ public class WidenFacts
     {
         var (game, company, moily, _) = FullPipe(1, 14);
 
-        var fix = game.World.IdleStatusOf(moily).Fix!;
+        var door = game.World.PipeDoorFor(company, moily)!;
 
-        Assert.AreEqual(IdleFixKind.PipeTier, fix.Kind, "a friend's copper is the first door past 100 a minute");
-        StringAssert.Contains(game.World.WidenPipes(company.Id, fix.Tiles!, 2).Error, "Only Copper and Steel");
+        Assert.AreEqual(PipeDoorKind.Tier, door.Kind, "copper is the first door past 100 a minute");
+        Assert.AreEqual(2, door.Tier);
+        StringAssert.Contains(game.World.WidenPipes(company.Id, door.Tiles, 2).Error, "Only Copper and Steel");
     }
 
     [TestMethod]
     public void ANewTierStartsUnwidened()
     {
         var (game, company, moily, _) = FullPipe(2, 60);
-        var tiles = game.World.IdleStatusOf(moily).Fix!.Tiles!;
+        var tiles = game.World.PipeDoorFor(company, moily)!.Tiles;
         game.World.WidenPipes(company.Id, tiles, 2);
         game.World.Era = 2;
         company.Researched.Add("steelPipes");

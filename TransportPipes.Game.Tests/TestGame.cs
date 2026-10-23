@@ -121,6 +121,8 @@ internal sealed class TestGame
         var company = World.CreateCompany(World.Companies.Count() + 1, name, "#ff8800", seat: slot is { } s ? new EstateKey(new DistrictCoord(0, 0), s) : null);
         company.Gold = gold;
         company.Level = level;
+        // What a company of that level has: Copper Pipes from Level 8, as a level-up grants them
+        World.GrantResearch(company);
         return company;
     }
 

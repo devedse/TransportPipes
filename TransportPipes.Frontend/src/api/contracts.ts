@@ -134,6 +134,8 @@ export interface CompanyDto {
   eraWonderLine: ProjectWeekDto | null;
   /** Refinements after an Era's tree (after run 3, step 6) */
   refine: RefineDto;
+  /** The pipe ladder on the goal tracker while a pipe is full (after run 4) */
+  pipes: PipesLineDto | null;
 }
 
 /**
@@ -616,7 +618,7 @@ export interface BuildingDetailsDto {
   status: BuildingStatusDto | null;
   /** Its trade with the neighbours, for its owner (step 4) */
   trade: BuildingTradeDto | null;
-  /** What the next level and Max will do to your income, solved ("+0 g/min: its pipes carry 100 coal a minute") */
+  /** What the next level and Max will do to your income, solved ("adds nothing: its pipes carry 100 coal a minute") */
   upgradePreview: string | null;
   maxPreview: string | null;
   /** Its last purchase can be taken back for this much gold until undoUntil */
@@ -626,6 +628,8 @@ export interface BuildingDetailsDto {
   site: SiteDto | null;
   /** The station's Refinements it gets, named: "Bricks +6% · Cleo's research 💛" */
   refined: string[] | null;
+  /** Its pipe door, when its pipe is what holds it back */
+  pipeDoor: PipeDoorDto | null;
 }
 
 /**
@@ -689,9 +693,40 @@ export interface BuildingStatusDto {
   fix: BuildingFixDto | null;
 }
 
-/** The one fix button: lay a planned pipe (tiles as x, y pairs), open another building, repair, upgrade, build, a pipe tier, or widen */
+/** "Your Iron Mine's pipe is full: Copper Pipe on its link, then Level 30": the building, and the ladder */
+export interface PipesLineDto {
+  text: string;
+  building: number;
+  full: number;
+  /** "Grey Pipe · Copper Pipe · Steel Pipe with Era 2" */
+  ladder: string;
+}
+
+/**
+ * The way up a full pipe (after run 4: the pipe tier is the game's real level cap): the next tier or Widen on its full
+ * links, then the levels the new pipe carries, with one preview
+ */
+export interface PipeDoorDto {
+  kind: "tier" | "widen" | "waits" | "locked";
+  /** What it does: "Copper Pipe on its 2 links (34 tiles), then Level 30" */
+  text: string;
+  /** Its button: the text with the price */
+  label: string;
+  gold: number;
+  levelCost: number;
+  toLevel: number;
+  gain: number;
+  materials: ResourceAmountDto[];
+  /** Of what the pipe takes, what your Storages lack */
+  short: ResourceAmountDto[];
+  /** Where the goods it lacks come from: "Cleo makes copper ingots: the Yard brings them" */
+  source: string | null;
+  orderCost: number | null;
+}
+
+/** The one fix button: lay a planned pipe (tiles as x, y pairs), open another building, repair, upgrade, build, or its pipe door */
 export interface BuildingFixDto {
-  kind: "layPipe" | "open" | "repair" | "upgrade" | "build" | "pipeTier" | "widen";
+  kind: "layPipe" | "open" | "repair" | "upgrade" | "build" | "climb";
   label: string;
   tiles: number[];
   newTiles: number;
@@ -862,6 +897,8 @@ export interface ResearchDefinition {
   branch: ResearchBranch;
   era: number;
   level: number;
+  /** Every company gets it at this Company Level once its Era has come (0: only by research) */
+  grant: number;
   cost: number;
   minutes: number;
   requires: string[];
@@ -1455,7 +1492,7 @@ export interface NextStepDto {
   title: string;
   reason: string;
   action:
-    "upgrade" | "build" | "select" | "research" | "parcel" | "partner" | "pipes" | "connect" | "layPipe";
+    "upgrade" | "build" | "select" | "research" | "parcel" | "partner" | "climb" | "connect" | "layPipe";
   cost: number;
   gainPerMinute: number;
   paybackMinutes: number | null;

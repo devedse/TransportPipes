@@ -23,6 +23,14 @@ public sealed partial class GameWorld
         }
         PlanEvents();
         EnsureEraWonder();
+        if (!_grantsChecked)
+        {
+            _grantsChecked = true;
+            foreach (var company in _companies.Values.ToList())
+            {
+                GrantResearch(company);
+            }
+        }
         // Everything that finishes in between, in the order it happens
         var events = new List<(DateTime At, long Order, Action Run)>();
         foreach (var (at, run) in EventMoments(LastTick, now).ToList())

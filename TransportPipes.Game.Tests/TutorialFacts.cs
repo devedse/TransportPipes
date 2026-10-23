@@ -117,8 +117,8 @@ public class TutorialFacts
         var firstOfTwo = tutorial.First(t => t.Chapter == 2);
 
         Assert.AreEqual(12, tutorial.Count(t => t.Chapter == 1), "chapter 1, with Loady's gift step (step 4 of the redesign)");
-        Assert.AreEqual(8, tutorial.Count(t => t.Chapter == 2));
-        Assert.AreEqual((2, 1, 8), game.World.TutorialChapter(firstOfTwo));
+        Assert.AreEqual(9, tutorial.Count(t => t.Chapter == 2), "with the first Copper Pipe (after run 4)");
+        Assert.AreEqual((2, 1, 9), game.World.TutorialChapter(firstOfTwo));
         Assert.IsTrue(tutorial.SkipWhile(t => t.Chapter == 1).All(t => t.Chapter == 2), "chapter 2 comes after chapter 1");
     }
 
@@ -159,7 +159,10 @@ public class TutorialFacts
         Assert.AreEqual("copperIngots", step.Id, "copper first: it isn't done");
         company.Stats["produced:copperIngot"] = 5;
         game.Pass(1);
-        Assert.AreEqual("moreOrders", game.World.CurrentTutorialStep(company)!.Id, "the milestone and the researches were done already");
+        Assert.AreEqual("copperPipe", game.World.CurrentTutorialStep(company)!.Id, "the milestone was done already; the first Copper Pipe is next");
+        company.Stats["pipeTiers"] = 3;
+        game.Pass(1);
+        Assert.AreEqual("moreOrders", game.World.CurrentTutorialStep(company)!.Id, "the researches were done already");
         Assert.IsGreaterThan(gold, company.Gold, "with their thank-yous");
     }
 

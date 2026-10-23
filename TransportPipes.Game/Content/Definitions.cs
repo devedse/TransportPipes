@@ -191,6 +191,12 @@ public sealed class ResearchDefinition
     /// <summary>The Company Level needed to start it (late-game techs)</summary>
     public int Level { get; init; }
 
+    /// <summary>
+    /// A tech every company gets at this Company Level once its Era has come, Lab or not (0: only by research). After run
+    /// 4: the pipe tier is the game's real level cap, and five of seven players never researched Copper Pipes
+    /// </summary>
+    public int Grant { get; init; }
+
     /// <summary>Research points, before knowledge diffusion</summary>
     public double Cost { get; init; }
 

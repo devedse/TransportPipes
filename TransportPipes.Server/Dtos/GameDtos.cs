@@ -136,7 +136,12 @@ public record CompanyDto(
     /// <summary>The Era Wonder on the goal tracker (after run 3, step 5): its stage's share, and your part or what it wants</summary>
     ProjectWeekDto? EraWonderLine = null,
     /// <summary>Refinements after an Era's tree (after run 3, step 6)</summary>
-    RefineDto? Refine = null);
+    RefineDto? Refine = null,
+    /// <summary>The pipe ladder on the goal tracker while a pipe is full (after run 4: the way up was nowhere in sight)</summary>
+    PipesLineDto? Pipes = null);
+
+/// <summary>"Your Iron Mine's Grey Pipe is full: Copper Pipe on its link, then Level 30": the building to open, and the ladder ("Grey · Copper · Steel with Era 2")</summary>
+public record PipesLineDto(string Text, long Building, int Full, string Ladder);
 
 /// <summary>
 /// Refinements: whether they are open (the Era's tree is done), what the next costs, what the Labs refine now and next, the
@@ -335,7 +340,7 @@ public record BuildingDetailsDto(
     MaxMoreDto? MaxMore = null,
     BuildingStatusDto? Status = null,
     BuildingTradeDto? Trade = null,
-    /// <summary>What the next level and Max will do to your income, solved (after run 3: "+0 g/min: its pipes carry 100 coal a minute")</summary>
+    /// <summary>What the next level and Max will do to your income, solved (after run 3: "adds nothing: its pipes carry 100 coal a minute")</summary>
     string? UpgradePreview = null,
     string? MaxPreview = null,
     /// <summary>Its last purchase can be taken back for this much gold until UndoUntil (null: nothing to undo)</summary>
@@ -344,7 +349,20 @@ public record BuildingDetailsDto(
     /// <summary>A scaffold that still wants materials (null: none)</summary>
     SiteDto? Site = null,
     /// <summary>The station's Refinements this building gets, named: "Bricks +6% · Cleo's research 💛"</summary>
-    IReadOnlyList<string>? Refined = null);
+    IReadOnlyList<string>? Refined = null,
+    /// <summary>Its pipe door, when its pipe is what holds it back (after run 4)</summary>
+    PipeDoorDto? PipeDoor = null);
+
+/// <summary>
+/// The way up a full pipe (after run 4: the pipe tier is the game's real level cap, and its door was nowhere a player
+/// looked): the next tier or Widen on its full links, then the levels the new pipe carries, with one preview
+/// </summary>
+/// <param name="Kind">"tier", "widen", "waits" (its goods come first) or "locked" ("Copper Pipes: yours at Company Level 8")</param>
+/// <param name="Text">What it does: "Copper Pipe on its 2 links (34 tiles), then Level 30"</param>
+/// <param name="Label">Its button: the text with the price</param>
+/// <param name="Short">Of what the pipe takes, what your Storages lack, and where it comes from</param>
+public record PipeDoorDto(string Kind, string Text, string Label, double Gold, double LevelCost, int ToLevel, double Gain,
+    IReadOnlyList<ResourceAmountDto> Materials, IReadOnlyList<ResourceAmountDto> Short, string? Source, double? OrderCost);
 
 /// <summary>
 /// A building's trade with its neighbours, for its owner (step 4): who takes its goods and who sends it its inputs (both

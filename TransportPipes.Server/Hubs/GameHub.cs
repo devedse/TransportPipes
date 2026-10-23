@@ -1244,6 +1244,10 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> WidenPipes(int[] tiles, int factor) =>
         Command((world, company) => world.WidenPipes(company, Tiles(tiles), factor));
 
+    /// <summary>Goes through a building's pipe door (order: order the goods it lacks now, even when a friend makes them)</summary>
+    public Task<CommandResultDto> ClimbPipe(long buildingId, bool order) =>
+        Command((world, company) => world.ClimbPipe(company, buildingId, order));
+
     public Task<CommandResultDto> RemovePipes(int[] tiles) =>
         Command((world, company) => world.RemovePipes(company, Tiles(tiles)));
 

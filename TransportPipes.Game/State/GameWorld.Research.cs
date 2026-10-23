@@ -7,6 +7,42 @@ public sealed partial class GameWorld
     /// <summary>Companies seen in this period count for knowledge diffusion</summary>
     public static readonly TimeSpan ActivePeriod = TimeSpan.FromDays(7);
 
+    /// <summary>
+    /// The techs every company gets at a Company Level once their Era has come (Copper Pipes at Level 8, Steel Pipes with
+    /// Era 2): the pipe tier is the game's real level cap, so the way up is nobody's Lab's luck (after run 4: every pipe
+    /// stayed grey all month, and five of seven players never researched)
+    /// </summary>
+    public void GrantResearch(Company company)
+    {
+        if (company.IsNpc)
+        {
+            return;
+        }
+        foreach (var tech in Content.ResearchList.Where(t => t.Grant > 0 && t.Era <= Era && company.Level >= t.Grant && !company.Researched.Contains(t.Id)))
+        {
+            company.Researched.Add(tech.Id);
+            if (company.CurrentResearch == tech.Id)
+            {
+                // The Lab was at it: it moves on
+                company.CurrentResearch = null;
+                company.ResearchEndsAt = null;
+                StartQueuedResearch(company);
+            }
+            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ResearchFinished,
+                $"{tech.Name} are yours{(tech.Era > 1 ? $" with Era {tech.Era}" : $" at Company Level {tech.Grant}")}: a full pipe's building offers them on its panel"));
+            foreach (var conductor in _conductors.Values.Where(t => t.Owner == company.Id))
+            {
+                MarkDirty(conductor.Pos);
+            }
+            MarkCompanyNetworksDirty(company.Id);
+            company.Touch();
+            Changes.Companies.Add(company.Id);
+        }
+    }
+
+    /// <summary>Every company's grants, once after the world is loaded (a world from before the grants)</summary>
+    private bool _grantsChecked;
+
     /// <summary>A tech costs at most this much less when every active company has it</summary>
     public const double MaxDiffusionDiscount = 0.5;
 

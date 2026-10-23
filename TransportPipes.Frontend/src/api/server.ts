@@ -388,6 +388,8 @@ export class GameConnection {
   removePipes = (tiles: number[]) => this.invoke<CommandResult>("RemovePipes", tiles);
   upgradePipes = (tiles: number[], tier: number) => this.invoke<CommandResult>("UpgradePipes", tiles, tier);
   widenPipes = (tiles: number[], factor: number) => this.invoke<CommandResult>("WidenPipes", tiles, factor);
+  climbPipe = (buildingId: number, order: boolean) =>
+    this.invoke<CommandResult>("ClimbPipe", buildingId, order);
   upgrade = (building: number, levels: number) => this.invoke<CommandResult>("Upgrade", building, levels);
   upgradeMany = (buildings: number[], levelsEach: number, budget: number | null) =>
     this.invoke<{ success: boolean; error: string | null; levels: number; gold: number }>(

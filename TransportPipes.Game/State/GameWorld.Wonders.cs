@@ -416,6 +416,10 @@ public sealed partial class GameWorld
 
         Era++;
         EraStartedAt = LastTick;
+        foreach (var company in _companies.Values.ToList())
+        {
+            GrantResearch(company);
+        }
         var lifted = EraWonder is { Stage: >= 1 };
         // The tiers of the next Era Wonder are a share of what each makes in that Era
         foreach (var company in _companies.Values)

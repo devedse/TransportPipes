@@ -22,11 +22,11 @@ public enum IdleFixKind
     /// <summary>The build tool with BuildingType</summary>
     Build,
 
-    /// <summary>Raises the pipe Tiles to Tier (a want when its materials aren't in the Storages: after run 3, step 3)</summary>
-    PipeTier,
-
-    /// <summary>Widens the Copper or Steel pipe Tiles ×Tier for hours of income (after run 3, step 9)</summary>
-    Widen,
+    /// <summary>
+    /// Goes through Building's pipe door: the next tier on its full links (its goods a want, or ordered), or Widen at a
+    /// Copper or Steel Pipe's limit, then the levels the new pipe carries (after run 4: one door, on the panel)
+    /// </summary>
+    Climb,
 }
 
 /// <summary>The one fix button of a building's panel: what it does, its label, and what it needs; OwnNeed: a pipe to your own short building</summary>
@@ -147,15 +147,10 @@ public sealed partial class GameWorld
                 // carries its pipe's throughput), a better pipe carries more
                 var (could, carried) = PipeCarry(building, reason.Resource!);
                 var second = Content.BuildingList.FirstOrDefault(t => t.Kind == BuildingKind.TradingPost && t.Buildable && Company(building.Owner) is { } owner && IsUnlocked(owner, t, out _));
-                // A full Copper or Steel Pipe widens first (step 9); else the next pipe tier on its full link (step 3: its
-                // ingots are a want when the Storages don't hold them)
-                IdleFix? fix = WidenOffer(building, reason.Resource!) is { } widen
-                    ? new IdleFix(IdleFixKind.Widen, $"Widen its pipe ×{widen.Factor} · {Gold(widen.Cost)} ({(widen.From > 1 ? "2 more hours" : "1 hour")} of your income) · carries {Amount(widen.Carries)} a minute",
-                        Cost: widen.Cost, Tiles: widen.Tiles, Tier: widen.Factor)
-                    : NextPipeTier(building, reason.Resource!) is { } better
-                    ? new IdleFix(IdleFixKind.PipeTier, $"{better.Tier.Name} on its pipe · {Tiles(better.Tiles.Count)} · {Gold(better.Tier.Gold * better.Tiles.Count)}"
-                        + string.Concat(better.Tier.Materials.Select(t => $" + {t.Value * better.Tiles.Count:N0} {GoodsWord(t.Key)}")) + $" · carries {Amount(better.Tier.Throughput * (1 + ThroughputBonus(building.Owner)))} a minute",
-                        Cost: better.Tier.Gold * better.Tiles.Count, Tiles: better.Tiles, Tier: better.Tier.Tier)
+                // Its pipe door: the next tier or Widen, then the levels the new pipe carries (after run 4: one door, with its
+                // preview, where the run's players looked); before Copper Pipes, a second taker on a pipe of its own
+                IdleFix? fix = Company(building.Owner) is { } climber && PipeDoorFor(climber, building, preview: false) is { Kind: not PipeDoorKind.Locked } door
+                    ? new IdleFix(IdleFixKind.Climb, DoorLabel(door), Building: building.Id, Cost: door.Kind == PipeDoorKind.Waits ? door.OrderCost ?? 0 : door.Gold + door.LevelCost)
                     : second == null ? null : new IdleFix(IdleFixKind.Build, $"Build a second {second.Name} on its pipe · {Gold(second.Cost.Gold)}", BuildingType: second.Id, Cost: second.Cost.Gold);
                 return new IdleStatus(reason, $"Slowed: its pipes carry {Amount(carried)} {good} a minute",
                     $"It could make {Amount(could)} a minute, but a pipe connection carries only so much (Grey Pipe: 100 a minute). A better or wider pipe, or a second taker on a pipe of its own, takes more.",
@@ -168,24 +163,14 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// The next pipe tier its owner may lay on the full links a building's good leaves by: the owner's own pipe tiles on
-    /// them below that tier (null: none unlocked, or no such tiles)
+    /// A pipe door's button: "Copper Pipe on its 2 links (34 tiles), then Level 30 · 212k + 34 copper ingots", "Widen its
+    /// link ×2, then Level 27 · 98k", "Its Copper Pipe waits for 22 copper ingots · Order them · 1,584"
     /// </summary>
-    private (PipeTierDefinition Tier, List<TilePos> Tiles)? NextPipeTier(Building building, string resource)
+    public string DoorLabel(PipeDoor door) => door.Kind switch
     {
-        if (Company(building.Owner) is not { } owner)
-        {
-            return null;
-        }
-        var pipes = FullLinkPipes(building, resource);
-        if (pipes.Count == 0)
-        {
-            return null;
-        }
-        var lowest = pipes.Min(t => t.Tier);
-        var next = Content.PipeTiers.Where(t => t.Tier > lowest && t.Era <= Era && (t.Research == null || HasResearch(owner, t.Research))).OrderBy(t => t.Tier).FirstOrDefault();
-        return next == null ? null : (next, pipes.Where(t => t.Tier < next.Tier).Select(t => t.Pos).ToList());
-    }
+        PipeDoorKind.Waits => door.OrderCost is { } cost ? $"{door.Text} · Order them · {Gold(cost)}" : $"{door.Text}: the hub brings them",
+        _ => $"{door.Text} · {Gold(door.Gold + door.LevelCost)}{string.Concat(door.Materials.Select(t => $" + {Amount(t.Value)} {GoodsWord(t.Key)}"))}",
+    };
 
     /// <summary>What a building gets of an input now, and what it would need at full speed</summary>
     private (double Have, double Need) InputHaveNeed(Building building, string resource)

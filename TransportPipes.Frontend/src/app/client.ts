@@ -593,27 +593,37 @@ export class GameClient {
           );
         }
         break;
-      case "pipeTier": {
-        const tiles: TilePosition[] = [];
-        for (let i = 0; i + 1 < fix.tiles.length; i += 2) {
-          tiles.push({ x: fix.tiles[i]!, y: fix.tiles[i + 1]! });
-        }
-        await this.upgradePipes(tiles, fix.tier);
-        void this.refreshCompany();
-        break;
-      }
-      case "widen":
-        // A full Copper or Steel Pipe carries ×2 or ×4 for hours of income (after run 3, step 9)
-        if (
-          await this.command(
-            this.connection.widenPipes(fix.tiles, fix.tier),
-            `Widened ×${fix.tier}: it carries more now`,
-          )
-        ) {
-          window.setTimeout(() => void this.refreshNetwork(), 1200);
-          void this.refreshCompany();
+      case "climb":
+        if (fix.building !== null) {
+          await this.climbPipe(fix.building);
         }
         break;
+    }
+  }
+
+  /**
+   * Goes through a building's pipe door (after run 4): the next pipe tier or Widen on its full links, then the levels the
+   * new pipe carries; goods the pipe lacks come from a friend or an order (order: now, even when a friend makes them)
+   */
+  async climbPipe(building: number, order = false) {
+    const details = appStore.getState().buildingDetails;
+    const door = details?.building.id === building ? details.pipeDoor : null;
+    const done =
+      door === null
+        ? "Done"
+        : door.kind === "waits"
+          ? "Ordered: the hub brings them over six hours, then the pipe is laid"
+          : door.short.length > 0
+            ? order || (door.source ?? "").startsWith("nobody")
+              ? "Ordered: the hub brings what the pipe needs over six hours, then it is laid"
+              : `It waits for its ${door.short.map((t) => appStore.getState().content?.resourceName(t.resource).toLowerCase() ?? t.resource).join(" and ")}: ${door.source ?? "the Yard brings them"}`
+            : door.toLevel > 0
+              ? `${door.kind === "widen" ? "Widened" : "Laid"}, and Level ${door.toLevel}: it carries more now`
+              : `${door.kind === "widen" ? "Widened" : "Laid"}: it carries more now`;
+    if (await this.command(this.connection.climbPipe(building, order), done)) {
+      window.setTimeout(() => void this.refreshNetwork(), 1200);
+      void this.refreshCompany();
+      void this.refreshDetails();
     }
   }
 
@@ -1664,10 +1674,13 @@ export class GameClient {
       case "layPipe":
         await this.layPipeNow(step.tiles, "Laid: its goods can leave now");
         break;
-      case "pipes":
-        if (step.network !== null && step.x !== null && step.y !== null) {
-          this.engine?.lookAt(step.x, step.y, 0.8);
-          this.selectNetwork(step.network, { x: step.x, y: step.y });
+      case "climb":
+        // Its panel shows the door with its preview
+        if (step.building !== null) {
+          if (step.x !== null && step.y !== null) {
+            this.engine?.lookAt(step.x, step.y, 0.8);
+          }
+          this.select(step.building);
         }
         break;
     }
@@ -1757,6 +1770,15 @@ export class GameClient {
         const py = company.estateY + Math.floor(parcel / PARCELS_PER_SIDE) * PARCEL_SIZE + PARCEL_SIZE / 2;
         this.engine?.lookAt(px, py, 0.5);
         setState({ selectedParcel: parcel, selectedParcelEstate: 0 });
+      }
+      return;
+    }
+    if (hint.select === "pipeFull") {
+      // The building whose pipe is full: its panel has the pipe door (after run 4)
+      if (company.pipes !== null) {
+        this.showBuilding(company.pipes.building);
+      } else {
+        toast("No pipe is full yet: when one is, its building's panel shows the way up");
       }
       return;
     }

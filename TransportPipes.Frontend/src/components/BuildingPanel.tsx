@@ -429,7 +429,9 @@ export function BuildingPanel() {
             </button>
           ) : (
             mine &&
-            details.status.fix !== null && (
+            details.status.fix !== null &&
+            // The pipe door stands in the upgrade section below, with its preview: one button, not two
+            !(details.status.fix.kind === "climb" && details.pipeDoor !== null) && (
               <button
                 className="primary wide fix"
                 onClick={() => void gameClient.fixBuilding(details, details.status!.fix!)}
@@ -506,8 +508,12 @@ export function BuildingPanel() {
               )}
             </p>
           )}
-          {details.maxMore !== null && (
-            <MaxMore details={details} content={content} gold={gold} level={building.level} />
+          {details.pipeDoor !== null ? (
+            <PipeDoor details={details} content={content} gold={gold} income={income} />
+          ) : (
+            details.maxMore !== null && (
+              <MaxMore details={details} content={content} gold={gold} level={building.level} />
+            )
           )}
         </section>
       )}
@@ -834,6 +840,86 @@ export function BuildingPanel() {
   );
 }
 
+/**
+ * The pipe door (after run 4: the pipe tier is the game's real level cap, and the panel said "+0 g/min: its pipes carry
+ * 205 iron ore a minute" with no button): the next pipe tier or Widen on its full links, then the levels the new pipe
+ * carries, as one button with its preview; goods it lacks come from a friend or an order
+ */
+function PipeDoor({
+  details,
+  content,
+  gold,
+  income,
+}: {
+  details: BuildingDetailsDto;
+  content: Content;
+  gold: number;
+  income: number;
+}) {
+  const door = details.pipeDoor!;
+  const name = (resource: string) => content.resourceName(resource).toLowerCase();
+  if (door.kind === "locked") {
+    return <p className="muted small pipe-door locked">Its pipe is full. {door.text}.</p>;
+  }
+  if (door.kind === "waits") {
+    return (
+      <div className="pipe-door">
+        <p className="small">
+          <strong>{door.text}</strong>
+          {door.source !== null && <> · {door.source}</>}
+        </p>
+        {door.orderCost !== null && (
+          <button
+            className="primary"
+            disabled={gold < door.orderCost}
+            onClick={() => void gameClient.climbPipe(details.building.id)}
+          >
+            Order them · {formatAmount(door.orderCost)} g
+          </button>
+        )}
+      </div>
+    );
+  }
+  const cost = door.gold + door.levelCost;
+  const payback = door.gain > 0.5 ? cost / door.gain : null;
+  return (
+    <div className="pipe-door">
+      <p className="small pipe-door-why">
+        <strong>Its pipe is full: this is the way up.</strong>{" "}
+        {door.kind === "widen"
+          ? "A wider pipe carries twice as much, for hours of your income."
+          : "A better pipe carries far more, and the levels after it pay."}
+      </p>
+      <button
+        className="primary wide"
+        disabled={gold < cost}
+        onClick={() => void gameClient.climbPipe(details.building.id)}
+      >
+        {door.label}
+      </button>
+      <p className="small spend-preview">
+        {door.gain > 0.5 ? `+${formatAmount(door.gain)} g/min` : "Its gain shows once its goods are in"}
+        {payback !== null && income > 0 && ` · pays back in ${formatDuration(payback * 60)}`}
+      </p>
+      {door.short.length > 0 && (
+        <p className="small muted">
+          It takes {door.materials.map((t) => `${formatAmount(t.amount)} ${name(t.resource)}`).join(" and ")};
+          your Storages lack {door.short.map((t) => `${formatAmount(t.amount)}`).join(" and ")}. {door.source}
+          .{" "}
+          {!(door.source ?? "").startsWith("nobody") && (
+            <button
+              className="link small"
+              onClick={() => void gameClient.climbPipe(details.building.id, true)}
+            >
+              Order them now instead
+            </button>
+          )}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** Why Max stops where it does (F8): what the levels beyond would do, and on "more…" the choice to buy them anyway */
 function MaxMore({
   details,
@@ -850,11 +936,13 @@ function MaxMore({
   const more = details.maxMore!;
   const good = more.resource !== null ? content.resourceName(more.resource).toLowerCase() : "";
   const useful = details.maxAffordableLevels;
+  // In words, never a bare "+41" beside a gold figure (after run 4: Ben read "+41 would make nothing more" as income)
+  const past = `Past level ${level + useful}`;
   const reason = more.output
     ? details.status?.cause === "postFull"
-      ? `+${more.levels} would sell nothing more: your Trading Post sells all it can. Upgrade it first.`
-      : `+${more.levels} would make nothing more: nothing on its pipes takes more ${good}`
-    : `+${more.levels} would run at ${Math.round(more.share * 100)}%: its pipes bring ${formatAmount(more.have)} of ${formatAmount(more.need)} ${good}`;
+      ? `${past} it would sell nothing more: your Trading Post sells all it can. Upgrade the Trading Post first.`
+      : `${past} it would make nothing more: nothing on its pipes takes more ${good}`
+    : `${past} it would run at ${Math.round(more.share * 100)}%: its pipes bring ${formatAmount(more.have)} of the ${formatAmount(more.need)} ${good} it would need`;
   return (
     <div className="max-more">
       <p className="muted small">

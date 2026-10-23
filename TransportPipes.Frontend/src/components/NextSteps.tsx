@@ -108,23 +108,16 @@ export function NextSteps() {
                   </strong>
                   <span className="next-step-reason">{step.reason}</span>
                   <div className="next-step-actions">
-                    {step.action === "pipes" ? (
+                    {step.action === "climb" && step.building !== null ? (
+                      // The pipe door (after run 4): the pipe, then the levels it carries, in one tap
                       <button
                         className="primary"
                         disabled={short}
-                        onClick={() =>
-                          void gameClient.upgradePipes(
-                            Array.from({ length: step.tiles.length / 2 }, (_, i) => ({
-                              x: step.tiles[i * 2]!,
-                              y: step.tiles[i * 2 + 1]!,
-                            })),
-                            step.tier,
-                          )
-                        }
+                        onClick={() => void gameClient.climbPipe(step.building!)}
                       >
                         {short && step.waitMinutes !== null
                           ? `In ${minutes(step.waitMinutes)}`
-                          : `Upgrade pipes · ${formatAmount(step.cost)} g`}
+                          : `Do it · ${formatAmount(step.cost)} g`}
                       </button>
                     ) : step.action === "layPipe" ? (
                       <button
@@ -155,7 +148,7 @@ export function NextSteps() {
                     )}
                     <button
                       className={
-                        step.action === "upgrade" || step.action === "pipes" || step.action === "layPipe"
+                        step.action === "upgrade" || step.action === "climb" || step.action === "layPipe"
                           ? "link small"
                           : "small"
                       }

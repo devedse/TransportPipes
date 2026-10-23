@@ -323,7 +323,7 @@ public class BalanceSimulation
                     AdvisorAction.Research => step.Research != null && World.StartResearch(company.Id, step.Research).Success,
                     AdvisorAction.Parcel => World.BuyParcel(company.Id, step.Parcel!.Value).Success,
                     AdvisorAction.Partner => ConnectNeighbour() != null,
-                    AdvisorAction.Pipes => World.UpgradePipes(company.Id, step.Tiles!, step.Tier).Success,
+                    AdvisorAction.Climb => World.ClimbPipe(company.Id, step.Building!.Value, order: true).Success,
                     AdvisorAction.Connect => ConnectAll(),
                     _ => false,
                 };

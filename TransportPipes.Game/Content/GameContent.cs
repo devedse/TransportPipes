@@ -477,6 +477,7 @@ public sealed class GameContent
         public string Branch { get; set; } = "energy";
         public int Era { get; set; } = 1;
         public int Level { get; set; }
+        public int Grant { get; set; }
         public double Cost { get; set; }
         public double Minutes { get; set; }
         public List<string> Requires { get; set; } = new();
@@ -490,6 +491,7 @@ public sealed class GameContent
             Branch = Enum.Parse<ResearchBranch>(Branch, ignoreCase: true),
             Era = Era,
             Level = Level,
+            Grant = Grant,
             Cost = Cost,
             Minutes = Minutes,
             Requires = Requires,

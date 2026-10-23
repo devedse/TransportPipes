@@ -1,3 +1,4 @@
+using TransportPipes.Game.Simulation;
 using TransportPipes.Game.World;
 
 namespace TransportPipes.Game.State;
@@ -17,8 +18,11 @@ public sealed partial class GameWorld
     /// <summary>Copper and Steel Pipes widen; Grey and the late tiers don't</summary>
     public static bool Widens(int tier) => tier is 2 or 3;
 
-    /// <summary>What widening a company's pipes from one factor to another costs: the hours between, of its measured income</summary>
-    public double WidenCost(Company company, int from, int to) => Math.Ceiling((WidenHours(to) - WidenHours(from)) * 60 * MeasuredIncome(company));
+    /// <summary>
+    /// What widening a company's pipes from one factor to another costs: the hours between, of its measured income, for
+    /// each link they carry (after run 4: one price widened any number of links)
+    /// </summary>
+    public double WidenCost(Company company, int from, int to, int links = 1) => Math.Ceiling((WidenHours(to) - WidenHours(from)) * 60 * MeasuredIncome(company) * Math.Max(1, links));
 
     /// <summary>Widens a company's Copper or Steel Pipe tiles to ×2 or ×4, for hours of its income</summary>
     public CommandResult WidenPipes(long companyId, IReadOnlyList<TilePos> tiles, int factor)
@@ -49,7 +53,7 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail($"That pipe carries ×{from} already.");
         }
-        var cost = WidenCost(company, from, factor);
+        var cost = WidenCost(company, from, factor, LinksThrough(companyId, pipes.Select(t => t.Pos).ToList()));
         var payment = Pay(company, cost, new Dictionary<string, double>());
         if (!payment.Success)
         {
@@ -66,18 +70,28 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
+    /// <summary>The links a building's good leaves by that carry all they can</summary>
+    private List<FlowLink> FullLinks(Building building, string resource) =>
+        NetworkOf(building.Id) is not { } network ? []
+            : network.Links.Where(t => (t.A == building.Id || t.B == building.Id) && t.Allows(resource)
+                && network.Solution.Flows.Where(f => f.From == building.Id && f.Resource == resource && t.Connects(f.From, f.To)).Sum(f => f.Sent) >= t.Capacity * 0.98).ToList();
+
     /// <summary>The owner's pipe tiles on the full links a building's good leaves by</summary>
-    private List<Conductor> FullLinkPipes(Building building, string resource)
-    {
-        if (NetworkOf(building.Id) is not { } network)
-        {
-            return [];
-        }
-        var links = network.Links.Where(t => (t.A == building.Id || t.B == building.Id) && t.Allows(resource)
-            && network.Solution.Flows.Where(f => f.From == building.Id && f.Resource == resource && t.Connects(f.From, f.To)).Sum(f => f.Sent) >= t.Capacity * 0.98).ToList();
-        return links.SelectMany(t => t.Path).Distinct()
+    private List<Conductor> FullLinkPipes(Building building, string resource) =>
+        FullLinks(building, resource).SelectMany(t => t.Path).Distinct()
             .Select(t => _conductors.TryGetValue(t, out var c) ? c : null).OfType<Conductor>()
             .Where(t => t.Kind == ConductorKind.Pipe && t.Owner == building.Owner).ToList();
+
+    /// <summary>How many of a company's links run through some pipe tiles (Widen is paid per link)</summary>
+    private int LinksThrough(long companyId, IReadOnlyCollection<TilePos> tiles)
+    {
+        var set = tiles.ToHashSet();
+        return Math.Max(1, _networks.Values.Where(t => t.Conductors.Overlaps(set))
+            .SelectMany(t => t.Links)
+            .Where(t => t.Path.Any(set.Contains))
+            .Select(t => (Math.Min(t.A, t.B), Math.Max(t.A, t.B)))
+            .Distinct()
+            .Count());
     }
 
     /// <summary>Widen for a building whose Copper or Steel Pipe is full: to what, for how much, and what it carries then (null: none)</summary>
@@ -94,6 +108,7 @@ public sealed partial class GameWorld
         }
         var factor = from >= 2 ? MaxWiden : 2;
         var carries = Content.PipeTier(pipes.Min(t => t.Tier)).Throughput * factor * (1 + ThroughputBonus(owner.Id));
-        return (from, factor, WidenCost(owner, from, factor), pipes.Select(t => t.Pos).ToList(), carries);
+        var tiles = pipes.Select(t => t.Pos).ToList();
+        return (from, factor, WidenCost(owner, from, factor, LinksThrough(owner.Id, tiles)), tiles, carries);
     }
 }

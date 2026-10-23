@@ -36,7 +36,7 @@ public class SpendingFacts
         var preview = game.World.UpgradePreview(company, moily, 1);
 
         Assert.AreEqual(0, preview.Gain, 0.5);
-        Assert.AreEqual("+0 g/min: its pipes carry 100 energy a minute", preview.Text);
+        Assert.AreEqual("adds nothing: its pipes carry 100 energy a minute", preview.Text);
     }
 
     [TestMethod]

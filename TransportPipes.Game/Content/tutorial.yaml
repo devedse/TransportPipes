@@ -36,6 +36,8 @@
     dealtText: "Chapter 2: copper ingots, worth much more than the ore. A Smelter needs copper ore and coal: mine what your land holds (the Deposits overlay shows it), and pipe the Smelter to your Yard gate: a neighbour's or a House's brings the rest by itself." }
 - { id: firstMilestone, chapter: 2, stat: maxLevel, amount: 10, gold: 2500, hint: { select: highest },
     text: "Level 10 doubles what a building makes, and its badge turns green. Upgrade one of your buildings to level 10." }
+- { id: copperPipe, chapter: 2, stat: pipeTiers, amount: 1, gold: 3000, hint: { select: pipeFull },
+    text: "A pipe carries only so much: a grey one 100 a minute to each taker. When a building's pipe is full, its panel shows the way up: a Copper Pipe carries five times as much, and the levels after it pay again. Lay your first Copper Pipe." }
 - { id: threeResearches, chapter: 2, stat: researched, amount: 3, gold: 3000, hint: { panel: research },
     text: "Research is a plan, not a list: pick techs that help what you make. Finish three researches." }
 - { id: moreOrders, chapter: 2, stat: orders, amount: 4, gold: 3000, hint: { panel: hub },

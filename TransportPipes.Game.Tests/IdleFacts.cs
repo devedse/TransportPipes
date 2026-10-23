@@ -152,8 +152,26 @@ public class IdleFacts
         Assert.AreEqual(new IdleReason(IdleCause.PipeFull, "ironOre"), game.World.IdleReasonOf(mine), "the pipe, not its energy");
         var status = game.World.IdleStatusOf(mine);
         Assert.AreEqual("Slowed: its pipes carry 100 iron ore a minute", status.Pill);
+        Assert.AreEqual(IdleFixKind.Climb, status.Fix?.Kind, "its pipe door: Copper Pipes from Company Level 8");
+        StringAssert.StartsWith(status.Fix!.Label, "Copper Pipe on its link");
+    }
+
+    [TestMethod]
+    public void BeforeCopperPipesASecondTakerOnAPipeOfItsOwnCarriesMore()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 6);
+        var map = game.Map(company, game.Local(company, 1, 1), "W+T", pipeTier: 1);
+        company.Gold = 1e9;
+        game.World.UpgradeMany(company.Id, [map[(0, 0)].Id], 14);
+        game.Pass(2);
+
+        var status = game.World.IdleStatusOf(map[(0, 0)]);
+
+        Assert.AreEqual(IdleCause.PipeFull, status.Reason.Cause);
         Assert.AreEqual(IdleFixKind.Build, status.Fix?.Kind);
         Assert.AreEqual("tradingPost", status.Fix?.BuildingType, "a second taker on a pipe of its own carries as much again");
+        StringAssert.Contains(game.World.PipeDoorFor(company, map[(0, 0)])!.Text, "yours at Company Level 8 (you're 6)");
     }
 
     [TestMethod]

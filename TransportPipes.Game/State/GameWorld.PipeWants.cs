@@ -68,6 +68,7 @@ public sealed partial class GameWorld
             }
         }
         owner.Asks.RemoveAll(t => t.PipeTiles != null && t.WantId == ask.WantId);
+        AddStat(owner, "pipeTiers", laid);
         var tier = Content.PipeTier(ask.PipeTier);
         var givers = parts.SelectMany(t => t.From.Where(f => f.Key != owner.Id && f.Key != HubSource && f.Value > 0.5).Select(f => (Who: f.Key, t.Resource, Units: f.Value))).ToList();
         Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.ConstructionFinished,

@@ -242,6 +242,22 @@ export function GoalTracker() {
             </span>
           </li>
         )}
+        {company.pipes !== null && (
+          // The pipe ladder while a pipe is full (after run 4: the way up was in nobody's sight)
+          <li>
+            <span className="goal-label">Pipes</span>
+            <button
+              className="goal-text link"
+              title={`Your pipes: ${company.pipes.ladder}. Open the building: its panel has the way up.`}
+              onClick={() => gameClient.showBuilding(company.pipes!.building)}
+            >
+              🔧 {company.pipes.text} ›
+            </button>
+            <span className="goal-bar">
+              <span style={{ width: "100%" }} />
+            </span>
+          </li>
+        )}
         {company.eraWonderLine !== null && (
           <li>
             <span className="goal-label">Era</span>

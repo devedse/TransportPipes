@@ -73,6 +73,8 @@ public sealed partial class GameWorld
         {
             "parcels" => NextParcel(company).Level,
             "corporation" => CorporationFoundLevel,
+            // Copper Pipes come with Company Level 8 (after run 4)
+            "pipeTiers" => Content.Research.GetValueOrDefault("copperPipes")?.Grant ?? 0,
             // The first building of the hint the company doesn't have yet
             _ => TutorialBuildings(company, step).Where(t => CopiesOwned(company.Id, t) == 0).Select(t => Content.Buildings.TryGetValue(t, out var d) ? d.Unlock.Level : 0).FirstOrDefault(),
         };

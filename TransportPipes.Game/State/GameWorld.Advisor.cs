@@ -65,8 +65,8 @@ public enum AdvisorAction
     /// <summary>Shows the pipe on Tiles as a ghost to lay with one click</summary>
     LayPipe,
 
-    /// <summary>Upgrades the pipe Tiles to Tier (Show me selects Network)</summary>
-    Pipes,
+    /// <summary>Goes through Building's pipe door: the next pipe tier or Widen on its full links, then the levels it carries (Show me selects it)</summary>
+    Climb,
 
     /// <summary>The pipe tool, at Building</summary>
     Connect,
@@ -183,7 +183,7 @@ public sealed partial class GameWorld
         foreach (var network in own)
         {
             PumpStep(company, network, Base, Add);
-            PipeStep(company, network, Base, Add);
+            PipeStep(company, network, Add);
             ShortageSteps(company, network, Base, Add, Worth);
         }
         ResearchStep(company, Add, income, own);
@@ -458,132 +458,55 @@ public sealed partial class GameWorld
         return used.Where(t => t.Key.Capacity < 1e12 && t.Value >= t.Key.Capacity * 0.999).Select(t => t.Key).ToList();
     }
 
-    private void PipeStep(Company company, Network network, Func<Network, double> baseGold, Action<AdvisorStep, double> add)
-    {
-        var full = FullLinks(network);
-        if (full.Count == 0)
-        {
-            return;
-        }
-        // The weakest of the company's own pipes on each full link: upgrading them raises what it carries
-        var weakest = new HashSet<TilePos>();
-        var tier = int.MaxValue;
-        foreach (var link in full)
-        {
-            var own = link.Path.Select(t => _conductors.TryGetValue(t, out var c) ? c : null)
-                .OfType<Conductor>().Where(t => t.Kind == ConductorKind.Pipe && t.Owner == company.Id).ToList();
-            if (own.Count == 0)
-            {
-                continue;
-            }
-            var lowest = own.Min(t => t.Tier);
-            tier = Math.Min(tier, lowest);
-            weakest.UnionWith(own.Where(t => t.Tier == lowest).Select(t => t.Pos));
-        }
-        if (weakest.Count == 0 || Content.PipeTiers.Where(t => t.Tier > tier && t.Era <= Era).OrderBy(t => t.Tier).FirstOrDefault() is not { } next)
-        {
-            return;
-        }
-        var current = Content.PipeTier(tier);
-        var tiles = weakest.Where(t => _conductors[t].Tier == tier).ToList();
-        var factor = next.Throughput / Math.Max(1e-9, current.Throughput);
-        var fullSet = full.ToHashSet(ReferenceEqualityComparer.Instance);
-        var gain = Estimated(network)
-            ? FullLinkValue(network, full) * Math.Min(factor - 1, 1) * 0.5
-            : Math.Max(0, WhatIfGold(network, company.Id, changeLink: t => fullSet.Contains(t) ? t with { Capacity = t.Capacity * factor } : t) - baseGold(network));
-        if (gain < 0.05)
-        {
-            return;
-        }
-        var at = tiles[0];
-        var title = $"Your pipes are full: {tiles.Count} {current.Name} tiles carry all they can";
-        if (next.Research != null && !HasResearch(company, next.Research))
-        {
-            // The better pipe needs research first
-            if (Content.Research.TryGetValue(next.Research, out var tech) && ResearchBlocker(company, tech) == null && ResearchCost(company, tech) <= company.ResearchPoints)
-            {
-                add(new AdvisorStep(AdvisorKind.Pipes, title,
-                    $"Research {tech.Name}: {Plural(next.Name, 2)} carry {Amount(next.Throughput)} a minute instead of {Amount(current.Throughput)}, {Plus(network, gain)} here.",
-                    AdvisorAction.Research, 0, gain, Research: tech.Id, Network: network.Id, At: at), 1);
-            }
-            return;
-        }
-        var cost = tiles.Count * next.Gold;
-        var materials = next.Materials.ToDictionary(t => t.Key, t => t.Value * tiles.Count);
-        var have = Materials(company.Id);
-        var missing = materials.Where(t => have.GetValueOrDefault(t.Key) < t.Value - 1e-9).ToList();
-        if (missing.Count > 0)
-        {
-            // The pipes need something the company doesn't have (copper ingots): the next building on the way to it
-            var (resource, amount) = missing[0];
-            var why = $"{Plural(next.Name, 2)} carry {Amount(next.Throughput)} a minute instead of {Amount(current.Throughput)} ({Plus(network, gain)} here) and need {Amount(amount)} {ResourceWord(resource)}";
-            if (SupplyStep(company, resource, $"{next.Name}s need {ResourceWord(resource)}", why, gain / 2, at) is { } supply)
-            {
-                add(supply, 1);
-            }
-            return;
-        }
-        add(new AdvisorStep(AdvisorKind.Pipes, title,
-            $"{Plural(next.Name, 2)} carry {Amount(next.Throughput)} a minute instead of {Amount(current.Throughput)}: {Plus(network, gain)} for {Gold(cost)}.",
-            AdvisorAction.Pipes, cost, gain, Network: network.Id, Tiles: tiles, Tier: next.Tier, At: at), 1.5);
-    }
-
     /// <summary>
-    /// The first building a company lacks to make a resource it needs (a Smelter for copper ingots, or before it a
-    /// Copper Mine for the ore), or null when it already makes it or can't
+    /// A building whose pipe is full: its pipe door (the next tier or Widen on its full links, then the levels the new pipe
+    /// carries), or the research before it. After run 4 the steps never ran dry where they did: when the company makes
+    /// the ingots itself, can't make them, or can't afford the research yet, the door still offers the pipe, its goods a
+    /// want a friend fills or an order brings
     /// </summary>
-    private AdvisorStep? SupplyStep(Company company, string resource, string title, string why, double gain, TilePos near, int depth = 0)
+    private void PipeStep(Company company, Network network, Action<AdvisorStep, double> add)
     {
-        var makers = Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.ContainsKey(resource) && IsUnlocked(company, t, out _)).ToList();
-        if (depth == 0 && !BuildingsOf(company.Id).Any(t => Content.Building(t.Type).Kind == BuildingKind.Storage)
-            && Content.BuildingList.FirstOrDefault(t => t.Buildable && t.Kind == BuildingKind.Storage && IsUnlocked(company, t, out _)) is { } storage
-            && FindSpot(company, storage, near) is { } storageSpot)
+        var doors = network.Buildings.Select(Building).OfType<Building>()
+            .Where(t => t.Owner == company.Id && IdleReasonOf(t).Cause == IdleCause.PipeFull)
+            .Take(3)
+            .Select(t => (Building: t, Door: PipeDoorFor(company, t)))
+            .Where(t => t.Door != null)
+            .ToList();
+        foreach (var (building, door) in doors.OrderByDescending(t => t.Door!.Gain).Take(1))
         {
-            // Materials come out of storages: without one there is nowhere to keep them
-            return new AdvisorStep(AdvisorKind.Pipes, $"{title}: build {Article(storage.Name)}",
-                $"{why}. Materials come from your storages: {Article(storage.Name)} keeps what you make of it.",
-                AdvisorAction.Build, BuildCost(company, storage), gain, BuildingType: storage.Id, At: storageSpot);
-        }
-        // Something makes it already: the storages keep it as it comes
-        if (depth > 2 || makers.Count == 0 || IsMaking(company, resource))
-        {
-            return null;
-        }
-        var made = BuildingsOf(company.Id).Where(t => IsMaking(company, t)).SelectMany(t => Content.Building(t.Type).Out.Keys).ToHashSet();
-        // A maker the company has that stands idle: what it lacks
-        foreach (var idle in makers.Where(t => CopiesOwned(company.Id, t.Id) > 0))
-        {
-            if (idle.In.Keys.FirstOrDefault(r => !made.Contains(r) && r != resource) is { } lacking
-                && SupplyStep(company, lacking, title, why, gain, near, depth + 1) is { } deeper)
+            var name = BuildingName(building);
+            var good = IdleReasonOf(building).Resource is { } r ? GoodsWord(r) : "goods";
+            var title = $"Your {name}'s pipe is full: it carries all the {good} it can";
+            switch (door!.Kind)
             {
-                return deeper;
+                case PipeDoorKind.Locked:
+                    // The better pipe needs research the Lab can do now (before the grant)
+                    var tier = Content.PipeTier(door.Tier);
+                    if (tier.Research != null && Content.Research.TryGetValue(tier.Research, out var tech) && ResearchBlocker(company, tech) == null && ResearchCost(company, tech) <= company.ResearchPoints)
+                    {
+                        add(new AdvisorStep(AdvisorKind.Pipes, title,
+                            $"Research {tech.Name}: {Plural(tier.Name, 2)} carry {Amount(tier.Throughput)} a minute{(tech.Grant > 0 ? $" (yours anyway at Company Level {tech.Grant})" : "")}.",
+                            AdvisorAction.Research, 0, door.Gain, Research: tech.Id, Network: network.Id, Building: building.Id, At: new TilePos(building.X, building.Y)), 1);
+                    }
+                    break;
+                case PipeDoorKind.Waits:
+                    if (door.OrderCost is { } order)
+                    {
+                        add(new AdvisorStep(AdvisorKind.Pipes, $"{door.Text}",
+                            $"{door.Source}. Order them: the hub brings them over six hours, then the pipe is laid.",
+                            AdvisorAction.Climb, order, door.Gain, Network: network.Id, Building: building.Id, At: new TilePos(building.X, building.Y)), 1.2);
+                    }
+                    break;
+                default:
+                    var cost = door.Gold + door.LevelCost;
+                    var goods = door.Materials.Count == 0 ? ""
+                        : $" + {string.Join(" and ", door.Materials.Select(t => $"{Amount(t.Value)} {GoodsWord(t.Key)}"))}{(door.Short.Count > 0 ? $" ({door.Source})" : "")}";
+                    add(new AdvisorStep(AdvisorKind.Pipes, title,
+                        $"{door.Text}: {Plus(network, door.Gain)} for {Gold(cost)}{goods}.",
+                        AdvisorAction.Climb, cost, door.Gain, Network: network.Id, Building: building.Id, At: new TilePos(building.X, building.Y)), 1.5);
+                    break;
             }
         }
-        if (makers.Any(t => CopiesOwned(company.Id, t.Id) > 0))
-        {
-            return null;
-        }
-        // A maker whose inputs the company already makes first; else what its missing input needs
-        foreach (var maker in makers.OrderBy(t => t.In.Keys.Count(r => !made.Contains(r))).ThenBy(t => t.Cost.Gold))
-        {
-            if (maker.In.Keys.FirstOrDefault(r => !made.Contains(r)) is { } input)
-            {
-                if (SupplyStep(company, input, title, why, gain, near, depth + 1) is { } deeper)
-                {
-                    return deeper;
-                }
-                continue;
-            }
-            if (FindSpot(company, maker, near) is not { } spot)
-            {
-                continue;
-            }
-            var where = maker.Placement.Deposit != null ? $" on your {ResourceWord(maker.Placement.Deposit)}" : "";
-            return new AdvisorStep(AdvisorKind.Pipes, $"{title}: build {Article(maker.Name)}{where}",
-                $"{why}. {(depth == 0 ? $"{Article(maker.Name)} makes it" : $"{Article(maker.Name)} is the first step to it")}" + (maker.In.Count > 0 ? $" from {string.Join(" and ", maker.In.Keys.Select(ResourceWord))}." : "."),
-                AdvisorAction.Build, BuildCost(company, maker), gain, BuildingType: maker.Id, At: spot);
-        }
-        return null;
     }
 
     /// <summary>What a company's buildings in a network need of each resource and get: their full need of what holds them back</summary>

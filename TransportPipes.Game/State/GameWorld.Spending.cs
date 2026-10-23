@@ -40,7 +40,8 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// What upgrading a building by some levels does to its owner's income, solved like the network will run:
-    /// "+105 g/min", "+0 g/min: its pipes carry 100 coal a minute", "−498 g/min: it eats more of the iron ingots you sell"
+    /// "+105 g/min", "adds nothing: its pipes carry 100 coal a minute", "−498 g/min: it eats more of the iron ingots you sell"
+    /// (after run 4: "+0 g/min" beside "+41 would make nothing more" read as two incomes; Ben: "does it even earn?")
     /// </summary>
     public SpendPreview UpgradePreview(Company company, Building building, int levels)
     {
@@ -69,7 +70,7 @@ public sealed partial class GameWorld
             : output && IdleReasonOf(building).Cause == IdleCause.PipeFull ? $": its pipes carry {Amount(have)} {good} a minute"
             : output ? $": nothing on its pipes takes more {good}"
             : $": it gets only {Amount(have)} of the {Amount(need)} {good} it would need";
-        return new SpendPreview(0, $"+0 g/min{why}");
+        return new SpendPreview(0, $"adds nothing{why}");
     }
 
     private static FlowNode? NetworkNode(Network network, Building building) => network.Nodes.FirstOrDefault(t => t.Id == building.Id);

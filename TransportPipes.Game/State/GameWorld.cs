@@ -457,6 +457,8 @@ public sealed partial class GameWorld
             Survey(estate);
         }
         StartProbation(company);
+        // Steel Pipes come with Era 2 to everyone, a newcomer too
+        GrantResearch(company);
         Changes.Companies.Add(company.Id);
         return company;
     }
@@ -1340,6 +1342,7 @@ public sealed partial class GameWorld
             MarkDirty(conductor.Pos);
             Changes.Tiles.Add(conductor.Pos);
         }
+        AddStat(company, "pipeTiers", upgrade.Count);
         return CommandResult.Ok;
     }
 
@@ -1463,6 +1466,7 @@ public sealed partial class GameWorld
             company.Level = level;
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.LevelUp, $"Company Level {level}!"));
             MentorRewards(company);
+            GrantResearch(company);
         }
         company.Touch();
         Changes.Companies.Add(company.Id);

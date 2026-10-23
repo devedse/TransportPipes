@@ -152,9 +152,9 @@ public class WantFacts
 
         var fix = game.World.IdleStatusOf(map[(0, 0)]).Fix;
 
-        Assert.AreEqual(IdleFixKind.PipeTier, fix?.Kind);
-        Assert.AreEqual(2, fix!.Tier);
-        StringAssert.StartsWith(fix.Label, "Copper Pipe on its pipe · 1 tile");
+        Assert.AreEqual(IdleFixKind.Climb, fix?.Kind);
+        StringAssert.StartsWith(fix!.Label, "Copper Pipe on its link (1 tile)");
+        Assert.AreEqual(2, game.World.PipeDoorFor(company, map[(0, 0)])!.Tier);
     }
 
     [TestMethod]
