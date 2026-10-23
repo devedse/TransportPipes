@@ -70,6 +70,83 @@ public class MaxFacts
         Assert.IsTrue(plan.Output, "its output holds it back");
     }
 
+    /// <summary>A Wind Moily that makes far more than its Trading Post sells, and a bank that buys many levels</summary>
+    private static (TestGame Game, Company Company, Building Moily, Building Post) FullPost()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(gold: 50_000_000, level: 30);
+        var map = game.Map(company, game.Local(company, 1, 1), "W+T");
+        game.World.UpgradeMany(company.Id, [map[(0, 0)].Id], 30);
+        game.Pass(2);
+        return (game, company, map[(0, 0)], map[(2, 0)]);
+    }
+
+    [TestMethod]
+    public void MaxOnAFullPostBuysTheLevelsItsBuildingsKeepBusy()
+    {
+        // After run 4's bots: Max bought every level the bank could on a Trading Post, so Grow left the full post out
+        var (game, company, moily, post) = FullPost();
+        Assert.IsTrue(game.World.TradingPostFull(post), "the post sells all it can");
+        var offered = game.World.ToFlowNode(moily)!.Out["energy"] * game.World.ToFlowNode(moily)!.MaxRate;
+        var now = game.World.TradingPostThroughput(post, game.World.Content.Building("tradingPost"));
+        var throughput = (int levels) => now * game.World.Content.Progression.OutputMultiplier(post.Level + levels) / game.World.Content.Progression.OutputMultiplier(post.Level);
+
+        var plan = game.World.SmartMax(company, post);
+
+        Assert.IsGreaterThan(0, plan.Levels, "a full post grows");
+        Assert.IsLessThan(plan.AffordableLevels, plan.Levels, "not every level the bank buys");
+        Assert.IsTrue(offered / throughput(plan.Levels) >= GameWorld.UsefulShare, $"busy at the useful level ({offered:0} of {throughput(plan.Levels):0} a minute)");
+        Assert.IsTrue(offered / throughput(plan.Levels + 1) < GameWorld.UsefulShare, "one level more would stand idle");
+        Assert.IsFalse(plan.Output);
+        Assert.AreEqual(offered, plan.Have, offered * 0.02, "what its buildings bring");
+    }
+
+    [TestMethod]
+    public void MaxOnAPostWithRoomBuysNothing()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(gold: 50_000_000, level: 30);
+        var map = game.Map(company, game.Local(company, 1, 1), "W+T");
+        game.Pass(2);
+        Assert.IsFalse(game.World.TradingPostFull(map[(2, 0)]));
+
+        var plan = game.World.SmartMax(company, map[(2, 0)]);
+
+        Assert.AreEqual(0, plan.Levels, "a level more would sell nothing more");
+        Assert.IsGreaterThan(0, plan.AffordableLevels);
+        Assert.IsLessThan(0.9, plan.AffordableShare);
+    }
+
+    [TestMethod]
+    public void GrowEverythingTakesAFullPost()
+    {
+        var (game, company, _, post) = FullPost();
+
+        var part = game.World.PlanGrowth(company).Parts.SingleOrDefault(t => t.Building == post.Id);
+
+        Assert.IsNotNull(part, "the full post's levels pay back within a week");
+        Assert.AreEqual(game.World.SmartMax(company, post).Levels, part.Levels);
+    }
+
+    [TestMethod]
+    public void WhatPaysBackWithinTheHourComesBeforeAGift()
+    {
+        // After run 4's bots: Mia's Trading Post, back in 5 minutes, waited under the storey's purse to day 28
+        var (game, company, _, post) = FullPost();
+        game.World.ProjectsEnabled = true;
+        game.Pass(1);
+        game.World.EraWonder!.Required = new Dictionary<string, double> { ["bricks"] = 1_000 };
+
+        var steps = game.World.NextSteps(company, 8);
+
+        var full = steps.FindIndex(t => t.Building == post.Id);
+        var gift = steps.FindIndex(t => t.Kind == AdvisorKind.Shared);
+        Assert.IsGreaterThanOrEqualTo(0, gift, string.Join(" | ", steps.Select(t => t.Title)));
+        Assert.IsGreaterThanOrEqualTo(0, full, string.Join(" | ", steps.Select(t => t.Title)));
+        Assert.IsLessThanOrEqualTo(60, steps[full].Cost / steps[full].GainPerMinute, "back within the hour");
+        Assert.IsLessThan(gift, full, string.Join(" | ", steps.Select(t => t.Title)));
+    }
+
     [TestMethod]
     public void MaxIsPricedLikeTheUpgrade()
     {

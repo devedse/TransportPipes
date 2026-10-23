@@ -45,7 +45,8 @@ public sealed partial class GameWorld
     /// </summary>
     public SpendPreview UpgradePreview(Company company, Building building, int levels)
     {
-        if (levels <= 0 || building.UnderConstruction || NetworkOf(building.Id) is not { } network || ToFlowNode(building) is not { Kind: FlowNodeKind.Building } node)
+        // A trading post too (after run 4's bots: its panel and Grow everything saw no gain in a full post's levels)
+        if (levels <= 0 || building.UnderConstruction || NetworkOf(building.Id) is not { } network || ToFlowNode(building) is not { Kind: FlowNodeKind.Building or FlowNodeKind.TradingPost } node)
         {
             return new SpendPreview(0, "");
         }
@@ -63,6 +64,10 @@ public sealed partial class GameWorld
         {
             var eats = node.In.Keys.Where(t => t != "energy").Select(GoodsWord).ToList();
             return new SpendPreview(gain, $"−{Gold(-gain)}/min: it eats more of {(eats.Count == 0 ? "the energy" : $"the {string.Join(" and ", eats)}")} you sell now");
+        }
+        if (node.Kind == FlowNodeKind.TradingPost)
+        {
+            return new SpendPreview(0, $"adds nothing: it sells all your buildings bring it ({Amount(PostOffered(network, building))} a minute)");
         }
         // Nothing more: what holds it back at that level
         var factor = Content.Progression.OutputMultiplier(building.Level + levels) / Content.Progression.OutputMultiplier(building.Level);

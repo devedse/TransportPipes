@@ -371,4 +371,24 @@ public class AdvisorFacts
 
         Assert.AreEqual(GameWorld.PipeMaterialReserve * game.World.Content.PipeTier(2).Materials["copperIngot"], game.World.StorageNeed(company, "copperIngot"));
     }
+
+    [TestMethod]
+    public void ADeepMineSaysWhatItWouldDig()
+    {
+        // The light bots after run 4 read "Mine your : build a Deep Mine": its deposit is any metal
+        var game = new TestGame(content: TestGame.PlainContent);
+        game.World.Era = 2;
+        var company = game.NewCompany(gold: 10_000_000, level: 30);
+        company.Researched.Add("deepMining");
+        game.Map(company, game.Local(company, 1, 1), "W+T");
+        var spot = game.Spot(company, "deepMine");
+        game.World.LoadSeeds([.. new[] { (0, 0), (1, 0), (0, 1), (1, 1) }.Select(t => (spot.Offset(t.Item1, t.Item2), "coal", 5))]);
+        game.Pass(2);
+
+        var steps = game.World.NextSteps(company, 12);
+
+        var step = steps.FirstOrDefault(t => t.BuildingType == "deepMine");
+        Assert.IsNotNull(step, string.Join(" | ", steps.Select(t => t.Title)));
+        StringAssert.StartsWith(step.Title, "Mine your coal: build a Deep Mine");
+    }
 }

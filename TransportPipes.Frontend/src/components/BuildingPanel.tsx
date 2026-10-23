@@ -974,11 +974,14 @@ function MaxMore({
   const useful = details.maxAffordableLevels;
   // In words, never a bare "+41" beside a gold figure (after run 4: Ben read "+41 would make nothing more" as income)
   const past = `Past level ${level + useful}`;
-  const reason = more.output
-    ? details.status?.cause === "postFull"
-      ? `${past} it would sell nothing more: your Trading Post sells all it can. Upgrade the Trading Post first.`
-      : `${past} it would make nothing more: nothing on its pipes takes more ${good}`
-    : `${past} it would run at ${Math.round(more.share * 100)}%: its pipes bring ${formatAmount(more.have)} of the ${formatAmount(more.need)} ${good} it would need`;
+  const post = content.building(details.building.type)?.kind === "tradingPost";
+  const reason = post
+    ? `${past} it would sell at ${Math.round(more.share * 100)}% of what it can: your buildings bring it ${formatAmount(more.have)} a minute`
+    : more.output
+      ? details.status?.cause === "postFull"
+        ? `${past} it would sell nothing more: your Trading Post sells all it can. Upgrade the Trading Post first.`
+        : `${past} it would make nothing more: nothing on its pipes takes more ${good}`
+      : `${past} it would run at ${Math.round(more.share * 100)}%: its pipes bring ${formatAmount(more.have)} of the ${formatAmount(more.need)} ${good} it would need`;
   return (
     <div className="max-more">
       <p className="muted small">

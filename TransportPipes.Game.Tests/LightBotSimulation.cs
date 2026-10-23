@@ -25,6 +25,8 @@ public class LightBotSimulation
         public BalanceSimulation.Bot? Bot { get; set; }
         public int? Level10Day { get; set; }
 
+        public int? Level30Day { get; set; }
+
         /// <summary>Minutes its processors ran at a loss on what they bought, and minutes they were short of a bought input</summary>
         public double LossMinutes { get; set; }
         public HashSet<string> LossTypes { get; } = new();
@@ -156,12 +158,15 @@ public class LightBotSimulation
         var soloShare = jo.IncomePerBuilding.Count == 0 || crewPerBuilding <= 0 ? 0 : jo.IncomePerBuilding.Average() / crewPerBuilding;
         report.AppendLine($"| Solo against crew, per building (days 10 on) | 85–92% | {soloShare:P0} (Jo {jo.IncomePerBuilding.DefaultIfEmpty(0).Average():0.0} g/min, crew {crewPerBuilding:0.0}) |");
         report.AppendLine($"| Pacing: Level 10 on days 4–6 | days 4–6 | {string.Join(", ", players.Select(t => $"{t.Name} {(t.Level10Day?.ToString() ?? "—")}"))} |");
+        // After run 4's plan, check A: Level 30 on day 25 ± 2 for those who play on (Ben leaves on day 3, Dev comes on day 8)
+        report.AppendLine($"| Pacing: Level 30 on day 25 ± 2 | days 23–27 | {string.Join(", ", players.Select(t => $"{t.Name} {(t.Level30Day?.ToString() ?? "—")}{(t.StopDay != null ? $" (left on day {t.StopDay})" : "")}"))} |");
         var npc = players.Where(t => t.Company != null).Sum(t => t.Company!.Stats.GetValueOrDefault("npcGold"));
         var faucets = players.Where(t => t.Company != null).Sum(t => Production(t.Company!));
         report.AppendLine($"| New gold from NPCs | ≤ 6% of faucets | {npc / Math.Max(1, faucets):P1} |");
         var ana = players.Single(t => t.Name == "Ana");
         var supplied = ana.ChainMinutes <= 0 ? 1 : 1 - ana.ShortMinutes / ana.ChainMinutes;
-        report.AppendLine($"| The advisor's bot banks on day 28 | ≤ 3 days of income | {string.Join(", ", players.Where(t => t.BankedDays28 != null).Select(t => $"{t.Name} {t.BankedDays28:0.0}"))} |");
+        // A player who left banks what nobody spends: shown, not marked
+        report.AppendLine($"| The advisor's bot banks on day 28 | ≤ 3 days of income | {string.Join(", ", players.Where(t => t.BankedDays28 != null).Select(t => $"{t.Name} {t.BankedDays28:0.0}{(t.StopDay != null ? $" (left on day {t.StopDay})" : "")}"))} |");
         report.AppendLine($"| Ben's stop: Ana's chains get their need | ≥ 99% to day {days}; price step ≤ +8% | {supplied:P1}; largest step {ana.LargestPriceStep:P1} |");
         report.AppendLine();
         report.AppendLine("| Player | Gold | Level | Buildings | Hub | Yard paid | Houses paid | Project | Floor |");
@@ -176,6 +181,18 @@ public class LightBotSimulation
         {
             report.AppendLine($"- {player.Name}: {string.Join(", ", world.BuildingsOf(player.Company!.Id).GroupBy(t => t.Type).Select(t => $"{t.Count()}× {t.Key} L{t.Max(b => b.Level)}"))}"
                 + (player.LossTypes.Count > 0 ? $"; at a loss: {string.Join(", ", player.LossTypes.Take(6))}" : ""));
+        }
+        // Why a bot banks: what its gold could do on the last day (the advisor's steps, Grow everything, the storey)
+        report.AppendLine();
+        foreach (var player in players.Where(t => t.Company != null))
+        {
+            var c = player.Company!;
+            var plan = world.PlanGrowth(c);
+            var storey = world.EstateOf(c) is { } home && world.ExistingProject(home.Station) is { } project
+                ? $"project {project.Stage}{(project.Stage == ProjectStage.Storey ? $" (storey {project.Storeys + 1}, purse wants {GameWorld.PurseLeft(project):N0})" : "")}"
+                : "no project";
+            report.AppendLine($"- {player.Name} on day {days}: {c.Gold:N0} g; grow {plan.Parts.Count} parts for {plan.Cost:N0} (+{plan.Gain:0}/min); {storey}; steps: "
+                + string.Join("; ", world.NextSteps(c).Select(t => $"{t.Action} «{t.Title}» {t.Cost:N0} g +{t.GainPerMinute:0}/min")));
         }
         TestContext.WriteLine(report.ToString());
         var file = Path.Combine(AppContext.BaseDirectory, $"light-bots-{price:0.00}{(lever != null ? $"-{lever}" : "")}.md");
@@ -194,6 +211,13 @@ public class LightBotSimulation
         if (lever is null or "none")
         {
             return content;
+        }
+        // "xp3": the late XP curve grows to 3× by Level 30 instead of 2× (after run 4: the pipe ladder ran the pacing ahead)
+        if (lever.StartsWith("xp", StringComparison.Ordinal) && double.TryParse(lever[2..], System.Globalization.CultureInfo.InvariantCulture, out var ramp))
+        {
+            var progression = (ProgressionSettings)typeof(object).GetMethod("MemberwiseClone", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(content.Progression, null)!;
+            typeof(ProgressionSettings).GetProperty(nameof(ProgressionSettings.XpLateRamp))!.SetValue(progression, ramp);
+            return new GameContent(content.ResourceList, content.BuildingList, content.PipeTiers, progression, content.ResearchList, [.. content.DistrictWonders, .. content.EraWonders], content.Managers, content.Achievements, content.Collections, content.Tutorial, content.Relics);
         }
         var resources = content.ResourceList.Select(t => lever == "order" && t.Id == "ironIngot" ? t with { Demand = t.Demand * 0.5 } : t).ToList();
         var buildings = content.BuildingList.Select(t => lever != "coal" || t.Id is not ("smallFactory" or "bigFactory") ? t : new BuildingDefinition
@@ -242,6 +266,10 @@ public class LightBotSimulation
             if (company.Level >= 10 && player.Level10Day == null)
             {
                 player.Level10Day = day;
+            }
+            if (company.Level >= 30 && player.Level30Day == null)
+            {
+                player.Level30Day = day;
             }
             if (world.EstateOf(company) is not { } estate)
             {

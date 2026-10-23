@@ -148,6 +148,9 @@ public sealed partial class GameWorld
     /// <summary>Idle labs with points waste them: research ranks at least this high</summary>
     private const double AdvisorResearchFloor = 60;
 
+    /// <summary>A step that pays itself back within this many minutes ranks above a gift to a shared goal</summary>
+    private const double AdvisorQuickPaybackMinutes = 60;
+
     public List<AdvisorStep> NextSteps(Company company, int count = 3)
     {
         // Right after a command its networks may not be solved yet: an empty solution would make everything look short
@@ -215,6 +218,15 @@ public sealed partial class GameWorld
         NeighbourChainStep(company, Add);
         ParcelStep(company, Add);
         StartSteps(company, Add);
+
+        // A gift earns nothing back: what pays itself back within the hour comes before it, and the gift is bigger after
+        // (after run 4's bots: Mia's Trading Post, back in 5 minutes, waited under the storey's purse to day 28)
+        var gift = candidates.Where(t => t.Step.Kind == AdvisorKind.Shared).Select(t => t.Score).DefaultIfEmpty(0).Max();
+        if (gift > 0)
+        {
+            candidates = candidates.Select(t => t.Step.Kind != AdvisorKind.Shared && t.Step.WaitMinutes == null && t.Step is { Cost: > 0, GainPerMinute: > 0 }
+                && t.Step.Cost / t.Step.GainPerMinute <= AdvisorQuickPaybackMinutes ? (t.Step, t.Score + gift) : t).ToList();
+        }
 
         // The best of each kind first, then the next best of any kind; never two steps with the same title
         var ranked = candidates.OrderByDescending(t => t.Score).DistinctBy(t => t.Step.Title).ToList();
@@ -1005,7 +1017,8 @@ public sealed partial class GameWorld
             }
             var output = definition.Out.Keys.First();
             var title = extractor
-                ? $"Mine your {ResourceWord(definition.Placement.Deposit!)}: build {Article(definition.Name)}"
+                // What it would dig there: a Deep Mine's deposit is any metal (the light bots read "Mine your : build a Deep Mine")
+                ? $"Mine your {ResourceWord(node.Out.Keys.FirstOrDefault() ?? definition.Placement.Deposit!)}: build {Article(definition.Name)}"
                 : $"{(owned == 0 ? $"Build {Article(definition.Name)}" : $"Another {definition.Name}")}: {string.Join(" and ", definition.In.Keys.Where(r => spare[network].ContainsKey(r)).Select(ResourceWord))} into {ResourceWord(output)}";
             var payback = cost / gain;
             add(new AdvisorStep(AdvisorKind.Chain, title,

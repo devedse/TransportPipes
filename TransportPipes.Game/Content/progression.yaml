@@ -7,8 +7,9 @@ companyLevel:
   xpRamp: 4
   xpRampLevel: 9
   # From Level 22 the curve grows on to xpLateRamp times by Level 30, so Level 30 takes about four weeks (GDD §8.1):
-  # the starter kit made the middle game quicker. Levels only ever go up, so nobody loses one.
-  xpLateRamp: 2
+  # the starter kit made the middle game quicker, and after run 4 gold has places to go (spent gold is XP): at 2 the
+  # advisor's bots reached Level 30 on days 14-22, at 4 on days 20-25 and later. Levels only ever go up.
+  xpLateRamp: 4
   xpLateRampFrom: 22
   xpLateRampTo: 30
 

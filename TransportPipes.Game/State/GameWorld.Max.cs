@@ -47,7 +47,56 @@ public sealed partial class GameWorld
                 (resource, have, need, output) = reach.Limit(factor);
             }
         }
+        else if (affordable > 0 && network != null && Content.Building(building.Type) is { Kind: BuildingKind.TradingPost } post)
+        {
+            // A trading post: the levels while what its own buildings bring keeps it 90% busy (after run 4's bots: Max
+            // bought every level a bank could, so Grow left Mia's full post out and its 5-minute level waited to day 28)
+            var offered = PostOffered(network, building);
+            var now = TradingPostThroughput(building, post);
+            double ShareAt(int levels) => offered / Math.Max(1e-12, now * Content.Progression.OutputMultiplier(building.Level + levels) / Content.Progression.OutputMultiplier(building.Level));
+            useful = 0;
+            while (useful < affordable && ShareAt(useful + 1) >= UsefulShare)
+            {
+                useful++;
+            }
+            if (useful < affordable)
+            {
+                share = Math.Min(1, ShareAt(affordable));
+                (have, need) = (offered, offered / Math.Max(1e-12, share));
+            }
+        }
         return new MaxPlan(useful, useful > 0 ? UpgradeCost(building, useful) : 0, affordable, affordable > 0 ? UpgradeCost(building, affordable) : 0, share, resource, have, need, output);
+    }
+
+    /// <summary>
+    /// What a trading post could sell a minute: the network solved again with the post at the top level (shared pipes,
+    /// the sun and the wind count); a network too big to solve again: what it sells now, plus what its owner's buildings
+    /// on its pipes make that goes nowhere, as much as each connection still carries
+    /// </summary>
+    private double PostOffered(Network network, Building post)
+    {
+        if (!Estimated(network) && ToFlowNode(post, Content.Progression.MaxBuildingLevel) is { } unlimited)
+        {
+            var all = WithPumps(network, network.Buildings.Select(t => t == post.Id ? unlimited : ToFlowNode(_buildings[t])).OfType<FlowNode>().ToList());
+            return FlowSolver.Solve(all, LinksBetween(network, all), MarketFor(network)).Flows
+                .Where(t => t.To == post.Id && t.Kind == FlowKind.Sale).Sum(t => t.Sent);
+        }
+        var solution = network.Solution;
+        var nodes = network.Nodes.ToDictionary(t => t.Id);
+        var offered = solution.Flows.Where(t => t.To == post.Id && t.Kind == FlowKind.Sale).Sum(t => t.Sent);
+        foreach (var link in network.Links.Where(t => t.A == post.Id || t.B == post.Id))
+        {
+            if (!nodes.TryGetValue(link.A == post.Id ? link.B : link.A, out var other) || other.Owner != post.Owner || other.Kind != FlowNodeKind.Building || other.Out.Count == 0)
+            {
+                continue;
+            }
+            var rate = other.MaxRate * Math.Min(1, LevelReach(network, other).InputShare());
+            var unsold = other.Out.Where(t => link.Allows(t.Key))
+                .Sum(o => Math.Max(0, o.Value * rate - solution.Flows.Where(t => t.From == other.Id && t.Resource == o.Key).Sum(t => t.Sent)));
+            var onLink = solution.Flows.Where(t => t.From == other.Id && t.To == post.Id).Sum(t => t.Sent);
+            offered += Math.Min(unsold * link.Efficiency, Math.Max(0, link.Capacity - onLink) * link.Efficiency);
+        }
+        return offered;
     }
 
     /// <summary>What a building's pipes can bring it of each input, and take of each output, without anything changing elsewhere</summary>

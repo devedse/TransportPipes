@@ -289,6 +289,15 @@ public class BalanceSimulation
         {
             // Playing counts as being seen (else the company would fall asleep after 30 days)
             company.LastSeenAt = game.Time;
+            // Once a session the top bar's "Your gold can": Grow everything that pays back within a week (after run 4)
+            if (advisor && _grownOn != game.Time.Date && World.PlanGrowth(company).Parts.Count > 0)
+            {
+                _grownOn = game.Time.Date;
+                if (World.GrowEverything(company.Id).Success)
+                {
+                    _notes.Add("grew everything that pays");
+                }
+            }
             for (var action = 0; action < 30; action++)
             {
                 if (!(advisor ? FollowAdvisor() : Act()))
@@ -302,6 +311,8 @@ public class BalanceSimulation
         public bool Act() => TryPump() || TryResearch() || TryParcel() || TryChain() || TryUpgrade() || TryProducer();
 
         /// <summary>The first of the advisor's next steps the company can afford now, done</summary>
+        private DateTime? _grownOn;
+
         public bool FollowAdvisor()
         {
             var advice = World.NextSteps(company);
@@ -324,6 +335,9 @@ public class BalanceSimulation
                     AdvisorAction.Parcel => World.BuyParcel(company.Id, step.Parcel!.Value).Success,
                     AdvisorAction.Partner => ConnectNeighbour() != null,
                     AdvisorAction.Climb => World.ClimbPipe(company.Id, step.Building!.Value, order: true).Success,
+                    // The shared goals (after run 4): an hour of income to the storey, a day's order for the Era Wonder
+                    AdvisorAction.Storey => World.GiveToStorey(company.Id, 1).Success,
+                    AdvisorAction.Wonder => World.EraWonder is { } wonder && wonder.Required.Keys.ToList().Any(good => World.OrderForWonder(company.Id, good, step.Cost).Success),
                     AdvisorAction.Connect => ConnectAll(),
                     _ => false,
                 };
