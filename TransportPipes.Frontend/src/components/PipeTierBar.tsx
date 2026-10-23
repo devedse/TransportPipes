@@ -18,6 +18,14 @@ export function PipeTierBar() {
         .map((tier) => {
           const locked =
             tier.era > era || (tier.research !== null && !company.researched.includes(tier.research));
+          const tech = tier.research !== null ? content.research(tier.research) : undefined;
+          // Copper Pipes come at Company Level 8, Steel Pipes with Era 2 (after run 4)
+          const why =
+            tier.era > era
+              ? `Comes with Era ${tier.era}`
+              : tech !== undefined && tech.grant > 0
+                ? `Yours at Company Level ${tech.grant} (a Lab gets it sooner)`
+                : `Needs research: ${tech?.name ?? ""}`;
           const materials = Object.entries(tier.materials)
             .map(([resource, amount]) => ` + ${amount} ${content.resourceName(resource).toLowerCase()}`)
             .join("");
@@ -29,9 +37,7 @@ export function PipeTierBar() {
               disabled={locked}
               className={tool.tier === tier.tier ? "pipe-tier active" : "pipe-tier"}
               onClick={() => gameClient.setTool({ kind: "pipe", tier: tier.tier })}
-              title={
-                locked ? `Needs research: ${content.research(tier.research ?? "")?.name ?? ""}` : undefined
-              }
+              title={locked ? why : undefined}
             >
               <strong>{tier.name}</strong>
               <span className="small">

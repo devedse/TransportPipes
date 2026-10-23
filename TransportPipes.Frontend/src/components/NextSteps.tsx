@@ -15,6 +15,8 @@ const ICONS: Record<NextStepDto["kind"], string> = {
   parcel: "🗺",
   pipes: "🔧",
   start: "⭐",
+  stuck: "⛔",
+  shared: "🏛",
 };
 
 const COLLAPSED_KEY = "tp.nextStepsCollapsed";
@@ -39,9 +41,21 @@ function minutes(value: number) {
  * numbers and a button that does it or shows where
  */
 export function NextSteps() {
-  const steps = useAppStore((s) => s.nextSteps);
+  const latest = useAppStore((s) => s.nextSteps);
+  // The list holds still while the pointer is over it: a step that moved under the pointer was clicked by mistake
+  // (run 2: Ana built a Glassworks she didn't want)
+  const [held, setHeld] = useState<NextStepDto[] | null>(null);
+  const keyOf = (t: NextStepDto) => `${t.kind}-${t.building ?? t.title}`;
+  // Held: the same order, with each step's newest numbers, and a step that's done drops out
+  const steps =
+    held === null ? latest : held.flatMap((h) => latest.filter((l) => keyOf(l) === keyOf(h)).slice(0, 1));
   const company = useAppStore((s) => s.company);
   const companyAt = useAppStore((s) => s.companyAt);
+  // A step its own button just did says so at once, until the advisor's next list comes
+  const [done, setDone] = useState<{ list: NextStepDto[]; keys: string[] }>({ list: latest, keys: [] });
+  const doneKeys = done.list === latest ? done.keys : [];
+  const run = (step: NextStepDto, action: Promise<boolean>) =>
+    void action.then((ok) => ok && setDone({ list: latest, keys: [...doneKeys, keyOf(step)] }));
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const level = company?.level ?? 0;
   useEffect(() => {
@@ -63,18 +77,35 @@ export function NextSteps() {
   };
 
   return (
-    <section className="panel next-steps" aria-label="Next steps">
-      <button className="next-steps-head" onClick={toggle} aria-expanded={!collapsed}>
-        <span>Next steps</span>
-        {collapsed && <span className="next-steps-peek">{steps[0]!.title}</span>}
-        <span className="next-steps-chevron">{collapsed ? "▸" : "▾"}</span>
-      </button>
+    <section
+      className="panel next-steps"
+      aria-label="Next steps"
+      onPointerEnter={() => setHeld(latest)}
+      onPointerLeave={() => setHeld(null)}
+    >
+      <div className="next-steps-bar">
+        <button className="next-steps-head" onClick={toggle} aria-expanded={!collapsed}>
+          <span>Next steps</span>
+          <span className="next-steps-chevron">{collapsed ? "▸" : "▾"}</span>
+        </button>
+        {/* Folded, the first step is itself a button (after run 3, row 12: Ben's step with nothing to tap) */}
+        {collapsed && (
+          <button
+            className="link next-steps-peek"
+            aria-label={`Show me: ${steps[0]!.title}`}
+            onClick={() => void gameClient.showNextStep(steps[0]!)}
+          >
+            {steps[0]!.title} ›
+          </button>
+        )}
+      </div>
       {!collapsed && (
         <ol className="next-step-list">
           {steps.map((step, i) => {
             const short = step.cost > gold + 0.5;
+            const isDone = doneKeys.includes(keyOf(step));
             return (
-              <li key={`${step.kind}-${step.title}`} className={`next-step kind-${step.kind}`}>
+              <li key={keyOf(step)} className={`next-step kind-${step.kind}${isDone ? " done" : ""}`}>
                 <span className="next-step-icon" aria-hidden="true">
                   {ICONS[step.kind]}
                 </span>
@@ -84,30 +115,35 @@ export function NextSteps() {
                   </strong>
                   <span className="next-step-reason">{step.reason}</span>
                   <div className="next-step-actions">
-                    {step.action === "pipes" ? (
+                    {isDone ? (
+                      <span className="next-step-done">✓ Done</span>
+                    ) : step.action === "climb" && step.building !== null ? (
+                      // The pipe door (after run 4): the pipe, then the levels it carries, in one tap
                       <button
                         className="primary"
                         disabled={short}
-                        onClick={() =>
-                          void gameClient.upgradePipes(
-                            Array.from({ length: step.tiles.length / 2 }, (_, i) => ({
-                              x: step.tiles[i * 2]!,
-                              y: step.tiles[i * 2 + 1]!,
-                            })),
-                            step.tier,
-                          )
-                        }
+                        onClick={() => run(step, gameClient.climbPipe(step.building!))}
                       >
                         {short && step.waitMinutes !== null
                           ? `In ${minutes(step.waitMinutes)}`
-                          : `Upgrade pipes · ${formatAmount(step.cost)} g`}
+                          : `Do it · ${formatAmount(step.cost)} g`}
+                      </button>
+                    ) : step.action === "layPipe" ? (
+                      <button
+                        className="primary"
+                        disabled={short}
+                        onClick={() => void gameClient.showNextStep(step)}
+                      >
+                        {short && step.waitMinutes !== null
+                          ? `In ${minutes(step.waitMinutes)}`
+                          : `Lay the pipe · ${formatAmount(step.cost)} g`}
                       </button>
                     ) : step.action === "upgrade" && step.building !== null ? (
                       <button
                         className="primary"
                         disabled={short}
                         title={short ? `You have ${formatAmount(gold)} g` : undefined}
-                        onClick={() => void gameClient.upgrade(step.building!, step.levels)}
+                        onClick={() => run(step, gameClient.upgrade(step.building!, step.levels))}
                       >
                         {short && step.waitMinutes !== null
                           ? `In ${minutes(step.waitMinutes)}`
@@ -119,18 +155,24 @@ export function NextSteps() {
                         <span className="next-step-wait">affordable in {minutes(step.waitMinutes)}</span>
                       )
                     )}
-                    <button
-                      className={
-                        step.action === "upgrade" || step.action === "pipes" ? "link small" : "small"
-                      }
-                      onClick={() => void gameClient.showNextStep(step)}
-                    >
-                      {step.action === "research"
-                        ? "Open research"
-                        : step.action === "partner"
-                          ? "Plan the pipe"
-                          : "Show me"}
-                    </button>
+                    {!isDone && (
+                      <button
+                        className={
+                          step.action === "upgrade" || step.action === "climb" || step.action === "layPipe"
+                            ? "link small"
+                            : "small"
+                        }
+                        // Each its own name, for screen readers and the playtest's players alike
+                        aria-label={`${step.action === "research" ? "Open research" : step.action === "partner" ? "Plan the pipe" : "Show me"}: ${step.title}`}
+                        onClick={() => void gameClient.showNextStep(step)}
+                      >
+                        {step.action === "research"
+                          ? "Open research"
+                          : step.action === "partner"
+                            ? "Plan the pipe"
+                            : "Show me"}
+                      </button>
+                    )}
                   </div>
                 </div>
               </li>

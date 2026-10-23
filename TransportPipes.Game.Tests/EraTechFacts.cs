@@ -40,24 +40,24 @@ public class EraTechFacts
 
         company.Researched.Add("marketInsight");
 
-        Assert.AreEqual(game.World.BasePrice("energy") * HubMarket.MaxMultiplier, game.World.HubPriceHeading(company, "energy")!.Value, 1e-6, "nobody sells energy: it rises");
+        Assert.AreEqual(game.World.BasePrice("energy") * game.World.Content.Progression.Together.HubMaxMultiplier, game.World.HubPriceHeading(company, "energy")!.Value, 1e-6, "nobody sells energy: the full price");
     }
 
     [TestMethod]
-    public void AShowroomMakesPartnersPayTenPercentMore()
+    public void AShowroomMakesTheHubPayTenPercentMore()
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var a = game.NewCompany("A", level: 20);
-        game.NewCompany("B");
         var showroom = game.Map(a, game.Local(a, 20, 20), "H").GetValueOrDefault((0, 0));
         Assert.IsNotNull(showroom);
-        var price = game.World.SellPrice(a, "energy");
+        var price = game.World.HubBuyPrice(a, "energy");
 
         Assert.IsTrue(game.World.SetShowroomProduct(a.Id, showroom.Id, "energy").Success);
 
         Assert.AreEqual(1.1, game.World.ShowroomFactor(a, "energy"));
         Assert.AreEqual(1, game.World.ShowroomFactor(a, "wood"));
-        Assert.AreEqual(price, game.World.SellPrice(a, "energy"), "the asked price stays, partners pay the premium on top");
+        Assert.AreEqual(price * 1.1, game.World.HubBuyPrice(a, "energy"), 1e-9);
+        Assert.AreEqual(1.3, game.World.PlayerPrice("energy"), "players pay each other the one price");
     }
 
     [TestMethod]
@@ -82,7 +82,7 @@ public class EraTechFacts
             var storage = game.Map(company, game.Local(company, 3, 1), "O").Values.Single();
             storage.Contents["glass"] = 100;
         }
-        var price = game.World.HubBuyPrice(first.District, "glass");
+        var price = game.World.PlayerPrice("glass");
 
         // Without Global Exchange the orders don't meet
         Assert.IsTrue(game.World.PlaceExchangeOrder(first.Id, "glass", true, 10, price).Success);

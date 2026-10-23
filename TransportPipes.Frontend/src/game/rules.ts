@@ -1,4 +1,4 @@
-import type { BuildingDefinition, CompanyDto, EstateDto } from "../api/contracts";
+import type { BuildingDefinition, BuildingDto, BuildingKind, CompanyDto, EstateDto } from "../api/contracts";
 import type { Content } from "./content";
 import { DEEP_OFFSET, ESTATE_SIZE, isDeep, isParcelUnlocked, parcelOf, zoneAt } from "./layout";
 import type { WorldModel } from "./world";
@@ -82,7 +82,11 @@ export function forestAround(world: WorldModel, x: number, y: number, size: numb
   let count = 0;
   for (let ty = y - 2; ty < y + size + 2; ty++) {
     for (let tx = x - 2; tx < x + size + 2; tx++) {
-      if (world.terrain(tx, ty) === "forest" && world.buildingAt(tx, ty) === undefined) {
+      if (
+        world.terrain(tx, ty) === "forest" &&
+        (!world.dealtLand || world.tile(tx, ty)?.deposit === "wood") &&
+        world.buildingAt(tx, ty) === undefined
+      ) {
         count++;
       }
     }
@@ -131,6 +135,22 @@ export function locationMultiplier(
 }
 
 /** Whether a company can put this building with its top-left tile at (x, y) */
+/** What a deposit is called in a line ("iron ore", "metal") */
+function depositWord(deposit: string, content: Content): string {
+  return deposit === "anyMetal" ? "metal" : content.resourceName(deposit).toLowerCase();
+}
+
+/** Buildings that are part of the pipe themselves (the server's IsConductor): they never stand on a pipe */
+const PART_OF_THE_PIPE: ReadonlySet<BuildingKind> = new Set<BuildingKind>([
+  "gate",
+  "valve",
+  "priorityValve",
+  "tollMeter",
+  "powerLine",
+  "cargoDepot",
+  "deepLift",
+]);
+
 export function canPlace(
   content: Content,
   world: WorldModel,
@@ -147,27 +167,6 @@ export function canPlace(
   const lock = ignoreLock ? null : content.lockReason(definition, company, era);
   if (lock !== null) {
     return fail(`Needs ${lock}`);
-  }
-  if (definition.kind === "tollMeter") {
-    // In the line of one of your own corridor pipes
-    if (zoneAt(x, y).kind !== "corridor") {
-      return fail("Toll meters go on your pipes in the corridors");
-    }
-    if (world.isOccupied(x, y)) {
-      return fail("Something is in the way");
-    }
-    const own = [
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1],
-    ].some(([dx, dy]) => {
-      const conductor = world.conductorAt(x + dx!, y + dy!);
-      return conductor?.kind === "pipe" && conductor.owner === company.id;
-    });
-    return own
-      ? { ok: true, reason: null, multiplier: 1 }
-      : fail("Put it in the line of your own corridor pipe");
   }
   const deep = isDeep(y);
   if (deep && definition.layer === "surface") {
@@ -216,18 +215,34 @@ export function canPlace(
         }
       }
       const building = world.buildingAt(tx, ty);
+      // A building may stand on your own pipe: the pipe runs on under it (run 2: a factory set into a line split it)
+      const under = world.conductorAt(tx, ty);
+      const pipeRunsUnder =
+        under !== undefined &&
+        under.kind === "pipe" &&
+        under.owner === company.id &&
+        !PART_OF_THE_PIPE.has(definition.kind);
       if (
         (building !== undefined && building.id !== ignoreBuilding) ||
-        world.conductorAt(tx, ty) !== undefined
+        (under !== undefined && !pipeRunsUnder)
       ) {
-        return fail("Something is in the way");
+        return fail(
+          under !== undefined && under.owner !== company.id
+            ? "Someone else's pipe runs here"
+            : "Something is in the way",
+        );
       }
       const terrain = world.terrain(tx, ty);
       if (terrain === null) {
         return fail("Loading…");
       }
       if (!definition.placement.terrain.includes(terrain)) {
-        return fail(`Not on ${terrain}`);
+        // Run 3: Ana clicked the pond three times for a Water Pump and read only "Not on water"
+        return fail(
+          definition.placement.shore && terrain === "water"
+            ? "Beside the water, not on it"
+            : `Not on ${terrain}`,
+        );
       }
     }
   }
@@ -244,7 +259,7 @@ export function canPlace(
     }
     if (best === 0) {
       return fail(
-        `Needs a ${deposit === "anyMetal" ? "metal" : content.resourceName(deposit).toLowerCase()} deposit`,
+        `Needs ${/^[aeiou]/.test(depositWord(deposit, content)) ? "an" : "a"} ${depositWord(deposit, content)} deposit`,
       );
     }
     if (best < definition.placement.minRichness) {
@@ -265,13 +280,13 @@ export function canPlace(
     }
   }
   if (definition.placement.forest && forestAround(world, x, y, definition.size) < 3) {
-    return fail("Needs a forest nearby");
+    return fail(world.dealtLand ? "Needs the old forest's marked trees nearby" : "Needs a forest nearby");
   }
   return { ok: true, reason: null, multiplier: locationMultiplier(content, world, definition, x, y) };
 }
 
 /** Building kinds that sit in a pipe and carry resources (a pipe route may go through your own) */
-const CONDUCTOR_KINDS = new Set(["valve", "priorityValve", "tollMeter"]);
+const CONDUCTOR_KINDS = new Set(["valve", "priorityValve"]);
 
 /** Whether this tile already carries your resources: your pipe, gate, valve */
 export function isOwnConductor(
@@ -306,7 +321,6 @@ export function pipeCost(
     return 0.15;
   }
   if (world.conductorAt(x, y) !== undefined || world.buildingAt(x, y) !== undefined) {
-    // Other companies' corridor pipes can't be crossed
     return null;
   }
   if (isDeep(y)) {
@@ -314,12 +328,9 @@ export function pipeCost(
     const terrain = world.terrain(x, y);
     return insideEstate(company, x, y - DEEP_OFFSET) && terrain === "cavern" ? 1 : null;
   }
+  // Pipes stay on your own land (the corridors carry links, which the game lays); and around your outposts
   const zone = zoneAt(x, y);
-  if (
-    zone.kind === "estate"
-      ? ownEstateAt(company, x, y) === undefined
-      : zone.kind !== "corridor" && zone.kind !== "wilderness"
-  ) {
+  if (zone.kind === "estate" ? ownEstateAt(company, x, y) === undefined : zone.kind !== "wilderness") {
     return null;
   }
   // The wilderness is open to pipes, except someone else's outpost
@@ -334,7 +345,45 @@ export function pipeCost(
   return terrain === "water" ? 3 : 1;
 }
 
-/** The cheapest pipe route between two tiles (A*), or null when there is none within the search limit */
+/** A building a pipe can't go through (not one of your own valves or gates), at this tile */
+function blockingBuilding(
+  world: WorldModel,
+  company: CompanyDto,
+  x: number,
+  y: number,
+  content?: Content,
+): BuildingDto | undefined {
+  const building = world.buildingAt(x, y);
+  return building !== undefined && !isOwnConductor(world, company, x, y, content) ? building : undefined;
+}
+
+/** Whether a tile is next to a building's footprint (a pipe there connects it) */
+function touches(building: BuildingDto, x: number, y: number): boolean {
+  const insideX = x >= building.x && x < building.x + building.size;
+  const insideY = y >= building.y && y < building.y + building.size;
+  return (
+    (insideX && (y === building.y - 1 || y === building.y + building.size)) ||
+    (insideY && (x === building.x - 1 || x === building.x + building.size))
+  );
+}
+
+function around(building: BuildingDto): Array<{ x: number; y: number }> {
+  const tiles: Array<{ x: number; y: number }> = [];
+  for (let i = 0; i < building.size; i++) {
+    tiles.push(
+      { x: building.x + i, y: building.y - 1 },
+      { x: building.x + i, y: building.y + building.size },
+      { x: building.x - 1, y: building.y + i },
+      { x: building.x + building.size, y: building.y + i },
+    );
+  }
+  return tiles;
+}
+
+/**
+ * The cheapest pipe route between two tiles (A*), or null when there is none within the search limit. A route that
+ * starts or ends on a building ("drag from the panel to your Trading Post") goes from or to the free tiles around it.
+ */
 export function routePipe(
   world: WorldModel,
   company: CompanyDto,
@@ -343,15 +392,28 @@ export function routePipe(
   content?: Content,
   limit = 4000,
 ): Array<{ x: number; y: number }> | null {
+  const startBuilding = blockingBuilding(world, company, from.x, from.y, content);
+  const endBuilding = blockingBuilding(world, company, to.x, to.y, content);
+  if (startBuilding !== undefined && startBuilding.id === endBuilding?.id) {
+    return null;
+  }
+  const starts =
+    startBuilding !== undefined
+      ? around(startBuilding).filter((t) => pipeCost(world, company, t.x, t.y, content) !== null)
+      : pipeCost(world, company, from.x, from.y, content) !== null
+        ? [from]
+        : [];
   if (
-    pipeCost(world, company, from.x, from.y, content) === null ||
-    pipeCost(world, company, to.x, to.y, content) === null
+    starts.length === 0 ||
+    (endBuilding === undefined && pipeCost(world, company, to.x, to.y, content) === null)
   ) {
     return null;
   }
+  const isGoal = (x: number, y: number) =>
+    endBuilding !== undefined ? touches(endBuilding, x, y) : x === to.x && y === to.y;
   const key = (x: number, y: number) => `${x},${y}`;
-  const open: Array<{ x: number; y: number; f: number }> = [{ ...from, f: 0 }];
-  const cost = new Map<string, number>([[key(from.x, from.y), 0]]);
+  const open: Array<{ x: number; y: number; f: number }> = starts.map((t) => ({ x: t.x, y: t.y, f: 0 }));
+  const cost = new Map<string, number>(starts.map((t) => [key(t.x, t.y), 0]));
   const previous = new Map<string, { x: number; y: number }>();
   const heuristic = (x: number, y: number) => (Math.abs(x - to.x) + Math.abs(y - to.y)) * 0.15;
   let visited = 0;
@@ -364,7 +426,7 @@ export function routePipe(
     }
     const current = open.splice(best, 1)[0]!;
     visited++;
-    if (current.x === to.x && current.y === to.y) {
+    if (isGoal(current.x, current.y)) {
       const path = [{ x: current.x, y: current.y }];
       let k = key(current.x, current.y);
       while (previous.has(k)) {

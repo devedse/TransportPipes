@@ -69,7 +69,9 @@
   era: 1
   cost: 200
   minutes: 10
-  description: Unlocks Copper Pipes, half the losses and five times the throughput of grey pipes.
+  # Everyone has them at Company Level 8: the pipe is the game's level cap (after run 4)
+  grant: 8
+  description: Copper Pipes, half the losses and five times what a grey pipe carries. Every company gets them at Company Level 8; a Lab gets them sooner.
 
 - id: valves
   name: Valves
@@ -183,7 +185,9 @@
   cost: 3000
   minutes: 60
   requires: [copperPipes]
-  description: Unlocks Steel Pipes.
+  # Everyone from Company Level 8 has them when Era 2 begins (never before Copper Pipes)
+  grant: 8
+  description: Steel Pipes, ten times what a Copper Pipe carries. Every company from Company Level 8 gets them when Era 2 begins.
 
 - id: siloStorage
   name: Silos

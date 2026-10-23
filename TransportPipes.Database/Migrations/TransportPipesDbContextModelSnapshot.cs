@@ -232,10 +232,10 @@ namespace TransportPipes.Database.Migrations
                     b.Property<long>("OwnerId")
                         .HasColumnType("bigint");
 
-                    b.Property<int?>("Side")
+                    b.Property<int>("Tier")
                         .HasColumnType("integer");
 
-                    b.Property<int>("Tier")
+                    b.Property<int>("Widen")
                         .HasColumnType("integer");
 
                     b.HasKey("X", "Y");
@@ -369,10 +369,6 @@ namespace TransportPipes.Database.Migrations
                     b.Property<int>("Slot")
                         .HasColumnType("integer");
 
-                    b.Property<string>("GatePolicies")
-                        .IsRequired()
-                        .HasColumnType("jsonb");
-
                     b.Property<long?>("OwnerId")
                         .HasColumnType("bigint");
 
@@ -496,6 +492,9 @@ namespace TransportPipes.Database.Migrations
                     b.Property<bool>("IsAdmin")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsGuest")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -547,6 +546,12 @@ namespace TransportPipes.Database.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Crews")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValueSql("'[]'::jsonb");
+
                     b.Property<int>("Era")
                         .HasColumnType("integer");
 
@@ -565,7 +570,7 @@ namespace TransportPipes.Database.Migrations
                     b.Property<DateTime>("LastTick")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Markets")
+                    b.Property<string>("Links")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("jsonb")
@@ -577,6 +582,15 @@ namespace TransportPipes.Database.Migrations
                         .HasColumnType("jsonb")
                         .HasDefaultValueSql("'{}'::jsonb");
 
+                    b.Property<string>("Projects")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValueSql("'[]'::jsonb");
+
+                    b.Property<int>("Rules")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Season")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -585,6 +599,12 @@ namespace TransportPipes.Database.Migrations
 
                     b.Property<int>("Seed")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Trunks")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValueSql("'[]'::jsonb");
 
                     b.Property<string>("Wonders")
                         .IsRequired()

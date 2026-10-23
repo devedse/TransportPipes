@@ -11,8 +11,8 @@ public class DbWorld
     public DateTime CreatedAt { get; set; }
     public DateTime LastTick { get; set; }
 
-    /// <summary>The hub markets of all districts (jsonb)</summary>
-    public string Markets { get; set; } = "[]";
+    /// <summary>The version of the game's rules the world was made with: an older world is thrown away (accounts stay)</summary>
+    public int Rules { get; set; }
 
     /// <summary>The Exchange: open orders and shipments on their way (jsonb)</summary>
     public string Exchange { get; set; } = "{}";
@@ -25,6 +25,18 @@ public class DbWorld
 
     /// <summary>Outposts in the wilderness and the deposits Discoveries left (jsonb)</summary>
     public string Outposts { get; set; } = "{}";
+
+    /// <summary>Crews, their held seats and invite links (jsonb)</summary>
+    public string Crews { get; set; } = "[]";
+
+    /// <summary>Links between companies' Yard gates, with their tanks (jsonb)</summary>
+    public string Links { get; set; } = "[]";
+
+    /// <summary>The stations' projects: stage, basket, deliveries and credit (jsonb)</summary>
+    public string Projects { get; set; } = "[]";
+
+    /// <summary>The crews' trunks to other hubs and the Port, with who paid each segment (jsonb)</summary>
+    public string Trunks { get; set; } = "[]";
 
     /// <summary>Saved and shared layouts (jsonb)</summary>
     public string Blueprints { get; set; } = "[]";

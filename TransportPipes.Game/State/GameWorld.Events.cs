@@ -390,7 +390,7 @@ public sealed partial class GameWorld
             network.NeedsSolve = true;
             Changes.Networks.Add(network.Id);
         }
-        foreach (var district in _markets.Keys.Where(gameEvent.Covers))
+        foreach (var district in _openDistricts.Where(gameEvent.Covers))
         {
             Changes.Markets.Add(district);
         }
@@ -464,6 +464,18 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
+    /// <summary>Repairs every damaged building the company can pay for, the cheapest first (the return card's Repair all)</summary>
+    public CommandResult RepairAll(long companyId)
+    {
+        var damaged = BuildingsOf(companyId).Where(t => t.Damaged).OrderBy(RepairCost).ToList();
+        if (damaged.Count == 0)
+        {
+            return CommandResult.Fail("Nothing is damaged.");
+        }
+        var repaired = damaged.Count(t => Repair(companyId, t.Id).Success);
+        return repaired > 0 ? CommandResult.Ok : CommandResult.Fail("Not enough gold for a repair.");
+    }
+
     // ---------------------------------------------------------------- Shortage orders
 
     private void AddShortageOrder(Company company, GameEvent shortage)
@@ -484,8 +496,6 @@ public sealed partial class GameWorld
             ExpiresAt = shortage.EndsAt,
             Urgent = true,
         });
-        // Storages keep what the order needs
-        MarkCompanyNetworksDirty(company.Id);
         company.Touch();
         Changes.Companies.Add(company.Id);
     }

@@ -7,6 +7,42 @@ public sealed partial class GameWorld
     /// <summary>Companies seen in this period count for knowledge diffusion</summary>
     public static readonly TimeSpan ActivePeriod = TimeSpan.FromDays(7);
 
+    /// <summary>
+    /// The techs every company gets at a Company Level once their Era has come (Copper Pipes at Level 8, Steel Pipes with
+    /// Era 2): the pipe tier is the game's real level cap, so the way up is nobody's Lab's luck (after run 4: every pipe
+    /// stayed grey all month, and five of seven players never researched)
+    /// </summary>
+    public void GrantResearch(Company company)
+    {
+        if (company.IsNpc)
+        {
+            return;
+        }
+        foreach (var tech in Content.ResearchList.Where(t => t.Grant > 0 && t.Era <= Era && company.Level >= t.Grant && !company.Researched.Contains(t.Id)))
+        {
+            company.Researched.Add(tech.Id);
+            if (company.CurrentResearch == tech.Id)
+            {
+                // The Lab was at it: it moves on
+                company.CurrentResearch = null;
+                company.ResearchEndsAt = null;
+                StartQueuedResearch(company);
+            }
+            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ResearchFinished,
+                $"{tech.Name} are yours{(tech.Era > 1 ? $" with Era {tech.Era}" : $" at Company Level {tech.Grant}")}: a full pipe's building offers them on its panel"));
+            foreach (var conductor in _conductors.Values.Where(t => t.Owner == company.Id))
+            {
+                MarkDirty(conductor.Pos);
+            }
+            MarkCompanyNetworksDirty(company.Id);
+            company.Touch();
+            Changes.Companies.Add(company.Id);
+        }
+    }
+
+    /// <summary>Every company's grants, once after the world is loaded (a world from before the grants)</summary>
+    private bool _grantsChecked;
+
     /// <summary>A tech costs at most this much less when every active company has it</summary>
     public const double MaxDiffusionDiscount = 0.5;
 
@@ -74,6 +110,10 @@ public sealed partial class GameWorld
 
     public bool ResearchedEverything(Company company) => Content.ResearchList.All(t => company.Researched.Contains(t.Id));
 
+    /// <summary>Whether something can be researched now, points or not: a tech nothing blocks, or Mastery after the whole tree</summary>
+    public bool ResearchOpen(Company company) =>
+        ResearchedEverything(company) || Content.ResearchList.Any(t => !company.Researched.Contains(t.Id) && ResearchBlocker(company, t) == null);
+
     public static double MasteryCost(Company company) => Math.Round(20_000 * Math.Pow(1.25, company.Mastery) / 100) * 100;
 
     public static double MasteryMinutes(Company company) => Math.Min(24 * 60, 120 + 30 * company.Mastery);
@@ -87,6 +127,19 @@ public sealed partial class GameWorld
         if (techId == MasteryId)
         {
             return StartMastery(company);
+        }
+        if (techId.StartsWith(RefinePrefix, StringComparison.Ordinal))
+        {
+            // A Refinement: it becomes the line the Labs take, and starts now when they're free
+            if (ChooseRefinement(companyId, techId[RefinePrefix.Length..]) is { Success: false } refused)
+            {
+                return refused;
+            }
+            if (company.CurrentResearch == null && !StartRefinement(company))
+            {
+                return CommandResult.Fail($"You need {RefineCost(company):N0} research points. Labs make them.");
+            }
+            return CommandResult.Ok;
         }
         if (!Content.Research.TryGetValue(techId, out var tech))
         {
@@ -107,6 +160,105 @@ public sealed partial class GameWorld
         company.ResearchEndsAt = Now.AddMinutes(tech.Minutes * ManagerResearchFactor(company));
         company.Touch();
         Changes.Companies.Add(company.Id);
+        return CommandResult.Ok;
+    }
+
+    public const int ResearchQueueLength = 5;
+
+    /// <summary>Puts a tech in the research queue (or takes it out): it starts by itself when the Labs are free and the points are there</summary>
+    public CommandResult QueueResearch(long companyId, string techId, bool queued)
+    {
+        if (Company(companyId) is not { } company || !Content.Research.TryGetValue(techId, out _))
+        {
+            return CommandResult.Fail("Unknown research.");
+        }
+        if (!queued)
+        {
+            company.ResearchQueue.Remove(techId);
+        }
+        else
+        {
+            if (company.Researched.Contains(techId) || company.CurrentResearch == techId)
+            {
+                return CommandResult.Fail("That's researched already.");
+            }
+            if (!company.ResearchQueue.Contains(techId))
+            {
+                if (company.ResearchQueue.Count >= ResearchQueueLength)
+                {
+                    return CommandResult.Fail($"The queue holds {ResearchQueueLength} techs.");
+                }
+                company.ResearchQueue.Add(techId);
+            }
+        }
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        StartQueuedResearch(company);
+        return CommandResult.Ok;
+    }
+
+    /// <summary>
+    /// The Labs are free: the first queued tech that can start (its prerequisites done, its points there) starts; with
+    /// nothing queued and the player away, the cheapest tech the points cover, unless the player turned that off (run 2:
+    /// research points piled up to 64k while a queue of five emptied in hours)
+    /// </summary>
+    private void StartQueuedResearch(Company company)
+    {
+        if (company.CurrentResearch != null)
+        {
+            return;
+        }
+        if (company.ResearchQueue.Count == 0)
+        {
+            // Only while the player is away: one who is here chooses
+            if (company.KeepResearching && LastTick - company.LastSeenAt >= KeepResearchingAway && CheapestResearch(company) is { } next)
+            {
+                StartResearch(company.Id, next.Id);
+                return;
+            }
+            // After the Era's tree, Refinements go on by themselves (after run 3, step 6)
+            if (company.KeepResearching)
+            {
+                StartRefinement(company);
+            }
+            return;
+        }
+        company.ResearchQueue.RemoveAll(company.Researched.Contains);
+        foreach (var techId in company.ResearchQueue.ToList())
+        {
+            if (Content.Research.TryGetValue(techId, out var tech) && ResearchBlocker(company, tech) == null)
+            {
+                if (company.ResearchPoints >= ResearchCost(company, tech) - 1e-9 && StartResearch(company.Id, techId).Success)
+                {
+                    company.ResearchQueue.Remove(techId);
+                }
+                // The first that could start waits for its points: the order is the player's
+                return;
+            }
+        }
+    }
+
+    /// <summary>Keep researching starts the cheapest tech only when the player has been away this long</summary>
+    private static readonly TimeSpan KeepResearchingAway = TimeSpan.FromMinutes(30);
+
+    /// <summary>The cheapest tech a company can start now with its points</summary>
+    public ResearchDefinition? CheapestResearch(Company company) =>
+        Content.ResearchList
+            .Where(t => !company.Researched.Contains(t.Id) && ResearchBlocker(company, t) == null && company.ResearchPoints >= ResearchCost(company, t) - 1e-9)
+            .OrderBy(t => ResearchCost(company, t)).ThenBy(t => t.Id, StringComparer.Ordinal)
+            .FirstOrDefault();
+
+    /// <summary>Whether the cheapest tech starts by itself when the queue is empty</summary>
+    public CommandResult SetKeepResearching(long companyId, bool keep)
+    {
+        if (Company(companyId) is not { } company)
+        {
+            return CommandResult.Fail("Unknown company.");
+        }
+        company.KeepResearching = keep;
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        StartQueuedResearch(company);
         return CommandResult.Ok;
     }
 
@@ -139,6 +291,12 @@ public sealed partial class GameWorld
         {
             return;
         }
+        if (Refining(company) is { } line)
+        {
+            CompleteRefinement(company, line);
+            CheckRestingLabs([company]);
+            return;
+        }
         if (techId == MasteryId)
         {
             company.Mastery++;
@@ -156,6 +314,7 @@ public sealed partial class GameWorld
         company.ResearchEndsAt = null;
         company.Touch();
         Changes.Companies.Add(company.Id);
+        StartQueuedResearch(company);
         if (Content.Research.TryGetValue(techId, out var tech))
         {
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ResearchFinished, $"Research done: {tech.Name}"));
@@ -176,6 +335,7 @@ public sealed partial class GameWorld
             MergeAllComplexes(company);
         }
         PlanNextResearch(company);
+        CheckRestingLabs([company]);
     }
 
     /// <summary>Finishes the current research right away (for tests and admins)</summary>
@@ -195,7 +355,7 @@ public sealed partial class GameWorld
             return 0;
         }
         var bonus = CorporationOutputBonus(company, resource) + ManagerOutputBonus(company, building) + AchievementOutputBonus(company, building, resource)
-            + ShareBonus(company) + company.Mastery * MasteryBonus;
+            + ShareBonus(company) + company.Mastery * MasteryBonus + Refined(company, resource);
         foreach (var techId in company.Researched)
         {
             if (Content.Research.TryGetValue(techId, out var tech))
@@ -213,7 +373,8 @@ public sealed partial class GameWorld
     }
 
     public double ThroughputBonus(long companyId) =>
-        Company(companyId) is { } company ? company.Researched.Sum(t => Content.Research.TryGetValue(t, out var tech) ? tech.ThroughputBonus : 0) : 0;
+        (Company(companyId) is { } company ? company.Researched.Sum(t => Content.Research.TryGetValue(t, out var tech) ? tech.ThroughputBonus : 0) : 0)
+        + WonderPipeBonus(companyId) + Refined(Company(companyId), "pipes") + StoreyPipeBonusOf(companyId);
 
     public double BandWidthBonus(Company company) =>
         company.Researched.Sum(t => Content.Research.TryGetValue(t, out var tech) ? tech.BandWidthBonus : 0);

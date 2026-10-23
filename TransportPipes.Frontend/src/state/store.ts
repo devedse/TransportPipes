@@ -17,14 +17,21 @@ import type {
   LeaderboardDto,
   LeaderboardKind,
   WondersDto,
-  GateSide,
+  GoldUsesDto,
   MarketDto,
   NeighbourDto,
   NetworkDetailsDto,
-  ReportDto,
   BlueprintsDto,
   ResearchStateDto,
   UserInfo,
+  YardDto,
+  LinksDto,
+  MapLinkDto,
+  ReturnCardDto,
+  ProjectDto,
+  CrewViewDto,
+  HeldSeatDto,
+  InviteDto,
 } from "../api/contracts";
 import type { ConnectionStatus } from "../api/server";
 import type { Content } from "../game/content";
@@ -73,7 +80,22 @@ export interface AppState {
   /** Which of the company's estates the selected parcel belongs to (0 is the first, then the branches) */
   selectedParcelEstate: number;
   selectedNetwork: number | null;
-  selectedGate: GateSide | null;
+  /** The Yard panel: your station, its residents and your trades with them */
+  yardOpen: boolean;
+  yard: YardDto | null;
+  /** The Yard panel's tab: your station, or your links to other stations */
+  yardTab: "yard" | "links" | "project";
+  project: ProjectDto | null;
+  /** The return card (F5): what happened since the last session, until the player continues */
+  returnCard: ReturnCardDto | null;
+  /** When the player last left (the chat marks what came since) */
+  leftAt: string | null;
+  links: LinksDto | null;
+  /** A friend the Links tab's new link starts with (the Crew panel's "Link ▸", after run 3, row 12) */
+  linkPartner: number | null;
+  /** Every link on the map, and the one the Links tab points at */
+  mapLinks: MapLinkDto[];
+  focusLink: number | null;
   /** Counts district updates, so panels that read the world model render again */
   districtVersion: number;
   networkDetails: NetworkDetailsDto | null;
@@ -86,7 +108,6 @@ export interface AppState {
   zoom: number;
 
   toasts: Toast[];
-  report: ReportDto | null;
   helpOpen: boolean;
   researchOpen: boolean;
   research: ResearchStateDto[];
@@ -94,6 +115,8 @@ export interface AppState {
   hubTab: HubTab;
   market: MarketDto | null;
   wonders: WondersDto | null;
+  /** What your gold can do (after run 4), loaded when the top bar's gold is opened */
+  goldUses: GoldUsesDto | null;
   exchange: ExchangeDto | null;
   neighboursOpen: boolean;
   neighboursTab: "neighbours" | "contracts" | "board" | "trade";
@@ -102,8 +125,24 @@ export interface AppState {
   /** A pipe route the player is looking at (Connect), drawn on the map until it is built or dropped */
   plannedRoute: TilePosition[] | null;
   plannedPartner: number | null;
+  /** Where a planned pipe goes, when it isn't to a neighbour ("your Trading Post"), and what to say once it is laid */
+  plannedTarget: string | null;
+  /** The building just placed (its corner and size): until the pointer leaves it, the hover tip says so, not "in the way" */
+  justBuilt: { x: number; y: number; size: number; name: string } | null;
+  plannedDone: string | null;
 
   corporationOpen: boolean;
+  /** Your crew (v1.2 §6): its members, held seats with their codes, its invite link */
+  crewOpen: boolean;
+  crew: CrewViewDto | null;
+  /** The seat code or crew link this visit came with, and what it opens */
+  invite: { code: string; dto: InviteDto } | null;
+  /** The codes of the seats held for friends right after starting with them (the share screen) */
+  shareCodes: HeldSeatDto[] | null;
+  /** The form that turns a guest into an account */
+  keepOpen: boolean;
+  /** A guest reached a keep level: the top bar's "Keep my estate" glows until it is tapped */
+  keepNudge: boolean;
   corporations: CorporationsDto | null;
   companyOpen: boolean;
   companyDetails: CompanyDetailsDto | null;
@@ -171,7 +210,16 @@ export const initialState: AppState = {
   selectedParcel: null,
   selectedParcelEstate: 0,
   selectedNetwork: null,
-  selectedGate: null,
+  yardOpen: false,
+  yard: null,
+  yardTab: "yard",
+  project: null,
+  returnCard: null,
+  leftAt: null,
+  links: null,
+  linkPartner: null,
+  mapLinks: [],
+  focusLink: null,
   districtVersion: 0,
   networkDetails: null,
   buildingNetwork: null,
@@ -181,7 +229,6 @@ export const initialState: AppState = {
   pipeRoute: null,
   zoom: 1,
   toasts: [],
-  report: null,
   helpOpen: false,
   researchOpen: false,
   research: [],
@@ -189,6 +236,7 @@ export const initialState: AppState = {
   hubTab: "orders",
   market: null,
   wonders: null,
+  goldUses: null,
   exchange: null,
   neighboursOpen: false,
   neighboursTab: "neighbours",
@@ -196,7 +244,16 @@ export const initialState: AppState = {
   contracts: null,
   plannedRoute: null,
   plannedPartner: null,
+  plannedTarget: null,
+  justBuilt: null,
+  plannedDone: null,
   corporationOpen: false,
+  crewOpen: false,
+  crew: null,
+  invite: null,
+  shareCodes: null,
+  keepOpen: false,
+  keepNudge: false,
   corporations: null,
   companyOpen: false,
   companyDetails: null,
@@ -237,6 +294,7 @@ export const MODALS = {
   hubOpen: false,
   neighboursOpen: false,
   corporationOpen: false,
+  crewOpen: false,
   leaderboardOpen: false,
   companyOpen: false,
   blueprintsOpen: false,
@@ -258,7 +316,7 @@ const SIDE_PANELS = {
   selectedBuilding: { selectedBuilding: null, buildingDetails: null, buildingNetwork: null },
   selection: { selection: [] },
   selectedNetwork: { selectedNetwork: null, networkDetails: null },
-  selectedGate: { selectedGate: null },
+  yardOpen: { yardOpen: false },
   selectedParcel: { selectedParcel: null },
   selectedDeepParcel: { selectedDeepParcel: null },
   wildTile: { wildTile: null, outpostCheck: null },
@@ -288,7 +346,8 @@ export function setState(partial: Partial<AppState>) {
 
 let nextToastId = 1;
 
-export function toast(text: string, kind: Toast["kind"] = "info", durationMs = 4500) {
+/** Shows a toast; returns its id (dismissToast takes it away early) */
+export function toast(text: string, kind: Toast["kind"] = "info", durationMs = 4500): number {
   const id = nextToastId++;
   const same = appStore.getState().toasts.find((t) => t.text === text && t.kind === kind);
   if (same !== undefined) {
@@ -297,10 +356,11 @@ export function toast(text: string, kind: Toast["kind"] = "info", durationMs = 4
       toasts: state.toasts.map((t) => (t.id === same.id ? { ...t, id, count: (t.count ?? 1) + 1 } : t)),
     }));
     setTimeout(() => dismissToast(id), durationMs);
-    return;
+    return id;
   }
   appStore.setState((state) => ({ toasts: [...state.toasts.slice(-4), { id, text, kind }] }));
   setTimeout(() => dismissToast(id), durationMs);
+  return id;
 }
 
 export function dismissToast(id: number) {

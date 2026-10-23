@@ -16,7 +16,9 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { FoundCompany } from "./components/FoundCompany";
 import { GameCanvas } from "./components/GameCanvas";
 import { MapLoading } from "./components/MapLoading";
-import { GatePanel } from "./components/GatePanel";
+import { YardPanel } from "./components/YardPanel";
+import { CrewPanel, ShareCodes } from "./components/CrewPanel";
+import { InviteInGame, KeepEstate } from "./components/KeepEstate";
 import { HoverTip } from "./components/HoverTip";
 import { HubPanel } from "./components/HubPanel";
 import { NeighboursPanel, PlannedRouteBanner } from "./components/NeighboursPanel";
@@ -26,7 +28,8 @@ import { ParcelPanel } from "./components/ParcelPanel";
 import { SelectionPanel } from "./components/SelectionPanel";
 import { KeysHelp } from "./components/KeysHelp";
 import { PipeTierBar } from "./components/PipeTierBar";
-import { ReportDialog } from "./components/ReportDialog";
+import { ReturnCard } from "./components/ReturnCard";
+import { LoneCard } from "./components/LoneCard";
 import { BlueprintPanel, BlueprintSaveDialog } from "./components/BlueprintPanel";
 import { DeepParcelPanel, DeepVignette, LayerSwitch } from "./components/DeepPanel";
 import { GoalTracker } from "./components/GoalTracker";
@@ -96,10 +99,17 @@ function useShortcuts() {
           gameClient.setTool({ kind: "bulldoze" });
           break;
         case "n":
-          if (state.neighboursOpen) {
-            setState({ neighboursOpen: false });
+          if (state.yardOpen) {
+            setState({ yardOpen: false });
           } else {
-            void gameClient.openNeighbours();
+            void gameClient.openYard();
+          }
+          break;
+        case "k":
+          if (state.crewOpen) {
+            setState({ crewOpen: false });
+          } else {
+            void gameClient.openCrew();
           }
           break;
         case "m":
@@ -226,8 +236,14 @@ export function App() {
           <ErrorBoundary name="BuildingPanel">
             <BuildingPanel />
           </ErrorBoundary>
-          <ErrorBoundary name="GatePanel">
-            <GatePanel />
+          <ErrorBoundary name="CrewPanel">
+            <CrewPanel />
+            <ShareCodes />
+            <KeepEstate />
+            <InviteInGame />
+          </ErrorBoundary>
+          <ErrorBoundary name="YardPanel">
+            <YardPanel />
           </ErrorBoundary>
           <ErrorBoundary name="NetworkPanel">
             <NetworkPanel />
@@ -296,8 +312,12 @@ export function App() {
           <ErrorBoundary name="SeasonPanel">
             <SeasonPanel />
           </ErrorBoundary>
-          <ErrorBoundary name="ReportDialog">
-            <ReportDialog />
+          <ErrorBoundary name="ReturnCard">
+            {/* Over the drawn map, not a dark screen (run 2) */}
+            {mapShown && <ReturnCard />}
+          </ErrorBoundary>
+          <ErrorBoundary name="LoneCard">
+            <LoneCard />
           </ErrorBoundary>
           <ConnectionOverlay />
         </>

@@ -288,6 +288,8 @@ kbd {
 .map-loading {
   position: absolute;
   inset: 0;
+  /* Over the HUD till the map shows (after run 4: Loady's card and a live top bar over a dark screen) */
+  z-index: 15;
   display: grid;
   place-content: center;
   justify-items: center;
@@ -544,6 +546,10 @@ kbd {
   padding: 8px;
 }
 
+.phone-only {
+  display: none;
+}
+
 /* ---------- Toolbar ---------- */
 
 .toolbar {
@@ -629,6 +635,11 @@ kbd {
 .chip.active {
   background: var(--accent-soft);
   border-color: var(--accent);
+}
+
+.supply-line {
+  margin-top: 2px;
+  opacity: 0.85;
 }
 
 .build-list {
@@ -722,6 +733,13 @@ kbd {
 
 .lock {
   color: var(--warning);
+}
+
+/* Dealt land: a good your land doesn't hold, and who in your station makes it */
+.land-line {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: normal;
 }
 
 /* ---------- Building and parcel panels ---------- */
@@ -917,6 +935,10 @@ kbd {
 
 .seg-stored {
   background: #5b84c4;
+}
+
+.seg-yard {
+  background: #c66b9e;
 }
 
 .seg-lost {
@@ -1325,6 +1347,17 @@ kbd {
   flex: 1;
 }
 
+/* Smart Max (F8): why it stops where it does, and the choice to go further */
+.upgrade .max-more p {
+  margin: 6px 0 0;
+}
+.upgrade .max-choice {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
 .footer-row {
   border-top: 1px solid var(--panel-border);
   padding-top: 10px;
@@ -1529,9 +1562,33 @@ kbd {
   top: var(--hud-top, 82px);
   left: 50%;
   translate: -50% 0;
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+}
+
+.overlay-chips {
   display: flex;
   gap: 5px;
-  padding: 6px;
+}
+
+/* Wind and Sun: what the colours mean (F10) */
+.overlay-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.overlay-legend .legend-bar {
+  flex: 1;
+  min-width: 60px;
+  height: 8px;
+  border-radius: 4px;
+}
+
+.app:has(.overlay-legend) .event-bar {
+  top: calc(var(--hud-top, 82px) + 76px);
 }
 
 .pipe-tiers {
@@ -1703,31 +1760,123 @@ select {
   border-color: var(--accent);
 }
 
-/* ---------- Gates ---------- */
+/* ---------- The Yard ---------- */
 
-.gate-panel {
+.yard-panel {
   position: absolute;
   top: var(--hud-top, 82px);
   right: var(--gap);
-  width: min(360px, calc(100vw - 24px));
+  width: min(380px, calc(100vw - 24px));
+  max-height: calc(100vh - var(--hud-top, 82px) - var(--toolbar-clear, 120px));
+  overflow-y: auto;
   display: grid;
   gap: 10px;
 }
 
-.policies {
+.yard-panel h4 {
+  margin: 4px 0 6px;
+}
+
+.yard-line {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
+.yard-line.todo {
+  background: #fff1cc;
+}
+
+.yard-trades,
+.yard-residents {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: grid;
   gap: 6px;
 }
 
-.policy {
-  display: grid;
-  gap: 2px;
-  text-align: left;
+/* A trade line with its one button (Send ▸, 💛 Thanks, stop) at the end, below it when the line is long */
+.yard-trades li,
+.trade-lines li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 0.86rem;
 }
 
-.policy.active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
+.yard-trades li > span,
+.trade-lines li > span {
+  min-width: 0;
+  flex: 1 1 14em;
+}
+
+.yard-trades li > button,
+.trade-lines li > button {
+  margin-left: auto;
+  max-width: 100%;
+}
+
+.trade-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.trade-lines li > span:first-child {
+  flex: none;
+}
+
+.yard-residents li {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.yard-residents li.me {
+  outline: 2px solid var(--accent-soft);
+}
+
+.resident-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.resident-name .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.resident-rates {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  align-items: center;
+}
+
+.badge.house {
+  font-size: 0.75em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #e8e1d2;
+  color: #5b4b33;
+}
+
+.badge.player {
+  font-size: 0.75em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #d8ece6;
+  color: #1f5c57;
 }
 
 .slider {
@@ -1814,6 +1963,17 @@ select {
   font-weight: 700;
 }
 
+.order-stock {
+  margin-top: 2px;
+  opacity: 0.85;
+}
+
+.order-result {
+  margin-top: 2px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
 .order-check {
   font-size: 1.5rem;
   color: #7fe3a8;
@@ -1881,6 +2041,19 @@ button.link {
 }
 
 /* ---------- Research ---------- */
+
+.keep-researching {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+
+.keep-researching input {
+  width: auto;
+  margin: 0;
+  flex: none;
+}
 
 .research-panel {
   width: min(1180px, calc(100vw - 24px));
@@ -2434,10 +2607,11 @@ button.liked {
   padding: 8px 14px;
 }
 
-/* Above the toolbar, so they never overlap */
+/* Above the toolbar, so they never overlap; on the right, beside an open building panel (after run 3, row 12: the chat
+   lay over the goals) */
 .chat-panel {
   position: absolute;
-  left: var(--gap);
+  right: var(--gap);
   bottom: 84px;
   width: min(380px, calc(100vw - 24px));
   height: min(380px, calc(100vh - 260px));
@@ -2446,6 +2620,16 @@ button.liked {
   gap: 8px;
   padding: 10px;
   z-index: 4;
+}
+
+/* Beside whatever panel docks on the right (run 4: the chat covered the Yard panel's neighbours list) */
+.app:has(.building-panel) .chat-panel,
+.app:has(.parcel-panel) .chat-panel,
+.app:has(.yard-panel) .chat-panel,
+.app:has(.network-panel) .chat-panel,
+.app:has(.visit-panel) .chat-panel,
+.app:has(.inbox-panel) .chat-panel {
+  right: calc(2 * var(--gap) + min(400px, calc(100vw - 24px)));
 }
 
 .chat-channels {
@@ -2541,22 +2725,37 @@ button.liked {
   align-items: center;
 }
 
-.chat-form input {
-  margin: 0;
-}
-
-.report-storages {
-  display: grid;
-  gap: 6px;
-  margin: 10px 0;
-}
-
-.report-storage {
+/* Day stamps and "new since you left" (F10) */
+.chat-day,
+.chat-new {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 8px;
-  font-size: 0.88rem;
+  margin: 6px 0 2px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.chat-day::before,
+.chat-day::after,
+.chat-new::before,
+.chat-new::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.3;
+}
+
+.chat-new {
+  color: var(--accent);
+}
+
+.chat-form input {
+  margin: 0;
 }
 
 /* ---------- Events and weather ---------- */
@@ -2806,6 +3005,97 @@ button.liked {
   align-items: center;
 }
 
+.refinements {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+}
+
+.refinements > button {
+  align-self: flex-start;
+}
+
+.refine-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.refine-line {
+  display: grid;
+  grid-template-columns: 180px 1fr 110px 140px 100px;
+  gap: 8px;
+  align-items: center;
+}
+
+.refine-line.chosen .refine-name {
+  font-weight: 600;
+}
+
+.refine-name {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.refine-icon {
+  width: 18px;
+  text-align: center;
+}
+
+.refined-line {
+  color: var(--brass-dark, var(--gold));
+}
+
+@media (max-width: 700px) {
+  .refine-line {
+    grid-template-columns: 1fr auto;
+  }
+  .refine-line .meter-bar,
+  .refine-line > .muted {
+    grid-column: 1 / -1;
+  }
+}
+
+.wonder-need .wonder-order {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.wonder-order-buttons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Why there is no Order button, and what would make the good: as readable as the button it stands for */
+.wonder-why,
+.wonder-chain {
+  flex-basis: 100%;
+  text-align: right;
+}
+
+.wonder-chain {
+  color: var(--muted, inherit);
+}
+
+.wonder-chain button.link {
+  margin-left: 6px;
+}
+
+.wonder-opens {
+  margin: 8px 0;
+  font-style: italic;
+}
+
 .wonder-need .muted {
   text-align: right;
 }
@@ -2846,6 +3136,34 @@ button.liked {
 
 .top-company.clickable {
   cursor: pointer;
+}
+
+/* The crew's own spot in the top bar (F9) */
+.top-crew {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 220px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.top-crew .crew-banner-dot {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 1rem;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.6);
+}
+
+.top-crew-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .company-panel {
@@ -3606,6 +3924,25 @@ select option {
   letter-spacing: 0.05em;
 }
 
+/* The project's row opens it: a line of text that is a button */
+.goals button.goal-text {
+  padding: 0;
+  text-align: left;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.goals button.goal-text:hover {
+  color: var(--info);
+}
+
+/* The project row's Show me sits under its line, in the text column */
+.goals .goal-show {
+  grid-column: 2;
+  justify-self: start;
+}
+
 .goal-bar {
   grid-column: 2;
   height: 5px;
@@ -3633,6 +3970,15 @@ select option {
     display: none;
   }
 
+  .top-actions .phone-only {
+    display: inline-flex;
+  }
+
+  /* The chat button is in the top bar on a phone (it reached past every panel there) */
+  .chat-toggle {
+    display: none;
+  }
+
   .top-bar {
     top: 8px;
     left: 8px;
@@ -3647,6 +3993,10 @@ select option {
   .top-company {
     max-width: 120px;
     min-width: 0;
+  }
+
+  .top-crew-name {
+    display: none;
   }
 
   .company-name {
@@ -3857,11 +4207,23 @@ select option {
     bottom: 76px;
   }
 
-  .chat-panel {
+  .chat-panel,
+  .app:has(.building-panel) .chat-panel,
+  .app:has(.parcel-panel) .chat-panel,
+  .app:has(.yard-panel) .chat-panel,
+  .app:has(.network-panel) .chat-panel,
+  .app:has(.visit-panel) .chat-panel,
+  .app:has(.inbox-panel) .chat-panel {
     bottom: 76px;
+    left: var(--gap);
     right: var(--gap);
     width: auto;
     height: 45vh;
+  }
+
+  /* On a phone the chat spans the screen: the goals fold away while it's open (run 2) */
+  .app:has(.chat-panel) .goal-tracker {
+    display: none;
   }
 
   .corp-cards,
@@ -4031,6 +4393,31 @@ textarea {
 .status.building {
   background: rgba(47, 111, 168, 0.14);
   color: #24527d;
+}
+
+/* A building whose goods can't leave (F2): the cause in five words, what its pipes reach, the one fix */
+.status.stuck {
+  background: rgba(170, 40, 30, 0.14);
+  color: #8e2316;
+}
+
+.idle-status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.idle-status .reach {
+  margin: 0;
+}
+
+.net-stuck {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  text-align: left;
+  font-weight: 700;
+  color: #8e2316;
 }
 
 .toast {
@@ -4349,6 +4736,21 @@ kbd {
   .app:has(.building-panel, .parcel-panel, .build-menu, .modal-backdrop) .goal-tracker {
     display: none;
   }
+
+  /* A panel over the whole map: what sits on the map steps aside (the Yard's title hid behind the overlay bar, and
+     Loady's card and the chat button were under and over it: Ben's run 2 evening) */
+  .app:has(
+      .yard-panel,
+      .neighbours-panel,
+      .network-panel,
+      .visit-panel,
+      .inbox-panel,
+      .research-panel,
+      .leaderboard-panel
+    )
+    :is(.goal-tracker, .chat-toggle, .overlay-bar) {
+    display: none;
+  }
 }
 
 /* ---------------------------------------------------------------- Title screens: the key art */
@@ -4529,11 +4931,17 @@ kbd {
   overflow: hidden;
 }
 
+.next-steps-bar {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
 .next-steps-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  flex: 0 0 auto;
   padding: 8px 12px;
   border: 0;
   border-radius: 0;
@@ -4546,13 +4954,17 @@ kbd {
   cursor: pointer;
 }
 
+.next-steps-head:only-child {
+  flex: 1 1 auto;
+}
+
 .next-steps-peek {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+  padding: 8px 12px 8px 0;
   overflow: hidden;
-  font-family: var(--font-body, inherit);
   font-size: 0.78rem;
-  color: var(--muted, #6b7280);
+  text-align: left;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -4578,6 +4990,15 @@ kbd {
   border-radius: 10px;
   background: rgb(255 255 255 / 45%);
   border: 1px solid rgb(0 0 0 / 6%);
+}
+
+.next-step.done {
+  opacity: 0.6;
+}
+
+.next-step-done {
+  color: var(--good, #2f7d32);
+  font-weight: 600;
 }
 
 .next-step-icon {
@@ -4649,6 +5070,22 @@ kbd {
 }
 
 /* Loady's chapter 2: one goal at a time, above the advisor */
+.loady-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+}
+
+.loady-line .loady-mini {
+  width: 28px;
+  height: 28px;
+}
+
+.loady-line span {
+  flex: 1;
+}
+
 .loady-goal {
   display: grid;
   grid-template-columns: 44px 1fr;
@@ -4782,7 +5219,7 @@ kbd {
 
 /* With an inspector open the toasts sit to its left: they never cover it */
 @media (min-width: 721px) {
-  .app:has(.building-panel, .parcel-panel, .network-panel, .gate-panel, .visit-panel, .inbox-panel) .toasts {
+  .app:has(.building-panel, .parcel-panel, .network-panel, .yard-panel, .visit-panel, .inbox-panel) .toasts {
     right: calc(min(380px, 100vw - 24px) + 2 * var(--gap));
   }
 }
@@ -4814,4 +5251,1018 @@ kbd {
   .keyboard-hint {
     display: none;
   }
+}
+
+/* ---------------------------------------------------------------- Starting, crews and invites (v1.2 §4–6) */
+
+.found-panel.wide {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+
+.found-panel .panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.start-ways .way {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  padding: 12px 14px;
+}
+
+.start-ways .way strong {
+  font-size: 1.1rem;
+}
+
+/* A friend's link or code, first on the start screen: a form that looks like the other ways */
+.start-ways .friend-code {
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.friend-code-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.friend-code-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.crew-looks summary {
+  cursor: pointer;
+  margin: 4px 0;
+}
+
+.play-now {
+  width: min(400px, calc(100vw - 32px));
+  display: grid;
+  gap: 6px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+}
+
+button.big {
+  font-size: 1.2rem;
+  padding: 12px;
+}
+
+.station-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.picker-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.picker-body {
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .picker-body {
+    grid-template-columns: 1fr;
+  }
+
+  .map-column {
+    max-width: 240px;
+    justify-self: center;
+  }
+}
+
+.map-column {
+  display: grid;
+  gap: 6px;
+}
+
+.district-map {
+  width: 100%;
+  height: auto;
+  background: #c9b58b;
+  border-radius: 10px;
+}
+
+.district-map .hub {
+  fill: #b5844a;
+}
+
+.district-map .seat {
+  fill: #8fbf7a;
+  stroke: rgba(0, 0, 0, 0.25);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+.district-map .seat.house {
+  fill: #ddd2bf;
+}
+
+.district-map .seat.held {
+  fill: #f0d79a;
+}
+
+.district-map .seat.can {
+  opacity: 1;
+  cursor: pointer;
+}
+
+.district-map .seat.in-station {
+  stroke: #173c3f;
+  stroke-width: 2;
+  opacity: 1;
+}
+
+.district-map .seat.chosen {
+  stroke: #fff;
+  stroke-width: 4;
+}
+
+.district-map .yard-mark {
+  fill: #c9963a;
+  stroke: #5b3d14;
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.district-map .yard-mark.in-station {
+  fill: #f5c45a;
+  stroke: #173c3f;
+  stroke-width: 2;
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  color: var(--text-muted);
+}
+
+.map-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  vertical-align: -1px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+}
+
+.map-legend i.free {
+  background: #8fbf7a;
+}
+
+.map-legend i.house {
+  background: #ddd2bf;
+}
+
+.map-legend i.held {
+  background: #f0d79a;
+}
+
+.district-map .home-mark {
+  fill: #fff8e8;
+  stroke: #173c3f;
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.district-map .home-mark.you {
+  fill: #173c3f;
+  stroke: #fff8e8;
+}
+
+.map-legend i.player {
+  background: #fff8e8;
+  border: 1.5px solid #173c3f;
+  border-radius: 50%;
+}
+
+.map-legend i.yard {
+  background: #c9963a;
+  transform: rotate(45deg) scale(0.85);
+}
+
+.station-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.station-card .plaque {
+  font-family: var(--font-title);
+  font-weight: 700;
+}
+
+.seat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.seat-list li.chosen {
+  font-weight: 700;
+}
+
+.seat-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.seat-row.chosen {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.seat-row .grow {
+  flex: 1;
+}
+
+.seat-row .dot,
+.crew-members .dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.crew-fields {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.emblems {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.emblem {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 1.2rem;
+}
+
+.emblem.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.crew-colors {
+  display: grid;
+  gap: 6px;
+}
+
+.crew-banner {
+  padding: 8px 12px;
+  border-radius: 10px;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  font-size: 1.05rem;
+}
+
+.crew-panel,
+.share-panel,
+.keep-panel {
+  width: min(560px, calc(100vw - 24px));
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.crew-panel h2,
+.share-panel h2,
+.keep-panel h2 {
+  font-family: var(--font-title);
+}
+
+.crew-members,
+.held-seats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.held-seats li {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+/* "Who is it for?": the friend's name makes the link theirs (F9) */
+.held-seats .friend-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.held-seats .friend-name input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 4px 8px;
+}
+
+.held-seats .code {
+  font-family: ui-monospace, monospace;
+  letter-spacing: 0.08em;
+}
+
+.keep-link {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* A keep level reached: the link glows until it is tapped (it no longer opens by itself, after run 4) */
+.keep-link.nudge {
+  border-radius: 6px;
+  animation: keep-nudge 1.6s ease-in-out infinite;
+}
+
+@keyframes keep-nudge {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(232 168 56 / 0%);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgb(232 168 56 / 55%);
+  }
+}
+
+button.link.danger {
+  color: var(--error);
+  background: none;
+  border: none;
+  box-shadow: none;
+  justify-self: start;
+}
+
+.held-seats button.link,
+.crew-panel button.link,
+.found-panel button.link {
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+
+/* A guest's reminder in the company panel: keep the estate */
+.keep-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 2px dashed #c9963a;
+  border-radius: 10px;
+  background: rgba(201, 150, 58, 0.12);
+}
+
+/* Links (v1.2 §7): one card per link, its state line, the tank at the buyer's gate */
+.link-list,
+.link-suggestions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.link-card {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.5);
+  border-left: 4px solid #9fb7b6;
+}
+
+.link-card.good {
+  border-left-color: #2e9d6a;
+}
+
+.link-card.warn {
+  border-left-color: #d08a2a;
+}
+
+.link-card.focus {
+  outline: 2px solid #f5c45a;
+}
+
+.link-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.link-head .grow,
+.link-suggestion .grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.link-arrow {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.link-line {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: var(--accent-soft);
+}
+
+.link-line.warn {
+  background: #fff1cc;
+}
+
+.link-line.info {
+  background: rgba(35, 107, 105, 0.08);
+}
+
+.link-tank {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.tank-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.tank-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #3aa19c, #6cd1c6);
+}
+
+.link-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.new-link {
+  display: grid;
+  gap: 8px;
+}
+
+.link-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.link-form select:first-child {
+  grid-column: 1 / -1;
+}
+
+.link-card button.link,
+.link-suggestion button.link {
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+
+/* The return card (F5): gold and level, then one line per thing to know, each with its one button */
+.return-card {
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
+.return-head {
+  display: grid;
+  gap: 2px;
+}
+
+.return-lines {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+}
+
+.return-line {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.return-line .return-icon {
+  text-align: center;
+}
+
+.return-line.look {
+  font-weight: 600;
+}
+
+.return-line.today,
+.return-line.invest {
+  color: var(--text-muted);
+}
+
+.return-line .ok {
+  color: #2f8f4e;
+  font-weight: 700;
+}
+
+.landing-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.landing-card {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  text-align: left;
+  padding: 10px 12px;
+  position: relative;
+}
+
+.landing-card.here {
+  outline: 3px solid var(--accent);
+}
+
+.landing-card .badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+
+.keep-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 2px dashed #c9963a;
+  border-radius: 10px;
+  background: rgba(201, 150, 58, 0.12);
+}
+
+.crew-members li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.crew-members li .grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.tailwind-chip {
+  color: #2e7d4a;
+  font-weight: 700;
+}
+
+/* The station's project (v1.2 §12) */
+.project-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+}
+
+.project-stages li {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-muted);
+}
+
+.project-stages li.done {
+  background: rgba(46, 157, 106, 0.18);
+  color: #1f6b47;
+}
+
+.project-stages li.current {
+  background: var(--accent);
+  color: #fff8e8;
+  font-weight: 700;
+}
+
+.project-basket {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.project-basket li {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.project-basket li.keystone {
+  outline: 2px solid #c9963a;
+}
+
+.basket-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.basket-head .grow {
+  flex: 1;
+}
+
+.project-helpers {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.helper-ring .ring-track {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.1);
+  stroke-width: 7;
+}
+
+.helper-ring .ring-edge {
+  stroke: rgba(40, 30, 20, 0.45);
+}
+
+/* The Plan board and Asks (v1.2 §12) */
+.plan-board {
+  display: grid;
+  gap: 6px;
+}
+
+.pins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pin {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.pin.makes {
+  border-color: #2e9d6a;
+}
+
+.pin.needs {
+  border-color: #d08a2a;
+}
+
+.ask-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ask-row .grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.ask-form {
+  display: grid;
+  grid-template-columns: 1fr 80px 70px;
+  gap: 6px;
+  align-items: center;
+}
+
+.ask-form .check,
+.ask-form button {
+  grid-column: span 3;
+}
+
+.resident-pins {
+  color: var(--text-muted);
+}
+
+/* Trunks (v1.2 §13) */
+.trunk-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.trunk-list li {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.trunk-segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.trunk-segments span {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+/* The seat picker tells the truth (F7): where the next free seat is after a refusal, and an honest empty server */
+.picker-moved,
+.picker-honest {
+  margin: 6px 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(201, 150, 58, 0.15);
+}
+
+/* What a purchase will do, before the click (after run 3, step 1); a loss in red */
+.spend-preview {
+  margin: 6px 0 0;
+  color: var(--good, #8fd06a);
+}
+
+.spend-preview.bad {
+  color: var(--bad, #ef6f6c);
+}
+
+.undo-line {
+  margin: 6px 0;
+}
+
+/* A scaffold's wants (after run 3, step 2) */
+.site-wants .site-list {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0;
+  display: grid;
+  gap: 8px;
+}
+
+.site-wants .site-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+}
+
+/* One line under another, the buttons at their own size (run 4's e2e: Order the rest stood as a tall column) */
+.site-wants .site-list li > button {
+  justify-self: start;
+}
+
+/* The pipe door (after run 4): the way up a full pipe, where a player looks to spend */
+.pipe-door {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--brass, #c9963a);
+  border-radius: 10px;
+  background: rgba(201, 150, 58, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pipe-door.locked {
+  border-style: dashed;
+  background: none;
+}
+
+.pipe-door p {
+  margin: 0;
+}
+
+.pipe-door button.wide {
+  white-space: normal;
+  text-align: left;
+}
+
+/* Your gold can (after run 4): the bank in days, and a short list of what it can do */
+.top-gold-wrap {
+  position: relative;
+}
+
+button.top-gold {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.gold-days {
+  margin-left: 6px;
+  font-size: 0.8rem;
+  color: var(--muted, inherit);
+  white-space: nowrap;
+}
+
+.gold-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--brass, #c9963a);
+  vertical-align: middle;
+}
+
+.gold-uses {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: min(420px, calc(100vw - 24px));
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gold-uses-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.gold-use {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line, rgba(80, 60, 30, 0.18));
+}
+
+.gold-use-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gold-use button {
+  align-self: flex-start;
+}
+
+.gold-uses p {
+  margin: 0;
+}
+
+/* The game's own line in a chat (a newcomer's hello, after run 4) */
+.chat-message.system .chat-text {
+  font-style: italic;
+}
+
+/* The Landmark's storeys (after run 4): its own picture, one banner band more a storey, the open one faint */
+.storeys {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  margin: 8px 0 12px;
+}
+
+.storeys-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.storeys-text h4 {
+  margin-top: 0;
+}
+
+.landmark-tower {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+  max-height: 340px;
+  overflow: hidden;
+  justify-content: flex-end;
+}
+
+.landmark-tower > div {
+  background-repeat: no-repeat;
+  flex: none;
+}
+
+.landmark-band.rising {
+  opacity: 0.35;
+  filter: grayscale(0.6);
+  outline: 2px dashed var(--brass, #c9963a);
+  outline-offset: -2px;
+}
+
+/* The Exchange's terms, said before the click (after run 4) */
+.exchange-form .exchange-terms {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+/* The building panel's network block folds (on a phone it starts folded, after run 4) */
+.net-fold > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.net-fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.net-fold > summary h4 {
+  display: inline;
+}
+
+.net-fold > summary::before {
+  content: "▸ ";
+  color: var(--muted, #7a6a4f);
+}
+
+.net-fold[open] > summary::before {
+  content: "▾ ";
+}
+
+/* The Links tab's picture: one good from your gate to a friend's (after run 4) */
+.link-picture {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 2px;
+  font-size: 0.8rem;
+}
+
+.link-picture .link-end {
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 55%);
+  border: 1px solid rgb(0 0 0 / 10%);
+  white-space: nowrap;
+}
+
+.link-picture .link-pipe {
+  flex: 1;
+  min-width: 56px;
+  padding: 2px 0;
+  border-top: 4px solid #8a929b;
+  text-align: center;
+  color: var(--muted, #6b5a3e);
+}
+
+.yard-fold > summary {
+  cursor: pointer;
+  padding: 6px 0;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+h5.chat-day {
+  font-family: inherit;
+  letter-spacing: normal;
 }

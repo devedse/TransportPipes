@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Playtest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --teal: #24575a; --teal-dark: #173c3f; --accent: #236b69; --brass: #c9963a; --brass-dark: #94692a;
+  --cream: #f4ead3; --cream-strong: #fbf5e7; --paper: #fffaf0; --ink: #2b2418; --muted: #6b5c43;
+  --green: #33761f; --red: #a12f1f; --gold: #8a5d00; --line: rgba(80, 60, 30, 0.18);
+  --good-bg: #d6eccd; --bad-bg: #f6d3cc; --warn-bg: #f3e6c4;
+}
+* { box-sizing: border-box; }
+html { background: #e9dfc6; }
+body { margin: 0; font-family: Nunito, system-ui, sans-serif; color: var(--ink); line-height: 1.55; background: #e9dfc6; }
+.page { max-width: 1040px; margin: 24px auto; padding: 48px 56px; background: var(--paper); border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(40, 30, 10, 0.18); border: 1px solid var(--line); }
+@media (max-width: 720px) { .page { margin: 12px 8px; padding: 24px 16px; border-radius: 12px; } }
+h1, h2, h3 { font-family: Fraunces, Georgia, serif; color: var(--teal-dark); line-height: 1.2; text-wrap: balance; }
+h1 { font-size: 2.6rem; margin: 0 0 8px; }
+h2 { font-size: 1.9rem; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 3px solid var(--brass); }
+h3 { font-size: 1.25rem; margin: 26px 0 8px; }
+h4 { margin: 18px 0 6px; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+p { margin: 0 0 12px; max-width: 72ch; }
+ul, ol { padding-left: 22px; margin: 0 0 12px; }
+li { margin-bottom: 4px; }
+.kicker { text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; color: var(--brass-dark); font-size: 0.85rem; }
+.lead { font-size: 1.15rem; }
+.muted { color: var(--muted); }
+.small { font-size: 0.88rem; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+@media (max-width: 720px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+.grid2 > *, .grid3 > * { min-width: 0; }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 0.92rem; }
+th { text-align: left; background: var(--cream); color: var(--teal-dark); padding: 7px 10px; font-weight: 800; }
+td { padding: 7px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+tr.hl td { background: #fbefd4; }
+.callout { padding: 14px 18px; border-radius: 12px; background: var(--cream); border-left: 6px solid var(--brass); margin: 14px 0; }
+.callout.decision { border-left-color: var(--accent); background: #e4efe9; }
+.callout.problem { border-left-color: var(--red); background: #f8e7e2; }
+.callout strong:first-child { display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; margin-bottom: 4px; }
+.pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 0.78rem; font-weight: 800; white-space: nowrap; }
+.pill.good { background: var(--good-bg); color: var(--green); }
+.pill.bad { background: var(--bad-bg); color: var(--red); }
+.pill.warn { background: var(--warn-bg); color: var(--gold); }
+.pill.info { background: #dde9f3; color: #24507a; }
+.toc { columns: 2; gap: 32px; padding-left: 20px; }
+.toc li { break-inside: avoid; }
+@media (max-width: 720px) { .toc { columns: 1; } }
+.cover { background: linear-gradient(160deg, #1f4d50 0%, #24575a 55%, #2f6b66 100%); color: #fff; }
+.cover h1 { color: #fff; font-size: 3rem; }
+.cover .kicker { color: #f2d27a; }
+.cover .lead { color: #f4ead3; }
+.themes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 26px; }
+@media (max-width: 720px) { .themes { grid-template-columns: 1fr; } .cover h1 { font-size: 2.2rem; } }
+.theme { background: rgba(255,255,255,0.1); border: 1px solid rgba(242,210,122,0.5); border-radius: 12px; padding: 12px 14px; }
+.theme b { color: #f2d27a; display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; }
+.theme span { color: #f4ead3; font-size: 0.9rem; }
+.gpanel { background: var(--cream); border: 3px solid var(--teal); border-radius: 14px; box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+  padding: 12px 14px; color: var(--ink); font-size: 0.9rem; }
+.gpanel h5 { margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; color: var(--teal-dark); }
+.plaque { display: inline-block; background: linear-gradient(#8a5a2e, #6e4421); color: #fff6df; font-family: Fraunces, Georgia, serif;
+  padding: 3px 12px; border-radius: 8px; border: 2px solid #4a2c12; font-weight: 800; margin-bottom: 6px; }
+pre, code { font-family: "JetBrains Mono", ui-monospace, monospace; }
+code { font-size: 0.86em; background: var(--cream); padding: 1px 5px; border-radius: 5px; }
+pre { background: #1d2b2c; color: #e9f0e6; padding: 14px 16px; border-radius: 12px; font-size: 0.8rem; line-height: 1.5;
+  overflow-x: auto; margin: 10px 0 16px; white-space: pre; }
+pre .c { color: #9fb8b0; }
+pre .k { color: #f2d27a; }
+/* The setup as a flow */
+.flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: stretch; margin: 18px 0 8px; }
+@media (max-width: 860px) { .flow { grid-template-columns: 1fr; } }
+.node { background: var(--cream-strong); border: 2px solid var(--teal); border-radius: 12px; padding: 10px 12px; font-size: 0.86rem; position: relative; }
+.node b { display: block; font-family: Fraunces, Georgia, serif; color: var(--teal-dark); font-size: 1rem; margin-bottom: 2px; }
+.node .who { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800; color: var(--brass-dark); }
+.node.ai { border-color: var(--brass); background: #fdf3dc; }
+.node.game { border-color: var(--accent); background: #e7f1ec; }
+.arrows { font-size: 0.85rem; color: var(--muted); margin: 4px 0 18px; }
+.persona { display: flex; flex-direction: column; gap: 6px; }
+.persona .head { display: flex; align-items: center; gap: 10px; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-family: Fraunces, Georgia, serif;
+  font-weight: 800; font-size: 1.1rem; flex: none; border: 2px solid rgba(0,0,0,0.15); }
+.persona .tests { font-size: 0.84rem; color: var(--muted); }
+.persona .tests b { color: var(--teal-dark); }
+.cal td:first-child { white-space: nowrap; font-weight: 800; color: var(--teal-dark); }
+.dots { white-space: nowrap; }
+.dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; margin-right: 3px; vertical-align: -1px; }
+.ex { position: relative; }
+.ex::before { content: "Example of the format · not a result"; position: absolute; top: -11px; right: 14px; background: var(--brass);
+  color: #fff; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 6px; }
+.score { display: inline-flex; gap: 10px; flex-wrap: wrap; font-weight: 800; color: var(--teal-dark); }
+</style>
+</head>
+<body>
+
+<section class="page cover">
+  <div class="kicker">TransportPipes · v1.2 · a plan</div>
+  <h1>The AI Playtest</h1>
+  <p class="lead">Five AI players, each with a person to play, play the real game in real browsers on a playtest server whose
+  clock we can move forward. Between sessions the world runs on for hours or days, like it does for people. Each player
+  keeps a diary of where it got stuck, what pleased it, and whether it would come back tomorrow. At the end an analyst
+  checks the story against what the design promises.</p>
+  <div class="themes">
+    <div class="theme"><b>Real browsers</b><span>The players see what a person sees: screenshots and the text on the screen.
+      They act with real clicks, taps and drags. No cheats, no shortcuts into the game.</span></div>
+    <div class="theme"><b>A clock we can move</b><span>A friend group's first five weeks in an afternoon. The world
+      catches up between sessions just as it does after a restart.</span></div>
+    <div class="theme"><b>Honest diaries</b><span>Every claim points to a screenshot or an action number. A player that
+      is stuck says so and gives up, as a person would.</span></div>
+  </div>
+</section>
+
+<section class="page">
+  <div class="kicker">Contents</div>
+  <ol class="toc">
+    <li>What it should tell us, and what it can't</li>
+    <li>The setup at a glance</li>
+    <li>The players</li>
+    <li>The story: five weeks in a calendar</li>
+    <li>One session, step by step</li>
+    <li>Keeping it honest</li>
+    <li>What comes out</li>
+    <li>Phases and cost</li>
+    <li>What I would build</li>
+    <li>Questions for you</li>
+  </ol>
+</section>
+
+<section class="page">
+  <h2>1 · What it should tell us, and what it can't</h2>
+  <p>The balance runs check the economy with one rule-following bot. The e2e scripts check that what I built works the
+  way I expect. Neither finds what I didn't expect: a button nobody sees, a number that contradicts another, a step with
+  no visible way on, a friend who has nothing to do on day 10. That is the playtest's job.</p>
+  <div class="grid2">
+    <div class="callout decision">
+      <strong>What it can tell us</strong>
+      <ul>
+        <li>Whether a newcomer finds the way using only what the screen shows (no design docs, no code)</li>
+        <li>Where it gets stuck, and what it expected instead</li>
+        <li>Numbers and texts that contradict each other</li>
+        <li>Looks: overlaps, clipped text, the phone layout</li>
+        <li>Bugs, with exact repro steps from the action log</li>
+        <li>Whether friends have something to talk about and decide together ("who builds glass?")</li>
+        <li>How five weeks go for several players together: who earns what, and whether helping pays</li>
+        <li>Whether each promise of the design happens, and when</li>
+      </ul>
+    </div>
+    <div class="callout problem">
+      <strong>What it can't</strong>
+      <ul>
+        <li>Fun the way people feel it. AI players are patient, read every word and tend to be kind.</li>
+        <li>Waiting: the clock jumps, so nobody feels the eight hours. We judge only what coming back looks like.</li>
+        <li>Fine aiming on the map. I give the players a list of what is where, with tile numbers, to aim by. That
+          makes placing buildings easier for them than for people, so findings about placing count only half.</li>
+        <li>Replace real friends. Its findings are things to fix or to watch for, not a verdict.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>2 · The setup at a glance</h2>
+  <div class="flow">
+    <div class="node"><span class="who">me</span><b>The director</b>Runs the calendar: moves the clock, starts each
+      session's players (together when they play together), collects the diaries.</div>
+    <div class="node game"><span class="who">server</span><b>The playtest server</b>The real server and a fresh world on
+      my machine, with a clock we can move. Not the public test server, so testers never see the AI players.</div>
+    <div class="node game"><span class="who">node + Playwright</span><b>The driver</b>One browser per player (desktop or
+      phone). Commands like <code>look</code>, <code>click</code>, <code>tile</code> and <code>drag</code>, all logged
+      with screenshots.</div>
+    <div class="node ai"><span class="who">Claude agents</span><b>The players</b>One agent per player per session, with
+      its person, its own memory of earlier sessions, and the friends' group chat.</div>
+    <div class="node ai"><span class="who">Claude agent</span><b>The analyst</b>Reads all the diaries, logs and numbers,
+      checks the design's promises and writes the report.</div>
+  </div>
+  <p class="arrows">director → moves the clock on the server → players act through the driver → diaries and memory →
+  analyst → report → I check every finding with an e2e script and fix it → the same story again</p>
+  <div class="grid2">
+    <div>
+      <h3>The clock</h3>
+      <p>The server takes all its time from one clock (<code>TimeProvider</code>), and the world catches up to
+      "now" on every tick. The playtest mode swaps in a clock that can jump forward and can run slower during
+      sessions, so that one agent action costs about as much game time as a person's action. Holds, stand-ins,
+      Discoveries, leagues and weekly resets all simply follow.</p>
+    </div>
+    <div>
+      <h3>Snapshots</h3>
+      <p>A copy of the database before each key session, so we can replay day 8 after a fix, or branch the story
+      ("what if Ben never comes back"), without replaying the five weeks.</p>
+    </div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>3 · The players</h2>
+  <p>Four friends play the design's hardest case (§17a: three friends tonight, Dev on day 8, Ben quits on day 3 and comes
+  back on day 36). A fifth, a stranger, plays §17b alone on a quiet server. Each player gets only its card, its memory
+  and the screen.</p>
+  <div class="grid2">
+    <div class="gpanel persona">
+      <div class="head"><span class="avatar" style="background:#c0563a">A</span><div><h5>Ana · the organiser</h5><span class="small muted">desktop · evenings, 20–40 min</span></div></div>
+      <p class="small">Starts the crew and sends the codes. Reads each panel once and likes having a plan. Texts the group
+      when something needs deciding.</p>
+      <div class="tests"><b>Tests:</b> start with friends, seat codes, the project and its keystone, the Plan board,
+      tending Ben's estate, the keep card</div>
+    </div>
+    <div class="gpanel persona">
+      <div class="head"><span class="avatar" style="background:#3a6fb0">B</span><div><h5>Ben · on the phone</h5><span class="small muted">phone, touch · 3–5 min, twice a day</span></div></div>
+      <p class="small">Skims: the driver shows Ben only the first line of each block of text. Stops after day 3 because
+      life gets busy (his card says so), and comes back on day 36 after Ana's message.</p>
+      <div class="tests"><b>Tests:</b> the phone layout, moving in as a guest, short check-ins, the stand-in, the way
+      back</div>
+    </div>
+    <div class="gpanel persona">
+      <div class="head"><span class="avatar" style="background:#7a4fa0">C</span><div><h5>Cleo · the optimiser</h5><span class="small muted">desktop · short weekdays, long weekends</span></div></div>
+      <p class="small">Reads the numbers and checks them against each other. Wants the best income and asks whether
+      helping friends pays.</p>
+      <div class="tests"><b>Tests:</b> links, Asks, prices, the Hub Order, contradicting numbers, whether together pays
+      more than alone</div>
+    </div>
+    <div class="gpanel persona">
+      <div class="head"><span class="avatar" style="background:#3f8a4a">D</span><div><h5>Dev · the late friend</h5><span class="small muted">desktop · joins day 8, every other day</span></div></div>
+      <p class="small">Opens the last code a week late, with nobody needing to be online. Casual, and wants to catch up
+      without reading much.</p>
+      <div class="tests"><b>Tests:</b> the starter kit, landing next to friends, Tailwind, links handed over, being
+      useful to the crew (the copper it lacked)</div>
+    </div>
+    <div class="gpanel persona">
+      <div class="head"><span class="avatar" style="background:#a07a2a">M</span><div><h5>Mia · the stranger</h5><span class="small muted">desktop · 10 min a day, alone</span></div></div>
+      <p class="small">"Find me neighbours" on a quiet server, in another district. Nobody she knows plays.</p>
+      <div class="tests"><b>Tests:</b> small mode, whether she can tell the Houses ⚙ are not people, whether she ever
+      feels alone, the lone-human card, income compared with the crew</div>
+    </div>
+    <div class="callout">
+      <strong>The friends' group chat</strong>
+      Real friends talk outside the game too. Ana, Ben, Cleo and Dev share a group chat (a file the driver shows them),
+      besides the in-game chat. Only the players write in it. What they talk about tells us whether the game gives them
+      something to talk about.
+    </div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>4 · The story: five weeks in a calendar</h2>
+  <p>About 25 AI sessions. Players who play at the same time play at the same time (parallel agents in the same world).
+  The clock jumps between rows. Each row has the design's promise for that moment, which the analyst checks.</p>
+  <div class="scroll">
+  <table class="cal">
+    <tr><th>When</th><th>Who</th><th>How long</th><th>The design promises</th></tr>
+    <tr class="hl"><td>Day 1 · 20:00</td><td class="dots"><span class="dot" style="background:#c0563a"></span><span class="dot" style="background:#3a6fb0"></span><span class="dot" style="background:#7a4fa0"></span> together</td><td>25 min</td>
+      <td>By minute 3 they live together, each on a chosen seat, with Dev's seat held and warmed by a House. Minute 12: the
+      Foundation buys and the Handshakes play. Minute 20: the Foundation stands and the crew decides who brings the
+      keystone.</td></tr>
+    <tr><td>Day 1 · 20:00</td><td class="dots"><span class="dot" style="background:#a07a2a"></span></td><td>20 min</td><td>Loady's first session (GDD §10.2). The Houses are labelled. Her spare sells by minute 12 (§17b).</td></tr>
+    <tr><td>Day 1 · 23:00</td><td class="dots"><span class="dot" style="background:#3a6fb0"></span></td><td>3 min</td><td>Something has changed since, and there's one thing to do.</td></tr>
+    <tr><td>Day 2 · 08:00</td><td class="dots"><span class="dot" style="background:#3a6fb0"></span><span class="dot" style="background:#7a4fa0"></span></td><td>3 / 10 min</td><td>The report says what the night brought and what the friends did.</td></tr>
+    <tr><td>Day 2 · 20:00</td><td class="dots"><span class="dot" style="background:#c0563a"></span><span class="dot" style="background:#7a4fa0"></span><span class="dot" style="background:#a07a2a"></span></td><td>20 min</td><td>The first Ask or link. The Water Tower is under way.</td></tr>
+    <tr><td>Day 3 · 20:00</td><td class="dots"><span class="dot" style="background:#3a6fb0"></span></td><td>5 min</td><td>Ben's last session. From then on his estate keeps delivering while it rests, and the next stage's
+      baskets no longer count him.</td></tr>
+    <tr><td>Day 4 · 21:00</td><td class="dots"><span class="dot" style="background:#c0563a"></span></td><td>10 min</td><td>Ana can tend Ben's estate.</td></tr>
+    <tr><td>Day 6 · 14:00</td><td class="dots"><span class="dot" style="background:#7a4fa0"></span></td><td>45 min</td><td>A long session has real decisions (links, Asks, where to grow), and helping pays.</td></tr>
+    <tr class="hl"><td>Day 8 · 20:00</td><td class="dots"><span class="dot" style="background:#3f8a4a"></span><span class="dot" style="background:#c0563a"></span></td><td>25 / 15 min</td><td>Dev opens a code nobody has to answer, gets the House's kit and its links, lands next to the crew,
+      brings what the crew lacked, and gets Tailwind.</td></tr>
+    <tr><td>Day 8 · 21:00</td><td class="dots"><span class="dot" style="background:#a07a2a"></span></td><td>10 min</td><td>A week in, Mia is not alone (the lone-human card if she is the only human).</td></tr>
+    <tr><td>Day 10 · 20:00</td><td class="dots"><span class="dot" style="background:#3f8a4a"></span><span class="dot" style="background:#7a4fa0"></span></td><td>10 min each</td><td>Dev is catching up and is useful to the crew.</td></tr>
+    <tr class="hl"><td>Day 14 · 19:00</td><td class="dots"><span class="dot" style="background:#c0563a"></span><span class="dot" style="background:#7a4fa0"></span><span class="dot" style="background:#3f8a4a"></span></td><td>15–30 min</td><td>The Foundry Hall opens for two or more. Trunks are in sight. The middle game holds up.</td></tr>
+    <tr><td>Day 15 · 21:00</td><td class="dots"><span class="dot" style="background:#a07a2a"></span></td><td>15 min</td><td>Mia earns 85–90% of a crewed player's income (§17b).</td></tr>
+    <tr class="hl"><td>Day 21 · 19:00</td><td class="dots"><span class="dot" style="background:#c0563a"></span><span class="dot" style="background:#7a4fa0"></span><span class="dot" style="background:#3f8a4a"></span></td><td>20 min each</td><td>Week 3: crew trunks, Discoveries and Wonder tiers. Crewed income keeps growing (by at least 15% from day 14 to 21).</td></tr>
+    <tr><td>Day 24 · 20:00</td><td class="dots"><span class="dot" style="background:#c0563a"></span></td><td>10 min</td><td>The stand-in for Ben is announced, and it's clear what it means.</td></tr>
+    <tr class="hl"><td>Day 36 · 20:00</td><td class="dots"><span class="dot" style="background:#3a6fb0"></span><span class="dot" style="background:#c0563a"></span></td><td>5 / 10 min</td><td>Ben lands back in his held seat within a minute, the links come back by themselves, and he sees
+      "your crew tended your estate on N days".</td></tr>
+  </table>
+  </div>
+  <div class="callout">
+    <strong>Between sessions: the autopilot</strong>
+    Real players check in more often than 25 AI sessions can. So that a day-14 estate looks like a real day-14 estate,
+    the balance bot can play the short routine check-ins on the server (playtest mode only). The player's memory then
+    gets a line like "since last time you also upgraded five panels and built a storage". It's off for the pilot and the
+    first evening, and on for the long story. You decide after the pilot.
+  </div>
+</section>
+
+<section class="page">
+  <h2>5 · One session, step by step</h2>
+  <div class="grid2">
+    <div>
+      <h3>What a player gets</h3>
+      <ol>
+        <li>Its card (who it is, how it plays, its attention budget)</li>
+        <li>Its memory: what it wrote at the end of its last session, and nothing else</li>
+        <li>The situation: "Tuesday, 21:00. You have about 20 minutes. Ana wrote in the group: …"</li>
+        <li>The driver's commands and the rules (below)</li>
+      </ol>
+      <h3>The rules</h3>
+      <ul>
+        <li>Only what the screen shows: no design docs, no code, no cheats</li>
+        <li>An attention budget: Ben 8 actions, Ana 40, Cleo up to 80</li>
+        <li><b>Stuck protocol:</b> after three tries at the same thing, write STUCK with what you expected, then do
+          something else or stop, as a person would</li>
+        <li>Think aloud only at moments that matter: <code>note "…"</code></li>
+        <li>End with the diary and the memory update</li>
+      </ul>
+    </div>
+    <div>
+      <h3>The driver's commands</h3>
+      <div class="scroll">
+      <table>
+        <tr><th>Command</th><th>What it does</th></tr>
+        <tr><td><code>look</code></td><td>What's on screen as text (top bar, Loady, the open panel, toasts, buttons). With <code>--shot</code> a screenshot too.</td></tr>
+        <tr><td><code>map</code></td><td>What is around the camera, with tile numbers: your buildings, neighbours', deposits, free land. For aiming.</td></tr>
+        <tr><td><code>click "…"</code></td><td>A button, tab or link by its visible label</td></tr>
+        <tr><td><code>tile x y</code></td><td>Clicks (or taps) the map on that tile, with the real mouse</td></tr>
+        <tr><td><code>drag x1 y1 x2 y2</code></td><td>A pipe or an area, really dragged</td></tr>
+        <tr><td><code>type</code>, <code>key</code>, <code>camera</code></td><td>Typing, keys, pan/zoom/home</td></tr>
+        <tr><td><code>chat</code>, <code>group</code></td><td>The in-game chat; the friends' group chat</td></tr>
+        <tr><td><code>note</code>, <code>end</code></td><td>Think aloud into the diary; finish the session</td></tr>
+      </table>
+      </div>
+    </div>
+  </div>
+  <h3>What <code>look</code> returns</h3>
+  <p class="small muted">Dev's first minute in the step 8 run, as <code>look</code> would put it (the screenshot path is made up):</p>
+<pre><span class="k">Top bar</span>   Sunny Flats Works · 2,002 gold (+14/min) · Level 1 (0.1/100 XP, Level 2 in 2 h 55 min) · Era 1
+<span class="k">Loady</span>     1/11 · "Hi, I'm Loady! This valley is yours. Let's make money: build a Solar Panel on a
+          sunny spot (or a Wind Moily)."  [Show me] [Skip]
+<span class="k">Toasts</span>    🤝 Handshake! Your Yard pipe met ev55567 Works's
+          🤝 Handshake! Your Yard pipe met Coal Valley Co.'s
+<span class="k">Toolbar</span>   Select · Build · Pipe · Station · Remove · ?
+<span class="k">Shot</span>      runs/2026-10-22/dev/d8-2000/017.png   <span class="c">(only with --shot)</span></pre>
+  <h3>What the diary looks like</h3>
+  <div class="gpanel ex">
+    <div class="plaque">Ben · day 1, 23:00 · 3 minutes · phone</div>
+    <p><b>Wanted:</b> to see whether my panels made money.<br>
+    <b>Did:</b> read the "while you were away" card, upgraded two panels (#3, #5).<br>
+    <b>Stuck:</b> tapped the gold number to see where it comes from, and nothing happened (#4, shot 004).<br>
+    <b>Good:</b> Ana's name on the Handshake. It felt like she was there.<br>
+    <b>Worst three:</b> the gold number (#4); the Yard panel's text cut off on the phone (shot 006); not knowing what
+    the Foundation wants from me.<br>
+    <b>Tomorrow?</b> Yes, Ana asked the group for energy.</p>
+    <div class="score"><span>Clarity 3</span><span>Fun 4</span><span>Together 4</span></div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>6 · Keeping it honest</h2>
+  <div class="scroll">
+  <table>
+    <tr><th>The risk</th><th>What we do about it</th></tr>
+    <tr><td>AI players are kind and say "it's great"</td><td>Every diary names its three worst moments. Every claim points to an
+      action number or a screenshot. The analyst throws out claims without evidence.</td></tr>
+    <tr><td>AI players are patient and read everything</td><td>Attention budgets, the stuck protocol, and Ben's skimming (the driver
+      shows him only first lines)</td></tr>
+    <tr><td>Aiming on the map by tile numbers is easier than by eye</td><td>Findings about placing count only half. Looks are judged from
+      screenshots only. Each finding is tagged with whether it came from the map list or the screen.</td></tr>
+    <tr><td>AI players know games and this kind of game</td><td>The cards say "you have never played this game". The memory holds only
+      what the player itself wrote.</td></tr>
+    <tr><td>Agents think slower than people act</td><td>The clock runs slower during sessions, measured in the pilot, so that an action
+      costs about as much game time as a person's</td></tr>
+    <tr><td>One run is one story</td><td>After fixing, the same story again from the same snapshots, to compare. Later, a second set of
+      people.</td></tr>
+    <tr><td>The players see the game's insides</td><td>The driver reads the page only for <code>look</code> and <code>map</code>; acting
+      is real clicks, taps and drags. Cheats are off.</td></tr>
+  </table>
+  </div>
+</section>
+
+<section class="page">
+  <h2>7 · What comes out</h2>
+  <div class="grid2">
+    <div>
+      <h3>The report (a page for you, via dam-tools)</h3>
+      <ul>
+        <li><b>The promises:</b> each row of the calendar <span class="pill good">kept</span> <span class="pill warn">late</span>
+          <span class="pill bad">missed</span>, with the evidence</li>
+        <li><b>Where people get stuck,</b> ranked by how bad it is and how many players hit it, with screenshots</li>
+        <li><b>Bugs,</b> each with its repro steps from the action log, plus console and server errors</li>
+        <li><b>Five weeks of numbers:</b> each player's level and income per day, and the shares from the hub, the Yard,
+          links, Asks and the project. Mia against the crew.</li>
+        <li><b>Together:</b> what they decided together, what they talked about in the group chat, who helped whom</li>
+        <li><b>In their words:</b> quotes from the diaries</li>
+        <li><b>What to change,</b> in order</li>
+      </ul>
+    </div>
+    <div>
+      <h3>What I do with it</h3>
+      <ol>
+        <li>Reproduce each finding myself with an e2e script, as for any bug (CLAUDE.md)</li>
+        <li>Fix what's real. Note in the status doc what was a quirk of the AI.</li>
+        <li>Replay the sessions it touched from their snapshots, to see that it's better</li>
+        <li>Give you a short list: what was found, what's fixed, and what needs your call</li>
+      </ol>
+      <div class="callout decision">
+        <strong>Kept in the repo</strong>
+        <code>playtest/</code> holds the driver, the cards, the stories and the report template. Each run's logs and
+        screenshots stay on my machine (gitignored); only the report goes to you.
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>8 · Phases and cost</h2>
+  <p>Pilot first: one player, two sessions, to measure what a session costs and to fix the driver where the player can't
+  see or aim. Then the rest with real numbers.</p>
+  <div class="scroll">
+  <table>
+    <tr><th>Phase</th><th>What</th><th>AI sessions</th><th>Rough size</th></tr>
+    <tr><td>0 · Tools</td><td>The clock, the driver, the cards, the director, the report (section 9)</td><td>none</td><td>my build work</td></tr>
+    <tr class="hl"><td>1 · Pilot</td><td>Mia's first session and her day 2</td><td>2</td><td>2–6 M tokens</td></tr>
+    <tr><td>2 · The first evening</td><td>Ana, Ben and Cleo together, then days 2 and 3</td><td>~9</td><td>15–25 M tokens</td></tr>
+    <tr><td>3 · The whole story</td><td>§17a to day 36 and Mia's track</td><td>~25</td><td>50–80 M tokens</td></tr>
+    <tr><td>4 · After the fixes</td><td>The sessions the fixes touched, from their snapshots</td><td>5–25</td><td>up to the same</td></tr>
+  </table>
+  </div>
+  <p class="small muted">These are guesses: a 20-minute session of about 40 actions, some with screenshots, re-reads its
+  growing context on every step, about 1–3 million input tokens. Most of that is cached re-reading, which is far cheaper
+  than new text. The pilot measures the real number. To keep it down: text by default, screenshots only when asked for
+  and scaled down, and Haiku or Sonnet for the players with Opus only for the analyst.</p>
+  <div class="callout">
+    <strong>Who runs the players</strong>
+    Claude agents started from my session, on your Claude account. Not the Codex accounts: those are allowed for the art only.
+    The full story is more agents than one workflow should run at once, so I run it phase by phase.
+  </div>
+</section>
+
+<section class="page">
+  <h2>9 · What I would build</h2>
+  <ol>
+    <li><b>Playtest mode for the server.</b> A clock that can jump and can run slower, and admin-only
+      <code>/playtest/advance</code>, <code>/playtest/rate</code> and <code>/playtest/snapshot</code>/<code>restore</code>
+      calls behind a token. Also a dump of events and numbers per company. On only with
+      <code>TransportPipes:Playtest</code>, with cheats off for players, and with its own database.</li>
+    <li><b>The driver</b> (<code>playtest/driver.mjs</code>). It keeps a browser open per player across commands
+      (phone or desktop size), and the commands above. Every action is logged with before and after screenshots and
+      with console and server errors. It builds on <code>e2e/lib.mjs</code> (sign-up, guests, codes) and on the
+      engine's <code>tileToScreen</code> for real clicks on tiles.</li>
+    <li><b>The cards and the story</b> (<code>playtest/players/*.md</code>, <code>playtest/stories/17a.yaml</code>): who plays
+      when and for how long, what each session starts with, and the promise to check.</li>
+    <li><b>The director.</b> It moves the clock, starts the session's players (in parallel when they play together),
+      collects diaries and memories, takes snapshots, and runs the autopilot (the balance bot on the server, in
+      playtest mode only).</li>
+    <li><b>The analyst</b> prompt and the report page.</li>
+  </ol>
+  <p>Before any AI plays, I check the tools with a scripted run that drives a player through the driver's own
+  commands.</p>
+</section>
+
+<section class="page">
+  <h2>10 · Questions for you</h2>
+  <ol>
+    <li><b>Pilot first?</b> Two sessions to learn the real cost and how well an AI copes with the map. Then you decide
+      on the first evening and the whole story.</li>
+    <li><b>Do you want to play along?</b> You could be a real fifth friend on the first evening. The clock runs normally
+      during sessions, and you'd get a seat code. It would show us at once how the AI players differ from a person.</li>
+    <li><b>Anyone to model the players on?</b> Your testers, or how you play yourself. A real person behind a card makes it
+      more truthful than my five.</li>
+  </ol>
+</section>
+
+</body>
+</html>

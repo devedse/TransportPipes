@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Every Want a Buyer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --teal: #24575a; --teal-dark: #173c3f; --accent: #236b69; --brass: #c9963a; --brass-dark: #94692a;
+  --cream: #f4ead3; --cream-strong: #fbf5e7; --paper: #fffaf0; --ink: #2b2418; --muted: #6b5c43;
+  --green: #33761f; --red: #a12f1f; --gold: #8a5d00; --line: rgba(80, 60, 30, 0.18);
+  --good-bg: #d6eccd; --bad-bg: #f6d3cc; --warn-bg: #f3e6c4; --info-bg: #dde9f3; --info: #24507a;
+}
+* { box-sizing: border-box; }
+html { background: #e9dfc6; }
+body { margin: 0; font-family: Nunito, system-ui, sans-serif; color: var(--ink); line-height: 1.55; background: #e9dfc6;
+  padding-left: max(0px, env(safe-area-inset-left, 0px)); padding-right: max(0px, env(safe-area-inset-right, 0px)); }
+.page { max-width: 1100px; margin: 24px auto; padding: 48px 56px; background: var(--paper); border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(40, 30, 10, 0.18); border: 1px solid var(--line); overflow-wrap: break-word; }
+@media (max-width: 720px) { .page { margin: 12px 8px; padding: 24px 16px; border-radius: 12px; } }
+h1, h2, h3 { font-family: Fraunces, Georgia, serif; color: var(--teal-dark); line-height: 1.2; text-wrap: balance; }
+h1 { font-size: 2.6rem; margin: 0 0 10px; }
+h2 { font-size: 1.9rem; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 3px solid var(--brass); }
+h3 { font-size: 1.25rem; margin: 26px 0 8px; }
+p { margin: 0 0 12px; max-width: 74ch; }
+ul, ol { padding-left: 22px; margin: 0 0 12px; max-width: 80ch; }
+li { margin-bottom: 5px; }
+.kicker { text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; color: var(--brass-dark); font-size: 0.85rem; }
+.lead { font-size: 1.15rem; }
+.muted { color: var(--muted); }
+.small { font-size: 0.88rem; }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 0.9rem; }
+.scroll table { min-width: 860px; }
+th { text-align: left; background: var(--cream); color: var(--teal-dark); padding: 7px 10px; font-weight: 800; vertical-align: bottom; }
+td { padding: 8px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+td ul { margin: 4px 0 0; padding-left: 18px; } td li { margin-bottom: 2px; }
+tr.group td { background: var(--cream-strong); font-family: Fraunces, Georgia, serif; font-weight: 800; color: var(--teal-dark); font-size: 1rem; padding-top: 12px; }
+tr.gate td { background: #e4efe9; }
+tr.redesign td { background: #fbefd4; }
+td.num { white-space: nowrap; }
+.callout { padding: 14px 18px; border-radius: 12px; background: var(--cream); border-left: 6px solid var(--brass); margin: 14px 0; }
+.callout.decision { border-left-color: var(--accent); background: #e4efe9; }
+.callout.problem { border-left-color: var(--red); background: #f8e7e2; }
+.callout strong:first-child { display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; margin-bottom: 4px; }
+.pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 0.76rem; font-weight: 800; white-space: nowrap; }
+.pill.fix { background: var(--good-bg); color: var(--green); }
+.pill.redesign { background: var(--warn-bg); color: var(--gold); }
+.pill.now { background: var(--bad-bg); color: var(--red); }
+.pill.next { background: var(--info-bg); color: var(--info); }
+.who { display: inline-block; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 1px 6px;
+  border-radius: 6px; margin: 0 3px 3px 0; border: 1px solid var(--line); }
+.who.s { background: #e3ecf6; color: #24507a; } .who.p { background: #f6e3ea; color: #8a2f55; } .who.o { background: #e1f0e4; color: #2d6b3a; }
+.cover { background: linear-gradient(160deg, #1f4d50 0%, #24575a 55%, #2f6b66 100%); color: #fff; }
+.cover h1 { color: #fff; font-size: 2.8rem; }
+.cover .kicker { color: #f2d27a; }
+.cover .lead { color: #f4ead3; }
+.votes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 26px; }
+@media (max-width: 760px) { .votes { grid-template-columns: 1fr; } .cover h1 { font-size: 2.1rem; } }
+.vote { background: rgba(255,255,255,0.1); border: 1px solid rgba(242,210,122,0.5); border-radius: 12px; padding: 12px 14px; }
+.vote b { color: #f2d27a; display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; }
+.vote .v { display: inline-block; margin: 6px 0 4px; background: #f2d27a; color: #173c3f; font-weight: 800; border-radius: 999px; padding: 1px 10px; font-size: 0.82rem; }
+.vote span { color: #f4ead3; font-size: 0.9rem; display: block; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+.grid2 > * { min-width: 0; }
+code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.84em; background: var(--cream); padding: 1px 5px; border-radius: 5px; }
+.steps { counter-reset: s; list-style: none; padding-left: 0; }
+.steps li { counter-increment: s; position: relative; padding-left: 44px; margin-bottom: 10px; }
+.steps li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--teal); color: #fff; font-weight: 800; display: grid; place-items: center; font-size: 0.9rem; }
+.steps li.gate::before { background: var(--brass); }
+</style>
+</head>
+<body>
+
+<section class="page cover">
+  <div class="kicker">TransportPipes · after AI playtest run 3 · three analysts, two rounds</div>
+  <h1>Fix first, then one redesign: every want a buyer on the pipes</h1>
+  <p class="lead">You asked a team of three analysts to look at run 3, bring a table of improvements, and say whether
+  they'd focus on fixes or do another redesign. They reviewed the run apart, then read each other and voted again.
+  <b>All three end on the same answer:</b> fix what froze and misled players now, run one cheap replay to check, then
+  build one redesign before run 4. In that redesign, whatever needs materials (a building, an upgrade, the Era wonder)
+  buys them through the pipes from you, your friends and the Yard, instead of pulling them from your own Storage.
+  Friends see the need and can fill it with one tap.</p>
+  <div class="votes">
+    <div class="vote"><b>The systems designer</b><span class="v">A mix</span>
+      <span>Round 1 and round 2. "The fixes stop the game from lying and freezing; they cannot give friends a way to move a
+      material, or gold a reason to exist."</span></div>
+    <div class="vote"><b>The player researcher</b><span class="v">Fixes → a mix</span>
+      <span>Round 1: fixes only. Changed after checking the others' claims: "three of my late drops were not texts: the
+      bricks, the Copper Pipe and the Dynamo sat behind a real wall."</span></div>
+    <div class="vote"><b>The social designer</b><span class="v">A mix</span>
+      <span>Round 1: a different redesign (Ask and answer, a one-off hand-over). Round 2: folded it into the systems
+      designer's as its social side: "a manual hand-over already failed in this run."</span></div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>What run 3 told them</h2>
+  <div class="grid2">
+    <div>
+      <h3>Better than ever: the first two weeks</h3>
+      <ul>
+        <li><b>The early game is the best of three runs.</b> Days 1–4: mean fun and clarity 3.79, "come back tomorrow"
+          yes 12 of 14 (run 1: 8 of 12; run 2: 8 of 14).</li>
+        <li><b>The design's idea reached the screens once.</b> Ana's stone ran Cleo's Brickworks for a week, both knew,
+          and the playtest's first Thanks and Tends followed. The one "together 4" in the run.</li>
+        <li><b>One-tap fixes, one return card</b> worked every time ("a real rescue").</li>
+      </ul>
+      <h3>Not chores</h3>
+      <p>All three agree: upkeep was about a tenth of the commands, mostly one or two clicks, and nobody called it a
+      chore. What wore players down was the same warning on return after return with no fix that worked, and nothing
+      left to want.</p>
+    </div>
+    <div>
+      <h3>Unchanged for three runs: weeks 3–5</h3>
+      <ul>
+        <li><b>Late game flat.</b> From day 18: fun 3.0, "come back" yes 1 of 6, the same as runs 1 and 2.</li>
+        <li><b>The shared project froze on two rules.</b> A House's capped quarter of water counted as a delivery,
+          which switched the pass-over off; and the keystone rule chose water, a good nobody needed, in all four
+          stations. The crew's Workshop sat at 96% for 27 days.</li>
+        <li><b>The game offered what its rules refused:</b> 7 of 10 STUCK incidents ("forest" parcels with no wood,
+          a Big Factory that needs 100 unmentioned bricks, "a Water Pump by the water" then "Not on water").</li>
+        <li><b>A real wall behind the late wants.</b> Every bigger building, the Era 2 list and the Wonder need
+          materials that can only come from your own Storage. Dealt land put them on a friend's estate, and nothing
+          could carry them across. From day 15 to 36 the crew added 3 buildings and held 95–100% of all it earned.</li>
+        <li><b>The door was already there.</b> The game has an Ask that buys from neighbours' spare and lets a House
+          fill the rest. Its only entrance is a form under the Plan board. It was used 0 times in three runs; Ana's 100
+          bricks were one Ask away.</li>
+        <li><b>Ben was lost in 33 seconds</b> and nothing brought him back.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>The table</h2>
+  <p>Merged from the three final tables (<code>docs/design-notes/after-run3/r2-*.md</code>), ranked as they ranked it.
+  Effort is the analysts' estimate in days of work, a range where they differed.
+  <span class="who s">S</span> systems designer, <span class="who p">P</span> player researcher,
+  <span class="who o">O</span> social designer: who proposed or backs each row.</p>
+  <div class="scroll">
+  <table>
+    <tr><th>#</th><th style="width:34%">Improvement</th><th>Kind</th><th style="width:30%">What it answers (evidence)</th><th>Effort</th><th>When</th><th>Backed by</th></tr>
+
+    <tr class="group"><td colspan="7">Now: before anyone plays again (about 12–15 days)</td></tr>
+    <tr><td>1</td><td><b>The keystone always moves on.</b>
+      <ul><li>Only a player's delivery counts; a House's never does.</li>
+      <li>Passed over after 2 days when the players' deliveries wouldn't finish it soon (a trickle doesn't hold a stage),
+        the clock starting once every active resident has seen it on a card.</li>
+      <li>Warned before ("passed over Friday unless one of you brings water"), told after, on every card by station.</li>
+      <li>A passed good never returns in that stage; after two pass-overs the stage stands on its other goods.</li></ul></td>
+      <td><span class="pill fix">Fix</span></td>
+      <td>Capital SE's Workshop at 96% from day 9 to 36 (water 1,990 / 7,200); Capital NW's Water Tower at 89% from day 6
+        (1,855). Both are about a House's cap of 1,800. The code passes a keystone over only when nothing at all came.
+        Mia: "nothing told me it no longer matters".</td>
+      <td class="num">1.5–2.5</td><td><span class="pill now">now</span></td><td><span class="who s">S</span><span class="who o">O</span><span class="who p">P</span></td></tr>
+    <tr><td>2</td><td><b>The project's line tells the truth and gives the way through.</b>
+      <ul><li>One sentence on the This week line, the card and the Project tab: "Workshop 96% · 9 days on water · you
+        can: a Water Pump beside your pond · Show me".</li>
+      <li>Never "(nobody here yet)" when a resident's land allows it.</li>
+      <li>Your own idle maker leads your card ("Your Water Pump is idle: no energy").</li>
+      <li>Idle reasons name the real limit (Cleo's Coal Pit was bound by its pipe, not energy); Send says what it moved.</li></ul></td>
+      <td><span class="pill fix">Fix</span></td>
+      <td>"(nobody here yet)" on 6 crew cards from day 14 to 36, though every estate was told "Surveyors found a pond".
+        Mia's pump idle from day 8 to 36, her cards silent. Cleo's pit "energy short" for 11 days; her fixes aimed at
+        the wrong thing.</td>
+      <td class="num">2–3</td><td><span class="pill now">now</span></td><td><span class="who p">P</span><span class="who o">O</span><span class="who s">S</span></td></tr>
+    <tr><td>3</td><td><b>Offer only what works.</b>
+      <ul><li>"You can", parcel steps, Next steps, fix buttons and Max pass the build command's own check and a network
+        what-if first.</li>
+      <li>One "can make" rule from dealt land's deposits (not forest tiles).</li>
+      <li>A step names every cost ("Big Factory · 12k g + 100 bricks"); Copper Pipe disabled with its reason; "pick
+        one!" only when something can be picked.</li>
+      <li>Refusals teach ("A pump stands beside the water, not on it") and move the ghost to a tile that works.</li>
+      <li>Max counts pipe capacity and shows the net change before the click.</li></ul></td>
+      <td><span class="pill fix">Fix</span></td>
+      <td>7 of 10 STUCK incidents: forest parcels (cleo d06), the Big Factory's bricks (ana d21), "Not on water" ×3 (ana
+        d27), Copper Pipe (cleo d21), "pick one!" (cleo d10). The Lab's Max cut Cleo's income 783 → 285 g/min.</td>
+      <td class="num">4.5–5</td><td><span class="pill now">now</span><br><span class="small muted">tile outline next</span></td><td><span class="who p">P</span><span class="who s">S</span><span class="who o">O</span></td></tr>
+    <tr><td>4</td><td><b>Find your friends.</b>
+      <ul><li>"A friend sent you a link?" first on the start screen; a crew takes one name field.</li>
+      <li>A seat kept for you shows on every return until you answer: "Ana keeps a seat for you · Move in, free · Not
+        with them".</li>
+      <li>The founder sees "Ben opened your link but lives in Capital SW · Send again · Visit".</li>
+      <li>Texts place friends in the right station; "Copy Ben's link".</li></ul></td>
+      <td><span class="pill fix">Fix</span></td>
+      <td>Ben pressed Play 33 s before Ana's link, then "Leave your crew first." Three return cards silent about the seat;
+        "which station am i in?" twice; Ana's six promised visits; "Old Forest Co. moved in next door" on Ben's card.</td>
+      <td class="num">2–2.5</td><td><span class="pill now">now</span></td><td><span class="who o">O</span><span class="who p">P</span><span class="who s">S</span></td></tr>
+    <tr><td>5</td><td><b>The Era wonder in sight, and its end told</b> (until row 7 makes it a buyer).
+      <ul><li>A tracker line with your part; the Era button names the goal, not just a clock.</li>
+      <li>Every card after the deadline says how it ended and the crew's part.</li></ul></td>
+      <td><span class="pill fix">Fix</span></td>
+      <td>Cleo's 500 bricks never delivered; "Era 1 ended without me knowing" (ana d27); "I feel late and useless" (dev
+        d21). The only event was "Era 2 begins!".</td>
+      <td class="num">1–1.5</td><td><span class="pill now">now</span></td><td><span class="who p">P</span><span class="who o">O</span><span class="who s">S</span></td></tr>
+    <tr><td>6</td><td><b>The stranger sits beside a crew that plays; a small station keeps its stages.</b>
+      <ul><li>"Next door to a crew" counts residents active in the last 3 days, not held seats.</li>
+      <li>A small station that leaves a shared Yard keeps the stages it stood with.</li></ul></td>
+      <td><span class="pill fix">Fix</span></td>
+      <td>Mia-B was seated beside a crew of one and three held seats. Capital W restarted at the Foundation on day 18 and
+        lost its Water Tower, against "expansion over rebuilding".</td>
+      <td class="num">1–1.5</td><td><span class="pill now">now</span></td><td><span class="who s">S</span><span class="who o">O</span><span class="who p">P</span></td></tr>
+
+    <tr class="gate"><td>✓</td><td colspan="6"><b>The deciding replay.</b> All three asked for it before the redesign. Make
+      the "You need 100 bricks" refusal raise the existing Ask (1 day, the player researcher's smallest step), then
+      replay run 3 from the day-8 snapshot with Ana, Cleo and Dev on the fixes only. If the crew builds a Big Factory and
+      gets the Dynamo to its first tier by hand, the wall was a missing door: row 7 shrinks to its social face (about 3
+      days). If not, row 7 is built whole.</td></tr>
+
+    <tr class="group"><td colspan="7">Next: before run 4 (about 21–29 days, the redesign included)</td></tr>
+    <tr class="redesign"><td>7</td><td><b>Every want is a buyer on the pipes (the redesign).</b>
+      <ul><li><b>Sites:</b> a building, upgrade or pipe tier short of materials becomes a site that buys them, built on
+        the existing Ask: your own producers, then friends' and neighbours' spare at the one price (named at both ends),
+        then Houses; a House fills the rest at the deadline. Materials go into the site, not a Storage.</li>
+      <li><b>The Era wonder</b> (and District Wonders) buy for the whole Capital in every Yard round, sized when each
+        stage starts, with your part in every tracker and its result told.</li>
+      <li><b>The friends' side:</b> the need shows once to the friends who can fill it ("Ana's Big Factory waits for 100
+        bricks · your Storage holds 500 · Send them ▸"); a friend can pay a House for the rest (the gold leaves the
+        game); "Cleo's bricks built your Big Factory 💛 Thanks".</li>
+      <li><b>It replaces</b> "N in your storages", Deliver from storage, the Wonders minigame and the Plan board's Ask
+        form. It keeps dealt land, the one price, the Houses, Send, the project and the return card.</li></ul></td>
+      <td><span class="pill redesign">Redesign</span></td>
+      <td>Materials come only from your own Storages (<code>Pay()</code>); the Big Factory, Market Hall, Steel Mill,
+        Cement Kiln and Big Turbine all need them. "I don't know how to hand you 100 bricks directly" (group, day 21).
+        The Dynamo needed about 2.5 h of Cleo's real bricks, which went to the hub behind a full Storage. Gold offered to
+        friends four times, 95–100% unspent. The Ask that could carry it all: used 0 times.</td>
+      <td class="num">9–12</td><td><span class="pill next">next</span><br><span class="small muted">first step now</span></td><td><span class="who s">S</span><span class="who o">O</span><span class="who p">P</span></td></tr>
+    <tr><td>8</td><td><b>A keystone that needs two friends.</b> From the Water Tower on, a tier-2 good whose land inputs
+      lie on two seats: bricks (stone + coal) or copper ingots (copper + coal), not glass. The card names both friends;
+      an away seat's input comes from its House. Today's rule only where no pair exists.</td>
+      <td><span class="pill fix">Fix (rule)</span></td>
+      <td>Water was the keystone in all four stations by day 16 and needed no friend. The run's only "together 4" had
+        exactly this shape (Ana's stone, Cleo's Brickworks).</td>
+      <td class="num">2</td><td><span class="pill next">next</span><br><span class="small muted">social: now</span></td><td><span class="who s">S</span><span class="who o">O</span><span class="who p">P</span></td></tr>
+    <tr><td>9</td><td><b>A running gift stays running, and clicks that cost income say so.</b>
+      <ul><li>A friend's running trade comes before your own Storage keeping that good, unless you choose otherwise.</li>
+      <li>A flow between friends that halves is on both cards, with the solver's cause and one button.</li>
+      <li>Placing a Storage says what it holds back; gift totals come from the books.</li></ul></td>
+      <td><span class="pill fix">Fix</span></td>
+      <td>Cleo's stone fell 55.8 → 0.8 a minute on day 22, told to neither. Three income drops right after building a
+        Storage ("Did I break something?"). Ana's card said +86.5k g against about 14k paid.</td>
+      <td class="num">1.5–3</td><td><span class="pill next">next</span></td><td><span class="who o">O</span><span class="who p">P</span><span class="who s">S</span></td></tr>
+    <tr><td>10</td><td><b>Gold and research points have a use.</b>
+      <ul><li>A Lab with nothing to research rests and eats nothing; capped, repeatable Refinements follow an Era's
+        tree.</li>
+      <li>Stage rewards hit the bottleneck (Water Tower: pipes carry +50%) and the keystone pays like a hub order.</li>
+      <li>Hub orders and the Invest line are priced in hours of income, or stay quiet.</li></ul></td>
+      <td><span class="pill fix">Fix (numbers)</span></td>
+      <td>Cleo had 449k points on day 10 and 1.6M by day 21, more than all five eras' trees (1.42M); her Lab ate ~400
+        g/min of ingots for nothing. "+38 g/min for you" at 951. "27796.8k banked: Max … for 13k".</td>
+      <td class="num">3–4.5</td><td><span class="pill next">next</span></td><td><span class="who s">S</span><span class="who o">O</span><span class="who p">P</span></td></tr>
+    <tr><td>11</td><td><b>The return card leads with what matters, and folds the rest.</b> People first, then the shared
+      goal's blocker if you can unblock it, then one-tap fixes. A line unchanged since last time folds into one "Still:"
+      line with a fix that works; a crew line for the skimmer; the bell only for what you can act on; 27.8M, not
+      27796.8k.</td>
+      <td><span class="pill fix">Fix</span></td>
+      <td>Cleo's full Storage on 5 of her 5 cards, frozen numbers; the Invest line on 14 of 23 cards; "a wall of 30+
+        messages … I understood little" (ben d36); "I can't tell what matters" (ana d36).</td>
+      <td class="num">3</td><td><span class="pill next">next</span><br><span class="small muted">events later</span></td><td><span class="who p">P</span><span class="who o">O</span><span class="who s">S</span></td></tr>
+    <tr><td>12</td><td><b>The crew's news in one place, and friends who live elsewhere.</b> Station and Crew chat
+      channels; projects named by their station; chat opens on the right, Escape closes Build; the phone's folded step
+      is itself a button; the Crew and Links panels list friends in other stations with Visit.</td>
+      <td><span class="pill fix">Fix</span></td>
+      <td>Four Water Towers in one chat; "Capital chat full of other Mias … unclear who my friends are" (dev d08); chat
+        over the goals; Ben's step with nothing to tap (STUCK); "where do you live?" (ana d21).</td>
+      <td class="num">3–4.5</td><td><span class="pill next">next</span></td><td><span class="who o">O</span><span class="who p">P</span><span class="who s">S</span></td></tr>
+  </table>
+  </div>
+  <p class="small muted">Altogether about 33–42 days of work by their estimates: the "now" rows about 12–15, the redesign
+  9–12 (or about 3 if the replay shrinks it), the other "next" rows 12–17.</p>
+</section>
+
+<section class="page">
+  <h2>Where they still differ</h2>
+  <p>Small points inside the plan they agree on. Each needs a choice when it's built.</p>
+  <div class="scroll">
+  <table>
+    <tr><th>Question</th><th>Systems</th><th>Player</th><th>Social</th></tr>
+    <tr><td><b>When is a keystone passed over?</b></td>
+      <td>A pace test: when the last 2 days' player deliveries wouldn't finish it within 2 more days.</td>
+      <td>2 days without a player delivery; a trickle restarts the clock only if it would finish within 3 days.</td>
+      <td>2 days without a player delivery, the clock starting once every active resident has seen it on a card
+        (otherwise the stage decides for friends who are away).</td></tr>
+    <tr><td><b>Hub orders in the redesign?</b></td>
+      <td>No: a later fix.</td><td>Yes: a buyer at the trading post, no Storage, no Deliver.</td><td>Yes.</td></tr>
+    <tr><td><b>Can gold buy at once?</b></td>
+      <td>"Pay for it": a House fills a friend's need at 2.0×.</td>
+      <td>Never at once: the House's part comes in the next hour, or a friend's goods stop mattering (Ana held 39.8M).</td>
+      <td>"Pay the rest for Ana": gold to the hub, never between players or same-device accounts.</td></tr>
+    <tr><td><b>The two-friend keystone</b></td>
+      <td>Next.</td><td>Next: changing what the goal is and how it moves in one run would make run 4 unreadable.</td>
+      <td>Now: water needed no friend in any station.</td></tr>
+    <tr><td><b>The redesign's size</b></td>
+      <td>About 9 days (the Ask engine already sits in the Yard round).</td><td>8–10 days.</td><td>About 12 days.</td></tr>
+  </table>
+  </div>
+  <div class="callout">
+    <strong>Corrections they made to each other</strong>
+    <ul>
+      <li>Cleo's Coal Pit was bound by its output pipe, not by energy, and a second grey pipe adds nothing: capacity counts
+        per producer–consumer pair (systems, correcting the player researcher).</li>
+      <li>Glass is not a two-friend chain, since energy is on every estate; Cleo made 12 bricks a minute, not 55 (social,
+        correcting the systems designer).</li>
+      <li>The top bar's Era button did open the Wonders on Cleo's first try; it reads as a clock (player).</li>
+      <li>Mia's water failed because her pump had no energy from day 8 to 36, after the game's own fix pipe (player and
+        social).</li>
+    </ul>
+  </div>
+</section>
+
+<section class="page">
+  <h2>The first two weeks, in the order they agree on</h2>
+  <ol class="steps">
+    <li><b>The keystone moves on</b> (row 1), and a small station keeps its stages. Replay from run 3's row-9 snapshot:
+      Capital SE's Workshop must stand or move on within days.</li>
+    <li><b>The project's line tells the truth</b> (row 2): one sentence everywhere, your own idle maker first. Check from
+      the day-27 snapshot that Ana's card names the pond and the button.</li>
+    <li><b>One "can make" rule and refusals that teach</b> (row 3, its first part).</li>
+    <li><b>The Era wonder in sight and its end told</b> (row 5); "pick one!" only when something can be picked.</li>
+    <li><b>Find your friends</b> (row 4), then replay row 1 with Ben pressing Play first: he must be in Ana's station by
+      his second session.</li>
+    <li><b>The stranger's seat</b> (row 6), and the refusal "You need 100 bricks" raising the existing Ask.</li>
+    <li class="gate"><b>The deciding replay</b> from the day-8 snapshot with Ana, Cleo and Dev to day 21, on the fixes
+      only. It decides the redesign's size.</li>
+    <li><b>Steps and fixes tried out before they're offered</b> (the rest of row 3).</li>
+  </ol>
+  <p>Then weeks 3–4: the redesign (row 7), rows 8–12, and run 4.</p>
+</section>
+
+<section class="page">
+  <h2>Run 4: how we'll know</h2>
+  <p>The marks they'd watch, merged. All three retire "paid trade between humans ≥ 15%" as the headline social mark
+  (three runs came in at 0–2.8%, and the one felt high came at 1.3%); it stays as a number to watch.</p>
+  <div class="scroll">
+  <table>
+    <tr><th>Mark</th><th>Pass</th><th>Run 3</th><th>From</th></tr>
+    <tr><td><b>The shared goal moves</b></td><td>No keystone waits more than 2 days while a player is active; a stage
+      stands at least every 4 days in a station with an active resident</td><td>27 days at 96%</td><td><span class="who s">S</span><span class="who p">P</span><span class="who o">O</span></td></tr>
+    <tr><td><b>Built together</b> (the new headline)</td><td>By day 14 every crew member with 3+ sessions has a friend's goods in
+      one of their builds (a site, the keystone or the wonder), named at both ends</td><td>none</td><td><span class="who s">S</span><span class="who o">O</span><span class="who p">P</span></td></tr>
+    <tr><td><b>The Era wonder stands</b></td><td>Its first stage before the deadline with 3+ contributors; every card tells
+      the result</td><td>0 / 1,800, no word</td><td><span class="who s">S</span><span class="who o">O</span></td></tr>
+    <tr><td><b>The late game holds</b></td><td>Days 18–36: fun 3.5+ and "come back" yes in 3 of 6; the crew's income +30%
+      and 4+ buildings each from day 14 to 36; 20%+ of earnings spent</td><td>fun 3.0, 1 of 6; income +3% from day 21; 0–5% spent</td><td><span class="who p">P</span><span class="who s">S</span></td></tr>
+    <tr><td><b>No suggestion the rules refuse</b></td><td>No STUCK caused by a step, card line, "you can" or fix button the
+      game offered; 3 STUCK or fewer</td><td>7 of 10 incidents; 11 STUCK</td><td><span class="who p">P</span></td></tr>
+    <tr><td><b>Friends find each other</b></td><td>With Ben pressing Play first, he lives in Ana's station by his second
+      session; nobody asks "which station am I in?"</td><td>lost for 36 days</td><td><span class="who o">O</span><span class="who p">P</span></td></tr>
+    <tr><td><b>Felt together</b></td><td>Ana, Cleo and Dev average "together" 3.2+ (weighed low: AI players are kind)</td><td>2.79 (runs 1–2: 2.95, 2.84)</td><td><span class="who o">O</span></td></tr>
+    <tr><td><b>The stranger beside a crew that plays</b></td><td>Mia-B shares a Yard with the active crew; one act between
+      them by day 8; "alive" 4+ twice, not from her twin</td><td>not tested</td><td><span class="who o">O</span></td></tr>
+  </table>
+  </div>
+  <div class="callout problem">
+    <strong>What would change their minds</strong>
+    <ul>
+      <li><b>All three:</b> if the deciding replay shows the crew building a Big Factory and feeding the Dynamo by hand on
+        the fixes alone, the wall was a missing door, and the redesign shrinks to its friends' side.</li>
+      <li><b>Social and player:</b> if run 4's needs are filled mostly by Houses rather than friends (under a third
+        from friends), the rails work but nobody has a reason to help; then the two-friend keystone (row 8) moves up.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="page">
+  <h2>How this was made</h2>
+  <p>Three analysts (Claude agents), each with one lens (<code>docs/design-notes/after-run3/roles.md</code>): the
+  systems designer (the loop, the project, eras, the Yard, research and gold), the player researcher (what players saw,
+  understood and felt; clarity, STUCK notes, chores, the phone) and the social designer (playing together: the crew,
+  seats, gifts, the shared plan, the stranger). Same brief (<code>brief.md</code>): run 3's findings, digest, samples,
+  players' logs and screenshots, runs 1 and 2 to compare, and the code to confirm causes and size changes.</p>
+  <ul>
+    <li><b>Round 1</b> (<code>r1-systems.md</code>, <code>r1-player.md</code>, <code>r1-social.md</code>): each
+      reviewed the run alone.</li>
+    <li><b>Round 2</b> (<code>r2-*.md</code>): each read the other two, checked the claims they adopted or disputed
+      against the logs and code, and gave a final table and vote.</li>
+  </ul>
+  <p class="small muted">The run-3 report (playtest-run3-report.html) has the evidence behind every row: the sessions,
+  diaries, screenshots and numbers.</p>
+</section>
+
+</body>
+</html>

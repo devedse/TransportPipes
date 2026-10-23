@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { gameClient } from "../app/client";
+import { useAppStore } from "../state/store";
+import { InviteScreen } from "./InviteScreen";
 
 /** Login and registration, over the title art */
 export function AuthScreen() {
@@ -9,6 +11,18 @@ export function AuthScreen() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const invite = useAppStore((state) => state.invite);
+  const [loginWanted, setLoginWanted] = useState(false);
+
+  const playNow = async () => {
+    setBusy(true);
+    setError(await gameClient.playAsGuest().catch((reason: unknown) => String(reason)));
+    setBusy(false);
+  };
+
+  if (invite !== null && !loginWanted) {
+    return <InviteScreen onLogin={() => setLoginWanted(true)} />;
+  }
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -35,6 +49,14 @@ export function AuthScreen() {
         </h1>
         <p className="tagline">
           Build your estate. Pipe your neighbours. Grow an empire that keeps running while you sleep.
+        </p>
+      </div>
+      <div className="panel play-now">
+        <button className="primary big" disabled={busy} onClick={() => void playNow()}>
+          Play now
+        </button>
+        <p className="muted small">
+          No account needed: keep your estate with a name and a password whenever you like.
         </p>
       </div>
       <form className="panel auth-panel" onSubmit={(event) => void submit(event)}>

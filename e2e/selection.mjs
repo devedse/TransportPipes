@@ -97,7 +97,9 @@ await shot("3b-shift-out");
 await page.keyboard.down("Control"); await page.mouse.click(p[2].x, p[2].y); await page.keyboard.up("Control");
 await page.waitForTimeout(500);
 s = await state();
-expect("Ctrl-click selects all of its kind", s.selection.length === 4, `${s.selection.length}`);
+// All of the player's moilies, the starter kit's too
+const moilies = await page.evaluate(() => [...tp.gameClient.world.buildings.values()].filter((t) => t.owner === tp.appStore.getState().company.id && t.type === "windMoily").length);
+expect("Ctrl-click selects all of its kind", s.selection.length === moilies && moilies >= 4, `${s.selection.length} of ${moilies}`);
 
 // 7. Escape clears; Ctrl+A selects all own buildings on screen; right-click clears
 await page.keyboard.press("Escape");

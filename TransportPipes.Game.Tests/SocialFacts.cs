@@ -80,23 +80,6 @@ public class SocialFacts
     }
 
     [TestMethod]
-    public void PartnersHearAboutAPriceChangeAheadOfTime()
-    {
-        var game = new TestGame(content: TestGame.PlainContent);
-        var a = game.NewCompany("A");
-        var b = game.NewCompany("B");
-        game.Map(a, game.Local(a, 1, 1), " W+");
-        game.Map(b, game.Local(a, 1, 1), "   M+T");
-        game.World.TakeChanges();
-
-        Assert.IsTrue(game.World.SetSellPrice(a.Id, "energy", 2.2).Success);
-
-        var notice = game.World.TakeChanges().Events.Single(t => t.Kind == WorldEventKind.PriceChanged);
-        Assert.AreEqual(b.Id, notice.Company);
-        StringAssert.Contains(notice.Text, "2.2 g");
-    }
-
-    [TestMethod]
     public void NeighboursHearAboutANewcomer()
     {
         var game = new TestGame();

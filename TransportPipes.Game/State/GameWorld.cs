@@ -1,13 +1,17 @@
+using System.Text.RegularExpressions;
 using TransportPipes.Game.Content;
 using TransportPipes.Game.World;
 
 namespace TransportPipes.Game.State;
 
-public sealed record CommandResult(bool Success, string? Error = null)
+/// <param name="Note">Done, and what the player should know about how (a building placed as a scaffold that waits for its bricks)</param>
+public sealed record CommandResult(bool Success, string? Error = null, string? Note = null)
 {
     public static readonly CommandResult Ok = new(true);
 
     public static CommandResult Fail(string error) => new(false, error);
+
+    public static CommandResult Done(string note) => new(true, null, note);
 }
 
 public enum WorldEventKind
@@ -26,10 +30,20 @@ public enum WorldEventKind
     Calendar,
     Wonder,
     Achievement,
+    Crew,
+    Link,
 }
 
 /// <summary>Something a player should hear about (a toast in the client)</summary>
-public sealed record WorldEvent(long Company, WorldEventKind Kind, string Text, long? Building = null);
+public sealed record WorldEvent(long Company, WorldEventKind Kind, string Text, long? Building = null, bool? Bell = null)
+{
+    /// <summary>
+    /// Whether it also goes to the bell: only what the player can act on (after run 3, row 11: "a wall of 30+ messages
+    /// … I understood little"); levels, research, prices, filled orders and the calendar are toasts and card lines
+    /// </summary>
+    public bool InBell => Bell ?? Kind is WorldEventKind.Social or WorldEventKind.Neighbour or WorldEventKind.Crew or WorldEventKind.Link
+        or WorldEventKind.ContractChanged or WorldEventKind.Corporation or WorldEventKind.StorageFull;
+}
 
 /// <summary>What changed in the world since the server last asked (to send to clients)</summary>
 public sealed class WorldChanges
@@ -42,6 +56,9 @@ public sealed class WorldChanges
     public HashSet<DistrictCoord> Markets { get; } = new();
     public HashSet<long> Contracts { get; } = new();
     public HashSet<long> Corporations { get; } = new();
+    public HashSet<long> Crews { get; } = new();
+    /// <summary>Companies whose links were offered, changed or ended</summary>
+    public HashSet<long> Links { get; } = new();
 
     /// <summary>Districts whose hub changed (a Wonder grew)</summary>
     public HashSet<DistrictCoord> Districts { get; } = new();
@@ -52,7 +69,7 @@ public sealed class WorldChanges
     public bool Blueprints { get; set; }
     public List<WorldEvent> Events { get; } = new();
 
-    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Contracts.Count == 0 && Corporations.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && !Outposts && !Blueprints && Events.Count == 0;
+    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Contracts.Count == 0 && Corporations.Count == 0 && Crews.Count == 0 && Links.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && !Outposts && !Blueprints && Events.Count == 0;
 }
 
 /// <summary>
@@ -88,13 +105,15 @@ public sealed partial class GameWorld
     /// <summary>The gold a new company starts with (the content's value unless the server configures another)</summary>
     public double StartingGold { get; set; }
 
-    public GameWorld(GameContent content, int seed, Func<DateTime> clock)
+    /// <param name="dealtLand">The land goods are dealt per station (step 5); old worlds keep their land</param>
+    public GameWorld(GameContent content, int seed, Func<DateTime> clock, bool dealtLand = false)
     {
         Content = content;
-        Generator = new WorldGenerator(seed);
+        Generator = new WorldGenerator(seed, dealtLand);
         _clock = clock;
         LastTick = clock();
         StartingGold = content.Progression.StartingGold;
+        PlayerPriceFactor = content.Progression.Together.PlayerPrice;
     }
 
     public DateTime Now => _clock();
@@ -248,7 +267,7 @@ public sealed partial class GameWorld
     /// The estate a new company gets: the first free estate in the oldest district with room; when only tenants are left
     /// there, a tenant moves out
     /// </summary>
-    private Estate FindFreeEstate()
+    private Estate FindFreeEstate(bool kit = false)
     {
         foreach (var district in WorldLayout.DistrictOrder())
         {
@@ -256,8 +275,8 @@ public sealed partial class GameWorld
             for (var slot = 0; slot < WorldLayout.EstatesPerDistrict; slot++)
             {
                 var estate = _estates[(district, slot)];
-                // Corporation blocks are kept for their members
-                if (estate.OwnerId == null && (estate.ReservedFor == null || estate.ReservedUntil <= LastTick))
+                // Corporation blocks are kept for their members, held seats for their crew's friends
+                if (estate.OwnerId == null && (estate.ReservedFor == null || estate.ReservedUntil <= LastTick) && SeatFree(KeyOf(estate)))
                 {
                     return estate;
                 }
@@ -265,14 +284,30 @@ public sealed partial class GameWorld
             for (var slot = 0; slot < WorldLayout.EstatesPerDistrict; slot++)
             {
                 var estate = _estates[(district, slot)];
-                if (estate.OwnerId is { } owner && Company(owner) is { IsNpc: true })
+                if (estate.OwnerId is { } owner && Company(owner) is { IsNpc: true } && SeatFree(KeyOf(estate)))
                 {
-                    EvictTenant(estate);
+                    EvictTenant(estate, kit);
                     return estate;
                 }
             }
         }
         throw new InvalidOperationException("The world is infinite, this can't happen.");
+    }
+
+    /// <summary>A seat for a newcomer: free, or kept warm by a tenant who moves out (null when it isn't free for them)</summary>
+    private Estate? TakeSeat(EstateKey seat, string? code = null)
+    {
+        OpenDistrict(seat.District);
+        if (Estate(seat.District, seat.Slot) is not { } estate || !SeatFree(seat, null, code))
+        {
+            return null;
+        }
+        if (estate.OwnerId is { } owner && Company(owner) is { IsNpc: true })
+        {
+            // The House leaves the newcomer a starter kit
+            EvictTenant(estate, kit: true);
+        }
+        return estate.OwnerId == null ? estate : null;
     }
 
     public const int MinCompanyNameLength = 3;
@@ -297,13 +332,54 @@ public sealed partial class GameWorld
         return null;
     }
 
+    private static readonly string[] NameIdeas =
+    [
+        "Brass & Kettle", "Copperleaf Co.", "Steam & Sons", "Valve Street Works", "Gaslight Pipes",
+        "Ironfern Co.", "Bellows & Bolt", "Lantern Lane Co.", "Cogwheel Pipes", "Riverbend Works",
+    ];
+
+    /// <summary>A company name nobody uses yet, for a newcomer who moves in with two taps: its land's name, or a pleasant one</summary>
+    public string FreeCompanyName(EstateKey? seat = null)
+    {
+        var land = seat is { } chosen ? Regex.Replace(Generator.Estate(chosen.District, chosen.Slot).Primary.ToString(), "(?<=[a-z])(?=[A-Z])", " ") : null;
+        string[] ideas = land != null
+            ? [$"{land} Co.", $"{land} Works", $"{land} Pipes", $"{land} & Sons"]
+            : [.. NameIdeas.Skip((int)(NextCompanyId % NameIdeas.Length)), .. NameIdeas.Take((int)(NextCompanyId % NameIdeas.Length))];
+        for (var n = 1; ; n++)
+        {
+            foreach (var idea in ideas)
+            {
+                var name = n == 1 ? idea : $"{idea} {n}";
+                if (CompanyNameError(name) == null)
+                {
+                    return name;
+                }
+            }
+        }
+    }
+
     public static readonly (int X, int Y) HqLocal = (15, 15);
     public static readonly (int X, int Y) TradingPostLocal = (18, 15);
 
-    /// <summary>A new company; Legacy from earlier seasons brings starting gold, titles and a manager slot</summary>
-    public Company CreateCompany(long userId, string name, string color, int legacyLevel = 0, IEnumerable<string>? titles = null)
+    /// <summary>
+    /// A new company, on a seat it chose (when that is free, or a House keeps it warm) or the first free one; Legacy from
+    /// earlier seasons brings starting gold, titles and a manager slot
+    /// </summary>
+    public Company CreateCompany(long userId, string name, string color, int legacyLevel = 0, IEnumerable<string>? titles = null, EstateKey? seat = null, string? code = null)
     {
-        var estate = FindFreeEstate();
+        // A seat code brings the newcomer to the seat its crew holds for it, a crew link next to the crew
+        var held = code != null ? HoldByCode(code) : null;
+        var linked = held == null && code != null ? CrewByInvite(code) : null;
+        if (held is { } invite)
+        {
+            seat = invite.Hold.Seat;
+        }
+        else if (linked != null)
+        {
+            seat = SeatNearCrew(linked, code!);
+        }
+        _kit = null;
+        var estate = seat is { } chosen && TakeSeat(chosen, code) is { } free ? free : FindFreeEstate(kit: true);
         var now = Now;
         var company = new Company
         {
@@ -327,30 +403,88 @@ public sealed partial class GameWorld
         estate.Touch();
         Changes.Estates.Add((estate.District, estate.Slot));
 
-        foreach (var side in Enum.GetValues<GateSide>())
+        AddYardGate(company, estate);
+
+        // The stranger next door (step 6): alone, in the small station beside a crew's, it shares their Yard and project
+        if (code == null && SmallMode && estate.Station.IsSmall && CrewCornerNextTo(estate.Station) != null)
         {
-            var pos = WorldLayout.GatePosition(estate.District, estate.Slot, side);
-            var gate = new Conductor { Pos = pos, Kind = ConductorKind.Gate, Owner = company.Id, Side = side };
-            _conductors[pos] = gate;
-            MarkDirty(pos);
+            company.SeatedNextDoor = true;
+        }
+        // The first-comer: alone on an empty server, it reads once who comes next
+        if (!_companies.Values.Any(t => !t.IsNpc && t.Id != company.Id && IsActive(t)))
+        {
+            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Neighbour,
+                $"You're the first in {WorldNames.District(estate.District)}. The next player who comes alone will live next to you."));
         }
 
+        // Newcomers named where they live: "next door" only in the same station (run 3: Ana read "Ben Co moved into my
+        // district" and looked for him beside her; he lived in Capital SW)
+        var home = BigStation(estate.Station);
         foreach (var neighbour in _companies.Values.Where(t => t.District == company.District && t.Id != company.Id && !t.IsNpc))
         {
-            neighbour.Report.NewNeighbours.Add(company.Name);
+            var nextDoor = EstateOf(neighbour) is { } theirs && home.Contains(theirs.Station);
+            if (nextDoor)
+            {
+                neighbour.Report.NewNeighbours.Add(company.Name);
+            }
             neighbour.Touch();
-            Changes.Events.Add(new WorldEvent(neighbour.Id, WorldEventKind.Neighbour, $"{company.Name} moved into your district"));
+            Changes.Events.Add(new WorldEvent(neighbour.Id, WorldEventKind.Neighbour, nextDoor
+                ? $"{company.Name} moved in next door"
+                : $"{company.Name} moved into {WorldNames.Station(estate.Station)}, another station of your district"));
         }
 
         AddBuilding(company, "hq", estate.Origin.Offset(HqLocal.X, HqLocal.Y), finished: true);
         AddBuilding(company, "tradingPost", estate.Origin.Offset(TradingPostLocal.X, TradingPostLocal.Y), finished: true);
+        if (Generator.DealtLand)
+        {
+            GiveLandKit(company);
+        }
+        else
+        {
+            HandOverKit(company);
+        }
         company.BuiltTypes.Clear();
+        if (held is { } joined && HoldOn(joined.Hold.Seat) is not null && KeyOf(estate) == joined.Hold.Seat && CrewMembers(joined.Crew).Count() < MaxCrewSize)
+        {
+            company.CrewId = joined.Crew.Id;
+            company.KnownAs = joined.Hold.FriendName;
+            RemoveHold(joined.Crew, joined.Hold);
+            AnnounceArrival(joined.Crew, company);
+        }
+        else if (linked != null)
+        {
+            JoinCrew(company.Id, code!);
+        }
         if (SurveysEnabled)
         {
             Survey(estate);
         }
+        StartProbation(company);
+        // Steel Pipes come with Era 2 to everyone, a newcomer too
+        GrantResearch(company);
         Changes.Companies.Add(company.Id);
         return company;
+    }
+
+    /// <summary>An estate's Yard gate (v1.2 §4): where its owner's pipes meet the station's Yard</summary>
+    private void AddYardGate(Company company, Estate estate)
+    {
+        var pos = estate.YardGate;
+        _conductors[pos] = new Conductor { Pos = pos, Kind = ConductorKind.Gate, Owner = company.Id };
+        MarkDirty(pos);
+        Changes.Tiles.Add(pos);
+    }
+
+    /// <summary>Takes an estate's Yard gate away (the estate is packed or given up)</summary>
+    private void RemoveYardGate(Estate estate)
+    {
+        var pos = estate.YardGate;
+        if (_conductors.Remove(pos, out var gate))
+        {
+            Deleted.Add(gate);
+            MarkDirty(pos);
+            Changes.Tiles.Add(pos);
+        }
     }
 
     private Building AddBuilding(Company company, string type, TilePos pos, bool finished)
@@ -425,11 +559,6 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("You don't have an estate.");
         }
-        if (definition.Kind == BuildingKind.TollMeter)
-        {
-            return CanPlaceTollMeter(company, pos);
-        }
-
         var footprint = new List<TilePos>();
         for (var dy = 0; dy < definition.Size; dy++)
         {
@@ -466,6 +595,10 @@ public sealed partial class GameWorld
                     return CommandResult.Fail("This is someone else's outpost.");
                 }
             }
+            else if (WorldLayout.ZoneAt(tile.X, tile.Y).Kind == ZoneKind.Yard)
+            {
+                return CommandResult.Fail("Nobody builds in the Yard.");
+            }
             else if (OwnEstateAt(company, tile) is not { } own)
             {
                 return CommandResult.Fail("You can only build on your own estates and your outposts.");
@@ -474,41 +607,67 @@ public sealed partial class GameWorld
             {
                 return CommandResult.Fail("This parcel is still locked. Buy it first.");
             }
-            if ((_buildingAt.TryGetValue(tile, out var other) && other != ignoreBuilding) || _conductors.ContainsKey(tile))
+            // A building may stand on its owner's own pipe: the pipe runs on under it, so a factory set into a line
+            // doesn't split it (run 2: Ana and Cleo removed a tile to set a factory in, and lost half their income)
+            if ((_buildingAt.TryGetValue(tile, out var other) && other != ignoreBuilding)
+                || (_conductors.TryGetValue(tile, out var under) && !PipeMayRunUnder(company, definition, under)))
             {
-                return CommandResult.Fail("Something is already standing here.");
-            }
-            var terrain = Tile(tile).Terrain;
-            if (!definition.Placement.Terrain.Contains(terrain))
-            {
-                return CommandResult.Fail($"{definition.Name} can't be built on {terrain.ToString().ToLowerInvariant()}.");
+                return CommandResult.Fail(_conductors.TryGetValue(tile, out var pipe) && pipe.Owner != company.Id
+                    ? "Someone else's pipe runs here."
+                    : "Something is already standing here.");
             }
         }
+        return SiteRule(definition, pos);
+    }
 
+    /// <summary>
+    /// What the land itself asks of a building at a spot, whoever owns it and whatever stands there: its terrain, its
+    /// deposit, water beside it, the forest around it. The build command and every "you can make it" use this one rule
+    /// (run 3: the project said Ana "can make" wood on dealt land where no marked tree stood, and "Not on water" refused
+    /// a pump the card had sent to "the water")
+    /// </summary>
+    public CommandResult SiteRule(BuildingDefinition definition, TilePos pos)
+    {
+        for (var dy = 0; dy < definition.Size; dy++)
+        {
+            for (var dx = 0; dx < definition.Size; dx++)
+            {
+                var terrain = Tile(pos.Offset(dx, dy)).Terrain;
+                if (!definition.Placement.Terrain.Contains(terrain))
+                {
+                    return CommandResult.Fail(definition.Placement.Shore && terrain == TerrainType.Water
+                        ? $"{definition.Name} stands beside the water, not on it."
+                        : $"{definition.Name} can't be built on {terrain.ToString().ToLowerInvariant()}.");
+                }
+            }
+        }
         if (definition.Placement.Deposit is { } deposit)
         {
-            var best = footprint.Select(Tile).Where(t => DepositMatches(deposit, t.Deposit)).Select(t => t.Richness).DefaultIfEmpty(0).Max();
+            var best = Enumerable.Range(0, definition.Size * definition.Size).Select(t => Tile(pos.Offset(t % definition.Size, t / definition.Size)))
+                .Where(t => DepositMatches(deposit, t.Deposit)).Select(t => t.Richness).DefaultIfEmpty(0).Max();
             if (best == 0)
             {
-                return CommandResult.Fail($"{definition.Name} needs a {DepositName(deposit)} deposit.");
+                return CommandResult.Fail($"{definition.Name} needs {(DepositName(deposit) is var name && "aeiou".Contains(name[0]) ? "an" : "a")} {DepositName(deposit)} deposit.");
             }
             if (best < definition.Placement.MinRichness)
             {
                 return CommandResult.Fail($"{definition.Name} needs a deposit of at least {definition.Placement.MinRichness} stars.");
             }
         }
-
-        var border = BorderTiles(pos, definition.Size).ToList();
-        if (definition.Placement.Shore && !border.Any(t => Tile(t).Terrain == TerrainType.Water))
+        if (definition.Placement.Shore && !BorderTiles(pos, definition.Size).Any(t => Tile(t).Terrain == TerrainType.Water))
         {
             return CommandResult.Fail($"{definition.Name} has to stand next to water.");
         }
         if (definition.Placement.Forest && ForestAround(pos, definition.Size) < 3)
         {
-            return CommandResult.Fail($"{definition.Name} needs a forest nearby.");
+            return CommandResult.Fail(Generator.DealtLand ? $"{definition.Name} needs the old forest nearby: its trees are marked on the Deposits map." : $"{definition.Name} needs a forest nearby.");
         }
         return CommandResult.Ok;
     }
+
+    /// <summary>Whether a building may stand on a pipe tile, the pipe running on under it: its owner's own plain pipe, for a building that isn't part of the pipe itself</summary>
+    private bool PipeMayRunUnder(Company company, BuildingDefinition definition, Conductor conductor) =>
+        conductor.Kind == ConductorKind.Pipe && conductor.Owner == company.Id && !definition.IsConductor;
 
     /// <summary>Deep buildings stand in the dug out caverns under your own estate</summary>
     private CommandResult CanPlaceDeep(Estate estate, BuildingDefinition definition, List<TilePos> footprint, long? ignoreBuilding)
@@ -533,31 +692,12 @@ public sealed partial class GameWorld
             var best = footprint.Select(Tile).Where(t => DepositMatches(deposit, t.Deposit)).Select(t => t.Richness).DefaultIfEmpty(0).Max();
             if (best == 0)
             {
-                return CommandResult.Fail($"{definition.Name} needs a {DepositName(deposit)} deposit.");
+                return CommandResult.Fail($"{definition.Name} needs {(DepositName(deposit) is var name && "aeiou".Contains(name[0]) ? "an" : "a")} {DepositName(deposit)} deposit.");
             }
             if (best < definition.Placement.MinRichness)
             {
                 return CommandResult.Fail($"{definition.Name} needs a deposit of at least {definition.Placement.MinRichness} stars.");
             }
-        }
-        return CommandResult.Ok;
-    }
-
-    /// <summary>A Toll Meter goes in a corridor, in the line of one of your own pipes</summary>
-    private CommandResult CanPlaceTollMeter(Company company, TilePos pos)
-    {
-        if (WorldLayout.ZoneAt(pos.X, pos.Y).Kind != ZoneKind.Corridor)
-        {
-            return CommandResult.Fail("Toll meters go on your public pipes in the corridors.");
-        }
-        if (IsOccupied(pos))
-        {
-            return CommandResult.Fail("Something is already standing here.");
-        }
-        var ownPipes = Directions.Count(d => _conductors.TryGetValue(pos.Offset(d.X, d.Y), out var c) && c.Owner == company.Id && c.Kind == ConductorKind.Pipe);
-        if (ownPipes == 0)
-        {
-            return CommandResult.Fail("Put it in the line of one of your own corridor pipes.");
         }
         return CommandResult.Ok;
     }
@@ -588,7 +728,8 @@ public sealed partial class GameWorld
             for (var x = pos.X - 2; x < pos.X + size + 2; x++)
             {
                 var tile = new TilePos(x, y);
-                if (Tile(tile).Terrain == TerrainType.Forest && !_buildingAt.ContainsKey(tile))
+                // Dealt land: only the old forest's marked trees (the wood of a seat that was dealt it)
+                if (Tile(tile) is { Terrain: TerrainType.Forest } info && (!Generator.DealtLand || info.Deposit == "wood") && !_buildingAt.ContainsKey(tile))
                 {
                     count++;
                 }
@@ -687,6 +828,7 @@ public sealed partial class GameWorld
         }
         company.Gold -= gold;
         company.Report.GoldSpent += gold;
+        AddStat(company, "goldSpent", gold);
         company.Touch();
         Changes.Companies.Add(company.Id);
         return CommandResult.Ok;
@@ -713,15 +855,49 @@ public sealed partial class GameWorld
         {
             return placement;
         }
-        var payment = Pay(company, BuildCost(company, definition), definition.Cost.Materials);
+        var cost = BuildCost(company, definition);
+        // Short of its materials (not its gold): it stands as a scaffold that wants them (after run 3, step 2)
+        if (company.Gold >= cost - 1e-9 && definition.Cost.Materials.Count > 0
+            && definition.Cost.Materials.Any(t => Materials(company.Id).GetValueOrDefault(t.Key) < t.Value - 1e-9))
+        {
+            var xpAtSite = company.Xp;
+            // Said as it is (after run 4: "Big Factory is being built", and it waited for its bricks to the end)
+            var line = MaterialsLine(company, definition);
+            var site = PlaceSite(company, definition, pos, cost);
+            GainXp(company, Content.Progression.XpReward("building") + (company.BuiltTypes.Add(type) ? Content.Progression.XpReward("firstBuildingOfType") : 0), "buildings", type);
+            RecordPurchase(company, PurchaseKind.Build, site, 0, cost, company.Xp - xpAtSite);
+            return CommandResult.Done($"Your {definition.Name} stands as a scaffold. {line?.Text}".TrimEnd());
+        }
+        var payment = Pay(company, cost, definition.Cost.Materials);
         if (!payment.Success)
         {
             return payment;
         }
 
-        AddBuilding(company, type, pos, finished: false);
+        var xpBefore = company.Xp;
+        var placed = AddBuilding(company, type, pos, finished: false);
         GainXp(company, Content.Progression.XpReward("building") + (company.BuiltTypes.Add(type) ? Content.Progression.XpReward("firstBuildingOfType") : 0), "buildings", type);
+        RecordPurchase(company, PurchaseKind.Build, placed, 0, cost, company.Xp - xpBefore);
+        if (definition.Kind == BuildingKind.Storage && StorageKeepsText(company) is { } keeps)
+        {
+            // Placing a Storage says what it holds back (after run 3, row 9: "Nobody warned me that storing means not selling")
+            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.StorageFull, $"Your {definition.Name} will keep {keeps} for your next buildings and pipes; the rest goes on to your trading post", placed.Id, Bell: false));
+        }
         return CommandResult.Ok;
+    }
+
+    /// <summary>What a company's Storages keep back of its goods ("500 bricks and 100 copper ingots"; null: nothing)</summary>
+    public string? StorageKeepsText(Company company)
+    {
+        var made = BuildingsOf(company.Id).Where(t => !t.UnderConstruction).SelectMany(t => Content.Building(t.Type).Out.Keys).ToHashSet();
+        var keeps = made.Where(t => t != GameContent.ResearchPoints)
+            .Select(t => (Resource: t, Amount: StorageNeed(company, t)))
+            .Where(t => t.Amount >= 1)
+            .OrderByDescending(t => t.Amount * BasePrice(t.Resource))
+            .Select(t => $"{t.Amount:N0} {GoodsWord(t.Resource)}")
+            .Take(3)
+            .ToList();
+        return keeps.Count == 0 ? null : keeps.Count == 1 ? keeps[0] : $"{string.Join(", ", keeps.Take(keeps.Count - 1))} and {keeps[^1]}";
     }
 
     public CommandResult Demolish(long companyId, long buildingId)
@@ -743,10 +919,16 @@ public sealed partial class GameWorld
         var refund = DemolishRefund(building);
         RemoveBuilding(building);
         company.Gold += refund;
+        // The advisor doesn't suggest it again for a week (F3): the minute of the world it went
+        company.Stats[$"demolished:{building.Type}"] = (LastTick - DateTime.UnixEpoch).TotalMinutes;
         company.Touch();
         Changes.Companies.Add(company.Id);
         return CommandResult.Ok;
     }
+
+    /// <summary>Whether a company demolished a building of this type in the last days (the advisor then doesn't suggest it)</summary>
+    public bool DemolishedRecently(Company company, string type, double days = 7) =>
+        company.Stats.TryGetValue($"demolished:{type}", out var minute) && (LastTick - DateTime.UnixEpoch).TotalMinutes - minute < days * 24 * 60;
 
     /// <summary>Half the gold back, all of it with a Recycler (rearranging and evolving the estate costs nothing then)</summary>
     public double DemolishRefund(Building building) =>
@@ -841,16 +1023,17 @@ public sealed partial class GameWorld
         return Math.Round(total * ComplexMembers(building) * ManagerUpgradeFactor(Company(building.Owner)), 2);
     }
 
-    /// <summary>How many levels the company can afford right now (for the Max button)</summary>
+    /// <summary>How many levels the company can afford right now, priced like the upgrade (a complex's members, Foreman Rick)</summary>
     public int AffordableLevels(Company company, Building building)
     {
         var definition = Content.Building(building.Type);
+        var factor = ComplexMembers(building) * ManagerUpgradeFactor(company);
         var gold = company.Gold;
         var levels = 0;
         while (building.Level + levels < Content.Progression.MaxBuildingLevel)
         {
-            var cost = Content.Progression.UpgradeCost(definition, building.Level + levels);
-            if (cost > gold)
+            var cost = Content.Progression.UpgradeCost(definition, building.Level + levels) * factor;
+            if (cost > gold + 1e-6)
             {
                 break;
             }
@@ -891,6 +1074,7 @@ public sealed partial class GameWorld
         }
 
         var from = building.Level;
+        var xpBefore = company.Xp;
         building.Level += levels;
         AddStat(company, "levelsBought", levels);
         building.Touch();
@@ -901,6 +1085,7 @@ public sealed partial class GameWorld
         }
         var milestones = Content.Progression.Milestones.Count(t => t > from && t <= building.Level);
         GainXp(company, levels * Content.Progression.XpReward("upgradeLevel") + milestones * Content.Progression.XpReward("milestone"), "upgrades", building.Type);
+        RecordPurchase(company, PurchaseKind.Upgrade, building, levels, UpgradeCostFrom(building, from, levels), company.Xp - xpBefore);
         return CommandResult.Ok;
     }
 
@@ -1063,23 +1248,23 @@ public sealed partial class GameWorld
             switch (zone.Kind)
             {
                 case ZoneKind.Estate:
-                    // Pipes may cross parcels you haven't bought yet, so every gate can be reached from the start
+                    // Pipes may cross parcels you haven't bought yet, so the Yard gate can be reached from the start
                     if (OwnEstateAt(company, tile) == null)
                     {
-                        return CommandResult.Fail("You can't lay pipes on someone else's estate. Connect through the corridors.");
+                        return CommandResult.Fail("You can't lay pipes on someone else's estate. Trade through your Yard gate.");
                     }
                     break;
-                case ZoneKind.Corridor:
-                    break;
                 case ZoneKind.Wilderness:
-                    // A long way home from an outpost
+                    // Around an outpost
                     if (OutpostAt(tile) is { } outpost && outpost.Owner != companyId)
                     {
                         return CommandResult.Fail("This is someone else's outpost.");
                     }
                     break;
+                case ZoneKind.Yard:
+                    return CommandResult.Fail("The Yard is shared: pipe to your Yard gate, the game does the rest.");
                 default:
-                    return CommandResult.Fail("Pipes go on your estate, in the corridors and in the wilderness.");
+                    return CommandResult.Fail("Pipes go on your estate (the corridors carry links, which the game lays).");
             }
             if (IsOccupied(tile))
             {
@@ -1142,7 +1327,14 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail($"Those pipes are already {pipe.Name}s or better.");
         }
-        var payment = Pay(company, pipe.Gold * upgrade.Count, pipe.Materials.ToDictionary(t => t.Key, t => t.Value * upgrade.Count));
+        var materials = pipe.Materials.ToDictionary(t => t.Key, t => t.Value * upgrade.Count);
+        // Short of its materials (a Copper Pipe's ingots), not its gold: the pipe wants them (after run 3, step 3: Cleo's
+        // Copper Pipe click did nothing, its 28 ingots had to come from her own Storage)
+        if (company.Gold >= pipe.Gold * upgrade.Count - 1e-9 && materials.Any(t => Materials(company.Id).GetValueOrDefault(t.Key) < t.Value - 1e-9))
+        {
+            return WantPipes(company, upgrade, pipe, materials);
+        }
+        var payment = Pay(company, pipe.Gold * upgrade.Count, materials);
         if (!payment.Success)
         {
             return payment;
@@ -1150,10 +1342,12 @@ public sealed partial class GameWorld
         foreach (var conductor in upgrade)
         {
             conductor.Tier = tier;
+            conductor.Widen = 1;
             conductor.Touch();
             MarkDirty(conductor.Pos);
             Changes.Tiles.Add(conductor.Pos);
         }
+        AddStat(company, "pipeTiers", upgrade.Count);
         return CommandResult.Ok;
     }
 
@@ -1236,19 +1430,6 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
-    public CommandResult SetGatePolicy(long companyId, GateSide side, GatePolicy policy)
-    {
-        if (Company(companyId) is not { } company || EstateOf(company) is not { } estate)
-        {
-            return CommandResult.Fail("You don't have an estate.");
-        }
-        estate.GatePolicies[side] = policy;
-        estate.Touch();
-        Changes.Estates.Add((estate.District, estate.Slot));
-        MarkDirty(WorldLayout.GatePosition(estate.District, estate.Slot, side));
-        return CommandResult.Ok;
-    }
-
     /// <summary>A company changed outside a command (admin tools): save it and tell its player</summary>
     public void CompanyChanged(Company company)
     {
@@ -1271,6 +1452,17 @@ public sealed partial class GameWorld
             company.XpLog[source] = items = new Dictionary<string, double>();
         }
         items[item] = items.GetValueOrDefault(item) + xp;
+        if (company.Tailwind > 1)
+        {
+            // Far behind the people you live with: the Tailwind's share is booked on its own
+            var tailwind = xp * (company.Tailwind - 1);
+            if (!company.XpLog.TryGetValue("tailwind", out var boost))
+            {
+                company.XpLog["tailwind"] = boost = new Dictionary<string, double>();
+            }
+            boost["Tailwind"] = boost.GetValueOrDefault("Tailwind") + tailwind;
+            xp += tailwind;
+        }
         company.Xp += xp;
         var level = Content.Progression.LevelForXp(company.Xp);
         if (level > company.Level)
@@ -1279,6 +1471,7 @@ public sealed partial class GameWorld
             company.Level = level;
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.LevelUp, $"Company Level {level}!"));
             MentorRewards(company);
+            GrantResearch(company);
         }
         company.Touch();
         Changes.Companies.Add(company.Id);

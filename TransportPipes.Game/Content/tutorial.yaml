@@ -3,23 +3,26 @@
 # what "Show me" does: a tool, a building, an overlay or a panel. A step that needs a higher Company Level says so
 # (GameWorld.TutorialWaitLevel).
 - { id: firstPanel, stat: "built:solarPanel|windMoily", amount: 1, gold: 100, hint: { tool: build, building: solarPanel, overlay: sun },
-    text: "Hi, I'm Loady! This valley is yours. Let's make money: build a Solar Panel on a sunny spot (or a Wind Moily)." }
-- { id: firstSale, stat: earned, amount: 0.01, gold: 150, hint: { tool: pipe },
-    text: "Now drag a pipe from the panel to your Trading Post. It sells everything you make to the hub." }
-- { id: firstUpgrade, stat: levelsBought, amount: 1, gold: 150, hint: { select: solarPanel },
-    text: "Coins! Click the panel and upgrade it: every level makes 10% more, and level 10 doubles it." }
+    text: "Hi, I'm Loady! This valley is yours, and your starter kit already makes energy. Add your own: build a Solar Panel on a sunny spot (or a Wind Moily)." }
+- { id: firstSale, stat: "piped:solarPanel|windMoily", amount: 1, gold: 150, hint: { tool: pipe },
+    text: "Now pipe it: pick the Pipe tool (P), then drag from your panel to the pipe next to it. Pipes carry what it makes to your Trading Post.",
+    phoneText: "Now pipe it to your Trading Post: Show me plans the pipe, and one tap lays it. Pipes carry what it makes to be sold." }
+- { id: firstUpgrade, stat: levelsBought, amount: 1, gold: 150, hint: { select: paying },
+    text: "Coins! Upgrade a building: every level makes 10% more, and level 10 doubles it. Show me opens the one where a level pays back soonest." }
 - { id: firstMoily, stat: "built:solarPanel|windMoily", amount: 2, gold: 200, hint: { tool: build, building: windMoily, overlay: wind },
     text: "More energy, more gold. Find a windy spot (the Wind overlay shows it) and build a Wind Moily: six times a panel." }
+- { id: firstYard, stat: yard, amount: 1, gold: 500, hint: { panel: yard },
+    text: "Your Yard gate (G) is your door to the neighbours: pipe your network to it, and what reaches it goes to their buildings, and to your station's project, by itself." }
+- { id: firstGift, stat: sends, amount: 1, gold: 300, hint: { panel: project },
+    text: "Your station builds its project together. Open it (This week ›) and Send what you make there first: it pays the one price, and when the stage stands every seat makes more." }
 - { id: firstMine, stat: "built:ironMine", amount: 1, gold: 300, hint: { tool: build, building: ironMine, overlay: deposits },
-    text: "At Company Level 2 you can mine. Build an Iron Mine on an iron deposit (see the Deposits overlay)." }
+    text: "Mine the iron on your land: build an Iron Mine on an iron deposit (the Deposits overlay shows them)." }
 - { id: firstIngot, stat: "produced:ironIngot", amount: 1, gold: 400, hint: { tool: build, building: smallFactory },
-    text: "Ore is worth more as ingots. Build a Small Factory and connect it to the mine and your energy." }
-- { id: firstNeighbour, stat: partners, amount: 1, gold: 500, hint: { panel: neighbours },
-    text: "Your neighbours pay more than the hub. Open Neighbours and connect to one that needs what you make." }
+    text: "Put a Small Factory on the pipe from your Iron Mine to your Trading Post: it takes ore and energy there and sends its ingots on to be sold. Goods never pass through a building." }
 - { id: firstStorage, stat: "built:storage", amount: 1, gold: 300, hint: { tool: build, building: storage },
-    text: "Build a Storage on your pipes. It keeps what your buildings make, for the hub's daily orders." }
+    text: "Build a Storage on your pipes. It keeps what your buildings make for your next buildings and pipes: a building short of materials takes them from it." }
 - { id: firstOrder, stat: orders, amount: 1, gold: 500, hint: { panel: hub },
-    text: "The hub posts three orders a day. When your Storage holds enough, deliver one: a big reward and reputation." }
+    text: "The hub posts three orders a day and buys them at twice the price from what your trading post sells. Keep selling: one fills by itself." }
 - { id: firstResearch, stat: researched, amount: 1, gold: 800, hint: { tool: build, building: lab },
     text: "Build a Lab, connect energy and iron ingots, and pick your first research." }
 - { id: firstParcel, stat: parcels, amount: 5, gold: 1000, hint: { panel: parcel },
@@ -29,18 +32,22 @@
 # thank-you. A building list in the hint is built in that order (Show me picks the first one missing); a step waits
 # for the Company Level its next building, the next parcel or a corporation needs.
 - { id: copperIngots, chapter: 2, stat: "produced:copperIngot", amount: 1, gold: 3000, hint: { tool: build, building: "copperMine,coalPit,smelter", overlay: deposits },
-    text: "Chapter 2: copper! Your land has copper ore and coal (the Deposits overlay shows them). Mine both, then a Smelter makes copper ingots, worth much more than the ore." }
+    text: "Chapter 2: copper! Your land has copper ore and coal (the Deposits overlay shows them). Mine both, then a Smelter makes copper ingots, worth much more than the ore.",
+    dealtText: "Chapter 2: copper ingots, worth much more than the ore. A Smelter needs copper ore and coal: mine what your land holds (the Deposits overlay shows it), and pipe the Smelter to your Yard gate: a neighbour's or a House's brings the rest by itself." }
 - { id: firstMilestone, chapter: 2, stat: maxLevel, amount: 10, gold: 2500, hint: { select: highest },
     text: "Level 10 doubles what a building makes, and its badge turns green. Upgrade one of your buildings to level 10." }
+- { id: copperPipe, chapter: 2, stat: pipeTiers, amount: 1, gold: 3000, hint: { select: pipeFull },
+    text: "A pipe carries only so much: a grey one 100 a minute to each taker. When a building's pipe is full, its panel shows the way up: a Copper Pipe carries five times as much, and the levels after it pay again. Lay your first Copper Pipe." }
 - { id: threeResearches, chapter: 2, stat: researched, amount: 3, gold: 3000, hint: { panel: research },
     text: "Research is a plan, not a list: pick techs that help what you make. Finish three researches." }
 - { id: moreOrders, chapter: 2, stat: orders, amount: 4, gold: 3000, hint: { panel: hub },
-    text: "Deliver three more of the hub's daily orders. Your Storage keeps what they need; orders pay well and bring reputation." }
-- { id: neighbourIncome, chapter: 2, stat: neighbourIncome, amount: 30, gold: 4000, hint: { panel: neighbours },
-    text: "Neighbours pay more than the hub. Earn 30 gold a minute from them: pipe to the ones who need what you have spare (close ones pay best)." }
+    text: "Fill three more of the hub's daily orders: they buy at twice the price from what your trading post sells, and bring reputation." }
+- { id: neighbourIncome, chapter: 2, stat: neighbourIncome, amount: 30, gold: 4000, hint: { panel: yard },
+    text: "Your station pays more than the hub. Earn 30 gold a minute from your neighbours: make what they lack (the Yard shows it)." }
 - { id: secondParcel, chapter: 2, stat: parcels, amount: 6, gold: 5000, hint: { panel: parcel },
     text: "Room for the next chain: buy your second parcel. The parcel panel shows what each one holds." }
 - { id: corporation, chapter: 2, stat: corporation, amount: 1, gold: 6000, hint: { panel: corporation },
     text: "Companies are stronger together: found a corporation or join one in the Corp panel. Members trade freely and share weekly goals." }
 - { id: bricks, chapter: 2, stat: "produced:bricks", amount: 1, gold: 8000, hint: { tool: build, building: "quarry,coalPit,brickworks", overlay: deposits },
-    text: "Bricks need stone, coal and energy at once. Quarry your stone, pipe it and your coal to a Brickworks: your first three-input factory." }
+    text: "Bricks need stone, coal and energy at once. Quarry your stone, pipe it and your coal to a Brickworks: your first three-input factory.",
+    dealtText: "Bricks need stone, coal and energy at once: your first three-input factory. Mine what your land holds, and pipe the Brickworks to your Yard gate: a neighbour's or a House's stone or coal comes by itself." }

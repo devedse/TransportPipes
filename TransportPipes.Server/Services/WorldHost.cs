@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 using TransportPipes.Database;
@@ -36,8 +37,9 @@ public sealed class WorldHost : BackgroundService
     private bool _saveSoon;
     private DateTime _lastSave;
 
-    public WorldHost(WorldStore store, IHubContext<GameHub, IGameClient> hub, ConnectedUsers connectedUsers, SocialService social, AccountService accounts, IOptions<TransportPipesOptions> options, ILogger<WorldHost> logger, TimeProvider time)
+    public WorldHost(WorldStore store, IHubContext<GameHub, IGameClient> hub, ConnectedUsers connectedUsers, SocialService social, AccountService accounts, IOptions<TransportPipesOptions> options, ILogger<WorldHost> logger, TimeProvider time, PlaytestLog? playtestLog = null)
     {
+        _playtestLog = playtestLog;
         _store = store;
         _hub = hub;
         _connectedUsers = connectedUsers;
@@ -52,16 +54,30 @@ public sealed class WorldHost : BackgroundService
 
     private DateTime Now => _time.GetUtcNow().UtcDateTime;
 
+    private readonly PlaytestLog? _playtestLog;
+
+    /// <summary>Saves the world now (the playtest director, before a snapshot of the database)</summary>
+    public async Task SaveNowAsync()
+    {
+        await Ready;
+        await SaveAsync(force: true);
+    }
+
     /// <summary>Runs something on the world (a command or a query) and sends the changes it caused to the clients</summary>
-    public async Task<T> RunAsync<T>(Func<GameWorld, T> action, bool changesWorld = true)
+    /// <param name="what">What runs, for the log of slow ones (the caller's name)</param>
+    public async Task<T> RunAsync<T>(Func<GameWorld, T> action, bool changesWorld = true, [CallerMemberName] string what = "")
     {
         await Ready;
         List<Func<Task>> pushes;
         T result;
+        var clock = Stopwatch.StartNew();
         await _lock.WaitAsync();
+        var waited = clock.Elapsed;
+        TimeSpan ran;
         try
         {
             result = action(_world!);
+            ran = clock.Elapsed - waited;
             pushes = CollectPushes(_world!);
             if (changesWorld)
             {
@@ -72,15 +88,21 @@ public sealed class WorldHost : BackgroundService
         {
             _lock.Release();
         }
+        var held = clock.Elapsed;
         await SendAsync(pushes);
+        if (clock.Elapsed.TotalMilliseconds >= _options.SlowWorldMilliseconds)
+        {
+            _logger.LogWarning("Slow {What}: {Total:F0} ms ({Waited:F0} waiting for the world, {Ran:F0} running, {Collected:F0} collecting {Pushes} updates, {Sent:F0} sending them)",
+                what, clock.Elapsed.TotalMilliseconds, waited.TotalMilliseconds, ran.TotalMilliseconds, (held - waited - ran).TotalMilliseconds, pushes.Count, (clock.Elapsed - held).TotalMilliseconds);
+        }
         return result;
     }
 
-    public Task RunAsync(Action<GameWorld> action, bool changesWorld = true) => RunAsync(world =>
+    public Task RunAsync(Action<GameWorld> action, bool changesWorld = true, [CallerMemberName] string what = "") => RunAsync(world =>
     {
         action(world);
         return true;
-    }, changesWorld);
+    }, changesWorld, what);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -137,12 +159,19 @@ public sealed class WorldHost : BackgroundService
 
     private async Task<GameWorld> LoadWorldAsync(CancellationToken cancellationToken)
     {
-        var world = await _store.LoadAsync(GameContent.Default, () => Now, _options.WorldSeed, cancellationToken);
+        var world = await _store.LoadAsync(GameContent.Default, () => Now, _options.WorldSeed, cancellationToken, keepOlder: _options.Playtest);
         if (_options.StartingGold is { } startingGold)
         {
             world.StartingGold = startingGold;
         }
+        if (_store.WorldReset)
+        {
+            _logger.LogWarning("The saved world was made with older rules: it was thrown away and a new world starts (accounts stay)");
+        }
         world.TenantsEnabled = _options.Tenants;
+        world.QuietGraceEnabled = true;
+        world.ProjectsEnabled = true;
+        world.TrunksEnabled = true;
         world.EventsEnabled = _options.Events;
         world.TutorialEnabled = _options.Tutorial;
         world.SurveysEnabled = _options.Surveys;
@@ -264,7 +293,9 @@ public sealed class WorldHost : BackgroundService
         try
         {
             WorldSnapshot snapshot;
+            var clock = Stopwatch.StartNew();
             await _lock.WaitAsync();
+            var waited = clock.Elapsed;
             try
             {
                 snapshot = _store.TakeSnapshot(_world!);
@@ -275,9 +306,15 @@ public sealed class WorldHost : BackgroundService
             {
                 _lock.Release();
             }
+            var held = clock.Elapsed - waited;
             try
             {
                 await _store.SaveAsync(snapshot);
+                if (clock.Elapsed.TotalMilliseconds >= _options.SlowWorldMilliseconds)
+                {
+                    _logger.LogWarning("Slow save: {Total:F0} ms ({Waited:F0} waiting for the world, {Held:F0} taking the snapshot with the world held, {Written:F0} writing it)",
+                        clock.Elapsed.TotalMilliseconds, waited.TotalMilliseconds, held.TotalMilliseconds, (clock.Elapsed - waited - held).TotalMilliseconds);
+                }
             }
             catch (Exception ex)
             {
@@ -295,6 +332,7 @@ public sealed class WorldHost : BackgroundService
     private List<Func<Task>> CollectPushes(GameWorld world)
     {
         var changes = world.TakeChanges();
+        _playtestLog?.Write(world, changes.Events);
         var pushes = new List<Func<Task>>();
         if (changes.IsEmpty)
         {
@@ -374,7 +412,7 @@ public sealed class WorldHost : BackgroundService
                 var toast = GameViews.Toast(worldEvent);
                 pushes.Add(() => _hub.Clients.Group(GameHub.UserGroup(company.UserId)).Toast(toast));
             }
-            if (worldEvent.Kind != WorldEventKind.ConstructionFinished)
+            if (worldEvent.InBell)
             {
                 notifications.Add((company.Id, GameViews.Camel(worldEvent.Kind), worldEvent.Text));
             }
@@ -398,6 +436,28 @@ public sealed class WorldHost : BackgroundService
         foreach (var userId in corporationUsers)
         {
             pushes.Add(() => _hub.Clients.Group(GameHub.UserGroup(userId)).CorporationChanged());
+        }
+
+        // Crews: their members, and who asked to join
+        var crewUsers = changes.Crews
+            .SelectMany(id => world.Crew(id) is { } crew ? world.CrewMembers(crew).Concat(crew.JoinRequests.Select(world.Company).OfType<Company>()) : [])
+            .Select(t => t.UserId)
+            .Where(online.Contains)
+            .Distinct()
+            .ToList();
+        foreach (var userId in crewUsers)
+        {
+            pushes.Add(() => _hub.Clients.Group(GameHub.UserGroup(userId)).CrewChanged());
+        }
+
+        // Links: both ends hear about it, and every map draws them again
+        foreach (var userId in changes.Links.Select(world.Company).OfType<Company>().Select(t => t.UserId).Where(online.Contains).Distinct().ToList())
+        {
+            pushes.Add(() => _hub.Clients.Group(GameHub.UserGroup(userId)).LinksChanged());
+        }
+        if (changes.Links.Count > 0)
+        {
+            pushes.Add(() => _hub.Clients.All.MapLinksChanged());
         }
         return pushes;
     }

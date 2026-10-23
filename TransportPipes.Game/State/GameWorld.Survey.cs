@@ -51,7 +51,8 @@ public sealed partial class GameWorld
         var reachTiles = reach.SelectMany(t => ParcelTiles(estate, t)).ToList();
         var hq = estate.Origin.Offset(HqLocal.X, HqLocal.Y);
 
-        foreach (var resource in StarterDeposits)
+        // Dealt land has no copies: the surveyors only make sure of water
+        foreach (var resource in Generator.DealtLand ? [] : StarterDeposits)
         {
             if (reachTiles.Any(t => DepositMatches(resource, Tile(t).Deposit)))
             {

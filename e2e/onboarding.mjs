@@ -20,7 +20,8 @@ await shot("3-step2");
 // Lay the pipe the way Show me suggests: from the panel to the trading post
 console.log(await page.evaluate(async () => {
   const s = tp.appStore.getState(); const co = s.company; const w = tp.gameClient.world;
-  const panel = [...w.buildings.values()].find((t) => t.owner === co.id && t.type === "solarPanel");
+  // The player's own panel: the newest (a dealt kit has panels of its own)
+  const panel = [...w.buildings.values()].filter((t) => t.owner === co.id && t.type === "solarPanel").sort((a, b) => b.id - a.id)[0];
   const post = [...w.buildings.values()].find((t) => t.owner === co.id && t.type === "tradingPost");
   if (!panel || !post) return "missing";
   await tp.gameClient.connection.cheat("finish");

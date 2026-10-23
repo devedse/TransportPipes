@@ -1,5 +1,5 @@
 # All buildings. Rates (in/out) are per minute at level 1.
-# kind: producer | storage | tradingPost | lab | hq | gate | valve | priorityValve | pump | tollMeter | cargoDepot
+# kind: producer | storage | tradingPost | lab | hq | gate | valve | priorityValve | pump | cargoDepot
 #       | exchangeOffice | showroom | workshop | weatherStation | recycler | expeditionOffice | blueprintOffice
 #       | deepLift | bank | teleporter | terraformer | powerLine | corporationHq | decoration
 # placement.terrain: allowed terrain (default: grass, hills, forest, desert, beach)
@@ -242,7 +242,7 @@
   unlock: { era: 4 }
   cost: { gold: 200000, materials: { steel: 100, gears: 20 } }
   buildSeconds: 1800
-  in: { energy: 200 }
+  in: { energy: 120 }
   out: { rareEarth: 5 }
   placement: { deposit: rareEarth }
   modifier: richness
@@ -324,7 +324,7 @@
   unlock: { era: 2, research: steelMaking }
   cost: { gold: 30000, materials: { bricks: 300 } }
   buildSeconds: 900
-  in: { energy: 80, ironIngot: 20, coal: 10 }
+  in: { energy: 75, ironIngot: 20, coal: 10 }
   out: { steel: 8 }
   description: Turns iron and coal into steel.
 
@@ -358,7 +358,7 @@
   cost: { gold: 40000, materials: { steel: 50 } }
   buildSeconds: 900
   in: { energy: 60, steel: 6 }
-  out: { gears: 3 }
+  out: { gears: 5 }
   description: Machines steel into gears.
 
 - id: refinery
@@ -380,7 +380,7 @@
   cost: { gold: 600000, materials: { steel: 200, glass: 300 } }
   buildSeconds: 3600
   in: { energy: 200, copperWire: 6, plastic: 4, glass: 2 }
-  out: { circuits: 2 }
+  out: { circuits: 3 }
   description: Prints circuits from wire, plastic and glass.
 
 - id: assemblyPlant
@@ -391,7 +391,7 @@
   cost: { gold: 1500000, materials: { steel: 500, gears: 100 } }
   buildSeconds: 7200
   in: { energy: 400, gears: 10, circuits: 4 }
-  out: { engines: 1 }
+  out: { engines: 3 }
   description: Builds engines on an assembly line.
 
 - id: robotWorks
@@ -402,7 +402,7 @@
   cost: { gold: 4000000, materials: { circuits: 100, gears: 200 } }
   buildSeconds: 7200
   in: { energy: 800, engines: 2, circuits: 6 }
-  out: { robots: 1 }
+  out: { robots: 2 }
   description: Robots walk out of the door.
 
 - id: superconductorLab
@@ -462,16 +462,6 @@
   in: { energy: 5 }
   description: Every 50 buildings in a network need one pump.
 
-- id: tollMeter
-  name: Toll Meter
-  category: logistics
-  kind: tollMeter
-  size: 1
-  unlock: { level: 9 }
-  cost: { gold: 1000 }
-  buildSeconds: 30
-  description: Earns a toll on everything flowing through your public pipe.
-
 - id: storage
   name: Storage
   category: logistics
@@ -493,7 +483,7 @@
   size: 2
   evolvesTo: silo
   unlock: { level: 10 }
-  cost: { gold: 8000 }
+  cost: { gold: 8000, materials: { planks: 100 } }
   buildSeconds: 300
   capacity: 50000
   description: Holds up to 50,000 units.
@@ -515,7 +505,7 @@
   kind: cargoDepot
   size: 2
   unlock: { level: 12 }
-  cost: { gold: 10000 }
+  cost: { gold: 10000, materials: { planks: 100 } }
   buildSeconds: 300
   throughput: 200
   description: Trucks connect all your Cargo Depots (estate and outposts) like a pipe without losses, 200 per minute per level. Halves Exchange cargo times.

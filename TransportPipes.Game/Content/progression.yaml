@@ -7,8 +7,9 @@ companyLevel:
   xpRamp: 4
   xpRampLevel: 9
   # From Level 22 the curve grows on to xpLateRamp times by Level 30, so Level 30 takes about four weeks (GDD §8.1):
-  # the starter kit made the middle game quicker. Levels only ever go up, so nobody loses one.
-  xpLateRamp: 2
+  # the starter kit made the middle game quicker, and after run 4 gold has places to go (spent gold is XP): at 2 the
+  # advisor's bots reached Level 30 on days 14-22, at 4 on days 20-25 and later. Levels only ever go up.
+  xpLateRamp: 4
   xpLateRampFrom: 22
   xpLateRampTo: 30
 
@@ -47,3 +48,30 @@ managerSlots: { 10: 1, 20: 2, 30: 3, 45: 4, 60: 5 }
 startingGold: 2000
 # Selling to the hub: the hub sells at this multiple of its buy price
 hubSpread: 2.5
+
+# Playing together (docs/multiplayer-design.html): prices are multiples of a good's base price
+together:
+  # The one price between players: the Yard, links, contracts and the Exchange
+  playerPrice: 1.3
+  # Houses (NPC companies) buy at this many times what the hub pays you (at most this times the base) and sell at houseSell
+  houseBuy: 1.15
+  houseSell: 2.0
+  # Dealt land (step 5): Houses sell the land goods (copper ore, coal, sand, wood, stone) at this, and fully feed one
+  # building of yours per land good beyond the cap; the station's backstop sells at it too
+  houseSellLand: 1.4
+  # All NPCs together buy at most this share of a company's output of a good, and sell at most this share of its need
+  npcCap: 0.25
+  # The hub pays base × clamp(√(Hub Order ÷ what you sell), min, max): your own order, nobody else's sales move it
+  hubMaxMultiplier: 1.0
+  hubMinMultiplier: 0.25
+  # A quiet server: the Hub Order is this many times bigger below this many active companies
+  quietGrace:
+    - { below: 10, factor: 4 }
+    - { below: 50, factor: 2 }
+  # Moving to another seat: free, a short flight, and a few minutes between moves
+  moveCooldownMinutes: 5
+  moveFlightMinutes: 1
+  moveCostPerLevel: 0
+  # T(L): the typical income per minute at a Company Level (gold), from the typical balance run; linear between the
+  # anchors. Sizes the station project's baskets (6 h of it per delivering resident) and what each may deliver a day
+  typicalIncome: { 1: 150, 2: 220, 3: 240, 4: 370, 5: 770, 13: 1930, 22: 3050, 26: 3770, 30: 4830, 32: 4930, 40: 6000, 60: 8000 }

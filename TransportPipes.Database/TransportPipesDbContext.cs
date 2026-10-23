@@ -50,13 +50,16 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
         {
             world.ToTable("World");
             world.Property(t => t.Id).ValueGeneratedNever();
-            world.Property(t => t.Markets).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
             world.Property(t => t.Exchange).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
             world.Property(t => t.Events).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
             world.Property(t => t.Wonders).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
             world.Property(t => t.Outposts).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
             world.Property(t => t.Season).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
             world.Property(t => t.Blueprints).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
+            world.Property(t => t.Crews).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
+            world.Property(t => t.Links).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
+            world.Property(t => t.Projects).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
+            world.Property(t => t.Trunks).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
         });
 
         modelBuilder.Entity<DbCompany>(company =>
@@ -75,7 +78,6 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
         {
             estate.ToTable("Estates");
             estate.HasKey(t => new { t.DistrictX, t.DistrictY, t.Slot });
-            estate.Property(t => t.GatePolicies).HasColumnType("jsonb");
         });
 
         modelBuilder.Entity<DbBuilding>(building =>

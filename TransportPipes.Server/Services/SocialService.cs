@@ -1,3 +1,4 @@
+using TransportPipes.Game.World;
 using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using TransportPipes.Database;
@@ -38,6 +39,11 @@ public sealed class SocialService
     public static string DistrictChannel(int x, int y) => $"district:{x}:{y}";
 
     public static string CorporationChannel(long id) => $"corporation:{id}";
+
+    /// <summary>A (big) station's channel, by its corner station (after run 3, row 12: four Water Towers in one chat)</summary>
+    public static string StationChannel(StationRef corner) => $"station:{corner.District.X}:{corner.District.Y}:{corner.Index}";
+
+    public static string CrewChannel(long id) => $"crew:{id}";
 
     public static string DirectChannel(long a, long b) => a < b ? $"direct:{a}:{b}" : $"direct:{b}:{a}";
 
@@ -116,6 +122,20 @@ public sealed class SocialService
             .Take(30)
             .ToListAsync();
         return channels.Where(t => DirectPair(t.Channel) is { } pair && (pair.A == company || pair.B == company)).Select(t => (t.Channel, t.LastAt)).ToList();
+    }
+
+    /// <summary>Whether anyone but a company wrote in a channel since a moment (after run 4: a newcomer's station channel held only a silent Jo)</summary>
+    public async Task<bool> OthersSpokeAsync(string channel, long company, DateTime since)
+    {
+        await using var db = _db.CreateDbContext();
+        return await db.ChatMessages.AnyAsync(t => t.Channel == channel && t.Sender != company && t.Sender != 0 && t.SentAt >= since);
+    }
+
+    /// <summary>Whether a company ever wrote anything (its first hello is told to the district's crews)</summary>
+    public async Task<bool> EverSpokeAsync(long company)
+    {
+        await using var db = _db.CreateDbContext();
+        return await db.ChatMessages.AnyAsync(t => t.Sender == company);
     }
 
     public async Task<DateTime?> LastMessageAtAsync(string channel)

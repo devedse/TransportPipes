@@ -57,6 +57,8 @@ export type WorldListener = (change: { chunks: string[]; flows: boolean; distric
 
 /** Everything the client knows about the world: the chunks it has loaded, the districts and the flows */
 export class WorldModel {
+  /** Dealt land (step 5): only the old forest's marked trees are wood for a Lumber Camp */
+  dealtLand = false;
   readonly chunks = new Map<string, ChunkTerrain>();
   readonly buildings = new Map<number, BuildingDto>();
   readonly conductors = new Map<number, ConductorDto>();

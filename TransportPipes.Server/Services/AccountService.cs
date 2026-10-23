@@ -64,6 +64,70 @@ public sealed class AccountService
         return (user, null);
     }
 
+    /// <summary>
+    /// A guest account for someone who plays first and makes an account later (v1.2 §5): a hidden name and a random
+    /// password the browser keeps
+    /// </summary>
+    public async Task<(DbUser User, string Password)> CreateGuestAsync()
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        var now = _time.GetUtcNow().UtcDateTime;
+        var password = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16));
+        for (var attempt = 0; ; attempt++)
+        {
+            var userName = $"guest-{System.Security.Cryptography.RandomNumberGenerator.GetInt32(100_000, 999_999)}";
+            var user = new DbUser { UserName = userName, NormalizedUserName = DbUser.NormalizeUserName(userName), CreatedAt = now, LastLoginAt = now, IsGuest = true };
+            user.PasswordHash = _passwordHasher.HashPassword(user, password);
+            db.Users.Add(user);
+            try
+            {
+                await db.SaveChangesAsync();
+                return (user, password);
+            }
+            catch (DbUpdateException) when (attempt < 5)
+            {
+                db.Users.Remove(user);
+            }
+        }
+    }
+
+    /// <summary>Turns a guest into a normal account with a name and a password of its own (the estate stays)</summary>
+    public async Task<(DbUser? User, string? Error)> KeepAsync(long userId, string userName, string password, string? email)
+    {
+        if (UserNameError(userName) is { } error)
+        {
+            return (null, error);
+        }
+        if (password.Length < MinPasswordLength)
+        {
+            return (null, $"Use a password of at least {MinPasswordLength} characters.");
+        }
+        await using var db = _dbFactory.CreateDbContext();
+        var user = await db.Users.AsTracking().SingleOrDefaultAsync(t => t.Id == userId);
+        if (user == null || !user.IsGuest)
+        {
+            return (null, "This account is kept already.");
+        }
+        var normalized = DbUser.NormalizeUserName(userName);
+        if (await db.Users.AnyAsync(t => t.NormalizedUserName == normalized && t.Id != userId))
+        {
+            return (null, "That user name is already taken.");
+        }
+        user.UserName = userName.Trim();
+        user.NormalizedUserName = normalized;
+        user.Email = email?.Trim() ?? "";
+        user.IsGuest = false;
+        user.PasswordHash = _passwordHasher.HashPassword(user, password);
+        await db.SaveChangesAsync();
+        return (user, null);
+    }
+
+    public async Task<bool> IsGuestAsync(long userId)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        return await db.Users.AnyAsync(t => t.Id == userId && t.IsGuest);
+    }
+
     public async Task<DbUser?> LoginAsync(string userName, string password)
     {
         await using var db = _dbFactory.CreateDbContext();
