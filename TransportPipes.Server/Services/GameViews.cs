@@ -2105,7 +2105,11 @@ public static partial class GameViews
                     : yours.FirstOrDefault() is { } purchase
                         ? $"You buy {Name(purchase.Resource)} from {purchase.PartnerName} at {purchase.Price:0.##} g."
                         : mine?.Spare.Where(t => t.Value > 0.01).OrderByDescending(t => t.Value).Select(t => t.Key).FirstOrDefault() is { } spare
-                            ? world.ExistingProject(station) is { } project && project.Basket.GetValueOrDefault(spare) > project.Delivered.GetValueOrDefault(spare)
+                            // Someone here lacks it: the Yard's next round brings it (after run 4: "Nobody here needs
+                            // energy yet" above a Brickworks that lacked 31 energy)
+                            ? residents.FirstOrDefault(t => t.Company.Id != me.Id && t.Connected && t.Lacks.GetValueOrDefault(spare) > 0.01) is { } needs
+                                ? $"{world.NameFor(needs.Company, me)} lacks {Name(spare)} you have spare: the Yard's next round brings it to them, in a few minutes."
+                            : world.ExistingProject(station) is { } project && project.Basket.GetValueOrDefault(spare) > project.Delivered.GetValueOrDefault(spare)
                                 ? $"Nobody here needs {Name(spare)} yet: the {GameWorld.StageName(project.Stage)} and the hub take it."
                                 : HubTakes(world, me, spare)
                                     ? $"Nobody here needs {Name(spare)} yet: the hub takes it."

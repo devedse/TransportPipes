@@ -33,6 +33,9 @@ if (first.stageIndex < 3 && !(tower.bonus > first.bonus)) fail("every finished s
 
 // The Plan board and an Ask
 await a.page.evaluate(() => tp.gameClient.openYard());
+// The Plan board is folded (after run 4)
+await a.page.waitForSelector(".yard-fold > summary", { timeout: 15000 });
+await a.page.click(".yard-fold > summary");
 await a.page.waitForSelector(".plan-board", { timeout: 15000 });
 await a.page.selectOption("select[aria-label='Good to pin']", "energy");
 await a.page.click(".plan-board button:has-text('I make it')");

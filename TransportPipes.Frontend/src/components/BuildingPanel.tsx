@@ -9,6 +9,9 @@ import type { TerraformAction } from "../game/Engine";
 import { currentGold, useAppStore } from "../state/store";
 import { levelTier, nextTier } from "../game/levels";
 import { NetworkSummary } from "./NetworkSummary";
+
+/** A phone-sized screen when the panel opens: long blocks start folded */
+const PHONE = typeof window !== "undefined" && window.matchMedia?.("(max-width: 720px)").matches === true;
 import { ResourceIcon } from "./ResourceIcon";
 
 const KIND_LABELS: Record<string, string> = {
@@ -560,28 +563,40 @@ export function BuildingPanel() {
       {mine && details.teleporter !== null && building.constructionEndsAt === null && (
         <TeleporterSection details={details} />
       )}
-      {mine && details.evolve !== null && (
-        <section className="evolve">
-          <button
-            className="primary wide"
-            disabled={details.evolve.problem !== null || gold < details.evolve.cost}
-            title={details.evolve.problem ?? undefined}
-            onClick={() =>
-              void gameClient.evolve(
-                building.id,
-                content.building(details.evolve!.into)?.name ?? details.evolve!.into,
-              )
-            }
-          >
-            ⬆ Evolve into {content.building(details.evolve.into)?.name} · {formatAmount(details.evolve.cost)}{" "}
-            g
-          </button>
+      {mine &&
+        details.evolve !== null &&
+        details.evolve.problem !== null &&
+        /needs Era/.test(details.evolve.problem) && (
+          // Locked by the Era: a line, not a dead button "· 0 g" (after run 4, a phone's first panel)
           <p className="muted small">
-            {details.evolve.problem ??
-              "Built where it stands: its gold and upgrades count towards the new one, the pipes stay."}
+            With Era {/needs Era (\d+)/.exec(details.evolve.problem)?.[1]} it evolves into{" "}
+            {content.building(details.evolve.into)?.name ?? details.evolve.into}, where it stands.
           </p>
-        </section>
-      )}
+        )}
+      {mine &&
+        details.evolve !== null &&
+        !(details.evolve.problem !== null && /needs Era/.test(details.evolve.problem)) && (
+          <section className="evolve">
+            <button
+              className="primary wide"
+              disabled={details.evolve.problem !== null || gold < details.evolve.cost}
+              title={details.evolve.problem ?? undefined}
+              onClick={() =>
+                void gameClient.evolve(
+                  building.id,
+                  content.building(details.evolve!.into)?.name ?? details.evolve!.into,
+                )
+              }
+            >
+              ⬆ Evolve into {content.building(details.evolve.into)?.name} ·{" "}
+              {formatAmount(details.evolve.cost)} g
+            </button>
+            <p className="muted small">
+              {details.evolve.problem ??
+                "Built where it stands: its gold and upgrades count towards the new one, the pipes stay."}
+            </p>
+          </section>
+        )}
       {mine && definition.kind === "blueprintOffice" && building.constructionEndsAt === null && (
         <button className="primary wide" onClick={() => void gameClient.openBlueprints()}>
           📐 Blueprints (Y)
@@ -820,15 +835,24 @@ export function BuildingPanel() {
       <Flows details={details} content={content} />
 
       {network !== null && (
-        <section>
-          <h4>
-            Its network ·{" "}
-            <button className="link small" onClick={() => gameClient.showBuildingNetwork()}>
-              show on the map
-            </button>
-          </h4>
+        // Folded on a phone (after run 4, Ben: "Panel text is very long for a phone, lots of numbers")
+        <details className="net-fold" open={!PHONE}>
+          <summary>
+            <h4>
+              Its network ·{" "}
+              <button
+                className="link small"
+                onClick={(event) => {
+                  event.preventDefault();
+                  gameClient.showBuildingNetwork();
+                }}
+              >
+                show on the map
+              </button>
+            </h4>
+          </summary>
           <NetworkSummary details={network} content={content} ownCompany={company?.id ?? null} />
-        </section>
+        </details>
       )}
 
       {mine && definition.kind !== "hq" && (

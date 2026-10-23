@@ -385,7 +385,13 @@ export function YardPanel() {
             </ul>
           </section>
           {yard.residents.find((t) => t.id === company.id) !== undefined && (
-            <PlanBoard me={yard.residents.find((t) => t.id === company.id)!} />
+            // Folded (after run 4, Mia: "Yard panel is a lot of words (Spare/Lacks/Plan board/Through the Yard)")
+            <details className="yard-fold">
+              <summary className="small">
+                📌 Plan board and 🙋 Ask the station: say what you make or need ▸
+              </summary>
+              <PlanBoard me={yard.residents.find((t) => t.id === company.id)!} />
+            </details>
           )}
           {yard.discoveries.length > 0 && (
             <section>

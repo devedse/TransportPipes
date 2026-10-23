@@ -24,6 +24,7 @@ export function TopBar() {
   const keepNudge = useAppStore((state) => state.keepNudge);
   const content = useAppStore((state) => state.content);
   const unread = useAppStore((state) => state.unread);
+  const chatUnread = useAppStore((state) => Object.values(state.chatUnread).reduce((sum, n) => sum + n, 0));
   const inboxOpen = useAppStore((state) => state.inboxOpen);
   const serverOffset = useAppStore((state) => state.serverOffsetMs);
   const serverNow = useNow(60000) + serverOffset;
@@ -333,7 +334,21 @@ export function TopBar() {
         <button className="icon-button desktop-only" title="Zoom in (+)" onClick={() => gameClient.zoomBy(1)}>
           +
         </button>
-        <button className="icon-button" title="Photo mode (F)" onClick={() => gameClient.setPhotoMode(true)}>
+        {/* On a phone the chat is up here, above every panel (after run 4: Ben's "close the panel first") */}
+        <button
+          className="icon-button with-badge phone-only"
+          title="Chat"
+          aria-label="Chat"
+          onClick={() => void gameClient.toggleChat()}
+        >
+          <img className="ui-icon" src="/art/ui/ui-chat.webp" alt="" />
+          {chatUnread > 0 && <span className="dot-badge">{chatUnread > 99 ? "99+" : chatUnread}</span>}
+        </button>
+        <button
+          className="icon-button desktop-only"
+          title="Photo mode (F)"
+          onClick={() => gameClient.setPhotoMode(true)}
+        >
           📷
         </button>
         <MuteButton />

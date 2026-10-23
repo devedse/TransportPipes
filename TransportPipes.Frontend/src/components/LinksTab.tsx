@@ -325,6 +325,7 @@ export function LinksTab() {
   const content = useAppStore((s) => s.content);
   const crew = useAppStore((s) => s.crew?.crew ?? null);
   const linkPartner = useAppStore((s) => s.linkPartner);
+  const era = useAppStore((s) => s.era);
   // The Crew panel's "Link ▸": the new link starts with that friend
   const [draft, setDraft] = useState<Draft>(() => ({
     partnerId: linkPartner,
@@ -353,9 +354,15 @@ export function LinksTab() {
   const laid = links.links.filter((t) => t.state !== "offered").length;
   return (
     <>
-      <p className="muted small">
-        A link joins your Yard gate to one other company&apos;s, outside your station: one good, one way, at
-        the one player price. What it doesn&apos;t bring, the Yard and the hub do.
+      {/* One sentence and a picture (after run 4, Mia-B: "lots of words (Yard gate, trunks) - I'd need a picture") */}
+      <div className="link-picture" aria-hidden="true">
+        <span className="link-end">🏠 your Yard gate</span>
+        <span className="link-pipe">one good ▶</span>
+        <span className="link-end">🏠 a friend in another station</span>
+      </div>
+      <p className="small">
+        <strong>A link pipes one good to one company in another station</strong>, every minute, at the one
+        player price. Inside your own station you need none: the Yard shares by itself.
       </p>
       {links.links.length > 0 ? (
         <ul className="link-list">
@@ -408,7 +415,10 @@ export function LinksTab() {
           </ul>
         </section>
       )}
-      <TrunksSection trunks={links.trunks} />
+      {/* Trunks come with Era 2, or once something goes beyond the hub (run 4: jargon in the stranger's way in) */}
+      {(era >= 2 || links.trunks.sales.length > 0 || links.trunks.crew.length > 0) && (
+        <TrunksSection trunks={links.trunks} />
+      )}
       <section>
         <h4>New link</h4>
         {links.partners.length === 0 ? (

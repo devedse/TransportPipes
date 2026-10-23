@@ -288,6 +288,8 @@ kbd {
 .map-loading {
   position: absolute;
   inset: 0;
+  /* Over the HUD till the map shows (after run 4: Loady's card and a live top bar over a dark screen) */
+  z-index: 15;
   display: grid;
   place-content: center;
   justify-items: center;
@@ -542,6 +544,10 @@ kbd {
   align-items: center;
   gap: 6px;
   padding: 8px;
+}
+
+.phone-only {
+  display: none;
 }
 
 /* ---------- Toolbar ---------- */
@@ -3964,6 +3970,15 @@ select option {
     display: none;
   }
 
+  .top-actions .phone-only {
+    display: inline-flex;
+  }
+
+  /* The chat button is in the top bar on a phone (it reached past every panel there) */
+  .chat-toggle {
+    display: none;
+  }
+
   .top-bar {
     top: 8px;
     left: 8px;
@@ -6189,4 +6204,60 @@ button.top-gold {
 .exchange-form .exchange-terms {
   flex-basis: 100%;
   margin: 0;
+}
+
+/* The building panel's network block folds (on a phone it starts folded, after run 4) */
+.net-fold > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.net-fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.net-fold > summary h4 {
+  display: inline;
+}
+
+.net-fold > summary::before {
+  content: "▸ ";
+  color: var(--muted, #7a6a4f);
+}
+
+.net-fold[open] > summary::before {
+  content: "▾ ";
+}
+
+/* The Links tab's picture: one good from your gate to a friend's (after run 4) */
+.link-picture {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 2px;
+  font-size: 0.8rem;
+}
+
+.link-picture .link-end {
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 55%);
+  border: 1px solid rgb(0 0 0 / 10%);
+  white-space: nowrap;
+}
+
+.link-picture .link-pipe {
+  flex: 1;
+  min-width: 56px;
+  padding: 2px 0;
+  border-top: 4px solid #8a929b;
+  text-align: center;
+  color: var(--muted, #6b5a3e);
+}
+
+.yard-fold > summary {
+  cursor: pointer;
+  padding: 6px 0;
+  color: var(--accent);
+  font-weight: 600;
 }
