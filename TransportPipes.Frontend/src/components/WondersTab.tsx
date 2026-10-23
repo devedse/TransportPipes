@@ -57,9 +57,36 @@ function WonderCard({ wonder, era }: { wonder: WonderDto; era: number }) {
               <span className="small">
                 {formatAmount(need.delivered)} / {formatAmount(need.required)}
               </span>
-              <span className="muted small" title="In your storages">
-                you have {formatAmount(need.yourStock)}
-              </span>
+              {wonder.isEra ? (
+                <span />
+              ) : (
+                <span className="muted small" title="In your storages">
+                  you have {formatAmount(need.yourStock)}
+                </span>
+              )}
+              {(need.perMinute > 0.005 || need.ordered >= 1 || need.orderUnits !== null) && (
+                <div className="wonder-order">
+                  {need.ordered >= 1 && (
+                    <span className="small" title="Ordered from the hub: it ships over six hours">
+                      {formatAmount(need.ordered)} ordered, on its way
+                    </span>
+                  )}
+                  {need.perMinute > 0.005 && (
+                    <span className="small" title="Arriving by pipe from the Capital's gates, paid at base">
+                      {formatAmount(need.perMinute)}/min coming
+                    </span>
+                  )}
+                  {need.orderUnits !== null && need.orderCost !== null && (
+                    <button
+                      className="small"
+                      title="The hub ships it over six hours at 2 × base; half of each good at most comes by order, and it counts a quarter for your tier"
+                      onClick={() => void gameClient.orderForWonder(need.resource)}
+                    >
+                      Order {formatAmount(need.orderUnits)} · {formatAmount(need.orderCost)} g
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -67,14 +94,16 @@ function WonderCard({ wonder, era }: { wonder: WonderDto; era: number }) {
       <div className="wonder-foot">
         <div className="small">
           You built {formatAmount(wonder.yourContribution)} g worth
-          {wonder.total > 0 && ` · ${(wonder.yourShare * 100).toFixed(1)}% of all`}
+          {wonder.isEra
+            ? ` · ${(wonder.yourShare * 100).toFixed(1)}% of your Era output`
+            : wonder.total > 0 && ` · ${(wonder.yourShare * 100).toFixed(1)}% of all`}
           {wonder.isEra && wonder.yourTier !== "none" && (
             <span className={`tier ${wonder.yourTier}`}>
               {TIERS.find((t) => t.tier === wonder.yourTier)?.name}
             </span>
           )}
         </div>
-        {!wonder.finished && (
+        {!wonder.finished && !wonder.isEra && (
           <button
             className="primary"
             disabled={!canDeliver}
@@ -87,8 +116,10 @@ function WonderCard({ wonder, era }: { wonder: WonderDto; era: number }) {
       </div>
       {wonder.isEra && (
         <div className="muted small">
-          Builders get a reward when the next Era starts, by the share of their own output this Era they
-          brought: Bronze from 1%, Silver from 3%, Gold from 7%, Diamond from 15%.
+          It buys what the Capital's gates have spare, at base, all Era. When the next Era starts, its
+          builders get hours of their own income by the share of their Era output they brought: Bronze from 1%
+          (1 h), Silver from 3% (3 h), Gold from 7% (6 h), Diamond from 15% (12 h). Each stage lifts the
+          Capital: its pipes carry more, its Hub Orders pay more.
         </div>
       )}
       {wonder.topBuilders.length > 0 && (
@@ -115,8 +146,8 @@ export function WondersTab({ serverNow }: { serverNow: number }) {
   return (
     <div className="wonders">
       <p className="muted small">
-        Everyone builds the Wonders together from their storages. Era {wonders.era} ends when the Era Wonder
-        is finished, at the latest in {formatDuration(Math.max(0, left))}.
+        Everyone builds the Wonders together. Era {wonders.era} ends when the Era Wonder is finished, at the
+        latest in {formatDuration(Math.max(0, left))}.
       </p>
       {wonders.district !== null && <WonderCard wonder={wonders.district} era={wonders.era} />}
       {wonders.eraWonder !== null && <WonderCard wonder={wonders.eraWonder} era={wonders.era} />}

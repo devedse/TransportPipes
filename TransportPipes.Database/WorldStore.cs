@@ -119,6 +119,7 @@ public sealed class WorldStore
                 ProbationUntil = settings.ProbationUntil,
                 ProjectFirst = settings.ProjectFirst ?? new HashSet<string>(),
                 Purchases = settings.Purchases ?? new List<Purchase>(),
+                EraEnded = settings.EraEnded,
                 Sends = settings.Sends ?? new List<GoodSend>(),
                 ThankedOn = settings.ThankedOn ?? new Dictionary<long, int>(),
                 GiftsAnnounced = settings.GiftsAnnounced ?? new HashSet<string>(),
@@ -435,6 +436,7 @@ public sealed class WorldStore
                     ProbationUntil = company.ProbationUntil,
                     ProjectFirst = company.ProjectFirst,
                     Purchases = company.Purchases,
+                    EraEnded = company.EraEnded,
                     Sends = company.Sends,
                     ThankedOn = company.ThankedOn,
                     GiftsAnnounced = company.GiftsAnnounced,
@@ -769,6 +771,7 @@ public sealed class WorldStore
     private sealed class CompanySettings
     {
         public List<Purchase>? Purchases { get; init; }
+        public string? EraEnded { get; init; }
 
         public Dictionary<string, HubMarket> HubMarkets { get; init; } = new();
         public HashSet<string> NoTrade { get; init; } = new();

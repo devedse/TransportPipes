@@ -2993,6 +2993,15 @@ button.liked {
   align-items: center;
 }
 
+.wonder-need .wonder-order {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .wonder-need .muted {
   text-align: right;
 }

@@ -265,6 +265,10 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> SendToSite(long siteId) =>
         Command((world, company) => world.SendToSite(company, siteId));
 
+    /// <summary>Orders part of the Capital's Era Wonder (after run 3, step 5): half of each good at most, 2 × base, over six hours</summary>
+    public Task<CommandResultDto> OrderForWonder(string resource) =>
+        Command((world, company) => world.OrderForWonder(company, resource));
+
     /// <summary>Orders the rest of a want, one's own or a neighbour's (after run 3, step 4): 2 × base, after the friends' window, over 6 hours</summary>
     public Task<CommandResultDto> OrderRest(long target) =>
         Command((world, company) => world.OrderRest(company, target));

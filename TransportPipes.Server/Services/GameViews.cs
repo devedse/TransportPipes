@@ -118,7 +118,36 @@ public static partial class GameViews
             world.OpenWants(company).Select(t => new OwnWantDto(t.Target, t.Name, t.Want.Resource, t.Want.Amount, Math.Round(t.Want.Got, 1),
                 Math.Round(t.Want.Incoming.Values.Sum() + (t.Want.Order?.Started != null ? t.Want.Order.Rate : 0), 2), t.Want.PipeTiles?.Count,
                 t.Want.Order != null ? $"Ordered: the hub brings the rest {world.OrderStartText(company, t.Want, company)}" : null,
-                t.Want.Order == null ? Math.Ceiling(t.Want.Left * world.BasePrice(t.Want.Resource) * GameWorld.OrderPrice) : null)).ToList());
+                t.Want.Order == null ? Math.Ceiling(t.Want.Left * world.BasePrice(t.Want.Resource) * GameWorld.OrderPrice) : null)).ToList(),
+            EraWonderLine(world, company));
+    }
+
+    /// <summary>
+    /// The Era Wonder on the goal tracker (after run 3, step 5: Cleo found the Great Dynamo only by hunting, and "Era 1
+    /// ended without me knowing"): its stage's share, and your goods going in or what it wants and who in the Capital makes it
+    /// </summary>
+    private static ProjectWeekDto? EraWonderLine(GameWorld world, Company me)
+    {
+        // It is the Capital's want: elsewhere the District Wonder is the shared goal
+        if (!world.ProjectsEnabled || me.District != GameWorld.Capital || world.EraWonder is not { Finished: false } wonder || wonder.Required.Count == 0)
+        {
+            return null;
+        }
+        string Name(string resource) => world.Content.Resources.TryGetValue(resource, out var r) ? r.Name.ToLowerInvariant() : resource;
+        var definition = world.WonderDefinition(wonder);
+        var target = wonder.Required.Sum(t => t.Value * world.BasePrice(t.Key));
+        var share = target <= 0 ? 0 : wonder.Required.Sum(t => Math.Min(t.Value, wonder.Delivered.GetValueOrDefault(t.Key)) * world.BasePrice(t.Key)) / target;
+        var head = $"🏛 {definition.Name} {(definition.Stages.Count > 1 ? $"stage {wonder.Stage + 1} " : "")}{Math.Floor(share * 100):0}% · {Span(world.EraDeadline - world.Now)} left";
+        var mine = wonder.Incoming.GetValueOrDefault(me.Id)?.Where(t => t.Value > 1e-9).Select(t => Name(t.Key)).ToList() ?? [];
+        if (mine.Count > 0)
+        {
+            return new ProjectWeekDto($"{head} · your {And(mine)} {(mine.Count == 1 ? "goes" : "go")} in", share);
+        }
+        var lacking = wonder.Required.Where(t => wonder.Delivered.GetValueOrDefault(t.Key) < t.Value - 1e-6).Select(t => t.Key).ToList();
+        var makers = (string good) => world.Companies.Where(c => !c.IsNpc && c.District == GameWorld.Capital
+            && world.BuildingsOf(c.Id).Any(b => !b.UnderConstruction && world.Content.Building(b.Type).Out.ContainsKey(good))).ToList();
+        var wants = lacking.Select(t => makers(t) is { Count: > 0 } who ? $"{Name(t)} ({And(MakerNames(who.Take(2), me))})" : Name(t)).ToList();
+        return new ProjectWeekDto($"{head} · wants {And(wants)}", share);
     }
 
     /// <summary>A seat a friend keeps for a company that opened its link and lives elsewhere (run 3: Ben)</summary>
@@ -872,7 +901,11 @@ public static partial class GameViews
             wonder.Stage,
             definition.Stages.Count,
             wonder.Finished,
-            wonder.Required.Select(t => new WonderNeedDto(t.Key, t.Value, wonder.Delivered.GetValueOrDefault(t.Key), materials.GetValueOrDefault(t.Key))).ToList(),
+            wonder.Required.Select(t => new WonderNeedDto(t.Key, t.Value, wonder.Delivered.GetValueOrDefault(t.Key), materials.GetValueOrDefault(t.Key),
+                wonder.District == null && company.District == GameWorld.Capital ? world.WonderOrderOffer(t.Key)?.Units : null,
+                wonder.District == null && company.District == GameWorld.Capital ? world.WonderOrderOffer(t.Key)?.Cost : null,
+                Math.Round(wonder.Incoming.Values.Sum(g => g.GetValueOrDefault(t.Key)), 2),
+                Math.Floor(wonder.Orders.Where(o => o.Resource == t.Key).Sum(o => o.Units - o.Shipped)))).ToList(),
             total,
             wonder.Contributions.GetValueOrDefault(company.Id),
             Camel(tier),

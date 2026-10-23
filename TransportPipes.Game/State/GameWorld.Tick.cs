@@ -192,6 +192,7 @@ public sealed partial class GameWorld
         CountLinkDeliveries(minutes);
         SettleStandIns(minutes);
         SettleProjects(minutes);
+        SettleEraWonder(minutes);
         SettleAsks(minutes);
         SettleTrunks(minutes);
         foreach (var network in _networks.Values.OrderBy(t => t.Id).ToList())

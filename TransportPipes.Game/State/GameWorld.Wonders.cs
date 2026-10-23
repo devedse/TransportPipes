@@ -24,6 +24,26 @@ public sealed class Wonder
     public DateTime? FinishedAt { get; set; }
 
     public bool Finished => FinishedAt != null;
+
+    /// <summary>
+    /// The Era Wonder as the Capital's want (after run 3, step 5): what each seller's gate was matched last round, what
+    /// arrives now a minute, what Houses brought of each good (a quarter at most), and the orders on it (half at most)
+    /// </summary>
+    public Dictionary<long, Dictionary<string, double>> Matched { get; set; } = new();
+    public Dictionary<long, Dictionary<string, double>> Incoming { get; set; } = new();
+    public Dictionary<string, double> FromHouses { get; set; } = new();
+    public List<WonderOrder> Orders { get; set; } = new();
+}
+
+/// <summary>Gold for part of an Era Wonder stage: paid up front at 2 × base, shipped over six hours, credited a quarter</summary>
+public sealed class WonderOrder
+{
+    public long By { get; set; }
+    public required string Resource { get; init; }
+    public double Units { get; set; }
+    public double Price { get; set; }
+    public double Shipped { get; set; }
+    public DateTime At { get; set; }
 }
 
 public enum WonderTier
@@ -115,7 +135,8 @@ public sealed partial class GameWorld
     /// </summary>
     private Dictionary<string, double> StageRequirements(WonderDefinition definition, int stage, DistrictCoord? district)
     {
-        var people = _companies.Values.Where(t => !t.IsNpc && IsActive(t) && (district == null || t.District == district)).ToList();
+        // The Era Wonder is the Capital's want (after run 3, step 5): sized by those who live in the Capital
+        var people = _companies.Values.Where(t => !t.IsNpc && IsActive(t) && t.District == (district ?? Capital)).ToList();
         var worth = people.Count > 0
             ? people.Sum(t => WonderHours * 60 * MeasuredIncome(t))
             : WonderHours * 60 * MinMeasuredIncome;
@@ -214,6 +235,11 @@ public sealed partial class GameWorld
         var everyone = wonder.District is { } district
             ? _companies.Values.Where(t => !t.IsNpc && t.District == district)
             : _companies.Values.Where(t => !t.IsNpc);
+        if (wonder.District == null)
+        {
+            // Its stage lifts the Capital (step 5): pipes carry more, Hub Orders pay more
+            CapitalPipesChanged();
+        }
         if (wonder.Stage < definition.Stages.Count)
         {
             wonder.Required = StageRequirements(definition, wonder.Stage, wonder.District);
@@ -286,14 +312,15 @@ public sealed partial class GameWorld
         return (share, share >= 0.15 ? WonderTier.Diamond : share >= 0.07 ? WonderTier.Gold : share >= 0.03 ? WonderTier.Silver : share >= 0.01 ? WonderTier.Bronze : WonderTier.None);
     }
 
-    public static double TierReward(WonderTier tier, int era) => era * tier switch
+    /// <summary>A builder's tier pays hours of its own income (after run 3, step 5: 2k–100k × Era was a rounding error of a 17M bank)</summary>
+    public double TierReward(Company company, WonderTier tier) => Math.Round(60 * Math.Max(MinMeasuredIncome, MeasuredIncome(company)) * tier switch
     {
-        WonderTier.Diamond => 100_000,
-        WonderTier.Gold => 40_000,
-        WonderTier.Silver => 10_000,
-        WonderTier.Bronze => 2_000,
+        WonderTier.Diamond => 12,
+        WonderTier.Gold => 6,
+        WonderTier.Silver => 3,
+        WonderTier.Bronze => 1,
         _ => 0,
-    };
+    });
 
     /// <summary>The next Era: rewards for the Era Wonder's builders, new content, a launch party</summary>
     public void AdvanceEra()
@@ -306,6 +333,18 @@ public sealed partial class GameWorld
         if (EraWonder != null)
         {
             var name = WonderDefinition(EraWonder).Name;
+            // Every card tells how it ended, and your part (run 3: "Era 1 ended without me knowing the Dynamo result")
+            var stages = WonderDefinition(EraWonder).Stages.Count;
+            var the = name.StartsWith("The ", StringComparison.Ordinal) ? $"the {name[4..]}" : $"the {name}";
+            var result = EraWonder.Finished ? $"{the} stands, all {stages} stages"
+                : EraWonder.Stage > 0 ? $"{the} got {EraWonder.Stage} of its {stages} stages"
+                : $"{the} got {Math.Floor(100 * EraWonder.Required.Sum(t => Math.Min(t.Value, EraWonder.Delivered.GetValueOrDefault(t.Key)) * BasePrice(t.Key)) / Math.Max(1, EraWonder.Required.Sum(t => t.Value * BasePrice(t.Key)))):0}% of its first stage";
+            foreach (var company in _companies.Values.Where(t => !t.IsNpc))
+            {
+                var part = EraWonder.Contributions.GetValueOrDefault(company.Id);
+                company.EraEnded = $"Era {Era} ended: {result}; {(part > 0 ? $"your part: {part:N0} g of goods" : "you gave nothing to it")}";
+                company.Touch();
+            }
             foreach (var company in _companies.Values.Where(t => !t.IsNpc))
             {
                 var (_, tier) = EraWonderTier(company);
@@ -313,7 +352,7 @@ public sealed partial class GameWorld
                 {
                     continue;
                 }
-                var reward = TierReward(tier, Era);
+                var reward = TierReward(company, tier);
                 company.Gold += reward;
                 company.Titles.Add($"{name} · {tier}");
                 company.Touch();
@@ -323,6 +362,7 @@ public sealed partial class GameWorld
 
         Era++;
         EraStartedAt = LastTick;
+        var lifted = EraWonder is { Stage: >= 1 };
         // The tiers of the next Era Wonder are a share of what each makes in that Era
         foreach (var company in _companies.Values)
         {
@@ -330,6 +370,11 @@ public sealed partial class GameWorld
         }
         EraWonder = null;
         EnsureEraWonder();
+        if (lifted)
+        {
+            // The last Era's lift ends with it
+            CapitalPipesChanged();
+        }
         foreach (var company in _companies.Values.Where(t => !t.IsNpc))
         {
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder, $"Era {Era} begins! New buildings and resources, and +10% production for a day"));

@@ -130,7 +130,9 @@ public record CompanyDto(
     /// <summary>Neighbours' scaffolds and pipes this player could help with (after run 3, steps 2 and 3)</summary>
     IReadOnlyList<WantNearDto>? WantsNear = null,
     /// <summary>This player's own open wants, a building's or a pipe's</summary>
-    IReadOnlyList<OwnWantDto>? Wants = null);
+    IReadOnlyList<OwnWantDto>? Wants = null,
+    /// <summary>The Era Wonder on the goal tracker (after run 3, step 5): its stage's share, and your part or what it wants</summary>
+    ProjectWeekDto? EraWonderLine = null);
 
 /// <summary>An own want: its target (a building's id, or minus a pipe want's number), what it wants, what is in and coming; Tiles for a pipe</summary>
 public record OwnWantDto(long Target, string Name, string Resource, double Amount, double Got, double PerMinute, int? Tiles, string? Order = null, double? OrderCost = null);
@@ -590,7 +592,9 @@ public record InboxDto(IReadOnlyList<InboxMessageDto> Messages, int Unread);
 
 // ---------------------------------------------------------------- Wonders and Eras (M5)
 
-public record WonderNeedDto(string Resource, double Required, double Delivered, double YourStock);
+/// <param name="OrderUnits">The Era Wonder: how much of it may be ordered now (half of each good at most comes by order), and for what</param>
+/// <param name="Ordered">The Era Wonder: what the hub still ships of the orders on it</param>
+public record WonderNeedDto(string Resource, double Required, double Delivered, double YourStock, double? OrderUnits = null, double? OrderCost = null, double PerMinute = 0, double Ordered = 0);
 
 public record WonderBuilderDto(long Company, string Name, string Color, double Value);
 

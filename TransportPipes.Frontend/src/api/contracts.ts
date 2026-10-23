@@ -130,6 +130,8 @@ export interface CompanyDto {
   wantsNear: WantNearDto[] | null;
   /** This player's own open wants, a building's or a pipe's */
   wants: OwnWantDto[] | null;
+  /** The Era Wonder on the goal tracker (after run 3, step 5): its stage's share, and your part or what it wants */
+  eraWonderLine: ProjectWeekDto | null;
 }
 
 /** Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there */
@@ -1184,6 +1186,13 @@ export interface WonderNeedDto {
   required: number;
   delivered: number;
   yourStock: number;
+  /** The Era Wonder: how much of it may be ordered now (half of each good at most comes by order), and for what */
+  orderUnits: number | null;
+  orderCost: number | null;
+  /** What arrives a minute now, by pipe from the Capital's gates */
+  perMinute: number;
+  /** What the hub still ships of the orders on it */
+  ordered: number;
 }
 
 export interface WonderBuilderDto {

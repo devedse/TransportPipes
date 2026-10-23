@@ -692,6 +692,16 @@ export class GameClient {
     }
   }
 
+  /** Orders part of the Era Wonder from the hub: it ships over six hours and counts a quarter for your tier */
+  async orderForWonder(resource: string) {
+    if (
+      await this.command(this.connection.orderForWonder(resource), "Ordered: the hub ships it over six hours")
+    ) {
+      await this.refreshWonders();
+      void this.refreshCompany();
+    }
+  }
+
   async refreshMarket() {
     const [market, exchange] = await Promise.all([
       this.connection.getMarket().catch(() => null),

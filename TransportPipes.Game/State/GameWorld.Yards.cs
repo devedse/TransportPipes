@@ -1057,9 +1057,14 @@ public sealed partial class GameWorld
         {
             Handshakes(members);
         }
+        if (EraWonderBuying)
+        {
+            EraWonder!.Incoming = new Dictionary<long, Dictionary<string, double>>();
+        }
         foreach (var (station, members) in byStation)
         {
             var byKey = members.ToDictionary(t => t.Key);
+            DeliverEraWonder(station, members);
             // What was matched for far markets leaves the gates now
             if (TrunksEnabled)
             {
@@ -1138,6 +1143,10 @@ public sealed partial class GameWorld
         DeliverLinks(all, TermsOf, ref limit);
         MatchLinks(all, TermsOf);
 
+        if (EraWonderBuying)
+        {
+            EraWonder!.Matched = new Dictionary<long, Dictionary<string, double>>();
+        }
         foreach (var (station, members) in byStation)
         {
             var project = ProjectsEnabled && members.Any(t => !t.Company.IsNpc) ? ProjectOf(station) : null;
@@ -1194,6 +1203,12 @@ public sealed partial class GameWorld
                     }
                     goods[resource] = goods.GetValueOrDefault(resource) + amount;
                 }
+            }
+            // Then the Capital's Era Wonder (after run 3, step 5)
+            foreach (var ((sellerKey, resource), amount) in MatchEraWonder(station, members, ref limit))
+            {
+                var terms = TermsOf(sellerKey);
+                terms.Export[resource] = terms.Export.GetValueOrDefault(resource) + amount;
             }
             // What is still spare can go beyond the own hub (public trunks, the Port, the crew's trunks)
             if (TrunksEnabled)

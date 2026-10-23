@@ -490,6 +490,7 @@ export class GameConnection {
   hireManager = (manager: string) => this.invoke<CommandResult>("HireManager", manager);
   dismissManager = (manager: string) => this.invoke<CommandResult>("DismissManager", manager);
   deliverToWonder = (eraWonder: boolean) => this.invoke<CommandResult>("DeliverToWonder", eraWonder);
+  orderForWonder = (resource: string) => this.invoke<CommandResult>("OrderForWonder", resource);
   getBlueprints = () => this.invoke<BlueprintsDto | null>("GetBlueprints");
   saveBlueprint = (name: string, x: number, y: number, width: number, height: number) =>
     this.invoke<CommandResult>("SaveBlueprint", name, x, y, width, height);

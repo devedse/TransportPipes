@@ -214,6 +214,12 @@ public static partial class GameViews
             }
         }
 
+        // How the last Era ended, and your part (after run 3, step 5: "Era 1 ended without me knowing the Dynamo result")
+        if (me.EraEnded is { } ended && world.EraStartedAt >= report.Since)
+        {
+            Add(1, "project", "🏛", ended);
+        }
+
         // The project
         if (world.ProjectsEnabled && world.EstateOf(me) is { } estate && world.ExistingProject(estate.Station) is { } project)
         {

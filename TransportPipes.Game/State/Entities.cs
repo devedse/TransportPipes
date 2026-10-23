@@ -140,6 +140,9 @@ public sealed class Company : Entity
     public bool YardSalesExplained { get; set; }
 
     /// <summary>When its player's current (or last) session began; not stored (LastSeenAt moves on every tick they're online)</summary>
+    /// <summary>How the last Era ended and this company's part (the return card says it once)</summary>
+    public string? EraEnded { get; set; }
+
     /// <summary>Purchases it may take back for an hour (after run 3: spending is safe)</summary>
     public List<Purchase> Purchases { get; set; } = new();
 

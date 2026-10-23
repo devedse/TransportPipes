@@ -235,6 +235,21 @@ export function GoalTracker() {
             </span>
           </li>
         )}
+        {company.eraWonderLine !== null && (
+          <li>
+            <span className="goal-label">Era</span>
+            <button
+              className="goal-text link"
+              title="The Era Wonder, the Capital's want: open it"
+              onClick={() => void gameClient.openHub("wonders")}
+            >
+              {company.eraWonderLine.text} ›
+            </button>
+            <span className="goal-bar">
+              <span style={{ width: `${Math.round(company.eraWonderLine.share * 100)}%` }} />
+            </span>
+          </li>
+        )}
         {company.week === null && company.nextParcelCost !== null && company.nextParcelLevel !== null && (
           <li>
             <span className="goal-label">This week</span>
