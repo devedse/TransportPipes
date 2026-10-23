@@ -2601,10 +2601,11 @@ button.liked {
   padding: 8px 14px;
 }
 
-/* Above the toolbar, so they never overlap */
+/* Above the toolbar, so they never overlap; on the right, beside an open building panel (after run 3, row 12: the chat
+   lay over the goals) */
 .chat-panel {
   position: absolute;
-  left: var(--gap);
+  right: var(--gap);
   bottom: 84px;
   width: min(380px, calc(100vw - 24px));
   height: min(380px, calc(100vh - 260px));
@@ -2615,9 +2616,9 @@ button.liked {
   z-index: 4;
 }
 
-/* While the chat is open, Loady's card and the Next steps fold away: the chat lay over them (run 2) */
-.app:has(.chat-panel) .goal-tracker {
-  display: none;
+.app:has(.building-panel) .chat-panel,
+.app:has(.parcel-panel) .chat-panel {
+  right: calc(2 * var(--gap) + min(380px, calc(100vw - 24px)));
 }
 
 .chat-channels {
@@ -4160,11 +4161,19 @@ select option {
     bottom: 76px;
   }
 
-  .chat-panel {
+  .chat-panel,
+  .app:has(.building-panel) .chat-panel,
+  .app:has(.parcel-panel) .chat-panel {
     bottom: 76px;
+    left: var(--gap);
     right: var(--gap);
     width: auto;
     height: 45vh;
+  }
+
+  /* On a phone the chat spans the screen: the goals fold away while it's open (run 2) */
+  .app:has(.chat-panel) .goal-tracker {
+    display: none;
   }
 
   .corp-cards,
@@ -4872,11 +4881,17 @@ kbd {
   overflow: hidden;
 }
 
+.next-steps-bar {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
 .next-steps-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  flex: 0 0 auto;
   padding: 8px 12px;
   border: 0;
   border-radius: 0;
@@ -4889,13 +4904,17 @@ kbd {
   cursor: pointer;
 }
 
+.next-steps-head:only-child {
+  flex: 1 1 auto;
+}
+
 .next-steps-peek {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+  padding: 8px 12px 8px 0;
   overflow: hidden;
-  font-family: var(--font-body, inherit);
   font-size: 0.78rem;
-  color: var(--muted, #6b7280);
+  text-align: left;
   white-space: nowrap;
   text-overflow: ellipsis;
 }

@@ -736,7 +736,14 @@ public sealed class GameHub : Hub<IGameClient>
         }
         var guestbook = await _social.GuestbookAsync(owner, viewerId);
         return await _world.RunAsync(world =>
-            world.Company(owner) is { } company && world.Company(viewerId) is { } me ? GameViews.Visit(world, company, me, guestbook) : null, changesWorld: false);
+        {
+            if (world.Company(owner) is not { } company || world.Company(viewerId) is not { } me)
+            {
+                return null;
+            }
+            world.RecordVisit(company, me);
+            return GameViews.Visit(world, company, me, guestbook);
+        });
     }
 
     public Task<CommandResultDto> LikeEstate(long owner) =>
@@ -793,6 +800,16 @@ public sealed class GameHub : Hub<IGameClient>
         {
             return (true, corporation.Name, world.Members(corporation).Select(t => t.UserId).ToList());
         }
+        // Your station's own channel, and your crew's (after run 3, row 12: "Capital chat full of other Mias … unclear who
+        // my friends are")
+        if (world.EstateOf(company) is { } estate && world.BigStation(estate.Station)[0] is var corner && channel == SocialService.StationChannel(corner))
+        {
+            return (true, WorldNames.Station(corner), world.StationPlayers(estate.Station).Select(t => t.UserId).ToList());
+        }
+        if (world.CrewOf(company) is { } crew && channel == SocialService.CrewChannel(crew.Id))
+        {
+            return (true, crew.Name, world.CrewMembers(crew).Select(t => t.UserId).ToList());
+        }
         if (SocialService.DirectPair(channel) is { } pair && (pair.A == company.Id || pair.B == company.Id)
             && world.Company(pair.A == company.Id ? pair.B : pair.A) is { IsNpc: false } other)
         {
@@ -805,14 +822,27 @@ public sealed class GameHub : Hub<IGameClient>
     {
         var userId = UserId;
         var me = await _world.RunAsync(world => world.CompanyOfUser(userId) is { } company
-            ? (company.Id, company.District, world.CorporationOf(company) is { } c ? (c.Id, c.Name) : default((long Id, string Name)?))
-            : default((long, DistrictCoord, (long Id, string Name)?)?), changesWorld: false);
+            ? (company.Id, company.District, world.CorporationOf(company) is { } c ? (c.Id, c.Name) : default((long Id, string Name)?),
+                Crew: world.CrewOf(company) is { } crew ? (crew.Id, crew.Name) : default((long Id, string Name)?),
+                Station: world.EstateOf(company) is { } estate && world.BigStation(estate.Station)[0] is var corner
+                    ? (SocialService.StationChannel(corner), WorldNames.Station(corner)) : default((string Id, string Name)?))
+            : default((long, DistrictCoord, (long Id, string Name)?, (long Id, string Name)?, (string Id, string Name)?)?), changesWorld: false);
         if (me is not { } info)
         {
             return null;
         }
-        var (companyId, district, corporation) = info;
+        var (companyId, district, corporation, ownCrew, station) = info;
         var channels = new List<ChatChannelDto>();
+        // Your crew first, then your station: the people you play with (after run 3, row 12)
+        if (ownCrew is { } myCrew)
+        {
+            var crewChannel = SocialService.CrewChannel(myCrew.Id);
+            channels.Add(new ChatChannelDto(crewChannel, myCrew.Name, "crew", await _social.LastMessageAtAsync(crewChannel)));
+        }
+        if (station is { } myStation)
+        {
+            channels.Add(new ChatChannelDto(myStation.Id, myStation.Name, "station", await _social.LastMessageAtAsync(myStation.Id)));
+        }
         var districtChannel = SocialService.DistrictChannel(district.X, district.Y);
         channels.Add(new ChatChannelDto(districtChannel, WorldNames.District(district), "district", await _social.LastMessageAtAsync(districtChannel)));
         if (corporation is { } corp)

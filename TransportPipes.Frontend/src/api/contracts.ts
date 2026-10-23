@@ -1186,7 +1186,7 @@ export interface ChatMessageDto {
   sentAt: string;
 }
 
-export type ChatChannelKind = "district" | "corporation" | "direct";
+export type ChatChannelKind = "crew" | "station" | "district" | "corporation" | "direct";
 
 export interface ChatChannelDto {
   id: string;
@@ -1847,6 +1847,8 @@ export interface LinkPartnerDto {
   color: string;
   level: number;
   station: string;
+  /** In your crew */
+  crew: boolean;
 }
 
 export interface LinksDto {

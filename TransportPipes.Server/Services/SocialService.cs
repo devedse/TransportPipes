@@ -1,3 +1,4 @@
+using TransportPipes.Game.World;
 using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using TransportPipes.Database;
@@ -38,6 +39,11 @@ public sealed class SocialService
     public static string DistrictChannel(int x, int y) => $"district:{x}:{y}";
 
     public static string CorporationChannel(long id) => $"corporation:{id}";
+
+    /// <summary>A (big) station's channel, by its corner station (after run 3, row 12: four Water Towers in one chat)</summary>
+    public static string StationChannel(StationRef corner) => $"station:{corner.District.X}:{corner.District.Y}:{corner.Index}";
+
+    public static string CrewChannel(long id) => $"crew:{id}";
 
     public static string DirectChannel(long a, long b) => a < b ? $"direct:{a}:{b}" : $"direct:{b}:{a}";
 

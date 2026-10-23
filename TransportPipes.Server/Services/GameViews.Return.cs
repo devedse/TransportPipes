@@ -274,10 +274,14 @@ public static partial class GameViews
             Add(4, "orders", "📋", $"Your {And(goods)} filled {Plural(report.OrdersCompleted, "hub order")} at twice the price: +{report.OrderGold:N0} g over the hub's");
         }
 
-        // The social line: who thanked you, else who liked your estate
+        // The social line: who thanked you, who of your crew came to look, else who liked your estate
         if (report.Thanks.Count > 0)
         {
             Add(3, "social", "💛", report.Thanks.Count == 1 ? report.Thanks[0] : $"{report.Thanks[^1]}, and {report.Thanks.Count - 1} more thanks");
+        }
+        else if (report.VisitedBy.Count > 0)
+        {
+            Add(3, "social", "👁", $"{And(report.VisitedBy.Take(3).ToList())} visited your estate 💛");
         }
         else if (report.LikesReceived > 0)
         {

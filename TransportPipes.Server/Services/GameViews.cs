@@ -244,13 +244,16 @@ public static partial class GameViews
             return null;
         }
         string Name(string resource) => world.Content.Resources.TryGetValue(resource, out var r) ? r.Name.ToLowerInvariant() : resource;
+        // Every project named by its station (after run 3, row 12: four Water Towers in one chat)
+        var station = WorldNames.Station(world.BigStation(estate.Station)[0]);
+        var of = station.EndsWith('s') ? $"{station}'" : $"{station}'s";
         if (project.Finished.Count > 0 && project.Finished.MaxBy(t => t.Value) is var (done, at) && world.Now - at < TimeSpan.FromHours(2))
         {
             return new ProjectWeekDto(done switch
             {
-                ProjectStage.Landmark => "🏗 The Landmark is finished",
-                ProjectStage.FoundryHall => $"🏗 The Foundry Hall stands: +10% on {string.Join(" and ", project.FoundryChains.Select(Name))}",
-                _ => $"🏗 The {GameWorld.StageName(done)} stands: +{world.ProjectBonus(project) * 100:0}% for every seat",
+                ProjectStage.Landmark => $"🏗 {of} Landmark is finished",
+                ProjectStage.FoundryHall => $"🏗 {of} Foundry Hall stands: +10% on {string.Join(" and ", project.FoundryChains.Select(Name))}",
+                _ => $"🏗 {of} {GameWorld.StageName(done)} stands: +{world.ProjectBonus(project) * 100:0}% for every seat",
             }, 1);
         }
         if (project.Stage == ProjectStage.Done)
@@ -260,11 +263,11 @@ public static partial class GameViews
         var stage = GameWorld.StageName(project.Stage);
         if (project.Stage == ProjectStage.FoundryHall && project.StartedAt + TimeSpan.FromDays(14) is var opens && opens > world.Now)
         {
-            return new ProjectWeekDto($"🏗 The {stage} opens in {Span(opens - world.Now)}", 0);
+            return new ProjectWeekDto($"🏗 {of} {stage} opens in {Span(opens - world.Now)}", 0);
         }
         var card = world.ProjectCardFor(project, me);
         var (parts, step) = ProjectSentence(world, me, project);
-        return new ProjectWeekDto(string.Join(" · ", parts.Prepend($"🏗 {stage} {Math.Floor(card.Share * 100):0}%")), card.Share, step);
+        return new ProjectWeekDto(string.Join(" · ", parts.Prepend($"🏗 {of} {stage} {Math.Floor(card.Share * 100):0}%")), card.Share, step);
     }
 
     /// <summary>
@@ -1712,8 +1715,9 @@ public static partial class GameViews
         var home = world.EstateOf(me) is { } estate ? world.BigStation(estate.Station)[0] : (StationRef?)null;
         var partners = world.Companies
             .Where(t => !t.IsNpc && t.Id != me.Id && !t.Asleep && world.EstateOf(t) is { } e && world.BigStation(e.Station)[0] != home)
-            .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(t => new LinkPartnerDto(t.Id, t.Name, t.Color, t.Level, WorldNames.Station(world.EstateOf(t)!.Station)))
+            // Your crew first, and said so (after run 3, row 12: Ben was offered as a link with no word he was Ana's friend)
+            .OrderBy(t => me.CrewId != null && t.CrewId == me.CrewId ? 0 : 1).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(t => new LinkPartnerDto(t.Id, t.Name, t.Color, t.Level, WorldNames.Station(world.EstateOf(t)!.Station), me.CrewId != null && t.CrewId == me.CrewId))
             .ToList();
         return new LinksDto(
             world.LinksOf(me.Id).OrderBy(t => t.State == LinkState.Offered && t.OfferedBy != me.Id ? 0 : 1).ThenBy(t => t.Id).Select(t => Link(world, t, me)).ToList(),

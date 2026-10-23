@@ -4,6 +4,8 @@ import type { ChatChannelDto, ChatMessageDto } from "../api/contracts";
 import { setState, useAppStore } from "../state/store";
 
 const KIND_ICONS: Record<ChatChannelDto["kind"], string> = {
+  crew: "👥",
+  station: "🏗",
   district: "🏘",
   corporation: "🏢",
   direct: "✉",
@@ -56,7 +58,7 @@ function Message({ message, mine }: { message: ChatMessageDto; mine: boolean }) 
   );
 }
 
-/** District, corporation and direct chat, docked at the bottom left */
+/** Crew, station, district, corporation and direct chat, docked at the bottom right (after run 3, row 12) */
 export function ChatPanel() {
   const open = useAppStore((s) => s.chatOpen);
   const chat = useAppStore((s) => s.chat);
@@ -119,11 +121,15 @@ export function ChatPanel() {
         {messages === undefined && <p className="muted small">Loading…</p>}
         {messages?.length === 0 && (
           <p className="muted small">
-            {current?.kind === "district"
-              ? "Say hello to your neighbours! Everyone in your district reads this."
-              : current?.kind === "corporation"
-                ? "Only members of your corporation read this."
-                : "Only the two of you read this."}
+            {current?.kind === "crew"
+              ? "Only your crew reads this, wherever they live."
+              : current?.kind === "station"
+                ? "Only the players of your station read this: your project, your Yard."
+                : current?.kind === "district"
+                  ? "Say hello to your neighbours! Everyone in your district reads this."
+                  : current?.kind === "corporation"
+                    ? "Only members of your corporation read this."
+                    : "Only the two of you read this."}
           </p>
         )}
         {messages?.map((m, i) => {

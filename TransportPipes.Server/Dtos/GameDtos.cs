@@ -856,7 +856,7 @@ public record TrunkDto(long Id, string Target, int Length, int Segments, int Nee
 public record TrunkTargetDto(int? DistrictX, int? DistrictY, bool Port, string Name);
 
 /// <summary>Someone a link could go to (players outside your station)</summary>
-public record LinkPartnerDto(long Id, string Name, string Color, int Level, string Station);
+public record LinkPartnerDto(long Id, string Name, string Color, int Level, string Station, bool Crew = false);
 
 public record LinkPlanDto(int Length, double Efficiency, double Throughput, double Gold, IReadOnlyList<ResourceRateDto> Materials, string? Error, IReadOnlyList<int> Route);
 

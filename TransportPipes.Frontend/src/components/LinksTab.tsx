@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { gameClient } from "../app/client";
 import { formatAmount, formatDuration } from "../app/format";
 import { useNow } from "../app/useNow";
-import type { LinkDto, LinkPlanDto, LinkSuggestionDto } from "../api/contracts";
+import type { CrewDto, CrewMemberDto, LinkDto, LinkPlanDto, LinkSuggestionDto } from "../api/contracts";
 import type { Content } from "../game/content";
-import { useAppStore } from "../state/store";
+import { setState, useAppStore } from "../state/store";
 import { ResourceIcon } from "./ResourceIcon";
 import { TrunksSection } from "./TrunksSection";
 
@@ -163,6 +163,12 @@ function LinkCard({ link, content }: { link: LinkDto; content: Content }) {
   );
 }
 
+/** Crew mates who live in another station than you */
+function elsewhere(crew: CrewDto): CrewMemberDto[] {
+  const mine = crew.members.find((t) => t.you)?.station;
+  return crew.members.filter((t) => !t.you && t.station !== mine);
+}
+
 interface Draft {
   partnerId: number | null;
   resource: string;
@@ -218,7 +224,9 @@ function NewLink({
           <option value="">Choose a company…</option>
           {links.partners.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.name} · Lv {p.level} · {p.station}
+              {p.crew ? "👥 " : ""}
+              {p.name}
+              {p.crew ? " (your crew)" : ""} · Lv {p.level} · {p.station}
             </option>
           ))}
         </select>
@@ -315,7 +323,25 @@ function Suggestion({ s, content, onPick }: { s: LinkSuggestionDto; content: Con
 export function LinksTab() {
   const links = useAppStore((s) => s.links);
   const content = useAppStore((s) => s.content);
-  const [draft, setDraft] = useState<Draft>({ partnerId: null, resource: "", selling: true, tier: 1 });
+  const crew = useAppStore((s) => s.crew?.crew ?? null);
+  const linkPartner = useAppStore((s) => s.linkPartner);
+  // The Crew panel's "Link ▸": the new link starts with that friend
+  const [draft, setDraft] = useState<Draft>(() => ({
+    partnerId: linkPartner,
+    resource: "",
+    selling: true,
+    tier: 1,
+  }));
+  useEffect(() => {
+    if (linkPartner !== null) {
+      setState({ linkPartner: null });
+    }
+  }, [linkPartner]);
+  useEffect(() => {
+    if (crew === null) {
+      void gameClient.refreshCrew();
+    }
+  }, [crew]);
   useEffect(() => {
     // The flows change every round: the tab follows
     const timer = window.setInterval(() => void gameClient.refreshLinks(), 30000);
@@ -343,6 +369,28 @@ export function LinksTab() {
       <div className="muted small">
         {laid} of {links.max} links
       </div>
+      {/* Friends who live in other stations (after run 3, row 12: Ben was offered as a link with no word he was Ana's friend) */}
+      {crew !== null && elsewhere(crew).length > 0 && (
+        <section>
+          <h4>Your crew in other stations</h4>
+          <ul className="link-suggestions">
+            {elsewhere(crew).map((m) => (
+              <li key={m.id}>
+                <span className="dot" style={{ background: m.color }} /> <strong>{m.name}</strong>{" "}
+                <span className="muted small">· {m.station}</span>
+                <span className="button-row">
+                  <button className="small" onClick={() => void gameClient.visitFriend(m.id)}>
+                    👁 Visit
+                  </button>
+                  <button className="small" onClick={() => setDraft({ ...draft, partnerId: m.id })}>
+                    Link to {m.name} ▸
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {links.suggestions.length > 0 && (
         <section>
           <h4>A link would suit</h4>

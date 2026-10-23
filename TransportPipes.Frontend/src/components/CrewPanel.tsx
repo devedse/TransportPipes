@@ -307,7 +307,14 @@ export function CrewPanel() {
               <h4>Members</h4>
               <ul className="crew-members">
                 {crew.members.map((m) => (
-                  <li key={m.id}>
+                  <li
+                    key={m.id}
+                    className={
+                      !m.you && m.station !== crew.members.find((t) => t.you)?.station
+                        ? "elsewhere"
+                        : undefined
+                    }
+                  >
                     <span className="dot" style={{ background: m.color }} />{" "}
                     <strong>{m.you ? "You" : m.name}</strong>{" "}
                     <span className="muted small grow">
@@ -316,6 +323,26 @@ export function CrewPanel() {
                       {m.asleep && " (a stand-in keeps their trades)"}
                       {m.tended && " · 💛 tended"}
                     </span>
+                    {/* A friend who lives in another station: visit, or link your gates (after run 3, row 12: "where
+                    do you live?") */}
+                    {!m.you && m.station !== crew.members.find((t) => t.you)?.station && (
+                      <span className="button-row">
+                        <button
+                          className="small"
+                          title={`Look at ${m.name}'s estate in ${m.station}`}
+                          onClick={() => void gameClient.visitFriend(m.id)}
+                        >
+                          👁 Visit
+                        </button>
+                        <button
+                          className="small"
+                          title="A pipe between your Yard gates, outside your station"
+                          onClick={() => void gameClient.openLinks(m.id)}
+                        >
+                          Link ▸
+                        </button>
+                      </span>
+                    )}
                     {m.canTend && (
                       <button
                         className="small"

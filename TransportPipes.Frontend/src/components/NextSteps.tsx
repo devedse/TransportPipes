@@ -77,11 +77,22 @@ export function NextSteps() {
       onPointerEnter={() => setHeld(latest)}
       onPointerLeave={() => setHeld(null)}
     >
-      <button className="next-steps-head" onClick={toggle} aria-expanded={!collapsed}>
-        <span>Next steps</span>
-        {collapsed && <span className="next-steps-peek">{steps[0]!.title}</span>}
-        <span className="next-steps-chevron">{collapsed ? "▸" : "▾"}</span>
-      </button>
+      <div className="next-steps-bar">
+        <button className="next-steps-head" onClick={toggle} aria-expanded={!collapsed}>
+          <span>Next steps</span>
+          <span className="next-steps-chevron">{collapsed ? "▸" : "▾"}</span>
+        </button>
+        {/* Folded, the first step is itself a button (after run 3, row 12: Ben's step with nothing to tap) */}
+        {collapsed && (
+          <button
+            className="link next-steps-peek"
+            aria-label={`Show me: ${steps[0]!.title}`}
+            onClick={() => void gameClient.showNextStep(steps[0]!)}
+          >
+            {steps[0]!.title} ›
+          </button>
+        )}
+      </div>
       {!collapsed && (
         <ol className="next-step-list">
           {steps.map((step, i) => {

@@ -90,6 +90,8 @@ export interface AppState {
   /** When the player last left (the chat marks what came since) */
   leftAt: string | null;
   links: LinksDto | null;
+  /** A friend the Links tab's new link starts with (the Crew panel's "Link ▸", after run 3, row 12) */
+  linkPartner: number | null;
   /** Every link on the map, and the one the Links tab points at */
   mapLinks: MapLinkDto[];
   focusLink: number | null;
@@ -210,6 +212,7 @@ export const initialState: AppState = {
   returnCard: null,
   leftAt: null,
   links: null,
+  linkPartner: null,
   mapLinks: [],
   focusLink: null,
   districtVersion: 0,

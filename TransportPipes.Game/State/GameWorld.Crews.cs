@@ -357,6 +357,21 @@ public sealed partial class GameWorld
     /// Whose something is, as a line says it: "Ben's" for a crew mate the crew calls Ben (not "Riverside Co. (Ben)'s"),
     /// "ana_pm Pipes'" for a name ending in s, else "Jo's Works's"
     /// </summary>
+    /// <summary>A crew mate looks at your estate: your next card says so (after run 3, row 12: six promised visits, none seen)</summary>
+    public void RecordVisit(Company owner, Company visitor)
+    {
+        if (owner.Id == visitor.Id || owner.CrewId == null || owner.CrewId != visitor.CrewId)
+        {
+            return;
+        }
+        var name = NameFor(visitor, owner);
+        if (!owner.Report.VisitedBy.Contains(name))
+        {
+            owner.Report.VisitedBy.Add(name);
+            owner.Touch();
+        }
+    }
+
     public string PossessiveFor(Company company, Company viewer)
     {
         var name = NameFor(company, viewer) == company.Name ? company.Name : company.KnownAs!;

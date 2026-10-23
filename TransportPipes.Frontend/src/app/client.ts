@@ -1452,10 +1452,20 @@ export class GameClient {
   }
 
   /** The Yard panel on its Links tab: your links to other stations, offers, and who a link would suit */
-  async openLinks() {
+  async openLinks(partner: number | null = null) {
     this.selectNetwork(null);
-    setState({ yardOpen: true, yardTab: "links" });
+    setState({
+      ...(partner !== null ? { ...MODALS, linkPartner: partner } : {}),
+      yardOpen: true,
+      yardTab: "links",
+    });
     await this.refreshLinks();
+  }
+
+  /** Looks at a friend's estate and opens its visit card (a friend in another station: after run 3, row 12) */
+  async visitFriend(owner: number) {
+    setState({ ...MODALS });
+    await this.visitEstate(owner, true);
   }
 
   /** The Yard panel on its Project tab: the station's project, its basket and who helped */

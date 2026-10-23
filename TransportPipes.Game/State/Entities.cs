@@ -348,6 +348,9 @@ public sealed class CompanyReport
     public Dictionary<string, double> SoldToUnits { get; set; } = new();
     public Dictionary<string, double> SoldToGold { get; set; } = new();
     public Dictionary<string, double> BoughtFromUnits { get; set; } = new();
+
+    /// <summary>Crew mates who looked at its estate (after run 3, row 12: a visit leaves a line on the friend's card)</summary>
+    public List<string> VisitedBy { get; set; } = new();
 }
 
 /// <summary>A friend's running trade that fell to under half (after run 3, row 9): both ends hear it, with its cause</summary>
