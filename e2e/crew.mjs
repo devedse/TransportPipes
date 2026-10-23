@@ -18,9 +18,10 @@ await ana.page.fill("input[type=password]", "secret123");
 await ana.page.click(".auth-panel button[type=submit]");
 await ana.page.waitForSelector(".start-ways", { timeout: 30000 });
 await ana.shot("1-ways");
-await ana.page.click("text=Start with friends");
+await ana.page.click("text=Start a crew for my friends");
 await ana.page.waitForSelector(".seat-row.chosen", { timeout: 30000 });
 await ana.page.fill(".crew-fields input", crewName);
+await ana.page.click(".crew-looks > summary"); // the looks fold since run 3
 await ana.page.click(".emblem[title=owl]");
 await ana.page.getByLabel("Company name").fill(`${user} Works`);
 await ana.shot("2-friends-form");

@@ -6,7 +6,7 @@ const fail = (why) => { console.log("FAIL", why); process.exitCode = 1; };
 
 // A crew founder: the crew's spot
 const a = await start(out);
-await newPlayer(a.page, "s7", "Start with friends");
+await newPlayer(a.page, "s7", "Start a crew for my friends");
 if (await a.page.$(".share-panel")) await a.page.click("text=Start playing");
 await a.page.waitForTimeout(1500);
 const crewSpot = await a.page.$eval(".top-crew", (t) => t.textContent).catch(() => null);

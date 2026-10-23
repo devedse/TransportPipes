@@ -1,6 +1,6 @@
 // The middle game's chores explain themselves (run 2's recommendation 5): the Build menu's Processing tab lists the
 // Lab with what it uses ("Uses 2 iron ingots a minute: you make none yet, a Small Factory does"), and the Hub's daily
-// orders say they come out of a Storage, with a button to build one and Deliver's result on the order itself.
+// orders say how fast the trading posts fill them (since run 3 they need no Storage).
 //   node chores.mjs shots/chores
 import { start, newPlayer } from "./lib.mjs";
 
@@ -30,8 +30,9 @@ const orders = await page.evaluate(() => [...document.querySelectorAll(".order")
 console.log("orders", JSON.stringify(orders));
 await shot("2-orders");
 
+// Since run 3 the orders fill from what the trading posts sell: each says how fast, or what to pipe
 const pass = lab !== null && lab.startsWith("Uses 2 iron ingots a minute") && orders.length > 0
-  && orders.every((t) => t.button === "✔" || t.stock?.startsWith("Comes out of a Storage") && t.button === "Build a Storage" || t.stock?.startsWith("In your Storages"));
+  && orders.every((t) => t.stock?.startsWith("Filled") || t.stock?.startsWith("Your trading posts sell"));
 console.log(pass ? "PASS" : "FAIL", "errors:", errors.length ? errors.join(" | ") : "none");
 await browser.close();
 process.exit(pass ? 0 : 1);

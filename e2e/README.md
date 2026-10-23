@@ -36,7 +36,6 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 | `selection.mjs` | Several buildings at once: a left-drag box, Shift and Ctrl clicks, Ctrl+A, upgrade all (button, U, Shift+U, a budget); a right-drag still pans, also under a level-up card |
 | `network-view.mjs` | The network view (made against needed per resource, money per company) and the trade settings |
 | `survey.mjs` | A new estate's starter kit in the Deposits overlay and what a parcel holds |
-| `gate.mjs` | Closing and opening a gate: the buildings behind it keep running |
 | `consistency.mjs` | After each kind of action (pipes, gates, upgrade, build, demolish, move) the playing tab matches a freshly loaded one (slow: a reload per action, about 5 min) |
 | `network-ids.mjs` | A selected network rebuilt three times: the selection covers every pipe, its buildings don't go idle |
 | `guide.mjs` | Loady's later steps: the Storage and what it keeps, the daily orders, a step that waits for a level |
@@ -50,6 +49,24 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 | `evolution.mjs` | Buildings at the level milestones |
 | `photo.mjs` | Photo mode at golden hour and night |
 | `beauty.mjs` | A working, decorated estate, in daylight and at golden hour (`beauty.mjs shots/x 1.5` close up) |
+
+The playtests' fixes (each script's first lines say which finding it checks). Many need a world with free Capital
+seats: a second server on its own database (`--ConnectionStrings:TransportPipes=…Database=transportpipes_e2e…
+--TransportPipes:SeedTestUsers=false --urls http://localhost:5081`), Vite with `TP_SERVER=http://localhost:5081`, and
+`BASE_URL` pointing at that Vite.
+
+| Script | What it shows |
+| --- | --- |
+| `deadend.mjs`, `onetap.mjs`, `waits.mjs` | A building that can't run says why, with one fix; a scaffold says what it waits for |
+| `seat-race.mjs`, `friend-late.mjs`, `land.mjs` | The seat picker tells the truth; friends find each other late; dealt land and its kit |
+| `spending.mjs`, `refusal.mjs`, `wants.mjs` | A panel says what the next level and Max will do; a refusal points at a tile that works; scaffolds want materials |
+| `card-fold.mjs`, `crew-news.mjs` | The return card leads with what matters; the crew's news in one place |
+| `orders.mjs`, `refinements.mjs`, `era-wonder.mjs` | Hub orders as buyers; Refinements after an Era's tree; the Era Wonder as the Capital's want |
+| `pipe-door.mjs`, `gold.mjs`, `storeys.mjs` | After run 4: the pipe ladder's door; "Your gold can" and Grow everything; the Landmark's storeys |
+| `numbers.mjs`, `loady-upgrade.mjs`, `map-clicks.mjs` | After run 4: one income everywhere; Loady's upgrade lands where a level pays; refusals, ghosts and clicks |
+| `exchange.mjs`, `phone-reading.mjs`, `post-max.mjs` | After run 4: the Exchange's price and expiry; phone panels and reading; a full Trading Post's Max and Grow |
+| `consistency.mjs` | After every kind of change, the playing tab matches a freshly loaded one |
+| `panels.mjs`, `panels-network.mjs`, `phone-pipe.mjs`, `deep.mjs` | Every panel under the theme; the post's flows; a phone's pipe; the Deep Level |
 
 `load.mjs [fast4g|slow4g] [seconds on the title]` measures how long a new and a returning player wait on a throttled
 phone network. It needs a production build served by the server (caching and compression as in production):

@@ -21,6 +21,9 @@ console.log("moved to", await moveTo(a, seatA), await moveTo(b, seatB));
 console.log("kit cleared", await clearKit(b));
 console.log("A", await settle(a, "windMoily"));
 console.log("B", await settle(b, "ironMine", "ironOre"));
+// A lives alone in its station: its Foundation would take all of A's spare energy (every stage stands by the Yard
+// since run 2), so it stands now and A's energy is A's to link
+await a.cheat("project");
 await a.cheat("yard");
 
 const links = (player) => player.page.evaluate(async () => { await tp.gameClient.refreshLinks(); return tp.appStore.getState().links; });

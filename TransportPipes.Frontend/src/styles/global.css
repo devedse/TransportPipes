@@ -6261,3 +6261,8 @@ button.top-gold {
   color: var(--accent);
   font-weight: 600;
 }
+
+h5.chat-day {
+  font-family: inherit;
+  letter-spacing: normal;
+}

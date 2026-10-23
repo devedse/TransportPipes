@@ -145,7 +145,8 @@ export function ChatPanel() {
             (before === undefined || new Date(before.sentAt) <= new Date(leftAt));
           return (
             <div key={m.id}>
-              {newDay && <div className="chat-day">{day(m.sentAt, now)}</div>}
+              {/* A heading of its own: a reader doesn't glue it to the message before (after run 4) */}
+              {newDay && <h5 className="chat-day">{day(m.sentAt, now)}</h5>}
               {fresh && <div className="chat-new">New since you left</div>}
               <Message message={m} mine={m.sender === company?.id} />
             </div>

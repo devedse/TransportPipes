@@ -111,6 +111,20 @@ async function open(name, session, url) {
       }
     };
   });
+  // Every toast the game shows, kept for the command that caused it: a toast lasts 4.5 s, a look can come later
+  // (after run 4: Ana's refusal "You need 500 stone in your storages" never reached her text, and she wrote STUCK)
+  await context.addInitScript(() => {
+    window.__toasts = [];
+    const seen = new WeakSet();
+    new MutationObserver(() => {
+      for (const t of document.querySelectorAll(".toasts .toast")) {
+        if (!seen.has(t)) {
+          seen.add(t);
+          window.__toasts.push({ at: Date.now(), text: (t.textContent ?? "").trim(), kind: t.className.replace(/panel|toast/g, "").trim() });
+        }
+      }
+    }).observe(document, { childList: true, subtree: true });
+  });
   const page = await context.newPage();
   const player = { name, session, context, page, dir, config, errors: [], reported: 0, n: lines(path.join(dir, "actions.jsonl")).length, shots: 0 };
   page.on("pageerror", (e) => player.errors.push(`page error: ${e.message}`));
@@ -220,6 +234,12 @@ async function map(player, { radius = 14, overlay = null, at = null }) {
     for (let y = cy - radius; y <= cy + radius; y++) {
       let row = "";
       for (let x = cx - radius; x <= cx + radius; x++) {
+        // The golden tile a refusal or Show me points at (after run 4: it was on the screen, not in the text map)
+        const hint = state.hintTile;
+        if (hint && x >= hint.x && x < hint.x + hint.size && y >= hint.y && y < hint.y + hint.size && !world.buildingAt(x, y)) {
+          row += "*";
+          continue;
+        }
         const b = world.buildingAt(x, y);
         if (b) {
           seen.set(b.id, b);
@@ -267,7 +287,7 @@ async function map(player, { radius = 14, overlay = null, at = null }) {
       return known?.name ?? `company ${owner}`;
     };
     const yours = [...seen.values()].filter((b) => b.owner === me).map((b) =>
-      `  ${letterFor(b)}  ${b.type} level ${b.level}${b.constructionEndsAt ? " (being built)" : ""} at (${b.x},${b.y}), ${b.size}×${b.size}${b.network === null && b.type !== "hq" ? ", not piped" : ""}`);
+      `  ${letterFor(b)}  ${b.type} level ${b.level}${b.siteShare != null ? ` (a scaffold: it waits for its materials, ${Math.round(b.siteShare * 100)}% in, its panel says what)` : b.constructionEndsAt ? " (being built)" : ""} at (${b.x},${b.y}), ${b.size}×${b.size}${b.network === null && b.type !== "hq" ? ", not piped" : ""}`);
     const others = [...seen.values()].filter((b) => b.owner !== me).map((b) => `  #  ${b.type} of ${names(b.owner)} at (${b.x},${b.y})`);
     const deposits = [...depositChars.entries()].map(([d, c]) => `${c} ${d}`).join(", ");
     return [
@@ -276,7 +296,7 @@ async function map(player, { radius = 14, overlay = null, at = null }) {
       head,
       ...rows,
       "",
-      `Legend: . free land  , your land not bought yet  t forest  n hills  : beach/desert  ~ water  ^ mountain  % rock  + corridor (no building)  Y Yard  H hub  = your pipe  - someone's pipe  G Yard gate  # someone's building${deposits ? `  deposits: ${deposits}` : ""}${overlay ? `  0–9 ${overlay} (5 = normal, 9 = best)` : ""}`,
+      `Legend: ${state.hintTile ? "* the golden tile (where it fits)  " : ""}. free land  , your land not bought yet  t forest  n hills  : beach/desert  ~ water  ^ mountain  % rock  + corridor (no building)  Y Yard  H hub  = your pipe  - someone's pipe  G Yard gate  # someone's building${deposits ? `  deposits: ${deposits}` : ""}${overlay ? `  0–9 ${overlay} (5 = normal, 9 = best)` : ""}`,
       yours.length ? `Your buildings here:\n${yours.join("\n")}` : "None of your buildings are in this part of the map.",
       others.length ? `Others' buildings here:\n${others.slice(0, 20).join("\n")}` : "",
     ].join("\n");
@@ -354,7 +374,10 @@ async function press(player, item) {
 const ROLES = ["button", "link", "tab", "radio", "checkbox", "menuitem", "option", "switch", "combobox", "textbox"];
 
 async function clickLabel(player, label, nth = 1) {
-  const page = player.page;
+  // An open modal first: what lies under it can't be clicked (after run 4: Ana's four clicks on the return card's
+  // "Show me" found the Next steps' buttons of that name under it)
+  const modal = player.page.locator("[role=dialog][aria-modal=true]").last();
+  const page = (await modal.count()) > 0 && (await modal.isVisible()) ? modal : player.page;
   for (const role of ROLES) {
     const found = page.getByRole(role, { name: label, exact: true });
     const count = await found.count();
@@ -605,6 +628,7 @@ async function handle(name, cmd, args) {
   const player = players.get(name);
   let text;
   let ok = true;
+  const toastsFrom = player ? await player.page.evaluate(() => window.__toasts?.length ?? 0).catch(() => 0) : 0;
   try {
     text = await run(name, cmd, args);
   } catch (e) {
@@ -612,6 +636,13 @@ async function handle(name, cmd, args) {
     text = `That didn't work: ${String(e.message ?? e).split("\n")[0]}`;
   }
   const after = players.get(name) ?? player;
+  if (after && after === player && cmd !== "end") {
+    // The messages that popped up while it ran, even ones already gone
+    const popped = await after.page.evaluate((from) => (window.__toasts ?? []).slice(from), toastsFrom).catch(() => []);
+    if (popped.length > 0) {
+      text = `Messages that popped up: ${popped.map((t) => `«${t.text}»${t.kind.includes("error") ? " (a refusal)" : ""}`).join(" · ")}\n\n${text}`;
+    }
+  }
   if (after) {
     after.n++;
     const fresh = after.errors.slice(after.reported);

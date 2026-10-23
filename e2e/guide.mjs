@@ -4,8 +4,12 @@ const [out = "shots/guide"] = process.argv.slice(2);
 const { browser, page, errors, shot, cheat } = await start(out);
 await newPlayer(page, "g");
 await cheat("gold");
-// On to "firstStorage"
-for (let i = 0; i < 7; i++) await cheat("tutorial");
+// On to "firstStorage" (however many steps come before it: v1.2 added the Yard's and the gift's)
+for (let i = 0; i < 12; i++) {
+  if (await page.evaluate(() => tp.appStore.getState().company?.tutorial?.id === "firstStorage")) break;
+  await cheat("tutorial");
+  await page.waitForTimeout(400);
+}
 await page.waitForFunction(() => tp.appStore.getState().company?.tutorial?.id === "firstStorage");
 await page.click(".loady-card button.primary");
 await page.waitForTimeout(1500);

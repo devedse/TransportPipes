@@ -44,3 +44,8 @@ report too.
 `click "<label>" [--nth n]`, `tile`, `rclick`, `hover`, `drag`, `fill`, `type`, `key`, `goto`, `wait`, `chat`, `group`,
 `clipboard`, `note`, `end`. Phones get real touch events. The game draws at about 12 frames a second, so four
 browsers fit on four cores.
+
+After run 4: every command's answer starts with the toasts that popped up while it ran ("Messages that popped up: «You
+need 500 stone in your storages» (a refusal)"), even those gone before the next look; `click` looks inside an open
+modal first (the return card's "Show me", not the Next steps' under it); `map` marks the golden tile `*` and says a
+scaffold waits for its materials. Open the first row's browsers a minute apart: five at once timed out in runs 3 and 4.

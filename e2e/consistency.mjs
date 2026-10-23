@@ -95,8 +95,7 @@ failures += (await act(async () => {
 failures += (await act(() => tp.gameClient.connection.removePipes([window.__c.stub.x, window.__c.stub.y])), await compare("that pipe removed"));
 failures += (await act(() => { const r = window.__c.routes.moilyB; const t = r[Math.floor(r.length / 2)]; window.__c.cut = t; return tp.gameClient.connection.removePipes([t.x, t.y]); }), await compare("a pipe cut out of a run (the network splits)"));
 failures += (await act(() => tp.gameClient.connection.placePipes([window.__c.cut.x, window.__c.cut.y], 1)), await compare("the cut mended (the networks merge)"));
-failures += (await act(() => tp.gameClient.connection.setGatePolicy(window.__c.gateSide, "closed")), await compare("the gate closed"));
-failures += (await act(() => tp.gameClient.connection.setGatePolicy(window.__c.gateSide, "open")), await compare("the gate opened"));
+// (Gates have no policy since v1.2: the Yard trades through every gate)
 failures += (await act(() => { const w = tp.gameClient.world; const b = w.buildingAt(window.__c.built.moilyA.x, window.__c.built.moilyA.y); return tp.gameClient.connection.upgrade(b.id, 1); }), await compare("a moily upgraded"));
 failures += (await act(async () => {
   // A second solar panel touching the moily's pipe

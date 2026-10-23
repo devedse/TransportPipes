@@ -15,7 +15,9 @@ const where = await page.evaluate(async () => {
     }
   }
   await new Promise((r) => setTimeout(r, 1500));
-  const pipe = [...w.conductors.values()].find((t) => t.owner === co.id && t.kind === "pipe");
+  // The pipe nearest the trading post (a starter kit has pipes of its own, further off)
+  const pipe = [...w.conductors.values()].filter((t) => t.owner === co.id && t.kind === "pipe")
+    .sort((a, b) => Math.abs(a.x - post.x) + Math.abs(a.y - post.y) - (Math.abs(b.x - post.x) + Math.abs(b.y - post.y)))[0];
   tp.gameClient.engine.lookAt(post.x, post.y, 0.9);
   return { post: { x: post.x, y: post.y }, pipe: pipe ? { x: pipe.x, y: pipe.y } : null };
 });

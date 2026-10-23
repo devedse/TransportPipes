@@ -192,7 +192,8 @@ the primary goals: the buildings, the map and the UI. The design may change wher
 - ✅ Balance after v1.1 (`TheFirstTwoWeeks`, 28 days, `docs/balance/`): the starter kit made the middle game quicker,
   so from Level 22 the XP curve grows on to twice by Level 30 (`xpLateRamp`; levels only go up, nobody loses one).
   Typical: Level 10 on day 2, 20 on day 5, 30 on day 25; casual 30 on day 27; hardcore 30 on day 21; following only
-  the advisor: 10 in the first day, 20 on day 4, 30 on day 27 (GDD §8.1: 20 in week 1, 30 in week 4)
+  the advisor: 10 in the first day, 20 on day 4, 30 on day 27 (GDD §8.1: 20 in week 1, 30 in week 4). After run 4
+  the ramp is 4× (gold that is spent now raises income: see the refinements below)
 - ✅ The advisor on big estates (found by the simulation following it): it went silent from day 4. A network of 56
   buildings took 380 ms a solve (the solver chased rounding errors for 500 rounds; now about 24, the same result),
   big networks' gains are now estimated from their last solution instead of solved again, and it points at what an
@@ -422,6 +423,25 @@ is the design's call (yes).
   (bricks, never filled), nobody widened, and after the Landmark the crew had nothing shared to build. The light bots
   with the advisor bank 2.7–18.9 days on day 28 (`runs/story4/light-bots-day28.md`). 13 of 24 promises, 10 marks pass
   and 15 fail; the analyst's eleven recommendations are in `runs/story4/findings.json` (the owner decides what's next).
+- **After run 4** (2026-10-23): the six designers met twice (`docs/design-notes/after-run4/`); the owner asked for my
+  own reading instead of a third round, and my plan (`docs/playtest-run4-plan.html`) rebuilt theirs around one finding:
+  the pipe tier is the game's real level cap. Then, to make it playable for people, all of it was built and every run-4
+  finding fixed: the Era Wonder sized from this week's Capital players and orderable in full when nobody makes a good
+  (90a4b56); the pipe ladder: Copper Pipes at Company Level 8 and Steel with Era 2 for everyone, one door on a full
+  building's panel, Widen per link (f3e4440); wants that say they wait, the chain that would make a good, a friend's
+  want in reach of the whole crew (44cf4f0); "Your gold can" with Grow everything that pays and an hour's Undo
+  (e119134); gifts named at both ends and the lone player heard (3100920); the Landmark's storeys with a purse in hours
+  of income and +10% pipes a storey (8a52a1c); words and numbers that agree: one source for income, previews capped by
+  the inputs there, keystones chosen when a stage opens (c1d6868); the map and clicks (6eb9c87); the Exchange honest
+  (39cb3d2); phone and reading (cf39fa6); harness fixes for the next run (the driver reports every message that popped
+  up, refusals marked, the golden tile in the text map, clicks inside an open dialog first). The light bots, now pressing
+  the new doors (the storey, the Wonder, Grow everything), found three more things, fixed: levels came too fast (spent
+  gold raises income, and XP comes from income: Level 30 on day 14, so the late curve grows to 4× instead of 2×), a full
+  Trading Post that Max priced at the whole bank so Grow left it out, and a storey gift that always ranked above a
+  5-minute upgrade. On day 28 (`docs/balance/light-bots-after-run4.md`): the bots hold 1.1–3.8 days of income (run 4's
+  bots 2.7–18.9, its players 24–29) and Mia 5.9 (she plays every other day); Level 30 on days 20–25; paid trade between
+  friends by day 14 5.8% (was 2.0%); nothing runs at a loss. Still open: the solo bot earns 15% more a building than the
+  crew (the mark wants 8–15% less), because the crew's gold goes into the storey's purse
 
 ### After v1
 
@@ -436,6 +456,14 @@ Changes to [GameDesign.md](GameDesign.md) that came up while building; the desig
 | Date | Refinement | Reason |
 | --- | --- | --- |
 | 2026-10-18 | Buildings only connect through pipes (not by touching each other); resources never pass through a building | Original rule, keeps layouts meaningful |
+| 2026-10-23 | Copper Pipes come with Company Level 8 and Steel Pipes with Era 2 for everyone (a Lab's research still gets them sooner) | Run 4: every pipe stayed grey for 36 days, five of seven players never researched, and the pipe tier is the real level cap |
+| 2026-10-23 | One order rule for every shared goal: while a player near makes a good, half comes by pipe; while nobody does, gold orders all of it at twice the price | Run 4: the Era Wonder stopped at its pipe half twice, and the order button vanished without a word |
+| 2026-10-23 | After the Landmark, storeys without end: the Landmark's basket again and a purse of a day of the station's income ×1.2 a storey, given in hours of each giver's income, +10% on the residents' pipes each (to +50%) | Run 4: from day 17 the crew had nothing to build together (fun 2.83, "come back" 2 of 6) |
+| 2026-10-23 | A keystone is chosen when its stage opens and waits for everyone who played this week (it was three days) | Run 4: a two-friend keystone was chosen and dropped twice while the Foundry Hall said "opens in 10 days" |
+| 2026-10-23 | The Exchange shows its one player price before the click and tells an order's owner when it closes | Run 4: a typed 3 g became 1.95 g, and an unfilled order vanished and was read as filled |
+| 2026-10-23 | From Level 22 the XP curve grows to 4× by Level 30 (was 2×) | Spent gold now raises income (storeys, the Wonder, Grow everything), and XP comes from income: the advisor's light bots reached Level 30 on day 14 at 2×, on days 20–25 at 4× |
+| 2026-10-23 | Max on a Trading Post buys the levels its buildings keep 90% busy, and its panel shows what a level brings | The light bots: Max priced a post at every level the bank could buy, so Grow everything left a full post out and Mia's 5-minute level waited to day 28 |
+| 2026-10-23 | A step that pays itself back within the hour ranks above a gift to a shared goal | The light bots: the storey's "give an hour" always came first, and a quick upgrade never got its turn |
 | 2026-10-18 | Simulation by district ticks with cached flows instead of a pure event queue | Simpler, same behaviour |
 | 2026-10-18 | Pipes may be laid on unbought parcels of your own estate | Gates are on the outer parcels; trading with neighbours (Level 3) must not wait for Level 25 parcels |
 | 2026-10-18 | Shares within a tier are water-filled: same fraction of need for everyone, unused shares go to others | Proportional shares left energy unused when one consumer was limited by another input |
