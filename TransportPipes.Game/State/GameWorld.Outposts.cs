@@ -241,6 +241,7 @@ public sealed partial class GameWorld
         {
             company.Gold -= outpost.Lease;
             company.Report.GoldSpent += outpost.Lease;
+            AddStat(company, "goldSpent", outpost.Lease);
             outpost.PaidUntil += LeasePeriod;
             company.Touch();
             Changes.Companies.Add(company.Id);

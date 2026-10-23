@@ -292,6 +292,22 @@ public static class PlaytestEndpoints
                 sends = company.Sends.Select(t => $"{t.Resource}>{t.To}").Concat(company.ProjectFirst.Select(t => $"{t}>project")).ToList(),
                 giftsAnnounced = company.GiftsAnnounced.ToList(),
                 thanks = company.Report.Thanks.Count,
+                // Run 4's measures (docs/playtest-run3-design.html, "How run 4 will show it worked"): what gold bought, the
+                // wants' materials by where they came from, the Era wonder, Refinements and resting Labs
+                spent = company.Stats.GetValueOrDefault("goldSpent"),
+                ordered = company.Stats.GetValueOrDefault("ordered"),
+                widened = company.Stats.GetValueOrDefault("widened"),
+                levelsBought = company.Stats.GetValueOrDefault("levelsBought"),
+                wantOwn = company.Stats.GetValueOrDefault("wantOwn"),
+                wantFriends = company.Stats.GetValueOrDefault("wantFriends"),
+                wantHub = company.Stats.GetValueOrDefault("wantHub"),
+                wonder = company.Stats.GetValueOrDefault("wonder"),
+                wonderGold = company.Stats.GetValueOrDefault("wonderGold"),
+                refinements = company.Refinements.Values.Sum(),
+                researchPoints = company.ResearchPoints,
+                labsRest = world.LabsRest(company),
+                orders = company.Stats.GetValueOrDefault("orders"),
+                tradeFalls = company.TradeFalls.Count,
             };
         }).ToList();
         return new

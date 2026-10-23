@@ -31,6 +31,7 @@ public sealed partial class GameWorld
     {
         company.Gold -= cost;
         company.Report.GoldSpent += cost;
+        AddStat(company, "goldSpent", cost);
         var site = AddBuilding(company, definition.Id, pos, finished: false);
         site.ConstructionEndsAt = SiteWaiting;
         foreach (var (resource, amount) in definition.Cost.Materials)
@@ -182,6 +183,14 @@ public sealed partial class GameWorld
         {
             CloseOrder(want);
         }
+        // The playtest's measure of who held the keys (run 4): the wants' materials by where they came from, in base worth
+        foreach (var want in wants)
+        {
+            foreach (var (from, units) in want.From)
+            {
+                AddStat(owner, from == owner.Id ? "wantOwn" : from == HubSource ? "wantHub" : "wantFriends", units * BasePrice(want.Resource));
+            }
+        }
         var givers = wants.SelectMany(t => t.From.Where(f => f.Key != owner.Id && f.Key != HubSource && f.Value > 0.5).Select(f => (Who: f.Key, t.Resource, Units: f.Value))).ToList();
         owner.Asks.RemoveAll(t => t.Site == site.Id);
         Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.ConstructionFinished, givers.Count == 0
@@ -308,6 +317,8 @@ public sealed partial class GameWorld
         company.Purchases.RemoveAll(t => t.Building == siteId);
         RemoveBuilding(site);
         company.Gold += refund;
+        // Taken back: it counts as unspent (the playtest's measure)
+        AddStat(company, "goldSpent", -refund);
         company.Touch();
         Changes.Companies.Add(company.Id);
         WakeCoupling();

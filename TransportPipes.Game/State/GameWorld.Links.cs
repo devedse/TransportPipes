@@ -399,6 +399,7 @@ public sealed partial class GameWorld
         };
         _links[link.Id] = link;
         company.Report.GoldSpent += plan.Gold;
+        AddStat(company, "goldSpent", plan.Gold);
         company.Touch();
         Changes.Companies.Add(company.Id);
         LinkChanged(link);
@@ -529,6 +530,7 @@ public sealed partial class GameWorld
             return payment;
         }
         company.Report.GoldSpent += pipe.Gold * link.Length;
+        AddStat(company, "goldSpent", pipe.Gold * link.Length);
         link.Tier = tier;
         LinkChanged(link);
         WakeCoupling();

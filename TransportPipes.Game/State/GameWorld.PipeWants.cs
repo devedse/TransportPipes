@@ -16,6 +16,7 @@ public sealed partial class GameWorld
         var gold = tier.Gold * pipes.Count;
         company.Gold -= gold;
         company.Report.GoldSpent += gold;
+        AddStat(company, "goldSpent", gold);
         var id = company.Asks.Select(t => t.WantId).DefaultIfEmpty(0).Max() + 1;
         foreach (var (resource, amount) in materials)
         {
@@ -109,6 +110,8 @@ public sealed partial class GameWorld
         }
         company.Asks.RemoveAll(t => t.PipeTiles != null && t.WantId == wantId);
         company.Gold += refund;
+        // Taken back: it counts as unspent (the playtest's measure)
+        AddStat(company, "goldSpent", -refund);
         company.Touch();
         Changes.Companies.Add(company.Id);
         WakeCoupling();

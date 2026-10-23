@@ -334,6 +334,7 @@ public sealed partial class GameWorld
             return payment;
         }
         company.Report.GoldSpent += gold;
+        AddStat(company, "goldSpent", gold);
         trunk.Segments.Add(company.Id);
         trunk.Touch();
         Changes.Links.Add(company.Id);

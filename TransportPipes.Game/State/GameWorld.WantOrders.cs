@@ -77,6 +77,7 @@ public sealed partial class GameWorld
             var escrow = ask.Left * price;
             payer.Gold -= escrow;
             payer.Report.GoldSpent += escrow;
+            AddStat(payer, "goldSpent", escrow);
             AddStat(payer, "ordered", escrow);
             ask.Order = new WantOrder { By = payer.Id, Escrow = escrow, Price = price, At = LastTick };
         }
@@ -167,6 +168,8 @@ public sealed partial class GameWorld
         if (Company(order.By) is { } payer && refund > 1e-6)
         {
             payer.Gold += refund;
+            // Taken back: it counts as unspent (the playtest's measure)
+            AddStat(payer, "goldSpent", -refund);
             payer.Touch();
             Changes.Companies.Add(payer.Id);
         }

@@ -258,6 +258,7 @@ public sealed partial class GameWorld
         {
             company.Gold -= cost;
             company.Report.GoldSpent += cost;
+            AddStat(company, "goldSpent", cost);
         }
         EndTradeOf(company);
         Pack(company);

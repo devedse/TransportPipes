@@ -182,6 +182,8 @@ public sealed partial class GameWorld
         }
         company.Purchases.Remove(purchase);
         company.Gold += refund;
+        // Taken back: it counts as unspent (the playtest's measure)
+        AddStat(company, "goldSpent", -refund);
         // Its XP goes, but never a level: the next level just takes longer
         company.Xp = Math.Max(Content.Progression.XpForLevel(company.Level), company.Xp - purchase.Xp);
         company.Touch();

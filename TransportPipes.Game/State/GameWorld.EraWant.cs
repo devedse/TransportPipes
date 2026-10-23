@@ -177,6 +177,8 @@ public sealed partial class GameWorld
             if (refund > 1e-6 && Company(order.By) is { } payer)
             {
                 payer.Gold += refund;
+                // Taken back: it counts as unspent (the playtest's measure)
+                AddStat(payer, "goldSpent", -refund);
                 payer.Touch();
                 Changes.Companies.Add(payer.Id);
             }
@@ -213,6 +215,7 @@ public sealed partial class GameWorld
         }
         payer.Gold -= offer.Cost;
         payer.Report.GoldSpent += offer.Cost;
+        AddStat(payer, "goldSpent", offer.Cost);
         AddStat(payer, "ordered", offer.Cost);
         EraWonder!.Orders.Add(new WonderOrder { By = payer.Id, Resource = good, Units = offer.Units, Price = BasePrice(good) * OrderPrice, At = LastTick });
         payer.Touch();

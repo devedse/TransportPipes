@@ -823,6 +823,7 @@ public sealed partial class GameWorld
         }
         company.Gold -= gold;
         company.Report.GoldSpent += gold;
+        AddStat(company, "goldSpent", gold);
         company.Touch();
         Changes.Companies.Add(company.Id);
         return CommandResult.Ok;
