@@ -121,6 +121,8 @@ public sealed class WorldStore
                 Purchases = settings.Purchases ?? new List<Purchase>(),
                 EraEnded = settings.EraEnded,
                 Refinements = settings.Refinements ?? new Dictionary<string, int>(),
+                TradeFalls = settings.TradeFalls ?? new Dictionary<string, TradeFall>(),
+                LastCardLines = settings.LastCardLines ?? new List<string>(),
                 RefineChoice = settings.RefineChoice,
                 Sends = settings.Sends ?? new List<GoodSend>(),
                 ThankedOn = settings.ThankedOn ?? new Dictionary<long, int>(),
@@ -441,6 +443,8 @@ public sealed class WorldStore
                     Purchases = company.Purchases,
                     EraEnded = company.EraEnded,
                     Refinements = company.Refinements,
+                    TradeFalls = company.TradeFalls,
+                    LastCardLines = company.LastCardLines,
                     RefineChoice = company.RefineChoice,
                     Sends = company.Sends,
                     ThankedOn = company.ThankedOn,
@@ -779,6 +783,8 @@ public sealed class WorldStore
         public List<Purchase>? Purchases { get; init; }
         public string? EraEnded { get; init; }
         public Dictionary<string, int>? Refinements { get; init; }
+        public Dictionary<string, TradeFall>? TradeFalls { get; init; }
+        public List<string>? LastCardLines { get; init; }
         public string? RefineChoice { get; init; }
 
         public Dictionary<string, HubMarket> HubMarkets { get; init; } = new();

@@ -30,6 +30,8 @@ function actionLabel(line: ReturnLineDto): string | null {
       return "Move in";
     case "fillWant":
       return "Send them ▸";
+    case "orderWant":
+      return `Order the rest for ${line.partnerName ?? "them"} · ${formatAmount(line.cost ?? 0)} g`;
     case "crew":
       return "Crew";
     case "show":
@@ -45,9 +47,9 @@ function close() {
 }
 
 /**
- * The return card (F5): one card for every return with news, built by the server on its clock. Gold and level, then at
- * most six lines in their sections (your people, to look at, the project, a social line, today here, the Invest line),
- * each with its one button, and one Continue. While it is open the keys are its own: Tab stays inside, Escape
+ * The return card (F5): one card for every return with news, built by the server on its clock. Gold and level, then
+ * what matters (one line about people, the crew, the shared goal you can unblock, one-tap fixes, what stops you, and one
+ * "Still:" line for what hasn't changed), each with its one button, the rest folded under "more", and one Continue. While it is open the keys are its own: Tab stays inside, Escape
  * continues, and the map's keys wait. After the Quiet Isles it also asks where to land.
  */
 export function ReturnCard() {
@@ -55,6 +57,7 @@ export function ReturnCard() {
   const dialog = useRef<HTMLDivElement>(null);
   const [done, setDone] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [more, setMore] = useState(false);
 
   useEffect(() => {
     if (card === null) {
@@ -148,9 +151,9 @@ export function ReturnCard() {
           </span>
         </div>
         {card.hint !== null && <p>{card.hint}</p>}
-        {card.lines.length > 0 && (
+        {(card.lines.length > 0 || more) && (
           <ul className="return-lines">
-            {card.lines.map((line) => {
+            {[...card.lines, ...(more ? (card.folded ?? []) : [])].map((line) => {
               const label = actionLabel(line);
               return (
                 <li key={line.text} className={`return-line ${line.kind}`}>
@@ -170,6 +173,12 @@ export function ReturnCard() {
               );
             })}
           </ul>
+        )}
+        {/* The rest folds (after run 3, row 11: "I can't tell what matters") */}
+        {!more && (card.folded?.length ?? 0) > 0 && (
+          <button type="button" className="link small return-more" onClick={() => setMore(true)}>
+            {card.folded!.length} more ▸
+          </button>
         )}
         {card.fine.length > 0 && <p className="muted small">{card.fine.join(" ")}</p>}
         {choosing && (

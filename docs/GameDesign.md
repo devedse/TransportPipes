@@ -1001,7 +1001,7 @@ titles. They give experienced players fresh puzzles every week.
 | --- | --- | --- |
 | **Active** | Played in the last 3 days | Normal |
 | **Resting** | 3–14 days away | Everything keeps running; managers keep acting; contracts continue. A small "resting" sign on the HQ |
-| **Dormant** | 14–30 days away | A **Caretaker** (an NPC) runs the trading so neighbours aren't hurt: it keeps gates open for existing partners and renews good contracts at *Auto* prices. The owner keeps earning (minus a 10% caretaker fee). Corporation roles pass to others. Ivy starts growing on the buildings |
+| **Dormant** | 14–30 days away | A **Caretaker** (an NPC) runs the trading so neighbours aren't hurt: it keeps gates open for existing partners and renews good contracts at *Auto* prices. The owner keeps earning, with no fee (after run 3: no sink is upkeep on a resting estate). Corporation roles pass to others. Ivy starts growing on the buildings |
 | **Asleep** | 30+ days away | The whole estate is **packed up and moved to the Quiet Isles**, a peaceful archipelago of sleeping estates. Balloons lift the estate out of the district; its spot becomes free for a newcomer or a moving player. Contracts end with notice; the owner's public pipes become toll-free hub pipes. **Nothing is lost** |
 | **Returning** | Any time | The offline report, a *Welcome back* package, and from the Quiet Isles a **free move** to any district with a free spot (or next to friends). The estate is unpacked with its complete layout |
 

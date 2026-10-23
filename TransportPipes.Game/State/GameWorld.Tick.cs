@@ -94,6 +94,7 @@ public sealed partial class GameWorld
                     CheckKeystones();
                 }
                 CheckRestingLabs();
+                CheckTradeFalls();
             }));
         }
         for (var at = NextDay(LastTick); at <= now; at = NextDay(at))
@@ -394,9 +395,8 @@ public sealed partial class GameWorld
         {
             if (Company(companyId) is { } company)
             {
-                // The Caretaker of a dormant company
-                company.Gold -= earned * CaretakerShare(company);
-                company.Report.CaretakerFee += earned * CaretakerShare(company);
+                // The Caretaker of a dormant company takes no fee: no sink is upkeep on a resting estate (the designers'
+                // rule after run 3)
                 TaxEarnings(company, earned);
                 company.LifetimeEarnings += earned;
                 company.Report.GoldEarned += earned;

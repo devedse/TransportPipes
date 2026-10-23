@@ -360,11 +360,13 @@ export interface ReturnCardDto {
   lines: ReturnLineDto[];
   landing: LandingCardDto[];
   hint: string | null;
+  /** What folds under "more" (after run 3, row 11: the card leads with what matters) */
+  folded: ReturnLineDto[] | null;
 }
 
 /** A line of the return card: its section, and its one button with what it costs */
 export interface ReturnLineDto {
-  kind: "people" | "look" | "project" | "social" | "today" | "invest";
+  kind: "people" | "look" | "project" | "social" | "today" | "invest" | "crew" | "still" | "orders";
   icon: string;
   text: string;
   action:
@@ -379,6 +381,7 @@ export interface ReturnLineDto {
     | "seat"
     | "crew"
     | "fillWant"
+    | "orderWant"
     | null;
   building: number | null;
   cost: number | null;

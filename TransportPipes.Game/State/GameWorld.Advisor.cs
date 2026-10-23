@@ -1222,7 +1222,8 @@ public sealed partial class GameWorld
         _ => n % 10 == 1 && n % 100 != 11 ? $"{n}st" : n % 10 == 2 && n % 100 != 12 ? $"{n}nd" : n % 10 == 3 && n % 100 != 13 ? $"{n}rd" : $"{n}th",
     };
 
-    private static string Gold(double value) => value >= 10_000 ? $"{value / 1000:0.#}k g" : $"{Amount(value)} g";
+    private static string Gold(double value) =>
+        value >= 1e9 ? $"{value / 1e9:0.#}B g" : value >= 1e6 ? $"{value / 1e6:0.#}M g" : value >= 10_000 ? $"{value / 1000:0.#}k g" : $"{Amount(value)} g";
 
     private static string Minutes(double minutes) =>
         minutes < 1 ? "under a minute" : minutes < 90 ? $"{minutes:0} min" : minutes < 48 * 60 ? $"{minutes / 60:0.#} h" : $"{minutes / 1440:0} days";

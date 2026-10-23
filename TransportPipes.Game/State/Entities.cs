@@ -151,6 +151,12 @@ public sealed class Company : Entity
     /// <summary>The line its Labs refine next (null: walls first, then its best-earning good)</summary>
     public string? RefineChoice { get; set; }
 
+    /// <summary>The lines its last return card led with: one that comes back unchanged folds into "Still:" (after run 3, row 11)</summary>
+    public List<string> LastCardLines { get; set; } = new();
+
+    /// <summary>Its running trades to players that fell to under half, by "buyer:good", until they recover</summary>
+    public Dictionary<string, TradeFall> TradeFalls { get; set; } = new();
+
     /// <summary>When its player's current (or last) session began; not stored (LastSeenAt moves on every tick they're online)</summary>
     public DateTime SessionStartedAt { get; set; }
 
@@ -323,9 +329,8 @@ public sealed class CompanyReport
     public List<string> Contracts { get; set; } = new();
     public List<string> NewNeighbours { get; set; } = new();
 
-    /// <summary>On how many days a crew mate tended the estate, and what the caretaker took</summary>
+    /// <summary>On how many days a crew mate tended the estate</summary>
     public int TendedDays { get; set; }
-    public double CaretakerFee { get; set; }
     public int OrdersCompleted { get; set; }
 
     /// <summary>What filled hub orders paid over the hub's price, and their goods (the return card shows them once filled)</summary>
@@ -335,6 +340,27 @@ public sealed class CompanyReport
 
     /// <summary>Who thanked it for its goods ("Ana thanked you for your coal 💛"): the return card's social line</summary>
     public List<string> Thanks { get; set; } = new();
+
+    /// <summary>
+    /// The books since the report began, by "partner:good" (after run 3, row 9: a card said +86.5k g against about 14k
+    /// paid, counting whole days): what each player bought of its goods and the gold they paid, what it bought from each
+    /// </summary>
+    public Dictionary<string, double> SoldToUnits { get; set; } = new();
+    public Dictionary<string, double> SoldToGold { get; set; } = new();
+    public Dictionary<string, double> BoughtFromUnits { get; set; } = new();
+}
+
+/// <summary>A friend's running trade that fell to under half (after run 3, row 9): both ends hear it, with its cause</summary>
+public sealed class TradeFall
+{
+    public double From { get; set; }
+    public double To { get; set; }
+    public DateTime At { get; set; }
+    public required string Cause { get; set; }
+
+    /// <summary>The building it's about, and whose it is</summary>
+    public long? Building { get; set; }
+    public long? Owner { get; set; }
 }
 
 public sealed class Estate : Entity

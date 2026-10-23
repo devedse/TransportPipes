@@ -392,7 +392,7 @@ public sealed class WorldHost : BackgroundService
                 var toast = GameViews.Toast(worldEvent);
                 pushes.Add(() => _hub.Clients.Group(GameHub.UserGroup(company.UserId)).Toast(toast));
             }
-            if (worldEvent.Kind != WorldEventKind.ConstructionFinished)
+            if (worldEvent.InBell)
             {
                 notifications.Add((company.Id, GameViews.Camel(worldEvent.Kind), worldEvent.Text));
             }

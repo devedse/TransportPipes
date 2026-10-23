@@ -24,7 +24,6 @@ public sealed partial class GameWorld
     public TimeSpan MoveEvery => TimeSpan.FromMinutes(Content.Progression.Together.MoveCooldownMinutes);
     public TimeSpan MoveTime => TimeSpan.FromMinutes(Content.Progression.Together.MoveFlightMinutes);
     public static readonly TimeSpan BlockTime = TimeSpan.FromHours(72);
-    private const double CaretakerFee = 0.1;
     private const int BlockMinMembers = 5;
     private readonly Dictionary<DistrictCoord, int> _quietWeeks = new();
 
@@ -568,9 +567,6 @@ public sealed partial class GameWorld
 
     /// <summary>The Quiet Isles: the companies that are asleep</summary>
     public IEnumerable<Company> QuietIsles => _companies.Values.Where(t => t.Asleep);
-
-    /// <summary>The Caretaker takes 10% of what a dormant company earns</summary>
-    private double CaretakerShare(Company company) => ActivityOf(company) == Activity.Dormant ? CaretakerFee : 0;
 
     /// <summary>Weekly: a district that has been quiet for two weeks offers its active players a free move with a bonus</summary>
     private void CheckQuietDistricts()

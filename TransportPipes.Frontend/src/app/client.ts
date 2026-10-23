@@ -1950,17 +1950,17 @@ export class GameClient {
   }
 
   /** Orders the rest of a want from the hub (yours, or a neighbour's for them) */
-  async orderRest(target: number, forName: string | null = null) {
-    if (
-      await this.command(
-        this.connection.orderRest(target),
-        forName === null
-          ? "Ordered: the hub brings the rest after your friends' turn"
-          : `💛 Ordered for ${forName}`,
-      )
-    ) {
+  async orderRest(target: number, forName: string | null = null): Promise<boolean> {
+    const ok = await this.command(
+      this.connection.orderRest(target),
+      forName === null
+        ? "Ordered: the hub brings the rest after your friends' turn"
+        : `💛 Ordered for ${forName}`,
+    );
+    if (ok) {
       void this.refreshCompany();
     }
+    return ok;
   }
 
   /** Gives up a scaffold: its gold comes back */
@@ -2168,6 +2168,8 @@ export class GameClient {
         return true;
       case "fillWant":
         return line.building !== null ? await this.sendToSite(line.building) : false;
+      case "orderWant":
+        return line.building !== null ? await this.orderRest(line.building, line.partnerName) : false;
       default:
         return false;
     }

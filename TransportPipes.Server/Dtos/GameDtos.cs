@@ -43,7 +43,9 @@ public record ReturnCardDto(
     IReadOnlyList<string> Fine,
     IReadOnlyList<ReturnLineDto> Lines,
     IReadOnlyList<LandingCardDto> Landing,
-    string? Hint);
+    string? Hint,
+    /// <summary>What folds under "more" (after run 3, row 11: the card leads with what matters)</summary>
+    IReadOnlyList<ReturnLineDto>? Folded = null);
 
 /// <summary>
 /// A line of the return card: its section, and its one button (repairAll, show, project, upgrade, links, send: Partner's

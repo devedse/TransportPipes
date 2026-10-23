@@ -232,6 +232,12 @@ public sealed partial class GameWorld
             AddStat(seller, "soldToPlayers", units);
             AddStat(buyer, "boughtFromPlayers", units);
             CountUsualTrade(seller, buyer, payment.Resource, units, minutes);
+            if (!seller.IsNpc && !buyer.IsNpc)
+            {
+                Add(seller.Report.SoldToUnits, $"{buyer.Id}:{payment.Resource}", units);
+                Add(seller.Report.SoldToGold, $"{buyer.Id}:{payment.Resource}", gold);
+                Add(buyer.Report.BoughtFromUnits, $"{seller.Id}:{payment.Resource}", units);
+            }
             AnnounceGift(seller, buyer, payment.Resource, payment.Units);
             seller.Touch();
             Changes.Companies.Add(seller.Id);

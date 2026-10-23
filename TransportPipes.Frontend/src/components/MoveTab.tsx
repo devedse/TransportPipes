@@ -9,7 +9,7 @@ import { StationPicker } from "./StationPicker";
 const ACTIVITY: Record<string, string> = {
   active: "Active",
   resting: "Resting (3+ days away): everything keeps running",
-  dormant: "Dormant (14+ days away): a Caretaker trades for you for 10%",
+  dormant: "Dormant (14+ days away): a Caretaker keeps your trades going, free",
   asleep: "Asleep on the Quiet Isles",
 };
 

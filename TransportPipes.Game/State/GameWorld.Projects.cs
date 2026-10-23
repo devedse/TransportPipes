@@ -467,8 +467,8 @@ public sealed partial class GameWorld
             var stage = StageName(project.Stage);
             var good = GoodsWord(keystone);
             var maker = Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.ContainsKey(keystone)).OrderBy(t => t.Unlock.Level).First().Name;
-            Changes.Events.Add(new WorldEvent(a.Id, WorldEventKind.Wonder, $"The {stage} wants {good} from your {GoodsWord(aInput)} and {PossessiveFor(b, a)} {GoodsWord(bInput)}: one of you builds {Article(maker)} 💛"));
-            Changes.Events.Add(new WorldEvent(b.Id, WorldEventKind.Wonder, $"The {stage} wants {good} from your {GoodsWord(bInput)} and {PossessiveFor(a, b)} {GoodsWord(aInput)}: one of you builds {Article(maker)} 💛"));
+            Changes.Events.Add(new WorldEvent(a.Id, WorldEventKind.Wonder, $"The {stage} wants {good} from your {GoodsWord(aInput)} and {PossessiveFor(b, a)} {GoodsWord(bInput)}: one of you builds {Article(maker)} 💛", Bell: true));
+            Changes.Events.Add(new WorldEvent(b.Id, WorldEventKind.Wonder, $"The {stage} wants {good} from your {GoodsWord(bInput)} and {PossessiveFor(a, b)} {GoodsWord(aInput)}: one of you builds {Article(maker)} 💛", Bell: true));
         }
     }
 

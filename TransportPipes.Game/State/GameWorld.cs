@@ -32,7 +32,15 @@ public enum WorldEventKind
 }
 
 /// <summary>Something a player should hear about (a toast in the client)</summary>
-public sealed record WorldEvent(long Company, WorldEventKind Kind, string Text, long? Building = null);
+public sealed record WorldEvent(long Company, WorldEventKind Kind, string Text, long? Building = null, bool? Bell = null)
+{
+    /// <summary>
+    /// Whether it also goes to the bell: only what the player can act on (after run 3, row 11: "a wall of 30+ messages
+    /// … I understood little"); levels, research, prices, filled orders and the calendar are toasts and card lines
+    /// </summary>
+    public bool InBell => Bell ?? Kind is WorldEventKind.Social or WorldEventKind.Neighbour or WorldEventKind.Crew or WorldEventKind.Link
+        or WorldEventKind.ContractChanged or WorldEventKind.Corporation or WorldEventKind.StorageFull;
+}
 
 /// <summary>What changed in the world since the server last asked (to send to clients)</summary>
 public sealed class WorldChanges
@@ -862,7 +870,26 @@ public sealed partial class GameWorld
         var placed = AddBuilding(company, type, pos, finished: false);
         GainXp(company, Content.Progression.XpReward("building") + (company.BuiltTypes.Add(type) ? Content.Progression.XpReward("firstBuildingOfType") : 0), "buildings", type);
         RecordPurchase(company, PurchaseKind.Build, placed, 0, cost, company.Xp - xpBefore);
+        if (definition.Kind == BuildingKind.Storage && StorageKeepsText(company) is { } keeps)
+        {
+            // Placing a Storage says what it holds back (after run 3, row 9: "Nobody warned me that storing means not selling")
+            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.StorageFull, $"Your {definition.Name} will keep {keeps} for your next buildings and pipes; the rest goes on to your trading post", placed.Id, Bell: false));
+        }
         return CommandResult.Ok;
+    }
+
+    /// <summary>What a company's Storages keep back of its goods ("500 bricks and 100 copper ingots"; null: nothing)</summary>
+    public string? StorageKeepsText(Company company)
+    {
+        var made = BuildingsOf(company.Id).Where(t => !t.UnderConstruction).SelectMany(t => Content.Building(t.Type).Out.Keys).ToHashSet();
+        var keeps = made.Where(t => t != GameContent.ResearchPoints)
+            .Select(t => (Resource: t, Amount: StorageNeed(company, t)))
+            .Where(t => t.Amount >= 1)
+            .OrderByDescending(t => t.Amount * BasePrice(t.Resource))
+            .Select(t => $"{t.Amount:N0} {GoodsWord(t.Resource)}")
+            .Take(3)
+            .ToList();
+        return keeps.Count == 0 ? null : keeps.Count == 1 ? keeps[0] : $"{string.Join(", ", keeps.Take(keeps.Count - 1))} and {keeps[^1]}";
     }
 
     public CommandResult Demolish(long companyId, long buildingId)
