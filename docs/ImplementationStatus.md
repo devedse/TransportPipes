@@ -409,6 +409,19 @@ is the design's call (yes).
   exact books, a card that folds (one people line, a crew line, "Still:", order for a friend, the bell only for what
   you can act on), Crew and Station chat, projects named by station, friends elsewhere with Visit and Link, no
   caretaker fee. Each with tests and an e2e script; run 4 checks them against the design's marks.
+- **Run 4** (`playtest/runs/story4`, 2026-10-23): run 3's story again on that build, a fresh world, 32 sessions. Fixed
+  during it: a parcel offers only what the seat's land may make (c5a8828); a fix that puts a building in hand shows
+  where it goes (a24082f); "nothing moves" says when the taker opens, the chat beside every right panel (cf7b133); a
+  second tend says a crew mate tended it (6080147). Better than run 3: the whole crew lived together (Ben and Dev by
+  Ana's links), every project stage stood (Capital SE's Landmark on day 17; run 3 froze at 96%), the stranger next
+  door's wood stood the crew's Water Tower, previews and books within 1%, Ana's copper ran Cleo's Smelter all month,
+  hub orders filled by themselves (no chores). **The gold is still not answered:** the players spent 0.09–0.25% of
+  what they earned and banked 24–29 days of income; the new sinks took 30,660 g. The Era wonder stopped at its pipe
+  half twice (Dynamo 89%: nobody made bricks; Cathedral 50%) and its stages were sized at the floor (a daily resize
+  while nobody had played for three days; the Dynamo frozen by the first delivery), only two buildings became wants
+  (bricks, never filled), nobody widened, and after the Landmark the crew had nothing shared to build. The light bots
+  with the advisor bank 2.7–18.9 days on day 28 (`runs/story4/light-bots-day28.md`). 13 of 24 promises, 10 marks pass
+  and 15 fail; the analyst's eleven recommendations are in `runs/story4/findings.json` (the owner decides what's next).
 
 ### After v1
 

@@ -215,9 +215,11 @@ function series(field) {
     id: p.id,
     name: p.name,
     color: p.color,
+    // A value of null leaves the sample out (a sleeping company has no income to count days of)
     points: metrics.map((m) => {
       const c = m.players.find((t) => t.id === p.company.id);
-      return c ? [Number(dayOf(m.now).toFixed(4)), value(c)] : null;
+      const v = c ? value(c) : null;
+      return v === null ? null : [Number(dayOf(m.now).toFixed(4)), v];
     }).filter(Boolean),
   })).filter((s) => s.points.length > 0);
 }
@@ -248,6 +250,13 @@ const charts = {
   neighbour: { title: "What the Yard matched to sell to other players (gold a minute)", unit: " g/min", series: series("neighbourIncome") },
   buildings: { title: "Buildings", unit: "", series: series("buildings") },
 };
+// Run 4 on: what the gold was for (the samples count gold spent since run 4)
+const spending = metrics.some((m) => m.players.some((c) => c.spent !== undefined));
+if (spending) {
+  // From 100k earned: a newcomer's first buildings, bought with the starting gold, would read as half their earnings
+  charts.spent = { title: "Gold spent, as a share of all they earned (from 100k earned)", unit: " %", series: series((c) => (c.earned >= 100000 ? Number((100 * (c.spent ?? 0) / c.earned).toFixed(2)) : null)) };
+  charts.banked = { title: "Gold held, in days of the top bar's income", unit: " days", series: series((c) => (c.goldPerMinute >= 1 ? Number((c.gold / (c.goldPerMinute * 1440)).toFixed(1)) : null)) };
+}
 /**
  * Run by run (run 3 on): each player's Level and what they earned a minute, averaged over each game day, in every
  * earlier story run (story1, story2, …) beside this one; one small chart per player
@@ -272,6 +281,7 @@ function dailyRun(dir, id) {
   };
 }
 const runCharts = {};
+const BUILDS = ["run 1 on the first v1.2", "run 2 on the redesign (dealt land)", "run 3 on the build after run 2's fixes", "run 4 on run 3's fixes and the designers' nine steps"];
 if (runNumber >= 2) {
   for (const p of players.filter((t) => t.company)) {
     const runs = [];
@@ -459,7 +469,8 @@ function marksSection() {
   const rows = (findings.marks ?? []).map((m) => `<tr class="mark"><td><b>${esc(m.mark)}</b></td><td>${esc(m.pass ?? "")}</td>${runs.map((r) => `<td>${esc(m[r] ?? "")}</td>`).join("")}<td>${status(m.status ?? "")}</td></tr>${m.evidence ? `<tr class="mark-evidence"><td colspan="${runs.length + 3}" class="small muted">${md(m.evidence)}</td></tr>` : ""}`).join("");
   return `<section class="page">
   <h2>The marks</h2>
-  <p>The plan's marks (docs/playtest-redesign.html §7), measured from the server's numbers and the logs for run ${esc(run)},
+  <p>The plan's marks (docs/playtest-redesign.html §7; from run 4 also the designers' table in docs/playtest-run3-design.html),
+  measured from the server's numbers and the logs for run ${esc(run)},
   with the earlier runs beside them.</p>
   ${rows ? `<div class="scroll"><table><tr><th>Mark</th><th>Pass</th>${runs.map((r) => `<th>Run ${esc(r.slice(3))}</th>`).join("")}<th></th></tr>${rows}</table></div>` : ""}
   ${since.map((k) => `<h3>Since run ${esc(k.slice(8))}</h3>${md(findings[k])}`).join("")}
@@ -483,6 +494,12 @@ const body = `
 </section>
 
 ${marksSection()}
+
+${findings.gold ? `<section class="page">
+  <h2>The gold</h2>
+  <p>What the players spent, on what, and why the rest piled up, from the samples and the diaries.</p>
+  ${md(findings.gold)}
+</section>` : ""}
 
 ${findings.chores ? `<section class="page">
   <h2>Chores</h2>
@@ -516,6 +533,8 @@ ${findings.chores ? `<section class="page">
   <div class="chart" data-chart="gpm"></div>
   <div class="chart" data-chart="neighbour"></div>
   <div class="chart" data-chart="buildings"></div>
+  ${spending ? `<div class="chart" data-chart="spent"></div>
+  <div class="chart" data-chart="banked"></div>` : ""}
 </section>
 
 ${Object.keys(runCharts).length ? `<section class="page">
@@ -523,8 +542,7 @@ ${Object.keys(runCharts).length ? `<section class="page">
   <p>Each player in every run so far: what they earned a minute (each game day's average, from their lifetime
   earnings) and their Level at the end of each day. This run in the player's colour, the earlier runs in grey (the
   darker one is the most recent); the shaded bands are this run's sessions. The runs played the same story on
-  different builds: run 1 on the first v1.2, run 2 on the redesign (dealt land), run ${runNumber} on the build after run
-  ${runNumber - 1}'s fixes.</p>
+  different builds: ${BUILDS.slice(0, runNumber).join(", ")}.</p>
   <div class="runs">${players.filter((p) => runCharts[`earned-${p.id}`]).map((p) => `<div class="chart" data-chart="earned-${p.id}"></div><div class="chart" data-chart="level-${p.id}"></div>`).join("")}</div>
 </section>` : ""}
 

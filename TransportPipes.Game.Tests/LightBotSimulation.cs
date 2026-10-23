@@ -42,6 +42,9 @@ public class LightBotSimulation
         public double PaidByDay14 { get; set; }
         public double EarnedByDay14 { get; set; }
 
+        /// <summary>Gold held on day 28 in days of income (after run 3: the advisor's bot should bank ≤ 3)</summary>
+        public double? BankedDays28 { get; set; }
+
         public bool PlaysOn(int day) => day >= StartDay && (StopDay == null || day <= StopDay) && (day - StartDay) % 2 == 0;
     }
 
@@ -126,6 +129,13 @@ public class LightBotSimulation
                     player.EarnedByDay14 = Production(player.Company);
                 }
             }
+            if (day == 28)
+            {
+                foreach (var player in players.Where(t => t.Company != null))
+                {
+                    player.BankedDays28 = player.Company!.Gold / Math.Max(1, world.GoldPerMinute().GetValueOrDefault(player.Company.Id) * 1440);
+                }
+            }
             report.AppendLine($"| {day} | " + string.Join(" | ", players.Select(t => t.Company is { } c
                 ? $"L{c.Level} {world.GoldPerMinute().GetValueOrDefault(c.Id):0}/min {world.BuildingsOf(c.Id).Count()}b"
                 : "—")) + " |");
@@ -151,6 +161,7 @@ public class LightBotSimulation
         report.AppendLine($"| New gold from NPCs | ≤ 6% of faucets | {npc / Math.Max(1, faucets):P1} |");
         var ana = players.Single(t => t.Name == "Ana");
         var supplied = ana.ChainMinutes <= 0 ? 1 : 1 - ana.ShortMinutes / ana.ChainMinutes;
+        report.AppendLine($"| The advisor's bot banks on day 28 | ≤ 3 days of income | {string.Join(", ", players.Where(t => t.BankedDays28 != null).Select(t => $"{t.Name} {t.BankedDays28:0.0}"))} |");
         report.AppendLine($"| Ben's stop: Ana's chains get their need | ≥ 99% to day {days}; price step ≤ +8% | {supplied:P1}; largest step {ana.LargestPriceStep:P1} |");
         report.AppendLine();
         report.AppendLine("| Player | Gold | Level | Buildings | Hub | Yard paid | Houses paid | Project | Floor |");
