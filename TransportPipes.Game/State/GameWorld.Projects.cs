@@ -41,6 +41,9 @@ public sealed class StationProject : Entity
     /// <summary>The players' own deliveries of the keystone, sampled every 6 hours (its pace: a House's quarter doesn't count)</summary>
     public List<KeystoneMark> KeystoneMarks { get; set; } = new();
 
+    /// <summary>A two-friend keystone's pair (after run 3, step 8): the two residents who each make one of its inputs (empty: none)</summary>
+    public List<long> KeystonePair { get; set; } = new();
+
     /// <summary>The keystone passed over last, and when (the station's line says so for a day)</summary>
     public string? LastPassed { get; set; }
     public DateTime? LastPassedAt { get; set; }
@@ -128,6 +131,17 @@ public sealed partial class GameWorld
 
     /// <summary>The keystone is this many hours of one level-1 building that makes it</summary>
     private const double KeystoneHours = 6;
+
+    /// <summary>
+    /// A two-friend keystone (after run 3, the design team's step 8: water was the keystone in all four stations, and it
+    /// needed nobody): a good made from two land goods, bricks (stone + coal) or copper ingots (copper ore + coal), three
+    /// hours of one maker, from the Water Tower on
+    /// </summary>
+    private static readonly string[] PairGoods = ["bricks", "copperIngot"];
+    private const double PairKeystoneHours = 3;
+
+    /// <summary>Both of the pair are this Level or more (the Brickworks and the Smelter unlock then)</summary>
+    private const int PairLevel = 6;
 
     /// <summary>The whole basket is worth at most this many times the stage's hours of the delivering residents' summed I(c)</summary>
     private const double BasketCapFactor = 1.5;
@@ -374,6 +388,90 @@ public sealed partial class GameWorld
 
     private static int StableHash(string text) => text.Aggregate(17, (hash, c) => unchecked(hash * 31 + c));
 
+    /// <summary>
+    /// A two-friend keystone for a stage: a pair good nobody in the station makes yet and nobody can make alone, where two
+    /// residents who play now and are Level 6 or more each make one of its two inputs (null: today's rule)
+    /// </summary>
+    private (string Good, List<long> Pair)? PairKeystone(StationRef station, ProjectStage stage, IReadOnlySet<string>? passed, IReadOnlyCollection<string> taken)
+    {
+        if (stage is not (ProjectStage.WaterTower or ProjectStage.Workshop or ProjectStage.FoundryHall))
+        {
+            return null;
+        }
+        var residents = StationPlayers(station);
+        var lit = residents.Where(t => IsActive(t) && t.Level >= PairLevel).OrderBy(t => t.Id).ToList();
+        if (lit.Count < 2)
+        {
+            return null;
+        }
+        var made = residents.ToDictionary(t => t.Id, t => MadeGoods(t).ToHashSet());
+        foreach (var good in PairGoods)
+        {
+            if (passed?.Contains(good) == true || taken.Contains(good) || !Content.Resources.TryGetValue(good, out var resource) || resource.Era > Era
+                || made.Values.Any(t => t.Contains(good)) || PairInputs(good) is not [var first, var second]
+                || made.Values.Any(t => t.Contains(first) && t.Contains(second)))
+            {
+                continue;
+            }
+            if (lit.FirstOrDefault(t => made[t.Id].Contains(first)) is { } a && lit.FirstOrDefault(t => t.Id != a.Id && made[t.Id].Contains(second)) is { } b)
+            {
+                return (good, [a.Id, b.Id]);
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// For a two-friend keystone, each of the pair counts as making what the other makes: either can build the maker and
+    /// the other's input comes by the Yard (or from its House while the other is away)
+    /// </summary>
+    private static Dictionary<long, HashSet<string>> PairPooled(StationProject project, Dictionary<long, HashSet<string>> made)
+    {
+        if (project.KeystonePair.Count != 2)
+        {
+            return made;
+        }
+        var pooled = project.KeystonePair.SelectMany(t => made.GetValueOrDefault(t) ?? []).ToHashSet();
+        return made.ToDictionary(t => t.Key, t => project.KeystonePair.Contains(t.Key) ? pooled : t.Value);
+    }
+
+    /// <summary>The Company Level a good of a stage may need to be made: a two-friend keystone's pair is Level 6 or more</summary>
+    private static int KeystoneHorizon(StationProject project, string good) =>
+        project.KeystonePair.Count == 2 && good == project.Keystone ? Math.Max(StageHorizon(project.Stage), PairLevel) : StageHorizon(project.Stage);
+
+    /// <summary>The two goods besides energy a pair good is made of ("stone", "coal" for bricks)</summary>
+    private List<string> PairInputs(string good) =>
+        Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.ContainsKey(good)).OrderBy(t => t.Unlock.Level)
+            .Select(t => t.In.Keys.Where(k => k != "energy").ToList()).FirstOrDefault() ?? [];
+
+    /// <summary>A two-friend keystone's pair with the input each makes ("Ana's stone and Cleo's coal"; empty: not one)</summary>
+    public List<(Company Company, string Input)> KeystonePairInputs(StationProject project) =>
+        project.Keystone is { } good && project.KeystonePair.Count == 2 && PairInputs(good) is [var first, var second]
+            && Company(project.KeystonePair[0]) is { } a && Company(project.KeystonePair[1]) is { } b
+            ? [(a, first), (b, second)]
+            : [];
+
+    /// <summary>A keystone is chosen: its basket, and a two-friend keystone's pair hear what they make together</summary>
+    private void SetKeystone(StationProject project, string? keystone, List<long>? pair)
+    {
+        project.Keystone = keystone;
+        project.KeystonePair = pair ?? new List<long>();
+        project.KeystoneSince = LastTick;
+        if (keystone == null)
+        {
+            return;
+        }
+        project.Basket[keystone] = Math.Ceiling((pair != null ? PairKeystoneHours : KeystoneHours) * 60 * OneBuildingRate(keystone));
+        if (KeystonePairInputs(project) is [var (a, aInput), var (b, bInput)])
+        {
+            var stage = StageName(project.Stage);
+            var good = GoodsWord(keystone);
+            var maker = Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.ContainsKey(keystone)).OrderBy(t => t.Unlock.Level).First().Name;
+            Changes.Events.Add(new WorldEvent(a.Id, WorldEventKind.Wonder, $"The {stage} wants {good} from your {GoodsWord(aInput)} and {PossessiveFor(b, a)} {GoodsWord(bInput)}: one of you builds {Article(maker)} 💛"));
+            Changes.Events.Add(new WorldEvent(b.Id, WorldEventKind.Wonder, $"The {stage} wants {good} from your {GoodsWord(bInput)} and {PossessiveFor(a, b)} {GoodsWord(aInput)}: one of you builds {Article(maker)} 💛"));
+        }
+    }
+
     /// <summary>The players who size a basket (F4): counted residents who delivered to this stage or the last within 3 days (at least one)</summary>
     private List<Company> DeliveringResidents(StationProject project)
     {
@@ -397,6 +495,7 @@ public sealed partial class GameWorld
         project.Credit = new Dictionary<long, double>();
         project.Basket = new Dictionary<string, double>();
         project.Keystone = null;
+        project.KeystonePair = new List<long>();
         project.PassedKeystones = new HashSet<string>();
         project.KeystoneSeen = new Dictionary<long, DateTime>();
         project.KeystoneMarks = new List<KeystoneMark>();
@@ -433,11 +532,15 @@ public sealed partial class GameWorld
         }
         var cap = BasketCapFactor * hours * 60 * income;
         var madeWorth = project.Basket.Sum(t => t.Value * BasePrice(t.Key));
-        if (keystone != null)
+        // From the Water Tower on, two friends' goods before today's rule (after run 3, step 8)
+        if (PairKeystone(station, stage, null, made) is { } pair)
         {
-            project.Basket[keystone] = Math.Ceiling(KeystoneHours * 60 * OneBuildingRate(keystone));
-            project.Keystone = keystone;
-            project.KeystoneSince = LastTick;
+            SetKeystone(project, pair.Good, pair.Pair);
+            keystone = pair.Good;
+        }
+        else if (keystone != null)
+        {
+            SetKeystone(project, keystone, null);
         }
         var keystoneWorth = keystone != null ? project.Basket[keystone] * BasePrice(keystone) : 0;
         if (madeWorth > 1e-9 && madeWorth + keystoneWorth > cap)
@@ -515,8 +618,8 @@ public sealed partial class GameWorld
                 project.KeystoneMarks.RemoveAll(t => LastTick - t.At > KeystoneStallsAfter + TimeSpan.FromDays(1));
                 project.Touch();
             }
-            var made = active.ToDictionary(t => t.Id, t => BuildingsOf(t.Id).Where(b => !b.UnderConstruction).SelectMany(b => Content.Building(b.Type).Out.Keys).ToHashSet());
-            if (Makers(keystone, active, StageHorizon(project.Stage), made).Count == 0)
+            var made = PairPooled(project, active.ToDictionary(t => t.Id, t => BuildingsOf(t.Id).Where(b => !b.UnderConstruction).SelectMany(b => Content.Building(b.Type).Out.Keys).ToHashSet()));
+            if (Makers(keystone, active, KeystoneHorizon(project, keystone), made).Count == 0)
             {
                 PassKeystone(project, active, "nobody here can make it now");
             }
@@ -584,19 +687,22 @@ public sealed partial class GameWorld
         project.LastPassed = keystone;
         project.LastPassedAt = LastTick;
         string? next = null;
+        List<long>? pair = null;
         if (project.PassedKeystones.Count < MaxPassedKeystones)
         {
-            (_, next) = Recipe(station, project.Stage, active, project.PassedKeystones);
-            next = next != null && !project.Basket.ContainsKey(next) ? next : null;
+            if (PairKeystone(station, project.Stage, project.PassedKeystones, project.Basket.Keys.ToList()) is { } friends)
+            {
+                (next, pair) = friends;
+            }
+            else
+            {
+                (_, next) = Recipe(station, project.Stage, active, project.PassedKeystones);
+                next = next != null && !project.Basket.ContainsKey(next) ? next : null;
+            }
         }
-        project.Keystone = next;
-        project.KeystoneSince = LastTick;
         project.KeystoneSeen = new Dictionary<long, DateTime>();
         project.KeystoneMarks = new List<KeystoneMark>();
-        if (next != null)
-        {
-            project.Basket[next] = Math.Ceiling(KeystoneHours * 60 * OneBuildingRate(next));
-        }
+        SetKeystone(project, next, pair);
         string Name(string good) => Content.Resources.TryGetValue(good, out var r) ? r.Name.ToLowerInvariant() : good;
         var rest = project.Basket.Keys.Where(t => ProjectLacks(project, t) > 1e-6).Select(Name).ToList();
         var then = next != null ? $"it wants {Name(next)} now"
@@ -631,7 +737,11 @@ public sealed partial class GameWorld
         }
         var residents = CountedResidents(project);
         var made = residents.ToDictionary(t => t.Id, t => BuildingsOf(t.Id).Where(b => !b.UnderConstruction).SelectMany(b => Content.Building(b.Type).Out.Keys).ToHashSet());
-        var makers = Makers(good, residents, StageHorizon(project.Stage), made)
+        if (good == project.Keystone)
+        {
+            made = PairPooled(project, made);
+        }
+        var makers = Makers(good, residents, KeystoneHorizon(project, good), made)
             .GroupBy(t => t.Maker.Id)
             .Select(t => t.OrderBy(m => m.Producer.Unlock.Level).ThenBy(m => m.Producer.Cost.Gold).First())
             .Select(t => (t.Maker, t.Producer))

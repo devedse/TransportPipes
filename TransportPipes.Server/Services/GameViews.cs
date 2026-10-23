@@ -311,6 +311,12 @@ public static partial class GameViews
         {
             var wait = world.Now - GameWorld.KeystoneWantedSince(project);
             parts.Add(wait >= TimeSpan.FromDays(1) ? $"{Span(wait)} on {Name(keystone)}" : $"wants {Name(keystone)}");
+            // A two-friend keystone names its pair (after run 3, step 8)
+            if (world.KeystonePairInputs(project) is [var (a, aInput), var (b, bInput)])
+            {
+                string Whose(Company c) => c.Id == me.Id ? "your" : world.PossessiveFor(c, me);
+                parts.Add($"from {Whose(a)} {Name(aInput)} and {Whose(b)} {Name(bInput)}");
+            }
             if (step == null)
             {
                 var (who, how) = WhoBrings(world, me, project, keystone, card);

@@ -10,6 +10,9 @@
 //   return-phone  day 36 18:00: Ben opens the game on his phone; one card, then the map in at most two taps (F5)
 //   keystone      run 3 (--from story3) from day 10 19:55 to day 22, everyone playing when the story has them play:
 //                 Capital SE's Workshop and NW's Water Tower move on instead of waiting weeks on water (after run 3, row 1)
+//   pair-keystone run 3 (--from story3), day 14 19:00 with the crew playing, projects restaged by today's rules: a station
+//                 where two players each make an input of bricks or copper ingots waits on that good, and its line names
+//                 them (after run 3, step 8)
 //   project-line  run 3 (--from story3), day 27 20:00: Ana's This week line names how long the Workshop has waited on water,
 //                 that she can make it and how, and its Show me puts a Water Pump in hand on a tile beside the water
 //   send-desktop  day 14 19:00: Dev's stuck Sand Dredger, one tap lays its pipe and sends to the Water Tower; his sand
@@ -206,6 +209,25 @@ const scenarios = {
     check("Capital SE's Workshop doesn't wait on water to day 22", !(end.se.projectStage === "Workshop" && "water*" in (end.se.projectBasket ?? {})), stage(end.se));
     check("Capital SE stands past the Workshop by day 22", (end.se.projectFinished ?? []).includes("Workshop"), stage(end.se));
     check("Capital NW's Water Tower doesn't wait on water to day 22", !(end.nw.projectStage === "WaterTower" && "water*" in (end.nw.projectBasket ?? {})), stage(end.nw));
+  },
+
+  /** The two-friend keystone (docs/playtest-run3-design.html, step 8) on run 3's day 14 */
+  async "pair-keystone"() {
+    const S3 = { jo: 25, mia: 26, ana: 27, ben: 28, mia2: 29, cleo: 30, dev: 31 };
+    console.log(director("restore", "row10"));
+    for (const id of Object.values(S3)) await api("POST", `seen/${id}`);
+    await api("POST", "restage");
+    await advance(0.25, 0.25);
+    const c = await companies();
+    const pairs = [];
+    for (const [name, id] of Object.entries(S3)) {
+      const p = c[id];
+      const keystone = Object.keys(p.projectBasket ?? {}).find((t) => t.endsWith("*"))?.slice(0, -1) ?? null;
+      console.log(`${name.padEnd(5)} L${p.level} ${p.projectStage} keystone ${keystone}: ${p.week}`);
+      if (keystone === "bricks" || keystone === "copperIngot") pairs.push({ name, keystone, week: p.week });
+    }
+    check("a station waits on two friends' goods", pairs.length > 0, pairs.map((t) => `${t.name}: ${t.keystone}`).join(", "));
+    check("its line names the two of them", pairs.every((t) => /from (your|.+?'s?) [a-z ]+ and (your|.+?'s?) [a-z ]+/.test(t.week ?? "")), pairs.map((t) => t.week).join(" | "));
   },
 
   /** Run 3's "(nobody here yet)" (docs/playtest-run3-review.html, row 2): Ana's day-27 evening on today's build */
