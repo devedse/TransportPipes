@@ -1292,7 +1292,14 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail($"Those pipes are already {pipe.Name}s or better.");
         }
-        var payment = Pay(company, pipe.Gold * upgrade.Count, pipe.Materials.ToDictionary(t => t.Key, t => t.Value * upgrade.Count));
+        var materials = pipe.Materials.ToDictionary(t => t.Key, t => t.Value * upgrade.Count);
+        // Short of its materials (a Copper Pipe's ingots), not its gold: the pipe wants them (after run 3, step 3: Cleo's
+        // Copper Pipe click did nothing, its 28 ingots had to come from her own Storage)
+        if (company.Gold >= pipe.Gold * upgrade.Count - 1e-9 && materials.Any(t => Materials(company.Id).GetValueOrDefault(t.Key) < t.Value - 1e-9))
+        {
+            return WantPipes(company, upgrade, pipe, materials);
+        }
+        var payment = Pay(company, pipe.Gold * upgrade.Count, materials);
         if (!payment.Success)
         {
             return payment;

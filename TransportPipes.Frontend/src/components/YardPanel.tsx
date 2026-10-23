@@ -156,6 +156,30 @@ export function YardPanel() {
               </ul>
             </section>
           )}
+          {/* Your own wants (after run 3, steps 2 and 3): what each waits for, what is in and coming, and Give it up */}
+          {company !== null && (company.wants ?? []).length > 0 && (
+            <section>
+              <h4>What you&apos;re waiting for</h4>
+              <ul className="yard-trades">
+                {(company.wants ?? []).map((w) => (
+                  <li key={`${w.target}-${w.resource}`}>
+                    <span>
+                      <ResourceIcon resource={w.resource} /> Your <strong>{w.name}</strong>
+                      {w.tiles !== null && ` on ${w.tiles} tiles`} wants {formatAmount(w.amount)}{" "}
+                      {content.resourceName(w.resource).toLowerCase()} ·{" "}
+                      <strong>{formatAmount(w.got)} in</strong>
+                      {w.perMinute > 0.005 && (
+                        <span className="muted"> · {formatAmount(w.perMinute)}/min coming</span>
+                      )}
+                    </span>
+                    <button className="link small" onClick={() => void gameClient.cancelSite(w.target)}>
+                      give it up
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           {/* Neighbours' scaffolds you can help with (after run 3, step 2): your Storage at a tap, or your spare by itself */}
           {company !== null && (company.wantsNear ?? []).length > 0 && (
             <section>

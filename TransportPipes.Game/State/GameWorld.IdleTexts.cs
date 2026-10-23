@@ -1,5 +1,6 @@
 using TransportPipes.Game.Content;
 using TransportPipes.Game.Simulation;
+using TransportPipes.Game.World;
 
 namespace TransportPipes.Game.State;
 
@@ -20,10 +21,14 @@ public enum IdleFixKind
 
     /// <summary>The build tool with BuildingType</summary>
     Build,
+
+    /// <summary>Raises the pipe Tiles to Tier (a want when its materials aren't in the Storages: after run 3, step 3)</summary>
+    PipeTier,
 }
 
 /// <summary>The one fix button of a building's panel: what it does, its label, and what it needs; OwnNeed: a pipe to your own short building</summary>
-public sealed record IdleFix(IdleFixKind Kind, string Label, PipePlan? Pipe = null, long? Building = null, string? BuildingType = null, double Cost = 0, bool OwnNeed = false);
+public sealed record IdleFix(IdleFixKind Kind, string Label, PipePlan? Pipe = null, long? Building = null, string? BuildingType = null, double Cost = 0, bool OwnNeed = false,
+    IReadOnlyList<TilePos>? Tiles = null, int Tier = 0);
 
 /// <summary>A building's panel head (F2): the status pill (the cause in five words), the reach line, and the one fix</summary>
 public sealed record IdleStatus(IdleReason Reason, string? Pill, string? Reach, IdleFix? Fix);
@@ -136,14 +141,44 @@ public sealed partial class GameWorld
                 // carries its pipe's throughput), a better pipe carries more
                 var (could, carried) = PipeCarry(building, reason.Resource!);
                 var second = Content.BuildingList.FirstOrDefault(t => t.Kind == BuildingKind.TradingPost && t.Buildable && Company(building.Owner) is { } owner && IsUnlocked(owner, t, out _));
+                // The next pipe tier on its full link first (step 3: its ingots are a want when the Storages don't hold them)
+                IdleFix? fix = NextPipeTier(building, reason.Resource!) is { } better
+                    ? new IdleFix(IdleFixKind.PipeTier, $"{better.Tier.Name} on its pipe · {Tiles(better.Tiles.Count)} · {Gold(better.Tier.Gold * better.Tiles.Count)}"
+                        + string.Concat(better.Tier.Materials.Select(t => $" + {t.Value * better.Tiles.Count:N0} {GoodsWord(t.Key)}")) + $" · carries {Amount(better.Tier.Throughput)} a minute",
+                        Cost: better.Tier.Gold * better.Tiles.Count, Tiles: better.Tiles, Tier: better.Tier.Tier)
+                    : second == null ? null : new IdleFix(IdleFixKind.Build, $"Build a second {second.Name} on its pipe · {Gold(second.Cost.Gold)}", BuildingType: second.Id, Cost: second.Cost.Gold);
                 return new IdleStatus(reason, $"Slowed: its pipes carry {Amount(carried)} {good} a minute",
-                    $"It could make {Amount(could)} a minute, but a pipe connection carries only so much (Grey Pipe: 100 a minute). A second taker on a pipe of its own, or a better pipe, takes more.",
-                    second == null ? null : new IdleFix(IdleFixKind.Build, $"Build a second {second.Name} on its pipe · {Gold(second.Cost.Gold)}", BuildingType: second.Id, Cost: second.Cost.Gold));
+                    $"It could make {Amount(could)} a minute, but a pipe connection carries only so much (Grey Pipe: 100 a minute). A better pipe, or a second taker on a pipe of its own, takes more.",
+                    fix);
             case IdleCause.GateOnly:
                 return new IdleStatus(reason, $"Waiting: nobody here takes its {good}", "Its only way out is your Yard gate (G), and nobody in your station needs it now.", FixPipe());
             default:
                 return new IdleStatus(reason, null, null, null);
         }
+    }
+
+    /// <summary>
+    /// The next pipe tier its owner may lay on the full links a building's good leaves by: the owner's own pipe tiles on
+    /// them below that tier (null: none unlocked, or no such tiles)
+    /// </summary>
+    private (PipeTierDefinition Tier, List<TilePos> Tiles)? NextPipeTier(Building building, string resource)
+    {
+        if (Company(building.Owner) is not { } owner || NetworkOf(building.Id) is not { } network)
+        {
+            return null;
+        }
+        var links = network.Links.Where(t => (t.A == building.Id || t.B == building.Id) && t.Allows(resource)
+            && network.Solution.Flows.Where(f => f.From == building.Id && f.Resource == resource && t.Connects(f.From, f.To)).Sum(f => f.Sent) >= t.Capacity * 0.98).ToList();
+        var pipes = links.SelectMany(t => t.Path).Distinct()
+            .Select(t => _conductors.TryGetValue(t, out var c) ? c : null).OfType<Conductor>()
+            .Where(t => t.Kind == ConductorKind.Pipe && t.Owner == owner.Id).ToList();
+        if (pipes.Count == 0)
+        {
+            return null;
+        }
+        var lowest = pipes.Min(t => t.Tier);
+        var next = Content.PipeTiers.Where(t => t.Tier > lowest && t.Era <= Era && (t.Research == null || HasResearch(owner, t.Research))).OrderBy(t => t.Tier).FirstOrDefault();
+        return next == null ? null : (next, pipes.Where(t => t.Tier < next.Tier).Select(t => t.Pos).ToList());
     }
 
     /// <summary>What a building gets of an input now, and what it would need at full speed</summary>

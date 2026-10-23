@@ -72,7 +72,7 @@ public sealed partial class GameWorld
     /// <summary>Its owner's Storages give a want what they hold of it (theirs already: nothing is paid)</summary>
     private void FillWantsFromStorages(Company company)
     {
-        foreach (var ask in company.Asks.Where(t => t.Site != null && t.Left > 1e-6))
+        foreach (var ask in company.Asks.Where(t => t.IsWant && t.Left > 1e-6))
         {
             var have = Materials(company.Id).GetValueOrDefault(ask.Resource);
             if (have > 1e-6)
@@ -128,10 +128,14 @@ public sealed partial class GameWorld
                 PayForWant(owner, seller, ask, units);
             }
         }
+        FillWantsFromStorages(owner);
         if (ask.Site is { } id && Building(id) is { } site)
         {
-            FillWantsFromStorages(owner);
             FinishWantsIfFull(owner, site);
+        }
+        else if (ask.PipeTiles != null)
+        {
+            FinishPipeWantIfFull(owner, ask);
         }
     }
 
@@ -193,6 +197,11 @@ public sealed partial class GameWorld
     /// </summary>
     public CommandResult SendToSite(long friendId, long siteId)
     {
+        // Minus a number: a neighbour's pipe want (step 3)
+        if (siteId < 0)
+        {
+            return SendToPipeWant(friendId, -siteId);
+        }
         if (Company(friendId) is not { } friend || Building(siteId) is not { } site || !IsSite(site) || Company(site.Owner) is not { } owner)
         {
             return CommandResult.Fail("That building has what it needs.");
@@ -231,6 +240,44 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
+    /// <summary>A friend's tap into a neighbour's pipe want (its owner is whoever has a pipe want of that number in the friend's station)</summary>
+    private CommandResult SendToPipeWant(long friendId, long wantId)
+    {
+        if (Company(friendId) is not { } friend || EstateOf(friend) is not { } estate)
+        {
+            return CommandResult.Fail("Unknown company.");
+        }
+        if (WantsNear(friend).FirstOrDefault(t => t.Target == -wantId) is not { Owner: not null } near)
+        {
+            return CommandResult.Fail("That pipe has what it needs.");
+        }
+        var owner = near.Owner;
+        if (SameDevice(friend, owner))
+        {
+            return CommandResult.Fail("Not between two accounts on one device.");
+        }
+        var sent = new List<string>();
+        foreach (var ask in owner.Asks.Where(t => t.PipeTiles != null && t.WantId == wantId && t.Left > 1e-6).ToList())
+        {
+            var units = TakeFromStorages(friend.Id, ask.Resource, Math.Min(Materials(friend.Id).GetValueOrDefault(ask.Resource), ask.Left));
+            if (units <= 1e-6)
+            {
+                continue;
+            }
+            ask.Got += units;
+            ask.From[friend.Id] = ask.From.GetValueOrDefault(friend.Id) + units;
+            PayForWant(owner, friend, ask, units);
+            sent.Add($"{units:N0} {GoodsWord(ask.Resource)}");
+            FinishPipeWantIfFull(owner, ask);
+        }
+        if (sent.Count == 0)
+        {
+            return CommandResult.Fail("Your Storages hold none of what it wants.");
+        }
+        Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.Neighbour, $"{NameFor(friend, owner)} sent {string.Join(" and ", sent)} for your {near.Name} 💛"));
+        return CommandResult.Ok;
+    }
+
     /// <summary>A scaffold is given up before it stands: the building's price and what was paid for its goods come back</summary>
     public CommandResult CancelSite(long companyId, long siteId)
     {
@@ -261,10 +308,13 @@ public sealed partial class GameWorld
     /// <summary>For tests and the dev cheat: goods put into a company's Storages; returns how much fitted</summary>
     public double Stock(long companyId, string resource, double amount) => PutInStorages(companyId, resource, amount);
 
-    /// <summary>The wants in a company's station it could help with: what its Storages hold of them, and whether it makes them</summary>
-    public List<(Company Owner, Building Site, CompanyAsk Want, double Holds, bool Makes)> WantsNear(Company me)
+    /// <summary>
+    /// The wants in a company's station it could help with (a building's or a pipe's, with its target as OpenWants gives
+    /// it): what its Storages hold of them, and whether it makes them
+    /// </summary>
+    public List<(Company Owner, long Target, string Name, CompanyAsk Want, double Holds, bool Makes)> WantsNear(Company me)
     {
-        var found = new List<(Company, Building, CompanyAsk, double, bool)>();
+        var found = new List<(Company, long, string, CompanyAsk, double, bool)>();
         if (EstateOf(me) is not { } estate)
         {
             return found;
@@ -272,17 +322,13 @@ public sealed partial class GameWorld
         var materials = Materials(me.Id);
         foreach (var owner in StationPlayers(estate.Station).Where(t => t.Id != me.Id))
         {
-            foreach (var ask in owner.Asks.Where(t => t.Site != null && t.Left > 1e-6))
+            foreach (var (target, name, ask) in OpenWants(owner))
             {
-                if (Building(ask.Site!.Value) is not { } site)
-                {
-                    continue;
-                }
                 var holds = materials.GetValueOrDefault(ask.Resource);
                 var makes = BuildingsOf(me.Id).Any(b => !b.UnderConstruction && Content.Building(b.Type).Out.ContainsKey(ask.Resource));
                 if (holds >= 1 || makes)
                 {
-                    found.Add((owner, site, ask, holds, makes));
+                    found.Add((owner, target, name, ask, holds, makes));
                 }
             }
         }

@@ -576,6 +576,15 @@ export class GameClient {
           this.setTool({ kind: "build", type: fix.buildingType });
         }
         break;
+      case "pipeTier": {
+        const tiles: TilePosition[] = [];
+        for (let i = 0; i + 1 < fix.tiles.length; i += 2) {
+          tiles.push({ x: fix.tiles[i]!, y: fix.tiles[i + 1]! });
+        }
+        await this.upgradePipes(tiles, fix.tier);
+        void this.refreshCompany();
+        break;
+      }
     }
   }
 
@@ -1636,7 +1645,8 @@ export class GameClient {
           tiles.flatMap((t) => [t.x, t.y]),
           tier,
         ),
-        `${tiles.length} pipe tiles upgraded to ${name}`,
+        // Laid now, or a want until its materials are in (its own note says which)
+        `${name} on ${tiles.length} tiles`,
       )
     ) {
       window.setTimeout(() => void this.refreshNetwork(), 1200);

@@ -127,8 +127,13 @@ public record CompanyDto(
     bool ResearchOpen = true,
     /// <summary>A seat a friend keeps for you, whose link you opened while living elsewhere (null: none)</summary>
     KeptSeatDto? KeptSeat = null,
-    /// <summary>Neighbours' scaffolds this player could help with (after run 3, step 2)</summary>
-    IReadOnlyList<WantNearDto>? WantsNear = null);
+    /// <summary>Neighbours' scaffolds and pipes this player could help with (after run 3, steps 2 and 3)</summary>
+    IReadOnlyList<WantNearDto>? WantsNear = null,
+    /// <summary>This player's own open wants, a building's or a pipe's</summary>
+    IReadOnlyList<OwnWantDto>? Wants = null);
+
+/// <summary>An own want: its target (a building's id, or minus a pipe want's number), what it wants, what is in and coming; Tiles for a pipe</summary>
+public record OwnWantDto(long Target, string Name, string Resource, double Amount, double Got, double PerMinute, int? Tiles);
 
 /// <summary>A friend's kept seat: its code, who keeps it, their crew, and where it is and where you live</summary>
 public record KeptSeatDto(string Code, string From, string Crew, string Station, string? YourStation);
@@ -358,7 +363,7 @@ public record BuildingStatusDto(string Cause, string? Pill, string? Reach, Build
 /// The one fix button: Kind layPipe (Tiles as x,y pairs, to show as a ghost and lay), open (Building), repair, upgrade
 /// (Building by a level) or build (the build tool with BuildingType); Target names where a pipe goes
 /// </summary>
-public record BuildingFixDto(string Kind, string Label, int[] Tiles, int NewTiles, double Cost, long? Building, string? BuildingType, string? Target, bool OwnNeed = false);
+public record BuildingFixDto(string Kind, string Label, int[] Tiles, int NewTiles, double Cost, long? Building, string? BuildingType, string? Target, bool OwnNeed = false, int Tier = 0);
 
 /// <summary>
 /// Smart Max (F8): the Max button buys MaxAffordableLevels, the levels its pipes can feed; these are the levels the gold

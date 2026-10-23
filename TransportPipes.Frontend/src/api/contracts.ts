@@ -126,8 +126,10 @@ export interface CompanyDto {
   researchOpen: boolean;
   /** A seat a friend keeps for you, whose link you opened while living elsewhere (null: none) */
   keptSeat: KeptSeatDto | null;
-  /** Neighbours' scaffolds this player could help with */
+  /** Neighbours' scaffolds and pipes this player could help with */
   wantsNear: WantNearDto[] | null;
+  /** This player's own open wants, a building's or a pipe's */
+  wants: OwnWantDto[] | null;
 }
 
 /** Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there */
@@ -653,7 +655,7 @@ export interface BuildingStatusDto {
 
 /** The one fix button: lay a planned pipe (tiles as x, y pairs), open another building, repair, upgrade, or build */
 export interface BuildingFixDto {
-  kind: "layPipe" | "open" | "repair" | "upgrade" | "build";
+  kind: "layPipe" | "open" | "repair" | "upgrade" | "build" | "pipeTier";
   label: string;
   tiles: number[];
   newTiles: number;
@@ -664,6 +666,8 @@ export interface BuildingFixDto {
   target: string | null;
   /** The pipe goes to one of your own buildings short of what this one makes: it comes before a neighbour's Send */
   ownNeed: boolean;
+  /** pipeTier: the tier the tiles go to */
+  tier: number;
 }
 
 export interface MaxMoreDto {
@@ -1642,6 +1646,17 @@ export interface SiteWantDto {
   from: string[];
   /** When nobody near makes it: the building that would, and who makes its inputs */
   chain: string | null;
+}
+
+/** An own want: its target (a building's id, or minus a pipe want's number), what it wants, what is in and coming; tiles for a pipe */
+export interface OwnWantDto {
+  target: number;
+  name: string;
+  resource: string;
+  amount: number;
+  got: number;
+  perMinute: number;
+  tiles: number | null;
 }
 
 /** A neighbour's scaffold this player could help with */

@@ -113,8 +113,10 @@ public static partial class GameViews
             company.KeepResearching,
             world.ResearchOpen(company),
             KeptSeat(world, company),
-            world.WantsNear(company).Select(t => new WantNearDto(t.Site.Id, world.NameFor(t.Owner, company), world.Content.Building(t.Site.Type).Name, t.Want.Resource,
-                Math.Round(t.Want.Left), Math.Floor(t.Holds), t.Makes)).ToList());
+            world.WantsNear(company).Select(t => new WantNearDto(t.Target, world.NameFor(t.Owner, company), t.Name, t.Want.Resource,
+                Math.Round(t.Want.Left), Math.Floor(t.Holds), t.Makes)).ToList(),
+            world.OpenWants(company).Select(t => new OwnWantDto(t.Target, t.Name, t.Want.Resource, t.Want.Amount, Math.Round(t.Want.Got, 1),
+                Math.Round(t.Want.Incoming.Values.Sum(), 2), t.Want.PipeTiles?.Count)).ToList());
     }
 
     /// <summary>A seat a friend keeps for a company that opened its link and lives elsewhere (run 3: Ben)</summary>
@@ -1107,8 +1109,8 @@ public static partial class GameViews
     {
         var status = world.IdleStatusOf(building);
         var fix = status.Fix is { } f
-            ? new BuildingFixDto(Camel(f.Kind), f.Label, f.Pipe?.Tiles.SelectMany(t => new[] { t.X, t.Y }).ToArray() ?? [], f.Pipe?.NewTiles ?? 0, Math.Round(f.Cost, 2),
-                f.Building, f.BuildingType, f.Pipe?.Target is { } target ? world.Content.Building(target.Type).Name : null, f.OwnNeed)
+            ? new BuildingFixDto(Camel(f.Kind), f.Label, (f.Tiles ?? f.Pipe?.Tiles)?.SelectMany(t => new[] { t.X, t.Y }).ToArray() ?? [], f.Pipe?.NewTiles ?? 0, Math.Round(f.Cost, 2),
+                f.Building, f.BuildingType, f.Pipe?.Target is { } target ? world.Content.Building(target.Type).Name : null, f.OwnNeed, f.Tier)
             : null;
         return new BuildingStatusDto(Camel(status.Reason.Cause), status.Pill, status.Reach, fix);
     }

@@ -1,3 +1,4 @@
+using TransportPipes.Game.World;
 using TransportPipes.Game.State;
 
 namespace TransportPipes.Game.Tests;
@@ -88,6 +89,72 @@ public class WantFacts
 
         Assert.IsFalse(GameWorld.IsSite(site), $"filled by the Yard: {string.Join(", ", ana.Asks.Select(t => $"{t.Resource} {t.Got}/{t.Amount}"))}");
         Assert.IsGreaterThan(benGold, ben.Gold, "Ben's energy was paid for");
+    }
+
+    /// <summary>Ana's grey pipe from a moily to her trading post, Copper Pipe researched</summary>
+    private static (TestGame Game, Company Ana, Company Ben, List<TilePos> Pipe) GreyPipe()
+    {
+        var (game, ana, ben) = Station();
+        ana.Researched.Add("copperPipes");
+        var moily = game.Build(ana, "windMoily");
+        var pipe = game.Connect(ana, moily, game.TradingPost(ana));
+        game.Pass(1);
+        return (game, ana, ben, pipe);
+    }
+
+    [TestMethod]
+    public void ACopperPipeWithoutItsIngotsWantsThem()
+    {
+        // Run 3: Cleo's Copper Pipe click did nothing; its 28 ingots had to come from her own Storage (cleo d21 #399–#404)
+        var (game, ana, ben, pipe) = GreyPipe();
+        var gold = ana.Gold;
+
+        Assert.IsTrue(game.World.UpgradePipes(ana.Id, pipe, 2).Success);
+
+        var want = ana.Asks.Single(t => t.PipeTiles != null);
+        Assert.AreEqual("copperIngot", want.Resource);
+        Assert.AreEqual(pipe.Count, want.Amount, 1e-6, "an ingot a tile");
+        Assert.IsTrue(pipe.All(t => game.World.Conductors.First(c => c.Pos == t).Tier == 1), "the pipe carries on as it was meanwhile");
+        Assert.AreEqual(gold - 10 * pipe.Count, ana.Gold, 1e-6, "its gold is paid");
+
+        // Ben's Storage has copper ingots: one tap and the pipe is copper
+        Store(game, ben, "copperIngot", 100);
+        var target = game.World.WantsNear(ben).Single().Target;
+        Assert.IsTrue(game.World.SendToSite(ben.Id, target).Success);
+        Assert.IsTrue(pipe.All(t => game.World.Conductors.First(c => c.Pos == t).Tier == 2), "copper now");
+        Assert.IsEmpty(ana.Asks);
+    }
+
+    [TestMethod]
+    public void APipeWantGivenUpGivesItsGoldBack()
+    {
+        var (game, ana, _, pipe) = GreyPipe();
+        var gold = ana.Gold;
+        game.World.UpgradePipes(ana.Id, pipe, 2);
+        var id = ana.Asks.Single().WantId;
+
+        Assert.IsTrue(game.World.CancelPipeWant(ana.Id, id).Success);
+
+        Assert.AreEqual(gold, ana.Gold, 1e-6);
+        Assert.IsTrue(pipe.All(t => game.World.Conductors.First(c => c.Pos == t).Tier == 1));
+    }
+
+    [TestMethod]
+    public void AFullGreyPipeOffersCopper()
+    {
+        // A moily that makes more than its grey pipe carries: its fix is the Copper Pipe on that link
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(gold: 10_000_000, level: 30);
+        company.Researched.Add("copperPipes");
+        var map = game.Map(company, game.Local(company, 1, 1), "W+T", pipeTier: 1);
+        game.World.UpgradeMany(company.Id, [map[(0, 0)].Id], 14);
+        game.Pass(2);
+
+        var fix = game.World.IdleStatusOf(map[(0, 0)]).Fix;
+
+        Assert.AreEqual(IdleFixKind.PipeTier, fix?.Kind);
+        Assert.AreEqual(2, fix!.Tier);
+        StringAssert.StartsWith(fix.Label, "Copper Pipe on its pipe · 1 tile");
     }
 
     [TestMethod]
