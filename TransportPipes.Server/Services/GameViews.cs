@@ -1132,7 +1132,7 @@ public static partial class GameViews
     /// Why a building's good reaches nobody at its Yard gate (a Send that moves nothing says so: run 3, Mia's water Send
     /// moved nothing for 27 days because her pump had no energy); null when some of it reaches the gate
     /// </summary>
-    private static string? NothingMoves(GameWorld world, Building building, string good)
+    private static string? NothingMoves(GameWorld world, Building building, string good, StationProject? project = null)
     {
         if (world.IdleReasonOf(building) is { Cause: not IdleCause.None } idle && (world.NetworkOf(building.Id)?.Solution.Rate(building.Id) ?? 0) < 0.005)
         {
@@ -1142,7 +1142,18 @@ public static partial class GameViews
         {
             return "its pipes don't reach your Yard gate";
         }
-        return network.GateFlows.Any(t => !t.Import && t.Building == building.Id && t.Resource == good && t.Sent > 1e-9) ? null : "your own buildings use all of it";
+        if (network.GateFlows.Any(t => !t.Import && t.Building == building.Id && t.Resource == good && t.Sent > 1e-9))
+        {
+            return null;
+        }
+        // Run 4: Dev's wood "used by your own buildings" while it sold at his post; the Foundry Hall opened only on day 14
+        if (project is { Stage: ProjectStage.FoundryHall } && project.StartedAt + TimeSpan.FromDays(14) is var opens && opens > world.Now)
+        {
+            return $"the Foundry Hall opens in {Span(opens - world.Now)}: it takes nothing until then";
+        }
+        return network.Solution.Flows.Any(t => t.From == building.Id && t.Resource == good && t.Kind == FlowKind.Sale && t.Sent > 1e-9)
+            ? "the Yard takes none of it now: it sells at your trading post"
+            : "your own buildings use all of it";
     }
 
     /// <summary>
@@ -1164,7 +1175,7 @@ public static partial class GameViews
                 .Where(t => project.Basket.ContainsKey(t) && project.Basket[t] - project.Delivered.GetValueOrDefault(t) > 0.5
                     && (project.Delivered.GetValueOrDefault(t) < project.Basket[t] * 0.995 || me.ProjectFirst.Contains(t)))
                 .Select(t => new ProjectWantDto(t, GameWorld.StageName(project.Stage), Math.Max(0, project.Basket[t] - project.Delivered.GetValueOrDefault(t)),
-                    Math.Round(trade.ToProject.GetValueOrDefault(t), 3), me.ProjectFirst.Contains(t), NothingMoves(world, building, t)))
+                    Math.Round(trade.ToProject.GetValueOrDefault(t), 3), me.ProjectFirst.Contains(t), NothingMoves(world, building, t, project)))
                 .ToList();
         if (trade.Takers.Count == 0 && trade.Suppliers.Count == 0 && trade.Bids.Count == 0 && wants.Count == 0)
         {

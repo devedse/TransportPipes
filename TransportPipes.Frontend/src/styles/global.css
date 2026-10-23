@@ -2616,9 +2616,14 @@ button.liked {
   z-index: 4;
 }
 
+/* Beside whatever panel docks on the right (run 4: the chat covered the Yard panel's neighbours list) */
 .app:has(.building-panel) .chat-panel,
-.app:has(.parcel-panel) .chat-panel {
-  right: calc(2 * var(--gap) + min(380px, calc(100vw - 24px)));
+.app:has(.parcel-panel) .chat-panel,
+.app:has(.yard-panel) .chat-panel,
+.app:has(.network-panel) .chat-panel,
+.app:has(.visit-panel) .chat-panel,
+.app:has(.inbox-panel) .chat-panel {
+  right: calc(2 * var(--gap) + min(400px, calc(100vw - 24px)));
 }
 
 .chat-channels {
@@ -4163,7 +4168,11 @@ select option {
 
   .chat-panel,
   .app:has(.building-panel) .chat-panel,
-  .app:has(.parcel-panel) .chat-panel {
+  .app:has(.parcel-panel) .chat-panel,
+  .app:has(.yard-panel) .chat-panel,
+  .app:has(.network-panel) .chat-panel,
+  .app:has(.visit-panel) .chat-panel,
+  .app:has(.inbox-panel) .chat-panel {
     bottom: 76px;
     left: var(--gap);
     right: var(--gap);
