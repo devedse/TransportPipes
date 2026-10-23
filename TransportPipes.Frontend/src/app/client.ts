@@ -572,7 +572,25 @@ export class GameClient {
         break;
       case "build":
         if (fix.buildingType !== null) {
-          this.setTool({ kind: "build", type: fix.buildingType });
+          // In hand, on a golden tile beside the building, and said so (run 4: Ben's "Build a second Trading Post"
+          // tap did nothing visible on his phone)
+          const type = fix.buildingType;
+          this.setTool({ kind: "build", type });
+          const near = this.nearestSpot(type, details.building.x, details.building.y);
+          const built = appStore.getState().content?.building(type)?.name ?? "It";
+          if (near !== null) {
+            setState({
+              hintTile: {
+                x: near.x,
+                y: near.y,
+                size: appStore.getState().content?.building(type)?.size ?? 1,
+              },
+            });
+            this.engine?.lookAt(near.x, near.y, 0.8);
+          }
+          toast(
+            `${built} in hand: ${near !== null ? "tap the golden tile" : "tap a free tile near it"}, then pipe your ${name} to it`,
+          );
         }
         break;
       case "pipeTier": {
