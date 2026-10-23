@@ -5882,3 +5882,17 @@ button.link.danger {
 .undo-line {
   margin: 6px 0;
 }
+
+/* A scaffold's wants (after run 3, step 2) */
+.site-wants .site-list {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0;
+  display: grid;
+  gap: 8px;
+}
+
+.site-wants .site-list li {
+  display: grid;
+  gap: 3px;
+}

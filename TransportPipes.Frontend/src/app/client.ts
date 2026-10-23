@@ -1922,6 +1922,26 @@ export class GameClient {
     }
   }
 
+  /** A friend's tap: what your Storages hold of a neighbour's want goes into their building */
+  async sendToSite(site: number): Promise<boolean> {
+    const ok = await this.command(
+      this.connection.sendToSite(site),
+      "💛 Sent: it goes straight into their building",
+    );
+    if (ok) {
+      void this.refreshCompany();
+    }
+    return ok;
+  }
+
+  /** Gives up a scaffold: its gold comes back */
+  async cancelSite(site: number) {
+    if (await this.command(this.connection.cancelSite(site), "Given up: the gold is yours again")) {
+      this.select(null);
+      void this.refreshCompany();
+    }
+  }
+
   /** Takes a building's last purchase back (within the hour of buying it) */
   async undo(building: number) {
     if (await this.command(this.connection.undo(building), "Taken back: the gold is yours again")) {
@@ -2117,6 +2137,8 @@ export class GameClient {
         setState({ returnCard: null });
         await this.openCrew();
         return true;
+      case "fillWant":
+        return line.building !== null ? await this.sendToSite(line.building) : false;
       default:
         return false;
     }

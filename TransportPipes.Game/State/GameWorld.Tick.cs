@@ -172,7 +172,8 @@ public sealed partial class GameWorld
     /// <summary>Finishes a construction right away (for tests and for paying to rush, later)</summary>
     public void FinishConstruction(long buildingId)
     {
-        if (Building(buildingId) is { UnderConstruction: true } building)
+        // A scaffold stands only once its materials are in
+        if (Building(buildingId) is { UnderConstruction: true } building && !IsSite(building))
         {
             CompleteConstruction(building);
         }

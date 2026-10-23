@@ -2455,12 +2455,14 @@ export class Engine {
         view.idle.y = -TILE_HEIGHT * (view.building?.size ?? 1) - 40 - Math.sin(this.time * 1.5) * 6;
       }
       if (view.progress !== null && view.building?.constructionEndsAt) {
+        // A scaffold waiting for its materials fills in gold with them (after run 3, step 2); a building site by its clock
+        const site = view.building.siteShare;
         const total = (content.building(view.building.type)?.buildSeconds ?? 60) * 1000;
         const left = new Date(view.building.constructionEndsAt).getTime() - now;
-        const done = Math.max(0, Math.min(1, 1 - left / total));
+        const done = site != null ? site : Math.max(0, Math.min(1, 1 - left / total));
         view.progress.clear();
         view.progress.roundRect(0, 0, 120, 16, 8).fill({ color: 0x17181c, alpha: 0.85 });
-        view.progress.roundRect(3, 3, 114 * done, 10, 5).fill({ color: 0x2ec4a6 });
+        view.progress.roundRect(3, 3, 114 * done, 10, 5).fill({ color: site != null ? 0xf2c14e : 0x2ec4a6 });
       }
     }
     for (const dot of this.flowDots) {

@@ -157,6 +157,10 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("Nothing to undo here any more: Undo lasts an hour.");
         }
+        if (IsSite(building))
+        {
+            return CancelSite(companyId, buildingId);
+        }
         var (purchase, refund) = undo;
         if (purchase.Kind == PurchaseKind.Upgrade)
         {

@@ -102,8 +102,9 @@ public sealed class GameHub : Hub<IGameClient>
         var browserId = http?.Request.Query["bid"].ToString();
         var ip = http?.Connection.RemoteIpAddress?.ToString();
         // The playtest's players all connect from one machine: each gets an address of its own, or every pair would
-        // count as one device and trade at the hub price (run 2 did, unseen; TransportPipes:Playtest only)
-        if (_options.Playtest && http?.Request.Headers["X-Playtest-Ip"].ToString() is { Length: > 0 } playtestIp)
+        // count as one device and trade at the hub price (run 2 did, unseen; TransportPipes:Playtest, and the dev
+        // server's e2e browsers where cheats are on)
+        if ((_options.Playtest || _options.Cheats) && http?.Request.Headers["X-Playtest-Ip"].ToString() is { Length: > 0 } playtestIp)
         {
             ip = playtestIp;
         }
@@ -259,6 +260,14 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<CommandResultDto> NameHold(string code, string? name) =>
         Command((world, company) => world.NameHold(company, code, name));
+
+    /// <summary>A friend's tap: what your Storages hold of what a neighbour's scaffold wants goes into it (after run 3, step 2)</summary>
+    public Task<CommandResultDto> SendToSite(long siteId) =>
+        Command((world, company) => world.SendToSite(company, siteId));
+
+    /// <summary>Gives up a scaffold that still waits for its materials: its gold comes back</summary>
+    public Task<CommandResultDto> CancelSite(long siteId) =>
+        Command((world, company) => world.CancelSite(company, siteId));
 
     /// <summary>Takes a building's last purchase back within the hour (after run 3: spending is safe)</summary>
     public Task<CommandResultDto> Undo(long buildingId) =>
@@ -1018,6 +1027,10 @@ public sealed class GameHub : Hub<IGameClient>
                     break;
                 case "research":
                     company.ResearchPoints += 5_000;
+                    break;
+                case "bricks":
+                    // 600 bricks into its Storages (wants, after run 3)
+                    world.Stock(companyId, "bricks", 600);
                     break;
                 case "tutorial":
                     // On to Loady's next step

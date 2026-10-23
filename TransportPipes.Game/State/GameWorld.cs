@@ -842,6 +842,16 @@ public sealed partial class GameWorld
             return placement;
         }
         var cost = BuildCost(company, definition);
+        // Short of its materials (not its gold): it stands as a scaffold that wants them (after run 3, step 2)
+        if (company.Gold >= cost - 1e-9 && definition.Cost.Materials.Count > 0
+            && definition.Cost.Materials.Any(t => Materials(company.Id).GetValueOrDefault(t.Key) < t.Value - 1e-9))
+        {
+            var xpAtSite = company.Xp;
+            var site = PlaceSite(company, definition, pos, cost);
+            GainXp(company, Content.Progression.XpReward("building") + (company.BuiltTypes.Add(type) ? Content.Progression.XpReward("firstBuildingOfType") : 0), "buildings", type);
+            RecordPurchase(company, PurchaseKind.Build, site, 0, cost, company.Xp - xpAtSite);
+            return CommandResult.Ok;
+        }
         var payment = Pay(company, cost, definition.Cost.Materials);
         if (!payment.Success)
         {

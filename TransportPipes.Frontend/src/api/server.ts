@@ -303,6 +303,10 @@ export class GameConnection {
   holdSeats = (count: number) => this.invoke<CommandResult>("HoldSeats", count);
   releaseHold = (code: string) => this.invoke<CommandResult>("ReleaseHold", code);
   nameHold = (code: string, name: string | null) => this.invoke<CommandResult>("NameHold", code, name);
+  /** A friend's tap: what your Storages hold of what a neighbour's scaffold wants goes into it */
+  sendToSite = (site: number) => this.invoke<CommandResult>("SendToSite", site);
+  /** Gives up a scaffold that still waits for its materials: its gold comes back */
+  cancelSite = (site: number) => this.invoke<CommandResult>("CancelSite", site);
   /** Takes a building's last purchase back within the hour */
   undo = (building: number) => this.invoke<CommandResult>("Undo", building);
   /** A friend's seat link opened while playing elsewhere (decline: "Not with them") */

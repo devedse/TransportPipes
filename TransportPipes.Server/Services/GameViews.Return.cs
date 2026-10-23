@@ -191,6 +191,16 @@ public static partial class GameViews
             var there = WorldNames.Station(WorldLayout.StationOf(seatKept.Hold.Seat.District, seatKept.Hold.Seat.Slot));
             Add(1, "people", "🪑", $"{from} keeps a seat for you in {there}{(world.EstateOf(me) is { } myHome ? $" (you live in {WorldNames.Station(myHome.Station)})" : "")}: move in, free", "seat");
         }
+        // A neighbour's scaffold you could help with (after run 3, step 2): your Storage at a tap, or your spare going there
+        if (world.WantsNear(me).OrderByDescending(t => t.Holds).FirstOrDefault() is { Owner: not null } near)
+        {
+            var name = world.Content.Building(near.Site.Type).Name;
+            var who = world.NameFor(near.Owner, me);
+            Add(2, "people", "🧱", near.Holds >= 1
+                    ? $"{who}'s {name} wants {near.Want.Left:N0} {world.GoodsWord(near.Want.Resource)}: your Storage holds {Math.Floor(near.Holds):N0}"
+                    : $"{who}'s {name} wants {near.Want.Left:N0} {world.GoodsWord(near.Want.Resource)}: your spare goes there first",
+                near.Holds >= 1 ? "fillWant" : null, near.Site.Id);
+        }
         // The crew's side: a friend who opened your link but lives elsewhere, and where
         if (world.CrewOf(me) is { } ownCrew)
         {

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { gameClient } from "../app/client";
 import { formatAmount, formatDuration, possessive } from "../app/format";
 import { useNow } from "../app/useNow";
-import type { BuildingDetailsDto, BuildingFlowDto, BuildingTradeDto } from "../api/contracts";
+import type { BuildingDetailsDto, BuildingFlowDto, BuildingTradeDto, SiteDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import type { TerraformAction } from "../game/Engine";
 import { currentGold, useAppStore } from "../state/store";
@@ -265,6 +265,59 @@ function Flows({ details, content }: { details: BuildingDetailsDto; content: Con
   );
 }
 
+/**
+ * A scaffold that wants its materials (after run 3, step 2): each one with what is in and what comes now, who brought
+ * it, the chain when nobody near makes it, and Cancel with the gold it gives back
+ */
+function SiteWants({
+  site,
+  content,
+  mine,
+  building,
+}: {
+  site: SiteDto;
+  content: Content;
+  mine: boolean;
+  building: number;
+}) {
+  return (
+    <div className="site-wants">
+      <p className="status building">🏗 Waiting for its materials: it is built once they are in</p>
+      <ul className="site-list">
+        {site.wants.map((want) => {
+          const name = content.resourceName(want.resource).toLowerCase();
+          return (
+            <li key={want.resource}>
+              <span>
+                Wants {formatAmount(want.amount)} {name} · <strong>{formatAmount(want.got)} in</strong>
+                {want.perMinute > 0.005 && (
+                  <span className="muted"> · {formatAmount(want.perMinute)}/min coming</span>
+                )}
+              </span>
+              <span className="goal-bar">
+                <span
+                  style={{ width: `${Math.round(Math.min(1, want.got / Math.max(1, want.amount)) * 100)}%` }}
+                />
+              </span>
+              {want.from.length > 0 && <span className="muted small">from {want.from.join(" · ")}</span>}
+              {want.chain !== null && <span className="small">{want.chain}</span>}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="muted small">
+        Your Storages give it what they hold; your spare and your neighbours&apos; reach it through the Yard
+        by themselves; a neighbour can send theirs from their Storage.
+      </p>
+      {mine && (
+        <button className="small" onClick={() => void gameClient.cancelSite(building)}>
+          Give it up · {formatAmount(site.refund)} g back
+        </button>
+      )}
+    </div>
+  );
+}
+
 /** Minutes of income as a short time: "27 min", "3 h", "2 days" */
 function formatTimeOfIncome(minutes: number): string {
   return minutes < 90
@@ -340,7 +393,9 @@ export function BuildingPanel() {
         </button>
       </div>
 
-      {underConstruction ? (
+      {details.site !== null ? (
+        <SiteWants site={details.site} content={content} mine={mine} building={building.id} />
+      ) : underConstruction ? (
         <p className="status building">
           🏗 Under construction · ready in {formatDuration(Math.max(0, secondsLeft))}
         </p>
@@ -447,7 +502,7 @@ export function BuildingPanel() {
           )}
         </section>
       )}
-      {mine && details.undoRefund !== null && (
+      {mine && details.undoRefund !== null && details.site === null && (
         <p className="small undo-line">
           <button className="small" onClick={() => void gameClient.undo(building.id)}>
             Undo · {formatAmount(details.undoRefund)} g back

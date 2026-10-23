@@ -126,7 +126,9 @@ public record CompanyDto(
     /// <summary>Something can be researched now (run 3: "pick one!" over 449k points with every tech locked)</summary>
     bool ResearchOpen = true,
     /// <summary>A seat a friend keeps for you, whose link you opened while living elsewhere (null: none)</summary>
-    KeptSeatDto? KeptSeat = null);
+    KeptSeatDto? KeptSeat = null,
+    /// <summary>Neighbours' scaffolds this player could help with (after run 3, step 2)</summary>
+    IReadOnlyList<WantNearDto>? WantsNear = null);
 
 /// <summary>A friend's kept seat: its code, who keeps it, their crew, and where it is and where you live</summary>
 public record KeptSeatDto(string Code, string From, string Crew, string Station, string? YourStation);
@@ -227,7 +229,17 @@ public record MarketDto(int DistrictX, int DistrictY, string District, IReadOnly
 /// <summary>A tech as one company sees it</summary>
 public record ResearchStateDto(string Id, string State, double Cost, string? Reason, double Diffusion);
 
-public record BuildingDto(long Id, string Type, long Owner, int X, int Y, int Size, int Level, DateTime? ConstructionEndsAt, int? Network, bool Damaged, long? Link = null);
+/// <param name="SiteShare">A scaffold that wants materials: how much of them is in (0–1); null for any other building</param>
+public record BuildingDto(long Id, string Type, long Owner, int X, int Y, int Size, int Level, DateTime? ConstructionEndsAt, int? Network, bool Damaged, long? Link = null, double? SiteShare = null);
+
+/// <summary>A scaffold's wants (after run 3, step 2): each material, what is in, what comes now and from whom, and what Cancel gives back</summary>
+public record SiteDto(IReadOnlyList<SiteWantDto> Wants, double Refund);
+
+/// <param name="Chain">When nobody near makes it: the building that would, and who makes its inputs</param>
+public record SiteWantDto(string Resource, double Amount, double Got, double PerMinute, IReadOnlyList<string> From, string? Chain);
+
+/// <summary>A neighbour's scaffold this player could help: what it wants, what this player's Storages hold of it, and whether it makes it</summary>
+public record WantNearDto(long Site, string Owner, string Building, string Resource, double Left, double Holds, bool Makes);
 
 public record ConductorDto(int X, int Y, string Kind, int Tier, long Owner, int? Network);
 
@@ -306,7 +318,9 @@ public record BuildingDetailsDto(
     string? MaxPreview = null,
     /// <summary>Its last purchase can be taken back for this much gold until UndoUntil (null: nothing to undo)</summary>
     double? UndoRefund = null,
-    DateTime? UndoUntil = null);
+    DateTime? UndoUntil = null,
+    /// <summary>A scaffold that still wants materials (null: none)</summary>
+    SiteDto? Site = null);
 
 /// <summary>
 /// A building's trade with its neighbours, for its owner (step 4): who takes its goods and who sends it its inputs (both

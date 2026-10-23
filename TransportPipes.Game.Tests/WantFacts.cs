@@ -1,0 +1,109 @@
+using TransportPipes.Game.State;
+
+namespace TransportPipes.Game.Tests;
+
+/// <summary>
+/// Wants (after run 3, the design team's step 2): a building short of materials stands as a scaffold that wants them,
+/// and its owner's Storages, a friend's Storage and the station's spare fill it (run 3: "I don't know how to hand you
+/// 100 bricks directly")
+/// </summary>
+[TestClass]
+public class WantFacts
+{
+    private static (TestGame Game, Company Ana, Company Ben) Station()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var ana = game.NewCompany("Ana", gold: 1_000_000, level: 20);
+        var ben = game.NewCompany("Ben", gold: 1_000_000, level: 20);
+        game.Pass(1);
+        return (game, ana, ben);
+    }
+
+    private static Building MarketHall(TestGame game, Company company) =>
+        game.World.Building(game.World.BuildingsOf(company.Id).Where(t => t.Type == "marketHall").Select(t => t.Id).Single())!;
+
+    private static void Store(TestGame game, Company company, string resource, double amount)
+    {
+        var storage = game.Build(company, "storage");
+        game.World.FinishConstruction(storage.Id);
+        storage.Contents[resource] = amount;
+    }
+
+    [TestMethod]
+    public void ABuildingShortOfItsMaterialsStandsAsAScaffoldThatWantsThem()
+    {
+        var (game, ana, _) = Station();
+        Store(game, ana, "bricks", 40);
+        var gold = ana.Gold;
+
+        var placed = game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
+
+        Assert.IsTrue(placed.Success, placed.Error);
+        var site = MarketHall(game, ana);
+        Assert.IsTrue(GameWorld.IsSite(site), "it stands, waiting for its bricks");
+        var want = game.World.WantsOf(site).Single();
+        Assert.AreEqual("bricks", want.Resource);
+        Assert.AreEqual(40, want.Got, 1e-6, "its Storage gave what it held");
+        Assert.AreEqual(460, want.Left, 1e-6);
+        Assert.AreEqual(gold - game.World.Content.Building("marketHall").Cost.Gold, ana.Gold, 1e-6, "its gold is paid");
+    }
+
+    [TestMethod]
+    public void AFriendsStorageFillsItWithOneTapAndItIsBuilt()
+    {
+        var (game, ana, ben) = Station();
+        game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
+        var site = MarketHall(game, ana);
+        Store(game, ben, "bricks", 800);
+        var (anaGold, benGold) = (ana.Gold, ben.Gold);
+        game.World.TakeChanges();
+
+        var sent = game.World.SendToSite(ben.Id, site.Id);
+
+        Assert.IsTrue(sent.Success, sent.Error);
+        Assert.IsFalse(GameWorld.IsSite(site), "it has its bricks");
+        Assert.IsTrue(site.UnderConstruction, "and is being built");
+        Assert.AreEqual(300, game.World.Materials(ben.Id).GetValueOrDefault("bricks"), 1e-6, "500 left Ben's Storage");
+        var price = 500 * game.World.PlayerPrice("bricks");
+        Assert.AreEqual(benGold + price, ben.Gold, 1e-6, "Ben is paid the one player price");
+        Assert.AreEqual(anaGold - price, ana.Gold, 1e-6);
+        var events = game.World.TakeChanges().Events;
+        Assert.IsTrue(events.Any(t => t.Company == ana.Id && t.Text.Contains("Ben") && t.Text.Contains("Market Hall")), string.Join(" | ", events.Select(t => t.Text)));
+        Assert.IsTrue(events.Any(t => t.Company == ben.Id && t.Text.StartsWith("Your bricks built Ana's Market Hall")), string.Join(" | ", events.Select(t => t.Text)));
+    }
+
+    [TestMethod]
+    public void TheStationsSpareFillsAWantThroughTheYardOwnGoodsFirst()
+    {
+        var (game, ana, ben) = Station();
+        game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
+        var site = MarketHall(game, ana);
+        // The engine is the same for any good: an energy want, which Ben's and Ana's moilies have spare at their gates
+        ana.Asks.RemoveAll(t => t.Site == site.Id);
+        ana.Asks.Add(new CompanyAsk { Resource = "energy", Amount = 300, Until = DateTime.MaxValue, Site = site.Id });
+        game.ConnectToGate(ben, game.Build(ben, "windMoily"));
+        var benGold = ben.Gold;
+
+        game.Pass(60);
+
+        Assert.IsFalse(GameWorld.IsSite(site), $"filled by the Yard: {string.Join(", ", ana.Asks.Select(t => $"{t.Resource} {t.Got}/{t.Amount}"))}");
+        Assert.IsGreaterThan(benGold, ben.Gold, "Ben's energy was paid for");
+    }
+
+    [TestMethod]
+    public void CancelGivesTheGoldBack()
+    {
+        var (game, ana, ben) = Station();
+        var gold = ana.Gold;
+        game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
+        var site = MarketHall(game, ana);
+        Store(game, ben, "bricks", 100);
+        game.World.SendToSite(ben.Id, site.Id);
+
+        Assert.IsTrue(game.World.CancelSite(ana.Id, site.Id).Success);
+
+        Assert.IsNull(game.World.Building(site.Id), "the scaffold goes");
+        Assert.AreEqual(gold, ana.Gold, 1e-6, "with all the gold: the building's and the bricks'");
+        Assert.IsEmpty(ana.Asks);
+    }
+}

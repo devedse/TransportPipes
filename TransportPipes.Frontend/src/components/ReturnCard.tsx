@@ -28,6 +28,8 @@ function actionLabel(line: ReturnLineDto): string | null {
       return "Look";
     case "seat":
       return "Move in";
+    case "fillWant":
+      return "Send them ▸";
     case "crew":
       return "Crew";
     case "show":

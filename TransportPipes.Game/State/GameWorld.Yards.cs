@@ -1127,10 +1127,10 @@ public sealed partial class GameWorld
         }
 
         // Asks: what was brought last round arrives, and the residents' spare goes to their neighbours' Asks first
-        foreach (var (_, members) in byStation)
+        foreach (var (station, members) in byStation)
         {
-            DeliverAsks(members);
-            MatchAsks(members, TermsOf);
+            DeliverAsks(station, members);
+            MatchAsks(station, members, TermsOf);
         }
 
         // Links between stations: what they brought arrives, then they take their share before the Yards

@@ -112,7 +112,9 @@ public static partial class GameViews
             company.ResearchQueue.ToList(),
             company.KeepResearching,
             world.ResearchOpen(company),
-            KeptSeat(world, company));
+            KeptSeat(world, company),
+            world.WantsNear(company).Select(t => new WantNearDto(t.Site.Id, world.NameFor(t.Owner, company), world.Content.Building(t.Site.Type).Name, t.Want.Resource,
+                Math.Round(t.Want.Left), Math.Floor(t.Holds), t.Makes)).ToList());
     }
 
     /// <summary>A seat a friend keeps for a company that opened its link and lives elsewhere (run 3: Ben)</summary>
@@ -412,7 +414,47 @@ public static partial class GameViews
         building.ConstructionEndsAt,
         world.NetworkOf(building.Id)?.Id,
         building.Damaged,
-        world.TeleportReceiver(building)?.Id);
+        world.TeleportReceiver(building)?.Id,
+        GameWorld.IsSite(building) ? SiteShare(world, building) : null);
+
+    /// <summary>How much of a scaffold's materials is in, by worth</summary>
+    private static double SiteShare(GameWorld world, Building site)
+    {
+        var wants = world.WantsOf(site);
+        var target = wants.Sum(t => t.Amount * world.BasePrice(t.Resource));
+        return target <= 0 ? 1 : Math.Round(wants.Sum(t => Math.Min(t.Got, t.Amount) * world.BasePrice(t.Resource)) / target, 3);
+    }
+
+    /// <summary>A scaffold as its panel shows it: each want, who brought what and what comes now, and the chain when nobody near makes it</summary>
+    private static SiteDto? Site(GameWorld world, Building site, Company? viewer)
+    {
+        if (!GameWorld.IsSite(site) || world.Company(site.Owner) is not { } owner)
+        {
+            return null;
+        }
+        var wants = world.WantsOf(site);
+        var near = world.EstateOf(owner) is { } estate ? world.StationMakes(estate.Station) : [];
+        var list = wants.Select(t => new SiteWantDto(t.Resource, t.Amount, Math.Round(t.Got, 1), Math.Round(t.Incoming.Values.Sum(), 2),
+            t.From.Where(f => f.Value >= 0.5).OrderByDescending(f => f.Value)
+                .Select(f => f.Key == owner.Id ? $"you: {f.Value:N0}" : $"{(world.Company(f.Key) is { } who && viewer != null ? world.NameFor(who, viewer) : "a neighbour")}: {f.Value:N0}").ToList(),
+            near.Contains(t.Resource) ? null : Chain(world, t.Resource, near))).ToList();
+        var refund = wants.Sum(t => t.Paid) + (owner.Purchases.FirstOrDefault(p => p.Building == site.Id)?.Cost ?? world.BuildCost(owner, world.Content.Building(site.Type)));
+        return new SiteDto(list, Math.Round(refund));
+    }
+
+    /// <summary>"nobody near makes bricks yet: a Brickworks makes them from stone (Ana) and coal (nobody near)"</summary>
+    private static string Chain(GameWorld world, string good, HashSet<string> near)
+    {
+        var producer = world.Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.ContainsKey(good))
+            .OrderBy(t => t.Unlock.Level).ThenBy(t => t.Cost.Gold).FirstOrDefault();
+        if (producer == null)
+        {
+            return $"nobody near makes {world.GoodsWord(good)} yet";
+        }
+        var inputs = producer.In.Keys.Where(t => t != "energy").Select(t => $"{world.GoodsWord(t)}{(near.Contains(t) ? "" : " (nobody near yet)")}").ToList();
+        return $"nobody near makes {world.GoodsWord(good)} yet: {GameWorld.Article(producer.Name)} makes {(world.GoodsWord(good).EndsWith('s') ? "them" : "it")}"
+            + (inputs.Count > 0 ? $" from {string.Join(" and ", inputs)}" : "");
+    }
 
     public static ChunkObjectsDto ChunkObjects(GameWorld world, int cx, int cy)
     {
@@ -987,7 +1029,8 @@ public static partial class GameViews
             upgradable && owner != null && viewer?.Id == owner.Id ? NullIfEmpty(world.UpgradePreview(owner, building, 1).Text) : null,
             upgradable && owner != null && viewer?.Id == owner.Id && max != null && max.Levels > 1 ? NullIfEmpty(world.UpgradePreview(owner, building, max.Levels).Text) : null,
             owner != null && viewer?.Id == owner.Id && world.Undoable(owner, building) is { } undo ? undo.Refund : null,
-            owner != null && viewer?.Id == owner.Id && world.Undoable(owner, building) is { } until ? until.Purchase.At + GameWorld.UndoFor : null);
+            owner != null && viewer?.Id == owner.Id && world.Undoable(owner, building) is { } until ? until.Purchase.At + GameWorld.UndoFor : null,
+            Site(world, building, viewer));
     }
 
     private static string? NullIfEmpty(string text) => text.Length == 0 ? null : text;

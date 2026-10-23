@@ -22,6 +22,17 @@ public sealed class CompanyAsk
     public Dictionary<long, double> Incoming { get; set; } = new();
     public Dictionary<long, double> Matched { get; set; } = new();
 
+    /// <summary>
+    /// A want (after run 3, the design team's step 2): the building whose materials this asks for. Its goods go into the
+    /// build, never a Storage; the owner's own spare comes first, then the neighbours' at the one player price; it has no
+    /// deadline (an Order finishes it)
+    /// </summary>
+    public long? Site { get; init; }
+
+    /// <summary>A want: the gold its owner paid for what others brought (Cancel gives it back), and who brought how much</summary>
+    public double Paid { get; set; }
+    public Dictionary<long, double> From { get; set; } = new();
+
     public double Left => Math.Max(0, Amount - Got);
 }
 
@@ -99,11 +110,11 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("Choose an amount.");
         }
-        if (company.Asks.Any(t => t.Resource == resource))
+        if (company.Asks.Any(t => t.Resource == resource && t.Site == null))
         {
             return CommandResult.Fail($"You ask for {definition.Name.ToLowerInvariant()} already.");
         }
-        if (company.Asks.Count >= MaxAsks)
+        if (company.Asks.Count(t => t.Site == null) >= MaxAsks)
         {
             return CommandResult.Fail($"At most {MaxAsks} Asks at a time.");
         }
@@ -135,7 +146,7 @@ public sealed partial class GameWorld
 
     public CommandResult CancelAsk(long companyId, string resource)
     {
-        if (Company(companyId) is not { } company || company.Asks.FirstOrDefault(t => t.Resource == resource) is not { } ask)
+        if (Company(companyId) is not { } company || company.Asks.FirstOrDefault(t => t.Resource == resource && t.Site == null) is not { } ask)
         {
             return CommandResult.Fail("No such Ask.");
         }
@@ -174,18 +185,25 @@ public sealed partial class GameWorld
     /// The Asks' share of a station's round (v1.2 §7: contracts, then Asks, then links and the Yard): the residents' spare
     /// goes first to what their neighbours asked for, at the one player price
     /// </summary>
-    private void MatchAsks(List<YardMember> members, Func<EstateKey, GateTerms> termsOf)
+    private void MatchAsks(StationRef station, List<YardMember> members, Func<EstateKey, GateTerms> termsOf)
     {
-        var askers = members.Where(t => !t.Company.IsNpc && !t.Company.Asleep && t.Company.Asks.Count > 0).ToList();
-        foreach (var asker in askers)
+        foreach (var asker in Askers(station, members))
         {
-            foreach (var ask in asker.Company.Asks)
+            var member = members.FirstOrDefault(t => t.Company.Id == asker.Id);
+            foreach (var ask in asker.Asks)
             {
+                // A plain Ask fills the asker's storages through its gate; a want goes into the build, gate or not
+                if (ask.Site == null && member == null)
+                {
+                    continue;
+                }
                 ask.Matched = new Dictionary<long, double>();
-                // In an hour at most what is left, never more than its storages hold
-                var lacks = Math.Min(ask.Left, StorageRoom(asker.Company.Id)) / 60;
-                foreach (var seller in members.Where(t => t != asker && !t.Company.IsNpc && !t.Company.Asleep && t.Spare.GetValueOrDefault(ask.Resource) > 1e-9
-                             && YardTradeAllowed(t.Company, asker.Company, ask.Resource)).OrderBy(t => t.Company.Id))
+                // An Ask: in an hour at most what is left, never more than its storages hold. A want: all that is left,
+                // the owner's own spare first (it costs nothing), then its neighbours'
+                var lacks = ask.Site != null ? ask.Left : Math.Min(ask.Left, StorageRoom(asker.Id)) / 60;
+                foreach (var seller in members.Where(t => (t.Company.Id != asker.Id || ask.Site != null) && !t.Company.IsNpc && !t.Company.Asleep && t.Spare.GetValueOrDefault(ask.Resource) > 1e-9
+                             && (t.Company.Id == asker.Id || YardTradeAllowed(t.Company, asker, ask.Resource)))
+                             .OrderBy(t => t.Company.Id == asker.Id ? 0 : 1).ThenBy(t => t.Company.Id))
                 {
                     if (lacks <= 1e-9)
                     {
@@ -202,13 +220,21 @@ public sealed partial class GameWorld
         }
     }
 
+    /// <summary>The players of a station with Asks or wants: its Yard's members, and a want's owner whose gate has no pipe yet</summary>
+    private List<Company> Askers(StationRef station, List<YardMember> members) =>
+        members.Select(t => t.Company)
+            .Concat(StationPlayers(station).Where(t => t.Asks.Any(a => a.Site != null)))
+            .Where(t => !t.IsNpc && !t.Asleep && t.Asks.Count > 0)
+            .DistinctBy(t => t.Id)
+            .ToList();
+
     /// <summary>What the last round matched for the Asks arrives now (less when a seller sent less)</summary>
-    private void DeliverAsks(List<YardMember> members)
+    private void DeliverAsks(StationRef station, List<YardMember> members)
     {
         var byCompany = members.GroupBy(t => t.Company.Id).ToDictionary(t => t.Key, t => t.First());
-        foreach (var asker in members.Where(t => t.Company.Asks.Count > 0))
+        foreach (var asker in Askers(station, members))
         {
-            foreach (var ask in asker.Company.Asks)
+            foreach (var ask in asker.Asks)
             {
                 ask.Incoming = new Dictionary<long, double>();
                 foreach (var (sellerId, amount) in ask.Matched)
@@ -236,8 +262,13 @@ public sealed partial class GameWorld
     {
         foreach (var asker in _companies.Values.Where(t => t.Asks.Count > 0))
         {
-            foreach (var ask in asker.Asks)
+            foreach (var ask in asker.Asks.ToList())
             {
+                if (ask.Site != null)
+                {
+                    SettleWant(asker, ask, minutes);
+                    continue;
+                }
                 foreach (var (sellerId, perMinute) in ask.Incoming)
                 {
                     if (Company(sellerId) is not { } seller)
@@ -271,7 +302,7 @@ public sealed partial class GameWorld
     {
         foreach (var company in _companies.Values.Where(t => t.Asks.Count > 0).OrderBy(t => t.Id))
         {
-            foreach (var ask in company.Asks.Where(t => t.Until <= to).ToList())
+            foreach (var ask in company.Asks.Where(t => t.Site == null && t.Until <= to).ToList())
             {
                 yield return (ask.Until, () => CloseAsk(company, ask));
             }

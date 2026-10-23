@@ -126,6 +126,8 @@ export interface CompanyDto {
   researchOpen: boolean;
   /** A seat a friend keeps for you, whose link you opened while living elsewhere (null: none) */
   keptSeat: KeptSeatDto | null;
+  /** Neighbours' scaffolds this player could help with */
+  wantsNear: WantNearDto[] | null;
 }
 
 /** Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there */
@@ -343,6 +345,7 @@ export interface ReturnLineDto {
     | "links"
     | "seat"
     | "crew"
+    | "fillWant"
     | null;
   building: number | null;
   cost: number | null;
@@ -377,6 +380,8 @@ export interface BuildingDto {
   damaged: boolean;
   /** A teleporter that sends: the station it sends to */
   link?: number | null;
+  /** A scaffold that wants materials: how much of them is in (0–1); null for any other building */
+  siteShare?: number | null;
 }
 
 export type ConductorKind = "pipe" | "gate";
@@ -581,6 +586,8 @@ export interface BuildingDetailsDto {
   /** Its last purchase can be taken back for this much gold until undoUntil */
   undoRefund: number | null;
   undoUntil: string | null;
+  /** A scaffold that still wants materials */
+  site: SiteDto | null;
 }
 
 /**
@@ -1619,6 +1626,33 @@ export interface KeepCardDto {
   id: number;
   name: string;
   ends: string;
+}
+
+/** A scaffold's wants (after run 3, step 2): each material, what is in, what comes now and from whom, and what Cancel gives back */
+export interface SiteDto {
+  wants: SiteWantDto[];
+  refund: number;
+}
+
+export interface SiteWantDto {
+  resource: string;
+  amount: number;
+  got: number;
+  perMinute: number;
+  from: string[];
+  /** When nobody near makes it: the building that would, and who makes its inputs */
+  chain: string | null;
+}
+
+/** A neighbour's scaffold this player could help with */
+export interface WantNearDto {
+  site: number;
+  owner: string;
+  building: string;
+  resource: string;
+  left: number;
+  holds: number;
+  makes: boolean;
 }
 
 /** A friend's kept seat: its code, who keeps it, their crew, where it is and where you live */
