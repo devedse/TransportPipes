@@ -33,10 +33,12 @@ function day(at: string, now: number): string {
 
 function Message({ message, mine }: { message: ChatMessageDto; mine: boolean }) {
   const [menu, setMenu] = useState(false);
+  // The game's own line (a newcomer's hello told to the crews: after run 4) has no sender to visit
+  const system = message.sender === 0;
   return (
-    <div className={mine ? "chat-message mine" : "chat-message"}>
+    <div className={mine ? "chat-message mine" : system ? "chat-message system" : "chat-message"}>
       <div className="chat-meta">
-        <button className="link chat-sender" onClick={() => setMenu(!menu)} disabled={mine}>
+        <button className="link chat-sender" onClick={() => setMenu(!menu)} disabled={mine || system}>
           {message.senderName}
         </button>
         <span className="muted small">{time(message.sentAt)}</span>

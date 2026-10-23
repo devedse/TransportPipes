@@ -6115,3 +6115,8 @@ button.top-gold {
 .gold-uses p {
   margin: 0;
 }
+
+/* The game's own line in a chat (a newcomer's hello, after run 4) */
+.chat-message.system .chat-text {
+  font-style: italic;
+}

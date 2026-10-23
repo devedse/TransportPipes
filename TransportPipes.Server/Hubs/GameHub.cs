@@ -826,13 +826,14 @@ public sealed class GameHub : Hub<IGameClient>
             ? (company.Id, company.District, world.CorporationOf(company) is { } c ? (c.Id, c.Name) : default((long Id, string Name)?),
                 world.CrewOf(company) is { } crew ? (crew.Id, crew.Name) : default((long Id, string Name)?),
                 world.EstateOf(company) is { } estate && world.BigStation(estate.Station)[0] is var corner
-                    ? (SocialService.StationChannel(corner), WorldNames.Station(corner)) : default((string Id, string Name)?))
-            : default((long, DistrictCoord, (long Id, string Name)?, (long Id, string Name)?, (string Id, string Name)?)?), changesWorld: false);
+                    ? (SocialService.StationChannel(corner), WorldNames.Station(corner)) : default((string Id, string Name)?),
+                world.Now - GameWorld.ActivePeriod)
+            : default((long, DistrictCoord, (long Id, string Name)?, (long Id, string Name)?, (string Id, string Name)?, DateTime)?), changesWorld: false);
         if (me is not { } info)
         {
             return null;
         }
-        var (companyId, district, corporation, ownCrew, station) = info;
+        var (companyId, district, corporation, ownCrew, station, week) = info;
         var channels = new List<ChatChannelDto>();
         // Your crew first, then your station: the people you play with (after run 3, row 12)
         if (ownCrew is { } myCrew)
@@ -840,12 +841,23 @@ public sealed class GameHub : Hub<IGameClient>
             var crewChannel = SocialService.CrewChannel(myCrew.Id);
             channels.Add(new ChatChannelDto(crewChannel, myCrew.Name, "crew", await _social.LastMessageAtAsync(crewChannel)));
         }
+        var districtChannel = SocialService.DistrictChannel(district.X, district.Y);
+        var districtLine = new ChatChannelDto(districtChannel, WorldNames.District(district), "district", await _social.LastMessageAtAsync(districtChannel));
+        // Alone, with nobody else speaking in your station this week: the district first, where people are (after run 4:
+        // Mia's four greetings went to a channel that held only a silent Jo)
+        var quiet = ownCrew == null && station is { } here && !await _social.OthersSpokeAsync(here.Id, companyId, week);
+        if (quiet)
+        {
+            channels.Add(districtLine);
+        }
         if (station is { } myStation)
         {
             channels.Add(new ChatChannelDto(myStation.Id, myStation.Name, "station", await _social.LastMessageAtAsync(myStation.Id)));
         }
-        var districtChannel = SocialService.DistrictChannel(district.X, district.Y);
-        channels.Add(new ChatChannelDto(districtChannel, WorldNames.District(district), "district", await _social.LastMessageAtAsync(districtChannel)));
+        if (!quiet)
+        {
+            channels.Add(districtLine);
+        }
         if (corporation is { } corp)
         {
             var corporationChannel = SocialService.CorporationChannel(corp.Id);
@@ -906,9 +918,41 @@ public sealed class GameHub : Hub<IGameClient>
         {
             return CommandResultDto.Fail(failed);
         }
+        var first = !await _social.EverSpokeAsync(sender.Id);
         var message = await _social.SendAsync(channel, sender.Id, sender.Name, text);
         await Clients.Groups(recipients.Distinct().Select(UserGroup).ToList()).ChatMessage(message);
+        if (first && (channel.StartsWith("district:", StringComparison.Ordinal) || channel.StartsWith("station:", StringComparison.Ordinal)))
+        {
+            await TellCrewsOfAHello(userId, channel);
+        }
         return CommandResultDto.Ok;
+    }
+
+    /// <summary>
+    /// A newcomer's first hello, as one line in the chats of the crews that live in its district (after run 4: the crew
+    /// only ever wrote in its Crew channel, and nobody answered the player alone for two weeks)
+    /// </summary>
+    private async Task TellCrewsOfAHello(long userId, string channel)
+    {
+        var told = await _world.RunAsync(world =>
+        {
+            if (world.CompanyOfUser(userId) is not { } company || world.CrewOf(company) != null || world.EstateOf(company) is not { } estate)
+            {
+                return [];
+            }
+            var where = channel.StartsWith("district:", StringComparison.Ordinal) ? WorldNames.District(company.District) : WorldNames.Station(estate.Station);
+            var text = $"👋 {company.Name}, new in {WorldNames.Station(estate.Station)}, said hello in the {where} chat: answer there";
+            return world.Crews
+                .Select(crew => (Crew: crew, Members: world.CrewMembers(crew).Where(t => !t.IsNpc).ToList()))
+                .Where(t => t.Members.Any(m => m.District == company.District))
+                .Select(t => (Channel: SocialService.CrewChannel(t.Crew.Id), Text: text, Users: t.Members.Select(m => m.UserId).ToList()))
+                .ToList();
+        }, changesWorld: false);
+        foreach (var (crewChannel, text, users) in told)
+        {
+            var line = await _social.SendAsync(crewChannel, 0, "Newcomer", text);
+            await Clients.Groups(users.Distinct().Select(UserGroup).ToList()).ChatMessage(line);
+        }
     }
 
     public async Task<CommandResultDto> ReportChat(long message)

@@ -176,7 +176,9 @@ public sealed partial class GameWorld
             return CommandResult.Fail($"You thanked {giver.Name} today already.");
         }
         var gets = EstateOf(thanker) is { } estate && YardTrades(estate).Any(t => !t.Selling && t.Partner == giverId && t.Resource == resource);
-        if (!gets && UsualRate(giver, thanker, resource) <= 1e-9)
+        // Goods that stood a stage of your station count too (after run 4: the stranger's wood in your Water Tower)
+        var stood = thanker.Report.StageGifts.Any(t => t.Giver == giverId && t.Good == resource);
+        if (!gets && !stood && UsualRate(giver, thanker, resource) <= 1e-9)
         {
             return CommandResult.Fail($"{giver.Name}'s {GoodsWord(resource)} doesn't come to you.");
         }

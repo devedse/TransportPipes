@@ -69,6 +69,9 @@ public sealed class StationProject : Entity
 
     /// <summary>The finished stages and when, and the goods the Foundry Hall's bonus lifts</summary>
     public Dictionary<ProjectStage, DateTime> Finished { get; set; } = new();
+
+    /// <summary>What each player brought to this stage, by good (named at both ends when it stands: after run 4)</summary>
+    public Dictionary<long, Dictionary<string, double>> StageGifts { get; set; } = new();
     public List<string> FoundryChains { get; set; } = new();
 
     /// <summary>Who delivered to the Landmark (its heirloom is theirs)</summary>
@@ -493,6 +496,7 @@ public sealed partial class GameWorld
         project.StageStartedAt = LastTick;
         project.Delivered = new Dictionary<string, double>();
         project.Credit = new Dictionary<long, double>();
+        project.StageGifts = new Dictionary<long, Dictionary<string, double>>();
         project.Basket = new Dictionary<string, double>();
         project.Keystone = null;
         project.KeystonePair = new List<long>();
@@ -944,6 +948,11 @@ public sealed partial class GameWorld
                     {
                         project.Allowance[seller.Id] = Math.Max(0, project.Allowance.GetValueOrDefault(seller.Id) - worth);
                     }
+                    if (!project.StageGifts.TryGetValue(seller.Id, out var gifts))
+                    {
+                        project.StageGifts[seller.Id] = gifts = new Dictionary<string, double>();
+                    }
+                    Add(gifts, good, units);
                     // Goods a player doesn't make itself (bought from a House) count a quarter toward the credit (step 5's guard)
                     var bought = Generator.DealtLand && !BuildingsOf(seller.Id).Any(t => !t.UnderConstruction && Content.Building(t.Type).Out.ContainsKey(good)) ? BoughtCredit : 1;
                     project.Credit[seller.Id] = project.Credit.GetValueOrDefault(seller.Id) + worth * bought * (good == project.Keystone ? KeystoneCredit : 1);
@@ -989,13 +998,18 @@ public sealed partial class GameWorld
             }
         }
         var helpers = project.Credit.Keys.ToHashSet();
+        var gifts = NameStageGifts(project, done);
         foreach (var resident in ProjectResidents(project))
         {
+            // Who built it, strangers too (after run 4: Mia-B's wood finished the crew's Water Tower and no card said so)
+            var by = gifts.Where(t => t.Giver != resident.Id).Take(2)
+                .Select(t => Company(t.Giver) is { } giver ? $"{PossessiveFor(giver, resident)} {GoodsWord(t.Good)}" : null).OfType<string>().ToList();
+            var built = by.Count > 0 ? $" ({string.Join(" and ", by)} in it 💛)" : "";
             Changes.Events.Add(new WorldEvent(resident.Id, WorldEventKind.Wonder, done switch
             {
-                ProjectStage.Landmark => $"Your station's Landmark is finished{(helpers.Contains(resident.Id) || project.LandmarkHelpers.Contains(resident.Id) ? ": its heirloom is yours" : "")}",
-                ProjectStage.FoundryHall => $"Your station's Foundry Hall stands: +10% on its {string.Join(" and ", project.FoundryChains.Select(t => Content.Resources[t].Name.ToLowerInvariant()))}",
-                _ => $"Your station's {StageName(done)} is built: +{StageBonus[done] * 100:0}% production for every seat",
+                ProjectStage.Landmark => $"Your station's Landmark is finished{built}{(helpers.Contains(resident.Id) || project.LandmarkHelpers.Contains(resident.Id) ? ": its heirloom is yours" : "")}",
+                ProjectStage.FoundryHall => $"Your station's Foundry Hall stands{built}: +10% on its {string.Join(" and ", project.FoundryChains.Select(t => Content.Resources[t].Name.ToLowerInvariant()))}",
+                _ => $"Your station's {StageName(done)} is built{built}: +{StageBonus[done] * 100:0}% production for every seat",
             }));
             if (done == ProjectStage.Landmark && (helpers.Contains(resident.Id) || project.LandmarkHelpers.Contains(resident.Id)))
             {
@@ -1019,6 +1033,57 @@ public sealed partial class GameWorld
         StartStage(project, next);
         WakeCoupling();
     }
+
+    /// <summary>
+    /// A stage stood: each player's goods in it, named at both ends (after run 4: Ben's sand filled a fifth of the Water
+    /// Tower and Mia-B's wood was its keystone, and neither heard; only a ticked Send was ever announced). The giver
+    /// hears its share; every resident hears the biggest two; both carry it to their return cards, with a Thanks
+    /// </summary>
+    private List<StoodGift> NameStageGifts(StationProject project, ProjectStage stage)
+    {
+        var worth = project.Basket.Sum(t => t.Value * BasePrice(t.Key));
+        if (worth <= 0)
+        {
+            return [];
+        }
+        var name = StageName(stage);
+        var gifts = project.StageGifts
+            .SelectMany(t => t.Value.Select(g => new StoodGift(t.Key, g.Key, name, g.Value * BasePrice(g.Key) / worth)))
+            .Where(t => t.Share >= 0.02 && Company(t.Giver) is { IsNpc: false })
+            .OrderByDescending(t => t.Share)
+            .ToList();
+        var residents = ProjectResidents(project);
+        foreach (var gift in gifts)
+        {
+            var giver = Company(gift.Giver)!;
+            giver.Report.StageGifts.Add(gift);
+            giver.Touch();
+            Changes.Events.Add(new WorldEvent(giver.Id, WorldEventKind.Neighbour,
+                $"Your {GoodsWord(gift.Good)} built {ShareWords(gift.Share)} of {WorldNames.Station(StationOfKey(project.Station))}'s {name} 💛"));
+        }
+        foreach (var resident in residents)
+        {
+            foreach (var gift in gifts.Where(t => t.Giver != resident.Id).Take(2))
+            {
+                resident.Report.StageGifts.Add(gift);
+            }
+            resident.Touch();
+        }
+        return gifts;
+    }
+
+    /// <summary>"all", "most", "half", "a third", "a fifth", "a tenth", "12%"</summary>
+    public static string ShareWords(double share) => share switch
+    {
+        >= 0.97 => "all",
+        >= 0.6 => "most",
+        >= 0.45 => "half",
+        >= 0.3 => "a third",
+        >= 0.22 => "a quarter",
+        >= 0.17 => "a fifth",
+        >= 0.09 and <= 0.11 => "a tenth",
+        _ => $"{share * 100:0}%",
+    };
 
     public static string StageName(ProjectStage stage) => stage switch
     {

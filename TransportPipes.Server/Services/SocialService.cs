@@ -124,6 +124,20 @@ public sealed class SocialService
         return channels.Where(t => DirectPair(t.Channel) is { } pair && (pair.A == company || pair.B == company)).Select(t => (t.Channel, t.LastAt)).ToList();
     }
 
+    /// <summary>Whether anyone but a company wrote in a channel since a moment (after run 4: a newcomer's station channel held only a silent Jo)</summary>
+    public async Task<bool> OthersSpokeAsync(string channel, long company, DateTime since)
+    {
+        await using var db = _db.CreateDbContext();
+        return await db.ChatMessages.AnyAsync(t => t.Channel == channel && t.Sender != company && t.Sender != 0 && t.SentAt >= since);
+    }
+
+    /// <summary>Whether a company ever wrote anything (its first hello is told to the district's crews)</summary>
+    public async Task<bool> EverSpokeAsync(long company)
+    {
+        await using var db = _db.CreateDbContext();
+        return await db.ChatMessages.AnyAsync(t => t.Sender == company);
+    }
+
     public async Task<DateTime?> LastMessageAtAsync(string channel)
     {
         await using var db = _db.CreateDbContext();

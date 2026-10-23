@@ -55,6 +55,20 @@ public class SocietyFacts
     }
 
     [TestMethod]
+    public async Task APlayerAloneInAQuietStationFindsTheDistrictChatFirst()
+    {
+        // Run 4: Mia's four greetings went to her station's channel, which held only a silent scripted Jo
+        using var server = new GameServer();
+        var (mia, _) = await PlayerAsync(server, "Mia");
+        await using var _ = mia;
+
+        var chat = await mia.Invoke<ChatDto>("GetChat");
+
+        Assert.AreEqual("district", chat.Channels[0].Kind, string.Join(", ", chat.Channels.Select(t => t.Kind)));
+        Assert.IsTrue(chat.Channels.Any(t => t.Kind == "station"), "the station is still there");
+    }
+
+    [TestMethod]
     public async Task VisitorsLikeEstatesAndSignTheGuestbook()
     {
         using var server = new GameServer();

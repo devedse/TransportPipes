@@ -354,7 +354,16 @@ public sealed class CompanyReport
 
     /// <summary>Crew mates who looked at its estate (after run 3, row 12: a visit leaves a line on the friend's card)</summary>
     public List<string> VisitedBy { get; set; } = new();
+
+    /// <summary>
+    /// Goods that stood a stage of a station project: its own ("your sand built a fifth of the Water Tower") and its
+    /// station's by others, strangers too (after run 4: Mia-B's wood finished the crew's Water Tower and nobody knew)
+    /// </summary>
+    public List<StoodGift> StageGifts { get; set; } = new();
 }
+
+/// <summary>A good that stood a stage: whose, which, the stage, and its share of the stage's worth</summary>
+public sealed record StoodGift(long Giver, string Good, string Stage, double Share);
 
 /// <summary>A friend's running trade that fell to under half (after run 3, row 9): both ends hear it, with its cause</summary>
 public sealed class TradeFall

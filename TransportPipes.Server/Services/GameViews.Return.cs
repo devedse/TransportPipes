@@ -113,6 +113,17 @@ public static partial class GameViews
             Add(2, "people", "💛", $"{world.PossessiveFor(giver, me)} {world.GoodsWord(got.Resource)} ran your {building ?? "buildings"} while you were away: {Amount(got.Units)} of it",
                 world.ThankedToday(me, giver.Id) ? null : "thank", null, null, giver.Id, got.Resource, world.NameFor(giver, me));
         }
+        // Goods that stood a stage, named at both ends (after run 4: Mia-B's wood finished the crew's Water Tower and Ben's
+        // sand filled a fifth of it, and no card said so): a neighbour's or a stranger's in yours, with Thanks, and yours
+        if (report.StageGifts.FirstOrDefault(t => t.Giver != me.Id) is { } stoodBy && world.Company(stoodBy.Giver) is { IsNpc: false } builder)
+        {
+            Add(2, "people", "💛", $"{world.PossessiveFor(builder, me)} {world.GoodsWord(stoodBy.Good)} built {GameWorld.ShareWords(stoodBy.Share)} of your {stoodBy.Stage}",
+                world.ThankedToday(me, builder.Id) ? null : "thank", null, null, builder.Id, stoodBy.Good, world.NameFor(builder, me));
+        }
+        if (report.StageGifts.Where(t => t.Giver == me.Id).OrderByDescending(t => t.Share).FirstOrDefault() is { } mine)
+        {
+            Add(3, "social", "💛", $"Your {world.GoodsWord(mine.Good)} built {GameWorld.ShareWords(mine.Share)} of the {mine.Stage}");
+        }
         // A running trade with a friend that fell to under half, on both cards with its cause (after run 3, row 9)
         if (world.FallsFor(me, report.Since).FirstOrDefault() is { Seller: not null } fall)
         {
