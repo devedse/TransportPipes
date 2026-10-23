@@ -207,7 +207,7 @@ public static partial class GameViews
             var how = waiting.Want.Order != null ? $"ordered, the hub brings them {world.OrderStartText(me, waiting.Want, me)}"
                 : maker != null ? $"{world.NameFor(maker, me)} makes {good}: the Yard brings them"
                 : $"nobody near makes {good}";
-            Add(2, "invest", "🏗", $"Your {waiting.Name} waits for {waiting.Want.Left:N0} {good}: {how}",
+            Add(2, "look", "🏗", $"Your {waiting.Name} waits for {waiting.Want.Left:N0} {good}: {how}",
                 waiting.Want.Order == null && world.OrderCost(me, waiting.Target) is { } own && own <= me.Gold ? "orderWant" : "show",
                 waiting.Target > 0 ? waiting.Target : null, waiting.Want.Order == null ? world.OrderCost(me, waiting.Target) : null);
         }
@@ -319,17 +319,13 @@ public static partial class GameViews
                 .OrderByDescending(t => world.Content.Building(t.Type).Out.Sum(o => o.Value * world.BasePrice(o.Key)) * world.Content.Progression.OutputMultiplier(t.Level))
                 .Take(6)
                 .ToList();
-            var pays = producers
-                .Select(t => (Building: t, Plan: world.SmartMax(me, t)))
-                .Where(t => t.Plan.Levels >= 1 && t.Plan.Cost <= me.Gold)
-                .Select(t => (t.Building, t.Plan, Preview: world.UpgradePreview(me, t.Building, t.Plan.Levels)))
-                .Where(t => t.Preview.Gain > 0.5 && t.Plan.Cost / t.Preview.Gain <= 24 * 60)
-                .OrderByDescending(t => t.Preview.Gain / Math.Max(1, t.Plan.Cost))
-                .FirstOrDefault();
-            if (pays.Building != null)
+            // Everything that pays back within a week, in one tap (after run 4: Ben came back to 13M and spent 3.4k one
+            // Max at a time); it leads the card's money line
+            var plan = world.PlanGrowth(me);
+            if (plan.Parts.Count > 0)
             {
-                Add(7, "invest", "💡", $"Max now pays: your {Kind(pays.Building)} to level {pays.Building.Level + pays.Plan.Levels} for {Amount(pays.Plan.Cost)} g, {pays.Preview.Text}",
-                    "show", pays.Building.Id, pays.Plan.Cost);
+                Add(7, "invest", "💡", $"Grow everything that pays: about +{Amount(plan.Gain)} g/min for {Amount(plan.Cost)} g ({Math.Max(1, Math.Round(100 * plan.Cost / Math.Max(1, me.Gold))):0}% of your gold) · {Plural(plan.Parts.Count, "building")}",
+                    "grow", null, plan.Cost);
             }
             else if (producers.FirstOrDefault(t => world.IdleReasonOf(t).Cause is IdleCause.PipeFull or IdleCause.PostFull) is { } held)
             {

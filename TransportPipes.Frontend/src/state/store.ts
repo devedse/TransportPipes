@@ -17,6 +17,7 @@ import type {
   LeaderboardDto,
   LeaderboardKind,
   WondersDto,
+  GoldUsesDto,
   MarketDto,
   NeighbourDto,
   NetworkDetailsDto,
@@ -114,6 +115,8 @@ export interface AppState {
   hubTab: HubTab;
   market: MarketDto | null;
   wonders: WondersDto | null;
+  /** What your gold can do (after run 4), loaded when the top bar's gold is opened */
+  goldUses: GoldUsesDto | null;
   exchange: ExchangeDto | null;
   neighboursOpen: boolean;
   neighboursTab: "neighbours" | "contracts" | "board" | "trade";
@@ -231,6 +234,7 @@ export const initialState: AppState = {
   hubTab: "orders",
   market: null,
   wonders: null,
+  goldUses: null,
   exchange: null,
   neighboursOpen: false,
   neighboursTab: "neighbours",

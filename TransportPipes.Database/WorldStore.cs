@@ -119,6 +119,7 @@ public sealed class WorldStore
                 ProbationUntil = settings.ProbationUntil,
                 ProjectFirst = settings.ProjectFirst ?? new HashSet<string>(),
                 Purchases = settings.Purchases ?? new List<Purchase>(),
+                LastGrowth = settings.LastGrowth,
                 EraEnded = settings.EraEnded,
                 Refinements = settings.Refinements ?? new Dictionary<string, int>(),
                 TradeFalls = settings.TradeFalls ?? new Dictionary<string, TradeFall>(),
@@ -441,6 +442,7 @@ public sealed class WorldStore
                     ProbationUntil = company.ProbationUntil,
                     ProjectFirst = company.ProjectFirst,
                     Purchases = company.Purchases,
+                    LastGrowth = company.LastGrowth,
                     EraEnded = company.EraEnded,
                     Refinements = company.Refinements,
                     TradeFalls = company.TradeFalls,
@@ -781,6 +783,7 @@ public sealed class WorldStore
     private sealed class CompanySettings
     {
         public List<Purchase>? Purchases { get; init; }
+        public GrowthPurchase? LastGrowth { get; init; }
         public string? EraEnded { get; init; }
         public Dictionary<string, int>? Refinements { get; init; }
         public Dictionary<string, TradeFall>? TradeFalls { get; init; }

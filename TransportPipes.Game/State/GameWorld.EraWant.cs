@@ -250,6 +250,7 @@ public sealed partial class GameWorld
         payer.Report.GoldSpent += cost;
         AddStat(payer, "goldSpent", cost);
         AddStat(payer, "ordered", cost);
+        AddStat(payer, "pressed:wonderOrder", 1);
         EraWonder!.Orders.Add(new WonderOrder { By = payer.Id, Resource = good, Units = units, Price = price, At = LastTick });
         payer.Touch();
         Changes.Companies.Add(payer.Id);

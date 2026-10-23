@@ -6047,3 +6047,71 @@ button.link.danger {
   white-space: normal;
   text-align: left;
 }
+
+/* Your gold can (after run 4): the bank in days, and a short list of what it can do */
+.top-gold-wrap {
+  position: relative;
+}
+
+button.top-gold {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.gold-days {
+  margin-left: 6px;
+  font-size: 0.8rem;
+  color: var(--muted, inherit);
+  white-space: nowrap;
+}
+
+.gold-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--brass, #c9963a);
+  vertical-align: middle;
+}
+
+.gold-uses {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: min(420px, calc(100vw - 24px));
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gold-uses-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.gold-use {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line, rgba(80, 60, 30, 0.18));
+}
+
+.gold-use-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gold-use button {
+  align-self: flex-start;
+}
+
+.gold-uses p {
+  margin: 0;
+}

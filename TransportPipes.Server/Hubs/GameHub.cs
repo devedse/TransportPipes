@@ -1246,6 +1246,17 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> WidenPipes(int[] tiles, int factor) =>
         Command((world, company) => world.WidenPipes(company, Tiles(tiles), factor));
 
+    /// <summary>What your gold can do: the shared goal, a want, and "Grow everything that pays" (after run 4)</summary>
+    public Task<GoldUsesDto?> GetGoldUses()
+    {
+        var userId = UserId;
+        return _world.RunAsync(world => world.CompanyOfUser(userId) is { } company ? GameViews.GoldUses(world, company) : null, changesWorld: false);
+    }
+
+    public Task<CommandResultDto> GrowEverything() => Command((world, company) => world.GrowEverything(company));
+
+    public Task<CommandResultDto> UndoGrowth() => Command((world, company) => world.UndoGrowth(company));
+
     /// <summary>Goes through a building's pipe door (order: order the goods it lacks now, even when a friend makes them)</summary>
     public Task<CommandResultDto> ClimbPipe(long buildingId, bool order) =>
         Command((world, company) => world.ClimbPipe(company, buildingId, order));

@@ -30,6 +30,8 @@ function actionLabel(line: ReturnLineDto): string | null {
       return "Move in";
     case "fillWant":
       return "Send them ▸";
+    case "grow":
+      return `Grow it · ${formatAmount(line.cost ?? 0)} g`;
     case "orderWant":
       return line.partnerName === null
         ? `Order the rest · ${formatAmount(line.cost ?? 0)} g`

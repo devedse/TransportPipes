@@ -141,6 +141,23 @@ public record CompanyDto(
     /// <summary>The pipe ladder on the goal tracker while a pipe is full (after run 4: the way up was nowhere in sight)</summary>
     PipesLineDto? Pipes = null);
 
+/// <summary>
+/// What your gold can do (after run 4, "your gold can"): at most three lines, shared first: the shared goal, a want
+/// nobody near can fill, and "Grow everything that pays"
+/// </summary>
+public record GoldUsesDto(GoldLineDto? Shared, GoldLineDto? Want, GrowPlanDto? Grow, double Hour);
+
+/// <summary>
+/// One line: its words, and what its button does ("wonder": order Resource for Gold, or all when Gold is null; "want":
+/// order the rest of Target for Cost, for ForName)
+/// </summary>
+public record GoldLineDto(string Text, string Action, double? Cost = null, string? Resource = null, long? Target = null, string? ForName = null, double? AllCost = null);
+
+/// <summary>"Grow everything that pays": its parts ("Iron Mine to level 30 · 165k · +94 g/min"), its price and gain</summary>
+public record GrowPlanDto(IReadOnlyList<GrowPartDto> Parts, double Cost, double Gain, DateTime? UndoUntil);
+
+public record GrowPartDto(long Building, string Text, double Cost, double Gain);
+
 /// <summary>"Your Iron Mine's Grey Pipe is full: Copper Pipe on its link, then Level 30": the building to open, and the ladder ("Grey · Copper · Steel with Era 2")</summary>
 public record PipesLineDto(string Text, long Building, int Full, string Ladder);
 

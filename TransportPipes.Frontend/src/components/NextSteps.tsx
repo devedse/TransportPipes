@@ -16,6 +16,7 @@ const ICONS: Record<NextStepDto["kind"], string> = {
   pipes: "🔧",
   start: "⭐",
   stuck: "⛔",
+  shared: "🏛",
 };
 
 const COLLAPSED_KEY = "tp.nextStepsCollapsed";

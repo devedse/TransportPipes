@@ -190,6 +190,7 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("Its pipe isn't what holds it back now.");
         }
+        AddStat(company, "pressed:climb", 1);
         switch (door.Kind)
         {
             case PipeDoorKind.Locked:

@@ -125,6 +125,57 @@ public static partial class GameViews
     }
 
     /// <summary>
+    /// What your gold can do (after run 4: 0.2% of the gold earned was spent, and the five offers of gold in the group
+    /// chat had no door): the shared goal first, then a want gold can fill, then "Grow everything that pays"
+    /// </summary>
+    public static GoldUsesDto GoldUses(GameWorld world, Company me)
+    {
+        var hour = Math.Round(60 * Math.Max(GameWorld.MinMeasuredIncome, world.MeasuredIncome(me)));
+        GoldLineDto? shared = null;
+        if (me.District == GameWorld.Capital && world.EraWonder is { Finished: false } wonder && !GameWorld.Unsized(wonder))
+        {
+            var name = world.WonderDefinition(wonder).Name;
+            var best = wonder.Required.Keys
+                .Select(t => (Good: t, Offer: world.WonderOrderOffer(t)))
+                .Where(t => t.Offer != null)
+                .OrderByDescending(t => t.Offer!.Value.Cost)
+                .FirstOrDefault();
+            if (best.Offer is { } offer)
+            {
+                var good = world.GoodsWord(best.Good);
+                var who = world.WonderMakers(best.Good) is { Count: > 0 } makers ? $"half comes by pipe from {And(MakerNames(makers.Take(2), me))}" : $"nobody here makes {good}";
+                var day = Math.Min(offer.Cost, 24 * hour);
+                shared = new GoldLineDto($"{name} wants {offer.Units:N0} {good} you can order: {who}", "wonder", day < offer.Cost ? day : null, best.Good, AllCost: offer.Cost);
+            }
+        }
+        GoldLineDto? want = null;
+        if (world.WantsNear(me).Where(t => t.Want.Order == null && !t.Makes && t.Holds < 1)
+                .Select(t => (t.Owner, t.Target, t.Name, t.Want, Cost: world.OrderCost(me, t.Target)))
+                .Where(t => t.Cost is { } cost && cost <= me.Gold)
+                .OrderBy(t => t.Owner.CrewId != null && t.Owner.CrewId == me.CrewId ? 0 : 1)
+                .FirstOrDefault() is { Owner: not null } friend)
+        {
+            var name = world.NameFor(friend.Owner, me);
+            want = new GoldLineDto($"{world.PossessiveFor(friend.Owner, me)} {friend.Name} waits for {friend.Want.Left:N0} {world.GoodsWord(friend.Want.Resource)}", "want", friend.Cost, friend.Want.Resource, friend.Target, name);
+        }
+        else if (world.OpenWants(me).Where(t => t.Want.Order == null && t.Want.Left > 1e-6)
+                     .Select(t => (t.Target, t.Name, t.Want, Cost: world.OrderCost(me, t.Target)))
+                     .FirstOrDefault(t => t.Cost is { } cost && cost <= me.Gold) is { Name: not null } own)
+        {
+            want = new GoldLineDto($"Your {own.Name} waits for {own.Want.Left:N0} {world.GoodsWord(own.Want.Resource)}", "want", own.Cost, own.Want.Resource, own.Target);
+        }
+        var plan = world.PlanGrowth(me);
+        var grow = plan.Parts.Count == 0 ? null
+            : new GrowPlanDto(plan.Parts.Select(t => new GrowPartDto(t.Building, t.Text, Math.Round(t.Cost), Math.Round(t.Gain, 1))).ToList(), plan.Cost, plan.Gain,
+                me.LastGrowth is { } last && world.Now - last.At <= GameWorld.UndoFor ? last.At + GameWorld.UndoFor : null);
+        if (grow == null && me.LastGrowth is { } recent && world.Now - recent.At <= GameWorld.UndoFor)
+        {
+            grow = new GrowPlanDto([], 0, 0, recent.At + GameWorld.UndoFor);
+        }
+        return new GoldUsesDto(shared, want, grow, hour);
+    }
+
+    /// <summary>
     /// The pipe ladder while a pipe is full (after run 4: the way up showed only in a stuck building's own panel, and all
     /// 1,087 pipe tiles stayed grey): the building that would gain most, its door in words, and the ladder
     /// </summary>

@@ -39,6 +39,9 @@ public enum AdvisorKind
 
     /// <summary>A building whose goods can't leave (F2): the pipe that lets them out</summary>
     Stuck,
+
+    /// <summary>A shared goal gold can give to: the Era Wonder's goods, the station's storey (after run 4)</summary>
+    Shared,
 }
 
 /// <summary>What the step's button does on the client</summary>
@@ -70,6 +73,9 @@ public enum AdvisorAction
 
     /// <summary>The pipe tool, at Building</summary>
     Connect,
+
+    /// <summary>Opens Hub › Wonders (the Era Wonder's goods to order)</summary>
+    Wonder,
 }
 
 /// <summary>
@@ -175,6 +181,8 @@ public sealed partial class GameWorld
             var score = step.Kind switch
             {
                 AdvisorKind.Research => Math.Max(AdvisorResearchFloor, Worth(step.GainPerMinute, 0)),
+                // A gift to a shared goal earns nothing back: as high as research (after run 4)
+                AdvisorKind.Shared => AdvisorResearchFloor,
                 // A parcel brings land, not gold: like a small share of today's income
                 AdvisorKind.Parcel => Worth(Math.Max(1, income * 0.05), step.Cost),
                 _ => Worth(step.GainPerMinute, step.Cost),
@@ -199,6 +207,7 @@ public sealed partial class GameWorld
         UpgradeSteps(company, own, Base, Add);
         ChainSteps(company, own, Base, Add);
         RoleStep(company, Add);
+        SharedStep(company, Add, income);
         PartnerStep(company, Add);
         NeighbourChainStep(company, Add);
         ParcelStep(company, Add);
@@ -447,6 +456,29 @@ public sealed partial class GameWorld
         add(new AdvisorStep(AdvisorKind.Pump, $"Build {Article(pump.Name)}: your network runs at {factor:P0}",
             $"Every {BuildingsPerPump} buildings in one network need a pump station. Put one on its pipes" + (gain > 0.05 ? $": {Plus(network, gain)}." : "."),
             AdvisorAction.Build, BuildCost(company, pump), gain, BuildingType: pump.Id, At: at), AdvisorFixFactor);
+    }
+
+    /// <summary>
+    /// A shared goal for a bank of a day's income or more (after run 4: all 30,660 g the new sinks took went into the one
+    /// shared door in sight, the Era Wonder's order): it ranks at least as high as research
+    /// </summary>
+    private void SharedStep(Company company, Action<AdvisorStep, double> add, double income)
+    {
+        if (company.District != Capital || company.Gold < 24 * 60 * Math.Max(MinMeasuredIncome, income) || EraWonder is not { Finished: false } wonder || Unsized(wonder))
+        {
+            return;
+        }
+        var best = wonder.Required.Keys.Select(t => (Good: t, Offer: WonderOrderOffer(t))).Where(t => t.Offer != null).OrderByDescending(t => t.Offer!.Value.Cost).FirstOrDefault();
+        if (best.Offer is not { } offer)
+        {
+            return;
+        }
+        var name = WonderDefinition(wonder).Name;
+        var day = Math.Min(offer.Cost, 24 * 60 * Math.Max(MinMeasuredIncome, income));
+        var who = WonderMakers(best.Good).Count > 0 ? "half of it comes by pipe; the other half may be ordered" : $"nobody here makes {GoodsWord(best.Good)}, so all of it may be ordered";
+        add(new AdvisorStep(AdvisorKind.Shared, $"Give to {name}: it wants {Amount(offer.Units)} {GoodsWord(best.Good)}",
+            $"{char.ToUpperInvariant(who[0])}{who[1..]}: a day of your income orders {Gold(day)} of it, all of it costs {Gold(offer.Cost)}. Each stage lifts the Capital's pipes.",
+            AdvisorAction.Wonder, day, 0), 1.2);
     }
 
     /// <summary>

@@ -81,6 +81,7 @@ public sealed partial class GameWorld
             AddStat(payer, "ordered", escrow);
             ask.Order = new WantOrder { By = payer.Id, Escrow = escrow, Price = price, At = LastTick };
         }
+        AddStat(payer, owner.Id == payer.Id ? "pressed:orderOwn" : "pressed:orderFriend", 1);
         payer.Touch();
         owner.Touch();
         Changes.Companies.Add(payer.Id);

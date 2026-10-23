@@ -726,6 +726,27 @@ export class GameClient {
   }
 
   /** Orders part of the Era Wonder from the hub: it ships over six hours and counts a quarter for your tier */
+  /** What your gold can do: the shared goal, a want, and "Grow everything that pays" (after run 4) */
+  async loadGoldUses() {
+    setState({ goldUses: await this.connection.getGoldUses() });
+  }
+
+  /** Every pipe door and Max that pays back within a week, in one tap (the server says what it bought) */
+  async growEverything() {
+    if (await this.command(this.connection.growEverything())) {
+      void this.refreshCompany();
+      void this.loadGoldUses();
+      window.setTimeout(() => void this.refreshNetwork(), 1200);
+    }
+  }
+
+  async undoGrowth() {
+    if (await this.command(this.connection.undoGrowth())) {
+      void this.refreshCompany();
+      void this.loadGoldUses();
+    }
+  }
+
   /** Orders an Era Wonder good: all that may be ordered, or as much as some gold buys (an hour of your income) */
   async orderForWonder(resource: string, gold: number | null = null) {
     if (
@@ -734,6 +755,9 @@ export class GameClient {
         "Ordered: the hub ships it over six hours",
       )
     ) {
+      if (appStore.getState().goldUses !== null) {
+        void this.loadGoldUses();
+      }
       await this.refreshWonders();
       void this.refreshCompany();
     }
@@ -1664,6 +1688,9 @@ export class GameClient {
       case "layPipe":
         await this.layPipeNow(step.tiles, "Laid: its goods can leave now");
         break;
+      case "wonder":
+        await this.openHub("wonders");
+        break;
       case "climb":
         // Its panel shows the door with its preview
         if (step.building !== null) {
@@ -2228,6 +2255,9 @@ export class GameClient {
         return line.building !== null ? await this.sendToSite(line.building) : false;
       case "orderWant":
         return line.building !== null ? await this.orderRest(line.building, line.partnerName) : false;
+      case "grow":
+        await this.growEverything();
+        return true;
       default:
         return false;
     }

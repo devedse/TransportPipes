@@ -1,5 +1,6 @@
 import { HubConnectionBuilder, LogLevel, type HubConnection } from "@microsoft/signalr";
 import type {
+  GoldUsesDto,
   LandingCardDto,
   ProjectDto,
   LinkPlanDto,
@@ -390,6 +391,9 @@ export class GameConnection {
   widenPipes = (tiles: number[], factor: number) => this.invoke<CommandResult>("WidenPipes", tiles, factor);
   climbPipe = (buildingId: number, order: boolean) =>
     this.invoke<CommandResult>("ClimbPipe", buildingId, order);
+  getGoldUses = () => this.invoke<GoldUsesDto | null>("GetGoldUses");
+  growEverything = () => this.invoke<CommandResult>("GrowEverything");
+  undoGrowth = () => this.invoke<CommandResult>("UndoGrowth");
   upgrade = (building: number, levels: number) => this.invoke<CommandResult>("Upgrade", building, levels);
   upgradeMany = (buildings: number[], levelsEach: number, budget: number | null) =>
     this.invoke<{ success: boolean; error: string | null; levels: number; gold: number }>(

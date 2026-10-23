@@ -383,6 +383,7 @@ export interface ReturnLineDto {
     | "tend"
     | "links"
     | "seat"
+    | "grow"
     | "crew"
     | "fillWant"
     | "orderWant"
@@ -693,6 +694,40 @@ export interface BuildingStatusDto {
   pill: string | null;
   reach: string | null;
   fix: BuildingFixDto | null;
+}
+
+/** What your gold can do (after run 4): the shared goal, a want, and "Grow everything that pays"; an hour of your income */
+export interface GoldUsesDto {
+  shared: GoldLineDto | null;
+  want: GoldLineDto | null;
+  grow: GrowPlanDto | null;
+  hour: number;
+}
+
+/** One line: "wonder" orders resource for cost (a day of your income) or allCost; "want" orders the rest of target */
+export interface GoldLineDto {
+  text: string;
+  action: "wonder" | "want";
+  cost: number | null;
+  resource: string | null;
+  target: number | null;
+  forName: string | null;
+  allCost: number | null;
+}
+
+export interface GrowPlanDto {
+  parts: GrowPartDto[];
+  cost: number;
+  gain: number;
+  /** The last Grow can be taken back until then */
+  undoUntil: string | null;
+}
+
+export interface GrowPartDto {
+  building: number;
+  text: string;
+  cost: number;
+  gain: number;
 }
 
 /** "Your Iron Mine's pipe is full: Copper Pipe on its link, then Level 30": the building, and the ladder */
@@ -1492,11 +1527,21 @@ export interface NextStepDto {
     | "partner"
     | "parcel"
     | "start"
-    | "stuck";
+    | "stuck"
+    | "shared";
   title: string;
   reason: string;
   action:
-    "upgrade" | "build" | "select" | "research" | "parcel" | "partner" | "climb" | "connect" | "layPipe";
+    | "upgrade"
+    | "build"
+    | "select"
+    | "research"
+    | "parcel"
+    | "partner"
+    | "climb"
+    | "connect"
+    | "layPipe"
+    | "wonder";
   cost: number;
   gainPerMinute: number;
   paybackMinutes: number | null;

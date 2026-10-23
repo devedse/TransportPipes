@@ -4,6 +4,7 @@ import { isMuted, setMuted } from "../app/sound";
 import { formatAmount, formatDuration, formatRate } from "../app/format";
 import { useNow } from "../app/useNow";
 import { currentGold, setState, useAppStore } from "../state/store";
+import { GoldPanel } from "./GoldPanel";
 import { levelEta } from "../app/experience";
 import { ExperiencePanel } from "./ExperiencePanel";
 import { emblemIcon } from "../app/crews";
@@ -27,6 +28,7 @@ export function TopBar() {
   const serverNow = useNow(60000) + serverOffset;
   const gold = useLiveGold();
   const [xpOpen, setXpOpen] = useState(false);
+  const [goldOpen, setGoldOpen] = useState(false);
   const bar = useRef<HTMLDivElement>(null);
   // Everything below the top bar starts under it: it grows with its contents (the XP line, a moving estate)
   useEffect(() => {
@@ -63,6 +65,8 @@ export function TopBar() {
   if (company === null) {
     return null;
   }
+  // The bank in days of what the top bar earns (a sleeping or new company: none)
+  const bankDays = company.goldPerMinute > 0.5 ? gold / (company.goldPerMinute * 1440) : 0;
   const levelSpan = company.nextLevelXp - company.levelXp;
   const levelProgress = levelSpan > 0 ? Math.min(1, (company.xp - company.levelXp) / levelSpan) : 1;
 
@@ -136,12 +140,30 @@ export function TopBar() {
         </button>
       )}
 
-      <div className="panel top-gold" title="Gold: sales to the hub and to neighbours, minus what you buy">
-        <span className="gold-coin" />
-        <span className="gold-amount">{formatAmount(gold)}</span>
-        <span className={company.goldPerMinute >= 0 ? "gold-rate" : "gold-rate negative"}>
-          {formatRate(company.goldPerMinute)}
-        </span>
+      {/* Your gold in days of income, and what it can do (after run 4: the players banked 24–29 days and spent 0.2%) */}
+      <div className="top-gold-wrap">
+        <button
+          className="panel top-gold"
+          aria-expanded={goldOpen}
+          title="Gold: sales to the hub and to neighbours, minus what you buy. Tap: what your gold can do"
+          onClick={() => setGoldOpen((open) => !open)}
+        >
+          <span className="gold-coin" />
+          <span className="gold-amount">{formatAmount(gold)}</span>
+          <span className={company.goldPerMinute >= 0 ? "gold-rate" : "gold-rate negative"}>
+            {formatRate(company.goldPerMinute)}
+          </span>
+          {bankDays >= 1 && (
+            <span
+              className="gold-days"
+              aria-label={`${bankDays.toFixed(0)} days of your income: what it can do`}
+            >
+              · {bankDays < 10 ? bankDays.toFixed(1) : bankDays.toFixed(0)} days ▸
+              <span className="gold-dot" />
+            </span>
+          )}
+        </button>
+        {goldOpen && <GoldPanel days={bankDays} onClose={() => setGoldOpen(false)} />}
       </div>
 
       <div className="top-level-wrap">

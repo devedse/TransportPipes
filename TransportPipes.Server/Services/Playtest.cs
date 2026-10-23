@@ -308,6 +308,17 @@ public static class PlaytestEndpoints
                 labsRest = world.LabsRest(company),
                 orders = company.Stats.GetValueOrDefault("orders"),
                 tradeFalls = company.TradeFalls.Count,
+                // After run 4: which doors were open at the sample, and what was pressed since the start ("doors logged
+                // as shown": a run that spends little with these open says the plan is wrong)
+                pipeTiers = company.Stats.GetValueOrDefault("pipeTiers"),
+                doors = new
+                {
+                    pipe = world.BuildingsOf(company.Id).Count(t => world.PipeDoorFor(company, t, preview: false) is { Kind: not PipeDoorKind.Locked }),
+                    grow = world.PlanGrowth(company).Parts.Count,
+                    wonder = company.District == GameWorld.Capital && world.EraWonder is { } era ? era.Required.Keys.Count(t => world.WonderOrderOffer(t) != null) : 0,
+                    wants = world.WantsNear(company).Count(t => t.Want.Order == null),
+                },
+                pressed = company.Stats.Where(t => t.Key.StartsWith("pressed:", StringComparison.Ordinal)).ToDictionary(t => t.Key["pressed:".Length..], t => t.Value),
             };
         }).ToList();
         return new

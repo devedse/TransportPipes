@@ -145,6 +145,9 @@ public sealed class Company : Entity
     /// <summary>Purchases it may take back for an hour (after run 3: spending is safe)</summary>
     public List<Purchase> Purchases { get; set; } = new();
 
+    /// <summary>The last "Grow everything that pays", for its hour's Undo (after run 4)</summary>
+    public GrowthPurchase? LastGrowth { get; set; }
+
     /// <summary>Refinements researched after an Era's tree (after run 3, step 6), by line: a wall ("pipes", "trading", "hubOrders") or a good</summary>
     public Dictionary<string, int> Refinements { get; set; } = new();
 
