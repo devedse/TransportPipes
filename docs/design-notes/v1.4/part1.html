@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TransportPipes 1.4</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --teal: #24575a; --teal-dark: #173c3f; --accent: #236b69; --brass: #c9963a; --brass-dark: #94692a;
+  --cream: #f4ead3; --cream-strong: #fbf5e7; --paper: #fffaf0; --ink: #2b2418; --muted: #6b5c43;
+  --green: #33761f; --red: #a12f1f; --gold: #8a5d00; --line: rgba(80, 60, 30, 0.18);
+  --good-bg: #d6eccd; --bad-bg: #f6d3cc; --warn-bg: #f3e6c4; --info-bg: #dde9f3; --info: #24507a;
+}
+* { box-sizing: border-box; }
+html { background: #e9dfc6; }
+body { margin: 0; font-family: Nunito, system-ui, sans-serif; color: var(--ink); line-height: 1.55; background: #e9dfc6; }
+.page { max-width: 1040px; margin: 24px auto; padding: 48px 56px; background: var(--paper); border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(40, 30, 10, 0.18); border: 1px solid var(--line); }
+@media (max-width: 720px) { .page { margin: 12px 8px; padding: 24px 16px; border-radius: 12px; } }
+h1, h2, h3 { font-family: Fraunces, Georgia, serif; color: var(--teal-dark); line-height: 1.2; text-wrap: balance; }
+h1 { font-size: 2.6rem; margin: 0 0 8px; }
+h2 { font-size: 1.9rem; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 3px solid var(--brass); }
+h3 { font-size: 1.25rem; margin: 26px 0 8px; }
+h4 { font-family: Fraunces, Georgia, serif; color: var(--teal-dark); font-size: 1.05rem; margin: 18px 0 6px; }
+p { margin: 0 0 12px; max-width: 72ch; }
+ul, ol { padding-left: 22px; margin: 0 0 12px; }
+li { margin-bottom: 4px; max-width: 72ch; }
+.kicker { text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; color: var(--brass-dark); font-size: 0.85rem; }
+.lead { font-size: 1.15rem; }
+.muted { color: var(--muted); }
+.small { font-size: 0.88rem; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+@media (max-width: 720px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+.grid2 > *, .grid3 > * { min-width: 0; }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 0.92rem; }
+th { text-align: left; background: var(--cream); color: var(--teal-dark); padding: 7px 10px; font-weight: 800; }
+td { padding: 7px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+tr.hl td { background: #fbefd4; }
+tr.era td { background: var(--cream-strong); font-family: Fraunces, Georgia, serif; font-weight: 800; color: var(--teal-dark); }
+.quote { font-style: italic; color: var(--teal-dark); }
+.callout { padding: 14px 18px; border-radius: 12px; background: var(--cream); border-left: 6px solid var(--brass); margin: 14px 0; }
+.callout.decision { border-left-color: var(--accent); background: #e4efe9; }
+.callout.problem { border-left-color: var(--red); background: #f8e7e2; }
+.callout.pick { border-left-color: var(--info); background: #e6eef6; }
+.callout strong:first-child { display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; margin-bottom: 4px; }
+.callout p:last-child, .callout ul:last-child { margin-bottom: 0; }
+.pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 0.78rem; font-weight: 800; white-space: nowrap; }
+.pill.good { background: var(--good-bg); color: var(--green); }
+.pill.bad { background: var(--bad-bg); color: var(--red); }
+.pill.warn { background: var(--warn-bg); color: var(--gold); }
+.pill.info { background: var(--info-bg); color: var(--info); }
+.cover { background: linear-gradient(160deg, #1f4d50 0%, #24575a 55%, #2f6b66 100%); color: #fff; }
+.cover h1 { color: #fff; font-size: 3rem; }
+.cover .kicker { color: #f2d27a; }
+.cover .lead { color: #f4ead3; max-width: 70ch; }
+.themes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 26px; }
+@media (max-width: 720px) { .themes { grid-template-columns: 1fr; } .cover h1 { font-size: 2.2rem; } }
+.theme { background: rgba(255,255,255,0.1); border: 1px solid rgba(242,210,122,0.5); border-radius: 12px; padding: 12px 14px; }
+.theme b { color: #f2d27a; display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; }
+.theme span { color: #f4ead3; font-size: 0.9rem; }
+.flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: stretch; margin: 18px 0 8px; }
+.flow.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 860px) { .flow, .flow.four { grid-template-columns: 1fr; } }
+.node { background: var(--cream-strong); border: 2px solid var(--teal); border-radius: 12px; padding: 10px 12px; font-size: 0.88rem; }
+.node b { display: block; font-family: Fraunces, Georgia, serif; color: var(--teal-dark); font-size: 1rem; margin-bottom: 2px; }
+.node .who { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800; color: var(--brass-dark); }
+.card { background: var(--cream-strong); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.card h4 { margin-top: 0; }
+.card p:last-child, .card ul:last-child { margin-bottom: 0; }
+figure { margin: 16px 0 20px; }
+figure .scroll svg { min-width: 560px; }
+figure .scroll.map svg { min-width: 0; }
+.scroll > table.wide { min-width: 680px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.82rem; font-weight: 700; margin: 6px 0 14px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(80, 60, 30, 0.35); display: inline-block; }
+table.facts { margin: 6px 0 0; font-size: 0.84rem; width: auto; }
+table.facts th { background: none; padding: 2px 10px 2px 0; color: var(--muted); font-weight: 700; white-space: nowrap; vertical-align: top; }
+table.facts td { padding: 2px 0; border-top: none; color: var(--ink); }
+figure svg { width: 100%; height: auto; display: block; background: var(--cream-strong); border: 1px solid var(--line); border-radius: 12px; }
+figure img { width: 100%; max-width: 100%; height: auto; display: block; border-radius: 12px; border: 1px solid var(--line); }
+figcaption { font-size: 0.86rem; color: var(--muted); margin-top: 6px; max-width: 80ch; }
+.gone { color: var(--red); }
+section { scroll-margin-top: 16px; }
+section + section { margin-top: 34px; }
+code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.86em; background: var(--cream); padding: 1px 5px; border-radius: 5px; }
+.toc { columns: 2; column-gap: 32px; padding-left: 22px; }
+@media (max-width: 720px) { .toc { columns: 1; } }
+.toc li { break-inside: avoid; }
+.toc a { color: var(--teal-dark); font-weight: 700; text-decoration: none; }
+.toc a:hover { text-decoration: underline; }
+.formula { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.84rem; }
+dl.words { display: grid; grid-template-columns: 11rem 1fr; gap: 6px 16px; margin: 0 0 12px; }
+dl.words dt { font-weight: 800; color: var(--teal-dark); }
+dl.words dd { margin: 0; }
+@media (max-width: 560px) { dl.words { grid-template-columns: 1fr; } dl.words dd { margin-bottom: 8px; } }
+</style>
+</head>
+<body>
+
+<div class="page cover">
+  <div class="kicker">TransportPipes · the complete game design · version 1.4</div>
+  <h1>TransportPipes 1.4</h1>
+  <p class="lead">You start with an empty plot next to a Yard. You build mines, factories and pipes, sell to the market
+    and trade with your Yard's neighbours at prices you set. Your research makes you very good at a few things, so
+    friends who split the work grow faster. Together the town builds a Wonder, and the Wonder takes the whole town into
+    the next Era, with new resources, new buildings and more room.</p>
+  <div class="themes">
+    <div class="theme"><b>Your own place</b><span>Pick a free plot on the map, next to friends or anywhere. Start with an
+      HQ, a trading post and 2,000 gold.</span></div>
+    <div class="theme"><b>The Yard</b><span>Four plots share one Yard of 32×16 tiles. The people who live there are a
+      crew, and they own the Yard together.</span></div>
+    <div class="theme"><b>Only people</b><span>The market is the only player that isn't a person. It always buys and
+      sells, but friends beat its prices.</span></div>
+    <div class="theme"><b>Deep research</b><span>A research track takes about ten days and makes its chain fifteen
+      times better. Basic tiers take minutes, the big ones days.</span></div>
+    <div class="theme"><b>Towns and Eras</b><span>Sixteen players make a town. Each town reaches its next Era by
+      finishing its own Wonder.</span></div>
+    <div class="theme"><b>A ceiling you can see</b><span>Buildings stop at level 25. Every Era makes about four times
+      the one before.</span></div>
+  </div>
+</div>
+
+<div class="page">
+
+<section id="contents">
+  <h2>Contents</h2>
+  <ol class="toc">
+    <li><a href="#minute">The game in one minute</a></li>
+    <li><a href="#rules">Seven rules the game follows</a></li>
+    <li><a href="#words">Words</a></li>
+    <li><a href="#world">The world: plot, Yard, town</a></li>
+    <li><a href="#land">Your land</a></li>
+    <li><a href="#start">Starting: pick your spot</a></li>
+    <li><a href="#yard">The Yard and your crew</a></li>
+    <li><a href="#trade">Trading</a></li>
+    <li><a href="#buildings">Buildings, levels and pipes</a></li>
+    <li><a href="#resources">Resources and chains</a></li>
+    <li><a href="#eras">Eras</a></li>
+    <li><a href="#research">Research</a></li>
+    <li><a href="#wonders">Wonders and Monuments</a></li>
+    <li><a href="#journey">Progression, Era by Era</a></li>
+    <li><a href="#together">Alone and together</a></li>
+    <li><a href="#gold">Gold and goods: where they go</a></li>
+    <li><a href="#base">A base, day by day: the numbers worked out</a></li>
+    <li><a href="#away">Away, moving and leaving</a></li>
+    <li><a href="#more">Everything else in the game</a></li>
+    <li><a href="#between">The wilderness and other towns: still open</a></li>
+    <li><a href="#changes">What changes from today's game</a></li>
+    <li><a href="#numbers">The numbers</a></li>
+    <li><a href="#build">Building it</a></li>
+    <li><a href="#risks">What could go wrong</a></li>
+    <li><a href="#picks">My picks you may want to change</a></li>
+  </ol>
+</section>
+
+<section id="minute">
+  <h2>1 · The game in one minute</h2>
+  <ol>
+    <li><b>You pick a plot.</b> The start screen is the map. You click a free plot of 32×32 tiles in a town that is
+      still in Era 1, next to a friend or wherever you like.</li>
+    <li><b>You build from nothing.</b> Wind Moilies and solar panels make energy, mines dig ore, factories turn it into
+      ingots, bricks and glass. Pipes connect them, and goods flow every minute, also while you're away.</li>
+    <li><b>You sell.</b> Your trading post sells to the town's market. The market pays the full price for an amount of
+      each good (your Hub Order) and less for floods. It also sells everything, at 2.5 times the price.</li>
+    <li><b>You trade with your Yard.</b> Your plot touches a Yard shared with three neighbours. A pipe to your Yard gate
+      is all it takes: what a neighbour lacks is filled from your spare at the price you set, and the other way round.
+      Every price between friends beats the market for both sides.</li>
+    <li><b>Nobody has everything.</b> Each plot lacks two of the eight land resources, a different two for each plot in
+      a Yard. Any three neighbours together have everything.</li>
+    <li><b>You get very good at a few things.</b> Research tracks take days. A player who masters the Iron track makes
+      fifteen times the iron of someone who didn't, with the same buildings, and the market buys more from a master.
+      Friends who master different tracks sell each other what each lacks, and the four of them pay for one Monument
+      that makes all four more productive.</li>
+    <li><b>Your town moves on together.</b> Sixteen players share a town and its market. The town builds its Era
+      Wonder from the goods its players give. When it's finished, the whole town enters the next Era: a new raw
+      resource, new goods, new buildings, a better pipe and more room. After five Eras the town launches its Space
+      Elevator.</li>
+  </ol>
+  <figure>
+    <svg viewBox="0 0 900 190" role="img" aria-label="The loop: build, flow, sell and trade, grow, the town's Era">
+      <g font-family="Nunito, sans-serif" font-size="13">
+        <g>
+          <rect x="10" y="40" width="150" height="74" rx="12" fill="#fbf5e7" stroke="#24575a" stroke-width="2"/>
+          <text x="85" y="68" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="800" font-size="15" fill="#173c3f">Build</text>
+          <text x="85" y="88" text-anchor="middle" fill="#2b2418">mines, factories,</text>
+          <text x="85" y="104" text-anchor="middle" fill="#2b2418">pipes</text>
+        </g>
+        <g>
+          <rect x="190" y="40" width="150" height="74" rx="12" fill="#fbf5e7" stroke="#24575a" stroke-width="2"/>
+          <text x="265" y="68" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="800" font-size="15" fill="#173c3f">Flow</text>
+          <text x="265" y="88" text-anchor="middle" fill="#2b2418">goods move every</text>
+          <text x="265" y="104" text-anchor="middle" fill="#2b2418">minute, offline too</text>
+        </g>
+        <g>
+          <rect x="370" y="18" width="160" height="56" rx="12" fill="#fbf5e7" stroke="#24575a" stroke-width="2"/>
+          <text x="450" y="42" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="800" font-size="15" fill="#173c3f">Sell</text>
+          <text x="450" y="61" text-anchor="middle" fill="#2b2418">the market, 1× base</text>
+          <rect x="370" y="82" width="160" height="56" rx="12" fill="#e4efe9" stroke="#236b69" stroke-width="2"/>
+          <text x="450" y="106" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="800" font-size="15" fill="#173c3f">Trade</text>
+          <text x="450" y="125" text-anchor="middle" fill="#2b2418">your Yard, your price</text>
+        </g>
+        <g>
+          <rect x="560" y="40" width="150" height="74" rx="12" fill="#fbf5e7" stroke="#24575a" stroke-width="2"/>
+          <text x="635" y="68" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="800" font-size="15" fill="#173c3f">Grow</text>
+          <text x="635" y="88" text-anchor="middle" fill="#2b2418">levels, land,</text>
+          <text x="635" y="104" text-anchor="middle" fill="#2b2418">research</text>
+        </g>
+        <g>
+          <rect x="740" y="40" width="150" height="74" rx="12" fill="#f3e6c4" stroke="#94692a" stroke-width="2"/>
+          <text x="815" y="68" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="800" font-size="15" fill="#173c3f">The town</text>
+          <text x="815" y="88" text-anchor="middle" fill="#2b2418">the Wonder brings</text>
+          <text x="815" y="104" text-anchor="middle" fill="#2b2418">the next Era</text>
+        </g>
+        <g stroke="#94692a" stroke-width="2.5" fill="none" marker-end="url(#arr)">
+          <path d="M160 77 H186"/><path d="M340 70 L366 48"/><path d="M340 84 L366 108"/><path d="M530 48 L556 70"/>
+          <path d="M530 108 L556 84"/><path d="M710 77 H736"/>
+          <path d="M815 116 V160 H85 V118"/>
+        </g>
+        <defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#94692a"/></marker></defs>
+        <text x="450" y="178" text-anchor="middle" fill="#6b5c43" font-size="12">a new Era: new resources, buildings, research and room, and round again</text>
+      </g>
+    </svg>
+  </figure>
+</section>
+
+<section id="rules">
+  <h2>2 · Seven rules the game follows</h2>
+  <p>Every part of this design was checked against these. When two ideas fight, the rule higher in the list wins.</p>
+  <div class="scroll"><table>
+    <tr><th>Rule</th><th>What it means</th><th>Where you see it</th></tr>
+    <tr><td><b>1 · Fun alone, better with friends</b></td>
+      <td>A solo player can reach every Era and finish every track. Friends who split the work get there sooner and
+        earn more. Nobody is ever stuck because a friend stopped playing.</td>
+      <td>The market always buys and sells; research by time; the Yard's Monument shared by its residents</td></tr>
+    <tr class="hl"><td><b>2 · One balance at every size</b></td>
+      <td>No number in the game depends on how many people play: not on the server, not in the town, not in the
+        Yard. The game never makes up for having fewer people. More people get further because more people make more,
+        never because a rule changes.</td>
+      <td>Fixed Hub Orders, fixed Wonder and Monument sizes, no "quiet server" bonus, no "half the town" rule</td></tr>
+    <tr><td><b>3 · Only people</b></td>
+      <td>No computer-run companies. The market is the one thing that isn't a person, and it never pretends to
+        be one.</td>
+      <td>Free plots are empty land; no Houses, stand-ins or caretakers</td></tr>
+    <tr><td><b>4 · Your own place</b></td>
+      <td>You choose where you live, start from nothing, and nobody can touch what you built.</td>
+      <td>Pick a spot on the map; moving is free; no destructive actions</td></tr>
+    <tr><td><b>5 · Everything flows</b></td>
+      <td>Goods visibly move through pipes. You can tell what a plot does by looking at it.</td>
+      <td>Pipes, the Yard's stalls, goods crossing the Yard</td></tr>
+    <tr><td><b>6 · Choices that matter</b></td>
+      <td>What you research, which land you buy, who in the Yard makes what and how much you give the Wonder all change
+        how your game goes.</td>
+      <td>Research takes days; level cap; land lacks two resources</td></tr>
+    <tr><td><b>7 · Progress while away</b></td>
+      <td>Everything keeps running offline. Coming back is a reward. Nothing is lost by not playing.</td>
+      <td>Offline report, research and Wonders that wait for you</td></tr>
+  </table></div>
+</section>
+
+<section id="words">
+  <h2>3 · Words</h2>
+  <dl class="words">
+    <dt>Plot</dt><dd>Your land: 32×32 tiles, in 16 parcels of 8×8. You start with four parcels (16×16) against the
+      Yard.</dd>
+    <dt>Parcel</dt><dd>8×8 tiles of land. You buy them one at a time, each 2.5 times the price of the one before,
+      one more every second Company Level.</dd>
+    <dt>Yard</dt><dd>The 32×16 space between four plots. Its residents trade there, build Monuments there and own it
+      together.</dd>
+    <dt>Crew</dt><dd>The people who live around one Yard (one to four). Joining a Yard means joining its crew.</dd>
+    <dt>Yard gate</dt><dd>Where your plot meets the Yard. A pipe from your buildings to your gate is your connection to
+      the Yard.</dd>
+    <dt>Town</dt><dd>Four Yards (16 plots) around a hub. A town has one market, one Era and one Era Wonder. The first
+      town is the Capital, and every town has a name (Ironvale, Copperbrook…).</dd>
+    <dt>Hub</dt><dd>The town's centre: the market, the Wonder site, statues and the town board.</dd>
+    <dt>Market</dt><dd>The town's buyer and seller of everything. It pays a good's base price, up to your Hub Order, and
+      sells at 2.5× the base.</dd>
+    <dt>Hub Order</dt><dd>How much of a good the market buys from you per minute at the full price. Beyond it, the price
+      falls.</dd>
+    <dt>Outskirts</dt><dd>The land between a town's Yards. From Era 2, each plot can buy nine outskirts parcels set aside
+      for it.</dd>
+    <dt>Era</dt><dd>A stage of a town: Steam &amp; Iron, Electric, Oil &amp; Machines, Electronics, Space Age. Your own
+      Era is the highest Era you have reached.</dd>
+    <dt>Era Wonder</dt><dd>The town's big building project. Finishing it moves the town into the next Era.</dd>
+    <dt>Monument</dt><dd>A Yard's own building project, one site per Era, built with gold in stages without end;
+      every stage gives every resident a perk.</dd>
+    <dt>Track</dt><dd>A research line for one chain (Iron, Power, Glass…), nine tiers over about ten days.</dd>
+    <dt>Base price</dt><dd>A good's reference price. Every price in the game is a multiple of it.</dd>
+  </dl>
+</section>
+
+<section id="world">
+  <h2>4 · The world: plot, Yard, town</h2>
+  <figure>
+    <div class="scroll">{{FIG:town}}</div>
+    <figcaption>A town drawn to scale, 3 pixels a tile. Four Yard groups around the hub; each group is a Yard with a plot
+      above, below and at both ends. The hatched land is the outskirts (from Era 2). Dark squares are the Yard gates; the
+      brass ones at the edge are the town gates, where the roads leave the town. A town is 196×164 tiles, with 128
+      tiles of wilderness to the next one.</figcaption>
+  </figure>
+  <div class="grid2">
+    <div>
+      <h3>A Yard group</h3>
+      <ul>
+        <li>The <b>Yard</b> is 32×16 tiles, wider than high, five times the size of today's Yard.</li>
+        <li>One plot sits <b>above</b> it and one <b>below</b>, sharing the Yard's long sides. Two more sit at its
+          <b>ends</b>.</li>
+        <li>Every plot's <b>start area</b> (its four first parcels, 16×16) lies against the Yard, with the
+          <b>Yard gate</b> in the middle of that edge. Your first pipe reaches the Yard.</li>
+        <li>The plots above and below get 32 tiles of Yard edge, the ones at the ends 16. That changes only how much
+          Yard edge each has, not what they can trade.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>A town</h3>
+      <ul>
+        <li><b>Four Yard groups</b>, so <b>16 plots</b>, around the <b>hub</b> (68×52 tiles): the market, the Era
+          Wonder's building site, statues and past Wonders.</li>
+        <li>Two <b>roads</b> cross the town. Links between Yards run along them.</li>
+        <li>The gaps between the groups are the <b>outskirts</b>: twelve patches of 32×24 tiles, 144 parcels. Each plot
+          has nine of them set aside for it (§5).</li>
+        <li>Around each town lies <b>wilderness</b>, 128 tiles to the next town, with rivers, mountains and rich
+          deposits. Where the roads leave the town stand four <b>town gates</b>, where lines from other towns arrive
+          (§20).</li>
+      </ul>
+    </div>
+  </div>
+  <h3>The world</h3>
+  <ul>
+    <li>Towns spiral out from the <b>Capital</b>, the first town. The Capital is a town like the others; it's just the
+      oldest.</li>
+    <li><b>A new town opens</b> when every Era-1 town has fewer than two free plots. Newcomers always start in an
+      Era-1 town, so there is always one with room.</li>
+    <li>The world map shows every town with its name, its Era, its Wonder's progress and how many plots are free.</li>
+    <li><b>Towns lie 128 tiles apart</b>, four times today's distance, so there's room between them for long lines,
+      outposts and what comes later. How the wilderness and the towns' dealings with each other work is the one part
+      left open (§20).</li>
+  </ul>
+</section>
+
+<section id="land">
+  <h2>5 · Your land</h2>
+  <figure>
+    <div class="scroll">{{FIG:group}}</div>
+    <figcaption>One Yard group, 5 pixels a tile, with the start areas (dark green), the parcel grid and each plot's
+      nine outskirts parcels in its colour. Each plot lacks two resources, and no two plots lack the same ones.</figcaption>
+  </figure>
+  <h3>What every plot has, and what it lacks</h3>
+  <p>There are eight <b>land resources</b> besides the ones every plot has. Each plot has six of them, and lacks one
+    Era-1 basic and one later resource:</p>
+  <div class="scroll"><table>
+    <tr><th>Every plot has</th><th>Each plot lacks one of</th><th>…and one of</th></tr>
+    <tr><td>water, iron ore, wood (forest), wind, sun</td>
+      <td>copper ore · coal · stone · sand</td>
+      <td>bauxite (Era 2) · oil (Era 3) · rare earth (Era 4) · titanium ore (Era 5)</td></tr>
+  </table></div>
+  <ul>
+    <li>In a Yard the four plots lack <b>different</b> ones, so <b>any three neighbours together have everything</b>.
+      Who lacks what is dealt per Yard when the world is made, and the plot's card shows it before you pick it.</li>
+    <li>The first hour is the same for everyone: every plot has wind, sun, water and iron ore.</li>
+    <li>A missing resource is a nudge, not a wall. You buy it from a neighbour at their price, from the market at 2.5×,
+      from your outskirts (they hold every resource) or, much later, you seed it with a Terraformer.</li>
+    <li>The resources of later Eras are on the land from the start, as <b>sleeping deposits</b> with a small Era
+      badge. You can see what you'll mine in Era 3 when you pick the plot.</li>
+    <li>Each plot has <b>one rich deposit</b> (★4) of something it has: its strength, also on its card. Other
+      deposits are ★1 to ★3. Richness multiplies what a mine digs.</li>
+  </ul>
+  <h3>Terrain</h3>
+  <div class="scroll"><table>
+    <tr><th>Terrain</th><th>Gives</th><th>Builds</th></tr>
+    <tr><td>Grass</td><td>—</td><td>everything</td></tr>
+    <tr><td>Hills</td><td>wind ×1.2–1.6, stone; rare earth (Era 4)</td><td>no 3×3 buildings</td></tr>
+    <tr><td>Forest</td><td>wood; trees regrow around Lumber Camps</td><td>building clears trees (and gives wood)</td></tr>
+    <tr><td>Beach</td><td>sand</td><td>everything</td></tr>
+    <tr><td>Water</td><td>water, hydro power</td><td>only pumps and wheels on the shore; pipes cross with bridges</td></tr>
+    <tr><td>Desert</td><td>sun ×1.5; oil (Era 3)</td><td>everything</td></tr>
+    <tr><td>Red hills</td><td>bauxite (Era 2)</td><td>no 3×3 buildings</td></tr>
+    <tr><td>Mountains</td><td>ore deposits at their feet; titanium ore (Era 5)</td><td>nothing</td></tr>
+  </table></div>
+  <h3>Parcels</h3>
+  <ul>
+    <li>16 parcels of 8×8. You start with the four against the Yard, with your HQ and trading post next to the gate.</li>
+    <li>You buy the other twelve <b>in any order</b>, as long as the new parcel touches land you own. Choosing which
+      one is a real decision: the beach for sand, or the hill for wind?</li>
+    <li>The first costs 20,000 gold and each one 2.5 times the last (the twelfth: 477 million). Company Level limits
+      how many you may own: the 5th parcel at Level 5, then one more every second level, the 16th at Level 27. A
+      regular player has the whole plot around day 21 (§17).</li>
+    <li>Pipes may cross parcels you haven't bought, so the Yard gate is always in reach. Buildings need bought land.</li>
+  </ul>
+  <h3>The outskirts (from Era 2)</h3>
+  <ul>
+    <li>Each plot has <b>nine outskirts parcels set aside for it</b>, next to its own land, as the picture shows. Only
+      you can buy yours, so a player in the middle of a town has the same room as one at the edge.</li>
+    <li>They open when your town reaches Era 2 and you've researched <i>Survey the outskirts</i>. The first costs 100
+      million gold, each one 1.4 times the last (the ninth: 1.5 billion): the big land purchase of Era 2. A regular
+      player has all nine about nine days into Era 2 (§17).</li>
+    <li>The outskirts hold <b>every</b> land resource at ★2–★3, so a solo player can make up for what their plot
+      lacks.</li>
+    <li>They count as your plot: same pipes, same buildings. When you move, they're bought back for half their price (§18).</li>
+  </ul>
+  <p class="small muted">Later Eras add more room in other directions: the Deep Level under your plot in Era 3, and
+    outposts in the wilderness in Era 4.</p>
+</section>
