@@ -397,8 +397,9 @@ def world_svg():
     (ax, ay), (bx, by) = gates['Capital']['E'], gates['Ironvale']['W']
     o.append(f'<path d="M{X(ax) + 4:.1f} {X(ay):.1f} H{X(bx) - 4:.1f}" stroke="#4a4f57" stroke-width="4" stroke-linecap="round"/>')
     o.append(text(X((ax + bx) / 2), X(ay) - 7, 'trunk line', 9.5, 800, '#2b2418', 'middle'))
-    o.append(text(X((ax + bx) / 2), X(ay) + 15, '(a Yard’s own, Era 3)', 9, 700, '#2b2418', 'middle'))
-    # a carrier line (idea): Ironvale south gate, around the mountains, to Copperbrook's west gate and on to Ashford's north gate
+    o.append(text(X((ax + bx) / 2), X(ay) + 15, '(Era 3)', 9, 700, '#2b2418', 'middle'))
+    # a Pipe Master's superconductor line from Ashford's north gate, around the mountains, to Ironvale's south gate and
+    # Copperbrook's west gate
     (sx, sy) = gates['Ironvale']['S']; (cx, cy) = gates['Copperbrook']['W']; (nx, ny) = gates['Ashford']['N']
     path = f'M{X(sx):.1f} {X(sy) + 4:.1f} V{X(sy + 40):.1f} H{X(cx - 50):.1f} V{X(cy):.1f} H{X(cx) - 4:.1f}'
     o.append(f'<path d="{path}" fill="none" stroke="#7a3fd0" stroke-width="4" stroke-dasharray="9 5" stroke-linecap="round"/>')
@@ -406,15 +407,13 @@ def world_svg():
     for (px, py) in [(sx, sy + 40), (cx - 50, sy + 40), (cx - 50, cy + 30)]:
         o.append(f'<circle cx="{X(px):.1f}" cy="{X(py):.1f}" r="4.5" fill="#fffaf0" stroke="#7a3fd0" stroke-width="2"/>')
     o.append(rect(X(sx + 8), X(sy + 46), 168, 30, '#fffaf0', '#7a3fd0', 1.2, 'rx="8" opacity="0.95"'))
-    o.append(text(X(sx + 8) + 8, X(sy + 46) + 13, 'a carrier line (idea): one player’s', 9.5, 800, '#5a2ea0'))
-    o.append(text(X(sx + 8) + 8, X(sy + 46) + 25, 'lossless line, rented by others', 9.5, 800, '#5a2ea0'))
-    # outposts on rich deposits (Era 4) and a caravan camp (idea)
+    o.append(text(X(sx + 8) + 8, X(sy + 46) + 13, 'a Pipe Master’s line: lossless,', 9.5, 800, '#5a2ea0'))
+    o.append(text(X(sx + 8) + 8, X(sy + 46) + 25, 'others pay its carrier a fee', 9.5, 800, '#5a2ea0'))
+    # outposts on rich deposits (Era 4)
     for (ox, oy) in [(296, 520), (318, 500), (640, 470), (930, 300)]:
         o.append(rect(X(ox), X(oy), 8 * s + 2, 8 * s + 2, '#c0603a', INK, 1))
         o.append(f'<circle cx="{X(ox) + 3:.1f}" cy="{X(oy) - 5:.1f}" r="2.4" fill="#f6c744" stroke="{INK}" stroke-width="0.6"/>')
     o.append(text(X(334), X(512) + 3, 'outposts (Era 4)', 9.5, 800, '#2b2418'))
-    o.append(f'<path d="M{X(784) - 8:.1f} {X(300) + 7:.1f} L{X(784):.1f} {X(300) - 8:.1f} L{X(784) + 8:.1f} {X(300) + 7:.1f} Z" fill="#e9c46a" stroke="{INK}" stroke-width="1"/>')
-    o.append(text(X(784), X(300) + 20, 'caravan camp (idea)', 9.5, 800, '#2b2418', 'middle'))
     o.extend(labels)
     # the distance between two towns
     y = X(M + TH + G / 2) + 26
@@ -424,13 +423,13 @@ def world_svg():
     o.append(text((x1 + x2) / 2, y - 6, '128 tiles', 10, 800, INK, 'middle'))
     # legend
     ly = H - 34
-    items = [('#c9963a', 'town gate'), ('#4a4f57', 'trunk line (Era 3)'), ('#7a3fd0', 'carrier line (idea)'), ('#c0603a', 'outpost (Era 4)')]
+    items = [('#c9963a', 'town gate'), ('#4a4f57', 'trunk line (Era 3)'), ('#7a3fd0', 'Pipe Master’s line'), ('#c0603a', 'outpost (Era 4)')]
     x = 8
     for fill, label in items:
         o.append(rect(x, ly, 12, 12, fill, INK, 0.8, 'rx="2"'))
         o.append(text(x + 17, ly + 10, label, 10.5, 600))
         x += 160
-    o.append(text(8, H - 6, 'Six towns to scale (0.7 px a tile). The towns are 1.4; the carrier line and the camp are ideas.', 10.5, 600, MUTED))
+    o.append(text(8, H - 6, 'Six towns to scale (0.7 px a tile).', 10.5, 600, MUTED))
     o.append('</svg>')
     return '\n'.join(o)
 

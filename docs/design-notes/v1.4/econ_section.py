@@ -10,7 +10,7 @@ NAME = {
     'sandDredger': 'Sand Dredger', 'lumberCamp': 'Lumber Camp', 'waterPump': 'Water Pump',
     'smallFactory': 'Small Factory', 'bigFactory': 'Big Factory', 'smelter': 'Smelter', 'brickworks': 'Brickworks',
     'glassworks': 'Glassworks', 'sawmill': 'Sawmill', 'bigTurbine': 'Big Turbine', 'steamTurbine': 'Steam Turbine',
-    'bauxitePit': 'Bauxite Pit', 'deepMine': 'Deep Mine', 'steelMill': 'Steel Mill', 'wireMill': 'Wire Mill',
+    'bauxitePit': 'Bauxite Pit', 'deepMine': 'Deep Mine', 'deepMineCopper': 'Deep Mine', 'deepMineCoal': 'Deep Mine', 'steelMill': 'Steel Mill', 'wireMill': 'Wire Mill',
     'cementKiln': 'Cement Kiln', 'aluminiumWorks': 'Aluminium Works',
 }
 
@@ -41,10 +41,12 @@ def first_evening():
     o = ['<div class="scroll"><table class="wide">',
          '<tr><th>Minute</th><th class="num">Income a minute</th><th>Level</th><th>Buildings</th><th>What happened</th></tr>']
     notes = {0: 'Four Wind Moilies on the hill, piped to the trading post',
-             10: 'Solar Panels fill the gaps; Levels 2 and 3', 20: 'Level 4: the Lab; the first Iron Mine',
-             30: 'The Power track\'s first tier; ten more mines', 40: 'Level 5: Small Factories, the first chain',
-             60: 'Water Pumps, Lumber Camps, Copper Mines, Sawmills', 80: 'Level 6',
-             90: 'The trading post goes to level 6: more of every Hub Order', 120: 'Smelters; the evening ends'}
+             10: 'Solar Panels fill the gaps; Levels 2 and 3', 20: 'Level 4: the Lab',
+             30: 'Copper pipes and the Power track\'s first tier, one on each of the Lab\'s lines; the first Iron Mines',
+             40: 'Level 5: the first Small Factory, the first chain', 60: 'Water Pumps and Lumber Camps',
+             80: 'Copper Mines, Sawmills, more Small Factories',
+             90: 'Level 6; the trading post goes to level 4: more of every Hub Order',
+             120: 'Smelters; the trading post at level 8; the evening ends'}
     for r in rows:
         if r['minute'] not in notes:
             continue
@@ -58,11 +60,7 @@ def base_card(r, day):
     b = r['buildings'] or []
     by = {}
     for t, lvl, m, *_ in b:
-        by.setdefault(t, []).append(lvl)
-    kinds = {}
-    for t, ls in by.items():
-        k = KINDS[t]
-        kinds.setdefault(k, []).extend(ls)
+        by.setdefault(NAME[t], []).append(lvl)
     top = sorted(by.items(), key=lambda kv: -len(kv[1]))[:6]
     spent = r['spent']
     tot = sum(spent.values()) or 1
@@ -71,7 +69,7 @@ def base_card(r, day):
         ('Company Level', f'{r["L"]}'),
         ('Land', f'{4 + r["parcels"]} of 16 parcels' + (f' and {r["outskirts"]} of 9 outskirts' if r['outskirts'] else '')),
         ('Buildings', f'{len(b)}, average level {sum(x[1] for x in b) / max(len(b), 1):.1f}'),
-        ('Most of them', ', '.join(f'{len(ls)} {plural(NAME[t]) if len(ls) > 1 else NAME[t]}' for t, ls in top[:4])),
+        ('Most of them', ', '.join(f'{len(ls)} {plural(t) if len(ls) > 1 else t}' for t, ls in top[:4])),
         ('Research', f'{sum(r["tiers"].values())} tiers; Iron at {r["tiers"].get("iron", 0)}' + (f', Steel at {r["tiers"].get("steel", 0)}' if r['tiers'].get('steel') else '')),
         ('Earned so far', g(r['earned'])),
         ('Spent so far', f'{sum(spent.values()) / max(r["earned"], 1):.0%} of it'),
@@ -79,6 +77,51 @@ def base_card(r, day):
     if r.get('monument'):
         lines.append(('Monument', f'stage {r["monument"]}'))
     return '<table class="facts">' + ''.join(f'<tr><th>{a}</th><td>{v}</td></tr>' for a, v in lines) + '</table>'
+
+
+TRACK_PLOTS = {'power': 'a rich coal deposit, no copper ore', 'iron': 'a rich iron deposit, no sand',
+               'copper': 'a rich copper deposit, no sand', 'stone': 'a rich stone deposit, no sand',
+               'sand': 'a rich sand deposit, no stone', 'wood': 'a rich iron deposit, no sand'}
+
+
+def track_gain(track, day):
+    a = load(f'tracks_{track}_deep.json')['rows']
+    b = load(f'tracks_{track}_wide.json')['rows']
+    return row_at(a, day)['earned'] / row_at(b, day)['earned'] - 1
+
+
+def tracks_table():
+    """Every Era-1 track mastered against the same plot played wide"""
+    days = [7, 14, 21, 35]
+    o = ['<div class="scroll"><table class="wide">',
+         '<tr><th>Track mastered</th><th>On a plot with</th>' + ''.join(f'<th class="num">Day {d}</th>' for d in days) + '</tr>']
+    for t in ['power', 'iron', 'copper', 'stone', 'sand', 'wood']:
+        o.append(f'<tr><td><b>{t.capitalize()}</b></td><td>{TRACK_PLOTS[t]}</td>'
+                 + ''.join(f'<td class="num">{track_gain(t, d):+.0%}</td>' for d in days) + '</tr>')
+    o.append('</table></div>')
+    o.append('<p class="small muted">Gold earned by a player who researches the first two tiers of everything and '
+             'then masters one track, against the same plot researching every track a tier at a time. Both do the '
+             'Era-2 tracks after that, from day 12.</p>')
+    return '\n'.join(o)
+
+
+def tracks_spread(day):
+    v = [track_gain(t, day) + 1 for t in ['power', 'iron', 'copper', 'stone', 'sand', 'wood']]
+    return max(v) / min(v)
+
+
+def summary_table():
+    """The base at a glance, for the first page"""
+    r = load('show_regular.json')['rows']
+    o = ['<div class="scroll"><table>',
+         '<tr><th>Day</th><th class="num">Buildings</th><th class="num">Income a minute</th><th class="num">Company Level</th><th>Land</th></tr>']
+    for d in [1, 7, 14, 34]:
+        x = row_at(r, d)
+        land = f'{4 + x["parcels"]} of 16 parcels' + (f', {x["outskirts"]} of 9 outskirts' if x['outskirts'] else '')
+        inc = f'{x["inc"]:,.0f} g' if x['inc'] < 100_000 else g(x['inc'])
+        o.append(f'<tr><td>{d}</td><td class="num">{x["n"]}</td><td class="num">{inc}</td><td class="num">{x["L"]}</td><td>{land}</td></tr>')
+    o.append('</table></div>')
+    return '\n'.join(o)
 
 
 def days_table(r):
@@ -211,7 +254,7 @@ def wonder_table():
 
 def styles_table():
     o = ['<div class="scroll"><table class="wide">', '<tr><th>How they play</th><th class="num">Day 3</th><th class="num">Day 7</th><th class="num">Day 14</th><th class="num">Day 28</th><th>Level on day 7 · 14 · 28</th></tr>']
-    for name, f in [('Keen: four visits a day', 'show_keen.json'), ('Regular: three a day', 'show_regular.json'), ('Once a day, with Max and Grow', 'show_casual.json')]:
+    for name, f in [('Keen: four visits a day', 'show_keen.json'), ('Regular: three a day', 'show_regular.json'), ('Once a day, with Max and Grow', 'show_casual.json'), ('Once a day, two things a minute', 'show_casual_apm2.json')]:
         r = load(f)['rows']
         o.append(f'<tr><td>{name}</td>' + ''.join(f'<td class="num">{row_at(r, d)["inc"]:,.0f}</td>' for d in [3, 7, 14, 28]) +
                  f'<td>{row_at(r, 7)["L"]} · {row_at(r, 14)["L"]} · {row_at(r, 28)["L"]}</td></tr>')
@@ -230,14 +273,14 @@ def maps():
 
 LEVEL_UNLOCKS = {
     1: 'HQ, trading post, Solar Panel, Wind Moily, Storage, grey pipe, your stall',
-    2: 'Iron Mine, Small Factory', 3: 'Trading in the Yard and your prices; daily orders', 4: 'The Lab: research',
+    2: 'Iron Mine, Small Factory', 3: 'Trading in the Yard and your prices; daily orders', 4: 'The Lab: research, the tracks and the Era tree (copper pipes)',
     5: '5th parcel; Copper Mine, Coal Pit, Sand Dredger, Lumber Camp, Water Pump, Sawmill; the Monument',
     6: 'Smelter, Brickworks, Hydro Wheel', 7: 'Glassworks; 6th parcel', 8: 'Copper pipes for everyone', 9: '7th parcel',
     10: 'Quarry, Warehouse, Engineer\'s Workshop; Yard workshops and the Depot; first manager', 11: '8th parcel',
     12: 'Links, the Exchange, Cargo Depot, Big Factory', 13: '9th parcel', 14: 'Coal Plant', 15: '10th parcel; Recycler',
     16: 'Market Hall', 17: '11th parcel', 18: 'Weather Station', 19: '12th parcel',
     20: 'Expedition Office; second manager', 21: '13th parcel', 22: 'Blueprint Office', 23: '14th parcel',
-    25: '15th parcel', 27: '16th parcel: the whole plot', 30: 'Third manager', 45: 'Fourth manager', 60: 'Fifth manager',
+    25: '15th parcel', 27: '16th parcel: the whole plot', 30: 'Third manager', 45: 'Fourth manager',
 }
 
 
@@ -247,10 +290,10 @@ def level_gold(L):
     if L <= 10:
         return 500 * 3.96 ** (L - 2)
     if L <= 20:
-        return 30e6 * 1.47 ** (L - 10)
+        return 30e6 * 1.44 ** (L - 10)
     if L <= 25:
-        return 30e6 * 1.47 ** 10 * 1.35 ** (L - 20)
-    return 30e6 * 1.47 ** 10 * 1.35 ** 5 * 1.47 ** (L - 25)
+        return 30e6 * 1.44 ** 10 * 1.35 ** (L - 20)
+    return 30e6 * 1.44 ** 10 * 1.35 ** 5 * 1.5 ** (L - 25)
 
 
 def levels_table():
@@ -291,7 +334,7 @@ def hub_orders_table():
         f = lambda v: f'{v:,.0f}' if v >= 10 else f'{v:.1f}'
         o.append(f'<tr><td>{NAMES[g]}</td><td class="num">{p:g} g</td><td class="num">{f(base)}</td><td class="num">{f(base * 1.1 ** 9)}</td><td class="num">{f(base * 1.1 ** 24)}</td><td class="num">{f(e2 * 1.1 ** 24)}</td></tr>')
     o.append('</table></div>')
-    o.append('<p class="small muted">Units a minute. Research multiplies them again for the goods of your own tracks (§12).</p>')
+    o.append('<p class="small muted">Units a minute. From tier 5, research multiplies them again for the goods of your own tracks (§12).</p>')
     return '\n'.join(o)
 
 

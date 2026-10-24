@@ -32,13 +32,15 @@
     <tr><th>When</th><th>What happens</th><th>You learn</th></tr>
     <tr><td>0:00</td><td>The camera flies from the hub over the town to your plot</td><td>This plot is mine, and there are people around me</td></tr>
     <tr><td>0:01</td><td>A Solar Panel on a sunny spot, a pipe to the trading post: the first coins pop</td><td>Build, pipe, sell</td></tr>
-    <tr><td>0:03</td><td>A Wind Moily on the hill; the first upgrade to level 5</td><td>Where you build matters; levels are strong</td></tr>
+    <tr><td>0:03</td><td>Wind Moilies on the hill, where the wind is stronger</td><td>Where you build matters</td></tr>
     <tr><td>0:07</td><td>Level 2: an Iron Mine on your deposit, fed by your own energy</td><td>Extraction</td></tr>
     <tr><td>0:10</td><td>A Small Factory turns ore into ingots: "Chain complete!"</td><td>Processing multiplies value</td></tr>
     <tr><td>0:14</td><td>Level 3: a pipe to your Yard gate, your stall goes up, you set a price</td><td>The Yard</td></tr>
     <tr><td>0:16</td><td>A neighbour's factory buys your spare energy: "Ben +46 g/min"</td><td>Friends pay more than the market</td></tr>
     <tr><td>0:18</td><td>Three daily orders from the market</td><td>A goal for today</td></tr>
-    <tr><td>0:20</td><td>"Your plot keeps running. Your storage is full in about 2 hours."</td><td>It's an idle game</td></tr>
+    <tr><td>0:20</td><td>Level 4: the Lab. Copper pipes on one research line, the first tier of a track on the other</td><td>Research</td></tr>
+    <tr><td>0:25</td><td>"Your plot keeps running. Your storage is full in about 2 hours."</td><td>It's an idle game</td></tr>
+    <tr><td>Later that evening</td><td>The start area fills up; Max on your best Wind Moilies, which now make more than a grey pipe carries: the copper pipes take it</td><td>Levels and pipes, when the land runs out</td></tr>
   </table></div>
   <p class="small muted">Without a neighbour yet, the 0:16 step says what your Yard is waiting for and moves on: the
     market buys everything.</p>
@@ -132,7 +134,10 @@
       Era four times as much as one Era before. When your town reaches a later Era, the older goods' Hub Orders grow by
       half for each Era since.</li>
     <li><b>Your trading post's level raises every Hub Order by 10%</b> a level, to 9.85 times at level 25. Upgrading
-      the post is how you grow your market. The post has no other limit: it sells everything that reaches it.</li>
+      the post is how you grow your market. Every plot has one trading post (it grows into the Market Hall at Level 16),
+      and it has no other limit: it sells everything that reaches it.</li>
+    <li><b>Research raises them for your own goods:</b> from tier 5 of a track, every tier makes your Hub Orders for
+      that track's goods 80% bigger (§12).</li>
     <li><b>Beyond your Hub Order the price falls.</b> Selling twice the Hub Order pays 1.41 times as much, four times
       pays twice as much, sixteen times four times as much. From sixteen times on, every further unit pays a quarter
       of the base price.</li>
@@ -188,8 +193,8 @@
     this every minute, for every good:</p>
   <ol>
     <li><b>Your own first.</b> Your own buildings use what your own buildings make. What they can't use is your
-      <i>spare</i>; what they need and don't get is your <i>want</i>. A want also counts what your storages keep for
-      your next level or building.</li>
+      <i>spare</i>; what they need and don't get is your <i>want</i>. A want also counts the goods a level or a new
+      building of yours is still waiting for (§9).</li>
     <li><b>Links next.</b> Standing deals with other Yards are filled before the Yard.</li>
     <li><b>Then the Yard.</b> Each resident's want is filled from the others' spare, the seller with the lowest price
       for that buyer first. With equal prices, the seller who supplied that buyer before goes first, so supplies are
@@ -299,10 +304,14 @@
           Moily's levels cost 14 times your first one's, and growing means building wider, not only higher.</li>
         <li><b>From level 11, levels also need goods</b> worth 30% of the step's gold, made in the building's own Era:
           planks and bricks for the steps to levels 11–15, then also iron ingots and glass (16–20), then also copper
-          ingots (21–25). An Era-2 building needs steel and concrete, then copper wire, then aluminium. Your storages keep
-          what your next level needs; what you don't make comes from your Yard at your neighbours' price or from the
-          market at 2.5×. Every plot lacks one basic, so every plot needs a friend's bricks, glass or copper ingots
-          to grow.</li>
+          ingots (21–25). An Era-2 building needs steel and concrete, then copper wire, then aluminium. Every plot
+          lacks one basic, so every plot needs a friend's bricks, glass or copper ingots to grow.</li>
+        <li><b>How a level gets its goods.</b> You pay the gold at once. The building keeps working at its old level
+          under a little scaffolding until its goods are in, then steps up. The goods come by themselves, in this
+          order: your storages, your own spare as it's made, your neighbours' spare through the Yard at their crew
+          price, and the market at 2.5× if you allow imports of that good. <i>Buy the rest</i> fills what's missing
+          at once from the market. Max buys several steps; their goods come in one after the other. Era 2–5 buildings
+          wait for their goods the same way. Today's game already does this for building materials.</li>
         <li>A building shows a star at levels 5, 10, 15, 20 and 25, and looks grander at each (bronze, silver, gold,
           copper trim, and at 25 the owner's pennant with a golden glow).</li>
         <li>The cap is the point: with a fixed plot and a fixed top level, a plot has a ceiling we can calculate.
@@ -328,18 +337,27 @@
     nothing. It wakes when the town reaches its Era. This happens when you move to a town one Era below your own (§11).</p>
   <h3>Pipes</h3>
   <div class="scroll"><table>
-    <tr><th>Pipe</th><th>Era</th><th class="num">Carries per connection</th><th class="num">Loss per tile</th><th>Cost per tile</th><th>How you get it</th></tr>
+    <tr><th>Pipe</th><th>Era</th><th class="num">Carries between two buildings</th><th class="num">Loss per tile</th><th>Cost per tile</th><th>How you get it</th></tr>
     <tr><td>Grey</td><td>1</td><td class="num">100 / min</td><td class="num">0.3%</td><td>2 g</td><td>From the start</td></tr>
-    <tr><td>Copper</td><td>1</td><td class="num">500 / min</td><td class="num">0.15%</td><td>10 g + 1 copper ingot</td><td>Research, or free for everyone at Level 8</td></tr>
-    <tr><td>Steel</td><td>2</td><td class="num">2,500 / min</td><td class="num">0.05%</td><td>40 g + 1 steel</td><td>Research, or free from Level 8 when your town reaches Era 2</td></tr>
-    <tr><td>Composite</td><td>3</td><td class="num">10,000 / min</td><td class="num">0.02%</td><td>200 g + 1 plastic</td><td>Research</td></tr>
-    <tr><td>Glass Conduit</td><td>4</td><td class="num">50,000 / min</td><td class="num">0.01%</td><td>1,000 g + 1 circuit</td><td>Research</td></tr>
+    <tr><td>Copper</td><td>1</td><td class="num">5,000 / min</td><td class="num">0.15%</td><td>10 g + 1 copper ingot</td><td>Research (10 minutes, 300 g), or free for everyone at Level 8</td></tr>
+    <tr><td>Steel</td><td>2</td><td class="num">50,000 / min</td><td class="num">0.05%</td><td>40 g + 1 steel</td><td>Research (an hour, 5 million g)</td></tr>
+    <tr><td>Composite</td><td>3</td><td class="num">500,000 / min</td><td class="num">0.02%</td><td>200 g + 1 plastic</td><td>Research</td></tr>
+    <tr><td>Glass Conduit</td><td>4</td><td class="num">5 million / min</td><td class="num">0.01%</td><td>1,000 g + 1 circuit</td><td>Research</td></tr>
     <tr><td>Superconductor</td><td>5</td><td class="num">no limit</td><td class="num">none</td><td>5,000 g + 1 superconductor</td><td>Research</td></tr>
   </table></div>
   <ul>
+    <li><b>What a pipe carries</b> is counted between each pair of buildings it joins: a Wind Moily on a grey pipe can
+      send 100 energy a minute to each building that uses it, and 100 to your trading post. When a building makes more
+      than its pipes carry away, it slows down to what they carry.</li>
+    <li><b>The grey pipe fills on the first evening</b>, when your first Wind Moilies on a hill pass level 10. Loady
+      shows copper pipes as soon as the Lab is built (a ten-minute research), so they're there in time.</li>
+    <li><b>After that pipes hardly ever hold you back.</b> Each tier is sized so that a 1×1 building of its Era fits
+      even at level 25 with its track mastered. Only the biggest 2×2 buildings, late in an Era and with the Monument's
+      bonus on top, fill a copper or steel pipe, and the next Era's pipe frees them. In the model the limits cost a
+      regular player 1–2% of their gold (§17).</li>
     <li>A building whose pipe is full shows one door on its panel: the next tier on its links, then the levels the new
       pipe carries, with the gold a minute it would add. Draw a better pipe over an old one and it upgrades where it
-      lies.</li>
+      lies, at the new tier's cost per tile.</li>
     <li><b>Power lines</b> (Era 2) carry only energy, lose nothing, have no limit and cross water.</li>
     <li>Valves let chosen goods pass; priority valves choose which side is served first. A network needs a Pump Station
       for every 50 buildings.</li>

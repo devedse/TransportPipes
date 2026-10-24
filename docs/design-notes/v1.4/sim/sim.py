@@ -34,10 +34,15 @@ class Sim:
         import econ
         econ.TRACK_STRENGTH.clear()
         econ.TRACK_STRENGTH.update(rules.track_strength)
+        econ.COAL_IN[:] = rules.coal_in or []
+        from content import B
+        for t, r in rules.recipes.items():
+            B[t].update(r)
         self.mon = {'stage': 0, 'paid': 0.0}
         self.wonder = {'given': 0.0}
         for p in plots:
             p.gold = rules.start_gold
+            p.need_tree = rules.era_tree
             if rules.level_gold:
                 p.level_gold = rules.level_gold
         self.log = []
@@ -243,7 +248,8 @@ class Sim:
 
     def best(self, p, base, keep=10):
         from econ import track_mults
-        research = {k: track_mults(n, k) for k, n in p.tiers.items()}
+        from econ import tiers_of
+        research = {k: track_mults(tiers_of(p, k), k) for k in set(p.tiers) | {'coal'}}
         mv = self.marginal(p, self.econ(p))
         p._mv = mv
         # what the market would pay feeds which imports pay: solve again with it, so every candidate compares alike
@@ -265,9 +271,10 @@ class Sim:
         return best
 
     def next_research(self, p):
+        import econ
         for track, upto in p.plan:
             n = p.tiers.get(track, 0)
-            if n >= upto:
+            if n >= upto or (track == 'coal' and econ.COAL_IN):
                 continue
             if track in TRACKS2 and p.era < 2:
                 continue
@@ -294,6 +301,40 @@ class Sim:
         inc = self.state[p.name]['income']
         return 'save' if cost <= self.save * max(inc, 1) else 'far'
 
+    def try_tree(self, p):
+        """The Era tree on the second research line: one item at a time, in order, as soon as the gold is there"""
+        from content import TREE, PIPE_RELAY, PIPE_TILES_PER_PARCEL
+        if not self.rules.era_tree or p.level < 4 or p.tree_line:
+            return 'busy'
+        for item, era, hours, gold, opens in TREE:
+            if item in p.tree or era > self.era():
+                continue
+            if item == 'copperPipes' and p.level >= 8:
+                gold, hours = 0, 0  # everyone gets copper pipes at Level 8
+            cost = gold * self.rules.all_costs
+            if opens and opens.startswith('pipe:'):
+                tiles = (4 + p.parcels + p.outskirts) * PIPE_TILES_PER_PARCEL
+                cost += tiles * PIPE_RELAY[opens[5:]]
+            if p.gold >= cost:
+                p.spend_gold('research', cost)
+                p.tree_line = (item, self.t + hours * 60)
+                return 'started'
+            inc = self.state[p.name]['income']
+            return 'save' if cost <= self.save * max(inc, 1) else 'far'
+        return 'none'
+
+    def finish_tree(self, p):
+        from content import TREE
+        if p.tree_line and p.tree_line[1] <= self.t:
+            item = p.tree_line[0]
+            p.tree.add(item)
+            p.tree_line = None
+            opens = next(t[4] for t in TREE if t[0] == item)
+            if opens and opens.startswith('pipe:'):
+                p.pipe = opens[5:]
+            return True
+        return False
+
     def try_parcel(self, p):
         if p.parcels >= 12 or p.level < self.rules.parcel_levels[p.parcels] or not p.parcels_left:
             return 'no'
@@ -309,7 +350,7 @@ class Sim:
         return 'save' if cost <= self.save * max(inc, 1) else 'far'
 
     def try_outskirts(self, p):
-        if self.era() < 2 or not p.outskirts_left:
+        if self.era() < 2 or not p.outskirts_left or (self.rules.era_tree and 'survey' not in p.tree):
             return 'no'
         cost = self.rules.out_first * self.rules.out_factor ** p.outskirts
         inc = self.state[p.name]['income']
@@ -391,6 +432,15 @@ class Sim:
                 p.stop = 'out of time'
                 return
             st = self.state[p.name]
+            tr = self.try_tree(p)
+            if tr == 'started':
+                actions += 1
+                self.finish_tree(p)
+                self.state[p.name] = self.econ(p)
+                continue
+            if tr == 'save':
+                p.stop = 'save research'
+                return
             r = self.try_research(p)
             if r == 'started':
                 actions += 1
@@ -485,6 +535,7 @@ class Sim:
             # is there), in the order they happen
             while True:
                 soon = [p.research[1] for p in self.plots if p.research and self.t < p.research[1] <= nxt]
+                soon += [p.tree_line[1] for p in self.plots if p.tree_line and self.t < p.tree_line[1] <= nxt]
                 t_r = min(soon) if soon else float('inf')
                 if next_sample <= min(t_r, nxt) and next_sample < end:
                     self.advance(next_sample)
@@ -496,6 +547,9 @@ class Sim:
                     for p in self.plots:
                         if self.finish_research(p):
                             self.try_research(p)
+                            self.crew_round()
+                        if self.finish_tree(p):
+                            self.try_tree(p)
                             self.crew_round()
                     continue
                 break
@@ -512,6 +566,7 @@ class Sim:
                 for q in self.plots:
                     if self.finish_research(q):
                         self.try_research(q)
+                    self.finish_tree(q)
                 rate = getattr(p, 'actions_per_min', None)
                 self.spend(p, None if rate is None else rate * 2)
                 self.advance(self.t + 2)

@@ -1,6 +1,6 @@
 # A player's plot: land pools, buildings, levels, research, gold, XP
 import copy
-from content import B, TIERS, TRACKS1, TRACKS2, BASICS, level_mult, step_cost, copy_cost, xp_for_level, PARCEL_LEVELS, parcel_cost, PRICE
+from content import B, TIERS, TRACKS1, TRACKS2, BASICS, DEEP_MINES, level_mult, step_cost, copy_cost, xp_for_level, PARCEL_LEVELS, parcel_cost, PRICE
 
 PIPES = 0.8  # share of a parcel's 64 tiles left for buildings once pipes are laid
 PARCEL = int(64 * PIPES)  # 51
@@ -86,6 +86,10 @@ class Plot:
         self.copies = {}
         self.given = 0.0
         self.era = 1
+        self.pipe = 'grey'
+        self.tree = set()
+        self.tree_line = None  # (item, done_at)
+        self.need_tree = False
 
     def add_pools(self, d):
         for k, v in d.items():
@@ -138,6 +142,9 @@ class Plot:
         if allowed is not None and d['track'] not in allowed:
             return False
         if d['era'] > self.era:
+            return False
+        if self.need_tree and ((t == 'bigFactory' and 'bigFactory' not in self.tree)
+                               or (t in DEEP_MINES and 'deepMining' not in self.tree)):
             return False
         return d['era'] > 1 or self.level >= d['unlock']
 

@@ -24,7 +24,7 @@ B = [
  ('Water Pump',1,1,'mine',{'energy':3},{'water':50}),
  # Era 1 factories
  ('Small Factory',1,1,'factory',{'energy':20,'ironOre':12},{'ironIngot':6}),
- ('Big Factory',1,4,'factory',{'energy':90,'ironOre':60},{'ironIngot':32}),
+ ('Big Factory',1,4,'factory',{'energy':90,'ironOre':60},{'ironIngot':28}),
  ('Smelter',1,1,'factory',{'energy':20,'copperOre':10,'coal':4},{'copperIngot':5}),
  ('Brickworks',1,1,'factory',{'energy':10,'stone':10,'coal':5},{'bricks':12}),
  ('Glassworks',1,1,'factory',{'energy':25,'sand':15},{'glass':5}),

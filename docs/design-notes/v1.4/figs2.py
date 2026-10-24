@@ -124,7 +124,7 @@ KIND = {
 TYPE_KIND = {
     'solarPanel': 'power', 'windMoily': 'power', 'hydroWheel': 'power', 'coalPlant': 'power', 'bigTurbine': 'era2',
     'steamTurbine': 'era2', 'ironMine': 'mine', 'copperMine': 'mine', 'coalPit': 'mine', 'quarry': 'mine',
-    'sandDredger': 'mine', 'lumberCamp': 'mine', 'waterPump': 'mine', 'bauxitePit': 'era2', 'deepMine': 'era2',
+    'sandDredger': 'mine', 'lumberCamp': 'mine', 'waterPump': 'mine', 'bauxitePit': 'era2', 'deepMine': 'era2', 'deepMineCopper': 'era2', 'deepMineCoal': 'era2',
     'smallFactory': 'factory', 'bigFactory': 'factory', 'smelter': 'factory', 'brickworks': 'factory',
     'glassworks': 'factory', 'sawmill': 'factory', 'steelMill': 'era2', 'wireMill': 'era2', 'cementKiln': 'era2',
     'aluminiumWorks': 'era2',

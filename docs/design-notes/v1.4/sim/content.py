@@ -33,6 +33,9 @@ B = {
     'steamTurbine':   dict(era=2, size=4, gold=30000,  inp={'coal': 30, 'water': 40}, out={'energy': 500}, unlock=0, track='power', place='any'),
     'bauxitePit':     dict(era=2, size=1, gold=8000,   inp={'energy': 20}, out={'bauxite': 15}, unlock=0, track='aluminium', place='dep:bauxite'),
     'deepMine':       dict(era=2, size=4, gold=40000,  inp={'energy': 60}, out={'ironOre': 160}, unlock=0, track='iron', place='dep:ironOre'),
+    # the Deep Mine on copper ore and on coal: the same building, the same value a minute, its ore's track
+    'deepMineCopper': dict(era=2, size=4, gold=40000,  inp={'energy': 60}, out={'copperOre': 137}, unlock=0, track='copper', place='dep:copperOre'),
+    'deepMineCoal':   dict(era=2, size=4, gold=40000,  inp={'energy': 60}, out={'coal': 192}, unlock=0, track='coal', place='dep:coal'),
     'steelMill':      dict(era=2, size=4, gold=46000,  inp={'energy': 120, 'ironIngot': 20, 'coal': 10}, out={'steel': 14}, unlock=0, track='steel', place='any'),
     'wireMill':       dict(era=2, size=1, gold=12000,  inp={'energy': 40, 'copperIngot': 6}, out={'copperWire': 6}, unlock=0, track='wire', place='any'),
     'cementKiln':     dict(era=2, size=4, gold=40000,  inp={'energy': 50, 'stone': 20, 'sand': 20, 'water': 10}, out={'concrete': 25}, unlock=0, track='concrete', place='any'),
@@ -42,6 +45,23 @@ B = {
 TRACKS1 = ['power', 'iron', 'copper', 'coal', 'stone', 'sand', 'wood']
 TRACKS2 = ['steel', 'wire', 'concrete', 'aluminium']
 BASICS = ['copperOre', 'coal', 'stone', 'sand']
+DEEP_MINES = {'deepMine', 'deepMineCopper', 'deepMineCoal'}
+
+# The Era tree (the second research line): (id, era, hours, gold, what it opens)
+TREE = [
+    ('copperPipes', 1, 1 / 6, 300, 'pipe:copper'),
+    ('valves', 1, 0.25, 500, None),
+    ('pumpStations', 1, 1 / 3, 800, None),
+    ('bigFactory', 1, 0.5, 2000, 'build:bigFactory'),
+    ('steelPipes', 2, 1, 5e6, 'pipe:steel'),
+    ('survey', 2, 2, 30e6, 'outskirts'),
+    ('deepMining', 2, 2, 20e6, 'build:deep'),
+    ('powerLines', 2, 1, 10e6, None),
+    ('silos', 2, 1, 10e6, None),
+]
+# Re-laying a plot's pipes in a better tier: gold and goods a tile (the goods at the market's price)
+PIPE_RELAY = {'copper': 10 + 18 * 2.5, 'steel': 40 + 60 * 2.5}
+PIPE_TILES_PER_PARCEL = 13
 
 # A track: nine tiers. time in hours; effect; gold at Era 1 (x4 per Era)
 TIERS = [

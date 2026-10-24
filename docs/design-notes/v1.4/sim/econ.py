@@ -47,10 +47,23 @@ class Rules:
         self.monument = None            # (first stage gold, x per stage, production per stage)
         self.endgame_split = 0.5        # share of the spare gold a player puts in the Monument (the rest: the Wonder)
         self.start_gold = 2000
+        self.pipe_caps = None           # units a minute one connection carries, by pipe tier ({'grey': 100, ...})
+        self.era_tree = False           # the Era tree on the second research line: costs, and what it opens
+        self.ho_track_from = 1          # the first tier that raises its goods' Hub Orders
+        self.coal_in = None             # tracks that also cover coal (coal pits follow the best of them), no Coal track
+        self.recipes = {}               # building -> {'inp': ..., 'out': ...} replacing its recipe
         self.__dict__.update(kw)
 
 
 TRACK_STRENGTH = {}
+COAL_IN = []
+
+
+def tiers_of(player, track):
+    """How many tiers of a track a player has; with coal in other tracks, coal follows the best of them"""
+    if track == 'coal' and COAL_IN:
+        return max(player.tiers.get(t, 0) for t in COAL_IN)
+    return player.tiers.get(track, 0)
 
 
 def track_mults(tiers_done, track=None):
@@ -68,12 +81,34 @@ def track_mults(tiers_done, track=None):
     return faster, leaner, complex_
 
 
+def capped_units(player, cap):
+    """A building's units, but none that would push more than one pipe connection carries: a building whose pipe is
+    full runs at what the pipe takes"""
+    perk = getattr(player, 'perk', 1.0)
+    out = {}
+    per = {}
+    for t, lvl, m, *_ in player.buildings:
+        if t not in per:
+            d = B[t]
+            tiers = tiers_of(player, d['track'])
+            faster, leaner, complex_ = track_mults(tiers, d['track'])
+            top = max(d['out'].values()) * faster * complex_ * perk
+            if t in POWER_FREE:
+                top *= (1.2 if tiers >= 2 else 1) * (1.3 if tiers >= 6 else 1)
+            per[t] = top
+        u = level_mult(lvl) * m
+        out[t] = out.get(t, 0) + min(u, cap / per[t])
+    return out
+
+
 def rates(player, rules):
     """Per building type: (inputs a minute, outputs a minute) at full speed"""
     out = {}
-    for t, units in player.units().items():
+    caps = rules.pipe_caps
+    units_of = capped_units(player, caps[player.pipe]) if caps else player.units()
+    for t, units in units_of.items():
         d = B[t]
-        tiers = player.tiers.get(d['track'], 0)
+        tiers = tiers_of(player, d['track'])
         faster, leaner, complex_ = track_mults(tiers, d['track'])
         speed = units * faster * complex_ * rules.perk_output * getattr(player, 'perk', 1.0)
         o = {g: v * speed for g, v in d['out'].items()}
@@ -254,7 +289,8 @@ def solve(player, rules, town_era=1, crew_offer=None, crew_need=None, give_beyon
         hos = {g: v * reach for g, v in hos.items()}
         cap = 9e18
     if rules.ho_track != 1.0:
-        hos = {g: v * rules.ho_track ** player.tiers.get(GOOD_TRACK.get(g, ''), 0) for g, v in hos.items()}
+        k0 = rules.ho_track_from - 1
+        hos = {g: v * rules.ho_track ** max(0, tiers_of(player, GOOD_TRACK.get(g, '')) - k0) for g, v in hos.items()}
     own_hos = dict(hos)
     if extra_ho:
         hos = {g: v + extra_ho.get(g, 0) for g, v in hos.items()}

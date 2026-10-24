@@ -37,6 +37,9 @@ if __name__ == '__main__':
     days = cfg.get('days', 14)
     t0 = time.time()
     ps = crew_plots(cfg.get('apm'), coordinated=cfg.get('coordinated', False))
+    if cfg.get('plan') == 'wide':
+        for p in ps:
+            p.plan = [(t, n) for n in range(1, 10) for t in ALL + ALL2]
     sim = Sim(rules, ps, max_payback_h=cfg.get('max_payback_h', 120), crew=cfg.get('trade', True), town_era_at={2: cfg['era2'] * 1440} if cfg.get('era2') else None)
     sim.pool_ho = cfg.get('pool', False)
     samples = sim.run(days)

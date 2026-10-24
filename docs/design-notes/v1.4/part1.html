@@ -128,6 +128,58 @@ dl.words dd { margin: 0; }
 
 <div class="page">
 
+<section id="status">
+  <h2>Where 1.4 stands</h2>
+  <p class="lead">The design is complete and ready to build. Every rule is written down here, and every number of Eras 1
+    and 2 was played through by an economy model that plays a plot minute by minute with exactly these rules (§17).
+    Eras 3 to 5 follow the same rules; the model plays them in phase C.</p>
+  <div class="grid2">
+    <div class="card" style="grid-column: 1 / -1">
+      <h4>A base, day by day</h4>
+      <p>A regular player (three visits a day, using Max and Grow) in a town of eight; Era 2 begins on day 12:</p>
+      {{EC:summary}}
+    </div>
+    <div class="card">
+      <h4>One balance at every size</h4>
+      <p>No number in the game depends on how many people play (rule 2): no quiet-server bonus, no Wonder or Monument
+        sized to the active players, no "half the town" rule. A bigger town gets further because more people make more:
+        Era 2 begins on day {{E2:16}} in a town of sixteen regular players, day {{E2:8}} with eight, day {{E2:4}} with
+        four and day {{E2:1}} for someone alone.</p>
+    </div>
+    <div class="card">
+      <h4>Gold always has somewhere to go</h4>
+      <p>An engaged player builds out all the land they own within about four days, whatever the prices, because
+        every visit spends hours of saved income. So each Era ends in a late phase: the Yard's Monument takes gold in stages without end (each makes
+        every resident 3% more productive), and the town's Wonder takes goods, or gold at the market's 2.5×. From day 5
+        to day 34 a regular player spends {{SPENT}} of what they earn, and at midnight holds {{BANK}} of
+        income.</p>
+    </div>
+    <div class="card">
+      <h4>Trading</h4>
+      <p>The market buys everything and sells everything at 2.5×; friends trade between the two prices, so both sides
+        win. Because every plot can do Era 1 alone (rule 1), paid trade in a crew is {{TRADE:lo}} to {{TRADE:hi}} of its
+        income. A crew is {{CREW:7}} ahead of the same four players alone by day 7 and {{CREW:14}} by day 14:
+        {{CREW:trade}} of that lead is trade, the rest the Monument they share. Goods for levels from level 11 give every plot a reason to
+        buy from a friend.</p>
+    </div>
+    <div class="card">
+      <h4>Research</h4>
+      <p>Going deep beats spreading for every track: a master earns {{TRACKS:21}} more than the same plot researching
+        everything a tier at a time by day 21, and the tracks end within {{SPREAD:35}} times of each other. That needed
+        three rules: bigger Hub Orders for masters from tier 5, coal in the Copper and Stone tracks, and the Power track
+        at half (§12).</p>
+    </div>
+    <div class="card" style="grid-column: 1 / -1">
+      <h4>What the last round settled</h4>
+      <p>What pipes carry (100, 5,000 and 50,000 a minute between two buildings), how a level's goods come in, the Era
+        tree's costs, Deep Mines on copper and coal, the Big Factory, the wilderness and other towns (§20), and the rest
+        of the open items. All of it is listed in §25.</p>
+    </div>
+  </div>
+  <p class="small muted" style="margin-top: 14px">Left open on purpose: the numbers of Eras 3 to 5, which phase C sets when the model plays them.
+    The bots in phase B play the real server and must land within a fifth of the model's numbers (§23).</p>
+</section>
+
 <section id="contents">
   <h2>Contents</h2>
   <ol class="toc">
@@ -150,12 +202,12 @@ dl.words dd { margin: 0; }
     <li><a href="#base">A base, day by day: the numbers worked out</a></li>
     <li><a href="#away">Away, moving and leaving</a></li>
     <li><a href="#more">Everything else in the game</a></li>
-    <li><a href="#between">The wilderness and other towns: still open</a></li>
+    <li><a href="#between">The wilderness and other towns</a></li>
     <li><a href="#changes">What changes from today's game</a></li>
     <li><a href="#numbers">The numbers</a></li>
     <li><a href="#build">Building it</a></li>
     <li><a href="#risks">What could go wrong</a></li>
-    <li><a href="#picks">My picks you may want to change</a></li>
+    <li><a href="#picks">Decisions</a></li>
   </ol>
 </section>
 
@@ -289,7 +341,7 @@ dl.words dd { margin: 0; }
     <dt>Era Wonder</dt><dd>The town's big building project. Finishing it moves the town into the next Era.</dd>
     <dt>Monument</dt><dd>A Yard's own building project, one site per Era, built with gold in stages without end;
       every stage gives every resident a perk.</dd>
-    <dt>Track</dt><dd>A research line for one chain (Iron, Power, Glass…), nine tiers over about ten days.</dd>
+    <dt>Track</dt><dd>A research line for one chain (Power, Iron, Sand…), nine tiers over about ten days.</dd>
     <dt>Base price</dt><dd>A good's reference price. Every price in the game is a multiple of it.</dd>
   </dl>
 </section>
@@ -337,9 +389,8 @@ dl.words dd { margin: 0; }
     <li><b>A new town opens</b> when every Era-1 town has fewer than two free plots. Newcomers always start in an
       Era-1 town, so there is always one with room.</li>
     <li>The world map shows every town with its name, its Era, its Wonder's progress and how many plots are free.</li>
-    <li><b>Towns lie 128 tiles apart</b>, four times today's distance, so there's room between them for long lines,
-      outposts and what comes later. How the wilderness and the towns' dealings with each other work is the one part
-      left open (§20).</li>
+    <li><b>Towns lie 128 tiles apart</b>, four times today's distance, so there's room between them for trunk lines
+      (Era 3) and outposts (Era 4). Until then towns trade over the Exchange (§20).</li>
   </ul>
 </section>
 
@@ -389,7 +440,7 @@ dl.words dd { margin: 0; }
       one is a real decision: the beach for sand, or the hill for wind?</li>
     <li>The first costs 20,000 gold and each one 2.5 times the last (the twelfth: 477 million). Company Level limits
       how many you may own: the 5th parcel at Level 5, then one more every second level, the 16th at Level 27. A
-      regular player has the whole plot around day 21 (§17).</li>
+      regular player has the whole plot around day 18 (§17).</li>
     <li>Pipes may cross parcels you haven't bought, so the Yard gate is always in reach. Buildings need bought land.</li>
   </ul>
   <h3>The outskirts (from Era 2)</h3>
@@ -398,7 +449,7 @@ dl.words dd { margin: 0; }
       you can buy yours, so a player in the middle of a town has the same room as one at the edge.</li>
     <li>They open when your town reaches Era 2 and you've researched <i>Survey the outskirts</i>. The first costs 100
       million gold, each one 1.4 times the last (the ninth: 1.5 billion): the big land purchase of Era 2. A regular
-      player has all nine about nine days into Era 2 (§17).</li>
+      player has all nine about a week into Era 2 (§17).</li>
     <li>The outskirts hold <b>every</b> land resource at ★2–★3, so a solo player can make up for what their plot
       lacks.</li>
     <li>They count as your plot: same pipes, same buildings. When you move, they're bought back for half their price (§18).</li>

@@ -10,13 +10,15 @@
 - `model.py`: the goods, recipes and building costs of all five Eras (the resources and buildings tables).
 - `img/`: the pipe-lane mock-ups (Codex, prompt in `art/prompts/20-pipe-lanes.md`).
 - `sim/`: the economy model. It plays plots minute by minute with the rules of the document: land and deposits, Hub
-  Orders, copies and levels with their goods, research, Company Level, parcels, the outskirts, the Monument and the
-  Wonder, a crew trading in its Yard. `final_rules.txt` holds the numbers the document settles on.
+  Orders, copies and levels with their goods, what pipes carry, research on both lines (tracks and the Era tree),
+  Company Level, parcels, the outskirts, the Monument and the Wonder, a crew trading in its Yard (`crew.py`, also
+  without trade), every Era-1 track mastered against the same plot played wide (`tracks.py`). `final_rules.txt` holds
+  the numbers the document settles on.
 
 To rebuild:
 
 ```sh
-docs/design-notes/v1.4/sim/runall.sh     # about five minutes; writes sim/out/*.json
+docs/design-notes/v1.4/sim/runall.sh     # about eight minutes; writes sim/out/*.json
 python3 docs/design-notes/v1.4/build.py  # writes docs/v1.4-design.html
 ```
 

@@ -12,13 +12,13 @@
     <tr><td><b>1 · Steam &amp; Iron</b></td><td>water, iron ore, wood, copper ore, coal, stone, sand</td>
       <td>iron ingots, copper ingots, bricks, glass, planks</td>
       <td>panels, Wind Moily, Hydro Wheel, Coal Plant, seven mines, six factories</td><td>Grey, Copper</td>
-      <td>Your plot, the Yard, research</td><td>Power, Iron, Copper, Coal, Stone, Sand, Wood</td></tr>
+      <td>Your plot, the Yard, research</td><td>Power, Iron, Copper, Stone, Sand, Wood</td></tr>
     <tr><td><b>2 · Electric</b></td><td>bauxite</td><td>steel, copper wire, concrete, aluminium</td>
       <td>Big Turbine, Steam Turbine, Bauxite Pit, Deep Mine, Steel Mill, Wire Mill, Cement Kiln, Aluminium Works, Silo</td>
       <td>Steel</td><td>The outskirts (+9 parcels), power lines, expeditions</td><td>Steel, Wire, Concrete, Aluminium</td></tr>
     <tr><td><b>3 · Oil &amp; Machines</b></td><td>oil</td><td>plastic, gears, motors</td>
       <td>Solar Farm, Oil Derrick, Refinery, Machine Shop, Motor Works, Deep Lift, Magma Tap, Vault, Terraformer</td>
-      <td>Composite</td><td>The Deep Level under your plot, trunk lines to other towns, trains</td><td>Oil, Gears, Motors</td></tr>
+      <td>Composite</td><td>The Deep Level under your plot, trunk lines to other towns, trains</td><td>Oil, Gears, Motors, Lines</td></tr>
     <tr><td><b>4 · Electronics</b></td><td>rare earth</td><td>circuits, batteries, robots</td>
       <td>Geothermal Plant, Rare Earth Excavator, Circuit Fab, Battery Works, Robot Works, Quantum Link</td>
       <td>Glass Conduit</td><td>The wilderness: outposts and Discoveries</td><td>Rare Earth, Circuits, Batteries, Robots</td></tr>
@@ -116,20 +116,20 @@
   <h3>All 21 tracks</h3>
   <div class="scroll"><table>
     <tr><th>Era</th><th>Track</th><th>Makes these buildings better</th></tr>
-    <tr><td rowspan="7">1</td><td><b>Power</b></td><td>every energy building of every Era (panels, moilies, wheels, plants, turbines, farms, reactors) and Water Pumps; its faster tiers count half</td></tr>
+    <tr><td rowspan="6">1</td><td><b>Power</b></td><td>every energy building of every Era (panels, moilies, wheels, plants, turbines, farms, reactors) and Water Pumps; its faster tiers count half</td></tr>
     <tr><td><b>Iron</b></td><td>Iron Mine, Deep Mine on iron, Small Factory, Big Factory</td></tr>
-    <tr><td><b>Copper</b></td><td>Copper Mine, Deep Mine on copper, Smelter</td></tr>
-    <tr><td><b>Coal</b></td><td>Coal Pit, Deep Mine on coal</td></tr>
-    <tr><td><b>Stone</b></td><td>Quarry, Brickworks</td></tr>
+    <tr><td><b>Copper</b></td><td>Copper Mine, Coal Pit, Deep Mine on copper or coal, Smelter</td></tr>
+    <tr><td><b>Stone</b></td><td>Quarry, Coal Pit, Brickworks</td></tr>
     <tr><td><b>Sand</b></td><td>Sand Dredger, Glassworks</td></tr>
     <tr><td><b>Wood</b></td><td>Lumber Camp, Sawmill</td></tr>
     <tr><td rowspan="4">2</td><td><b>Steel</b></td><td>Steel Mill</td></tr>
     <tr><td><b>Wire</b></td><td>Wire Mill</td></tr>
     <tr><td><b>Concrete</b></td><td>Cement Kiln</td></tr>
     <tr><td><b>Aluminium</b></td><td>Bauxite Pit, Aluminium Works</td></tr>
-    <tr><td rowspan="3">3</td><td><b>Oil</b></td><td>Oil Derrick, Refinery</td></tr>
+    <tr><td rowspan="4">3</td><td><b>Oil</b></td><td>Oil Derrick, Refinery</td></tr>
     <tr><td><b>Gears</b></td><td>Machine Shop</td></tr>
     <tr><td><b>Motors</b></td><td>Motor Works</td></tr>
+    <tr><td><b>Lines</b></td><td>No building: your trunk lines and links cost less a tile and lose less; the master builds superconductor lines from Era 3 (§20)</td></tr>
     <tr><td rowspan="4">4</td><td><b>Rare Earth</b></td><td>Rare Earth Excavator</td></tr>
     <tr><td><b>Circuits</b></td><td>Circuit Fab</td></tr>
     <tr><td><b>Batteries</b></td><td>Battery Works</td></tr>
@@ -138,24 +138,29 @@
     <tr><td><b>Superconductors</b></td><td>Superconductor Lab</td></tr>
     <tr><td><b>Spaceframes</b></td><td>Spaceframe Works</td></tr>
   </table></div>
-  <p>The gold of each tier is a few hours of a player's income when they typically reach it: tier 5 of a first track
-    on day 2, when 500,000 g is about 20 minutes of income; tier 9 on day 10, when 50 million is about 3 hours. Later
-    tracks come when incomes are higher, so they feel cheaper. Research takes 1–15% of a player's spending (§17).</p>
-  <div class="callout decision"><strong>Deep beats wide, alone or together</strong>
-    <p>The model (§17) played the same plots two ways: the first two tiers of everything and then one track to the top,
-      or every track up a tier at a time. Going deep costs a little at first (wide is 6–8% ahead in the first two
-      weeks) and pays from the third: 17% more gold by day 21 and 39% more by day 30, for every one of the four tracks
-      tried. So the game advises everyone to go deep: the research panel shows what each tier adds in gold a minute, and
-      Loady suggests your richest chain. In a crew, each resident going deep on a different track means the Yard has a
-      master for every chain.</p>
-    <p>A master's market grows with them: <b>every tier of a track raises your Hub Orders for that track's goods by
-      30%</b> (×10.6 at tier 9), so a master isn't drowned by their own flood. Without it, a Copper or Sand master
-      earned 40% less than a player who went wide.</p>
-    <p><b>The Power track counts half</b> (each of its faster tiers gives half its boost: ×4.75 instead of ×15),
-      because every building uses energy. Even so, a Power master earns a third to a half more than the others by day
-      30, and Copper is the weakest. Phase B evens them out with the bots: the smaller chains' tracks can also cover the
-      Era-2 buildings that use their goods (Copper the Wire Mill, Stone and Sand the Cement Kiln), and their rich
-      deposits can grow.</p>
+  <p>The gold of a tier is small next to a player's income when they get there: tier 5 of a first track comes on day
+    3, when 500,000 g is a few minutes of income, and tier 9 on day 11, when 50 million is under two hours. Research
+    takes {{RESEARCH:share}} (§17): what it really costs is time.</p>
+  <div class="callout decision"><strong>Deep beats wide, for every track</strong>
+    <p>The model (§17) played every Era-1 track mastered against the same plot researching every track a tier at a
+      time. Going deep pays from the first week and keeps paying:</p>
+    {{TABLE:tracks}}
+    <p>Three rules make it so:</p>
+    <ul>
+      <li><b>From tier 5, every tier also raises your Hub Orders for that track's goods by 80%</b> (×19 at tier 9). The
+        first four tiers make a chain better; the deep ones make the market want more of it, so a master isn't drowned
+        by their own flood, and spreading thin doesn't get the bigger market.</li>
+      <li><b>Coal belongs to the Copper and Stone tracks</b>, whose Smelters and Brickworks burn it: a Coal Pit follows
+        the better of your two. So no track's chain waits on a track you haven't researched, and there is no Coal track
+        of its own, which no plot could make pay.</li>
+      <li><b>The Power track counts half</b> (each of its faster tiers gives half its boost: ×4.75 instead of ×15),
+        because every building uses energy.</li>
+    </ul>
+    <p>Before these rules, a Copper, Coal or Stone master earned 6–14% less than a player who spread their research,
+      and only Iron clearly paid. Now the six tracks end within {{SPREAD:35}} times of each other by day 35; the aim is a third
+      (1.33), and phase B's bots check it on the real server. The research panel shows what each tier adds in gold a
+      minute, and Loady suggests your richest chain. In a crew, each resident going deep on a different track gives the
+      Yard a master for every chain.</p>
   </div>
   <h3>The Era tree</h3>
   <p class="small muted">Priced at about an hour of income when an Era begins; the Era 3–5 prices are provisional until
@@ -166,14 +171,14 @@
     <tr><td>Valves</td><td>15 min</td><td class="num">500</td><td>Valves and priority valves</td></tr>
     <tr><td>Pump Stations</td><td>20 min</td><td class="num">800</td><td>Networks over 50 buildings</td></tr>
     <tr><td>Big Factory</td><td>30 min</td><td class="num">2,000</td><td>The Big Factory (Level 12)</td></tr>
-    <tr><td rowspan="5">2</td><td>Steel Pipes</td><td>1 h</td><td class="num">5 million</td><td>Steel pipes (free from Level 8 when the Era begins)</td></tr>
+    <tr><td rowspan="5">2</td><td>Steel Pipes</td><td>1 h</td><td class="num">5 million</td><td>Steel pipes</td></tr>
     <tr><td>Power Lines</td><td>1 h</td><td class="num">10 million</td><td>Power line pylons</td></tr>
     <tr><td>Silos</td><td>1 h</td><td class="num">10 million</td><td>The Silo</td></tr>
     <tr><td>Deep Mining</td><td>2 h</td><td class="num">20 million</td><td>The Deep Mine on ★3+ deposits</td></tr>
     <tr><td>Survey the Outskirts</td><td>2 h</td><td class="num">30 million</td><td>Buy your nine outskirts parcels</td></tr>
     <tr><td rowspan="5">3</td><td>Composite Pipes</td><td>4 h</td><td class="num">1 billion</td><td>Composite pipes</td></tr>
     <tr><td>Trains</td><td>4 h</td><td class="num">1 billion</td><td>Cargo Depots carry twice as much, Exchange cargo twice as fast</td></tr>
-    <tr><td>Trunk Lines</td><td>6 h</td><td class="num">2 billion</td><td>Your Yard can lay a trunk to another town</td></tr>
+    <tr><td>Trunk Lines</td><td>6 h</td><td class="num">2 billion</td><td>Build trunk lines to other towns (§20)</td></tr>
     <tr><td>The Deep Lift</td><td>8 h</td><td class="num">3 billion</td><td>The Deep Level, the Magma Tap and the Vault</td></tr>
     <tr><td>Terraforming</td><td>12 h</td><td class="num">5 billion</td><td>The Terraformer</td></tr>
     <tr><td rowspan="4">4</td><td>Glass Conduit</td><td>12 h</td><td class="num">40 billion</td><td>Glass conduits</td></tr>
@@ -255,7 +260,8 @@
     <li><b>Why gold, and why endless.</b> After a week of building, nothing a player can buy pays back within a week
       (§17). The Monument is where that gold goes, and it still pays back a little for everyone in the Yard.</li>
     <li><b>Why a crew loves it.</b> A stage costs the same for one resident as for four, and all four get it. In the
-      model a crew's Monument is five stages ahead of a solo player's by day 34, which is most of a crew's advantage.</li>
+      model a crew's Monument is {{MON:ahead}} stages ahead of a solo player's by day 34. Trade is most of a crew's
+      lead; the Monument is the rest, {{CREW:mon}} of it.</li>
     <li>The Grand Fountain, Clock Tower, Observatory and Lighthouse have art already (today they are district Wonders);
       the Workshop needs a picture. Each one grows grander every five stages.</li>
   </ul>
@@ -264,23 +270,25 @@
 <section id="journey">
   <h2>14 · Progression, Era by Era</h2>
   <h3>Company Level</h3>
-  <p>Your Company Level is <b>all the gold you've ever earned</b>, from the market and from other players: nothing
-    else, so it can't be farmed and it never goes down. Levels come every few minutes in the first hour, every day or
-    two in Era 1 and every few days later. Each one unlocks something.</p>
+  <p>Your Company Level is <b>all the gold you've ever earned</b>: what the market and other players paid you, daily
+    orders, Wonder rewards and expeditions. Refunds, the start gold and buy-backs when you move don't count. Nothing
+    else counts either, so it can't be farmed and it never goes down. Levels come every few minutes in the first hour,
+    every day or two in Era 1 and every few days later. Each one unlocks something.</p>
   {{TABLE:levels}}
   <p class="small muted">"Typical day" is when the regular player of §17 got there. Buildings of Eras 2–5 come with the
-    town's Era, not with a level. After Level 25 each level needs 1.47 times the gold of the one before.</p>
+    town's Era, not with a level. After Level 25 each level needs 1.5 times the gold of the one before.</p>
 
   <h3>The journey</h3>
   <div class="grid2">
     <div class="card">
       <h4>Era 1 · Steam &amp; Iron · about 12 days in a town of eight</h4>
       <ul>
-        <li><b>The first evening:</b> from an empty plot to Level 6, 170 buildings and the first chains (§17).</li>
-        <li><b>Days 1–5, building up:</b> levels, a parcel every day or two, copper pipes, the first research tiers,
-          complexes on your track. You pin "I make energy" on the Plan board.</li>
-        <li><b>Days 5–12, the late phase:</b> the plot is built; the Monument's stages, the Great Dynamo's stages and
-          your track's big tiers.</li>
+        <li><b>The first evening:</b> from an empty plot to Level 6, about 170 buildings, copper pipes and the first
+          chains (§17).</li>
+        <li><b>Days 1–4, building up:</b> levels, a parcel every day or two, the first research tiers, complexes on
+          your track. You pin "I make energy" on the Plan board.</li>
+        <li><b>Days 4–12, the late phase:</b> the start area and the first parcels are built; the Monument's stages, the
+          Great Dynamo's stages, a new parcel at every second level and your track's big tiers.</li>
         <li><b>Day 12:</b> the Dynamo's last stage. Era 2.</li>
       </ul>
       <p class="small"><b>Decisions:</b> which track, which parcel, which Monument, who in the Yard makes what, how much
@@ -291,8 +299,9 @@
       <ul>
         <li>Steel needs ingots and coal, wire needs copper ingots: the Yard re-wires itself around the new chains.</li>
         <li>Bauxite wakes on three of the four plots. Aluminium eats energy: the power specialist's big moment.</li>
-        <li>The outskirts: nine more parcels each, holding every resource, all bought in about nine days.</li>
-        <li>Income triples within a few days, then the late phase again: a second Monument, the Copper Cathedral.</li>
+        <li>The outskirts: nine more parcels each, holding every resource, all bought in about a week.</li>
+        <li>Income nearly triples within four days, then the late phase again: a second Monument, the Copper
+          Cathedral.</li>
       </ul>
     </div>
     <div class="card">
@@ -300,7 +309,7 @@
       <ul>
         <li>Oil wakes in the deserts; refineries make plastic; gears and motors need three chains each.</li>
         <li>The Deep Level under your plot: dig out parcels over days for rich ore, magma power and a huge Vault.</li>
-        <li>Trunk lines: your Yard's links reach other towns.</li>
+        <li>Trunk lines: links to players in other towns and a second market; the Pipe Master's role (§20).</li>
         <li>The Terraformer: raise a hill, drain a lake, or seed the deposit your plot lacks.</li>
         <li>The Grand Refinery Tower.</li>
       </ul>

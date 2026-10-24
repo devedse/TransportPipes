@@ -178,6 +178,7 @@ for r in crew['rows']:
     trade_shares.append(sum(r[n]['crew'] for n in names4) / max(inc, 1))
 pace = {
     'levels': ' · '.join(f'day {d:.0f}' if d else 'later' for d in lv),
+    'levelsplain': ', '.join(f'{d:.0f}' for d in lv[:3]) + f' and {lv[3]:.0f}',
     'master': f'day {master:.1f}' if master else 'later',
     'era2': 'day 12, which is how the Great Dynamo is sized',
     'spent': f'{spent_late:.0%} of everything earned from day 5 to day 34',
@@ -187,6 +188,15 @@ pace = {
 for k, v in pace.items():
     html = html.replace('{{PACE:' + k + '}}', v)
 html = html.replace('{{W1TEXT}}', ec.words(W1))
+def spend_share(kind, d0, d1):
+    a, b = ec.row_at(reg, d0), ec.row_at(reg, d1)
+    tot = sum(b['spent'].values()) - sum(a['spent'].values())
+    return (b['spent'].get(kind, 0) - a['spent'].get(kind, 0)) / tot
+
+
+html = html.replace('{{RESEARCH:share}}', f'{spend_share("research", 0, 7):.0%} of the gold spent in the first week, '
+                    f'{spend_share("research", 7, 19):.0%} to day 19 and {spend_share("research", 19, 34):.1%} after')
+html = html.replace('{{SPENT}}', f'{spent_late:.0%}').replace('{{BANK}}', f'{min(banks):.1f} to {max(banks):.1f} hours')
 for n in (1, 2, 4, 8, 16):
     html = html.replace('{{E2:' + str(n) + '}}', str(ec.era2_day(n)))
 html = html.replace('{{FIG:curve}}', figs2.curve_svg())
@@ -202,6 +212,32 @@ html = html.replace('{{TRADEWORTH}}', f"""<p>In the model (§17), paid trade bet
     much from a neighbour (1.15×) as from the market (2.5×). Together with the Yard's Monument it puts a crew
     {crew_ahead(14):.0%} ahead of the same players alone by day 14 and {crew_ahead(28):.0%} by day 28.</p>""")
 html = html.replace('{{TOGETHER}}', ec.crew_table())
+html = html.replace('{{EC:summary}}', ec.summary_table())
+notrade = ec.load('crew_notrade.json')
+
+
+def crew_lead_split(day):
+    ce = sum(interp([r[n] for r in crew['rows']], day, 'earned') for n in names4)
+    ne = sum(interp([r[n] for r in notrade['rows']], day, 'earned') for n in names4)
+    se = sum(interp(solo[n], day, 'earned') for n in names4)
+    return (ce - ne) / (ce - se), ne / se - 1
+
+
+share_trade, notrade_ahead = crew_lead_split(34)
+html = html.replace('{{CREW:trade}}', f'{share_trade:.0%}').replace('{{CREW:mon}}', f'{1 - share_trade:.0%}')
+html = html.replace('{{CREW:notrade}}', f'{notrade_ahead:.0%}')
+html = html.replace('{{E2:gap}}', str(ec.era2_day(1) - ec.era2_day(16)))
+mon_crew = ec.row_at([r['Ana'] | {'day': r['day']} for r in crew['rows']], 34)['monument']
+mon_solo = ec.row_at(reg, 34)['monument']
+html = html.replace('{{MON:ahead}}', str(mon_crew - mon_solo)).replace('{{MON:pct}}', f'{3 * (mon_crew - mon_solo)}%')
+html = html.replace('{{TABLE:tracks}}', ec.tracks_table())
+for d in (7, 14, 21, 35):
+    gains = [ec.track_gain(t, d) for t in ['power', 'iron', 'copper', 'stone', 'sand', 'wood']]
+    html = html.replace('{{TRACKS:' + str(d) + '}}', f'{min(gains):.0%} to {max(gains):.0%}')
+    html = html.replace('{{SPREAD:' + str(d) + '}}', f'{ec.tracks_spread(d):.2f}')
+html = html.replace('{{TRADE:lo}}', f'{lo:.0%}').replace('{{TRADE:hi}}', f'{hi:.0%}')
+for d in (7, 10, 14, 21, 28, 34):
+    html = html.replace('{{CREW:' + str(d) + '}}', f'{crew_ahead(d):.0%}')
 maps = ec.maps()
 for d, (svg, card) in maps.items():
     html = html.replace('{{EC:map' + str(d) + '}}', svg).replace('{{EC:card' + str(d) + '}}', card)
