@@ -30,7 +30,7 @@ public class MovingFacts
     }
 
     [TestMethod]
-    public void AnEstateMovesWithItsBuildingsInAnHour()
+    public void AnEstateMovesWithItsBuildingsInAMinute()
     {
         var game = new TestGame();
         var (company, moily) = Settled(game, "Mover");
@@ -44,7 +44,7 @@ public class MovingFacts
         Assert.IsNull(game.World.Building(moily.Id));
         StringAssert.Contains(game.World.Relocate(company.Id, target).Error, "on its way");
 
-        game.Pass(61);
+        game.Pass(2);
 
         var estate = game.World.EstateOf(company)!;
         Assert.AreEqual(target, estate.District);
@@ -59,7 +59,10 @@ public class MovingFacts
         {
             Assert.AreEqual("windMoily", company.Crates.Single().Type, "or in a crate when the land doesn't allow it");
         }
-        StringAssert.Contains(game.World.MoveBlocker(company, company.District == target ? new DistrictCoord(0, 0) : target), "once a week");
+        var elsewhere = company.District == target ? new DistrictCoord(0, 0) : target;
+        StringAssert.Contains(game.World.MoveBlocker(company, elsewhere), "move again in 3 minutes");
+        game.Pass(3);
+        Assert.IsNull(game.World.MoveBlocker(company, elsewhere), "a few minutes between moves");
     }
 
     [TestMethod]
@@ -80,14 +83,10 @@ public class MovingFacts
     }
 
     [TestMethod]
-    public void AfterAMonthAwayTheEstateSleepsOnTheQuietIslesAndWakesUp()
+    public void AfterThreeMonthsAwayTheEstateSleepsOnTheQuietIslesAndWakesUp()
     {
         var game = new TestGame();
         var (company, _) = Settled(game, "Sleeper");
-        var district = company.District;
-        var corridor = WorldLayout.OutsideGate(district, company.Slot, GateSide.Top);
-        Assert.IsTrue(game.World.PlacePipes(company.Id, [corridor]).Success);
-
         game.Pass(13 * 24 * 60);
         Assert.AreEqual(Activity.Resting, game.World.ActivityOf(company));
         game.Pass(2 * 24 * 60);
@@ -95,9 +94,10 @@ public class MovingFacts
         game.Pass(16 * 24 * 60);
 
         Assert.IsTrue(company.Asleep);
-        Assert.IsNull(game.World.EstateOf(company), "the spot is free for a newcomer");
+        Assert.IsNotNull(game.World.EstateOf(company), "asleep in place first");
+        game.Pass(60 * 24 * 60);
+        Assert.IsNull(game.World.EstateOf(company), "after three months the spot is free for a newcomer");
         Assert.IsTrue(game.World.QuietIsles.Contains(company));
-        Assert.AreEqual(0, game.World.ConductorAt(corridor)!.Owner, "public pipes become hub pipes");
 
         game.World.WakeUp(company);
 

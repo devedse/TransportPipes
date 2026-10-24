@@ -813,6 +813,46 @@
    "ax": 144,
    "ay": 350,
    "attachments": []
+  },
+  "hub-project-foundation": {
+   "r": 0.75,
+   "w": 578,
+   "h": 510,
+   "ax": 289,
+   "ay": 455,
+   "attachments": []
+  },
+  "hub-project-foundryHall": {
+   "r": 0.75,
+   "w": 577,
+   "h": 566,
+   "ax": 288,
+   "ay": 567,
+   "attachments": []
+  },
+  "hub-project-landmark": {
+   "r": 0.75,
+   "w": 578,
+   "h": 632,
+   "ax": 289,
+   "ay": 648,
+   "attachments": []
+  },
+  "hub-project-waterTower": {
+   "r": 0.75,
+   "w": 578,
+   "h": 632,
+   "ax": 289,
+   "ay": 627,
+   "attachments": []
+  },
+  "hub-project-workshop": {
+   "r": 0.75,
+   "w": 578,
+   "h": 484,
+   "ax": 289,
+   "ay": 465,
+   "attachments": []
   }
  },
  "rotors": {
@@ -1027,6 +1067,11 @@
   "buildings/hub-exchange.webp": "f46995f5aa",
   "buildings/hub-marketHall.webp": "24bbf4c8aa",
   "buildings/hub-park.webp": "5d224bc051",
+  "buildings/hub-project-foundation.webp": "a4f6ea5e3b",
+  "buildings/hub-project-foundryHall.webp": "f2512163d0",
+  "buildings/hub-project-landmark.webp": "182c03b716",
+  "buildings/hub-project-waterTower.webp": "7d04a2e17a",
+  "buildings/hub-project-workshop.webp": "7a8b64f598",
   "buildings/hub-townHall.webp": "a30572018d",
   "buildings/hub-tradingHouse.webp": "a6c8700c61",
   "buildings/hydroWheel.webp": "18d75c31b7",

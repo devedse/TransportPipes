@@ -19,3 +19,8 @@ node_modules/
 
 # Data of compose.yaml (the database)
 data/
+
+# The AI playtest: the server's clock and event log, and each run's logs and screenshots
+playtest/data/
+playtest/runs/
+playtest/bin/

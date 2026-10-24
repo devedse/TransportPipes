@@ -27,6 +27,123 @@ public class AdvisorFacts
     }
 
     [TestMethod]
+    public void ANeighboursSpareSuggestsAFactoryByTheGate()
+    {
+        // F6, interdependence: Cleo mines iron ore and sells it to the hub; Ana makes energy and could turn Cleo's ore into ingots
+        var game = new TestGame(content: TestGame.PlainContent);
+        var ana = game.NewCompany("Ana", level: 3);
+        var cleo = game.NewCompany("Cleo", level: 3);
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var moily = game.Build(ana, "windMoily");
+            game.ConnectToGate(ana, moily);
+            game.Connect(ana, moily, game.TradingPost(ana));
+        }
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var mine = game.Build(cleo, "ironMine", game.Spot(cleo, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
+            game.ConnectToGate(cleo, mine);
+            game.Connect(cleo, mine, game.TradingPost(cleo));
+        }
+        game.Pass(3);
+
+        var steps = game.World.NextSteps(ana, 8);
+
+        var step = steps.FirstOrDefault(t => t.Title.StartsWith("Cleo has"));
+        Assert.IsNotNull(step, string.Join(" | ", steps.Select(t => t.Title)));
+        StringAssert.Contains(step.Title, "iron ore spare a minute: build a Small Factory by your Yard gate");
+        Assert.AreEqual("smallFactory", step.BuildingType);
+        Assert.IsGreaterThan(0, step.GainPerMinute);
+    }
+
+    [TestMethod]
+    public void AFactoryWhoseIngotsCantLeaveIsNotShortOfEnergy()
+    {
+        // Ana's day 4: the factory piped to the mine and a windmill, the mine to the trading post and a windmill of its
+        // own (run 1's network card said "Energy 20 short" for 32 days)
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 3);
+        var map = game.Map(company, game.Local(company, 2, 2), "T+M+F+W\n  +\n  W");
+        var factory = map[(4, 0)];
+        game.Pass(1);
+
+        Assert.IsFalse(game.World.NetworkNeeds(game.World.NetworkOf(factory.Id)!, company.Id)
+            .Any(t => t.Value.Consumers.Contains(factory.Id)), "a stuck factory is short of nothing");
+        var steps = game.World.NextSteps(company);
+        Assert.IsFalse(steps.Any(t => t.Kind == AdvisorKind.Shortage), string.Join(" | ", steps.Select(t => t.Title)));
+        var unstick = steps.Single(t => t.Kind == AdvisorKind.Stuck);
+        StringAssert.StartsWith(unstick.Title, "Unstick your Small Factory: one pipe");
+        StringAssert.Contains(unstick.Reason, "iron ingots can't leave");
+        Assert.AreEqual(AdvisorAction.LayPipe, unstick.Action);
+        Assert.IsNotNull(unstick.Tiles);
+    }
+
+    [TestMethod]
+    public void AProducerWhoseOnlyTakerIsStuckSaysSo()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 3);
+        var map = game.Map(company, game.Local(company, 2, 2), "W+F");
+        game.Pass(1);
+
+        var status = game.World.IdleStatusOf(map[(0, 0)]);
+
+        Assert.AreEqual("Idle: Small Factory is stuck", status.Pill);
+        Assert.AreEqual(IdleFixKind.Open, status.Fix!.Kind);
+        Assert.AreEqual(map[(2, 0)].Id, status.Fix.Building);
+        Assert.AreEqual("⛔ Stuck: iron ingots can't leave", game.World.IdleStatusOf(map[(2, 0)]).Pill);
+    }
+
+    [TestMethod]
+    public void TheFixPipeStaysOnTheEstateAndReachesThePost()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 3);
+        var map = game.Map(company, game.Local(company, 4, 4), "M+F+W");
+        var factory = map[(2, 0)];
+        game.Pass(1);
+        Assert.IsTrue(game.World.IdleReasonOf(factory).IsStuck);
+
+        var plan = game.World.PlanFixPipe(factory)!;
+
+        Assert.AreEqual("tradingPost", plan.Target!.Type);
+        Assert.IsTrue(plan.Tiles.All(t => game.EstateOf(company).Contains(t)), "on the owner's estate");
+        Assert.AreEqual(plan.NewTiles * game.World.Content.PipeTier(1).Gold, plan.Cost, 1e-9);
+        var gold = company.Gold;
+        Assert.IsTrue(game.World.PlacePipes(company.Id, plan.Tiles).Success, "the player's own rules allow it");
+        Assert.AreEqual(gold - plan.Cost, company.Gold, 1e-6, "it costs what the button says");
+        game.Pass(1);
+        Assert.AreNotEqual(IdleCause.Stuck, game.World.IdleReasonOf(factory).Cause, "the ingots can leave now");
+    }
+
+    [TestMethod]
+    public void ADemolishedTypeIsNotSuggestedForAWeek()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany();
+        var moily = game.Build(company, "windMoily");
+        Assert.IsTrue(game.World.Demolish(company.Id, moily.Id).Success);
+
+        var steps = game.World.NextSteps(company);
+
+        Assert.IsFalse(steps.Any(t => t.Action == AdvisorAction.Build && t.BuildingType == "windMoily"), string.Join(" | ", steps.Select(t => t.Title)));
+        game.Pass(8 * 24 * 60);
+        Assert.IsFalse(game.World.DemolishedRecently(company, "windMoily"), "a week later it may come back");
+    }
+
+    [TestMethod]
+    public void NoTwoStepsShareATitle()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 6, gold: 200_000);
+        game.Map(company, game.Local(company, 2, 2), "W+T+W\n\nS+F+M\n\nM+F+S");
+
+        var steps = game.World.NextSteps(company, count: 6);
+
+        Assert.AreEqual(steps.Count, steps.Select(t => t.Title).Distinct().Count(), string.Join(" | ", steps.Select(t => t.Title)));
+    }
+
+    [TestMethod]
     public void AnUpgradeStepEarnsWhatItSays()
     {
         var game = new TestGame(content: TestGame.PlainContent);
@@ -41,6 +158,24 @@ public class AdvisorFacts
 
         Assert.AreEqual(after - before, step.GainPerMinute, Math.Max(0.01, step.GainPerMinute * 0.01), "the gain is what the flow solution says");
         Assert.AreEqual(step.Cost / step.GainPerMinute, step.PaybackMinutes!.Value, 1e-9);
+    }
+
+    [TestMethod]
+    public void ALabIsSuggestedOnlyOnceItsIngotsAreMadeAndBesideTheirMaker()
+    {
+        // Run 2: the advisor sent everyone to build a Lab first, and Labs sat at 0% for want of iron ingots
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(level: 5);
+        game.Map(company, game.Local(company, 2, 2), "W+M\n + \n +T");
+        static AdvisorStep? Lab(TestGame game, Company company) =>
+            game.World.NextSteps(company, 12).FirstOrDefault(t => t.Kind == AdvisorKind.Research && t.Action == AdvisorAction.Build);
+        Assert.IsNull(Lab(game, company), "no ingots made: no Lab yet");
+
+        var factory = game.Build(company, "smallFactory");
+
+        var lab = Lab(game, company);
+        Assert.IsNotNull(lab, "a Small Factory makes its ingots now");
+        Assert.IsTrue(Math.Abs(lab.At!.Value.X - factory.X) + Math.Abs(lab.At!.Value.Y - factory.Y) <= 8, $"beside the factory: {lab.At} against ({factory.X},{factory.Y})");
     }
 
     [TestMethod]
@@ -108,7 +243,7 @@ public class AdvisorFacts
     }
 
     [TestMethod]
-    public void FullPipesAreUpgradedWhereTheyLie()
+    public void AFullPipesStepIsItsPipeDoor()
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var company = game.NewCompany(level: 3);
@@ -121,23 +256,26 @@ public class AdvisorFacts
         var step = game.World.NextSteps(company, 8).SingleOrDefault(t => t.Kind == AdvisorKind.Pipes);
 
         Assert.IsNotNull(step, string.Join(" | ", game.World.NextSteps(company, 8).Select(t => t.Title)));
-        Assert.AreEqual(AdvisorAction.Research, step.Action, "Copper Pipes need research first");
+        Assert.AreEqual(AdvisorAction.Research, step.Action, "below Level 8 a Lab gets Copper Pipes sooner");
         Assert.AreEqual("copperPipes", step.Research);
+        StringAssert.Contains(step.Reason, "yours anyway at Company Level 8");
 
-        // Copper Pipes need a copper ingot per tile from the storages
+        // Copper Pipes need a copper ingot per tile from the storages: the door lays them, then the levels they carry
         company.Researched.Add("copperPipes");
         game.Map(company, game.Local(company, 10, 2), "O");
         game.World.Building(game.World.BuildingAt(game.Local(company, 10, 2))!.Id)!.Contents["copperIngot"] = 100;
         step = game.World.NextSteps(company, 8).Single(t => t.Kind == AdvisorKind.Pipes);
-        Assert.AreEqual(AdvisorAction.Pipes, step.Action);
-        Assert.AreEqual(2, step.Tier);
+        Assert.AreEqual(AdvisorAction.Climb, step.Action);
+        Assert.AreEqual(map[(0, 0)].Id, step.Building);
+        StringAssert.StartsWith(step.Reason, "Copper Pipe on its link (3 tiles)");
         var before = game.World.GoldPerMinute()[company.Id];
-        Assert.IsTrue(game.World.UpgradePipes(company.Id, step.Tiles!, step.Tier).Success);
+        Assert.IsTrue(game.World.ClimbPipe(company.Id, step.Building!.Value).Success);
         game.World.SolveNetworks();
 
-        Assert.IsTrue(step.Tiles!.All(t => game.World.ConductorAt(t)!.Tier == 2), "upgraded where they lie");
-        Assert.AreEqual(before + step.GainPerMinute, game.World.GoldPerMinute()[company.Id], Math.Max(0.01, step.GainPerMinute * 0.02), "it brings what it said");
-        Assert.IsFalse(game.World.NextSteps(company, 8).Any(t => t.Kind == AdvisorKind.Pipes), "not full any more");
+        Assert.IsTrue(game.World.Conductors.Where(t => t.Owner == company.Id && t.Kind == ConductorKind.Pipe).All(t => t.Tier == 2), "laid where they lie");
+        Assert.AreEqual(before + step.GainPerMinute, game.World.GoldPerMinute()[company.Id], Math.Max(0.01, step.GainPerMinute * 0.05), "it brings what it said");
+        Assert.IsFalse(game.World.NextSteps(company, 8).Any(t => t.Kind == AdvisorKind.Pipes && t.Action == AdvisorAction.Climb && t.Building == map[(0, 0)].Id && t.Reason.StartsWith("Copper")),
+            "not full any more, or widening next");
     }
 
     [TestMethod]
@@ -165,27 +303,29 @@ public class AdvisorFacts
     }
 
     [TestMethod]
-    public void PipesWithoutTheirMaterialsPointAtMakingThem()
+    public void PipesWithoutTheirIngotsAreOrderedWhenNobodyNearMakesThem()
     {
-        // The starter kit: copper ore on every estate
+        // After run 4: the step went quiet when the company made the ingots itself, couldn't make them, or had no Storage
         var game = new TestGame(content: TestGame.PlainContent, surveys: true);
         var company = game.NewCompany(level: 10);
         var map = game.Map(company, game.Local(company, 2, 2), "W+++T", pipeTier: 1);
         Assert.IsTrue(game.World.Upgrade(company.Id, map[(0, 0)].Id, 9).Success);
-        company.Researched.Add("copperPipes");
         game.World.SolveNetworks();
+        Assert.IsTrue(game.World.HasResearch(company, "copperPipes"), "everyone's at Company Level 8");
 
         var step = game.World.NextSteps(company, 8).Single(t => t.Kind == AdvisorKind.Pipes);
 
-        // Materials come out of storages: a Storage first
-        Assert.AreEqual("storage", step.BuildingType, step.Title);
-        game.Build(company, "storage");
-        game.World.SolveNetworks();
-        step = game.World.NextSteps(company, 8).Single(t => t.Kind == AdvisorKind.Pipes);
-        Assert.AreEqual(AdvisorAction.Build, step.Action, step.Title);
-        StringAssert.Contains(step.Title, "copper");
-        var maker = game.World.Content.Building(step.BuildingType!);
-        Assert.IsTrue(maker.Out.ContainsKey("copperIngot") || maker.Out.ContainsKey("copperOre"), "the smelter, or the copper mine before it");
+        Assert.AreEqual(AdvisorAction.Climb, step.Action, step.Title);
+        StringAssert.Contains(step.Reason, "nobody near makes copper ingots: order them now");
+        var gold = company.Gold;
+        Assert.IsTrue(game.World.ClimbPipe(company.Id, map[(0, 0)].Id).Success);
+        Assert.IsLessThan(gold, company.Gold, "the pipe and its ingots are paid");
+        var want = company.Asks.Single(t => t.PipeTiles != null);
+        Assert.IsNotNull(want.Order, "ordered at once: nobody near makes them");
+
+        game.Pass(GameWorld.OrderHours * 60 + 5);
+
+        Assert.IsTrue(game.World.Conductors.Where(t => t.Owner == company.Id && t.Kind == ConductorKind.Pipe).All(t => t.Tier == 2), "the hub brought them, the pipe is laid");
     }
 
     [TestMethod]
@@ -222,11 +362,33 @@ public class AdvisorFacts
     public void StoragesKeepTheMaterialsOfThePipesYouCanLay()
     {
         var game = new TestGame(content: TestGame.PlainContent);
-        var company = game.NewCompany(level: 10);
+        var company = game.NewCompany(level: 6);
         Assert.AreEqual(0, game.World.StorageNeed(company, "copperIngot"), "not before Copper Pipes");
 
-        company.Researched.Add("copperPipes");
+        // Company Level 8 brings them
+        company.Level = 8;
+        game.World.GrantResearch(company);
 
         Assert.AreEqual(GameWorld.PipeMaterialReserve * game.World.Content.PipeTier(2).Materials["copperIngot"], game.World.StorageNeed(company, "copperIngot"));
+    }
+
+    [TestMethod]
+    public void ADeepMineSaysWhatItWouldDig()
+    {
+        // The light bots after run 4 read "Mine your : build a Deep Mine": its deposit is any metal
+        var game = new TestGame(content: TestGame.PlainContent);
+        game.World.Era = 2;
+        var company = game.NewCompany(gold: 10_000_000, level: 30);
+        company.Researched.Add("deepMining");
+        game.Map(company, game.Local(company, 1, 1), "W+T");
+        var spot = game.Spot(company, "deepMine");
+        game.World.LoadSeeds([.. new[] { (0, 0), (1, 0), (0, 1), (1, 1) }.Select(t => (spot.Offset(t.Item1, t.Item2), "coal", 5))]);
+        game.Pass(2);
+
+        var steps = game.World.NextSteps(company, 12);
+
+        var step = steps.FirstOrDefault(t => t.BuildingType == "deepMine");
+        Assert.IsNotNull(step, string.Join(" | ", steps.Select(t => t.Title)));
+        StringAssert.StartsWith(step.Title, "Mine your coal: build a Deep Mine");
     }
 }

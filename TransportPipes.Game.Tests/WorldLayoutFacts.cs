@@ -60,15 +60,57 @@ public class WorldLayoutFacts
     }
 
     [TestMethod]
-    public void GatesAreOnTheEstateBorderNextToACorridor()
+    public void EveryDistrictHasFourStationsOfFourAndFourOfTwo()
+    {
+        var slots = Enumerable.Range(0, WorldLayout.StationsPerDistrict).Select(WorldLayout.StationSlots).ToList();
+
+        CollectionAssert.AreEquivalent(Enumerable.Range(0, WorldLayout.EstatesPerDistrict).ToList(), slots.SelectMany(t => t).ToList(), "every seat is in one station");
+        CollectionAssert.AreEqual(new[] { 4, 4, 4, 4, 2, 2, 2, 2 }, slots.Select(t => t.Count).ToArray());
+        foreach (var (station, i) in slots.Select((t, i) => (t, i)))
+        {
+            Assert.IsTrue(station.All(slot => WorldLayout.StationOfSlot(slot) == i));
+        }
+    }
+
+    [TestMethod]
+    public void AYardIsTheCorridorAndFourTilesOfEachOfItsEstates()
     {
         var district = new DistrictCoord(-1, 3);
-        foreach (var side in Enum.GetValues<GateSide>())
+        foreach (var station in WorldLayout.Stations(district))
         {
-            var gate = WorldLayout.GatePosition(district, 7, side);
-            var outside = WorldLayout.OutsideGate(district, 7, side);
-            Assert.AreEqual(ZoneKind.Estate, WorldLayout.ZoneAt(gate.X, gate.Y).Kind);
-            Assert.AreEqual(ZoneKind.Corridor, WorldLayout.ZoneAt(outside.X, outside.Y).Kind);
+            var yard = WorldLayout.Yard(station);
+            Assert.AreEqual(WorldLayout.YardSize, yard.Width);
+            Assert.AreEqual(WorldLayout.YardSize, yard.Height);
+            foreach (var tile in yard.Tiles())
+            {
+                var zone = WorldLayout.ZoneAt(tile.X, tile.Y);
+                Assert.AreEqual(ZoneKind.Yard, zone.Kind, $"{tile}");
+                Assert.AreEqual(station.Index, zone.Slot);
+            }
+            foreach (var slot in WorldLayout.StationSlots(station.Index))
+            {
+                var part = WorldLayout.YardPart(slot);
+                Assert.AreEqual(station.IsSmall ? 40 : 16, part.Width * part.Height, "a corner of 4x4, or 10x4 along a side");
+                var origin = WorldLayout.EstateOrigin(district, slot);
+                Assert.IsTrue(yard.Contains(origin.Offset(part.X0, part.Y0)));
+            }
+        }
+    }
+
+    [TestMethod]
+    public void TheYardGateIsOnTheEstateNextToItsYard()
+    {
+        var district = new DistrictCoord(2, -1);
+        for (var slot = 0; slot < WorldLayout.EstatesPerDistrict; slot++)
+        {
+            var gate = WorldLayout.YardGate(district, slot);
+            var zone = WorldLayout.ZoneAt(gate.X, gate.Y);
+            Assert.AreEqual(ZoneKind.Estate, zone.Kind, $"slot {slot}");
+            Assert.AreEqual(slot, zone.Slot);
+            var yard = WorldLayout.Yard(WorldLayout.StationOf(district, slot));
+            var next = TestGame.Neighbours(gate).Count(yard.Contains);
+            Assert.AreEqual(1, next, $"slot {slot}: right next to the Yard");
+            Assert.IsTrue(zone.LocalX is >= 3 and <= 28 && zone.LocalY is >= 3 and <= 28, "a short pipe from the start parcels");
         }
     }
 

@@ -1,13 +1,14 @@
 namespace TransportPipes.Game.State;
 
 /// <summary>
-/// The market of one hub city. The hub buys every resource; when players sell more than it demands, its price drops
-/// (to a quarter at most); when they sell less, it rises a little (GDD §14.4). Updated every 15 minutes.
+/// A company's order at one hub (v1.2 §8, the Hub Order): the hub buys every resource; when the company sells more than
+/// the hub's order, its price drops (to a quarter at most), up to the order it pays the full price. Nobody else's sales
+/// move it. Updated every 15 minutes.
 /// </summary>
 public sealed class HubMarket
 {
-    public const double MinMultiplier = 0.25;
-    public const double MaxMultiplier = 1.25;
+    public double MinMultiplier { get; set; } = 0.25;
+    public double MaxMultiplier { get; set; } = 1.0;
 
     /// <summary>Sold per minute, averaged over about an hour</summary>
     public Dictionary<string, double> SoldRate { get; init; } = new();

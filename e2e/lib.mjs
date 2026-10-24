@@ -16,7 +16,7 @@ export async function start(out, { width = 1600, height = 1000, touch = false } 
   return { browser, page, errors, shot, cheat };
 }
 
-export async function newPlayer(page, prefix = "p") {
+export async function newPlayer(page, prefix = "p", way = "Find me neighbours") {
   const user = `${prefix}${Date.now() % 100000}`;
   for (let i = 0; i < 40; i++) { try { await page.goto(`${process.env.BASE_URL ?? "http://localhost:5173"}/`); await page.waitForSelector(".auth-panel", { timeout: 15000 }); break; } catch { await page.waitForTimeout(1000); } }
   await page.click("text=New player");
@@ -24,9 +24,89 @@ export async function newPlayer(page, prefix = "p") {
   await page.fill("input[type=password]", "secret123");
   await page.click("button[type=submit]");
   await page.waitForSelector(".found-panel", { timeout: 30000 });
-  await page.fill(".found-panel input", `${user} Works`);
+  await page.click(`text=${way}`);
+  await page.waitForSelector(".seat-row.chosen", { timeout: 30000 });
+  await page.fill(".found-panel input[minlength='3']", `${user} Works`);
   await page.click(".found-panel button[type=submit]");
   await page.waitForSelector(".top-bar", { timeout: 30000 });
   await page.waitForTimeout(3000);
   return user;
+}
+
+/** Builds a building near the trading post (or on a deposit), pipes it to the post and plans and lays the pipe to the Yard gate */
+export async function settle(player, type, deposit) {
+  return player.page.evaluate(async ({ type, deposit }) => {
+    const c = tp.gameClient.connection;
+    const w = tp.gameClient.world;
+    const s = () => tp.appStore.getState();
+    const co = () => s().company;
+    const post = [...w.buildings.values()].find((t) => t.owner === co().id && t.type === "tradingPost");
+    const definition = s().content.building(type);
+    const ok = (x, y) => tp.rules.canPlace(s().content, w, co(), s().era, definition, x, y).ok;
+    let spot = null;
+    for (let r = 2; r < 12 && !spot; r++)
+      for (let dy = -r; dy <= r && !spot; dy++)
+        for (let dx = -r; dx <= r && !spot; dx++)
+          if (ok(post.x + dx, post.y + dy) && (!deposit || w.tile(post.x + dx, post.y + dy)?.deposit === deposit)) spot = { x: post.x + dx, y: post.y + dy };
+    if (!spot) return `no spot for ${type}`;
+    const placed = await c.placeBuilding(type, spot.x, spot.y);
+    if (!placed.success) return placed.error;
+    await c.cheat("finish");
+    const border = (b) => [[b.x, b.y - 1], [b.x, b.y + 1], [b.x - 1, b.y], [b.x + 1, b.y]];
+    let toPost = null;
+    for (const [fx, fy] of border(spot)) {
+      const route = tp.rules.routePipe(w, co(), { x: fx, y: fy }, { x: post.x - 1, y: post.y }, s().content);
+      if (route && (await c.placePipes(route.flatMap((t) => [t.x, t.y]), 1)).success) { toPost = route.length; break; }
+    }
+    await new Promise((r) => setTimeout(r, 1500));
+    // The Yard panel's button: plan the pipe to the gate, then build it
+    await tp.gameClient.openYard();
+    await tp.gameClient.planYardPipe();
+    for (let i = 0; i < 30 && s().plannedRoute === null; i++) await new Promise((r) => setTimeout(r, 300));
+    const planned = s().plannedRoute?.length ?? null;
+    if (planned !== null) await tp.gameClient.buildPlannedRoute();
+    await new Promise((r) => setTimeout(r, 1500));
+    return JSON.stringify({ type, spot, toPost, planned, slot: co().slot });
+  }, { type, deposit });
+}
+
+/** Free seats of one station nobody lives in, in any open district (not in the stations given, as "x,y,index") */
+export async function emptySeats(page, count, notIn = []) {
+  return page.evaluate(async ({ count, notIn }) => {
+    const c = tp.gameClient.connection;
+    const first = await c.getStations(null, null);
+    const free = (t) => t.seats.every((s) => s.state === "free" || s.state === "house");
+    for (const d of [{ districtX: first.ownStation.districtX, districtY: first.ownStation.districtY }, ...first.districts]) {
+      const dto = await c.getStations(d.districtX, d.districtY);
+      const station = dto.stations.find((t) => free(t) && !notIn.includes(`${t.districtX},${t.districtY},${t.index}`) && t.seats.length >= count);
+      if (station !== undefined) {
+        return station.seats.slice(0, count).map((s) => ({ districtX: station.districtX, districtY: station.districtY, slot: s.slot, station: `${station.districtX},${station.districtY},${station.index}` }));
+      }
+    }
+    return [];
+  }, { count, notIn });
+}
+
+/** Moves a player's estate to a seat and lands it right away (the dev cheat), waiting for its buildings to load */
+export async function moveTo(player, seat) {
+  return player.page.evaluate(async (seat) => {
+    const c = tp.gameClient.connection;
+    const result = await c.relocateTo({ districtX: seat.districtX, districtY: seat.districtY, slot: seat.slot });
+    if (!result.success) return result.error;
+    await c.cheat("arrive");
+    // The camera follows the estate; its chunks load there
+    for (let i = 0; i < 40 && ![...tp.gameClient.world.buildings.values()].some((t) => t.owner === tp.appStore.getState().company.id && t.type === "tradingPost"); i++) await new Promise((r) => setTimeout(r, 250));
+    return `seat ${seat.slot}`;
+  }, seat);
+}
+
+/** Demolishes a player's starter kit (a House's buildings on its seat), so the test starts from an empty estate */
+export async function clearKit(player) {
+  return player.page.evaluate(async () => {
+    const c = tp.gameClient.connection;
+    const me = tp.appStore.getState().company.id;
+    const kit = [...tp.gameClient.world.buildings.values()].filter((t) => t.owner === me && t.type !== "hq" && t.type !== "tradingPost");
+    for (const b of kit) await c.demolish(b.id);
+    return kit.length;
+  });
 }

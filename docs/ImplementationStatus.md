@@ -192,7 +192,8 @@ the primary goals: the buildings, the map and the UI. The design may change wher
 - ✅ Balance after v1.1 (`TheFirstTwoWeeks`, 28 days, `docs/balance/`): the starter kit made the middle game quicker,
   so from Level 22 the XP curve grows on to twice by Level 30 (`xpLateRamp`; levels only go up, nobody loses one).
   Typical: Level 10 on day 2, 20 on day 5, 30 on day 25; casual 30 on day 27; hardcore 30 on day 21; following only
-  the advisor: 10 in the first day, 20 on day 4, 30 on day 27 (GDD §8.1: 20 in week 1, 30 in week 4)
+  the advisor: 10 in the first day, 20 on day 4, 30 on day 27 (GDD §8.1: 20 in week 1, 30 in week 4). After run 4
+  the ramp is 4× (gold that is spent now raises income: see the refinements below)
 - ✅ The advisor on big estates (found by the simulation following it): it went silent from day 4. A network of 56
   buildings took 380 ms a solve (the solver chased rounding errors for 500 rounds; now about 24, the same result),
   big networks' gains are now estimated from their last solution instead of solved again, and it points at what an
@@ -224,6 +225,236 @@ the primary goals: the buildings, the map and the UI. The design may change wher
   the first two parcels you can buy
 - ⬜ Merge PR #3 and release
 
+### v1.2 · Playing together (branch `feature/playing-together`, design `docs/multiplayer-design.html`)
+
+The owner's go-ahead (2026-10-21): build all of it in a second PR; the test server runs this branch from now on; a
+fresh world (no migration of the old one: the server starts a new world when the rules version changes, accounts
+stay); name + password accounts only (guests on a hidden account they can keep); moves free with a 5 minute cooldown
+(configurable). The design's steps, in the order the engine needs them:
+
+- ✅ 1 · Stations and the Yard: station geometry (4 corner stations, 4 small stations per district), the Yard plaza and
+  one Yard gate per estate (no side gates, no corridor pipes, no toll meters), the trade engine (gate nodes in each
+  estate's own network, a matcher per Yard, payment for what the buyer takes), one player price (1.75 × base), the
+  personal Hub Order (today's √ curve per company and hub, quiet grace per server), the Yard panel. Measured at the
+  gate (the buyer's own pipe loss is its own), Houses after players within one 25% cap, contracts first; the Yards
+  round once a minute while terms move and less often when they don't (16 minutes at most). Typical balance: Level
+  30 on day 25 (was day 24 with the hub paying up to 1.25×); e2e `yard.mjs` plays two neighbours
+- ✅ 2 · Crews and choosing where you live: crews of up to 8 (name filter, 40 emblems, two colours, nobody can be
+  removed, a free move when you leave once a month), seats kept for friends with a code each (28 days, lapsing when
+  nobody in the crew plays for two weeks), stations a crew fills closed to strangers unless it opens them, a crew
+  spread over a corner station and the small one next to it trades in one Yard; the start screen's three ways (Find
+  me neighbours, Start with friends, A station of my own) on a station picker (the district's seats, Yards and
+  players); a friend's link opens the invite screen and moves in as a guest with two taps (a free company name
+  ready; inside chat apps' browsers the account comes with the second tap), the crew link settles you next to the
+  crew; guests keep their estate with a name and password (asked at Levels 3, 6 and 10, and in the company panel);
+  moves to a chosen seat (free, a minute in the air, 5 minutes between moves, both configurable); Block. e2e
+  `crew.mjs` plays Ana, Ben and Cleo
+- ✅ 3 · Links between stations: one good from one company's Yard gate to another's outside its station, on a pipe
+  routed through the corridors (and the wilderness between districts; at most two turns), loss per tile by pipe tier,
+  the offerer pays the pipe (refunded when an offer lapses after three days or is declined), at most 12 links an
+  estate and 5 offers an hour; a two-hour tank at the buyer's gate fills from the seller's spare and covers when it
+  stops, a pause or the end comes with an hour's notice, what a link doesn't bring the Yard and the hub do, and every
+  link has one state line; matched after contracts and before the Yard, damped like the Yard; links take the new way
+  when an estate moves; contracts between stations run over a link (and survive a move); the Links tab in the Yard
+  panel (offers, state lines, tanks, who a link would suit), links drawn on the map as covered channels with the goods
+  moving along them. The Exchange already trades at the one price. e2e `links.mjs`
+- ✅ 4 · Houses and stand-ins: today's tenants are Houses of four kinds (Reliable, Collector, Grower, Neighbour in
+  need: no rival), as strong as their station's players (building levels = median active level − 3, at least 5,
+  every day; a Grower adds buildings), labelled ⚙ with what they do; in small mode (fewer than 50 active companies)
+  they keep every free seat warm, and every seat a crew holds for a friend; a newcomer who takes a House's seat gets
+  its starter kit (3–4 producers that need nothing, at most level 5, piped to the Yard gate already, with a note);
+  "Find me neighbours" prefers stations of four. Asleep in place: from day 30 the estate stays where it is and makes
+  nothing, and a stand-in House keeps its Yard flows and links going (announced on day 23): what partners bought
+  comes at the old price for 14 days, then 10% less a week (that gold leaves the game); what partners sold is paid
+  NPC gold at the old price (a week longer for a crew member's partners), gliding to House terms over 14 days while
+  the volume shrinks to a quarter; on day 90 the estate is packed for the Quiet Isles; waking in place gives the
+  trades back. Frozen districts: not needed (see the refinements). e2e `houses.mjs`. The solo-parity balance run
+  moves to step 8
+- ✅ 5 · Absence and return: an asleep crew member's seat is held in place to day 90 (a week before, every active
+  crew mate gets one keep card: "Keep Ben's seat 60 more days?", the first answer counts, once; holds lapse when no
+  crew mate played for two weeks), without a crew to day 37; then the estate travels safely to the Quiet Isles and a
+  House warms the seat. Coming back after three days or more: the way back's screens (what the estate earned, what
+  the caretaker took, on how many days the crew tended it, the stand-in; that the estate is safe and the links are
+  back; after the Quiet Isles the landing cards: your seat preselected, next to your crew, a lively station, the
+  Frontier, each with its crates; another card is a free move). Tending (once a day per crew mate, banks for three
+  days, counted once per day, never who). Tailwind (XP × min(2.5, 1 + (median − level) ÷ 10) while more than five
+  levels behind the active median of the crew, else the station, else the district; shown in the top bar). The
+  lone-human card (the fifth day as the only active player of a station, at most every 30 days: up to three livelier
+  stations), crew moves as a block (a seat kept for every member for a week), the consolidation card (once, when
+  more than half of a crew sleeps: the others move together, the sleepers' seats follow them), narrow probation
+  (a stranger in a station a crew fills: away five days in its first two weeks, packed with nothing lost, its old
+  seat the first landing card). e2e `return.mjs`. Not in this version: e-mail (the in-game report only), the five
+  stills of the estate, the Era jump kit, the "Back!" ribbon and the Houses' postcard
+- ✅ 6 · The station's project: Foundation → Water Tower → Workshop → Foundry Hall → Landmark, one per (big) station,
+  a buyer in the Yard after the residents and Houses (or before them for a seller's "project first" goods) at the
+  hub's full price; the Foundation's fixed basket (15 minutes of a Level-3 player's energy and iron ore), later stages
+  three goods of the stage's tier (two the station is at home with, the keystone nobody makes, +20% credit; a tier up
+  when the station is at home with every good), sized by the delivering residents (6 h of T(L) each, the Foundry Hall
+  9 h for at least two, opening on day 14; the Landmark half their summed T(L) for 6 h); what each delivers is two
+  hours of T(L) a day at most, banked for three days; credit as a ring of colours; bonuses for every seat (+3%, +3%,
+  +4%, the Foundry Hall +10% on the station's two most-traded chains, the Landmark's heirloom); the project in the
+  corner of the Yard, rising with its basket. T(L) is a table in progression.yaml. The Plan board (pins on the Yard
+  panel and the picker's station card) and Asks (12–72 h, into the asker's storages at the player price, a House
+  fills the rest at 2.0 × base at the deadline, renewable). e2e `project.mjs`. The Landmark is a basket, not yet a
+  sustained flow with a tank
+- ✅ 7 · The long game: beyond the own hub, public copper trunks join every hub to its open neighbours and the Port
+  for everyone (2% fee that leaves the game, copper's loss over the distance); a company whose hub pays less than the
+  full price sends part of its spare to the best far market, split so both Hub Orders pay alike (a second hub about
+  √2 for a split volume good), the Port taking any amount of tier-2+ goods at 0.6 × base; crew trunks of steel to a
+  hub or the Port, built in 10-tile segments any member pays (2 h of T(L), 300 steel, 100 concrete; from Era 2), no
+  fee, public when the whole crew sleeps, drawn on the map in the payers' colours; outposts feed the Yard through
+  their Cargo Depots; Discoveries every four days (announced a day ahead, a week long) with a marker for every station
+  that brings something out in the first 72 hours and the three who brought most named; leagues of about 25 at a
+  similar stage by the week's earnings, drawn every week, champions titled (verified companies only, off in small
+  mode); Wonder stages sized like baskets (6 h of T(L) per active player of the district, everyone for the Era
+  Wonder); Era Wonder tiers by the share of your own Era output (Bronze 1%, Silver 3%, Gold 7%, Diamond 15%)
+- ✅ 8 · The first evening: four browsers (`e2e/evening.mjs`): Ana starts with friends and keeps three seats, Ben (a
+  phone) and Cleo open their codes as guests, the Houses that kept the seats warm leave them starter kits piped to
+  the Yard gate and the trading post, the pipes meet (a Handshake for both, Loady's Yard step), the Foundation buys
+  from the station at once, the Water Tower comes with its keystone, and Dev opens the last code later with nobody
+  online. Balance: the solo game is unchanged (`balance-typical.md`), and a newcomer in a v1.2 world (Houses, kit,
+  project, trunks; `balance-typical-together.md`) reaches the same levels within hours: Level 10 on day 2, 20 on day
+  5, 30 on day 25. The run found two things: an estate piped only to its gate sold the Houses less every round until
+  nothing (their quarter is now of what it could make), and the kit did Loady's first steps for the player (it now
+  counts only what the player builds and pipes). The first session at a human pace (`first-session.md`) earns from
+  minute one and gets one Loady step further in 45 minutes
+
+### v1.2 after the AI playtest (built; runs 2 and 3 played)
+
+The AI playtest (`docs/playtest-design.html`, tools in `playtest/`): five AI players, 36 game days. Its verdict: a
+lovely first evening, then five weeks side by side but never together; 4 of 20 promises kept.
+
+What followed:
+- **The fix plan.** A panel of five decided it: `docs/playtest-fixes.html`, F0–F11.
+- **The redesign.** The six v1.2 designers came back, agreed one shared idea, and argued it against the fix panel's
+  plan through one representative each, to a joint statement both signed. The record is in
+  `docs/design-notes/after-playtest/`.
+- **The revised plan:** `docs/playtest-redesign.html`, "Needs from the land, gifts by pipe".
+  - Land goods are dealt per station, with no copies.
+  - Kits make the seat's own good.
+  - One price, 1.3, confirmed by light bots.
+  - Houses sell land goods at 1.4, with a floor and a station backstop.
+  - Send ▸ sits on top of the automatic Yard.
+  - A stranger is seated next door to a crew.
+
+**The build, in seven playable steps:**
+- On today's world:
+  1. The fix plan's foundations.
+  2. The money's guards.
+  3. The project and one return card.
+  4. Send.
+- With a new world:
+  5. The land deal.
+  6. The stranger next door.
+  7. The rest, then run 2.
+
+The owner's decisions (2026-10-22): build all of it; a new world on the test server is fine; the stranger next door
+is the design's call (yes).
+
+**Progress:**
+- Step 1 (3962abe and after): the honest Yard, dead ends that explain themselves (IdleReason, one fix button),
+  Next steps for everyone, the seat picker, smart Max. Gates: the row10 Yard replay 11/11 and agent replays of Ana,
+  Dev, Cleo and Mia.
+- Step 2 (d95cdad): the money's guards.
+- Step 3: a project the station can reach (f3ed56a) and one return card (622992c), with friends by name. Gates: the
+  Foundation by 18:25 on evening one, the day-7 restage, Ana's day-27 card naming Ben's stand-in, Ben's phone return
+  in one tap.
+- Step 4 (7026d26): Send, Thanks, named ends, bids, the Neighbours panel, the first gift, neighbour-fed chains.
+  Gates: Dev's stuck dredger sends to the Water Tower in one tap, on a desktop and a phone.
+- Step 5: dealt land (rules 3: a world made before keeps its land; the test server starts a new one),
+  kits that make the seat's good, the Build-menu line and the Deposits overlay by seat, the seat card, Houses' land
+  sales at 1.4 with the floor and the station backstop, the project paying the one price, Loady's chain steps on dealt
+  land. The light bots (LightBotSimulation, TP_BALANCE=1; docs/design-notes/after-playtest/light-bots.md) chose
+  1.3: the only price at which a factory buying its ore from a neighbour doesn't lose. Their open finding: trade
+  between friends stays near 2%, because the iron chain on every estate is Era 1's best and fills the slots first.
+- Step 5 done (24b06ea): the land deal at the one price 1.3.
+- Step 6 (24b06ea): the stranger next door (on a small server someone who comes alone lives in the small station beside
+  a crew, sharing its Yard and project) and the first-comer's line. Gate: the squatter probe (StrangerFacts,
+  TP_BALANCE=1): a stranger seated next door who never plays again changes none of the crew's chains.
+- Step 7 (a9b140d): F9–F11's rest and Loady's gift step. Then **run 2** (`playtest/runs/story2`, 2026-10-22): run 1's 14
+  rows again on dealt land, with Jo (a scripted solo human) and Mia played twice (beside Jo, and next door to the
+  crew); 32 sessions. Five fixes during the run (5ffd344, 28f6e4e, 964bb1e, f031e73): the phone Build menu, "only the
+  X takes its energy", phone panels under full-screen panels, the Experience panel's Escape and ×, the "short of"
+  text. The report (findings.json, report.html, shared with the owner): 11 of 24 promises kept; dead ends explain
+  themselves, one return card, goods crossed estates and were paid (the crew earned twice run 1's income by day 36).
+  But nobody felt the automatic flows as gifts, Sends went to energy crumbs, Thanks was never pressed, paid trade
+  between friends stayed at 2–3% (mark 15%), the project's stages stood by themselves after day 11 (a bug: a basket
+  shrinks to what was delivered when its residents are away), a building set into a pipe split the line (Ana, Cleo),
+  and the middle game's chores (hub orders and Storage, the two-tap pipe, Labs that need ingots) made 13 STUCKs.
+- **After run 2** (`docs/design-notes/after-playtest/run2-fixes.md`): the analyst's twelve recommendations, built:
+  stages stand only by delivery, gifts named at both ends with Thanks, Send only where it moves something, the
+  one-tap pipe, chores that explain themselves, damage and shortages in sight, a lone player's keystone, a building on
+  its own pipe, keep researching, and the small breakers. The light bots found neither content lever raises friends'
+  trade (an open design decision). Replays from run 2's snapshots: no stage stands by itself; Ana's day 8 rose to
+  clarity 4, fun 4; Dev pressed the playtest's first Thanks. The playtest's one-device artefact (every pair of AI
+  players priced at the hub) is fixed.
+- **Run 3** (`playtest/runs/story3`, 2026-10-22): run 2's story again on that build, a fresh world, 32 sessions. Fixed
+  during it: a friend's seat link closes a crew you're alone in (ccf5ca1). Better than run 2: gifts named and thanked
+  at both ends (3 Thanks, 2 Tends; run 2: none), the first chosen chain between friends (Ana's stone ran Cleo's
+  Brickworks for a week), one-tap pipe fixes, Level 10 by days 5–16. Worse: every station's project froze at 89–96% on
+  a water keystone (passed over only when none ever came; "Not on water" for a pump on the pond), the Era 1 wonder got
+  nothing, Ben never found the crew. Chores: about 11–15% of commands, nobody called it one; what wore players down was
+  warnings that never clear and nothing left to want. 9 of 22 promises, 11 marks pass and 7 fail; the analyst's twelve
+  recommendations are in `runs/story3/findings.json` (the owner decides what's next).
+- **After run 3** (2026-10-23): a panel of three analysts (`docs/playtest-run3-review.html`) chose fixes first, then
+  one redesign; the owner's read ("nothing to do with your gold") went to the six designers, whose nine steps
+  (`docs/playtest-run3-design.html`, record in `docs/design-notes/after-run3/`) were all built, with the analysts'
+  remaining rows: the keystone moves on and a small station keeps its stages; a truthful project line with Show me;
+  only what works is offered; a friend's link first and a kept seat on every return; the stranger beside the crew
+  that plays. Then step 1 a preview before every buy, "what stops you" and an hour's Undo; step 2 wants (a building
+  short of materials is a scaffold the station fills: own Storage, a friend's one tap, the Yard); step 3 the pipe tier
+  is a want; step 4 Order the rest (2 × base after the friends' window, over six hours); step 5 the Era wonder buys the
+  Capital's spare by pipe, orders for half, stage perks, tiers in hours of income, an Era row; step 6 Refinements after
+  an Era's tree and resting Labs; step 7 hub orders fill from the trading post's sales; step 8 a keystone two friends
+  make together; step 9 Widen Copper and Steel pipes; and the rest: a falling gift told to both ends with its cause,
+  exact books, a card that folds (one people line, a crew line, "Still:", order for a friend, the bell only for what
+  you can act on), Crew and Station chat, projects named by station, friends elsewhere with Visit and Link, no
+  caretaker fee. Each with tests and an e2e script; run 4 checks them against the design's marks.
+- **Run 4** (`playtest/runs/story4`, 2026-10-23): run 3's story again on that build, a fresh world, 32 sessions. Fixed
+  during it: a parcel offers only what the seat's land may make (c5a8828); a fix that puts a building in hand shows
+  where it goes (a24082f); "nothing moves" says when the taker opens, the chat beside every right panel (cf7b133); a
+  second tend says a crew mate tended it (6080147). Better than run 3: the whole crew lived together (Ben and Dev by
+  Ana's links), every project stage stood (Capital SE's Landmark on day 17; run 3 froze at 96%), the stranger next
+  door's wood stood the crew's Water Tower, previews and books within 1%, Ana's copper ran Cleo's Smelter all month,
+  hub orders filled by themselves (no chores). **The gold is still not answered:** the players spent 0.09–0.25% of
+  what they earned and banked 24–29 days of income; the new sinks took 30,660 g. The Era wonder stopped at its pipe
+  half twice (Dynamo 89%: nobody made bricks; Cathedral 50%) and its stages were sized at the floor (a daily resize
+  while nobody had played for three days; the Dynamo frozen by the first delivery), only two buildings became wants
+  (bricks, never filled), nobody widened, and after the Landmark the crew had nothing shared to build. The light bots
+  with the advisor bank 2.7–18.9 days on day 28 (`runs/story4/light-bots-day28.md`). 13 of 24 promises, 10 marks pass
+  and 15 fail; the analyst's eleven recommendations are in `runs/story4/findings.json` (the owner decides what's next).
+- **After run 4** (2026-10-23): the six designers met twice (`docs/design-notes/after-run4/`); the owner asked for my
+  own reading instead of a third round, and my plan (`docs/playtest-run4-plan.html`) rebuilt theirs around one finding:
+  the pipe tier is the game's real level cap. Then, to make it playable for people, all of it was built and every run-4
+  finding fixed: the Era Wonder sized from this week's Capital players and orderable in full when nobody makes a good
+  (90a4b56); the pipe ladder: Copper Pipes at Company Level 8 and Steel with Era 2 for everyone, one door on a full
+  building's panel, Widen per link (f3e4440); wants that say they wait, the chain that would make a good, a friend's
+  want in reach of the whole crew (44cf4f0); "Your gold can" with Grow everything that pays and an hour's Undo
+  (e119134); gifts named at both ends and the lone player heard (3100920); the Landmark's storeys with a purse in hours
+  of income and +10% pipes a storey (8a52a1c); words and numbers that agree: one source for income, previews capped by
+  the inputs there, keystones chosen when a stage opens (c1d6868); the map and clicks (6eb9c87); the Exchange honest
+  (39cb3d2); phone and reading (cf39fa6); harness fixes for the next run (the driver reports every message that popped
+  up, refusals marked, the golden tile in the text map, clicks inside an open dialog first). The light bots, now pressing
+  the new doors (the storey, the Wonder, Grow everything), found three more things, fixed: levels came too fast (spent
+  gold raises income, and XP comes from income: Level 30 on day 14, so the late curve grows to 4× instead of 2×), a full
+  Trading Post that Max priced at the whole bank so Grow left it out, and a storey gift that always ranked above a
+  5-minute upgrade. On day 28 (`docs/balance/light-bots-after-run4.md`): the bots hold 1.1–3.8 days of income (run 4's
+  bots 2.7–18.9, its players 24–29) and Mia 5.9 (she plays every other day); Level 30 on days 20–25; paid trade between
+  friends by day 14 5.8% (was 2.0%); nothing runs at a loss. Still open: the solo bot earns 15% more a building than the
+  crew (the mark wants 8–15% less), because the crew's gold goes into the storey's purse
+- **Before playing with friends** (2026-10-23): the owner remembered a build taking 10 s in a moderately sized
+  network. Not reproduced on today's rules: on a grown estate (87 buildings, 317 pipe tiles; `e2e/big-estate.mjs`) a
+  build is on the map 60–160 ms after the click, 180–290 ms with the page six times slower; the play day's 10 s came
+  with one network over the whole district (68 buildings, 1,050 pipe tiles, every company), which can't happen since
+  pipes stay on their estate. Timing a build's steps on estates up to 216 buildings (`EstateSpeedFacts`, `TP_PERF=1`)
+  found the advisor at 1.5 s, Max and the upgrade preview at 20 ms, and every Yard round slow in a big station: each
+  building's why-it-idles, reach and spare went through all of its network's links and flows (20,000 links at 216
+  buildings). A network index (links, flows and gate flows by building, once per solve) brought them to 0.12 s and
+  1 ms, and the links between buildings are found 2.2× faster (arrays, one search per building). The server logs
+  every world operation that takes over half a second with where its time went (waiting, running, collecting,
+  sending). Friends on one Wi-Fi were one device to the Yard (hub price, no Sends or orders for each other, one
+  keystone resident): the same IP the same day now only sizes a project's baskets, as v1.2 §3 says
+
 ### After v1
 
 Designed (GDD §11), not needed for a fun first version: the Bank (investing, insurance, Wonder bonds), District
@@ -237,6 +468,15 @@ Changes to [GameDesign.md](GameDesign.md) that came up while building; the desig
 | Date | Refinement | Reason |
 | --- | --- | --- |
 | 2026-10-18 | Buildings only connect through pipes (not by touching each other); resources never pass through a building | Original rule, keeps layouts meaningful |
+| 2026-10-23 | "Same device" for the money's guards and keystones is a shared browser id; the same IP address the same day only keeps a project's basket from growing | Friends playing in one room share an IP: they traded at the hub price and couldn't send or order for each other |
+| 2026-10-23 | Copper Pipes come with Company Level 8 and Steel Pipes with Era 2 for everyone (a Lab's research still gets them sooner) | Run 4: every pipe stayed grey for 36 days, five of seven players never researched, and the pipe tier is the real level cap |
+| 2026-10-23 | One order rule for every shared goal: while a player near makes a good, half comes by pipe; while nobody does, gold orders all of it at twice the price | Run 4: the Era Wonder stopped at its pipe half twice, and the order button vanished without a word |
+| 2026-10-23 | After the Landmark, storeys without end: the Landmark's basket again and a purse of a day of the station's income ×1.2 a storey, given in hours of each giver's income, +10% on the residents' pipes each (to +50%) | Run 4: from day 17 the crew had nothing to build together (fun 2.83, "come back" 2 of 6) |
+| 2026-10-23 | A keystone is chosen when its stage opens and waits for everyone who played this week (it was three days) | Run 4: a two-friend keystone was chosen and dropped twice while the Foundry Hall said "opens in 10 days" |
+| 2026-10-23 | The Exchange shows its one player price before the click and tells an order's owner when it closes | Run 4: a typed 3 g became 1.95 g, and an unfilled order vanished and was read as filled |
+| 2026-10-23 | From Level 22 the XP curve grows to 4× by Level 30 (was 2×) | Spent gold now raises income (storeys, the Wonder, Grow everything), and XP comes from income: the advisor's light bots reached Level 30 on day 14 at 2×, on days 20–25 at 4× |
+| 2026-10-23 | Max on a Trading Post buys the levels its buildings keep 90% busy, and its panel shows what a level brings | The light bots: Max priced a post at every level the bank could buy, so Grow everything left a full post out and Mia's 5-minute level waited to day 28 |
+| 2026-10-23 | A step that pays itself back within the hour ranks above a gift to a shared goal | The light bots: the storey's "give an hour" always came first, and a quick upgrade never got its turn |
 | 2026-10-18 | Simulation by district ticks with cached flows instead of a pure event queue | Simpler, same behaviour |
 | 2026-10-18 | Pipes may be laid on unbought parcels of your own estate | Gates are on the outer parcels; trading with neighbours (Level 3) must not wait for Level 25 parcels |
 | 2026-10-18 | Shares within a tier are water-filled: same fraction of need for everyone, unused shares go to others | Proportional shares left energy unused when one consumer was limited by another input |
@@ -286,3 +526,12 @@ Changes to [GameDesign.md](GameDesign.md) that came up while building; the desig
 | 2026-10-19 | The Franchise opens a new estate instead of resetting the old one, and the world persists over chapters instead of a season wipe | The owner prefers expansion over rebuilding; to be built in M8 |
 | 2026-10-19 | Looks are a primary goal: generated art (Codex, `gpt-6.1-sol` high) for buildings, map and UI; v1 scope is a fun, good-looking multiplayer idle game, the rest after v1 | Owner's direction after the image test |
 | 2026-10-21 | Playing together (v1.2 design): places, people and trade are separate things (stations, crews, the Yard and links); one price between players; no votes, kicks or releases; NPCs labelled and capped at 25% | Six design agents in five rounds, on the owner's principles: fun with three friends, choosing where you live, lonely players, players who stop |
+| 2026-10-21 | No frozen districts (v1.2 §11): a quiet district already costs almost nothing (its Yard's rounds come every 16 minutes, its networks are never solved again), and running it in quarter-hour steps changed what players earn (the Hub Order follows a one-hour average of sales: a lump of sales keeps the price higher, about 12% in a test) | Being away must never pay better than playing |
+| 2026-10-21 | The Landmark is a basket like the other stages (half the delivering residents' summed T(L) for 6 hours), not yet a sustained flow with its own tank | The flow needs a tank and pause state of its own; the basket gives the same size and the heirloom |
+| 2026-10-21 | A starter kit is at least three producers that need nothing (the House's own where it had them, else what suits the land) | A works House's sawmills, without wood, were no gift |
+| 2026-10-21 | "Find me neighbours" prefers stations of four to small ones; the project takes from every resident in the same share | Small stations give fewer partners; first come, first served left later friends out of the ring of colours |
+| 2026-10-21 | A sleeper without a crew keeps a stand-in only until its seat's hold ends on day 37; a House then warms the seat and trades with the partners | The stand-in needs the seat to trade in its Yard |
+| 2026-10-21 | No e-mail, no stills of the estate, no Era jump kit, no "Back!" ribbon in this version | The in-game way back covers the first return; these come when testers ask |
+| 2026-10-21 | Houses buy at most a quarter of what a player could make (its buildings that have all they need, at full speed), not of what it made last round | Piped to its gate only, an estate's buildings make only what is taken: a quarter of that shrank every round to nothing (found by the balance run) |
+| 2026-10-21 | The starter kit is piped to the trading post as well as the Yard gate | Most of the kit's output found no buyer: the Houses take a quarter, the hub the rest |
+| 2026-10-21 | Loady's build and pipe steps count only what the player builds (`piped:` for the first sale), never the starter kit | The kit did the first three steps, so a newcomer never placed or piped anything before the Iron Mine |

@@ -11,7 +11,7 @@ public class WonderFacts
     /// <summary>A company whose storage holds plenty of everything a Wonder stage needs</summary>
     private static Building Stocked(TestGame game, Company company, IReadOnlyDictionary<string, double> needs)
     {
-        var storage = game.World.BuildingsOf(company.Id).FirstOrDefault(t => t.Type == "silo")
+        var storage = game.World.BuildingsOf(company.Id).FirstOrDefault(t => t.Type is "silo" or "storage")
             ?? game.Map(company, game.Local(company, 1, 1), "O").Values.Single();
         foreach (var (resource, amount) in needs)
         {
@@ -78,12 +78,20 @@ public class WonderFacts
         var big = game.NewCompany("Big Builder", gold: 0);
         var small = game.NewCompany("Small Builder", gold: 0);
         game.Pass(1);
-        var wonder = game.World.EraWonder!;
+        var wonder = OpenEraWonder(game);
         var stages = game.World.WonderDefinition(wonder).Stages.Count;
 
         for (var stage = 0; stage < stages; stage++)
         {
             var needs = wonder.Required.ToDictionary(t => t.Key, t => t.Value);
+            if (stage == stages - 1)
+            {
+                // The tiers are a share of each one's own Era output: Big delivers a fifth of it, Small a fiftieth
+                double Worth(Dictionary<string, double> goods) => goods.Sum(t => t.Value * game.World.BasePrice(t.Key));
+                var smallLast = Worth(needs.ToDictionary(t => t.Key, t => Math.Min(5, t.Value)));
+                small.EraOutput = (wonder.Contributions.GetValueOrDefault(small.Id) + smallLast) * 50;
+                big.EraOutput = (wonder.Contributions.GetValueOrDefault(big.Id) + Worth(needs)) * 5;
+            }
             Stocked(game, small, needs.ToDictionary(t => t.Key, t => Math.Min(5, t.Value)));
             Assert.IsTrue(game.World.DeliverToWonder(small.Id, eraWonder: true).Success);
             Stocked(game, big, needs);
@@ -93,7 +101,8 @@ public class WonderFacts
         Assert.AreEqual(2, game.World.Era);
         Assert.AreEqual("copperCathedral", game.World.EraWonder!.Type);
         Assert.IsTrue(big.Titles.Contains("The Great Dynamo · Diamond"));
-        Assert.AreEqual(GameWorld.TierReward(WonderTier.Diamond, 1), big.Gold);
+        Assert.AreEqual(game.World.TierReward(big, WonderTier.Diamond), big.Gold, 1, "twelve hours of its own income");
+        StringAssert.StartsWith(big.EraEnded, "Era 1 ended: the Great Dynamo stands, all 3 stages; your part: ");
         Assert.IsTrue(small.Titles.Any(t => t.EndsWith("Bronze")), "a little counts too");
         Assert.IsTrue(game.World.ActiveEvents(big.District).Any(t => t.Kind == EventKind.EraLaunch), "a launch party");
 
@@ -135,5 +144,228 @@ public class WonderFacts
         // Out of reach: no connection
         var far = game.Map(company, game.Local(company, 1, 20), " W\n +L         L+O");
         Assert.AreNotEqual(game.World.NetworkOf(far[(1, 0)].Id), game.World.NetworkOf(far[(14, 1)].Id));
+    }
+
+    /// <summary>Ana in the Capital, her Wind Moilies and Iron Mine piped to her Yard gate; the Era Wonder's stage wants iron ore</summary>
+    private static (TestGame Game, Company Ana, Wonder Wonder) CapitalMiner()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        game.World.ProjectsEnabled = true;
+        var ana = game.NewCompany("Ana", level: 3);
+        Assert.AreEqual(GameWorld.Capital, ana.District);
+        foreach (var _ in Enumerable.Range(0, 3))
+        {
+            game.ConnectToGate(ana, game.Build(ana, "windMoily"));
+        }
+        var mine = game.Build(ana, "ironMine", game.Spot(ana, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
+        game.ConnectToGate(ana, mine);
+        game.Pass(1);
+        var wonder = game.World.EraWonder!;
+        wonder.Required = new Dictionary<string, double> { ["ironOre"] = 400 };
+        return (game, ana, wonder);
+    }
+
+    [TestMethod]
+    public void TheEraWonderBuysTheCapitalsSpareAtBase()
+    {
+        // Run 3: the Great Dynamo sat at 0 of 1,800 bricks while Cleo's bricks went to the hub behind a full Storage
+        var (game, ana, wonder) = CapitalMiner();
+        var gold = ana.Gold;
+
+        Minutes(game, 30);
+
+        var delivered = wonder.Delivered.GetValueOrDefault("ironOre");
+        Assert.IsGreaterThan(10, delivered, "her ore goes in by pipe");
+        Assert.AreEqual(delivered * game.World.BasePrice("ironOre"), wonder.Contributions[ana.Id], 1e-6, "her part, at base");
+        Assert.AreEqual(delivered * game.World.BasePrice("ironOre"), ana.Stats.GetValueOrDefault("wonderGold"), 1e-6, "and she is paid for it");
+        Assert.IsGreaterThan(gold, ana.Gold);
+    }
+
+    [TestMethod]
+    public void OrdersBringHalfAtMostAndCountAQuarter()
+    {
+        var (game, ana, wonder) = CapitalMiner();
+        var offer = game.World.WonderOrderOffer("ironOre")!.Value;
+        Assert.AreEqual(200, offer.Units, 1, "half of it comes only by pipe");
+        var gold = ana.Gold;
+
+        Assert.IsTrue(game.World.OrderForWonder(ana.Id, "ironOre").Success);
+
+        Assert.AreEqual(gold - offer.Cost, ana.Gold, 1e-6);
+        Assert.IsNull(game.World.WonderOrderOffer("ironOre"), "nothing more to order");
+        Minutes(game, OrderMinutes);
+        Assert.AreEqual(1, wonder.Stage, "the hub shipped its half in six hours, her pipe the other: the stage stands");
+        Assert.AreEqual(200 * game.World.BasePrice("ironOre") * 1.25, wonder.Contributions[ana.Id], 1, "piped goods count whole, ordered a quarter; the pipe stopped at what it lacked");
+    }
+
+    private const int OrderMinutes = (int)GameWorld.OrderHours * 60 + 5;
+
+    /// <summary>A Yard round a minute: what was matched in one arrives in the next</summary>
+    private static void Minutes(TestGame game, int minutes)
+    {
+        for (var i = 0; i < minutes; i++)
+        {
+            game.Pass(1);
+        }
+    }
+
+    [TestMethod]
+    public void AnOrderedGoodCountsAQuarterForTheTier()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        game.World.ProjectsEnabled = true;
+        var ana = game.NewCompany("Ana", level: 3);
+        Assert.AreEqual(GameWorld.Capital, ana.District);
+        game.Pass(1);
+        var wonder = game.World.EraWonder!;
+        wonder.Required = new Dictionary<string, double> { ["ironOre"] = 400 };
+
+        // An hour of her income's worth: 200 at 2 × base
+        Assert.IsTrue(game.World.OrderForWonder(ana.Id, "ironOre", gold: 200 * game.World.BasePrice("ironOre") * GameWorld.OrderPrice).Success);
+        Minutes(game, OrderMinutes);
+
+        Assert.AreEqual(200, wonder.Delivered["ironOre"], 1e-6);
+        Assert.AreEqual(200 * game.World.BasePrice("ironOre") * 0.25, wonder.Contributions[ana.Id], 1e-6, "bought goods count a quarter");
+        Assert.AreEqual(0, wonder.Stage, "the rest is still to come");
+    }
+
+    [TestMethod]
+    public void WhileNobodyInTheCapitalMakesAGoodAllOfItMayBeOrdered()
+    {
+        // Run 4: the Dynamo's bricks and the Cathedral's steel and concrete waited all Era on a pipe half nobody could fill,
+        // and the Order button vanished once its half was ordered
+        var game = new TestGame(content: TestGame.PlainContent);
+        game.World.ProjectsEnabled = true;
+        var ana = game.NewCompany("Ana", level: 3);
+        var ben = game.NewCompany("Ben", level: 3);
+        game.Pass(1);
+        var wonder = game.World.EraWonder!;
+        wonder.Required = new Dictionary<string, double> { ["ironOre"] = 400 };
+
+        Assert.IsEmpty(game.World.WonderMakers("ironOre"));
+        Assert.AreEqual(400, game.World.WonderOrderOffer("ironOre")!.Value.Units, "nobody makes it: all of it");
+        Assert.IsTrue(game.World.OrderForWonder(ana.Id, "ironOre", gold: 100 * game.World.BasePrice("ironOre") * GameWorld.OrderPrice).Success);
+        Assert.AreEqual(300, game.World.WonderOrderOffer("ironOre")!.Value.Units, "several may chip in");
+
+        // Ben starts making it: half comes by pipe again, for what isn't ordered yet
+        game.Build(ben, "ironMine", game.Spot(ben, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
+        Assert.AreEqual(ben.Id, game.World.WonderMakers("ironOre").Single().Id);
+        Assert.AreEqual(100, game.World.WonderOrderOffer("ironOre")!.Value.Units, "half of 400, less the 100 ordered");
+        Assert.IsTrue(game.World.OrderForWonder(ana.Id, "ironOre").Success);
+        Assert.IsNull(game.World.WonderOrderOffer("ironOre"));
+        StringAssert.Contains(game.World.OrderForWonder(ana.Id, "ironOre").Error, "comes by pipe, from Ben");
+    }
+
+    /// <summary>Passes to the first midnight, when the Era Wonder's first stage opens sized to the Capital's builders</summary>
+    private static Wonder OpenEraWonder(TestGame game)
+    {
+        game.Pass((game.Time.Date.AddDays(1) - game.Time).TotalMinutes + 1);
+        var wonder = game.World.EraWonder!;
+        Assert.IsFalse(GameWorld.Unsized(wonder), "it opened at midnight");
+        return wonder;
+    }
+
+    private static double Worth(TestGame game, IReadOnlyDictionary<string, double> goods) => goods.Sum(t => t.Value * game.World.BasePrice(t.Key));
+
+    [TestMethod]
+    public void TheEraWondersFirstStageOpensAtMidnightSizedToTheCapitalsIncome()
+    {
+        // Run 4: sized at world start with only Jo seated, then frozen by his first delivery: 21.6k of goods for a Capital
+        // that earned 5,000 a minute
+        var game = new TestGame(content: TestGame.PlainContent);
+        game.World.ProjectsEnabled = true;
+        var ana = game.NewCompany("Ana");
+        var ben = game.NewCompany("Ben");
+        game.Pass(1);
+        Assert.IsTrue(GameWorld.Unsized(game.World.EraWonder!), "nobody's income is measured yet");
+        StringAssert.Contains(game.World.DeliverToWonder(ana.Id, eraWonder: true).Error, "opens at midnight");
+
+        game.Pass((game.Time.Date.AddDays(1) - game.Time).TotalMinutes - 5);
+        ana.MeasuredIncome = 1000;
+        ben.MeasuredIncome = 500;
+        var wonder = OpenEraWonder(game);
+
+        Assert.AreEqual(6 * 60 * 1500, Worth(game, wonder.Required), 6 * 60 * 1500 * 0.05, "six hours of the Capital's income");
+    }
+
+    [TestMethod]
+    public void AStageIsSizedAgainOnlyUpwardAndOnlyFromPlayersSeenThisWeek()
+    {
+        // Run 4: everyone was away three days, and the daily resize shrank the Copper Cathedral to the 60 g/min floor
+        var game = new TestGame(content: TestGame.PlainContent);
+        game.World.ProjectsEnabled = true;
+        var ana = game.NewCompany("Ana");
+        game.Pass(1);
+        ana.MeasuredIncome = 1000;
+        var wonder = OpenEraWonder(game);
+        var size = Worth(game, wonder.Required);
+
+        // Away for three days, earning less: no smaller
+        ana.LastSeenAt = game.Time.AddDays(-3);
+        ana.MeasuredIncome = 100;
+        game.Pass(24 * 60);
+        Assert.AreEqual(size, Worth(game, wonder.Required), 1e-6, "never smaller");
+
+        // Earning more, seen this week: larger, until something arrives
+        ana.MeasuredIncome = 4000;
+        ana.MeasuredEarned = 1;
+        game.Pass(24 * 60);
+        Assert.IsGreaterThan(size * 2, Worth(game, wonder.Required), "sized up to the Capital's new income");
+
+        // Nobody seen this week: it waits as it is
+        var grown = Worth(game, wonder.Required);
+        ana.LastSeenAt = game.Time.AddDays(-8);
+        ana.MeasuredIncome = 10000;
+        game.Pass(24 * 60);
+        Assert.AreEqual(grown, Worth(game, wonder.Required), 1e-6);
+    }
+
+    [TestMethod]
+    public void TheChainLineSaysWhatWouldMakeAGoodAndWhereItsInputsComeFrom()
+    {
+        // Run 4: "Bricks need stone + coal, I have neither" (dev d14), while the Houses sold both through the Yard
+        var game = new TestGame(dealtLand: true);
+        var dev = game.NewCompany("Dev", level: 12);
+        var chain = game.World.ChainFor(dev, "bricks")!;
+
+        Assert.AreEqual("brickworks", chain.Building.Id);
+        CollectionAssert.AreEquivalent(new[] { "coal", "stone" }, chain.Inputs.Select(t => t.Good).ToArray());
+        Assert.IsTrue(chain.Inputs.All(t => t.Houses), "land goods: the Houses sell them through the Yard");
+        var text = game.World.ChainText(chain, "bricks", dev);
+        StringAssert.StartsWith(text, "A Brickworks (");
+        StringAssert.Contains(text, "makes bricks from coal and stone: the Houses sell coal and stone through the Yard; the Yard brings them");
+
+        // Iron ore isn't dealt land: Dev can mine it himself
+        var ingots = game.World.ChainFor(dev, "ironIngot")!;
+        StringAssert.Contains(game.World.ChainText(ingots, "ironIngot", dev), "makes iron ingots from iron ore: you can make iron ore with an Iron Mine");
+    }
+
+    [TestMethod]
+    public void OnlyTheCapitalOrdersForItsWonder()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        game.World.ProjectsEnabled = true;
+        var ana = game.NewCompany("Ana");
+        game.Pass(1);
+        ana.District = new DistrictCoord(1, 0);
+        game.World.EraWonder!.Required = new Dictionary<string, double> { ["ironOre"] = 400 };
+
+        StringAssert.Contains(game.World.OrderForWonder(ana.Id, "ironOre").Error, "Capital");
+    }
+
+    [TestMethod]
+    public void AStageThatStandsLiftsTheCapitalsPipesForTheEra()
+    {
+        var (game, ana, wonder) = CapitalMiner();
+        Assert.AreEqual(0, game.World.WonderPipeBonus(ana.Id));
+        var storage = Stocked(game, ana, wonder.Required);
+
+        Assert.IsTrue(game.World.DeliverToWonder(ana.Id, eraWonder: true).Success);
+
+        Assert.AreEqual(1, wonder.Stage);
+        Assert.AreEqual(0.5, game.World.WonderPipeBonus(ana.Id), "its pipes carry half as much again");
+        game.World.AdvanceEra();
+        Assert.AreEqual(0, game.World.WonderPipeBonus(ana.Id), "until the Era ends");
+        StringAssert.StartsWith(ana.EraEnded, "Era 1 ended: the Great Dynamo got 1 of its 3 stages; your part: ");
     }
 }

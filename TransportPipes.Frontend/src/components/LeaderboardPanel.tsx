@@ -14,6 +14,8 @@ const KINDS: Array<{ id: LeaderboardKind; name: string; unit: string }> = [
   { id: "efficiency", name: "Efficiency", unit: "gold per tile per hour" },
 ];
 
+const LEAGUE_UNIT = "gold earned this week";
+
 function Row({ entry, kind }: { entry: LeaderboardEntryDto; kind: LeaderboardKind }) {
   const content = useAppStore((s) => s.content);
   let level = 0;
@@ -67,6 +69,7 @@ function QuietIsles() {
 /** Leaderboards of the district and the whole world (GDD §9.5) */
 export function LeaderboardPanel() {
   const open = useAppStore((s) => s.leaderboardOpen);
+  const league = useAppStore((s) => s.company?.league ?? null);
   const board = useAppStore((s) => s.leaderboard);
   const kind = useAppStore((s) => s.leaderboardKind);
   const district = useAppStore((s) => s.leaderboardDistrict);
@@ -75,7 +78,7 @@ export function LeaderboardPanel() {
     return null;
   }
   const close = () => setState({ leaderboardOpen: false });
-  const unit = KINDS.find((t) => t.id === kind)?.unit ?? "";
+  const unit = kind === "league" ? LEAGUE_UNIT : (KINDS.find((t) => t.id === kind)?.unit ?? "");
   const youShown = board?.entries.some((t) => t.you) ?? false;
   return (
     <div className="modal-backdrop" onClick={close}>
@@ -109,6 +112,18 @@ export function LeaderboardPanel() {
           <button className={isles ? "tab active" : "tab"} onClick={() => setIsles(true)}>
             Quiet Isles
           </button>
+          {league !== null && (
+            <button
+              className={!isles && kind === "league" ? "tab active" : "tab"}
+              title="About 25 companies at your stage, by what they earned this week; drawn anew every week"
+              onClick={() => {
+                setIsles(false);
+                void gameClient.refreshLeaderboard("league");
+              }}
+            >
+              Your league
+            </button>
+          )}
           {KINDS.map((k) => (
             <button
               key={k.id}

@@ -11,7 +11,7 @@ public class SocietyFacts
     private static async Task<(TestClient Client, CompanyDto Company)> PlayerAsync(GameServer server, string name)
     {
         var client = await server.ConnectAsync(await server.RegisterAsync(name));
-        await client.Command("CreateCompany", name, "#3399ff");
+        await client.Command("CreateCompany", name, "#3399ff", null, null, null, null);
         var hello = await client.Invoke<HelloDto>("Hello");
         return (client, hello.Company!);
     }
@@ -52,6 +52,20 @@ public class SocietyFacts
             results.Add((await ann.Invoke<CommandResultDto>("SendChat", district, $"spam {i}")).Success);
         }
         Assert.IsTrue(results.Contains(false));
+    }
+
+    [TestMethod]
+    public async Task APlayerAloneInAQuietStationFindsTheDistrictChatFirst()
+    {
+        // Run 4: Mia's four greetings went to her station's channel, which held only a silent scripted Jo
+        using var server = new GameServer();
+        var (mia, _) = await PlayerAsync(server, "Mia");
+        await using var _ = mia;
+
+        var chat = await mia.Invoke<ChatDto>("GetChat");
+
+        Assert.AreEqual("district", chat.Channels[0].Kind, string.Join(", ", chat.Channels.Select(t => t.Kind)));
+        Assert.IsTrue(chat.Channels.Any(t => t.Kind == "station"), "the station is still there");
     }
 
     [TestMethod]
@@ -150,7 +164,7 @@ public class SeasonServerFacts
         using var server = new GameServer();
         var cookie = await server.RegisterAsync("Veteran");
         await using var client = await server.ConnectAsync(cookie);
-        await client.Command("CreateCompany", "Old Timer", "#3399ff");
+        await client.Command("CreateCompany", "Old Timer", "#3399ff", null, null, null, null);
         await server.World.RunAsync(world =>
         {
             var company = world.Companies.Single(t => !t.IsNpc);
@@ -190,8 +204,8 @@ public class ModerationFacts
         var modCookie = await server.RegisterAsync("Moderator");
         await using var _1 = troll;
         await using var _2 = victim;
-        await troll.Command("CreateCompany", "Troll Inc", "#ff0000");
-        await victim.Command("CreateCompany", "Victim Inc", "#00ff00");
+        await troll.Command("CreateCompany", "Troll Inc", "#ff0000", null, null, null, null);
+        await victim.Command("CreateCompany", "Victim Inc", "#00ff00", null, null, null, null);
         await using (var db = server.Services.GetRequiredService<TransportPipes.Database.TransportPipesDbFactory>().CreateDbContext())
         {
             await db.Users.Where(t => t.UserName == "Moderator").ExecuteUpdateAsync(t => t.SetProperty(u => u.IsAdmin, true));

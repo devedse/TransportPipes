@@ -12,13 +12,18 @@ internal sealed class TestGame
     public DateTime Time { get; set; } = Start;
     public GameWorld World { get; }
 
-    public TestGame(int seed = 1234, GameContent? content = null, bool events = false, bool achievements = false, bool tutorial = false, bool surveys = false)
+    public TestGame(int seed = 1234, GameContent? content = null, bool events = false, bool achievements = false, bool tutorial = false, bool surveys = false, bool dealtLand = false)
     {
-        World = new GameWorld(content ?? GameContent.Default, seed, () => Time) { EventsEnabled = events, AchievementsEnabled = achievements, TutorialEnabled = tutorial, SurveysEnabled = surveys };
+        World = new GameWorld(content ?? GameContent.Default, seed, () => Time, dealtLand) { EventsEnabled = events, AchievementsEnabled = achievements, TutorialEnabled = tutorial, SurveysEnabled = surveys };
     }
 
     /// <summary>The game content without location modifiers (wind, sun, richness), so every building makes its listed amount</summary>
     public static GameContent PlainContent { get; } = CreatePlainContent();
+
+    /// <summary>PlainContent whose pipes lose nothing (so how long a pipe is doesn't matter)</summary>
+    public static GameContent LosslessContent { get; } = new(PlainContent.ResourceList, PlainContent.BuildingList, PlainContent.PipeTiers.Select(t => t with { LossPerTile = 0 }).ToList(),
+        PlainContent.Progression, PlainContent.ResearchList, [.. PlainContent.DistrictWonders, .. PlainContent.EraWonders], PlainContent.Managers, PlainContent.Achievements,
+        PlainContent.Collections, PlainContent.Tutorial, PlainContent.Relics);
 
     private static GameContent CreatePlainContent()
     {
@@ -64,18 +69,18 @@ internal sealed class TestGame
         ['V'] = "valve",
         ['P'] = "priorityValve",
         ['U'] = "pumpStation",
-        ['X'] = "tollMeter",
         ['E'] = "exchangeOffice",
         ['C'] = "cargoDepot",
         ['L'] = "powerLinePylon",
         ['H'] = "showroom",
         ['B'] = "blueprintOffice",
         ['Q'] = "pneumaticPost",
+        ['R'] = "lab",
     };
 
     /// <summary>
     /// Puts a map like the original game's tests on the world, without any placement rules: W wind moily, S solar panel,
-    /// M iron mine, F small factory, O storage, T trading post, V valve, P priority valve, U pump station, L power line pylon, H showroom, B blueprint office, Q pneumatic post, + pipe
+    /// M iron mine, F small factory, O storage, T trading post, V valve, P priority valve, U pump station, L power line pylon, H showroom, B blueprint office, Q pneumatic post, R lab, + pipe
     /// (lossless by default, like the original game).
     /// Returns the buildings by their map position.
     /// </summary>
@@ -111,11 +116,13 @@ internal sealed class TestGame
         World.Tick();
     }
 
-    public Company NewCompany(string name = "Test Co", double gold = 1_000_000, int level = 1)
+    public Company NewCompany(string name = "Test Co", double gold = 1_000_000, int level = 1, int? slot = null)
     {
-        var company = World.CreateCompany(World.Companies.Count() + 1, name, "#ff8800");
+        var company = World.CreateCompany(World.Companies.Count() + 1, name, "#ff8800", seat: slot is { } s ? new EstateKey(new DistrictCoord(0, 0), s) : null);
         company.Gold = gold;
         company.Level = level;
+        // What a company of that level has: Copper Pipes from Level 8, as a level-up grants them
+        World.GrantResearch(company);
         return company;
     }
 
@@ -153,6 +160,8 @@ internal sealed class TestGame
         var building = World.BuildingAt(pos.Value)!;
         if (finish)
         {
+            // A building that wants materials gets them (wants have tests of their own)
+            World.FillSite(building.Id);
             World.FinishConstruction(building.Id);
         }
         return building;
@@ -160,12 +169,11 @@ internal sealed class TestGame
 
     public List<TilePos> Connect(Company company, Building from, Building to) => Connect(company, Pipeable(from.Border()), Pipeable(to.Border()));
 
-    /// <summary>Connects a building to one of the company's gates</summary>
-    public List<TilePos> Connect(Company company, Building from, GateSide side)
+    /// <summary>Connects a building to the company's Yard gate</summary>
+    public List<TilePos> ConnectToGate(Company company, Building from)
     {
-        var gate = WorldLayout.GatePosition(company.District, company.Slot, side);
         var estate = EstateOf(company);
-        return Connect(company, Pipeable(from.Border()), Pipeable(Neighbours(gate).Where(estate.Contains)));
+        return Connect(company, Pipeable(from.Border()), Pipeable(Neighbours(estate.YardGate).Where(t => CanPipe(company, t))));
     }
 
     /// <summary>Lays the shortest pipe between two sets of tiles (over free land and the company's own pipes)</summary>
@@ -209,8 +217,10 @@ internal sealed class TestGame
 
     private bool CanPipe(Company company, TilePos tile)
     {
+        // Pipes go on the company's own estate and through the wilderness (its outposts there too)
         var zone = WorldLayout.ZoneAt(tile.X, tile.Y);
-        if (zone.Kind == ZoneKind.Estate ? !EstateOf(company).Contains(tile) : zone.Kind != ZoneKind.Corridor)
+        if (zone.Kind == ZoneKind.Wilderness ? World.OutpostAt(tile) is { } outpost && outpost.Owner != company.Id
+            : zone.Kind != ZoneKind.Estate || !EstateOf(company).Contains(tile))
         {
             return false;
         }

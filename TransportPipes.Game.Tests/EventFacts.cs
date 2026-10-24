@@ -98,7 +98,7 @@ public class EventFacts
         var game = new TestGame();
         var company = game.NewCompany();
         double Factor(string resource) =>
-            game.World.HubBuyPrice(company.District, resource) / game.World.BasePrice(resource) / game.World.Market(company.District).Multiplier(resource);
+            game.World.HubBuyPrice(company, resource) / game.World.BasePrice(resource) / game.World.HubMarketOf(company, company.District).Multiplier(resource);
         Assert.AreEqual(1, Factor("glass"), 1e-3);
 
         game.World.StartEventNow(EventKind.Expo, company.District, TimeSpan.FromHours(6), "glass");
@@ -115,15 +115,16 @@ public class EventFacts
         var game = new TestGame();
         var company = game.NewCompany();
         game.World.EnsureOrders(company);
+        var daily = company.DailyOrders.Count;
 
         game.World.StartEventNow(EventKind.Shortage, company.District, TimeSpan.FromHours(8), "planks");
 
         var urgent = company.DailyOrders.Single(t => t.Urgent);
         Assert.AreEqual("planks", urgent.Resource);
-        Assert.HasCount(GameWorld.OrdersPerDay + 1, company.DailyOrders);
+        Assert.HasCount(daily + 1, company.DailyOrders);
         game.Pass(8 * 60 + 1);
         Assert.IsFalse(company.DailyOrders.Any(t => t.Urgent));
-        Assert.HasCount(GameWorld.OrdersPerDay, company.DailyOrders, "the daily orders stay");
+        Assert.HasCount(daily, company.DailyOrders, "the daily orders stay");
     }
 
     [TestMethod]

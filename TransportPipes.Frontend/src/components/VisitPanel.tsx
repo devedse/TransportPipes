@@ -6,6 +6,8 @@ import { useAppStore } from "../state/store";
 
 /** Visiting an estate: who lives there, a like, the guestbook, a mentor */
 export function VisitPanel() {
+  const content = useAppStore((s) => s.content);
+  const resourceWord = (resource: string) => content?.resourceName(resource).toLowerCase() ?? resource;
   const visiting = useAppStore((s) => s.visiting);
   const visit = useAppStore((s) => s.visit);
   const blocked = useAppStore((s) => s.chat?.blocked);
@@ -116,6 +118,34 @@ export function VisitPanel() {
               ⇄ Propose to swap estates
             </button>
           )}
+        </div>
+      )}
+      {(visit.wants ?? []).length > 0 && (
+        // A friend's want where you visit (after run 4: five offers of gold in the group chat, and no door)
+        <div className="visit-wants">
+          <div className="panel-title">What {visit.name} is building</div>
+          <ul>
+            {visit.wants!.map((w) => (
+              <li key={`${w.site}-${w.resource}`} className="small">
+                {w.building} waits for {formatAmount(w.left)} {resourceWord(w.resource)}
+                {w.holds >= 1
+                  ? ` · your Storage holds ${formatAmount(w.holds)}`
+                  : w.makes
+                    ? " · your spare goes there"
+                    : ""}{" "}
+                {w.holds >= 1 && (
+                  <button className="small" onClick={() => void gameClient.sendToSite(w.site)}>
+                    Send them ▸
+                  </button>
+                )}
+                {w.orderCost !== null && (
+                  <button className="small" onClick={() => void gameClient.orderRest(w.site, visit.name)}>
+                    Order it for them · {formatAmount(w.orderCost)} g
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
       {visit.canChooseAsMentor && (

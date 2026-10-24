@@ -16,11 +16,15 @@ public enum EstateSpecialty
 /// <summary>Everything the world says about a tile before anything is built on it</summary>
 public readonly record struct TileInfo(TerrainType Terrain, string? Deposit, int Richness, double Wind, double Sun)
 {
-    public bool IsBuildableTerrain => Terrain is not (TerrainType.Water or TerrainType.Mountain or TerrainType.Road or TerrainType.City);
+    public bool IsBuildableTerrain => Terrain is not (TerrainType.Water or TerrainType.Mountain or TerrainType.Road or TerrainType.City or TerrainType.Yard);
 }
 
+/// <summary>An estate as generated: its specialties (what the picker says), its tiles, and (dealt land) the land goods it holds</summary>
 public sealed record EstateProfile(DistrictCoord District, int Slot, TilePos Origin, EstateSpecialty Primary, EstateSpecialty? Secondary, TileInfo[,] Tiles)
 {
+    /// <summary>The land goods dealt to this seat (step 5), in the order they lie: beside the HQ, then the first parcels bought; empty on old land</summary>
+    public IReadOnlyList<string> Goods { get; init; } = [];
+
     public IEnumerable<EstateSpecialty> Specialties => Secondary is { } secondary ? [Primary, secondary] : [Primary];
 
     public TileInfo Local(int x, int y) => Tiles[x, y];
@@ -40,15 +44,82 @@ public sealed class WorldGenerator
     private static readonly int[] StartParcels = [5, 6, 9, 10];
     private static readonly int[] OuterParcels = [0, 1, 2, 3, 4, 7, 8, 11, 12, 13, 14, 15];
 
+    /// <summary>The first parcels a player buys (progression.yaml's parcels.order): where a seat's second and third land goods lie</summary>
+    private static readonly int[] FirstBoughtParcels = [1, 2];
+
+    /// <summary>
+    /// The five land goods (step 5, docs/playtest-redesign.html §4): dealt per station, each once, never copied onto
+    /// every estate. Energy, iron ore and water every estate has.
+    /// </summary>
+    public static readonly string[] LandGoods = ["copperOre", "coal", "sand", "wood", "stone"];
+
+    /// <summary>The specialty a land good gives a seat (the picker's words for it)</summary>
+    public static EstateSpecialty SpecialtyOf(string good) => good switch
+    {
+        "copperOre" => EstateSpecialty.CopperGulch,
+        "coal" => EstateSpecialty.CoalValley,
+        "sand" => EstateSpecialty.Riverside,
+        "wood" => EstateSpecialty.OldForest,
+        _ => EstateSpecialty.StoneQuarry,
+    };
+
     private readonly ConcurrentDictionary<(DistrictCoord, int), EstateProfile> _estates = new();
     private readonly ConcurrentDictionary<DistrictCoord, EstateSpecialty[][]> _districtSpecialties = new();
+    private readonly ConcurrentDictionary<StationRef, Dictionary<int, string[]>> _deals = new();
 
     public int Seed { get; }
 
-    public WorldGenerator(int seed)
+    /// <summary>Dealt land (step 5): worlds made since then; older worlds (run 1's snapshots) keep the land they had</summary>
+    public bool DealtLand { get; }
+
+    public WorldGenerator(int seed, bool dealtLand = false)
     {
         Seed = seed;
+        DealtLand = dealtLand;
     }
+
+    /// <summary>The land goods of a seat: one to three of the five, its station holding each once (empty on old land)</summary>
+    public IReadOnlyList<string> LandOf(DistrictCoord district, int slot) =>
+        DealtLand ? Deal(WorldLayout.StationOf(district, slot)).GetValueOrDefault(slot) ?? [] : [];
+
+    /// <summary>
+    /// A station's deal: a corner station's four seats get 2, 1, 1 and 1 of the land goods, a small station's two seats
+    /// 3 and 2; every station holds all five once, and no seat holds both bought inputs of one chain (copper ore with
+    /// coal for a Smelter, stone with coal for a Brickworks), so every chain needs a neighbour
+    /// </summary>
+    private Dictionary<int, string[]> Deal(StationRef station) =>
+        _deals.GetOrAdd(station, s =>
+        {
+            var slots = WorldLayout.StationSlots(s.Index);
+            var random = new SeededRandom(Noise.Hash(Seed, 3000, s.District.X, s.District.Y, s.Index));
+            var counts = slots.Count switch
+            {
+                2 => new List<int> { 3, 2 },
+                4 => new List<int> { 2, 1, 1, 1 },
+                _ => Enumerable.Range(0, slots.Count).Select(i => i < LandGoods.Length % slots.Count ? LandGoods.Length / slots.Count + 1 : LandGoods.Length / slots.Count).ToList(),
+            };
+            random.Shuffle(counts);
+            for (var attempt = 0; ; attempt++)
+            {
+                var goods = LandGoods.ToList();
+                random.Shuffle(goods);
+                var deal = new Dictionary<int, string[]>();
+                var next = 0;
+                for (var i = 0; i < slots.Count; i++)
+                {
+                    deal[slots[i]] = goods.Skip(next).Take(counts[i]).ToArray();
+                    next += counts[i];
+                }
+                if (attempt > 200 || deal.Values.All(t => !BothInputs(t)))
+                {
+                    return deal;
+                }
+            }
+        });
+
+    /// <summary>Whether goods hold both bought inputs of one chain (a seat that could run a Smelter or a Brickworks alone)</summary>
+    public static bool BothInputs(IReadOnlyCollection<string> goods) =>
+        goods.Contains("coal") && (goods.Contains("copperOre") || goods.Contains("stone"));
 
     public TileInfo Tile(int x, int y) => Tile(new TilePos(x, y));
 
@@ -64,6 +135,7 @@ public sealed class WorldGenerator
             ZoneKind.Estate => Estate(zone.District, zone.Slot).Local(zone.LocalX, zone.LocalY),
             ZoneKind.Hub => new TileInfo(TerrainType.City, null, 0, 1, 1),
             ZoneKind.Corridor => new TileInfo(TerrainType.Road, null, 0, 1, 1),
+            ZoneKind.Yard => new TileInfo(TerrainType.Yard, null, 0, 1, 1),
             _ => Wilderness(pos.X, pos.Y),
         };
     }
@@ -180,8 +252,12 @@ public sealed class WorldGenerator
     private EstateProfile GenerateEstate(DistrictCoord district, int slot)
     {
         var origin = WorldLayout.EstateOrigin(district, slot);
-        var specialties = DistrictSpecialties(district)[slot];
         var random = new SeededRandom(Noise.Hash(Seed, 2000, district.X, district.Y, slot));
+        var goods = LandOf(district, slot);
+        // Dealt land: the seat's goods name it; one good alone comes with a windy or sunny climate for its energy
+        var specialties = !DealtLand ? DistrictSpecialties(district)[slot]
+            : goods.Count > 1 ? goods.Take(2).Select(SpecialtyOf).ToArray()
+            : [SpecialtyOf(goods[0]), random.NextDouble() < 0.5 ? EstateSpecialty.WindyHeights : EstateSpecialty.SunnyFlats];
         var size = WorldLayout.EstateSize;
 
         var terrain = new TerrainType[size, size];
@@ -292,8 +368,68 @@ public sealed class WorldGenerator
             Rect(px + 1, py + 1, 4, 3, (x, y) => terrain[x, y] = TerrainType.Hills);
         }
 
-        // Specialties
-        foreach (var specialty in specialties)
+        // Dealt land (step 5): the first good rich beside the HQ, the next ones in the first parcels bought, and no
+        // copies anywhere else: no beach without sand, no old forest without wood
+        if (DealtLand)
+        {
+            for (var i = 0; i < goods.Count; i++)
+            {
+                var parcel = i == 0 ? startOrder[2] : FirstBoughtParcels[i - 1];
+                freeParcels.Remove(parcel);
+                switch (goods[i])
+                {
+                    case "sand":
+                        Lake(parcel, i == 0 ? 1.6 : 2.2);
+                        break;
+                    case "wood":
+                        {
+                            Fill(parcel, TerrainType.Forest, 0.8);
+                            // The old forest: a Lumber Camp stands only on its marked trees
+                            var (px, py) = WorldLayout.ParcelOrigin(parcel);
+                            Rect(px, py, WorldLayout.ParcelSize, WorldLayout.ParcelSize, (x, y) =>
+                            {
+                                if (terrain[x, y] == TerrainType.Forest)
+                                {
+                                    deposit[x, y] = "wood";
+                                    richness[x, y] = 4;
+                                }
+                            });
+                        }
+                        break;
+                    default:
+                        DepositCluster(parcel, goods[i], 4, 3, 3);
+                        break;
+                }
+            }
+            foreach (var specialty in specialties.Where(t => t is EstateSpecialty.WindyHeights or EstateSpecialty.SunnyFlats))
+            {
+                foreach (var parcel in new[] { TakeParcel(), TakeParcel() })
+                {
+                    if (specialty == EstateSpecialty.WindyHeights)
+                    {
+                        Fill(parcel, TerrainType.Hills, 0.85, (x, y) => windBonus[x, y] = 0.35);
+                    }
+                    else
+                    {
+                        Fill(parcel, TerrainType.Desert, 0.9);
+                    }
+                }
+            }
+            // A pond for water on a seat without sand: its shore is grass
+            if (!goods.Contains("sand"))
+            {
+                var (px, py) = WorldLayout.ParcelOrigin(TakeParcel());
+                Blob(px + 4, py + 4, 1.4, (x, y, _) => { terrain[x, y] = TerrainType.Water; deposit[x, y] = null; });
+            }
+            // Forest patches for the look: trees without the old forest's marks
+            {
+                var (px, py) = WorldLayout.ParcelOrigin(TakeParcel());
+                Blob(px + 4, py + 4, 2.3, (x, y, _) => { if (deposit[x, y] == null && terrain[x, y] != TerrainType.Water) terrain[x, y] = TerrainType.Forest; });
+            }
+        }
+
+        // Specialties (old land)
+        foreach (var specialty in DealtLand ? [] : specialties)
         {
             switch (specialty)
             {
@@ -342,7 +478,13 @@ public sealed class WorldGenerator
             }
         }
 
-        // Small extras every estate gets: a bit of stone, a forest patch, sometimes a pond or a little coal
+        // Small extras every estate gets on old land: a bit of stone, a forest patch, sometimes a pond or a little coal
+        if (!DealtLand)
+        {
+            AddExtras();
+        }
+        void AddExtras()
+        {
         DepositCluster(TakeParcel(), "stone", 1, 2, 2);
         {
             var (px, py) = WorldLayout.ParcelOrigin(TakeParcel());
@@ -356,19 +498,28 @@ public sealed class WorldGenerator
         {
             DepositCluster(TakeParcel(), "coal", 1, 2, 2);
         }
-
-        // Keep the HQ spot, the Trading Post spot and the gates open
-        Rect(14, 14, 6, 4, (x, y) => { terrain[x, y] = TerrainType.Grass; deposit[x, y] = null; });
-        foreach (var (gx, gy) in WorldLayout.GateLocal.Values)
-        {
-            Rect(gx - 1, gy - 1, 3, 3, (x, y) =>
-            {
-                if (terrain[x, y] is TerrainType.Water or TerrainType.Mountain)
-                {
-                    terrain[x, y] = TerrainType.Grass;
-                }
-            });
         }
+
+        // Keep the HQ spot, the Trading Post spot and the way to the Yard gate open
+        Rect(14, 14, 6, 4, (x, y) => { terrain[x, y] = TerrainType.Grass; deposit[x, y] = null; });
+        var (gx, gy) = WorldLayout.YardGateLocal(slot);
+        void Open(int x, int y)
+        {
+            if (terrain[x, y] is TerrainType.Water or TerrainType.Mountain)
+            {
+                terrain[x, y] = TerrainType.Grass;
+            }
+        }
+        // An L from the middle to the gate, and the tiles around the gate
+        for (var x = Math.Min(16, gx); x <= Math.Max(16, gx); x++)
+        {
+            Open(x, 16);
+        }
+        for (var y = Math.Min(16, gy); y <= Math.Max(16, gy); y++)
+        {
+            Open(gx, y);
+        }
+        Rect(gx - 1, gy - 1, 3, 3, Open);
 
         var tiles = new TileInfo[size, size];
         for (var y = 0; y < size; y++)
@@ -379,7 +530,7 @@ public sealed class WorldGenerator
             }
         }
 
-        return new EstateProfile(district, slot, origin, specialties[0], specialties.Length > 1 ? specialties[1] : null, tiles);
+        return new EstateProfile(district, slot, origin, specialties[0], specialties.Length > 1 ? specialties[1] : null, tiles) { Goods = goods };
     }
 
     // ---------------------------------------------------------------- Hub cities

@@ -5,7 +5,6 @@ import { setState, useAppStore } from "../state/store";
 /** Tools appear when they are useful: the Company Level that brings them (GDD §10.1, "one new toy per day") */
 const UNLOCK_LEVEL: Record<string, number> = {
   hub: 2,
-  neighbours: 3,
   research: 4,
   corporation: 8,
   blueprints: 22,
@@ -63,7 +62,7 @@ export function Toolbar() {
   const content = useAppStore((state) => state.content);
   const researchOpen = useAppStore((state) => state.researchOpen);
   const hubOpen = useAppStore((state) => state.hubOpen);
-  const neighboursOpen = useAppStore((state) => state.neighboursOpen);
+  const yardOpen = useAppStore((state) => state.yardOpen);
   const corporationOpen = useAppStore((state) => state.corporationOpen);
   const invites = useAppStore(
     (state) =>
@@ -77,9 +76,6 @@ export function Toolbar() {
   // Tools the player has not tried yet glow
   const [seen, setSeen] = useState(seenTools);
   useEffect(() => rememberSeen(seen), [seen]);
-  const ordersOpen = useAppStore(
-    (state) => state.company?.dailyOrders.filter((t) => t.delivered < t.amount).length ?? 0,
-  );
 
   const tools = [
     {
@@ -111,13 +107,14 @@ export function Toolbar() {
       label: "Neighbours",
       icon: "🤝",
       hotkey: "N",
-      active: neighboursOpen,
-      run: () => (neighboursOpen ? setState({ neighboursOpen: false }) : void gameClient.openNeighbours()),
+      active: yardOpen,
+      run: () => (yardOpen ? setState({ yardOpen: false }) : void gameClient.openYard()),
     },
     {
       key: "corporation",
       label: "Corp",
       badge: invites,
+      badgeTitle: "invitations to answer",
       icon: "🏢",
       hotkey: "C",
       active: corporationOpen,
@@ -126,7 +123,9 @@ export function Toolbar() {
     {
       key: "hub",
       label: "Hub",
-      badge: ordersOpen,
+      // Hub orders fill by themselves: no badge asks for them (after run 3, step 7)
+      badge: 0,
+      badgeTitle: "",
       icon: "🏛",
       hotkey: "M",
       active: hubOpen,
@@ -187,7 +186,13 @@ export function Toolbar() {
           <span className="tool-label">
             {t.label}
             {"badge" in t && typeof t.badge === "number" && t.badge > 0 && (
-              <span className="badge">{t.badge}</span>
+              <span
+                className="badge"
+                title={`${t.badge} ${t.badgeTitle}`}
+                aria-label={`${t.badge} ${t.badgeTitle}`}
+              >
+                {t.badge}
+              </span>
             )}
           </span>
           <kbd>{t.hotkey}</kbd>

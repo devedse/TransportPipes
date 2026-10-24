@@ -6,6 +6,19 @@ namespace TransportPipes.Game.Tests;
 public class ContentFacts
 {
     [TestMethod]
+    public void EveryRecipeAddsAQuarterOfItsInputValue()
+    {
+        // Found by the economy designer after the playtest: three Era 2–4 recipes made less than they took, at base prices
+        var content = GameContent.Default;
+        double Value(IReadOnlyDictionary<string, double> goods) => goods.Sum(t => t.Value * content.Resources[t.Key].Price);
+        foreach (var building in content.BuildingList.Where(t => t.In.Count > 0 && t.Out.Count > 0))
+        {
+            var input = Value(building.In);
+            Assert.IsTrue(Value(building.Out) - input >= 0.25 * input - 1e-9, $"{building.Id}: {input:F0} in, {Value(building.Out):F0} out");
+        }
+    }
+
+    [TestMethod]
     public void TheEmbeddedContentLoadsAndIsValid()
     {
         var content = GameContent.LoadEmbedded();

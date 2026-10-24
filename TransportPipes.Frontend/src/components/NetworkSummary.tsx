@@ -2,25 +2,31 @@ import { gameClient } from "../app/client";
 import { formatAmount, formatRate } from "../app/format";
 import type { NetworkDetailsDto, NetworkResourceDto } from "../api/contracts";
 import type { Content } from "../game/content";
+import { useAppStore } from "../state/store";
 import { ResourceIcon } from "./ResourceIcon";
 
 /** Where a resource of a network goes: used by buildings, sold to the hub, stored, lost in the pipes */
 const SEGMENTS = [
   { key: "used", name: "used by buildings", className: "seg-used" },
   { key: "sold", name: "sold to the hub", className: "seg-sold" },
+  { key: "toYard", name: "sold through the Yard", className: "seg-yard" },
   { key: "stored", name: "stored", className: "seg-stored" },
   { key: "lost", name: "lost in the pipes", className: "seg-lost" },
 ] as const;
 
 function ResourceRow({ r, content }: { r: NetworkResourceDto; content: Content }) {
   const made = r.produced + r.imported + r.fromStorage;
+  // What the Yard brings is part of what its buildings get, said apart from what it makes (run 2: "sand 15 short"
+  // while Ben's sand ran the Glassworks)
+  const got = made + r.fromYard;
   const short = Math.max(0, r.needed - r.used);
-  const spare = Math.max(0, r.sold + r.stored);
+  const spare = Math.max(0, r.sold + r.stored + r.toYard);
   const isShort = r.needed > 0 && short > Math.max(0.05, r.needed * 0.01);
-  const total = Math.max(made, r.used + r.sold + r.stored + r.lost, 1e-9);
+  const total = Math.max(got, r.used + r.sold + r.toYard + r.stored + r.lost, 1e-9);
   const values: Record<(typeof SEGMENTS)[number]["key"], number> = {
     used: r.used,
     sold: r.sold,
+    toYard: r.toYard,
     stored: r.stored,
     lost: r.lost,
   };
@@ -38,7 +44,17 @@ function ResourceRow({ r, content }: { r: NetworkResourceDto; content: Content }
         )}
       </div>
       <div className="net-numbers">
-        makes <strong>{formatAmount(made)}</strong>
+        {(made > 0.05 || r.fromYard <= 0.05) && (
+          <>
+            makes <strong>{formatAmount(made)}</strong>
+          </>
+        )}
+        {r.fromYard > 0.05 && (
+          <>
+            {made > 0.05 ? " · " : ""}
+            the Yard brings <strong>{formatAmount(r.fromYard)}</strong>
+          </>
+        )}
         {r.needed > 0 && (
           <>
             {" "}
@@ -47,7 +63,7 @@ function ResourceRow({ r, content }: { r: NetworkResourceDto; content: Content }
         )}
         <span className="muted"> per minute</span>
       </div>
-      {made > 0 && (
+      {got > 0 && (
         <div
           className="net-bar"
           title={SEGMENTS.map((s) => `${formatAmount(values[s.key])} ${s.name}`).join(" · ")}
@@ -70,6 +86,8 @@ function ResourceRow({ r, content }: { r: NetworkResourceDto; content: Content }
           </div>
           <span className="small">
             the buildings get {formatAmount(r.used)} of the {formatAmount(r.needed)} they need
+            {/* Both spare and short: the spare can't reach them (run 2: Cleo's "two numbers that disagree") */}
+            {spare > 0.05 && ": the spare can't reach them, since goods never pass through a building"}
           </span>
         </div>
       )}
@@ -95,11 +113,23 @@ export function NetworkSummary({
       (b.id === ownCompany ? 1 : 0) - (a.id === ownCompany ? 1 : 0) || b.goldPerMinute - a.goldPerMinute,
   );
   const biggest = Math.max(1, ...owners.map((t) => Math.abs(t.goldPerMinute)));
+  const allMine = useAppStore((s) => s.company?.goldPerMinute ?? null);
+  const here = owners.find((t) => t.id === ownCompany)?.goldPerMinute ?? null;
   const lossy = details.resources
     .filter((r) => r.lost > 0.25 * (r.produced + r.imported + r.fromStorage) && r.lost > 1)
     .sort((a, b) => b.lost - a.lost)[0];
   return (
     <div className="net-summary">
+      {/* What can't leave comes first (F2): a stuck building is never "short" of what it would use */}
+      {(details.stuck ?? []).map((s) => (
+        <button
+          key={s.building}
+          className="net-stuck link"
+          onClick={() => gameClient.showBuilding(s.building)}
+        >
+          ⛔ {s.line} ›
+        </button>
+      ))}
       {details.resources.map((r) => (
         <ResourceRow key={r.resource} r={r} content={content} />
       ))}
@@ -149,7 +179,13 @@ export function NetworkSummary({
                 <div className="net-breakdown small">
                   {owner.hubSales > 0.05 && <span className="plus">hub +{formatAmount(owner.hubSales)}</span>}
                   {owner.neighbourSales > 0.05 && (
-                    <span className="plus">neighbours +{formatAmount(owner.neighbourSales)}</span>
+                    <span className="plus">the Yard +{formatAmount(owner.neighbourSales)}</span>
+                  )}
+                  {owner.projectSales > 0.05 && (
+                    // The station's project pays for the goods it takes at the gate (after run 4)
+                    <span className="plus">
+                      the {owner.project ?? "project"} +{formatAmount(owner.projectSales)}
+                    </span>
                   )}
                   {owner.neighbourPurchases > 0.05 && (
                     <span className="minus">
@@ -165,6 +201,13 @@ export function NetworkSummary({
           );
         })}
       </div>
+      {/* After run 4: this network's +2,547, the top bar's +2,574 and "hub +2,598" side by side, unexplained */}
+      {allMine !== null && here !== null && Math.abs(allMine - here) >= 1 && (
+        <p className="muted small">
+          This network&apos;s pipes now. Your top bar&apos;s {formatRate(allMine)} counts all your pipes, and
+          what the Yard&apos;s Houses, the project and Asks pay too.
+        </p>
+      )}
       {details.owners.length > 1 && (
         <button className="wide" onClick={() => void gameClient.openTradeSettings()}>
           ⚙ Trade settings: who you sell to and buy from

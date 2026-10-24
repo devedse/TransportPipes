@@ -187,13 +187,29 @@ export function HubPanel() {
         ) : tab === "orders" ? (
           <div className="orders">
             <p className="muted small">
-              The hub wants these today. Deliver them from your storages for a reward, reputation and XP. New
-              orders at midnight.
+              The hub buys these today at twice the price, from what your trading posts sell: nothing to
+              deliver, they fill as your goods pass. New orders at midnight.
             </p>
             {company.dailyOrders.map((order) => {
               const done = order.delivered >= order.amount - 1e-9;
               const left = (new Date(order.expiresAt).getTime() - serverNow) / 1000;
               const resource = content.resource(order.resource);
+              const good = content.resourceName(order.resource).toLowerCase();
+              // Orders of one good fill one after another, the shortage first (after run 4: two iron ore orders
+              // each counted Cleo's same 41 a minute)
+              const ahead = company.dailyOrders.filter(
+                (t) =>
+                  t.resource === order.resource &&
+                  t.id !== order.id &&
+                  t.delivered < t.amount - 1e-9 &&
+                  new Date(t.expiresAt).getTime() > serverNow &&
+                  (t.urgent !== order.urgent ? t.urgent : t.id < order.id),
+              );
+              const before = ahead.reduce((sum, t) => sum + t.amount - t.delivered, 0);
+              const eta =
+                order.selling > 1e-6
+                  ? ((before + order.amount - order.delivered) / order.selling) * 60
+                  : null;
               return (
                 <div key={order.id} className={done ? "order done" : order.urgent ? "order urgent" : "order"}>
                   <div className="order-icon" style={{ borderColor: resource?.color }}>
@@ -202,7 +218,7 @@ export function HubPanel() {
                   <div className="order-body">
                     <div className="order-title">
                       {order.urgent && <span className="urgent-tag">📢 Shortage</span>}
-                      {formatAmount(order.amount)} {content.resourceName(order.resource).toLowerCase()}
+                      {formatAmount(order.amount)} {good}
                     </div>
                     <div className="meter-bar">
                       <div
@@ -214,18 +230,19 @@ export function HubPanel() {
                       />
                     </div>
                     <div className="small muted">
-                      Reward <span className="gold-text">{formatAmount(order.rewardGold)} g</span> ·{" "}
+                      Pays <span className="gold-text">{formatAmount(order.rewardGold)} g</span> in all ·{" "}
                       {formatAmount(order.rewardXp)} XP · {formatAmount(order.rewardReputation)} reputation
                       {!done && ` · ${formatDuration(Math.max(0, left))} left`}
                     </div>
+                    <div className="small order-stock">
+                      {done
+                        ? `Filled: +${formatAmount(order.premium)} g over the hub's price`
+                        : eta !== null
+                          ? `Your trading posts sell ${formatAmount(order.selling)} a minute${ahead.length > 0 ? `, which fill ${ahead.some((t) => t.urgent) ? "the shortage order" : "the order above"} first` : ""}: full in about ${formatDuration(eta)}${eta > left ? `, after it closes: only ${formatAmount(Math.max(0, order.selling * (left / 60) - before))} of it at this rate` : ""}`
+                          : `Your trading posts sell no ${good} now: pipe a building that makes it to one`}
+                    </div>
                   </div>
-                  {done ? (
-                    <span className="order-check">✔</span>
-                  ) : (
-                    <button className="primary" onClick={() => void gameClient.deliverOrder(order.id)}>
-                      Deliver
-                    </button>
-                  )}
+                  {done && <span className="order-check">✔</span>}
                 </div>
               );
             })}
@@ -235,18 +252,18 @@ export function HubPanel() {
         ) : (
           <div className="market">
             <p className="muted small">
-              The hub buys everything, but pays less when players sell more than it wants. Your price is what
-              neighbours pay you, within the fair band; changes wait an hour when a partner buys from you.
+              The hub buys everything from you. Up to your Hub Order it pays the full price; beyond it, less
+              for every extra unit (nobody else's sales move your price). Players pay each other one price,
+              through the Yard, contracts and the Exchange.
             </p>
             <table className="market-table">
               <thead>
                 <tr>
                   <th>Resource</th>
-                  <th>Hub buys</th>
+                  <th>Hub pays you</th>
                   <th>Hub sells</th>
-                  <th>Sold / wanted</th>
-                  <th>Your price</th>
-                  <th>You pay at most</th>
+                  <th>You sell / your order</th>
+                  <th>Between players</th>
                   <th>Trade</th>
                 </tr>
               </thead>
@@ -273,43 +290,10 @@ export function HubPanel() {
                       )}
                     </td>
                     <td>{row.sellPrice.toFixed(2)}</td>
-                    <td className="muted">
+                    <td className={row.soldPerMinute > row.demand ? "warning-text" : "muted"}>
                       {formatAmount(row.soldPerMinute)} / {formatAmount(row.demand)}
                     </td>
-                    <td>
-                      <PriceInput
-                        value={row.yourPrice}
-                        low={row.bandLow}
-                        high={row.bandHigh}
-                        onSet={(price) => void gameClient.setSellPrice(row.resource, price)}
-                      />
-                      {row.yourPriceIsAuto ? (
-                        <span className="muted small"> auto</span>
-                      ) : (
-                        <button
-                          className="link"
-                          onClick={() => void gameClient.setSellPrice(row.resource, null)}
-                        >
-                          auto
-                        </button>
-                      )}
-                      {row.pendingAt !== null && (
-                        <div className="small warning-text">
-                          → {row.pendingPrice?.toFixed(2) ?? "auto"} in{" "}
-                          {formatDuration(
-                            Math.max(0, (new Date(row.pendingAt).getTime() - serverNow) / 1000),
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <PriceInput
-                        value={row.yourMaxPrice}
-                        low={row.bandLow}
-                        high={row.bandHigh}
-                        onSet={(price) => void gameClient.setBuyMaxPrice(row.resource, price)}
-                      />
-                    </td>
+                    <td>{row.playerPrice.toFixed(2)}</td>
                     <td>
                       <label className="check" title="Sell this resource to other players">
                         <input
@@ -337,17 +321,30 @@ function ExchangeTab({ serverNow }: { serverNow: number }) {
   const [selling, setSelling] = useState(true);
   const [resource, setResource] = useState("ironOre");
   const [amount, setAmount] = useState(100);
-  const [price, setPrice] = useState(4);
+  const gold = useAppStore((state) => state.company?.gold ?? 0);
   if (exchange === null) {
     return <p className="muted">Loading…</p>;
   }
+  // One price between players, said before the click; what a sell order needs in your Storages (after run 4: Cleo's
+  // typed 3 g became 1.95 without a word, and Ana's sell order was refused for stone she didn't have stored)
+  const price = exchange.prices?.[resource] ?? content.resource(resource)?.price ?? 1;
+  const stored = exchange.stored?.[resource] ?? 0;
+  const good = content.resourceName(resource).toLowerCase();
+  const blocked = selling
+    ? stored < amount
+      ? `You have ${formatAmount(stored)} ${good} in your Storages: a sell order holds its goods there`
+      : null
+    : gold < amount * price
+      ? `It holds ${formatAmount(amount * price)} g till it fills: you have ${formatAmount(gold)} g`
+      : null;
   return (
     <div className="exchange">
       <p className="muted small">
         Trade with anyone {exchange.global ? "at every hub (Global Exchange)" : "in the district"} without a
         pipe. Sell orders hold their goods from your storages, buy orders hold their gold. Goods go by cargo
         (faster with a Cargo Depot and Trains); the seller pays a {Math.round(exchange.fee * 100)}% fee that
-        disappears.
+        disappears. <strong>Your station&apos;s neighbours and its project need no Exchange:</strong> what you
+        pipe to your Yard gate goes to them by itself.
       </p>
       {!exchange.hasOffice ? (
         <p className="status idle">Build an Exchange Office (Company Level 12) to place orders.</p>
@@ -368,13 +365,7 @@ function ExchangeTab({ serverNow }: { serverNow: number }) {
           </label>
           <label>
             Resource
-            <select
-              value={resource}
-              onChange={(e) => {
-                setResource(e.target.value);
-                setPrice(Math.round((content.resource(e.target.value)?.price ?? 1) * 150) / 100);
-              }}
-            >
+            <select value={resource} onChange={(e) => setResource(e.target.value)}>
               {content.resources
                 .filter((r) => r.era <= 2)
                 .map((r) => (
@@ -388,19 +379,18 @@ function ExchangeTab({ serverNow }: { serverNow: number }) {
             Amount
             <input type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
           </label>
-          <label>
-            Price (g)
-            <input
-              type="number"
-              min={0}
-              step={0.01}
-              value={price}
-              onChange={(e) => setPrice(Number(e.target.value))}
-            />
-          </label>
-          <button className="primary" type="submit">
+          <button className="primary" type="submit" disabled={blocked !== null}>
             Place order
           </button>
+          <p className="small exchange-terms">
+            At the one player price, <strong>{price.toFixed(2)} g</strong> each (every player pays and gets
+            the same here) ·{" "}
+            {selling
+              ? `${formatAmount(stored)} ${good} in your Storages`
+              : `holds ${formatAmount(amount * price)} g till it fills`}{" "}
+            · waits up to 7 days
+            {blocked !== null && <span className="warning-text"> · {blocked}</span>}
+          </p>
         </form>
       )}
       <table className="market-table">
@@ -442,6 +432,12 @@ function ExchangeTab({ serverNow }: { serverNow: number }) {
               <span>
                 {order.selling ? "Selling" : "Buying"} {formatAmount(order.amount)}{" "}
                 {content.resourceName(order.resource).toLowerCase()} @ {order.price.toFixed(2)} g
+                <span className="muted small">
+                  {order.placed > order.amount + 0.5 &&
+                    ` · ${formatAmount(order.placed - order.amount)} of ${formatAmount(order.placed)} ${order.selling ? "sold" : "came"}`}
+                  {order.expiresAt !== null &&
+                    ` · closes in ${formatDuration(Math.max(0, (new Date(order.expiresAt).getTime() - serverNow) / 1000))}, then the rest comes back`}
+                </span>
               </span>
               <button onClick={() => void gameClient.cancelExchangeOrder(order.id)}>Cancel</button>
             </div>

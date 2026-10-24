@@ -1,0 +1,633 @@
+
+<section id="together">
+  <h2>15 · Alone and together</h2>
+  <h3>Playing alone</h3>
+  <ul>
+    <li>The market buys everything you make and sells everything you lack. Your plot has six of the eight land
+      resources, plus water, iron ore and wood, so it can do all of Era 1 by itself.</li>
+    <li>A missing resource costs you, but doesn't block you. A Smelter on coal bought from the market at 2.5× still
+      adds 10 g per tile instead of 25. From Era 2 your outskirts hold every resource.</li>
+    <li>You research like everyone: the first tiers of every track, then one track to the top (§12).</li>
+    <li>Nothing is made smaller because you're alone (rule 2). Your Monument costs what it costs a crew, and your
+      town's Wonder what it costs a full town. A lone player in an empty town reaches Era 2 around day {{E2:1}}; in a town
+      with others much sooner, and anyone can move to a livelier town of their Era.</li>
+    <li>You can trade with anyone: links to other Yards, the Exchange to every town.</li>
+  </ul>
+  <h3>Playing together: what a crew gets</h3>
+  <p>Ana, Ben, Cleo and Dev share a Yard. Each lacks a different basic; on day one they pin their plans on the Plan
+    board: Ana goes deep in Power, Ben in Iron, Cleo in Sand and Dev in Copper. The model played them against the same
+    four players each alone in a Yard, with the same plots, research and visits (§17).</p>
+  <div class="scroll"><table>
+    <tr><th>What they get</th><th>How it works</th><th>What it's worth</th></tr>
+    <tr><td><b>Each other's missing goods</b></td><td>Ben lacks coal: Dev's and Cleo's spare reach his Brickworks at
+      1.15× instead of the market's 2.5×</td><td>Chains that lose money on market inputs earn on a friend's</td></tr>
+    <tr><td><b>Goods for levels</b></td><td>From level 11 everyone needs bricks, planks, ingots, glass and copper ingots
+      (§9); each plot lacks the source of one of them</td><td>The biggest trade from the second week</td></tr>
+    <tr><td><b>A buyer for spare</b></td><td>Friends pay 15% more than the market's base price, and far more than the
+      market pays beyond a Hub Order</td><td>A specialist's flood earns full price</td></tr>
+    <tr><td><b>One Monument for four</b></td><td>A stage costs the same for one resident as for four, and all four get
+      it</td><td>The crew's Monument is {{MON:ahead}} stages ahead by day 34: +{{MON:pct}} production</td></tr>
+    <tr><td><b>Era 2's chains</b></td><td>Steel needs coal, concrete needs stone and sand: two plots' land</td>
+      <td>More trade once Era 2 opens</td></tr>
+  </table></div>
+  {{TOGETHER}}
+  <div class="callout decision"><strong>What we aim for</strong>
+    <p>A crew member earns 5–10% more than a solo player in the first week and 10–20% more after. Living in a busy town
+      matters more: its Wonder brings the next Era a week or two sooner, and an Era triples
+      income. That's worth finding friends for, and never a reason to quit when you play alone. The bots in phase B
+      measure it on the real server (§23).</p>
+    <p class="small">The first version of this plan aimed for twice the income by day 28. The model showed that this
+      needs plots that can't work alone, which would break rule 1, so the aim is lower and honest.</p>
+  </div>
+  <h3>Every way players meet</h3>
+  <div class="scroll"><table class="wide">
+    <tr><th>Where</th><th>What you do together</th><th>What it does</th></tr>
+    <tr><td><b>Finding each other</b></td><td>"Play next to me" links, Find a player, Pick for me, requests to closed
+      Yards</td><td>Friends settle in one Yard or next to each other (§6)</td></tr>
+    <tr><td><b>Your Yard</b></td><td>Trading by pipe, the stalls and your prices, the Plan board, the Depot, workshops,
+      the Monument, the crew chat</td><td>Cheaper missing goods and level goods, a buyer for spare, one Monument for
+      everyone (§7, §8, §13)</td></tr>
+    <tr><td><b>Your town</b></td><td>Links to other Yards, the Era Wonder, the town board and chat, the market you
+      share</td><td>Standing deals across the town; the next Era together (§8, §13)</td></tr>
+    <tr><td><b>Every town</b></td><td>The Exchange, world chat and messages, visiting and likes, rankings, the race to
+      the next Era</td><td>Trade by cargo; showing off (§8, §19)</td></tr>
+    <tr><td><b>Special prices</b></td><td>"Ben: 1.0×": a better price for anyone you choose</td><td>The friendliest
+      deal the game allows; there are no free gifts (§8)</td></tr>
+  </table></div>
+  <h3>The town together</h3>
+  <ul>
+    <li>The four Yards share a <b>market</b>, the <b>Era Wonder</b>, a <b>town chat</b> and the <b>town board</b>: what
+      the Wonder still needs, who makes it, and who gave (the givers' colours on the Wonder, never a list of who
+      didn't).</li>
+    <li><b>Links</b> join players in different Yards: a friend group of six lives in two neighbouring Yards and trades
+      over links.</li>
+    <li><b>Between towns:</b> the Exchange from day one, trunk lines from Era 3, and a friendly race on the world
+      map.</li>
+  </ul>
+</section>
+
+<section id="gold">
+  <h2>16 · Gold and goods: where they go</h2>
+  <p>The last AI playtest showed players spending 0.2% of their gold: it piled up with nowhere to go. In this design
+    gold always has a next step, and the model in §17 checks it: from day 5 to day 34 a regular player spends {{SPENT}}
+    of everything they earn, and at midnight holds {{BANK}} of income.</p>
+  <div class="grid2">
+    <div class="card">
+      <h4>Gold comes from</h4>
+      <ul>
+        <li>The market, up to your Hub Orders and less beyond them</li>
+        <li>Other players paying your prices</li>
+        <li>Daily orders, Wonder rewards, expeditions, achievements</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Goods go to</h4>
+      <ul>
+        <li>Your own and your friends' buildings</li>
+        <li>Your and your friends' levels from level 11 (§9)</li>
+        <li>The market</li>
+        <li>The Wonder and missions (gone for good)</li>
+        <li>Research tiers and the costs of Era 2–5 buildings (gone for good)</li>
+      </ul>
+    </div>
+  </div>
+  <h3>Where gold goes</h3>
+  <div class="scroll"><table>
+    <tr><th>Sink</th><th>Price</th><th>Share of a regular player's gold (§17)</th></tr>
+    <tr><td>Buildings</td><td>From 30 g; every copy 7% more than the last</td><td>Half of the first evening, then almost nothing: what costs is their levels</td></tr>
+    <tr><td>Levels</td><td>The copy's price × 1.15 for every level it has; from level 11 also goods worth 30%</td><td>Nearly all of days 2 and 3; a tenth to a quarter after, until the outskirts are full</td></tr>
+    <tr><td>Parcels</td><td>20,000 g, each 2.5 times the last (the 16th: 477 million), at Levels 5, 7 … 27</td><td>2–6% until the plot is whole</td></tr>
+    <tr><td>The outskirts (Era 2)</td><td>100 million, each 1.4 times the last (the 9th: 1.5 billion)</td><td>About two fifths of the first week of Era 2</td></tr>
+    <tr><td>Research</td><td>500 g to 50 million a tier in Era 1, four times as much per Era; the Era tree, 75 million in Era 2</td><td>{{RESEARCH:share}}</td></tr>
+    <tr><td>Your trading post</td><td>Levels like a building's, from 2,500 g; each one +10% to every Hub Order</td><td>Small, but among the first things bought</td></tr>
+    <tr><td>Era 2–5 buildings</td><td>Gold plus older goods, paying back in 1½ to 12 hours at level 1</td><td>Part of "buildings" from the Era on</td></tr>
+    <tr class="hl"><td>The Monument</td><td>100 million, each stage 40% more, without end (§13)</td><td>About 40% from day 4 to the Wonder; half once everything is bought</td></tr>
+    <tr class="hl"><td>The Wonder</td><td>Goods; gold buys them from the market at 2.5× (§13)</td><td>The same as the Monument: the model splits the late gold evenly</td></tr>
+    <tr><td>Imports, the Exchange</td><td>The market's 2.5×; the Exchange's 4% fee</td><td>Whenever you buy what you don't make</td></tr>
+    <tr><td>Trunk lines, outposts (Eras 3–4), decorations</td><td>Bought once; from a 20-gold tree to golden statues</td><td>Not in the model yet (phase C)</td></tr>
+  </table></div>
+  <h3>The ceiling, and what comes after it</h3>
+  <p>A building tops out at 9.85× from levels and 15× from a mastered track; a plot at 16 parcels and, from Era 2,
+    nine outskirts. So a plot has a ceiling in each Era, and an engaged player reaches most of it in about five days.
+    After that, every level and copy left takes more than a week to pay for itself. The Era's late phase answers it: the
+    Monument turns gold into a little more for every resident, the Wonder turns it into the next Era, and the next Era
+    brings new buildings, goods, land and tracks, so paybacks fall back to hours. Big prices are set from the model's
+    incomes, never from how many people play.</p>
+</section>
+
+<section id="base">
+  <h2>17 · A base, day by day: the numbers worked out</h2>
+  <p>Every number in this document was checked by playing it. A model plays a plot minute by minute with exactly the
+    rules of §8 to §16 and the formulas of §22: the land and its deposits, wind and sun, Hub Orders, copies and levels
+    and their goods, what pipes carry, research on both lines (the tracks and the Era tree), Company Level, parcels,
+    the outskirts, the Monument and the Wonder. This section shows
+    what came out: what a base looks like, what it earns, and where its gold goes. The model's code is in
+    <code>docs/design-notes/v1.4/sim</code>, with how to run it.</p>
+  <div class="callout pick"><strong>The player in the model</strong>
+    <ul>
+      <li>Visits three times a day: ten minutes at 8:00, forty-five at 19:30, ten at 22:30. The first evening is two
+        hours.</li>
+      <li>Does up to six things a minute (two on the first evening, while it learns): place a building, Max one
+        building, start research or buy a parcel.</li>
+      <li>Always buys what pays for itself soonest, keeps research running, buys land when it's useful, and ignores
+        anything that takes longer than five days to pay back.</li>
+      <li>When nothing pays back within five days, puts its gold into the Yard's Monument and the town's Wonder, half
+        each, and keeps two hours of income.</li>
+      <li>Lacks sand (and oil), has its rich deposit in iron, and researches the first two tiers of every track, then
+        Iron to the top, then Steel once Era 2 opens. Its second line does the Era tree, copper pipes first.</li>
+    </ul>
+    <p>Not in the model: daily orders, Wonder rewards, expeditions and events. Together they are about a day of extra
+      income per Era for a regular player in a town of eight, which a real player spends in the late phase.</p>
+    <p>It is a tireless and sensible player, not a person: it never forgets, never plays for fun, never decorates.
+      People will be slower and less exact. Its numbers are the ceiling of normal play, which is what the prices have to
+      be set against. The bots in phase B play the same rules on the real server and must agree (§23).</p>
+  </div>
+
+  <h3>The first evening</h3>
+  {{EC:first}}
+  <p>Two hours in, the plot has about 170 small buildings on its start area and first parcel, and earns about 5,900
+    gold a minute. Copper pipes came at minute 30; by the end of the evening eight Wind Moilies make more than a grey
+    pipe would carry. The evening ends at Level 6.</p>
+
+  <h3>The base on day 1, 7, 14 and 34</h3>
+  {{EC:legend}}
+  <div class="grid2">
+    <figure><div class="scroll map">{{EC:map1}}</div><figcaption><b>Day 1, after the first evening.</b> {{EC:card1}}</figcaption></figure>
+    <figure><div class="scroll map">{{EC:map7}}</div><figcaption><b>Day 7.</b> {{EC:card7}}</figcaption></figure>
+    <figure><div class="scroll map">{{EC:map14}}</div><figcaption><b>Day 14, two days into Era 2.</b> {{EC:card14}}</figcaption></figure>
+    <figure><div class="scroll map">{{EC:map34}}</div><figcaption><b>Day 34.</b> {{EC:card34}}</figcaption></figure>
+  </div>
+  <p class="small muted">Each square is a building, coloured by kind and darker the higher its level. The pale crosses
+    are the pipes in each parcel. The start area is the four parcels against the Yard; the others are bought in the order
+    the player found them useful. The outskirts (Era 2) lie beside the plot in the town's real layout (§4); here they're
+    drawn on its left.</p>
+
+  <h3>Day by day</h3>
+  {{EC:days}}
+  <p class="small muted">"Bank" is the gold in hand at midnight, in hours of income. "Gold went to" is that day's
+    spending.</p>
+
+  <h3>Three ways of playing</h3>
+  <figure><div class="scroll">{{EC:income}}</div>
+    <figcaption>Income on a log scale: every grid line up is ten times the one below. All three reach the same plot;
+      four visits a day are hardly faster than three, and one visit a day is a few days behind at the start of each
+      Era. The jump on day 12 is Era 2: new buildings, new goods with
+      their own Hub Orders, the outskirts.</figcaption></figure>
+  {{EC:styles}}
+  <p>A once-a-day player who uses the game's one-tap helpers (Max on a building, Grow on the plot: spend on whatever
+    pays back soonest) keeps up with a regular one, apart from a few days at the start of each Era, because what holds a plot back after the first days is the next
+    parcel, the next research tier and the next Era, not the clicks. With half the clicks (two things a minute), the
+    same player is a day or two behind and ends a visit with up to two and a half days of income unspent. The helpers
+    are what let a short visit spend it all, and they are part of phase A.</p>
+
+  <h3>The rhythm of an Era</h3>
+  <figure><div class="scroll">{{EC:payback}}</div>
+    <figcaption>At the end of each visit: how long the best thing left to buy would take to pay for itself.</figcaption></figure>
+  <figure><div class="scroll">{{EC:spend}}</div>
+    <figcaption>What a regular player's gold bought each day.</figcaption></figure>
+  <ol>
+    <li><b>Building up (days 0–2).</b> Everything pays back in minutes, then hours. Gold goes to buildings, levels,
+      research and parcels. Income grows almost twentyfold from day 1 to day 3.</li>
+    <li><b>Filling the plot (days 2–4).</b> The start area and the first parcels are built and mostly at level 15 to
+      25. The next level of anything takes days to pay back; the next parcel waits for the next Company Level.</li>
+    <li><b>The Era's late phase (day 4 to the Wonder).</b> Gold that would only buy week-long paybacks goes to the
+      Yard's Monument (every stage makes every resident 3% more productive) and the town's Wonder (the next Era). New
+      parcels and research tiers keep coming and are bought at once. Gold never piles up: from day 5 to day 34 the
+      player spends {{SPENT}} of what they earn.</li>
+    <li><b>The next Era (day 12 in a town of eight).</b> New buildings, new goods with fresh Hub Orders, the outskirts
+      and new tracks: paybacks drop to hours again, and income nearly triples within four days. Then the same
+      rhythm.</li>
+  </ol>
+  <div class="callout decision"><strong>Why gold no longer piles up</strong>
+    <p>In the AI playtests players spent 0.2% of their gold. The model shows why any version of this game would end that
+      way: a plot is a fixed size, levels stop at 25 and the market pays less for floods, so after a few days nothing a
+      player can buy pays back within a week, however the prices are set. Making things dearer only moves the moment.
+      The answer is the late phase: a Monument that never runs out of stages and a Wonder that leads somewhere, both sized
+      in gold the plot really makes, and the next Era as the reward.</p>
+  </div>
+
+  <h3>Alone and together, measured</h3>
+  <figure><div class="scroll">{{EC:crew}}</div>
+    <figcaption>Ana, Ben, Cleo and Dev in one Yard, each lacking a different basic and each mastering a different track,
+      against the same four players each alone in a Yard. Same plots, same research, same visits.</figcaption></figure>
+  {{EC:crewtable}}
+  <ul>
+    <li><b>The first days are about even.</b> Every plot can do Era 1 by itself (rule 1), so a crew's early trades are
+      small: a neighbour's coal, copper ore, stone or sand instead of the market's 2.5×. By day 7 the crew is
+      {{CREW:7}} ahead.</li>
+    <li><b>From the second week the crew pulls ahead</b>: {{CREW:10}} by day 10, {{CREW:14}} by day 14, {{CREW:21}} by
+      day 21 and {{CREW:34}} by day 34. {{CREW:trade}} of it is trading: a neighbour's goods for levels, cheaper
+      missing goods, and a buyer for a master's flood. The rest is the Monument: four residents pay for one Monument
+      and all four get every stage, so the crew's Monument is {{MON:ahead}} stages ahead. Played without trading, the
+      same crew is only {{CREW:notrade}} ahead by day 34.</li>
+    <li><b>Living in a busy town matters more than any crew.</b> The town's Wonder brings the next Era, and the next
+      Era triples income. A town of sixteen active players reaches Era 2 {{E2:gap}} days before a lone player in an empty
+      town:</li>
+  </ul>
+  {{EC:wonder}}
+  <p class="small muted">Regular players who give half of their late-phase gold to the Wonder. The Great Dynamo needs
+    {{W1TEXT}} gold's worth of goods (§13). A lone player who wants the next Era sooner can move to a livelier town of
+    their Era at any time (§18).</p>
+
+  <h3>What this round of numbers changed</h3>
+  <div class="scroll"><table class="wide">
+    <tr><th>What</th><th>Before</th><th>Now</th><th>Why</th></tr>
+    <tr><td>Players on the server</td><td>Bigger Hub Orders on a quiet server; Wonders and Monuments sized to active players; half the town must give</td><td>Nothing depends on how many play (rule 2)</td><td>One balance at every size; your call</td></tr>
+    <tr><td>The market</td><td>A Hub Order of "four buildings at level 10"; a trading post that sells 600 units a minute</td><td>1,000 g a minute of every Era-1 good, ×4 per later Era; each trading post level +10%; no unit limit</td><td>The unit limit made players build forty trading posts; one clear lever instead</td></tr>
+    <tr><td>Levels</td><td>Every copy levels at the first copy's price</td><td>A copy's levels cost from what that copy cost; from level 11 also goods</td><td>Cheap levels on the 40th copy filled a plot in two days; goods give friends something to sell</td></tr>
+    <tr><td>Company Level</td><td>XP from many sources</td><td>The gold you've earned, one table (§14)</td><td>Simple to show, and it lands on Level 10, 20, 25 and 30 on days {{PACE:levelsplain}}</td></tr>
+    <tr><td>Parcels</td><td>5,000 g doubling; Levels 5–50</td><td>20,000 g × 2.5 each; Levels 5, 7, 9 … 27</td><td>Land kept the plot waiting for weeks; now a parcel every day or two through Era 1</td></tr>
+    <tr><td>Research</td><td>500 to 2.5 million g a tier</td><td>500 to 50 million g a tier</td><td>Research waits for time, never for gold: a tier costs minutes to two hours of income when a player gets there</td></tr>
+    <tr><td>Monuments</td><td>Three stages, sized to the residents' income</td><td>Endless stages in gold, 100 million and 40% more each</td><td>The late phase's gold sink, and a quarter of a crew's lead</td></tr>
+    <tr><td>Wonders</td><td>Hours of the active players' income</td><td>Fixed: the Great Dynamo {{W1TEXT}} g of goods; gold can buy them at 2.5×; a stage takes at least a day</td><td>Rule 2; a town of eight reaches Era 2 on day 12</td></tr>
+    <tr><td>Crew target</td><td>+30% on day 7, +60% on day 14, ×2 on day 28</td><td>+5–10% in week 1, 10–20% after</td><td>What the model shows; the earlier targets weren't reachable without breaking rule 1</td></tr>
+    <tr><td>Research</td><td>Seven Era-1 tracks, each ×15 and nothing else</td><td>Masters' Hub Orders +80% a tier from tier 5; coal in the Copper and Stone tracks; the Power track at half</td><td>Played track by track, going deep paid less than spreading for half the tracks</td></tr>
+    <tr><td>Pipes</td><td>Copper 500 and steel 5,000 a minute between two buildings</td><td>Copper 5,000, steel 50,000</td><td>At 500 the best Era-1 buildings filled their pipes from day 2 and a third of the income was lost</td></tr>
+    <tr><td>Big Factory</td><td>32 ingots a minute: 45 g a tile</td><td>28 ingots: 31 g a tile</td><td>Back in line with the rule of about 25 g a tile in Era 1</td></tr>
+  </table></div>
+</section>
+
+<section id="away">
+  <h2>18 · Away, moving and leaving</h2>
+  <h3>Away</h3>
+  <ul>
+    <li>Everything keeps running: buildings, trade, research and gifts with "give" on. Coming back shows the offline
+      report: what you earned, what filled up, what finished.</li>
+    <li>Nothing is lost by not playing, and nothing changes for your neighbours: your plot keeps making and buying what
+      it did. A link's two-hour tank and the Yard's fallback cover any gap.</li>
+    <li>Your plot stays yours, however long you're gone. Towns open new land for newcomers instead.</li>
+  </ul>
+  <h3>Moving</h3>
+  <ul>
+    <li><b>Free</b>, five minutes between moves, to any free plot in a town of <b>your Era or one below</b> (into a
+      closed Yard with a resident's yes).</li>
+    <li>Your plot is packed and unpacked in the new place: the layout stays where the land allows, and buildings that
+      don't fit (a mine with no deposit there) become <b>crates</b> with their levels, placed later or scrapped for 75%.
+      Workshops come along as crates.</li>
+    <li>Your outskirts parcels are bought back for half their price, their buildings into crates. Your gold, research,
+      levels, Era and titles come with you.</li>
+    <li>The plot you left is empty land again.</li>
+  </ul>
+  <h3>Leaving a Yard</h3>
+  <ul>
+    <li>Moving away ends your crew membership. The last resident to leave is warned that the Yard's Monuments, Depot and
+      decorations will be torn down, and confirms.</li>
+    <li>A Yard whose residents all stopped playing stays as it is, closed or open. Pick for me never sends anyone to a
+      Yard where nobody plays.</li>
+  </ul>
+</section>
+
+<section id="more">
+  <h2>19 · Everything else in the game</h2>
+  <div class="grid2">
+    <div class="card">
+      <h4>Loady and the Next steps card</h4>
+      <p>Loady guides the first hour and opens a chapter at each Era: what's new and where to start. The Next steps card
+        always shows the three best things to do, worked out from your real networks.</p>
+    </div>
+    <div class="card">
+      <h4>Daily orders</h4>
+      <p>Three orders a day from the market, for goods you make (from Level 3). Together they ask for about half an
+        hour of your income, each at most what your trading post sells of that good in eight hours, so they fill by
+        themselves; they pay twice the base price for what they take. As in today's game.</p>
+    </div>
+    <div class="card">
+      <h4>Events</h4>
+      <p>Storms (wind ×2; a tenth of the wind buildings run at half speed until repaired, which a storm's extra wind
+        more than pays for), heatwaves (sun ×1.5), droughts, cold snaps (the market wants energy), expos (a good sells
+        for three times as much for six hours), shortages, and from Era 4 Discoveries in the wilderness. Announced a day
+        ahead, three with a Weather Station. As in today's game.</p>
+    </div>
+    <div class="card">
+      <h4>Managers</h4>
+      <p>Jo repairs storm damage, Bea sells what overflows, Rick upgrades what pays back within two hours, Lin renews
+        good links, Sam keeps your research queues full. Slots at Levels 10, 20, 30 and 45, plus one from Automation
+        (Era 4). Max and Grow do what Rick does in one tap, for everyone (§17).</p>
+    </div>
+    <div class="card">
+      <h4>The Deep Level (Era 3)</h4>
+      <p>A second 32×32 layer under your plot. Parcels are dug out, hours for the first and days for the last, giving
+        stone and ore while they dig. Rich ★3–★5 ore, magma for energy, a Vault, pipes that lose nothing. Mines,
+        power and storage only: factories stay above ground. Deep Lifts carry goods up.</p>
+    </div>
+    <div class="card">
+      <h4>The wilderness (Era 4)</h4>
+      <p>Up to three outposts of 8×8 on rich deposits between the towns, bought once. Discoveries add new deposits
+        every four days. Goods come home by Cargo Depot or Quantum Link (§20).</p>
+    </div>
+    <div class="card">
+      <h4>Expeditions (Level 20)</h4>
+      <p>Send a team out for 1, 4 or 12 hours: gold, decorations, relics with a story, blueprints; from Era 4 also
+        where the next rich deposit lies.</p>
+    </div>
+    <div class="card">
+      <h4>Showing off</h4>
+      <p>Decorations, golden collection pieces, buildings that grow grander at every five levels, photo mode, visiting
+        and likes, and the rankings of Yards and towns.</p>
+    </div>
+    <div class="card">
+      <h4>Talking</h4>
+      <p>Yard chat, town chat, world chat and direct messages, with blocking and reporting.</p>
+    </div>
+    <div class="card">
+      <h4>Blueprints and achievements</h4>
+      <p>Save a layout and rebuild it in one go. Achievements and collections give gold, titles and golden
+        decorations.</p>
+    </div>
+  </div>
+</section>
+
+<section id="between">
+  <h2>20 · The wilderness and other towns</h2>
+  <p>Towns lie 128 tiles apart. Until Era 3 they deal with each other over the Exchange. From Era 3 players build
+    <b>trunk lines</b> through the wilderness, and from Era 4 the wilderness itself is worth claiming. All of this
+    belongs to Eras 3 and 4 and is built in phase C; phases A and B only lay out the land, the rivers and mountains,
+    and the town gates, so nothing has to move later.</p>
+  <figure>
+    <div class="scroll">{{FIG:world}}</div>
+    <figcaption>Six towns drawn to scale with 128 tiles of wilderness between them. Each town has four town gates
+      where its roads leave it. The Capital (Era 3) has a trunk line to Ironvale; a Pipe Master in Ashford (Era 4) runs a
+      superconductor line around the mountains to Ironvale and Copperbrook, which sell it their ingots and bricks.</figcaption>
+  </figure>
+  <div class="grid2">
+    <div class="card">
+      <h4>Eras 1 and 2: the Exchange</h4>
+      <ul>
+        <li><b>The Exchange</b> (Level 12) trades with every town by cargo that takes time, with a 4% fee (§8).</li>
+        <li><b>Fog:</b> the wilderness starts unexplored on your map. Expeditions (Level 20) map it piece by piece and
+          find good routes, deposits and ruins with relics, so by Era 3 you know where a line could run.</li>
+        <li>The world map shows every town's Era and Wonder: the race between towns.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Era 4: the wilderness</h4>
+      <ul>
+        <li><b>Outposts:</b> up to three claims of 8×8 on rich deposits, bought once and yours for good. Goods come
+          home by Cargo Depot or Quantum Link.</li>
+        <li><b>Discoveries</b> every four days add new rich deposits somewhere in the wilderness, so there is always
+          land left to claim.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Trunk lines (Era 3)</h3>
+  <ul>
+    <li><b>Anyone can build one</b> who has researched Trunk Lines. A line runs from a town gate of your town through
+      the wilderness to a town gate of another town, and it belongs to you: you are its <b>carrier</b>.</li>
+    <li><b>Right of way:</b> you buy the tiles your line runs on, once. There is no rent, so nothing runs out while you're
+      away (rule 7). Lines may cross each other with a bridge but never share a tile, and whoever builds a route first
+      has it.</li>
+    <li><b>What it carries:</b> links (§8) between players of the two towns, and sales to the other town's market.
+      There your Hub Orders are half of what your own town's market gives you, so a line is a second market. Goods only
+      go to towns of their Era or later.</li>
+    <li><b>Fees:</b> the carrier sets them like prices: a public fee, a crew fee and special fees for named players,
+      from nothing to 10% of the goods' base value, paid by the seller. When a line is full, its usual users keep the
+      share they had over the last seven days, as in the Yard.</li>
+    <li><b>Loss:</b> a line loses what any pipe of its tier loses: over 128 tiles a composite line delivers 97%, a glass
+      conduit 99%, a superconductor line everything.</li>
+    <li><b>A line stays where it is</b>, keeps running and stays its carrier's, also when they move to another town or
+      stop playing.</li>
+    <li><b>The Lines track</b> (Era 3, the 21st track) is for carriers: every tier makes your lines and links cheaper a
+      tile and lose less, and its master tier lets the <b>Pipe Master</b> build superconductor lines (no loss, no limit)
+      from Era 3. A Yard's Pipe Master is its door to other towns, as its power specialist is its energy.</li>
+    <li><b>Why people pay a carrier:</b> players in another town to trade with, a second market, goods their own town
+      hardly makes, and old towns' hunger for young towns' basics: an Era-4 town's chains eat ingots and bricks, so a
+      new town has buyers from its first week.</li>
+  </ul>
+
+  <h3>What we chose not to do</h3>
+  <div class="scroll"><table>
+    <tr><th>Idea</th><th>Why not</th></tr>
+    <tr><td>Lines only for Pipe Masters</td><td>Anyone may build a line; a master builds a better one</td></tr>
+    <tr><td>Rent for rights of way and outposts</td><td>A rent runs out while you're away (rule 7); both are bought once</td></tr>
+    <tr><td>Seams that run dry</td><td>The same reason; Discoveries add deposits instead</td></tr>
+    <tr><td>Caravan camps between towns</td><td>The Exchange and the lines already join towns; a camp adds a third way
+      that does nothing new</td></tr>
+    <tr><td>Twin towns sharing Wonders</td><td>Towns stay separate in their Eras: lines carry goods, never Eras or
+      Wonders</td></tr>
+    <tr><td>Joint projects between towns</td><td>Missions after the Launch already give towns work without end; perhaps
+      after 1.4</td></tr>
+    <tr><td>Lodges in the wild</td><td>One plot a player; outposts are the base in the wild</td></tr>
+  </table></div>
+  <p class="small muted">The numbers here (the price of a line's tiles, of an outpost, the Lines track's tiers) are set
+    in phase C, when the model plays Eras 3 and 4.</p>
+</section>
+
+<section id="changes">
+  <h2>21 · What changes from today's game</h2>
+  <div class="scroll"><table>
+    <tr><th>Part</th><th>Today</th><th>In 1.4</th></tr>
+    <tr><td>Starting</td><td>A starter kit; seat codes, held seats, the invite screen</td><td>An empty plot, picked on the map; a "Play next to me" link</td></tr>
+    <tr><td>The map</td><td>Districts of 24 estates; stations of four or two around a 10×10 Yard; 30 tiles of wilderness between districts</td><td>Towns of four Yard groups; Yards of 32×16 with four plots; outskirts between them; 128 tiles of wilderness between towns, with town gates</td></tr>
+    <tr><td>Your land</td><td>Start parcels in the middle; dealt land goods per station</td><td>Start parcels against the Yard; each plot lacks two of eight resources; parcels in any order</td></tr>
+    <tr><td>Other companies</td><td>Houses and stand-ins run by the computer</td><td>Only people</td></tr>
+    <tr><td>Groups</td><td>Crews of up to eight, corporations of thirty</td><td>Crew = your Yard (up to four); the town (sixteen)</td></tr>
+    <tr><td>Prices</td><td>One price between players (1.3×)</td><td>Your own prices: public, crew and per player, 1×–2.5×</td></tr>
+    <tr><td>Contracts</td><td>Separate contracts</td><td>Links are standing deals</td></tr>
+    <tr><td>Building levels</td><td>Up to 100, priced from the building type</td><td>Up to 25, priced from what each copy cost; from level 11 also goods</td></tr>
+    <tr><td>The market</td><td>Hub Orders bigger on a quiet server; a trading post that sells 600 units a minute</td><td>Fixed Hub Orders for everyone; the trading post's level raises them; research raises them for your own goods</td></tr>
+    <tr><td>Company Level</td><td>XP from earnings, buildings, upgrades, research and more</td><td>The gold you've earned, one table</td></tr>
+    <tr><td>Pipe connections</td><td>An inlet box where a pipe meets a building</td><td>Cables, a belt or a slim pipe coming out of the pipe, one per kind of good, moving when goods move</td></tr>
+    <tr><td>Research</td><td>44 techs, mostly +10–25%; research points from Labs; cheaper as others have it</td><td>21 tracks of ~10 days (×15) and a short Era tree; gold, goods and time</td></tr>
+    <tr><td>Eras</td><td>Server-wide, a 21-day deadline</td><td>Per town, by its Wonder; newcomers in Era 1; move to your Era or one below</td></tr>
+    <tr><td>Goods</td><td>24, uneven steps between Eras</td><td>29, each Era about four times the last; bauxite, aluminium, motors, batteries, titanium, spaceframes are new; engines go</td></tr>
+    <tr><td>Shared projects</td><td>The station's project, sized to its residents; District Wonders; Era Wonders sized to active players</td><td>Yard Monuments in gold, endless stages; Era Wonders per town in goods, fixed sizes</td></tr>
+    <tr><td>The end</td><td>A world-wide season finale</td><td>Each town's Launch, then missions</td></tr>
+    <tr><td>Absence</td><td>Sleep at day 30, the Quiet Isles at day 90</td><td>Nothing happens; move whenever you like</td></tr>
+  </table></div>
+  <p><b>Goes:</b> <span class="gone">Houses, stand-ins, small mode, starter kits, dealt land, seat codes and held seats,
+    two-plot stations, corporations, contracts, gate policies and tolls, the Port, public copper trunks, the Quiet Isles,
+    the Caretaker, leagues, Refinements, mastery research, knowledge diffusion, research points, hub reputation, the
+    Franchise and branch estates, the Bank, the Showroom, the Exchange Office, the Research Institute, the Pneumatic
+    Post, the Assembly Plant and engines, Era deadlines, quiet grace, every size that follows the number of active
+    players, the trading post's unit limit.</span></p>
+  <p><b>Stays:</b> pipes and the flow solver, the Hub Orders (fixed now), the HQ and trading post, Loady and the
+    Next steps card, the art of almost every building, the Wonders' art, evolve in place, complexes (now from tracks),
+    the Exchange, links, the Deep Level, outposts, expeditions, terraforming, blueprints, events, managers, achievements,
+    photo mode, moving with crates.</p>
+</section>
+
+<section id="numbers">
+  <h2>22 · The numbers</h2>
+  <p>Every formula in the game, as the model in §17 plays them. None of them knows how many people play.</p>
+  <div class="scroll"><table>
+    <tr><th>What</th><th>Formula</th></tr>
+    <tr><td>Sizes</td><td class="formula">plot 32×32 · Yard 32×16 · town 196×164 · 128 tiles of wilderness between towns</td></tr>
+    <tr><td>Output of a building</td><td class="formula">base × 1.10^(level − 1) × faster tiers × complexes × place (wind, sun, richness) × perks</td></tr>
+    <tr><td>Its inputs</td><td class="formula">base × 1.10^(level − 1) × faster tiers × complexes × leaner tiers</td></tr>
+    <tr><td>Faster tiers</td><td class="formula">×1.25, ×1.5, ×2, ×2, ×2 (×15 in all); the Power track counts half of each (×4.75); a Coal Pit takes the better of your Copper and Stone tiers</td></tr>
+    <tr><td>What a pipe carries between two buildings</td><td class="formula">grey 100 · copper 5,000 · steel 50,000 · composite 500,000 · glass 5 million · superconductor no limit, a minute</td></tr>
+    <tr><td>Another copy</td><td class="formula">building gold × 1.07^(copies you own)</td></tr>
+    <tr><td>The step from level L to L + 1</td><td class="formula">that copy's price × 1.15^(L − 1); from L = 10 also goods worth 30% of it</td></tr>
+    <tr><td>The n-th extra parcel (n = 0–11)</td><td class="formula">20,000 × 2.5^n, at Company Level 5 + 2n</td></tr>
+    <tr><td>The n-th outskirts parcel (n = 0–8)</td><td class="formula">100,000,000 × 1.4^n, from Era 2</td></tr>
+    <tr><td>Hub Order of a good (units a minute)</td><td class="formula">1,000 × 4^(good's Era − 1) ÷ base price × 1.5^(town Era − good's Era) × 1.1^(trading post level − 1) × 1.8^(your tiers in its track beyond 4)</td></tr>
+    <tr><td>The market pays for s units</td><td class="formula">base × s if s ≤ H · base × √(H × s) up to 16H · then a quarter of base for each further unit</td></tr>
+    <tr><td>The market charges</td><td class="formula">2.5 × base</td></tr>
+    <tr><td>Player prices</td><td class="formula">1.0–2.5 × base; defaults 1.3 public, 1.15 crew</td></tr>
+    <tr><td>Pipe loss</td><td class="formula">1 − (1 − loss per tile)^tiles, on the shortest path</td></tr>
+    <tr><td>Company Level L</td><td class="formula">gold earned ≥ 500 × 3.96^(L − 2) up to L 10; 30M × 1.44^(L − 10) up to 20; 1.15B × 1.35^(L − 20) up to 25; 5.2B × 1.5^(L − 25) after</td></tr>
+    <tr><td>Track tier gold</td><td class="formula">500 · 3k · 20k · 100k · 500k · 2M · 8M · 20M · 50M, × 4^(track's Era − 1); from tier 3 also the chain's goods worth a fifth of it</td></tr>
+    <tr><td>The Era tree</td><td class="formula">Era 1: 300 g to 2,000 g an item, minutes each; Era 2: 5 to 30 million an item, 75 million in all, an hour or two each (§12)</td></tr>
+    <tr><td>Wonder</td><td class="formula">fixed goods (§13) × max(0.5, 1 − 0.1 × towns before); stages ⅙, ⅓, ½; each at least a day</td></tr>
+    <tr><td>Monument stage n</td><td class="formula">100,000,000 × 10^(site's Era − 1) × 1.4^(n − 1) gold</td></tr>
+    <tr><td>Mission</td><td class="formula">first mission (set in phase C) × 1.1^(missions done)</td></tr>
+    <tr><td>Design rule for every producer</td><td class="formula">value added a tile a minute at level 1 ≈ 25 × 4^(Era − 1) g</td></tr>
+  </table></div>
+  <h3>Pacing targets, and what the model gave</h3>
+  <div class="scroll"><table>
+    <tr><th>Moment</th><th>Target</th><th>The model (§17)</th></tr>
+    <tr><td>First sale · first chain</td><td>2 minutes · 15 minutes</td><td>at once · minute 40 (the model builds windmills and mines first; Loady leads to the chain sooner)</td></tr>
+    <tr><td>Company Level 10 · 20 · 25 · 30</td><td>day 2 · week 1 · day 14 · week 4</td><td>{{PACE:levels}}</td></tr>
+    <tr><td>A track mastered</td><td>day 10–11</td><td>{{PACE:master}}</td></tr>
+    <tr><td>Era 2 in a town of eight</td><td>day 12–14</td><td>{{PACE:era2}}</td></tr>
+    <tr><td>Gold spent of gold earned</td><td>at least 80% once the plot is built</td><td>{{PACE:spent}}</td></tr>
+    <tr><td>Gold in the bank</td><td>a few hours of income</td><td>{{PACE:bank}}</td></tr>
+    <tr><td>Crew member against a solo player</td><td>+5–10% in week 1, 10–20% after</td><td>{{PACE:crew}}</td></tr>
+    <tr><td>The Launch</td><td>about four months</td><td>phase C</td></tr>
+  </table></div>
+</section>
+
+<section id="build">
+  <h2>23 · Building it</h2>
+  <p>Four phases. Each lands on the test server when it's done and stays playable. The test world is wiped at the start
+    of phase A, and again at B or C if the content needs it.</p>
+  <div class="scroll"><table>
+    <tr><th>Phase</th><th>What you get</th><th>How it's checked</th></tr>
+    <tr class="hl"><td><b>A · Your own place</b><br><span class="pill info">about a week</span></td>
+      <td>The new map (towns, side Yards, start areas against the Yard, outskirts land set aside, the six-of-eight land, 128 tiles of
+        wilderness between towns with a town gate where each road leaves the town);
+        starting from scratch; picking your spot on the map, links, Pick for me, requests; Yard = crew with owners,
+        open or closed, the last-one-out rule; no Houses or stand-ins; your own prices and the stalls; nothing that
+        depends on how many people play (quiet grace and every size from active players go); Max and Grow, the one-tap
+        helpers that keep spending up with income; the bots learn to play like the model of §17</td>
+      <td>Game tests; e2e with four browsers finding each other on the map and a phone; the bots' first hour from
+        nothing; <code>big-estate</code> on the new layout</td></tr>
+    <tr><td><b>B · The economy</b><br><span class="pill warn">1–2 weeks</span></td>
+      <td>Levels capped at 25, priced per copy, with goods from level 11 that come in like building materials; the
+        market of §8 (fixed Hub Orders, the trading post's reach, masters' Hub Orders from tier 5, no unit limit); what
+        pipes carry (§9); Company Level from gold earned; the new Era-1 and Era-2 recipes and prices, the Big Factory
+        and the Deep Mines on copper and coal included; the two research lines with every Era-1 and Era-2 track, coal in
+        the Copper and Stone tracks, Power at half, and the Era tree; per-town Eras
+        with the Great Dynamo and the Copper Cathedral at their fixed sizes, gifts, "buy and give" and rewards; the
+        endless Monuments; the Era rules for moving and sleeping buildings; the outskirts; art for the Bauxite Pit and
+        the Aluminium Works</td>
+      <td>The bots play the real server like the model of §17 for 35 days, alone and in crews: they must land on the
+        model's numbers in §22 within a fifth, and the tracks must stay within a third of each other</td></tr>
+    <tr><td><b>C · Eras 3 to 5</b><br><span class="pill warn">1–2 weeks plus art</span></td>
+      <td>Oil, rare earth and titanium; the new goods and buildings with their art (Motor
+        Works, Battery Works, Titanium Mine, Titanium Works, Spaceframe Works, the Workshop Monument, the stalls, the
+        composite pipe); the pipe's three lanes and their connectors; the Deep Level and the wilderness in their Eras;
+        trunk lines with their carriers and fees, the Lines track, fog that expeditions map, outposts (§20); the Space
+        Elevator, the Launch, missions and Legacy; the model extended to Eras 3–5 to set their numbers</td>
+      <td>The art steps in CLAUDE.md for every new building; screenshots of each Era</td></tr>
+    <tr><td><b>D · Balance and polish</b><br><span class="pill info">about a week</span></td>
+      <td>The bots play a whole town for 120 days; Hub Orders, costs and Wonder sizes tuned; GameDesign.md rewritten
+        from this plan; e2e scripts updated, the retired ones removed</td>
+      <td>Pacing targets (§22); every e2e script</td></tr>
+  </table></div>
+  <p>New art is made with Codex on your personal account or Ketty's, never the Xebia one.</p>
+</section>
+
+<section id="risks">
+  <h2>24 · What could go wrong</h2>
+  <div class="callout problem"><strong>Friends trade less than you'd hope</strong>Every plot can do Era 1 by itself
+    (rule 1), so in the model trade between friends is {{TRADE:lo}} to {{TRADE:hi}} of a crew's income, about what the
+    playtests saw. 1.4
+    doesn't pretend otherwise. Still, trade is {{CREW:trade}} of a crew's lead (the shared Monument the rest), and the
+    goods for levels give friends something real to sell each other from the second week. If people want more trade, the levers
+    are the share of goods in levels (30% now) and how many resources a plot lacks.</div>
+  <ul>
+    <li><b>The Era's late phase feels flat.</b> After about four days the land you own is built and its income grows slowly
+      until the Wonder. Research tiers, Monument stages, the Wonder's stages and new parcels keep something happening at
+      every visit, and §17 shows gold never piles up; whether it's fun is for people to tell us.</li>
+    <li><b>The model is a bot.</b> It plays tirelessly and well. People will be slower, so the real pace is a little
+      behind §17, never ahead. The helpers (Max, Grow) close most of the gap, and phase B's bots check the real server
+      against the model.</li>
+    <li><b>Tracks aren't equal on the real server.</b> In the model they end within {{SPREAD:35}} times of each other
+      (§12). The bots in phase B play every track on the real server; if one falls behind, the levers are its Hub Order
+      growth and the Power track's share.</li>
+    <li><b>Ten-day tracks feel slow.</b> Tiers 1–4 finish on day one, the Era tree runs beside them, and the research
+      panel shows what each tier will add in gold a minute, so a two-day tier is something to look forward to.</li>
+    <li><b>A lone player in a quiet town waits long for Era 2.</b> About day {{E2:1}} by themselves, against day 12 in a
+      town of eight. That's rule 2 at work. Pick for me never sends newcomers to an empty town, and anyone can move to a
+      livelier town of their Era for free.</li>
+    <li><b>A late friend lands in a different town.</b> They can trade over the Exchange from day one, the trail makes
+      their Wonders smaller, and the older friend can move down one Era to join them.</li>
+    <li><b>Numbers get huge.</b> A plot earns millions a minute in Era 2 and Wonders cost billions. The interface
+      already shortens numbers (12.4M), and idle players like seeing them grow.</li>
+    <li><b>A lot of today's code goes.</b> Houses, stand-ins, seats, kits, corporations, contracts, quiet grace and
+      more. The solver, the pipes and the art stay, and every phase is playable on its own.</li>
+    <li><b>Bigger worlds per player.</b> Plots stay 32×32, but with the outskirts and the Deep Level a late plot is
+      about 2.5 times as many tiles, and the model's plot has 800 buildings on day 34. The <code>big-estate</code> check
+      measures it in phases A and C.</li>
+  </ul>
+</section>
+
+<section id="picks">
+  <h2>25 · Decisions</h2>
+  <p>Everything in this document is decided, and phase A can start from it as written. These are the choices I made
+    for you, newest first, so they're the ones worth a look. Any of them can still change.</p>
+  <h3>In the last round</h3>
+  <ol>
+    <li><b>Pipes</b> carry 100 (grey), 5,000 (copper) and 50,000 (steel) a minute between two buildings. The grey pipe
+      fills on the first evening and teaches copper pipes; after that only the biggest buildings fill a pipe, late in an
+      Era (§9).</li>
+    <li><b>A level's goods</b> come in like today's building materials: the gold is paid at once, the building waits
+      under scaffolding for its goods from your storages, your spare, your Yard and, if you allow it, the market
+      (§9).</li>
+    <li><b>Research:</b> masters' Hub Orders grow 80% a tier from tier 5; coal belongs to the Copper and Stone tracks,
+      so there's no Coal track; the Power track counts half. Going deep now beats spreading for every track (§12).</li>
+    <li><b>The Big Factory</b> makes 28 ingots a minute instead of 32, in line with every other Era-1 building.</li>
+    <li><b>The Era tree</b> is in the numbers: copper pipes at Level 4, and 75 million gold in Era 2 for steel pipes,
+      the outskirts survey, deep mining, power lines and silos (§12).</li>
+    <li><b>The wilderness and other towns</b> (§20): anyone builds trunk lines from Era 3 and runs them as a carrier;
+      rights of way and outposts are bought once; a line is a second market at half the Hub Orders; the Lines track
+      makes Pipe Masters; fog that expeditions map. Not in 1.4: seams that run dry, caravan camps, twin towns, joint
+      projects, lodges.</li>
+    <li><b>Company Level</b> counts every coin you earn, daily orders and rewards included, and nothing else (§14).</li>
+    <li><b>As in today's game:</b> daily orders (three a day, about half an hour of income), storms and their repairs,
+      managers at Levels 10, 20, 30 and 45 plus one from Automation (§19).</li>
+    <li><b>Every plot has one trading post</b>; its level is how you grow your market (§8).</li>
+  </ol>
+  <h3>Before that</h3>
+  <ol>
+    <li><b>One balance at every size</b> (rule 2): nothing depends on how many people play. No quiet-server bonus, no
+      Wonder or Monument sized to active players, no "half the town" rule.</li>
+    <li><b>Goods for levels:</b> from level 11 a level step also needs goods worth 30% of its gold. It gives friends
+      something to sell each other and Era-1 goods a use beyond the market.</li>
+    <li><b>The Monument:</b> paid in gold, with stages that never end, 40% dearer each; one site per Era. It's where the
+      late-phase gold goes, and four friends pay for one.</li>
+    <li><b>The Wonder:</b> fixed sizes in goods (the Great Dynamo {{W1TEXT}} gold's worth), "buy and give" with gold at
+      the market's 2.5×, each stage at least a day.</li>
+    <li><b>The market:</b> 1,000 g a minute of every Era-1 good, and the trading post's level as the way to grow it.</li>
+    <li><b>Company Level</b> from gold earned alone, and parcels at every second level from 5 to 27.</li>
+    <li><b>Crew target</b> lowered to +5–10% in week 1 and 10–20% after, from the model.</li>
+    <li><b>Land:</b> every plot has water, iron ore and wood; each lacks one of copper ore, coal, stone and sand, and one
+      of bauxite, oil, rare earth and titanium ore.</li>
+    <li><b>Research:</b> two lines, the deep tracks and a short Era tree. Tracks are nine tiers over about ten days.
+      Nothing gets cheaper because others researched it.</li>
+    <li><b>The outskirts:</b> nine parcels set aside for each plot from Era 2, rather than first-come land between the
+      Yards.</li>
+    <li><b>New Yards are open</b> unless the first resident closes it. <b>Workshops:</b> each resident may build on up to
+      64 tiles of the Yard's ends.</li>
+    <li><b>The end:</b> each town launches its own Space Elevator and then does missions; there's no world-wide season
+      ending.</li>
+    <li><b>What goes:</b> corporations (crews and towns instead), contracts (links instead), the Franchise and branch
+      estates (moving and the outskirts instead), and the Bank, Showroom and Pneumatic Post.</li>
+  </ol>
+  <h3>Left open on purpose</h3>
+  <ul>
+    <li><b>The numbers of Eras 3 to 5:</b> the Wonders after the Copper Cathedral, the Era tree's prices, the Monument
+      sites, trunk lines, outposts and missions. They follow the same rules as Eras 1 and 2; the numbers in this
+      document are where they start, and phase C sets them when the model plays those Eras. Phases A and B don't
+      depend on them.</li>
+    <li><b>How it feels:</b> whether the late phase of an Era is fun, and how fast real people play against the model.
+      Only people can tell; the bots in phase B check the numbers first (§23).</li>
+  </ul>
+  <p>The design is ready to build. Phase A starts when you say so.</p>
+</section>
+
+</div>
+</body>
+</html>

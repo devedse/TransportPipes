@@ -125,7 +125,7 @@ public sealed partial class GameWorld
             other.Touch();
         }
         CorporationChanged(corporation);
-        MarkCompanyNetworksDirty(company.Id);
+        MarkTradeDirty(company.Id);
     }
 
     private void CorporationChanged(Corporation corporation)
@@ -276,7 +276,7 @@ public sealed partial class GameWorld
         member.Touch();
         Changes.Companies.Add(member.Id);
         Changes.Estates.Add((member.District, member.Slot));
-        MarkCompanyNetworksDirty(member.Id);
+        MarkTradeDirty(member.Id);
         if (byId != memberId)
         {
             Changes.Events.Add(new WorldEvent(member.Id, WorldEventKind.Corporation, $"You were removed from {corporation.Name}"));
@@ -355,7 +355,7 @@ public sealed partial class GameWorld
             corporation.PerkResource = perkResource;
             foreach (var member in Members(corporation))
             {
-                MarkCompanyNetworksDirty(member.Id);
+                MarkTradeDirty(member.Id);
             }
         }
         corporation.Description = description.Length > 300 ? description[..300] : description;
@@ -382,7 +382,7 @@ public sealed partial class GameWorld
         corporation.HqLevel++;
         foreach (var member in Members(corporation))
         {
-            MarkCompanyNetworksDirty(member.Id);
+            MarkTradeDirty(member.Id);
             Changes.Events.Add(new WorldEvent(member.Id, WorldEventKind.Corporation, $"{corporation.Name} HQ is now level {corporation.HqLevel}"));
         }
         CorporationChanged(corporation);
@@ -469,6 +469,7 @@ public sealed partial class GameWorld
 
     private void NewWeek()
     {
+        RegroupLeagues();
         foreach (var corporation in _corporations.Values)
         {
             corporation.Goal = NewGoal(corporation);

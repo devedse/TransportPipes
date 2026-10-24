@@ -16,6 +16,7 @@ import type {
   CompanyDto,
   ConductorDto,
   DistrictDto,
+  MapLinkDto,
   OutpostDto,
   TerrainType,
 } from "../api/contracts";
@@ -37,9 +38,12 @@ import {
   districtOf,
   districtOriginX,
   districtOriginY,
+  estateOutline,
   isDeep,
   isParcelUnlocked,
+  stationOfSlot,
   tileKey,
+  yardRect,
   zoneAt,
 } from "./layout";
 import { BuildingEffects, pelletTexture } from "./render/effects";
@@ -90,7 +94,12 @@ export interface EngineState {
   /** A wilderness tile the player looks at (an outpost or a claim), and whether that claim is possible */
   wildTile: TilePosition | null;
   hintTile: { x: number; y: number; size: number } | null;
+  /** The building just placed: build mode shows no ghost over it (after run 4: a red ghost sat on it, "a red tile over the wind moily") */
+  justBuilt: { x: number; y: number; size: number } | null;
   outpostCheck: { error: string | null; x: number; y: number } | null;
+  /** Links between stations (v1.2 §7), drawn as covered channels along the corridors, and the one the Links tab shows */
+  mapLinks: MapLinkDto[];
+  focusLink: number | null;
 }
 
 export interface EngineCallbacks {
@@ -233,6 +242,50 @@ function placeArt(sprite: Sprite, art: BuildingTextures, anchor: { x: number; y:
   }
 }
 
+/**
+ * A station Landmark with storeys (after run 4): its own picture cut at the tower's banner band (as fractions of the
+ * picture: the band 268–330 of 632, the tower's column 190–390 of 578), the band once more for every storey, and the
+ * clock and dome lifted on top. Each part keeps the full picture's anchor, so the tower stands where the Landmark did.
+ */
+const LANDMARK_BAND = { top: 268 / 632, bottom: 330 / 632, left: 190 / 578, right: 390 / 578 };
+
+function landmarkStoreys(
+  texture: Texture,
+  anchorX: number,
+  anchorY: number,
+  scale: number,
+  storeys: number,
+): Sprite[] {
+  const frame = texture.frame;
+  const width = frame.width;
+  const height = frame.height;
+  const top = Math.round(LANDMARK_BAND.top * height);
+  const bottom = Math.round(LANDMARK_BAND.bottom * height);
+  const left = Math.round(LANDMARK_BAND.left * width);
+  const right = Math.round(LANDMARK_BAND.right * width);
+  const band = bottom - top;
+  const ax = anchorX * width;
+  const ay = anchorY * height;
+  // A part of the picture (x0..x1, y0..y1), drawn lifted by some pixels of the picture
+  const part = (x0: number, y0: number, x1: number, y1: number, lift: number) => {
+    const sprite = new Sprite(
+      new Texture({
+        source: texture.source,
+        frame: new Rectangle(frame.x + x0, frame.y + y0, x1 - x0, y1 - y0),
+      }),
+    );
+    sprite.anchor.set((ax - x0) / (x1 - x0), (ay - (y0 - lift)) / (y1 - y0));
+    sprite.scale.set(scale);
+    return sprite;
+  };
+  const parts = [part(0, top, width, height, 0)];
+  for (let k = 1; k <= storeys; k++) {
+    parts.push(part(left, top, right, bottom, k * band));
+  }
+  parts.push(part(left, 0, right, top, storeys * band));
+  return parts;
+}
+
 /** Which terrain bleeds over which at a border (man-made ground keeps a crisp edge) */
 const BLEND_PRIORITY: Partial<Record<TerrainType, number>> = {
   water: 0,
@@ -335,6 +388,19 @@ function traceFootprint(g: Graphics, x: number, y: number, size: number, height 
   g.closePath();
 }
 
+/** A polygon of tile-grid corners (relative to x, y), like an estate's border around its part of the Yard */
+function traceOutline(g: Graphics, x: number, y: number, points: Array<[number, number]>) {
+  points.forEach(([px, py], i) => {
+    const corner = diagonalToScreen(x + px, y + py);
+    if (i === 0) {
+      g.moveTo(corner.x + TILE_WIDTH, corner.y - TILE_HEIGHT);
+    } else {
+      g.lineTo(corner.x + TILE_WIDTH, corner.y - TILE_HEIGHT);
+    }
+  });
+  g.closePath();
+}
+
 /** A footprint grown outwards by a share of a tile on every side: a ring that shows around a building's plate */
 function traceRing(g: Graphics, x: number, y: number, size: number, grow: number) {
   const top = diagonalToScreen(x, y);
@@ -395,7 +461,9 @@ class ChunkView {
   readonly cx: number;
   readonly cy: number;
   ground: Container | null = null;
-  overlay: Graphics | null = null;
+  overlay: Container | null = null;
+  /** The Deposits overlay's seat labels, over the buildings */
+  overlayLabels: Container | null = null;
   mini: Sprite | null = null;
   objects: ObjectView[] = [];
   loaded = false;
@@ -424,6 +492,19 @@ export class Engine {
   private readonly overlayLayer = new Container();
   private overlay: Overlay = "none";
   private readonly highlightLayer = new Graphics();
+  /** Links: their channels (drawn when they change) and the goods moving along the flowing ones */
+  private readonly linkLayer = new Graphics();
+  private readonly linkPulse = new Graphics();
+  private drawnLinks: MapLinkDto[] | null = null;
+  private drawnFocus: number | null = null;
+  private drawnWidth = 0;
+  private linkPaths: Array<{
+    points: Array<{ x: number; y: number }>;
+    length: number;
+    color: string;
+    mine: boolean;
+  }> = [];
+  private linkTime = 0;
   private readonly objectLayer = new Container({ sortableChildren: true });
   private readonly flowLayer = new Container();
   private readonly ghostLayer = new Container();
@@ -512,6 +593,8 @@ export class Engine {
       this.miniLayer,
       this.overlayLayer,
       this.estateLayer,
+      this.linkLayer,
+      this.linkPulse,
       this.highlightLayer,
       this.objectLayer,
       this.flowLayer,
@@ -575,6 +658,17 @@ export class Engine {
 
   get scale(): number {
     return this.camera.scale;
+  }
+
+  /** Shows a rectangle of tiles whole (a link's route): centred, zoomed to fit with a margin */
+  lookAtArea(x0: number, y0: number, x1: number, y1: number) {
+    const span = Math.max(1, x1 - x0 + (y1 - y0));
+    const scale = Math.min(
+      0.42,
+      this.app.screen.width / (span * TILE_WIDTH * 1.3),
+      this.app.screen.height / (span * (TILE_HEIGHT / 2) * 1.3),
+    );
+    this.lookAt((x0 + x1) / 2, (y0 + y1) / 2, scale);
   }
 
   /** Centres the view on a tile */
@@ -1185,7 +1279,9 @@ export class Engine {
     // A blueprint tool carries its whole layout: its id is enough
     const toolKey =
       (tool.kind === "blueprint" ? `blueprint:${tool.blueprint.id}` : JSON.stringify(tool)) +
-      (this.callbacks.getState().plannedRoute?.length ?? 0);
+      (this.callbacks.getState().plannedRoute?.length ?? 0) +
+      // A building just placed under the pointer: its ghost goes at once
+      JSON.stringify(this.callbacks.getState().justBuilt);
     const changed =
       this.hovered === null ||
       tile.x !== this.hovered.x ||
@@ -1204,6 +1300,7 @@ export class Engine {
       this.drawGhost();
     }
     this.drawHighlights();
+    this.drawLinks(deltaSeconds);
     this.animate(deltaSeconds);
     this.juice.update(deltaSeconds);
     this.popCoins(deltaSeconds);
@@ -1311,8 +1408,10 @@ export class Engine {
   private clearChunk(chunk: ChunkView) {
     chunk.ground?.destroy({ children: true });
     chunk.ground = null;
-    chunk.overlay?.destroy();
+    chunk.overlay?.destroy({ children: true });
     chunk.overlay = null;
+    chunk.overlayLabels?.destroy({ children: true });
+    chunk.overlayLabels = null;
     if (chunk.mini !== null) {
       chunk.mini.texture.destroy(true);
       chunk.mini.destroy();
@@ -1444,8 +1543,10 @@ export class Engine {
 
   /** Colours over the terrain: who owns what, wind, sun or deposits */
   private drawOverlay(chunk: ChunkView) {
-    chunk.overlay?.destroy();
+    chunk.overlay?.destroy({ children: true });
     chunk.overlay = null;
+    chunk.overlayLabels?.destroy({ children: true });
+    chunk.overlayLabels = null;
     if (this.overlay === "none" || !chunk.loaded) {
       return;
     }
@@ -1487,6 +1588,14 @@ export class Engine {
             if (tile.deposit !== null) {
               color = content.resourceColor(tile.deposit);
               alpha = 0.45 + tile.richness * 0.1;
+            } else if (tile.terrain === "beach") {
+              // A beach is sand: the Sand Dredger's ground
+              color = content.resourceColor("sand");
+              alpha = 0.7;
+            } else if (tile.terrain === "forest" && this.world.dealtLand) {
+              // Scenery trees: not wood (after run 4), and not quite the bare ground either
+              color = 0x31463a;
+              alpha = 0.72;
             } else {
               color = 0x0b1d24;
               alpha = 0.6;
@@ -1508,8 +1617,48 @@ export class Engine {
         }
       }
     }
-    chunk.overlay = g;
-    this.overlayLayer.addChild(g);
+    const overlay = new Container();
+    overlay.addChild(g);
+    // Dealt land (step 5): every seat's goods on it, so a player sees who in the station holds what (over the buildings)
+    const labels = new Container();
+    if (this.overlay === "deposits") {
+      for (const district of this.world.districts.values()) {
+        for (const estate of district.estates) {
+          const cx = estate.x + ESTATE_SIZE / 2;
+          const cy = estate.y + ESTATE_SIZE / 2;
+          if (
+            estate.goods === null ||
+            estate.goods.length === 0 ||
+            cx < x0 ||
+            cx >= x0 + CHUNK_SIZE ||
+            cy < y0 ||
+            cy >= y0 + CHUNK_SIZE
+          ) {
+            continue;
+          }
+          // Smaller, and on the estate's upper edge rather than over its HQ, with the iron every estate holds (run 2:
+          // huge words over the town hall, clipped at the screen's edge, and Mia-B couldn't find her iron)
+          const label = new Text({
+            text: `${estate.goods.map((t) => content.resourceName(t).toLowerCase()).join(" · ")} (+ iron ore)`,
+            style: {
+              fontFamily: "system-ui",
+              fontSize: 40,
+              fontWeight: "800",
+              fill: "#ffffff",
+              stroke: { color: "#0b1d24", width: 9 },
+            },
+          });
+          label.anchor.set(0.5);
+          const at = tileCenter(cx, estate.y + 3);
+          label.position.set(at.x, at.y);
+          labels.addChild(label);
+        }
+      }
+    }
+    chunk.overlay = overlay;
+    this.overlayLayer.addChild(overlay);
+    chunk.overlayLabels = labels;
+    this.labelLayer.addChild(labels);
   }
 
   /** The far view of a chunk: one small picture of its terrain and buildings */
@@ -1982,9 +2131,14 @@ export class Engine {
   private conductorView(conductor: ConductorDto): ObjectView {
     const anchor = diagonalToScreen(conductor.x, conductor.y);
     if (conductor.kind === "gate") {
-      const estate = this.world.estateAt(conductor.x, conductor.y);
-      const policy = estate?.gatePolicies[conductor.side ?? "top"] ?? "open";
-      const art = this.textures.gate(policy, conductor.side === "top" || conductor.side === "bottom");
+      // The Yard gate: its barrier faces the Yard (the pipe runs on towards it)
+      const zone = zoneAt(conductor.x, conductor.y);
+      const yard =
+        zone.kind === "estate" ? yardRect(zone.districtX, zone.districtY, stationOfSlot(zone.slot)) : null;
+      const towardsY =
+        yard !== null &&
+        Math.abs((yard.y0 + yard.y1) / 2 - conductor.y) > Math.abs((yard.x0 + yard.x1) / 2 - conductor.x);
+      const art = this.textures.gate("open", towardsY);
       const sprite = new Sprite(art.frames[0]);
       sprite.anchor.set(0, 1);
       const container = new Container();
@@ -2210,7 +2364,14 @@ export class Engine {
         });
         icon.anchor.set(0.5);
         icon.position.set(0, -4);
-        badge.addChild(bubble, icon);
+        // With no pipe at all it shows a pipe, not "zz" (run 2: Ben's new Solar Panel "looks broken")
+        const pipe = new Graphics();
+        pipe.roundRect(-22, -11, 44, 14, 6).fill({ color: 0x8d97a3 }).stroke({ color: 0x5b636c, width: 2 });
+        pipe.rect(-4, -14, 8, 20).fill({ color: 0xc9963a });
+        pipe.label = "needs-pipe";
+        pipe.visible = false;
+        icon.label = "waits";
+        badge.addChild(bubble, icon, pipe);
         badge.position.set(TILE_WIDTH * size, -TILE_HEIGHT * size - 30);
         badge.visible = false;
         container.addChild(badge);
@@ -2310,6 +2471,13 @@ export class Engine {
     }
     if (view.idle !== null) {
       view.idle.visible = !running && !this.photo;
+      const unpiped = building.network === null;
+      const pipe = view.idle.getChildByLabel("needs-pipe");
+      const waits = view.idle.getChildByLabel("waits");
+      if (pipe !== null && waits !== null) {
+        pipe.visible = unpiped;
+        waits.visible = !unpiped;
+      }
     }
   }
 
@@ -2339,12 +2507,14 @@ export class Engine {
         view.idle.y = -TILE_HEIGHT * (view.building?.size ?? 1) - 40 - Math.sin(this.time * 1.5) * 6;
       }
       if (view.progress !== null && view.building?.constructionEndsAt) {
+        // A scaffold waiting for its materials fills in gold with them (after run 3, step 2); a building site by its clock
+        const site = view.building.siteShare;
         const total = (content.building(view.building.type)?.buildSeconds ?? 60) * 1000;
         const left = new Date(view.building.constructionEndsAt).getTime() - now;
-        const done = Math.max(0, Math.min(1, 1 - left / total));
+        const done = site != null ? site : Math.max(0, Math.min(1, 1 - left / total));
         view.progress.clear();
         view.progress.roundRect(0, 0, 120, 16, 8).fill({ color: 0x17181c, alpha: 0.85 });
-        view.progress.roundRect(3, 3, 114 * done, 10, 5).fill({ color: 0x2ec4a6 });
+        view.progress.roundRect(3, 3, 114 * done, 10, 5).fill({ color: site != null ? 0xf2c14e : 0x2ec4a6 });
       }
     }
     for (const dot of this.flowDots) {
@@ -2695,15 +2865,17 @@ export class Engine {
     for (const estate of district.estates) {
       const mine = company !== null && estate.ownerId === company.id;
       const color = estate.ownerColor ?? "#ffffff";
+      // The border goes around the estate's part of its station's Yard
+      const outline = estateOutline(estate.slot);
       if (estate.ownerId !== null) {
         if (far) {
-          traceFootprint(g, estate.x, estate.y, ESTATE_SIZE);
+          traceOutline(g, estate.x, estate.y, outline);
           g.fill({ color, alpha: 0.12 });
         }
-        traceFootprint(g, estate.x, estate.y, ESTATE_SIZE);
+        traceOutline(g, estate.x, estate.y, outline);
         g.stroke({ color, width: far ? (mine ? 40 : 26) : mine ? 7 : 5, alpha: far ? 0.85 : 0.75 });
       } else {
-        traceFootprint(g, estate.x, estate.y, ESTATE_SIZE);
+        traceOutline(g, estate.x, estate.y, outline);
         g.stroke({ color: 0xffffff, width: far ? 14 : 3, alpha: 0.22 });
       }
 
@@ -2777,7 +2949,30 @@ export class Engine {
         container.position.set(anchor.x, anchor.y);
         placeArt(sprite, art, { x: 0, y: 0 }, structure.size);
         container.addChild(sprite);
-        const wonder = structure.type === "wonderSite" || structure.type === "eraWonderSite";
+        // A Landmark's storeys: its tower rises a band a storey (after run 4)
+        if (
+          structure.type === "project-landmark" &&
+          structure.storeys > 0 &&
+          art.placement !== undefined &&
+          structure.level >= structure.stages
+        ) {
+          sprite.visible = false;
+          for (const piece of landmarkStoreys(
+            sprite.texture,
+            art.placement.anchorX,
+            art.placement.anchorY,
+            art.placement.scale,
+            Math.min(structure.storeys, 12),
+          )) {
+            piece.position.copyFrom(sprite.position);
+            container.addChild(piece);
+          }
+        }
+        // Wonders and the stations' projects rise stage by stage
+        const wonder =
+          structure.type === "wonderSite" ||
+          structure.type === "eraWonderSite" ||
+          structure.type.startsWith("project-");
         if (
           wonder &&
           art.placement !== undefined &&
@@ -2892,6 +3087,19 @@ export class Engine {
         return;
       }
       const origin = footprintOrigin(tile.x, tile.y, definition.size);
+      const just = state.justBuilt;
+      if (
+        tool.kind === "build" &&
+        just !== null &&
+        origin.x < just.x + just.size &&
+        just.x < origin.x + definition.size &&
+        origin.y < just.y + just.size &&
+        just.y < origin.y + definition.size
+      ) {
+        // Over the one just placed: its tip says so, and the ghost waits till the pointer moves on
+        this.callbacks.onHover(tile, null);
+        return;
+      }
       const placement = canPlace(
         state.content,
         this.world,
@@ -3140,6 +3348,151 @@ export class Engine {
     }
   }
 
+  /**
+   * Links between stations: a covered channel along the corridors in the colour of the good (side by side where several
+   * share a corridor), yours brighter, and the goods moving along the ones that flow
+   */
+  private drawLinks(deltaSeconds: number) {
+    const state = this.callbacks.getState();
+    // Zoomed out the channels get wider, so they stay visible on the far map
+    const width = Math.max(1, 0.25 / this.camera.scale);
+    const widthStep = Math.round(Math.log2(width) * 2);
+    if (
+      state.mapLinks !== this.drawnLinks ||
+      state.focusLink !== this.drawnFocus ||
+      widthStep !== this.drawnWidth
+    ) {
+      this.drawnLinks = state.mapLinks;
+      this.drawnFocus = state.focusLink;
+      this.drawnWidth = widthStep;
+      const w = 2 ** (widthStep / 2);
+      const g = this.linkLayer;
+      g.clear();
+      this.linkPaths = [];
+      // Side by side: each link gets a lane on the segments it shares with others
+      const lanes = new Map<string, number>();
+      const myId = state.company?.id ?? -1;
+      const ordered = [...state.mapLinks].sort((a, b) => a.id - b.id);
+      for (const link of ordered) {
+        const corners: Array<{ x: number; y: number }> = [];
+        for (let i = 0; i + 1 < link.route.length; i += 2) {
+          corners.push({ x: link.route[i]!, y: link.route[i + 1]! });
+        }
+        const points: Array<{ x: number; y: number }> = [];
+        corners.forEach((c, i) => {
+          // Corridor corners are the first tile of a two-wide corridor: the channel runs in its middle, in its own lane.
+          // The gates are tiles of their own (their middle), and the turn under the Yard keeps its gate's line.
+          const last = corners.length - 1;
+          const gate = i <= 1 ? corners[0]! : i >= last - 1 ? corners[last]! : null;
+          const next = corners[Math.min(last, i + 1)]!;
+          const before = corners[Math.max(0, i - 1)]!;
+          const along = c.x === next.x && c.y !== next.y ? next : before;
+          const key = `${Math.min(c.x, along.x)},${Math.min(c.y, along.y)},${Math.max(c.x, along.x)},${Math.max(c.y, along.y)}`;
+          const lane = lanes.get(key) ?? 0;
+          lanes.set(key, lane + 1);
+          const offset = i === 0 || i === last ? 0 : [0, -0.45, 0.45, -0.8, 0.8][lane % 5]!;
+          const u = gate !== null && c.x === gate.x ? c.x + 0.5 : c.x + 1 + (c.x === along.x ? offset : 0);
+          const v = gate !== null && c.y === gate.y ? c.y + 0.5 : c.y + 1 + (c.y === along.y ? offset : 0);
+          const p = diagonalToScreen(u, v);
+          points.push({ x: p.x + TILE_WIDTH, y: p.y - TILE_HEIGHT });
+        });
+        const length = points.reduce(
+          (sum, p, i) => (i === 0 ? 0 : sum + Math.hypot(p.x - points[i - 1]!.x, p.y - points[i - 1]!.y)),
+          0,
+        );
+        const mine = link.seller === myId || link.buyer === myId;
+        const focus = link.id === state.focusLink;
+        const color = state.content.resourceColor(link.resource);
+        if (link.kind === "trunk") {
+          // A crew's trunk: a wide steel channel, each paid segment in its payer's colour
+          const trace = () => points.forEach((p, i) => (i === 0 ? g.moveTo(p.x, p.y) : g.lineTo(p.x, p.y)));
+          trace();
+          g.stroke({
+            color: 0x3c4148,
+            width: 46 * w,
+            alpha: link.flowing ? 0.9 : 0.45,
+            cap: "round",
+            join: "round",
+          });
+          const total = length;
+          const colors = link.colors ?? [];
+          colors.forEach((c, i) => {
+            const from = (i / Math.max(1, link.needed)) * total;
+            const to = ((i + 1) / Math.max(1, link.needed)) * total;
+            let walked = 0;
+            for (let k = 1; k < points.length; k++) {
+              const a = points[k - 1]!;
+              const b = points[k]!;
+              const segment = Math.hypot(b.x - a.x, b.y - a.y);
+              const s0 = Math.max(from, walked);
+              const s1 = Math.min(to, walked + segment);
+              if (s1 > s0 && segment > 0) {
+                g.moveTo(
+                  a.x + ((b.x - a.x) * (s0 - walked)) / segment,
+                  a.y + ((b.y - a.y) * (s0 - walked)) / segment,
+                );
+                g.lineTo(
+                  a.x + ((b.x - a.x) * (s1 - walked)) / segment,
+                  a.y + ((b.y - a.y) * (s1 - walked)) / segment,
+                );
+              }
+              walked += segment;
+            }
+            g.stroke({ color: c, width: 18 * w, alpha: 0.95, cap: "butt" });
+          });
+          this.linkPaths.push({ points, length, color: "#c9d3dc", mine: mine && link.flowing });
+          continue;
+        }
+        this.linkPaths.push({ points, length, color, mine: mine && link.flowing });
+        const trace = () => points.forEach((p, i) => (i === 0 ? g.moveTo(p.x, p.y) : g.lineTo(p.x, p.y)));
+        if (focus) {
+          trace();
+          g.stroke({ color: 0xffe08a, width: 64 * w, alpha: 0.55, cap: "round", join: "round" });
+        }
+        // The channel's cover (dark stone), then the good's colour in its slot
+        trace();
+        g.stroke({
+          color: 0x2b2a26,
+          width: 34 * w,
+          alpha: mine || focus ? 0.85 : 0.45,
+          cap: "round",
+          join: "round",
+        });
+        trace();
+        g.stroke({ color, width: 14 * w, alpha: mine || focus ? 1 : 0.55, cap: "round", join: "round" });
+      }
+    }
+    // The goods on their way: a few bright beads gliding from seller to buyer
+    this.linkTime += deltaSeconds;
+    const pulse = this.linkPulse;
+    pulse.clear();
+    if (this.far) {
+      return;
+    }
+    for (const path of this.linkPaths) {
+      if (!path.mine || path.length <= 0) {
+        continue;
+      }
+      const spacing = 420;
+      const shift = (this.linkTime * 160) % spacing;
+      for (let d = shift; d < path.length; d += spacing) {
+        let rest = d;
+        for (let i = 1; i < path.points.length; i++) {
+          const a = path.points[i - 1]!;
+          const b = path.points[i]!;
+          const segment = Math.hypot(b.x - a.x, b.y - a.y);
+          if (rest <= segment) {
+            const t = segment === 0 ? 0 : rest / segment;
+            pulse.circle(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, 11);
+            break;
+          }
+          rest -= segment;
+        }
+      }
+      pulse.fill({ color: 0xfff6d8, alpha: 0.95 });
+    }
+  }
+
   private drawHighlights() {
     const g = this.highlightLayer;
     g.clear();
@@ -3152,8 +3505,20 @@ export class Engine {
       const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
       traceFootprint(g, state.hintTile.x, state.hintTile.y, state.hintTile.size);
       g.fill({ color: 0xf6c744, alpha: 0.18 + 0.22 * pulse });
+      // A dark rim under the gold, so it shows on the Wind and Sun overlays too (run 2: "an orange area, not a tile")
+      traceFootprint(g, state.hintTile.x, state.hintTile.y, state.hintTile.size);
+      g.stroke({ color: 0x2b1d0e, width: 12 + 4 * pulse, alpha: 0.55 });
       traceFootprint(g, state.hintTile.x, state.hintTile.y, state.hintTile.size);
       g.stroke({ color: 0xffe08a, width: 6 + 4 * pulse, alpha: 0.95 });
+      // And a golden arrow bobbing over it, so it can't be missed (run 2's replay: Ana didn't see the tile at all)
+      const top = tileCenter(
+        state.hintTile.x + (state.hintTile.size - 1) / 2,
+        state.hintTile.y + (state.hintTile.size - 1) / 2,
+      );
+      const lift = 70 + 14 * state.hintTile.size + 10 * pulse;
+      g.poly([top.x - 26, top.y - lift - 34, top.x + 26, top.y - lift - 34, top.x, top.y - lift])
+        .fill({ color: 0xf6c744, alpha: 0.95 })
+        .stroke({ color: 0x2b1d0e, width: 5, alpha: 0.7 });
     }
     if (state.selectedNetwork !== null) {
       for (const conductor of this.world.conductors.values()) {

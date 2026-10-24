@@ -70,9 +70,15 @@ export function ParcelPanel() {
   );
 }
 
+/** The goods land is dealt (WorldGenerator.LandGoods): on dealt land only a seat's own can be made on it */
+const LAND_GOODS = ["copperOre", "coal", "sand", "wood", "stone"];
+
 /** What a parcel holds: its deposits (with their best richness), water, forest, hills */
 function ParcelContents({ x, y }: { x: number; y: number }) {
   const content = useAppStore((state) => state.content);
+  // Dealt land: only your seat's goods can be made here (run 4: Cleo bought a "forest" parcel for a Lumber Camp her
+  // land can't have); null on old land, where everything counts
+  const goods = useAppStore((state) => state.company?.land?.goods ?? null);
   const world = gameClient.world;
   if (world === null || content === null) {
     return null;
@@ -95,9 +101,11 @@ function ParcelContents({ x, y }: { x: number; y: number }) {
       }
     }
   }
+  const yours = (good: string) => goods === null || goods.includes(good);
   const land = [
-    (terrain.get("water") ?? 0) > 0 && "water (a shore for pumps and dredgers)",
-    (terrain.get("forest") ?? 0) >= 4 && "forest",
+    (terrain.get("water") ?? 0) > 0 && `water (a shore for pumps${yours("sand") ? " and dredgers" : ""})`,
+    (terrain.get("forest") ?? 0) >= 4 &&
+      (yours("wood") ? "forest" : "forest (trees only: wood isn't your land's good)"),
     (terrain.get("hills") ?? 0) >= 6 && "windy hills",
     (terrain.get("desert") ?? 0) >= 6 && "sunny desert",
   ].filter(Boolean);
@@ -113,7 +121,9 @@ function ParcelContents({ x, y }: { x: number; y: number }) {
             <ResourceIcon resource={resource} />
             <span>{content.resourceName(resource)}</span>
             <span className="flow-amount">
-              {d.tiles} tiles · {"★".repeat(d.richness)}
+              {LAND_GOODS.includes(resource) && !yours(resource)
+                ? "not your land's good"
+                : `${d.tiles} tiles · ${"★".repeat(d.richness)}`}
             </span>
           </li>
         ))}

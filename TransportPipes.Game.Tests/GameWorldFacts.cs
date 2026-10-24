@@ -8,7 +8,7 @@ namespace TransportPipes.Game.Tests;
 public class GameWorldFacts
 {
     [TestMethod]
-    public void ANewCompanyGetsAnEstateWithHqTradingPostAndGates()
+    public void ANewCompanyGetsAnEstateWithHqTradingPostAndAYardGate()
     {
         var game = new TestGame();
         var company = game.World.CreateCompany(1, "Pipe Dreams", "#33aaff");
@@ -20,7 +20,7 @@ public class GameWorldFacts
         Assert.AreEqual(4, estate.UnlockedCount);
         Assert.IsTrue(new[] { 5, 6, 9, 10 }.All(estate.IsUnlocked));
         CollectionAssert.AreEquivalent(new[] { "hq", "tradingPost" }, game.World.BuildingsOf(company.Id).Select(t => t.Type).ToArray());
-        Assert.AreEqual(4, game.World.Conductors.Count(t => t.Kind == ConductorKind.Gate && t.Owner == company.Id));
+        Assert.AreEqual(estate.YardGate, game.World.Conductors.Single(t => t.Kind == ConductorKind.Gate && t.Owner == company.Id).Pos);
         Assert.AreEqual(0, company.Xp, "the free buildings give no XP");
     }
 
@@ -147,16 +147,12 @@ public class GameWorldFacts
         game.Connect(company, moily, storage);
         game.Connect(company, moily, game.TradingPost(company));
         game.World.EnsureOrders(company);
-        var need = game.World.StorageNeed(company, "energy");
-        Assert.IsGreaterThan(0, need, "today's orders ask for energy");
+        Assert.AreEqual(0, game.World.StorageNeed(company, "energy"), 1e-9, "hub orders buy at the trading post (after run 3, step 7): nothing is kept for them");
         var gold = company.Gold;
 
         game.Pass(1);
-        Assert.AreEqual(gold, company.Gold, "first into the storage, for the orders");
-
         game.Pass(60);
-        Assert.AreEqual(need, storage.Contents["energy"], 1e-6);
-        Assert.IsGreaterThan(gold, company.Gold, "then sold");
+        Assert.IsGreaterThan(gold, company.Gold, "it is sold");
         Assert.AreEqual(FlowKind.Sale, game.World.NetworkOf(moily.Id)!.Solution.Flows.Single().Kind);
 
         // Told to keep everything, it fills up
@@ -189,17 +185,16 @@ public class GameWorldFacts
     }
 
     [TestMethod]
-    public void AStorageKeepsWhatTodaysOrdersAndTheBuildingsNeed()
+    public void AStorageKeepsWhatTheBuildingsNeed()
     {
         var game = new TestGame();
         var company = game.NewCompany(level: 16);
         var storage = game.Build(company, "storage");
         var definition = game.World.Content.Building("storage");
         game.World.EnsureOrders(company);
-        var energy = company.DailyOrders.Where(t => t.Resource == "energy").Sum(t => t.Amount);
-        Assert.IsGreaterThan(0, energy, "a company that makes nothing yet is asked for energy");
+        Assert.IsTrue(company.DailyOrders.Any(t => t.Resource == "energy"), "a company that makes nothing yet is asked for energy");
 
-        Assert.AreEqual(energy, game.World.StorageKeep(storage, definition, "energy"), 1e-6);
+        Assert.AreEqual(0, game.World.StorageKeep(storage, definition, "energy"), 1e-6, "orders fill at the trading post, not from a Storage");
         Assert.AreEqual(500, game.World.StorageKeep(storage, definition, "bricks"), 1e-6, "enough for a Market Hall (Company Level 16)");
         Assert.AreEqual(0, game.World.StorageKeep(storage, definition, "ironOre"), 1e-6, "nothing needs it: all of it is sold");
 
@@ -288,6 +283,25 @@ public class GameWorldFacts
     }
 
     [TestMethod]
+    public void TheIncomeIsRightStraightAfterAnUpgrade()
+    {
+        var game = new TestGame();
+        var company = game.NewCompany();
+        var moily = game.Build(company, "windMoily");
+        game.Connect(company, moily, game.TradingPost(company));
+        game.Pass(1);
+        var before = game.World.GoldPerMinute()[company.Id];
+
+        // No tick between the upgrade and the read (run 1's "+0/min" right after a command)
+        Assert.IsTrue(game.World.Upgrade(company.Id, moily.Id, 1).Success);
+        var straightAfter = game.World.GoldPerMinute()[company.Id];
+        game.Pass(1);
+
+        Assert.IsTrue(straightAfter > before, "the upgrade shows at once");
+        Assert.AreEqual(game.World.GoldPerMinute()[company.Id], straightAfter, 1e-9, "the same rate as after a tick");
+    }
+
+    [TestMethod]
     public void ParcelsAreBoughtNextToYourLandWhenYourLevelIsHighEnough()
     {
         var game = new TestGame();
@@ -345,71 +359,6 @@ public class GameWorldFacts
         Assert.AreEqual(to, moily.Position);
         Assert.AreEqual(5, moily.Level);
         Assert.AreSame(moily, game.World.BuildingAt(to));
-    }
-
-    /// <summary>Company A (slot 0) sells energy to company B (slot 1) through their gates and a corridor pipe</summary>
-    private static (TestGame Game, Company A, Company B, Building Moily, Building Mine) Neighbours(bool mineToStorage = false)
-    {
-        var game = new TestGame();
-        var a = game.NewCompany("A");
-        var b = game.NewCompany("B", level: 2);
-        Assert.AreEqual(a.Slot + 1, b.Slot);
-
-        var moily = game.Build(a, "windMoily");
-        game.Connect(a, moily, GateSide.Right);
-        var rightGate = WorldLayout.GatePosition(a.District, a.Slot, GateSide.Right);
-        Assert.IsTrue(game.World.PlacePipes(a.Id, [rightGate.Offset(1, 0), rightGate.Offset(2, 0)]).Success);
-        Assert.AreEqual(WorldLayout.GatePosition(b.District, b.Slot, GateSide.Left), rightGate.Offset(3, 0));
-
-        var mine = game.Build(b, "ironMine", game.Spot(b, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
-        game.Connect(b, mine, GateSide.Left);
-        game.Connect(b, mine, mineToStorage ? game.Build(b, "storage") : game.TradingPost(b));
-        game.World.SolveNetworks();
-        return (game, a, b, moily, mine);
-    }
-
-    [TestMethod]
-    public void NeighboursTradeThroughTheirGates()
-    {
-        var (game, a, b, moily, mine) = Neighbours();
-        var goldA = a.Gold;
-
-        game.Pass(10);
-
-        var network = game.World.NetworkOf(moily.Id)!;
-        Assert.AreSame(network, game.World.NetworkOf(mine.Id));
-        var trade = network.Solution.Flows.Single(t => t.Kind == FlowKind.Trade);
-        Assert.AreEqual(moily.Id, trade.From);
-        Assert.AreEqual(mine.Id, trade.To);
-        Assert.AreEqual(10, trade.Delivered, 1e-9, "the mine needs 10 energy");
-        Assert.AreEqual(1.75, trade.PricePerUnit, "the automatic price is the middle of the fair band");
-        Assert.AreEqual(goldA + 10 * 1.75 * 10, a.Gold, 1e-6);
-        Assert.IsTrue(network.Solution.Flows.Any(t => t.Kind == FlowKind.Sale && t.From == mine.Id), "B sells the ore");
-    }
-
-    [TestMethod]
-    public void AClosedGateStopsTheTrade()
-    {
-        var (game, a, b, moily, mine) = Neighbours();
-
-        Assert.IsTrue(game.World.SetGatePolicy(b.Id, GateSide.Left, GatePolicy.Closed).Success);
-        game.World.SolveNetworks();
-
-        Assert.AreNotSame(game.World.NetworkOf(moily.Id), game.World.NetworkOf(mine.Id));
-    }
-
-    [TestMethod]
-    public void ACompanyWithoutGoldCantBuyFromOthers()
-    {
-        var (game, a, b, moily, mine) = Neighbours(mineToStorage: true);
-        b.Gold = 35;
-        var goldA = a.Gold;
-
-        game.Pass(10);
-
-        Assert.AreEqual(0, b.Gold, 1e-6);
-        Assert.AreEqual(goldA + 35, a.Gold, 1e-6, "B could pay for two minutes of energy");
-        Assert.IsFalse(game.World.NetworkOf(moily.Id)!.Solution.Flows.Any(t => t.Kind == FlowKind.Trade));
     }
 
     [TestMethod]

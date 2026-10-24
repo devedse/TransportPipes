@@ -23,6 +23,9 @@ public class BalanceSimulation
         ["hardcore"] = [(8, 120), (12, 60), (17, 240)],
         // The typical day, doing what the advisor says (docs/v1.1-design.html §4)
         ["typical-advisor"] = [(8, 5), (12.5, 5), (18, 5), (21, 20), (23, 5)],
+        // The typical day alone on a v1.2 server: Houses in every seat (and their starter kit), the station's project,
+        // the trunks to far markets
+        ["typical-together"] = [(8, 5), (12.5, 5), (18, 5), (21, 20), (23, 5)],
     };
 
     [TestMethod]
@@ -30,6 +33,7 @@ public class BalanceSimulation
     [DataRow("casual")]
     [DataRow("hardcore")]
     [DataRow("typical-advisor")]
+    [DataRow("typical-together")]
     public void TheFirstTwoWeeks(string profile)
     {
         if (Environment.GetEnvironmentVariable("TP_BALANCE") != "1")
@@ -43,6 +47,12 @@ public class BalanceSimulation
         var days = int.TryParse(Environment.GetEnvironmentVariable("TP_BALANCE_DAYS"), out var d) ? d : 14;
         // Like a real server: Loady, achievements, and the surveyors' starter kit on every estate
         var game = new TestGame(seed: 4242, achievements: true, tutorial: true, surveys: true);
+        if (profile == "typical-together")
+        {
+            game.World.TenantsEnabled = true;
+            game.World.ProjectsEnabled = true;
+            game.World.TrunksEnabled = true;
+        }
         var company = game.NewCompany("Bot", gold: game.World.StartingGold);
         var bot = new Bot(game, company);
         var report = new StringBuilder();
@@ -257,8 +267,14 @@ public class BalanceSimulation
     private static string Time(int minutes) => minutes < 24 * 60 ? $"{minutes / 60}h{minutes % 60:00}" : $"day {minutes / (24 * 60) + 1} {minutes / 60 % 24}h";
 
     /// <summary>A sensible player: energy first, then chains, upgrades with a quick payback, parcels and research</summary>
-    private sealed class Bot(TestGame game, Company company)
+    internal sealed class Bot(TestGame game, Company company)
     {
+        /// <summary>The light bots' cap (step 5): at most this many buildings besides the HQ and the trading post</summary>
+        public int? MaxBuildings { get; init; }
+
+        private bool Full => MaxBuildings is { } cap
+            && World.BuildingsOf(company.Id).Count(t => World.Content.Building(t.Type).Kind is not (BuildingKind.Hq or BuildingKind.TradingPost)) >= cap;
+
         private readonly List<string> _notes = new();
         private GameWorld World => game.World;
 
@@ -273,6 +289,15 @@ public class BalanceSimulation
         {
             // Playing counts as being seen (else the company would fall asleep after 30 days)
             company.LastSeenAt = game.Time;
+            // Once a session the top bar's "Your gold can": Grow everything that pays back within a week (after run 4)
+            if (advisor && _grownOn != game.Time.Date && World.PlanGrowth(company).Parts.Count > 0)
+            {
+                _grownOn = game.Time.Date;
+                if (World.GrowEverything(company.Id).Success)
+                {
+                    _notes.Add("grew everything that pays");
+                }
+            }
             for (var action = 0; action < 30; action++)
             {
                 if (!(advisor ? FollowAdvisor() : Act()))
@@ -280,13 +305,14 @@ public class BalanceSimulation
                     break;
                 }
             }
-            DeliverOrders();
         }
 
         /// <summary>One sensible thing to do, if there is one</summary>
         public bool Act() => TryPump() || TryResearch() || TryParcel() || TryChain() || TryUpgrade() || TryProducer();
 
         /// <summary>The first of the advisor's next steps the company can afford now, done</summary>
+        private DateTime? _grownOn;
+
         public bool FollowAdvisor()
         {
             var advice = World.NextSteps(company);
@@ -296,7 +322,7 @@ public class BalanceSimulation
             }
             foreach (var step in advice)
             {
-                if (step.Cost > company.Gold)
+                if (step.Cost > company.Gold || step.Action == AdvisorAction.Build && Full)
                 {
                     continue;
                 }
@@ -308,7 +334,10 @@ public class BalanceSimulation
                     AdvisorAction.Research => step.Research != null && World.StartResearch(company.Id, step.Research).Success,
                     AdvisorAction.Parcel => World.BuyParcel(company.Id, step.Parcel!.Value).Success,
                     AdvisorAction.Partner => ConnectNeighbour() != null,
-                    AdvisorAction.Pipes => World.UpgradePipes(company.Id, step.Tiles!, step.Tier).Success,
+                    AdvisorAction.Climb => World.ClimbPipe(company.Id, step.Building!.Value, order: true).Success,
+                    // The shared goals (after run 4): an hour of income to the storey, a day's order for the Era Wonder
+                    AdvisorAction.Storey => World.GiveToStorey(company.Id, 1).Success,
+                    AdvisorAction.Wonder => World.EraWonder is { } wonder && wonder.Required.Keys.ToList().Any(good => World.OrderForWonder(company.Id, good, step.Cost).Success),
                     AdvisorAction.Connect => ConnectAll(),
                     _ => false,
                 };
@@ -369,13 +398,13 @@ public class BalanceSimulation
                         return SpareEnergy() < 0 && company.Gold >= Cost("windMoily") && Place("windMoily", preferMultiplier: true) ? ("built a Wind Moily for the factory", 40) : (null, 0);
                     }
                     return Unlocked("smallFactory") && company.Gold >= Cost("smallFactory") && Place("smallFactory", preferMultiplier: false) ? ("built and piped a Small Factory", 40) : (null, 0);
-                case "firstNeighbour":
+                case "firstYard":
                     return ConnectNeighbour() is { } neighbour ? ($"piped to {neighbour}", 45) : (null, 0);
                 case "firstStorage":
                     return company.Gold >= Cost("storage") && Place("storage", preferMultiplier: false) ? ("built and piped a Storage", 30) : (null, 0);
                 case "firstOrder":
-                    var delivered = company.DailyOrders.Where(t => !t.Done).Select(t => World.DeliverOrder(company.Id, t.Id)).Count(t => t.Success);
-                    return delivered > 0 ? ($"delivered to {delivered} order(s)", 20) : (null, 0);
+                    // Orders fill by themselves from what the trading post sells (after run 3, step 7)
+                    return (null, 0);
                 case "firstParcel":
                     return TryParcel() ? ("bought a parcel", 20) : (null, 0);
                 case "firstResearch":
@@ -395,8 +424,7 @@ public class BalanceSimulation
                 case "threeResearches":
                     return company.CurrentResearch == null && TryResearch() ? (TakeNotes().TrimStart(' ', '·'), 20) : (null, 0);
                 case "moreOrders":
-                    var orders = company.DailyOrders.Where(t => !t.Done).Select(t => World.DeliverOrder(company.Id, t.Id)).Count(t => t.Success);
-                    return orders > 0 ? ($"delivered to {orders} order(s)", 20) : (null, 0);
+                    return (null, 0);
                 case "neighbourIncome":
                     return ConnectNeighbour() is { } partner ? ($"piped to {partner}", 45) : (null, 0);
                 case "secondParcel":
@@ -434,32 +462,23 @@ public class BalanceSimulation
             return loose.Count > 0 && loose.All(t => TryConnect(t, post));
         }
 
-        /// <summary>
-        /// A pipe from the network to the nearest gate of a tenant that is short of what the company makes (what the
-        /// neighbour card in the game suggests)
-        /// </summary>
+        /// <summary>A pipe from the network to the Yard gate, so the station's residents trade with it (Loady's neighbour step)</summary>
         private string? ConnectNeighbour()
         {
-            var post = World.BuildingsOf(company.Id).First(t => World.Content.Building(t.Type).Kind == BuildingKind.TradingPost);
-            var made = World.BuildingsOf(company.Id).SelectMany(t => World.Content.Building(t.Type).Out.Keys).ToHashSet();
-            var neighbourhood = World.NeighbourhoodOf(company);
-            var gates = World.Companies.Where(t => t.IsNpc && t.District == company.District && neighbourhood.CanSupply(t.Id, made))
-                .SelectMany(t => Enum.GetValues<GateSide>().Select(side => (Tenant: t, Outside: WorldLayout.OutsideGate(t.District, t.Slot, side))))
-                .OrderBy(t => Math.Abs(t.Outside.X - post.X) + Math.Abs(t.Outside.Y - post.Y));
-            var network = World.Conductors.Where(t => t.Owner == company.Id && t.Kind == ConductorKind.Pipe).Select(t => t.Pos).ToList();
-            foreach (var (tenant, outside) in gates.Take(6))
+            if (World.EstateOf(company) is not { } estate || World.NetworkAt(estate.YardGate) is { Buildings.Count: > 0 })
             {
-                try
-                {
-                    var pipe = game.Connect(company, network, [outside]);
-                    return $"{tenant.Name} ({pipe.Count} tiles of pipe)";
-                }
-                catch (AssertFailedException)
-                {
-                    // Too far or too expensive: the next one
-                }
+                return null;
             }
-            return null;
+            var network = World.Conductors.Where(t => t.Owner == company.Id && t.Kind == ConductorKind.Pipe).Select(t => t.Pos).ToList();
+            try
+            {
+                var pipe = game.Connect(company, network, TestGame.Neighbours(estate.YardGate).Where(t => WorldLayout.ZoneAt(t.X, t.Y).Kind == ZoneKind.Estate && !World.IsOccupied(t)));
+                return $"the Yard gate ({pipe.Count} tiles of pipe)";
+            }
+            catch (AssertFailedException)
+            {
+                return null;
+            }
         }
 
         private bool Unlocked(string type) => World.IsUnlocked(company, World.Content.Building(type), out _);
@@ -615,14 +634,6 @@ public class BalanceSimulation
                 return true;
             }
             return false;
-        }
-
-        private void DeliverOrders()
-        {
-            foreach (var order in company.DailyOrders.ToList())
-            {
-                World.DeliverOrder(company.Id, order.Id);
-            }
         }
 
         /// <summary>Places a building close to the trading post (or where it makes the most) and pipes it to the network</summary>

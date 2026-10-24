@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Needs From the Land, Gifts by Pipe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --teal: #24575a; --teal-dark: #173c3f; --accent: #236b69; --brass: #c9963a; --brass-dark: #94692a;
+  --cream: #f4ead3; --cream-strong: #fbf5e7; --paper: #fffaf0; --ink: #2b2418; --muted: #6b5c43;
+  --green: #33761f; --red: #a12f1f; --gold: #8a5d00; --line: rgba(80, 60, 30, 0.18);
+  --good-bg: #d6eccd; --bad-bg: #f6d3cc; --warn-bg: #f3e6c4;
+}
+* { box-sizing: border-box; }
+html { background: #e9dfc6; }
+body { margin: 0; font-family: Nunito, system-ui, sans-serif; color: var(--ink); line-height: 1.55; background: #e9dfc6; }
+.page { max-width: 1040px; margin: 24px auto; padding: 48px 56px; background: var(--paper); border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(40, 30, 10, 0.18); border: 1px solid var(--line); }
+@media (max-width: 720px) { .page { margin: 12px 8px; padding: 24px 16px; border-radius: 12px; } }
+h1, h2, h3 { font-family: Fraunces, Georgia, serif; color: var(--teal-dark); line-height: 1.2; text-wrap: balance; }
+h1 { font-size: 2.6rem; margin: 0 0 8px; }
+h2 { font-size: 1.9rem; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 3px solid var(--brass); }
+h3 { font-size: 1.25rem; margin: 26px 0 8px; }
+h4 { margin: 18px 0 6px; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+p { margin: 0 0 12px; max-width: 72ch; }
+ul, ol { padding-left: 22px; margin: 0 0 12px; }
+li { margin-bottom: 4px; }
+.kicker { text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; color: var(--brass-dark); font-size: 0.85rem; }
+.lead { font-size: 1.15rem; }
+.muted { color: var(--muted); }
+.small { font-size: 0.88rem; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+@media (max-width: 720px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+.grid2 > *, .grid3 > * { min-width: 0; }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 0.92rem; }
+th { text-align: left; background: var(--cream); color: var(--teal-dark); padding: 7px 10px; font-weight: 800; }
+td { padding: 7px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+tr.hl td { background: #fbefd4; }
+.callout { padding: 14px 18px; border-radius: 12px; background: var(--cream); border-left: 6px solid var(--brass); margin: 14px 0; }
+.callout.decision { border-left-color: var(--accent); background: #e4efe9; }
+.callout.problem { border-left-color: var(--red); background: #f8e7e2; }
+.callout strong:first-child { display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; margin-bottom: 4px; }
+.pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 0.78rem; font-weight: 800; white-space: nowrap; }
+.pill.good { background: var(--good-bg); color: var(--green); }
+.pill.bad { background: var(--bad-bg); color: var(--red); }
+.pill.warn { background: var(--warn-bg); color: var(--gold); }
+.pill.info { background: #dde9f3; color: #24507a; }
+.toc { columns: 2; gap: 32px; padding-left: 20px; }
+.toc li { break-inside: avoid; }
+@media (max-width: 720px) { .toc { columns: 1; } }
+.cover { background: linear-gradient(160deg, #1f4d50 0%, #24575a 55%, #2f6b66 100%); color: #fff; }
+.cover h1 { color: #fff; font-size: 3rem; }
+.cover .kicker { color: #f2d27a; }
+.cover .lead { color: #f4ead3; }
+.themes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 26px; }
+@media (max-width: 720px) { .themes { grid-template-columns: 1fr; } .cover h1 { font-size: 2.2rem; } }
+.theme { background: rgba(255,255,255,0.1); border: 1px solid rgba(242,210,122,0.5); border-radius: 12px; padding: 12px 14px; }
+.theme b { color: #f2d27a; display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; }
+.theme span { color: #f4ead3; font-size: 0.9rem; }
+.gpanel { background: var(--cream); border: 3px solid var(--teal); border-radius: 14px; box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+  padding: 12px 14px; color: var(--ink); font-size: 0.9rem; }
+.gpanel h5 { margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; color: var(--teal-dark); }
+.plaque { display: inline-block; background: linear-gradient(#8a5a2e, #6e4421); color: #fff6df; font-family: Fraunces, Georgia, serif;
+  padding: 3px 12px; border-radius: 8px; border: 2px solid #4a2c12; font-weight: 800; margin-bottom: 6px; }
+pre, code { font-family: "JetBrains Mono", ui-monospace, monospace; }
+code { font-size: 0.86em; background: var(--cream); padding: 1px 5px; border-radius: 5px; }
+pre { background: #1d2b2c; color: #e9f0e6; padding: 14px 16px; border-radius: 12px; font-size: 0.8rem; line-height: 1.5;
+  overflow-x: auto; margin: 10px 0 16px; white-space: pre; }
+pre .c { color: #9fb8b0; }
+pre .k { color: #f2d27a; }
+/* The setup as a flow */
+.flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: stretch; margin: 18px 0 8px; }
+@media (max-width: 860px) { .flow { grid-template-columns: 1fr; } }
+.node { background: var(--cream-strong); border: 2px solid var(--teal); border-radius: 12px; padding: 10px 12px; font-size: 0.86rem; position: relative; }
+.node b { display: block; font-family: Fraunces, Georgia, serif; color: var(--teal-dark); font-size: 1rem; margin-bottom: 2px; }
+.node .who { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800; color: var(--brass-dark); }
+.node.ai { border-color: var(--brass); background: #fdf3dc; }
+.node.game { border-color: var(--accent); background: #e7f1ec; }
+.arrows { font-size: 0.85rem; color: var(--muted); margin: 4px 0 18px; }
+.persona { display: flex; flex-direction: column; gap: 6px; }
+.persona .head { display: flex; align-items: center; gap: 10px; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-family: Fraunces, Georgia, serif;
+  font-weight: 800; font-size: 1.1rem; flex: none; border: 2px solid rgba(0,0,0,0.15); }
+.persona .tests { font-size: 0.84rem; color: var(--muted); }
+.persona .tests b { color: var(--teal-dark); }
+.cal td:first-child { white-space: nowrap; font-weight: 800; color: var(--teal-dark); }
+.dots { white-space: nowrap; }
+.dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; margin-right: 3px; vertical-align: -1px; }
+.ex { position: relative; }
+.ex::before { content: "Example of the format · not a result"; position: absolute; top: -11px; right: 14px; background: var(--brass);
+  color: #fff; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 6px; }
+.score { display: inline-flex; gap: 10px; flex-wrap: wrap; font-weight: 800; color: var(--teal-dark); }
+
+.fix { border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px 6px; margin: 0 0 14px; background: #fffdf7; }
+.fix-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.fix-head h3 { margin: 0; }
+.fix-head .eff { margin-left: auto; font-size: 0.8rem; font-weight: 800; color: var(--muted); }
+.fix ol, .fix ul { margin-top: 0; }
+.fix table td:first-child { white-space: nowrap; }
+table.small td, table.small th { font-size: 0.86rem; }
+</style>
+</head>
+<body>
+
+<section class="page cover">
+  <div class="kicker">TransportPipes · v1.2 · after the first AI playtest · the revised plan</div>
+  <h1>Needs from the land, gifts by pipe</h1>
+  <p class="lead">You expected more of a redesign, so the six designers of v1.2 came back and judged their own design
+  against the playtest. They agree: the world layer held, and the together layer failed by design, not only by bugs.
+  Their one shared idea was then argued against the fix panel's plan, turn by turn, by one representative of each team.
+  Both signed one plan. This page is that plan.</p>
+  <div class="themes">
+    <div class="theme"><b>Each seat holds what the others don't</b><span>Copper, coal, sand, wood and stone are dealt
+      per station and never copied. Your starter kit makes your seat's good from minute one. A friend makes what you
+      can't.</span></div>
+    <div class="theme"><b>One price where both sides gain</b><span>1.3 × base between players and for the project.
+      Houses sell land goods at 1.4, so a player alone, or one whose friend has gone, is never stuck.</span></div>
+    <div class="theme"><b>Send ▸, on top of the automatic Yard</b><span>One tap names the friend, keeps them first and
+      lays the pipe. Their building reads "Runs on Dev's coal 💛", and Thanks answers it.</span></div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>0 · Three decisions for you</h2>
+  <p>Both teams left these to you. Nothing past step 4 is built until you decide.</p>
+  <div class="grid3">
+    <div class="callout decision">
+      <strong>1. A new world on the test server</strong>
+      The land deal changes what every estate holds, so step 5 starts a fresh world, and your estate there restarts.
+      Steps 1–4 ship first on today's world, so you keep playing it until then. The run-1 snapshots stay for replays.
+      <p class="small" style="margin-top:8px"><b>My advice:</b> yes, at step 5.</p>
+    </div>
+    <div class="callout decision">
+      <strong>2. Going on past the fix plan</strong>
+      Steps 1–3 are the fix plan's part, about 8–10 days, and can ship alone. They make the game honest and readable,
+      but they leave trade between friends near 0 by construction: every estate still mines its own copper, coal and
+      stone.
+      <p class="small" style="margin-top:8px"><b>My advice:</b> go on. Every step is a playable commit, so you can stop
+      after any of them.</p>
+    </div>
+    <div class="callout decision">
+      <strong>3. A stranger seated next door to a crew</strong>
+      On a small server, a player who comes alone is seated by default in the small station next to a crew's, sharing
+      its Yard and project. It helps the lonely player most. Your friends live beside someone they didn't choose; any of
+      them can close it to future strangers, and nobody living there is moved.
+      <p class="small" style="margin-top:8px"><b>My advice:</b> yes.</p>
+    </div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>1 · Why the fix plan wasn't enough</h2>
+  <p>The fix plan repairs what was built wrong: a Yard that paid nobody, dead ends that blamed their inputs, a project
+  out of reach and screens that hid it all. It still ships, as steps 1 and 3. But it left three causes standing, and
+  they are in the design.</p>
+  <div class="grid3">
+    <div class="callout problem">
+      <strong>Nobody needed a friend</strong>
+      Every estate gets copper, coal and stone (<code>GameWorld.Survey.cs:13</code>), and every kit makes energy. The
+      advisor tells everyone to mine their own: own mine and factory make +54 g/min, a neighbour's ore at 1.5 makes
+      +10. With honest lacks, trade between friends comes to about 0, and a solo player would earn 106% of a crewed one.
+    </div>
+    <div class="callout problem">
+      <strong>There was no act</strong>
+      In 36 days: 0 Asks, 0 links, 0 tends, 0 pins, and no good knowingly sent to a friend. The only way goods moved
+      between friends was an automatic matcher. Dev asked <i>"how do I send?"</i> three times; Cleo wrote <i>"Sending
+      copper ingots will need a station"</i>.
+    </div>
+    <div class="callout problem">
+      <strong>The price paid nobody both ways</strong>
+      At 1.75 × base, a Smelter on a neighbour's copper loses money. At 1.5, a Brickworks on bought stone and coal
+      does. Once the land is dealt, two bought inputs are the normal case. Only at about 1.3 does every Era-1 chain
+      pay its buyer and its seller.
+    </div>
+  </div>
+  <div class="callout">
+    <strong>The fix panel agrees</strong>
+    "Point 1, redesign before run 2: I concede it. Nothing run 2 could show on today's land is worth a run." That is the
+    fix panel's representative, its player researcher, in turn 2. Run 2 on today's land would spend about 1.3M tokens to
+    measure a 0 again. So run 2 moves after the land deal.
+  </div>
+</section>
+
+<section class="page">
+  <h2>2 · How we decided</h2>
+  <div class="flow">
+    <div class="node ai"><span class="who">Round A · alone</span><b>Six verdicts</b>Each designer judged their own
+      design against the run. All six: the world layer held, the together layer failed by design.</div>
+    <div class="node ai"><span class="who">Round B · everyone</span><b>One direction</b>Five of six champion "needs from
+      the land, gifts by pipe"; one rival: friends give only by Send.</div>
+    <div class="node ai"><span class="who">Round C · specs and exams</span><b>Played through the run</b>Three specs,
+      three exams, and the run's 28 sessions replayed under both answers. All six chose Send on top of the Yard.</div>
+    <div class="node game"><span class="who">Sign-off · elections</span><b>One shared idea</b>All six signed, with nine
+      amendments. Representatives: the design team's economy designer (5 of 6), the fix panel's researcher (3 of
+      5).</div>
+    <div class="node game"><span class="who">The dialogue</span><b>One plan</b>Six turns, 17 points, a ledger after
+      every turn, and a joint statement both signed.</div>
+  </div>
+  <p class="arrows">The record: <code>docs/design-notes/after-playtest/</code>. It holds the brief, a-, b- and c-papers,
+  <code>c-shared.md</code>, <code>votes.md</code> and <code>dialogue.md</code>.</p>
+  <div class="callout decision">
+    <strong>Where they changed their minds</strong>
+    <ul class="small">
+      <li><b>The wild idea thrower</b> championed "friends give, strangers trade", and accepted that it lost. Ben stops
+        on day 3, before any friend's building needs his sand, so under it his sand runs nobody's building.</li>
+      <li><b>The psychologist</b> moved the team to protect a stranger's running trade as fully as a friend's: <i>"The
+        stranger is our most fragile player."</i></li>
+      <li><b>The fix panel's economy designer</b> checked the 1.3 margins against <code>buildings.yaml</code>: <i>"their
+        numbers are right… My 1.5 assumed one bought input."</i></li>
+      <li><b>The fix panel's researcher</b> conceded the redesign before run 2, the cost, and the stranger next
+        door.</li>
+      <li><b>The design team's economy designer</b> conceded the order: the money switches on with the land, not
+        before. It also conceded a House floor that keeps friends needed in gold, run-2 marks that fail when nobody
+        acts, and deferring Sketch.</li>
+      <li><b>The fix panel's cooperation designer</b> won two points: no probation for a stranger the game seated, and
+        gift marks on the map only for the two ends.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="page">
+  <h2>3 · What the five would have lived</h2>
+  <p>The psychologist replayed run 1's story under the plan, with the same people, devices, budgets and days.</p>
+  <div class="scroll">
+  <table class="small">
+    <tr><th>Who</th><th>Their seat and kit</th><th>What changes</th></tr>
+    <tr><td><b>Ana</b></td><td>Old Forest: wood, with stone in her first parcel; windy. A Lumber Camp and 3 moilies</td>
+      <td>Day 4, Level 7: a Glassworks on Ben's sand (+21.6 g/min for her, +5.4 for Ben). A Smelter on Cleo's copper and
+      coal. Her chat on day 14: <i>"Workshop 70%: Cleo's copper, Dev's coal, my wood, Mia's coal, and Ben's sand in my
+      keystone glass"</i></td></tr>
+    <tr><td><b>Ben</b></td><td>Riverside: sand, a lake beside his HQ. <i>"i have sand on my riverside seat"</i> becomes
+      true</td><td>He stops on day 3. His dredger runs Ana's Glassworks for 30 days with no tap from him, and he is
+      paid. Granny Ida ⚙ keeps it going from day 33. On day 36 his card says someone needed him</td></tr>
+    <tr><td><b>Cleo</b></td><td>Copper Gulch: copper; sunny. A Copper Mine and 2 moilies</td><td>The station's only
+      copper. She sends it to Ana because a checked number says it pays both: +11.5 g/min for Ana, +10.5 for
+      her</td></tr>
+    <tr><td><b>Dev</b></td><td>Coal Valley, kept warm by Coal Co ⚙ until he arrives on day 8</td><td>Day 8, 20:05, his
+      first session: <i>"Ana's Smelter could use your coal · Send ▸"</i>. One tap, and Ana's building reads <i>"Runs
+      on Dev's coal 💛"</i>. <b>This is where giving is first felt:</b> a real need, a person named, a choice, and an
+      effect she sees</td></tr>
+    <tr><td><b>Mia</b></td><td>Next door, in Capital N: coal, sand and wood, beside Bertha ⚙ (copper and stone)</td>
+      <td>Her coal reaches Ana's Smelter, named to both ends. Ana's Thanks puts <i>"Ana thanked you for your coal
+      💛"</i> on her card. Dev's arrival cuts none of her sales. Alone she earns about 88–95% of what a crewed player earns per
+      building</td></tr>
+  </table>
+  </div>
+  <div class="grid2">
+    <div class="gpanel">
+      <h5>Sand Dredger · Lv 1 <span class="small muted">(Ben's panel)</span></h5>
+      ● Running · 15 sand/min<br>
+      Its pipes reach: your gate (G) · 2 Wind Moilys<br><br>
+      <b>Where it goes</b><br>
+      🏖 Ana's Glassworks could use 15/min<br>
+      <span class="muted">it buys from Bertha ⚙ now</span><br>
+      <span class="plaque">Send to Ana ▸</span><br>
+      🏗 The Water Tower wants 5,400 · you make it <span class="plaque">Send ▸</span><br>
+      🏦 the rest: the hub · 1.00 g
+    </div>
+    <div class="gpanel">
+      <h5>Glassworks · Lv 1 <span class="small muted">(Ana's panel)</span></h5>
+      ● Running · <b>runs on Ben's sand 💛</b><br>
+      Makes 5 glass/min → the hub<br><br>
+      <b>Needs</b><br>
+      🏖 sand 15/min · from Ben, sent · 1.30 g <span class="plaque">💛 Thanks</span><br>
+      ⚡ energy 25/min · your own
+    </div>
+    <div class="gpanel">
+      <h5>Build · Mines <span class="small muted">(on Ana's land)</span></h5>
+      <span class="muted">Copper Mine · there's no copper on your land.</span> Cleo (Copper Gulch) makes it, and Bertha ⚙
+      sells it: build a Smelter, and its copper comes by itself.
+    </div>
+    <div class="gpanel">
+      <h5>While you were away · 33 days <span class="small muted">(Ben, day 36, phone)</span></h5>
+      🪙 gold and level<br>
+      💛 Your sand ran Ana's Glassworks for 33 days · Granny Ida ⚙ from day 33<br>
+      <span class="plaque">make it yours: Send ▸</span> <span class="plaque">Continue</span>
+    </div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>4 · The new rules</h2>
+
+  <h3>The land: needs come from it</h3>
+  <div class="scroll">
+  <table class="small">
+    <tr><th>What</th><th>Rule</th></tr>
+    <tr><td>On every estate</td><td>Energy, iron ore and water. Loady's first hour (Levels 1–4) works alone, as today</td></tr>
+    <tr><td>Dealt per station</td><td>Copper ore, coal, sand, wood and stone. A corner station's four seats get 2, 1, 1 and 1 of
+      them; a small station's two seats get 3 and 2. Every station holds all five once, and no seat holds both bought
+      inputs of one chain (copper with coal, or stone with coal)</td></tr>
+    <tr><td>Where they lie</td><td>The first good is rich (★5/★4) in the start area beside the HQ, the second in the first
+      parcel you buy (Level 5)</td></tr>
+    <tr><td>No copies</td><td>No more free copper, coal and stone patches on every estate. There is no beach without sand,
+      and Lumber Camps need old-forest markers</td></tr>
+    <tr><td>Kits</td><td>The seat's own producer first, then moilies: about 100 g/min on day 1 on every seat
+      (93–104)</td></tr>
+    <tr><td>Where a good is missing</td><td>The Build menu names who makes it and which House sells it; the Deposits overlay
+      labels the station's goods by seat. <b>No copies doesn't ship without this line</b></td></tr>
+  </table>
+  </div>
+
+  <h3>The money: one price, and a floor under everyone</h3>
+  <div class="scroll">
+  <table class="small">
+    <tr><th>The hub buys</th><th>A House buys</th><th>A friend, the project</th><th>A House sells land goods</th><th>A House sells energy, iron</th><th>The hub sells</th></tr>
+    <tr><td>1.0</td><td>1.15 × your hub price</td><td><b>1.3</b> (the bots confirm it against 1.5)</td><td><b>1.4</b></td><td>2.0</td><td>2.5</td></tr>
+  </table>
+  </div>
+  <ul>
+    <li><b>The House floor.</b> A House fully feeds one building per land good, at any level. Beyond that, v1.2's 25%
+      cap applies. A friend therefore matters more as an estate grows, and nobody's first chain ever waits for a human.
+      A player alone should earn 85–92% of a crewed one, per building, and there is a trigger at each end of that
+      band.</li>
+    <li><b>The station backstop.</b> <i>"Whenever no seat of your station will sell you a land good (its owner has
+      been away 3+ days, has Blocked you or set 'not with' you, or the seat is held), the station's House or the hub
+      sells you what that seat doesn't cover at 1.4, with no cap."</i> No player is ever the only door to a good.</li>
+    <li><b>Guards:</b>
+      <ul>
+        <li>units going into a Storage, and same-device trades, pay the seller's hub price (that closes a live funnel
+          in <code>GameWorld.Asks.cs:246–251</code>);</li>
+        <li>a stand-in pays its sleeper's old price only to a crew mate with 10+ play days on another device;</li>
+        <li>a unit the project takes is paid once, at its price;</li>
+        <li>goods bought from a House count 25% toward the project;</li>
+        <li>NPCs never owe;</li>
+        <li>new gold from NPCs, the project's premium included, stays under 6% of faucets.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <h3>Send: the act of giving</h3>
+  <p>The automatic Yard keeps carrying every resident's spare to every honest lack, friends included. So a friend who
+  never taps still runs his friends' buildings, and that is the relief Ben needed. <b>Send</b> adds the name, the choice
+  and a real priority. It is what Cleo and Dev asked for.</p>
+  <div class="scroll">
+  <table class="small">
+    <tr><th>Today's flow</th><th>The button</th><th>What the tap changes</th></tr>
+    <tr><td>Ana's Glassworks buys from Bertha ⚙</td><td><b>Send to Ana ▸</b></td><td>Your sand goes to Ana first</td></tr>
+    <tr><td>It already takes yours</td><td><b>Send to Ana ▸ · keeps Ana first</b></td><td>A standing promise: Ana comes first when your
+      spare gets short, kept by the stand-in under your name</td></tr>
+    <tr><td>Your producer can't reach your gate</td><td><b>Lay the pipe and send to the Water Tower · 26 tiles · 52 g</b></td><td>The pipe is
+      laid in the same tap. It is the panel's one fix button</td></tr>
+    <tr><td>Nobody needs more than they get</td><td>no button: <i>"Cleo's Smelter has all the coal it needs"</i></td><td>—</td></tr>
+  </table>
+  </div>
+  <ul>
+    <li><b>The Yard's order:</b> contracts → usual partners' running trade → Sends → everyone else, pro rata → the
+      project, Houses, storage, the hub.</li>
+    <li><b>Nobody's running trade is cut by someone else's Send or arrival,</b> a friend's or a stranger's. A Send
+      takes only new spare, new lack, and what was going to the hub, a House or the project. Today's matcher shares pro
+      rata and would halve Mia's sales on the day Dev's coal arrives.</li>
+    <li><b>A Send never exceeds the receiver's honest lack.</b> A Send to a sleeper passes to his stand-in.</li>
+    <li><b>Who can send:</b> any resident to any resident's building or to the project, a stranger after the two gates
+      have met. Never to a House. At most 6 Sends per giver.</li>
+    <li><b>Thanks:</b> once a day per pair. It gives no gold, no XP and no counts.</li>
+    <li><b>Bids:</b> <i>"Ana's Glassworks could use your sand · Send ▸"</i>, once per need. It shows only to a player
+      who is playing, never "unanswered", and between strangers only after their gates met.</li>
+    <li><b>"Make it yours: Send ▸":</b> when your goods ran a friend's building by themselves, your card says so once,
+      and offers the tap.</li>
+    <li><b>Privacy:</b> the gate pennants and the pellets in the giver's colour show only to the two ends.</li>
+    <li><b>Never shown:</b> a "stopped" line, ever.</li>
+  </ul>
+
+  <h3>The stranger next door, and the first-comer</h3>
+  <ul>
+    <li>On a small server (under 50 active companies), "Find me neighbours" seats a stranger in the small station next to
+      a crew's. She shares the crew's Yard and project; the crew's own seats stay closed. There is no probation for a
+      stranger the game seated, because a squatter there holds nothing the crew needs.</li>
+    <li>The first player alone on an empty server reads, once: <i>"You're the first in Capital. The next player who comes
+      alone will live next to you."</i> There is no timer and no countdown.</li>
+    <li><i>"Today here"</i>: three public district events on the return card, from the second session.</li>
+  </ul>
+
+  <h3>The first evening</h3>
+  <ul>
+    <li><b>Five nouns and two verbs:</b>
+      <ul>
+        <li>the nouns: crew, seat, House ⚙, your gate (G), the Water Tower;</li>
+        <li>the verbs: Send and Thanks.</li>
+      </ul>
+      "Station", "Yard", "starter kit", Handshake, Sketch, Ask, bid and keystone wait.</li>
+    <li><b>The first screen:</b> one move-in toast, then Loady. The achievement and the level card wait until after
+      Loady's first step.</li>
+    <li><b>No drag on a phone.</b> Loady's pipe step is a one-tap planner.</li>
+    <li><b>Loady's gift step</b> teaches Send to the Water Tower. It counts for nothing in the measures, because AI
+      players do what Loady says.</li>
+  </ul>
+</section>
+
+<section class="page">
+  <h2>5 · What we build, in order</h2>
+  <p>Each step is a playable commit on the branch, and each ships only after its gate. Steps 1–4 run on today's world.
+  Steps 5–7 come with the land deal.</p>
+
+  <div class="fix"><div class="fix-head"><span class="pill info">1</span><h3>The fix plan's foundations</h3><span class="eff">today's world</span></div>
+    <ul>
+      <li>Instruments and replays: each replay first fails on the old build.</li>
+      <li>The honest Yard, the seat picker and smart Max.</li>
+      <li>Dead ends that explain themselves, and Loady with them.</li>
+      <li>One-tap pipe laying, which is also the phone's pipe step and Send's pipe.</li>
+    </ul>
+    <p class="small"><b>Gates:</b> row10's income marks, row07's forced Max, the seat race, and agent replays of Ana (days 8
+    and 14), Dev (day 10), Mia (day 1) and Cleo (day 6).</p></div>
+
+  <div class="fix"><div class="fix-head"><span class="pill info">2</span><h3>The money's guards, at today's numbers</h3><span class="eff">today's world</span></div>
+    <ul>
+      <li>Storage-bound and same-device trades at the hub price.</li>
+      <li>The stand-in rule.</li>
+      <li>Usual partners protected, counted only from paid, taken units from the day this ships. Otherwise run 1's
+        unpaid drain could be protected as a "usual" trade.</li>
+      <li>The fix for three Era-2+ recipes that lose value at base prices.</li>
+    </ul>
+    <p>The price itself doesn't change yet.</p>
+    <p class="small"><b>Gate:</b> unit tests and conservation.</p></div>
+
+  <div class="fix"><div class="fix-head"><span class="pill info">3</span><h3>A project the station can reach, and one return card</h3><span class="eff">today's world</span></div>
+    <p>The fix plan's F4 and F5. The card has room for one social line.</p>
+    <p class="small"><b>Gates:</b> the Foundation stands by 20:30 on evening one; the restaged Water Tower; the agent
+    replay of Ana's day 27.</p></div>
+
+  <div class="fix"><div class="fix-head"><span class="pill good">4</span><h3>Send</h3><span class="eff">today's world</span></div>
+    <p>Send, Thanks, the receiver's line, bids, the Neighbours panel (gifts and totals) and "Where it goes" with both
+    ends named.</p>
+    <p class="small"><b>Gates:</b> <code>send.mjs</code> on a desktop and on a phone with touch (Dev's stuck dredger, one
+    tap, his sand at the Water Tower within 20 game minutes); the Lab-trap check; the funnel probes.</p></div>
+
+  <div class="fix"><div class="fix-head"><span class="pill warn">5</span><h3>The land deal</h3><span class="eff">a new world</span></div>
+    <ul>
+      <li>The dealt land and the kits that make each seat's good.</li>
+      <li>The Build-menu line and the overlay by seat.</li>
+      <li>The price, and the project paying it.</li>
+      <li>The Houses' land sales and the station backstop.</li>
+    </ul>
+    <p>It ships only after step 1's one-tap pipe has passed its phone replay.</p>
+    <p class="small"><b>Gate:</b> the light-bot marks (section 7), which decide the price.</p></div>
+
+  <div class="fix"><div class="fix-head"><span class="pill warn">6</span><h3>The stranger next door, and the first-comer</h3><span class="eff">a new world</span></div>
+    <p class="small"><b>Gates:</b> an agent replay of Mia's first evening next to the crew; a squatter probe.</p></div>
+
+  <div class="fix"><div class="fix-head"><span class="pill warn">7</span><h3>The fix plan's last items, then run 2</h3><span class="eff">a new world</span></div>
+    <p>F9–F11's rest. Then run 2: the same story on dealt land, with Jo, and with Mia played twice (beside Jo, and next
+    door to the crew).</p></div>
+
+  <p class="muted small"><b>Deferred: Sketch,</b> a crew mate drawing a fix on your estate for you to build with one
+  tap. It ships if, after step 1, a crew mate still stays stuck for more than one session in run 2.</p>
+</section>
+
+<section class="page">
+  <h2>6 · What changes in the fix plan</h2>
+  <div class="scroll">
+  <table class="small">
+    <tr><th>The fix plan</th><th>Now</th></tr>
+    <tr><td>F0–F3, F5, F7, F8, F10, F11</td><td>Ship as decided, with their gates</td></tr>
+    <tr><td>F1, the honest Yard</td><td>Ships. A unit the project takes is paid once</td></tr>
+    <tr><td>F4, the project</td><td>Ships. With the land deal, its recipe reads the station's dealt goods, and it pays the one price</td></tr>
+    <tr><td>F6, trade with a face</td><td>Mostly becomes Send. The dropped "send to a friend" button comes back, because the land now
+      gives something real to send. Named ends, paid figures and neighbour-fed chains stay. The seat card tells what the
+      kit really makes</td></tr>
+    <tr><td>F9, friends by name</td><td>Ships. Tending stays a repair, shown only when there is damage</td></tr>
+    <tr><td>The open price question</td><td>1.75 or 1.5 becomes 1.3 or 1.5, decided by bots on dealt land</td></tr>
+    <tr><td>Run 2</td><td>Moves after the land deal, onto dealt land</td></tr>
+    <tr><td>"Friends and a stranger in different stations" (F7)</td><td>Stays true: the stranger is in another station that shares the crew's Yard</td></tr>
+  </table>
+  </div>
+</section>
+
+<section class="page">
+  <h2>7 · How we'll know</h2>
+  <h3>The bots, on dealt land, before run 2</h3>
+  <p>The bots are light profiles of human size: 20 minutes every second evening, at most 15 buildings, following the
+  advisor. Four of them play a crew (Ben stops on day 3, Dev arrives on day 8), one plays alone, and one plays next door.
+  Each runs at 1.3 and at 1.5, with today's 1.75 as the baseline.</p>
+  <div class="scroll">
+  <table class="small">
+    <tr><th>Mark</th><th>Pass</th></tr>
+    <tr><td>Paid trade between humans</td><td>≥ 15% of the crew's output by day 14 (run 1: 0%)</td></tr>
+    <tr><td>Buildings running at a loss on their supply</td><td>0 minutes</td></tr>
+    <tr><td>Solo against crew, per building</td><td>85–92%. Over 92%, a House stops fully feeding at the level-10 milestone; under 85%, the floor
+      rises</td></tr>
+    <tr><td>Pacing</td><td><code>typical</code> unchanged; the light bots reach Level 10 on days 4–6</td></tr>
+    <tr><td>New gold from NPCs</td><td>≤ 6% of faucets, the project's premium included</td></tr>
+    <tr><td>Ben's stop</td><td>Ana's chains get ≥ 99% of their need to day 36; her largest price step is ≤ +8%</td></tr>
+    <tr><td>Probes</td><td>conservation every sample; funnels move 0; a squatter changes no chain; no copies over 3 seeds; Dev's arrival
+      cuts none of Mia's sales</td></tr>
+    <tr><td>The control</td><td>With Send switched off, every act mark reads 0</td></tr>
+  </table>
+  </div>
+  <h3>Run 2: marks that fail when nobody acts</h3>
+  <p>Run 2 keeps the fix plan's table: the Yard honest within 2%, no harm from a neighbour, dead ends fixed within 10
+  play minutes, at most 3 real STUCKs, the Water Tower by day 8, and one return card. It adds act marks that a named flow
+  can't pass:</p>
+  <div class="scroll">
+  <table class="small">
+    <tr><th>Act</th><th>Pass</th></tr>
+    <tr><td>A Send made outside Loady's step</td><td>by day 10, with its reason in the diary (run 1's Dev, day 8)</td></tr>
+    <tr><td>A second Send</td><td>by day 14</td></tr>
+    <tr><td>Ben, the skimmer</td><td>by day 3 he sees a card naming whose building his goods ran, and mentions it</td></tr>
+    <tr><td>Mia</td><td>a human act between her and the crew by day 8 (a Thanks, a Send or a chat reply); "alive" ≥ 4 twice; no crew diary
+      reads her as an intruder</td></tr>
+  </table>
+  </div>
+</section>
+
+<section class="page">
+  <h2>8 · What neither team knows yet</h2>
+  <ul>
+    <li><b>Whether people want to give when they can.</b> Send could go unused. If run 2 has named flows but no chosen
+      Send by day 10, the land works and the act doesn't. Then the bid gets stronger, not the rule.</li>
+    <li><b>How much AI players flatter the game.</b> They read every panel, followed Loady to the letter, and rated fun
+      3 while stuck for five weeks. A pass in run 2 means "not refuted"; human testers are the real check. The bots
+      follow the advisor perfectly, so they flatter trade and parity too.</li>
+    <li><b>Whether a missing good feels like a friend or a wall</b> to a player alone, whether a crew welcomes the
+      stranger next door, and whether 1.3 holds at high levels, where margins are thin.</li>
+    <li><b>What the replays can't check.</b> Run 1's snapshots can't replay the land deal. So steps 1–4 are checked on
+      today's world, and the land only by the bots and run 2.</li>
+  </ul>
+  <h3>What would change the plan</h3>
+  <ul>
+    <li><b>The light crew trades under 15% at 1.3:</b> check the advisor's chain steps first, then try 1.25.</li>
+    <li><b>Run 2's diaries read a friend's absence as a loss:</b> the House land price falls to 1.35.</li>
+    <li><b>Solo parity leaves its band:</b> the floor's trigger at that end applies.</li>
+  </ul>
+</section>
+
+<section class="page">
+  <h2>9 · What it costs</h2>
+  <ul>
+    <li><b>The build:</b> 19–24 working days for one AI developer, by the engineer's estimate, bot harness included.
+      Steps 1–3, the fix plan's part, are about 8–10 of them.</li>
+    <li><b>The agent replays:</b> about 0.3M tokens.</li>
+    <li><b>Run 2:</b> about 1.5M tokens.</li>
+  </ul>
+  <p class="muted small">The record is in <code>docs/design-notes/after-playtest/</code>:</p>
+  <ul class="muted small">
+    <li>the brief;</li>
+    <li>the round-A, -B and -C papers;</li>
+    <li>the shared idea, <code>c-shared.md</code>, with the corrections from the dialogue's point 17;</li>
+    <li>the sign-off and the elections, <code>votes.md</code>;</li>
+    <li>the dialogue and the signed joint statement, <code>dialogue.md</code>.</li>
+  </ul>
+  <p class="muted small">The fix plan it builds on is <code>docs/playtest-fixes.html</code>, with its record in
+  <code>docs/design-notes/playtest-fixes/</code>.</p>
+</section>
+
+</body>
+</html>

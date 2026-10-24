@@ -2,123 +2,113 @@
 
 | Time | Level | Gold | Gold/min | Loady | What happened |
 | --- | --- | --- | --- | --- | --- |
-| 0:30 | 1 | 1,970 | 0.0 | 1/19 | built a Solar Panel |
-| 0:40 | 1 | 2,070 | 0.0 | 2/19 | **Loady: firstPanel done** |
-| 1:10 | 1 | 2,066 | 0.0 | 2/19 | piped the panel to the Trading Post |
-| 1:20 | 1 | 2,217 | 4.9 | 3/19 | **Loady: firstSale done** |
-| 1:40 | 1 | 2,188 | 4.9 | 3/19 | upgraded the panel |
-| 1:50 | 1 | 2,339 | 5.4 | 4/19 | **Loady: firstUpgrade done** |
-| 1:50 | 2 | 2,133 | 5.4 | 4/19 | built and piped a Wind Moily |
-| 2:00 | 2 | 2,334 | 5.4 | 5/19 | **Loady: firstMoily done** |
-| 2:00 | 2 | 2,334 | 5.4 | 5/19 | **Level 2** |
-| 2:40 | 2 | 1,739 | 44.8 | 5/19 | built and piped an Iron Mine |
-| 2:50 | 2 | 2,046 | 44.8 | 6/19 | **Loady: firstMine done** |
-| 3:30 | 2 | 574 | 44.8 | 6/19 | built and piped a Small Factory |
-| 4:10 | 2 | 588 | 80.1 | 6/19 | upgraded a solarPanel to level 3 |
-| 4:30 | 2 | 575 | 80.6 | 6/19 | upgraded a solarPanel to level 4 |
-| 4:50 | 2 | 556 | 81.2 | 6/19 | upgraded a solarPanel to level 5 |
-| 5:10 | 2 | 531 | 81.9 | 6/19 | upgraded a solarPanel to level 6 |
-| 5:30 | 2 | 499 | 82.6 | 6/19 | upgraded a solarPanel to level 7 |
-| 5:40 | 2 | 917 | 110.7 | 7/19 | **Loady: firstIngot done** |
-| 5:50 | 2 | 779 | 110.7 | 7/19 | piped to Capital Brickworks C (79 tiles of pipe) |
-| 6:00 | 2 | 1,299 | 116.6 | 8/19 | **Loady: firstNeighbour done** |
-| 6:40 | 2 | 369 | 116.6 | 8/19 | built and piped a Storage |
-| 6:50 | 2 | 688 | 116.6 | 9/19 | **Loady: firstStorage done** |
-| 7:10 | 2 | 658 | 116.6 | 9/19 | upgraded a solarPanel to level 8 |
-| 7:30 | 2 | 617 | 117.8 | 9/19 | upgraded a solarPanel to level 9 |
-| 7:50 | 3 | 565 | 119.0 | 9/19 | upgraded a solarPanel to level 10 |
-| 8:00 | 3 | 586 | 127.8 | 9/19 | **Level 3** |
-| 8:10 | 3 | 607 | 127.8 | 9/19 | delivered to 1 order(s) |
-| 8:40 | 3 | 671 | 127.8 | 9/19 | delivered to 1 order(s) |
-| 9:10 | 3 | 735 | 127.8 | 9/19 | delivered to 1 order(s) |
-| 9:40 | 3 | 799 | 127.8 | 9/19 | delivered to 1 order(s) |
-| 10:10 | 3 | 863 | 127.8 | 9/19 | delivered to 1 order(s) |
-| 10:40 | 3 | 927 | 127.8 | 9/19 | delivered to 1 order(s) |
-| 11:10 | 3 | 991 | 127.8 | 9/19 | delivered to 1 order(s) |
-| 11:40 | 3 | 1,055 | 127.8 | 9/19 | delivered to 1 order(s) |
-| 12:10 | 3 | 1,119 | 127.8 | 9/19 | delivered to 1 order(s) |
-| 12:40 | 3 | 1,183 | 127.8 | 9/19 | delivered to 1 order(s) |
-| 13:10 | 3 | 1,246 | 127.8 | 9/19 | delivered to 1 order(s) |
-| 13:40 | 3 | 1,310 | 127.8 | 9/19 | delivered to 1 order(s) |
-| 14:10 | 3 | 1,374 | 127.8 | 9/19 | delivered to 1 order(s) |
-| 14:40 | 3 | 1,438 | 127.8 | 9/19 | delivered to 1 order(s) |
-| 15:10 | 3 | 1,507 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 15:40 | 3 | 1,587 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 16:10 | 3 | 1,667 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 16:30 | 3 | 1,720 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 16:50 | 3 | 1,774 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 17:10 | 3 | 1,827 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 17:30 | 3 | 1,880 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 17:50 | 3 | 1,934 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 18:10 | 3 | 1,987 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 18:30 | 3 | 2,040 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 18:50 | 3 | 2,093 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 19:10 | 3 | 2,147 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 19:30 | 3 | 2,200 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 19:50 | 3 | 2,253 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 20:10 | 3 | 2,306 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 20:30 | 3 | 2,360 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 20:50 | 3 | 2,413 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 21:10 | 3 | 2,466 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 21:30 | 3 | 2,519 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 21:50 | 3 | 2,573 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 22:10 | 3 | 2,626 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 22:30 | 3 | 2,679 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 22:50 | 3 | 2,733 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 23:10 | 3 | 2,786 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 23:30 | 3 | 2,839 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 23:50 | 3 | 2,892 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 24:10 | 3 | 2,946 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 24:30 | 3 | 2,999 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 24:50 | 3 | 3,052 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 25:10 | 3 | 3,105 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 25:30 | 3 | 3,159 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 25:50 | 3 | 3,212 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 26:10 | 3 | 3,265 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 26:30 | 3 | 3,318 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 26:50 | 3 | 3,372 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 27:10 | 3 | 3,425 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 27:30 | 3 | 3,478 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 27:50 | 3 | 3,532 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 28:10 | 3 | 3,585 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 28:30 | 3 | 3,638 | 159.8 | 9/19 | delivered to 1 order(s) |
-| 28:50 | 3 | 3,931 | 159.8 | 9/19 | delivered to 2 order(s) |
-| 29:00 | 3 | 4,458 | 159.8 | 10/19 | **Loady: firstOrder done** |
-| 29:10 | 3 | 3,843 | 159.8 | 10/19 | built a ironMine |
-| 29:30 | 3 | 3,790 | 159.8 | 10/19 | upgraded a solarPanel to level 11 |
-| 29:50 | 3 | 3,722 | 159.8 | 10/19 | upgraded a solarPanel to level 12 |
-| 30:10 | 3 | 3,635 | 159.8 | 10/19 | upgraded a solarPanel to level 13 |
-| 30:30 | 3 | 3,542 | 203.6 | 10/19 | upgraded a solarPanel to level 14 |
-| 30:50 | 3 | 3,425 | 203.6 | 10/19 | upgraded a solarPanel to level 15 |
-| 31:10 | 3 | 3,293 | 203.6 | 10/19 | upgraded a windMoily to level 2 |
-| 31:30 | 3 | 3,149 | 203.6 | 10/19 | upgraded a solarPanel to level 16 |
-| 31:50 | 3 | 2,987 | 203.6 | 10/19 | upgraded a windMoily to level 3 |
-| 32:20 | 3 | 2,845 | 203.6 | 10/19 | upgraded a solarPanel to level 17 |
-| 32:50 | 3 | 2,682 | 203.6 | 10/19 | upgraded a windMoily to level 4 |
-| 33:20 | 3 | 2,503 | 203.6 | 10/19 | upgraded a solarPanel to level 18 |
-| 33:50 | 3 | 2,301 | 203.6 | 10/19 | upgraded a windMoily to level 5 |
-| 34:20 | 3 | 2,080 | 203.6 | 10/19 | upgraded a solarPanel to level 19 |
-| 34:50 | 3 | 1,832 | 203.6 | 10/19 | upgraded a windMoily to level 6 |
-| 35:20 | 3 | 1,562 | 203.6 | 10/19 | upgraded a solarPanel to level 20 |
-| 35:50 | 3 | 1,262 | 203.6 | 10/19 | upgraded a windMoily to level 7 |
-| 36:20 | 3 | 937 | 203.6 | 10/19 | upgraded a solarPanel to level 21 |
-| 36:50 | 3 | 576 | 203.6 | 10/19 | upgraded a windMoily to level 8 |
-| 37:20 | 3 | 187 | 203.6 | 10/19 | upgraded a solarPanel to level 22 |
-| 37:50 | 3 | 275 | 306.3 | 10/19 | built or upgraded something |
-| 38:20 | 3 | 400 | 312.2 | 10/19 | upgraded a solarPanel to level 2 |
-| 38:50 | 3 | 523 | 312.8 | 10/19 | upgraded a solarPanel to level 3 |
-| 39:20 | 3 | 640 | 313.5 | 10/19 | upgraded a solarPanel to level 4 |
-| 39:50 | 3 | 751 | 314.2 | 10/19 | upgraded a solarPanel to level 5 |
-| 40:20 | 3 | 856 | 315.0 | 10/19 | upgraded a solarPanel to level 6 |
-| 40:50 | 3 | 954 | 315.9 | 10/19 | upgraded a solarPanel to level 7 |
-| 41:20 | 3 | 1,044 | 316.8 | 10/19 | upgraded a solarPanel to level 8 |
-| 41:50 | 3 | 1,122 | 317.9 | 10/19 | upgraded a solarPanel to level 9 |
-| 42:20 | 3 | 1,190 | 319.0 | 10/19 | upgraded a solarPanel to level 10 |
-| 42:50 | 3 | 1,251 | 334.4 | 10/19 | upgraded a solarPanel to level 11 |
-| 43:20 | 3 | 1,299 | 337.2 | 10/19 | upgraded a solarPanel to level 12 |
-| 43:50 | 3 | 1,329 | 340.3 | 10/19 | upgraded a solarPanel to level 13 |
-| 44:20 | 3 | 1,340 | 343.7 | 10/19 | upgraded a solarPanel to level 14 |
-| 44:50 | 3 | 1,328 | 347.4 | 10/19 | upgraded a solarPanel to level 15 |
+| 0:30 | 1 | 1,975 | 27.6 | 1/19 | built a Solar Panel |
+| 0:40 | 1 | 2,079 | 27.6 | 2/19 | **Loady: firstPanel done** |
+| 1:10 | 1 | 2,088 | 20.2 | 2/19 | piped the panel to the Trading Post |
+| 1:20 | 1 | 2,242 | 25.0 | 3/19 | **Loady: firstSale done** |
+| 1:40 | 1 | 2,198 | 25.0 | 3/19 | upgraded the panel |
+| 1:50 | 1 | 2,353 | 25.7 | 4/19 | **Loady: firstUpgrade done** |
+| 1:50 | 2 | 2,151 | 25.7 | 4/19 | built and piped a Wind Moily |
+| 2:00 | 2 | 2,855 | 25.7 | 6/19 | **Loady: firstMoily, firstYard done** |
+| 2:00 | 2 | 2,855 | 25.7 | 6/19 | **Level 2** |
+| 2:40 | 2 | 2,281 | 62.9 | 6/19 | built and piped an Iron Mine |
+| 2:50 | 2 | 2,593 | 62.9 | 7/19 | **Loady: firstMine done** |
+| 3:30 | 2 | 1,133 | 52.5 | 7/19 | built and piped a Small Factory |
+| 4:10 | 2 | 1,163 | 87.2 | 7/19 | upgraded a solarPanel to level 2 |
+| 4:30 | 2 | 1,165 | 87.6 | 7/19 | upgraded a solarPanel to level 3 |
+| 4:50 | 2 | 1,161 | 88.2 | 7/19 | upgraded a solarPanel to level 4 |
+| 5:10 | 2 | 1,151 | 88.3 | 7/19 | upgraded a solarPanel to level 5 |
+| 5:30 | 2 | 1,135 | 89.0 | 7/19 | upgraded a solarPanel to level 6 |
+| 5:40 | 2 | 1,558 | 117.0 | 8/19 | **Loady: firstIngot done** |
+| 5:50 | 2 | 581 | 117.0 | 8/19 | built and piped a Storage |
+| 6:00 | 2 | 903 | 117.0 | 9/19 | **Loady: firstStorage done** |
+| 6:20 | 2 | 897 | 116.7 | 9/19 | upgraded a solarPanel to level 6 |
+| 6:40 | 2 | 891 | 117.3 | 9/19 | upgraded a solarPanel to level 6 |
+| 7:00 | 2 | 932 | 92.0 | 9/19 | delivered to 1 order(s) |
+| 7:20 | 2 | 970 | 92.0 | 9/19 | delivered to 1 order(s) |
+| 7:40 | 2 | 1,007 | 92.0 | 9/19 | delivered to 1 order(s) |
+| 8:00 | 2 | 1,044 | 92.0 | 9/19 | delivered to 1 order(s) |
+| 8:30 | 2 | 1,101 | 92.0 | 9/19 | delivered to 1 order(s) |
+| 9:00 | 2 | 1,157 | 92.0 | 9/19 | delivered to 1 order(s) |
+| 9:30 | 2 | 1,213 | 92.0 | 9/19 | delivered to 1 order(s) |
+| 10:00 | 2 | 1,269 | 92.0 | 9/19 | delivered to 1 order(s) |
+| 10:30 | 2 | 1,325 | 92.0 | 9/19 | delivered to 1 order(s) |
+| 11:00 | 2 | 1,381 | 92.0 | 9/19 | delivered to 1 order(s) |
+| 11:30 | 2 | 1,437 | 92.0 | 9/19 | delivered to 1 order(s) |
+| 12:00 | 2 | 1,493 | 92.0 | 9/19 | delivered to 1 order(s) |
+| 12:30 | 3 | 1,829 | 92.0 | 9/19 | delivered to 2 order(s) |
+| 12:40 | 3 | 2,348 | 92.0 | 10/19 | **Loady: firstOrder done** |
+| 12:40 | 3 | 2,348 | 92.0 | 10/19 | **Level 3** |
+| 13:00 | 3 | 2,334 | 92.0 | 10/19 | upgraded a solarPanel to level 6 |
+| 13:30 | 3 | 2,330 | 92.0 | 10/19 | upgraded a solarPanel to level 7 |
+| 14:00 | 3 | 2,326 | 92.0 | 10/19 | upgraded a solarPanel to level 7 |
+| 14:30 | 3 | 2,322 | 92.0 | 10/19 | upgraded a solarPanel to level 7 |
+| 15:00 | 3 | 2,318 | 92.0 | 10/19 | upgraded a solarPanel to level 7 |
+| 15:30 | 3 | 2,314 | 92.0 | 10/19 | upgraded a solarPanel to level 7 |
+| 16:00 | 3 | 2,301 | 92.0 | 10/19 | upgraded a solarPanel to level 8 |
+| 16:20 | 3 | 2,270 | 92.0 | 10/19 | upgraded a solarPanel to level 8 |
+| 16:40 | 3 | 2,238 | 92.0 | 10/19 | upgraded a solarPanel to level 8 |
+| 17:00 | 3 | 2,206 | 92.0 | 10/19 | upgraded a solarPanel to level 8 |
+| 17:20 | 3 | 2,175 | 92.0 | 10/19 | upgraded a solarPanel to level 8 |
+| 17:40 | 3 | 2,132 | 92.0 | 10/19 | upgraded a solarPanel to level 9 |
+| 18:00 | 3 | 2,090 | 92.0 | 10/19 | upgraded a solarPanel to level 9 |
+| 18:20 | 3 | 2,047 | 92.0 | 10/19 | upgraded a solarPanel to level 9 |
+| 18:40 | 3 | 2,004 | 92.0 | 10/19 | upgraded a solarPanel to level 9 |
+| 19:00 | 3 | 1,962 | 92.0 | 10/19 | upgraded a solarPanel to level 9 |
+| 19:20 | 3 | 1,907 | 92.0 | 10/19 | upgraded a solarPanel to level 10 |
+| 19:40 | 3 | 1,853 | 92.0 | 10/19 | upgraded a solarPanel to level 10 |
+| 20:00 | 3 | 1,798 | 92.0 | 10/19 | upgraded a solarPanel to level 10 |
+| 20:20 | 3 | 1,743 | 92.0 | 10/19 | upgraded a solarPanel to level 10 |
+| 20:40 | 3 | 1,689 | 92.0 | 10/19 | upgraded a solarPanel to level 10 |
+| 21:00 | 3 | 1,620 | 92.0 | 10/19 | upgraded a solarPanel to level 11 |
+| 21:20 | 3 | 1,552 | 194.7 | 10/19 | upgraded a solarPanel to level 11 |
+| 21:40 | 3 | 1,519 | 196.9 | 10/19 | upgraded a solarPanel to level 11 |
+| 22:00 | 3 | 1,483 | 180.2 | 10/19 | upgraded a solarPanel to level 11 |
+| 22:20 | 3 | 1,444 | 182.4 | 10/19 | upgraded a solarPanel to level 11 |
+| 22:40 | 3 | 1,392 | 184.7 | 10/19 | upgraded a solarPanel to level 12 |
+| 23:00 | 3 | 1,343 | 187.2 | 10/19 | upgraded a solarPanel to level 12 |
+| 23:20 | 3 | 1,298 | 189.7 | 10/19 | upgraded a solarPanel to level 12 |
+| 23:40 | 3 | 1,254 | 192.1 | 10/19 | upgraded a solarPanel to level 12 |
+| 24:00 | 3 | 1,211 | 194.5 | 10/19 | upgraded a solarPanel to level 12 |
+| 24:20 | 3 | 1,150 | 197.1 | 10/19 | upgraded a solarPanel to level 13 |
+| 24:40 | 3 | 1,090 | 199.8 | 10/19 | upgraded a solarPanel to level 13 |
+| 25:00 | 3 | 1,030 | 202.5 | 10/19 | upgraded a solarPanel to level 13 |
+| 25:20 | 3 | 972 | 205.2 | 10/19 | upgraded a solarPanel to level 13 |
+| 25:40 | 3 | 914 | 207.8 | 10/19 | upgraded a solarPanel to level 13 |
+| 26:00 | 3 | 837 | 210.6 | 10/19 | upgraded a solarPanel to level 14 |
+| 26:20 | 3 | 760 | 213.6 | 10/19 | upgraded a solarPanel to level 14 |
+| 26:40 | 3 | 684 | 216.5 | 10/19 | upgraded a solarPanel to level 14 |
+| 27:00 | 3 | 609 | 219.5 | 10/19 | upgraded a solarPanel to level 14 |
+| 27:20 | 3 | 536 | 222.4 | 10/19 | upgraded a solarPanel to level 14 |
+| 27:40 | 3 | 439 | 225.5 | 10/19 | upgraded a solarPanel to level 15 |
+| 28:00 | 3 | 343 | 228.8 | 10/19 | upgraded a solarPanel to level 15 |
+| 28:20 | 3 | 249 | 232.0 | 10/19 | upgraded a solarPanel to level 15 |
+| 28:40 | 3 | 155 | 235.3 | 10/19 | upgraded a solarPanel to level 15 |
+| 29:00 | 3 | 63 | 238.5 | 10/19 | upgraded a solarPanel to level 15 |
+| 29:30 | 3 | 3 | 241.9 | 10/19 | upgraded a windMoily to level 2 |
+| 30:20 | 3 | 29 | 245.7 | 10/19 | upgraded a solarPanel to level 16 |
+| 31:00 | 3 | 9 | 249.4 | 10/19 | upgraded a solarPanel to level 16 |
+| 31:50 | 3 | 41 | 252.9 | 10/19 | upgraded a solarPanel to level 16 |
+| 32:30 | 3 | 26 | 256.5 | 10/19 | upgraded a solarPanel to level 16 |
+| 33:10 | 3 | 14 | 260.1 | 10/19 | upgraded a solarPanel to level 16 |
+| 34:20 | 3 | 23 | 263.8 | 10/19 | upgraded a windMoily to level 3 |
+| 35:00 | 3 | 12 | 268.0 | 10/19 | built or upgraded something |
+| 35:40 | 3 | 23 | 307.1 | 10/19 | upgraded a windMoily to level 2 |
+| 36:20 | 3 | 27 | 311.0 | 10/19 | upgraded a windMoily to level 3 |
+| 37:00 | 3 | 19 | 315.3 | 10/19 | upgraded a solarPanel to level 17 |
+| 37:40 | 3 | 14 | 319.3 | 10/19 | upgraded a solarPanel to level 17 |
+| 38:20 | 3 | 12 | 323.2 | 10/19 | upgraded a solarPanel to level 17 |
+| 39:00 | 3 | 12 | 327.2 | 10/19 | upgraded a solarPanel to level 17 |
+| 39:40 | 3 | 15 | 331.1 | 10/19 | upgraded a solarPanel to level 17 |
+| 40:20 | 3 | 1 | 335.1 | 10/19 | upgraded a windMoily to level 4 |
+| 41:00 | 3 | 23 | 339.8 | 10/19 | built or upgraded something |
+| 41:30 | 3 | 12 | 339.8 | 10/19 | upgraded a windMoily to level 2 |
+| 42:10 | 3 | 64 | 383.2 | 10/19 | upgraded a windMoily to level 3 |
+| 42:40 | 3 | 13 | 387.6 | 10/19 | upgraded a windMoily to level 4 |
+| 43:20 | 3 | 37 | 392.3 | 10/19 | upgraded a windMoily to level 4 |
+| 43:50 | 3 | 6 | 397.1 | 10/19 | built or upgraded something |
+| 44:20 | 3 | 24 | 397.1 | 10/19 | upgraded a windMoily to level 2 |
+| 44:50 | 3 | 34 | 439.3 | 10/19 | upgraded a windMoily to level 3 |
 
-Buildings: hq ×1, tradingPost ×1, solarPanel ×2, windMoily ×1, ironMine ×2, smallFactory ×1, storage ×1.
-Storages: 299 energy. Orders: 120/120 energy; 1/150 energy; 0/150 energy
+Buildings: solarPanel ×5, hq ×1, tradingPost ×1, windMoily ×4, ironMine ×1, smallFactory ×1, storage ×1.
+Storages: 381 energy. Orders: 140/140 energy; 9/230 energy; 0/160 energy

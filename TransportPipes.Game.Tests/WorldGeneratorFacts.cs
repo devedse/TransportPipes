@@ -88,16 +88,17 @@ public class WorldGeneratorFacts
     }
 
     [TestMethod]
-    public void TheHqSpotAndTheGatesAreBuildable()
+    public void TheHqSpotAndTheWayToTheYardGateAreBuildable()
     {
-        var estate = Generator.Estate(new DistrictCoord(0, 0), 4);
-        for (var x = 15; x <= 18; x++)
+        for (var slot = 0; slot < WorldLayout.EstatesPerDistrict; slot++)
         {
-            Assert.AreEqual(TerrainType.Grass, estate.Local(x, 15).Terrain);
-        }
-        foreach (var (gx, gy) in WorldLayout.GateLocal.Values)
-        {
-            Assert.IsTrue(estate.Local(gx, gy).IsBuildableTerrain);
+            var estate = Generator.Estate(new DistrictCoord(0, 0), slot);
+            for (var x = 15; x <= 18; x++)
+            {
+                Assert.AreEqual(TerrainType.Grass, estate.Local(x, 15).Terrain);
+            }
+            var (gx, gy) = WorldLayout.YardGateLocal(slot);
+            Assert.IsTrue(estate.Local(gx, gy).IsBuildableTerrain, $"slot {slot}");
         }
     }
 

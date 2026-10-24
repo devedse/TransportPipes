@@ -124,7 +124,7 @@ public sealed partial class GameWorld
             {
                 var amount = storage.Contents[resource] * share;
                 storage.Contents[resource] -= amount;
-                gold += amount * HubBuyPrice(company.District, resource);
+                gold += amount * HubBuyPrice(company, resource);
             }
             company.Gold += gold;
             company.LifetimeEarnings += gold;
@@ -152,7 +152,7 @@ public sealed partial class GameWorld
             }
             // One level more makes about 1/level more of what it makes now
             var rate = network.Solution.Rates.GetValueOrDefault(building.Id);
-            var value = definition.Out.Sum(t => t.Value * HubBuyPrice(company.District, t.Key)) * rate;
+            var value = definition.Out.Sum(t => t.Value * HubBuyPrice(company, t.Key)) * rate;
             if (value <= 0)
             {
                 continue;

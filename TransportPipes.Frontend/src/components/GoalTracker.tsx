@@ -7,6 +7,12 @@ import type { Content } from "../game/content";
 import { useAppStore } from "../state/store";
 import { NextSteps } from "./NextSteps";
 
+/** A step's first clause, for its one-line form: "Built, but stuck", "Mine the iron on your land" */
+function firstClause(text: string) {
+  const end = text.search(/[.:!]/);
+  return end > 0 ? text.slice(0, end) : text;
+}
+
 /**
  * Always three goals in view (GDD §10.1): Loady's next step (or the next Company Level), today's order and something
  * for this week. Loady himself helps through the first session.
@@ -32,19 +38,52 @@ export function GoalTracker() {
     return null;
   }
   const step = company.tutorial;
-  // The advisor from Loady's second chapter on, or while a step waits for a level: it covers the pump and trading
-  // post alerts and the neighbour who needs something
-  const advisor = step === null || step.chapter >= 2 || step.waitLevel != null;
+  // The advisor for everyone from Level 3 (F3: a single line hid it from 4 of 5 players in run 1), and before that
+  // when Loady is done or a step waits for a level: it covers the pump and trading post alerts and the neighbour who
+  // needs something
+  const advisor = level >= 3 || step === null || step.chapter >= 2 || step.waitLevel != null;
+  const phone = window.matchMedia?.("(max-width: 720px)").matches === true;
+  const text = step === null ? "" : phone && step.phoneText !== null ? step.phoneText : step.text;
+  // A step open for two days shrinks to one line, with what holds it up
+  // (on the server's clock, which a playtest runs fast)
+  const stale =
+    step !== null &&
+    step.since !== null &&
+    new Date(company.serverTime).getTime() - new Date(step.since).getTime() > 2 * 86_400_000;
   const opportunity = advisor ? null : bestOpportunity(company.id, neighbours, content);
-  const alerts = (company.alerts ?? []).filter((t) => !advisor || t.text.startsWith("A storage"));
-  const order = company.dailyOrders.find((t) => t.delivered < t.amount);
+  // The advisor's steps cover pumps and a full trading post; a full Storage and storm damage stay (damage with Repair
+  // all while it lasts: run 2, Ben lost it with the return card)
+  const alerts = (company.alerts ?? []).filter(
+    (t) => !advisor || t.kind === "storage" || t.kind === "damage",
+  );
+  // Hub orders show once they are filled, never as a task (after run 3, step 7)
+  const filled = company.dailyOrders.filter((t) => t.delivered >= t.amount - 1e-9);
   const levelShare = Math.min(
     1,
     (company.xp - company.levelXp) / Math.max(1, company.nextLevelXp - company.levelXp),
   );
   return (
     <aside className="goal-tracker" aria-label="Goals">
-      {step !== null && step.chapter >= 2 && (
+      {step !== null && stale && (
+        <div className="panel loady-line" aria-live="polite">
+          <img className="loady-mini" src="/art/ui/loady-point.webp" alt="Loady" />
+          <span className="small">
+            <strong>
+              Loady {step.chapterStep}/{step.chapterSteps}
+            </strong>{" "}
+            · {firstClause(step.tip ?? text)}
+          </span>
+          {step.waitLevel == null && (
+            <button className="small" onClick={() => gameClient.showTutorialHint()}>
+              Show me
+            </button>
+          )}
+          <button className="link small" onClick={() => void gameClient.skipTutorial()}>
+            Skip
+          </button>
+        </div>
+      )}
+      {step !== null && !stale && step.chapter >= 2 && (
         <div className="panel loady-goal" aria-live="polite">
           <img className="loady-mini" src="/art/ui/loady-point.webp" alt="Loady" />
           <div className="loady-goal-body">
@@ -54,7 +93,7 @@ export function GoalTracker() {
                 {step.chapterStep}/{step.chapterSteps} · +{formatAmount(step.gold)} g
               </span>
             </div>
-            <p>{step.text}</p>
+            <p>{text}</p>
             {step.tip != null && <p className="loady-wait small">{step.tip}</p>}
             {step.waitLevel != null ? (
               <p className="loady-wait small">
@@ -81,7 +120,7 @@ export function GoalTracker() {
           </div>
         </div>
       )}
-      {step !== null && step.chapter < 2 && (
+      {step !== null && !stale && step.chapter < 2 && (
         <div className="loady-card" aria-live="polite">
           <img
             className="loady"
@@ -89,7 +128,7 @@ export function GoalTracker() {
             alt="Loady"
           />
           <div className="loady-bubble">
-            <p>{step.text}</p>
+            <p>{text}</p>
             {step.tip != null && <p className="loady-wait small">{step.tip}</p>}
             {step.waitLevel != null && (
               <p className="loady-wait small">
@@ -116,9 +155,17 @@ export function GoalTracker() {
       {advisor && <NextSteps />}
       {alerts.slice(0, 2).map((alert) => (
         <div key={alert.text} className="panel opportunity alert">
-          <p>⚠ {alert.text}</p>
-          {alert.building !== null && (
-            <button onClick={() => gameClient.showBuilding(alert.building!)}>Show me</button>
+          <p>
+            {alert.kind === "damage" ? "⛈" : "⚠"} {alert.text}
+          </p>
+          {alert.kind === "damage" ? (
+            <button onClick={() => void gameClient.repairAll()}>
+              Repair all · {formatAmount(alert.cost ?? 0)} g
+            </button>
+          ) : (
+            alert.building !== null && (
+              <button onClick={() => gameClient.showBuilding(alert.building!)}>Show me</button>
+            )
           )}
         </div>
       ))}
@@ -128,7 +175,7 @@ export function GoalTracker() {
             🤝 <strong>{opportunity.name}</strong> needs {opportunity.resource}: neighbours pay more than the
             hub.
           </p>
-          <button className="primary" onClick={() => void gameClient.planConnection(opportunity.id)}>
+          <button className="primary" onClick={() => void gameClient.planYardPipe()}>
             Connect a pipe
           </button>
         </div>
@@ -154,18 +201,115 @@ export function GoalTracker() {
             </span>
           </li>
         )}
-        {order !== undefined && (
+        {filled.length > 0 && (
           <li>
             <span className="goal-label">Today</span>
-            <span className="goal-text">
-              {formatAmount(order.amount)} {content.resourceName(order.resource).toLowerCase()} for the hub
-            </span>
+            <button
+              className="goal-text link"
+              title="The hub's daily orders: open them"
+              onClick={() => void gameClient.openHub("orders")}
+            >
+              ✔ {filled.map((t) => content.resourceName(t.resource).toLowerCase()).join(", ")} filled{" "}
+              {filled.length === 1 ? "a hub order" : `${filled.length} hub orders`}: +
+              {formatAmount(filled.reduce((sum, t) => sum + t.premium, 0))} g ›
+            </button>
             <span className="goal-bar">
-              <span style={{ width: `${Math.round((order.delivered / order.amount) * 100)}%` }} />
+              <span style={{ width: "100%" }} />
             </span>
           </li>
         )}
-        {company.nextParcelCost !== null && company.nextParcelLevel !== null && (
+        {company.week !== null && (
+          <li>
+            <span className="goal-label">This week</span>
+            <button
+              className="goal-text link"
+              title="The station's project: open it"
+              onClick={() => void gameClient.openProject()}
+            >
+              {company.week.text} ›
+            </button>
+            {company.week.step !== null && (
+              <button
+                className="small goal-show"
+                aria-label={`Show me: ${company.week.step.title}`}
+                onClick={() => void gameClient.showNextStep(company.week!.step!)}
+              >
+                Show me
+              </button>
+            )}
+            <span className="goal-bar">
+              <span style={{ width: `${Math.round(company.week.share * 100)}%` }} />
+            </span>
+          </li>
+        )}
+        {(company.wants ?? []).length > 0 &&
+          (() => {
+            // Your own scaffold, said as it is (after run 4: "is being built", and it waited for bricks to the end)
+            const want = company.wants![0]!;
+            const left = Math.max(0, want.amount - want.got);
+            return (
+              <li>
+                <span className="goal-label">Waits</span>
+                <span className="goal-text">
+                  🏗 Your {want.name} waits for {formatAmount(left)}{" "}
+                  {content.resourceName(want.resource).toLowerCase()}
+                  {want.order !== null
+                    ? ` · ${want.order}`
+                    : want.perMinute > 0.005
+                      ? ` · ${formatAmount(want.perMinute)}/min coming`
+                      : ""}
+                </span>
+                {want.order === null && want.orderCost !== null && (
+                  <button
+                    className="small goal-show"
+                    disabled={company.gold < want.orderCost}
+                    onClick={() => void gameClient.orderRest(want.target)}
+                  >
+                    Order the rest · {formatAmount(want.orderCost)} g
+                  </button>
+                )}
+                <span className="goal-bar">
+                  <span
+                    style={{
+                      width: `${Math.round(Math.min(1, want.got / Math.max(1, want.amount)) * 100)}%`,
+                    }}
+                  />
+                </span>
+              </li>
+            );
+          })()}
+        {company.pipes !== null && (
+          // The pipe ladder while a pipe is full (after run 4: the way up was in nobody's sight)
+          <li>
+            <span className="goal-label">Pipes</span>
+            <button
+              className="goal-text link"
+              title={`Your pipes: ${company.pipes.ladder}. Open the building: its panel has the way up.`}
+              onClick={() => gameClient.showBuilding(company.pipes!.building)}
+            >
+              🔧 {company.pipes.text} ›
+            </button>
+            <span className="goal-bar">
+              <span style={{ width: "100%" }} />
+            </span>
+          </li>
+        )}
+        {company.eraWonderLine !== null && (
+          <li>
+            <span className="goal-label">Era</span>
+            <button
+              className="goal-text link"
+              title="The Era Wonder, the Capital's want: open it"
+              onClick={() => void gameClient.openHub("wonders")}
+            >
+              {company.eraWonderLine.text} ›
+            </button>
+            <span className="goal-bar">
+              <span style={{ width: `${Math.round(company.eraWonderLine.share * 100)}%` }} />
+            </span>
+          </li>
+        )}
+        {company.week === null && company.nextParcelCost !== null && company.nextParcelLevel !== null && (
           <li>
             <span className="goal-label">This week</span>
             <span className="goal-text">

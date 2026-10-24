@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gold Opens Doors</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --teal: #24575a; --teal-dark: #173c3f; --accent: #236b69; --brass: #c9963a; --brass-dark: #94692a;
+  --cream: #f4ead3; --cream-strong: #fbf5e7; --paper: #fffaf0; --ink: #2b2418; --muted: #6b5c43;
+  --green: #33761f; --red: #a12f1f; --gold: #8a5d00; --line: rgba(80, 60, 30, 0.18);
+  --good-bg: #d6eccd; --bad-bg: #f6d3cc; --warn-bg: #f3e6c4; --info-bg: #dde9f3; --info: #24507a;
+}
+* { box-sizing: border-box; }
+html { background: #e9dfc6; }
+body { margin: 0; font-family: Nunito, system-ui, sans-serif; color: var(--ink); line-height: 1.55; background: #e9dfc6;
+  padding-left: max(0px, env(safe-area-inset-left, 0px)); padding-right: max(0px, env(safe-area-inset-right, 0px)); }
+.page { max-width: 1100px; margin: 24px auto; padding: 48px 56px; background: var(--paper); border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(40, 30, 10, 0.18); border: 1px solid var(--line); overflow-wrap: break-word; }
+@media (max-width: 720px) { .page { margin: 12px 8px; padding: 24px 16px; border-radius: 12px; } }
+h1, h2, h3 { font-family: Fraunces, Georgia, serif; color: var(--teal-dark); line-height: 1.2; text-wrap: balance; }
+h1 { font-size: 2.6rem; margin: 0 0 10px; }
+h2 { font-size: 1.9rem; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 3px solid var(--brass); }
+h3 { font-size: 1.25rem; margin: 26px 0 8px; }
+p { margin: 0 0 12px; max-width: 74ch; }
+ul, ol { padding-left: 22px; margin: 0 0 12px; max-width: 80ch; }
+li { margin-bottom: 5px; }
+.kicker { text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; color: var(--brass-dark); font-size: 0.85rem; }
+.lead { font-size: 1.15rem; }
+.muted { color: var(--muted); }
+.small { font-size: 0.88rem; }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 0.9rem; }
+.scroll table { min-width: 860px; }
+th { text-align: left; background: var(--cream); color: var(--teal-dark); padding: 7px 10px; font-weight: 800; vertical-align: bottom; }
+td { padding: 8px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+td ul { margin: 4px 0 0; padding-left: 18px; } td li { margin-bottom: 2px; }
+tr.group td { background: var(--cream-strong); font-family: Fraunces, Georgia, serif; font-weight: 800; color: var(--teal-dark); font-size: 1rem; padding-top: 12px; }
+tr.gate td { background: #e4efe9; }
+tr.redesign td { background: #fbefd4; }
+td.num { white-space: nowrap; }
+.callout { padding: 14px 18px; border-radius: 12px; background: var(--cream); border-left: 6px solid var(--brass); margin: 14px 0; }
+.callout.decision { border-left-color: var(--accent); background: #e4efe9; }
+.callout.problem { border-left-color: var(--red); background: #f8e7e2; }
+.callout strong:first-child { display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; margin-bottom: 4px; }
+.pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 0.76rem; font-weight: 800; white-space: nowrap; }
+.pill.fix { background: var(--good-bg); color: var(--green); }
+.pill.redesign { background: var(--warn-bg); color: var(--gold); }
+.pill.now { background: var(--bad-bg); color: var(--red); }
+.pill.next { background: var(--info-bg); color: var(--info); }
+.who { display: inline-block; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 1px 6px;
+  border-radius: 6px; margin: 0 3px 3px 0; border: 1px solid var(--line); }
+.who.s { background: #e3ecf6; color: #24507a; } .who.p { background: #f6e3ea; color: #8a2f55; } .who.o { background: #e1f0e4; color: #2d6b3a; }
+.cover { background: linear-gradient(160deg, #1f4d50 0%, #24575a 55%, #2f6b66 100%); color: #fff; }
+.cover h1 { color: #fff; font-size: 2.8rem; }
+.cover .kicker { color: #f2d27a; }
+.cover .lead { color: #f4ead3; }
+.votes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 26px; }
+@media (max-width: 760px) { .votes { grid-template-columns: 1fr; } .cover h1 { font-size: 2.1rem; } }
+.vote { background: rgba(255,255,255,0.1); border: 1px solid rgba(242,210,122,0.5); border-radius: 12px; padding: 12px 14px; }
+.vote b { color: #f2d27a; display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; }
+.vote .v { display: inline-block; margin: 6px 0 4px; background: #f2d27a; color: #173c3f; font-weight: 800; border-radius: 999px; padding: 1px 10px; font-size: 0.82rem; }
+.vote span { color: #f4ead3; font-size: 0.9rem; display: block; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+.grid2 > * { min-width: 0; }
+code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.84em; background: var(--cream); padding: 1px 5px; border-radius: 5px; }
+.steps { counter-reset: s; list-style: none; padding-left: 0; }
+.steps li { counter-increment: s; position: relative; padding-left: 44px; margin-bottom: 10px; }
+.steps li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--teal); color: #fff; font-weight: 800; display: grid; place-items: center; font-size: 0.9rem; }
+.steps li.gate::before { background: var(--brass); }
+.step { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 14px; padding: 16px 0; border-top: 1px solid var(--line); }
+.step:first-of-type { border-top: 0; }
+.step .n { width: 44px; height: 44px; border-radius: 50%; background: var(--teal); color: #fff; font-weight: 800; display: grid; place-items: center; font-family: Fraunces, Georgia, serif; font-size: 1.15rem; }
+.step h3 { margin: 4px 0 6px; }
+.step .days { font-size: 0.82rem; color: var(--muted); font-weight: 700; }
+.replaces { font-size: 0.88rem; color: var(--muted); }
+.quote { font-style: italic; }
+.amend { border-left: 4px solid var(--accent); padding-left: 10px; font-size: 0.9rem; }
+</style>
+
+</head>
+<body>
+
+<section class="page cover">
+  <div class="kicker">TransportPipes · after AI playtest run 3 · the six designers of v1.2, three rounds</div>
+  <h1>Gold opens doors, friends fill them</h1>
+  <p class="lead">You said the biggest find of run 3 was that at some point there's nothing to do with your gold, so no
+  reason to grow, and asked the original design team for a solution. The six of them answered together: <b>the game
+  doesn't lack things to spend on; gold can't reach what limits growth.</b> After week 1 every limit on income is a
+  material (bricks, copper, steel) that only your own Storage can supply, or a pipe that carries 100 a minute.
+  Their answer: every want becomes a buyer on the pipes that friends can fill, gold finishes the rest after the
+  friends have had their turn, and the screens say what stops you and what a purchase will do before you click.</p>
+  <div class="votes">
+    <div class="vote"><b>All six signed</b><span class="v">6 of 6</span>
+      <span>Wild without objection; friends, lonely, psychologist and outsider with small amendments, all taken in; economy
+      drafted it.</span></div>
+    <div class="vote"><b>Nine steps</b><span class="v">22–27 days</span>
+      <span>Each a playable commit, after the analysts' fixes; 12–16 of those days are the analysts' rows 6, 7 and 10,
+      which this replaces.</span></div>
+    <div class="vote"><b>The three open questions</b><span class="v">decided</span>
+      <span>Gold buys materials, never at once; hub orders become buyers; a stage that needs two friends' land starts
+      now.</span></div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>Why gold piled up</h2>
+  <p>The game has an unlimited sink, building levels, which paid back in under an hour early on. Gold piled up anyway,
+  because after week 1 everything that decides income is priced in something gold can't buy:</p>
+  <ul>
+    <li><b>The pipe.</b> A grey pipe carries 100 a minute per connection. Cleo's level-25 Coal Pit made 882 coal a minute
+      and sold 100; her Copper Pipe click did nothing because its ingots had to come from her own Storage.</li>
+    <li><b>Materials.</b> The Big Factory needs 100 bricks, the Market Hall 500, the Steel Mill 300, and only your own
+      Storage can pay them. On dealt land they're made from two friends' goods: <span class="quote">"I don't know how to
+      hand you 100 bricks directly"</span> (Cleo, day 21).</li>
+    <li><b>Spending that hurt.</b> The Lab's Max took Cleo from 783 to 285 g/min; Dev called a 329k upgrade <span class="quote">"a trap"</span>.</li>
+    <li><b>Points with nothing to buy.</b> Cleo had 1.6M research points by day 21, more than all five eras' trees together.</li>
+  </ul>
+  <p>So growth stopped around day 12–13: Ana stayed at 951 g/min and 13 buildings to day 36, and the crew held 95–100%
+  of all it earned. The players offered each other gold four times and had no way to use it. They came back for a
+  friend counting on them and a moving shared goal, never for gold.</p>
+</section>
+
+<section class="page">
+  <h2>The solution, in build order</h2>
+  <p>Each step is a playable commit. Days are the designers' estimates for one AI developer.</p>
+
+  <div class="step"><div class="n">1</div><div>
+    <h3>Spending is safe, and one line says what stops you</h3><div class="days">2–3 days</div>
+    <ul>
+      <li><b>A preview before every purchase</b>, from the flow solver, in one sentence: <i>"+105 g/min"</i>,
+        <i>"+0 g/min: this pipe carries 100 · Copper Pipe ▸"</i>, <i>"−498 g/min: the Lab eats 29 of your iron ingots"</i>.</li>
+      <li><b>Max stops at the pipe's limit</b> (built already, with fix 4).</li>
+      <li><b>Prices also as time:</b> <i>"Market Hall · 50 min of your income + 500 bricks"</i>.</li>
+      <li><b>"What stops you"</b> on each producer's panel and the return card: the real limit, its key and its price.
+        Once the key is in, <i>"Max now pays: +X g/min ▸"</i>.</li>
+      <li><b>Undo for an hour.</b> It refunds the price less what the purchase earned meanwhile, and takes back the XP
+        it gave, so it can't be farmed.</li>
+    </ul>
+    <p class="replaces">Replaces Max's blind "+21 · 238k", idle reasons that blame energy, and the Invest line's "Max … for 13k" against 27.8M banked.</p>
+  </div></div>
+
+  <div class="step"><div class="n">2</div><div>
+    <h3>Wants</h3><div class="days">7–9 days · the analysts' row 7</div>
+    <ul>
+      <li><b>A building, upgrade or pipe tier short of materials stands on the map as a scaffold that wants them</b>
+        (<i>"Big Factory · wants 100 bricks · 40 in"</i>). It runs on the game's existing Ask engine, and its goods go into
+        the build, never a Storage.</li>
+      <li><b>It fills in this order:</b> your own producers; a friend's Send, or one tap from their Storage (<i>"Ana's Big
+        Factory wants 100 bricks · your Storage holds 500 · Send them ▸"</i>), named at both ends with Thanks; the
+        station's spare through the Yard, by itself, even while friends sleep; an Order (step 4).</li>
+      <li><b>A want shows once, to a friend who's playing and can fill it.</b> Never "unanswered", never a list of who
+        didn't help. When nobody near makes the good, it shows the chain that would.</li>
+      <li>Cancel, your gold back, until it stands.</li>
+    </ul>
+    <p class="replaces">Replaces paying materials from your own Storage, "N in your storages", Deliver, and the Plan board's Ask form.</p>
+  </div></div>
+
+  <div class="step"><div class="n">3</div><div>
+    <h3>The pipe is a want</h3><div class="days">1–2 days</div>
+    <p>A pipe at its limit offers its next tier in place, as a want: a Copper Pipe wants a copper ingot a tile, and
+    copper ingots are copper plus coal, usually two seats' land. So the pipe wall becomes the most natural gift between
+    friends. Cleo's 28 ingots are about six minutes of one Smelter.</p>
+    <p class="replaces">Replaces the silent Copper Pipe click.</p>
+  </div></div>
+
+  <div class="step"><div class="n">4</div><div>
+    <h3>Order the rest: what gold does with materials</h3><div class="days">1 day</div>
+    <div class="scroll"><table>
+      <tr><th>Rule</th><th>Value</th></tr>
+      <tr><td>Price</td><td><b>2× base</b>, the Ask's existing House price. The gold leaves the game</td></tr>
+      <tr><td>The friends' window</td><td>You order at once, but the hub starts only once every friend in the station who
+        played in the last 3 days and makes or holds the good has had one session. At most 72 hours; zero when there's no
+        such friend (Mia beside Jo waits for nobody). The card says <i>"from Cleo's next session, at the latest Thu 20:00"</i></td></tr>
+      <tr><td>The pace</td><td>Then evenly over 6 hours</td></tr>
+      <tr><td>Friends first</td><td>Every round, friends' goods and the station's spare go in first; what they bring comes off the order, its gold refunded</td></tr>
+      <tr><td>Who may order</td><td>The owner; anyone in the station for any want there (<i>"Order the rest for Ana ▸"</i>); anyone in the Capital for the wonder. Never between accounts on one device</td></tr>
+      <tr><td>Goods</td><td>Into the want only, never a Storage, so nothing can be resold</td></tr>
+      <tr><td>Shared goals</td><td>On a project stage, a wonder stage or a keystone, orders fill at most half, count 25% of credit and carry no 💛. Bought goods show as "bought", with no title</td></tr>
+    </table></div>
+    <p>Worked: Ana's Big Factory costs 1,000 g by order, the Market Hall 5,000 g. <b>Why this shape:</b> price can't
+    protect a friend's goods (100 bricks at any price are a rounding error of Ana's 39.8M), and players return every
+    2–7 days, so a wait in hours always lands first. Counting the sessions of friends who still play gives them a turn
+    without waiting on someone who stopped (Ben was away 33 days). After the window, a friend still wins the race: a
+    Brickworks makes 12 bricks a minute, an order ships 100 at 0.3.</p>
+    <p class="replaces">Replaces "buy now", "fund", "pay the rest" and "commission": one verb.</p>
+  </div></div>
+
+  <div class="step"><div class="n">5</div><div>
+    <h3>The Era wonder becomes the Capital's want</h3><div class="days">3–3.5 days</div>
+    <ul>
+      <li>A buyer in every Yard round, after the station's project; each stage sized when it starts at 6 hours of the
+        Capital's income (about 1.4M of goods on run 3's day 15), not once at world start for 60 g/min.</li>
+      <li>Half of each stage comes only by pipe; the other half is open to orders.</li>
+      <li>Each finished stage gives every seat in the Capital a bottleneck perk for the Era: grey pipes +50%, then Hub
+        Orders +25%. Personal tiers pay hours of your own income.</li>
+      <li>When the last stage stands, the next Era starts early. Every card tells your part and how it ended.</li>
+      <li>It sits in the goal tracker with your part from the start (the analysts' row 5, folded in here).</li>
+    </ul>
+    <p class="replaces">Replaces the Wonders minigame, Deliver for the wonder, and "Era 1 ended without me knowing".</p>
+  </div></div>
+
+  <div class="step"><div class="n">6</div><div>
+    <h3>Research points have a use</h3><div class="days">3 days · the analysts' row 10</div>
+    <ul>
+      <li>A Lab with nothing to research rests and eats nothing.</li>
+      <li>Refinements follow an Era's tree, one at a time, kept running while you're away, at 5k × 1.6ⁿ points: first
+        the wall-raisers (pipes +10%, trading +10%, Hub Orders +5%), then +2% to one chain, each line capped at +50%.</li>
+      <li>Each applies to every resident of the station who runs that chain, named: <i>"Bricks +6% · Cleo's research 💛"</i>.</li>
+    </ul>
+  </div></div>
+
+  <div class="step"><div class="n">7</div><div>
+    <h3>Hub orders become buyers</h3><div class="days">1–2 days</div>
+    <p>A daily order is a buyer at your trading post for 24 hours, filled from what flows past: 30 minutes of income,
+    2× base, offered only to players who play, shown once filled, personal. Every land good gets an Era-1 want (the
+    Warehouse and Cargo Depot want 100 planks each).</p>
+    <p class="replaces">Replaces the Storage chore behind daily orders (none delivered after day 14 in run 3).</p>
+  </div></div>
+
+  <div class="step"><div class="n">8</div><div>
+    <h3>A stage that needs two friends</h3><div class="days">2 days · the analysts' row 8</div>
+    <p>From the Water Tower on, where two residents who both play when the stage starts each make one input of bricks
+    (stone + coal) or copper ingots (copper + coal), and both are Level 6 or more (when the Brickworks and Smelter
+    unlock), that good is the keystone, at 3 hours of one maker. An away seat's input comes from its House; the 2-day
+    pass-over stays. Elsewhere, today's rule. Run 3's only "together 4" had exactly this shape.</p>
+    <p class="replaces">Replaces water as the keystone in all four stations, which needed nobody.</p>
+  </div></div>
+
+  <div class="step"><div class="n">9</div><div>
+    <h3>Widen Copper and Steel pipes</h3><div class="days">1.5 days</div>
+    <p>A Copper or Steel link at its limit widens ×2 for 1 hour of your income, ×4 for 2 more hours. Grey links don't
+    widen, so the first door past 100 a minute stays a friend's copper. The one private sink that grows with income.</p>
+  </div></div>
+
+  <div class="callout">
+    <strong>Rules for every step</strong>
+    <ul>
+      <li>No sink is upkeep: nothing charges, decays or maintains a resting estate; every sink is a choice.</li>
+      <li>The return card shows at most one line about people (a friend's want, a gift, a Thanks) and one "what stops
+        you" line; the rest folds.</li>
+      <li>A player back after a week sees one friend's waiting want he can order (<i>"Ana's Steel Mill wants 120 bricks ·
+        Order the rest for Ana ▸"</i>), even if he can't make the good: Ben's <i>"I still can't help"</i>.</li>
+    </ul>
+  </div>
+  <p class="small muted"><b>Later</b>, only if run 4 or the bots show gold still piling up: the station's Landmark tiers
+  (also if a station stands its Landmark before day 28, or crew diaries after day 21 name no moving shared goal), the
+  Capital's lots, a branch estate next to a crew that plays (also for a player alone if her mark fails), and "While I'm
+  away".</p>
+</section>
+
+<section class="page">
+  <h2>The three questions, decided</h2>
+  <div class="scroll"><table>
+    <tr><th>Question</th><th>Decided</th><th>How they got there</th></tr>
+    <tr><td><b>Can gold buy a want's materials?</b></td><td>Yes, never at once: an Order at 2× after the friends' window, shipped over 6 hours, friends' goods first</td>
+      <td>Round A ranged from "at once" (lonely) to "never" (outsider). They met on giving friends a turn without waiting on anyone who has stopped</td></tr>
+    <tr><td><b>Do hub orders become buyers?</b></td><td>Yes: at your trading post, 30 minutes of income, 2× base, personal</td><td>All six from round A</td></tr>
+    <tr><td><b>A stage that needs two friends?</b></td><td>Now, from the Water Tower, with guards: both seats playing and Level 6+, an away seat's input from its House</td>
+      <td>Four for "now" in round A; lonely and the outsider joined with the guards</td></tr>
+  </table></div>
+</section>
+
+<section class="page">
+  <h2>How run 4 will show it worked</h2>
+  <div class="scroll"><table>
+    <tr><th>Mark</th><th>Pass</th><th>Run 3</th></tr>
+    <tr><td><b>Gold spent</b></td><td>Every crew member with 8+ sessions spends ≥ 20% of earnings by day 36</td><td>0–5%</td></tr>
+    <tr><td><b>Spending that grows</b></td><td>Crew income +30% and 4+ buildings each from day 14 to 36 (spending ≥ 20% with growth under 15% fails the design)</td><td>+3% from day 21; 3 buildings in all</td></tr>
+    <tr><td><b>Friends hold the keys</b></td><td>Of want materials from anyone but the owner, ≥ ⅓ from friends and neighbours, in every crew</td><td>none</td></tr>
+    <tr><td><b>The player alone</b></td><td>Mia beside Jo adds ≥ 3 buildings from day 8 to 15 and spends ≥ 20% by day 15</td><td>10 → 11 buildings; about 5%</td></tr>
+    <tr><td><b>The Era</b></td><td>The Dynamo's stages stand before the deadline with 3+ contributors, told on every card</td><td>0 / 1,800, no word</td></tr>
+    <tr><td><b>Keys and points</b></td><td>Every completed key raises sales within one round; no Lab runs with nothing to research</td><td>1.6M points banked</td></tr>
+    <tr><td><b>Diaries</b></td><td>No "gold feels empty", "pointless" or "trap" after day 10</td><td>at least 5</td></tr>
+    <tr><td><b>Bots</b></td><td>The advisor bot banks ≤ 3 days of income on day 28</td><td>107M banked</td></tr>
+  </table></div>
+</section>
+
+<section class="page">
+  <h2>How this was made</h2>
+  <p>The six designers of v1.2 (the wild idea thrower, the friends-first designer, the guardian of lonely players and
+  leavers, the economy and long-game designer, the psychologist and game historian, and the outsider) were resumed
+  with their memory of the design and the first redesign, and given run 3's evidence, the analysts' review and your
+  question (<code>docs/design-notes/after-run3/design-brief.md</code>).</p>
+  <ul>
+    <li><b>Round A</b> (<code>team-a-*.md</code>): each alone, a diagnosis and a proposal. All six found the same cause from six angles.</li>
+    <li><b>Round B</b> (<code>team-b-*.md</code>): each read all six and gave a final position.</li>
+    <li><b>Round C</b>: the economy designer drafted the shared text (<code>team-shared.md</code>); each signed or objected
+      (<code>team-c-*.md</code>). All six signed; the amendments above came from friends, lonely, the psychologist and the outsider.</li>
+  </ul>
+  <p class="small muted">The analysts' other rows still get built before run 4: finding your friends, the stranger beside a
+  crew that plays, a running gift that stays running, the return card that folds, and crew chat.</p>
+</section>
+
+</body>
+</html>

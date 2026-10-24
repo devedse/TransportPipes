@@ -1,4 +1,5 @@
 using TransportPipes.Game.Content;
+using TransportPipes.Game.Simulation;
 using TransportPipes.Game.World;
 
 namespace TransportPipes.Game.State;
@@ -8,6 +9,7 @@ public sealed partial class GameWorld
     /// <summary>Reputation points needed for hub reputation levels 1..10</summary>
     public static readonly double[] ReputationLevels = [0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500];
 
+    /// <summary>Hub orders a day at most: one a good</summary>
     public const int OrdersPerDay = 3;
 
     public int ReputationLevel(Company company)
@@ -26,9 +28,24 @@ public sealed partial class GameWorld
     private void NewDay()
     {
         _likesToday.Clear();
+        _fitsOnEstate.Clear();
+        SizeWonderStages();
+        OpenStoreys();
         PlanEvents();
         CheckActivity();
-        foreach (var company in _companies.Values.Where(t => !t.IsNpc && t.LastSeenAt >= LastTick - ActivePeriod))
+        CheckHolds();
+        CheckTogether();
+        if (TenantsEnabled)
+        {
+            UpdateHouses();
+        }
+        ForgetOldUsualTrades();
+        if (ProjectsEnabled)
+        {
+            UpdateBaskets();
+        }
+        // Offered only to players who play (after run 3, step 7); a player who comes back gets today's at Hello
+        foreach (var company in _companies.Values.Where(IsActive))
         {
             EnsureOrders(company);
         }
@@ -49,8 +66,6 @@ public sealed partial class GameWorld
             return;
         }
         company.DailyOrders = [.. GenerateOrders(company), .. company.DailyOrders.Where(t => t.Urgent)];
-        // Storages keep what the new orders need
-        MarkCompanyNetworksDirty(company.Id);
         company.Touch();
         Changes.Companies.Add(company.Id);
     }
@@ -74,9 +89,39 @@ public sealed partial class GameWorld
         return made.Concat(next).Distinct().Order(StringComparer.Ordinal).ToList();
     }
 
+    /// <summary>
+    /// Hub orders are buyers at the trading post (after run 3, the design team's step 7: none was delivered after day 14
+    /// in run 3, because they came out of a Storage nobody mentioned). One a good, three at most, together about half an
+    /// hour of the company's income at base, each at most what its posts sell of the good in eight hours, so it fills by
+    /// itself; it pays 2 × base for what it takes, the difference to the hub's price as the goods pass, and shows once it
+    /// is filled.
+    /// </summary>
+    public const double OrderIncomeMinutes = 30;
+    private const double OrderFillHours = 8;
+
+    /// <summary>What a company's trading posts sell now, a minute, by good</summary>
+    public Dictionary<string, double> SellingPerMinute(Company company)
+    {
+        var selling = new Dictionary<string, double>();
+        foreach (var post in BuildingsOf(company.Id).Where(t => !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.TradingPost))
+        {
+            foreach (var flow in NetworkOf(post.Id)?.Solution.Flows.Where(t => t.To == post.Id && t.Kind == FlowKind.Sale) ?? [])
+            {
+                Add(selling, flow.Resource, flow.Delivered);
+            }
+        }
+        return selling;
+    }
+
     private List<DailyOrder> GenerateOrders(Company company)
     {
-        var resources = OrderResources(company);
+        // What its posts sell first: an order is a bonus for doing what you do, not a chore
+        var selling = SellingPerMinute(company);
+        var resources = selling.Where(t => t.Value > 1e-6).Select(t => t.Key).Order(StringComparer.Ordinal).ToList();
+        if (resources.Count == 0)
+        {
+            resources = OrderResources(company);
+        }
         if (resources.Count == 0)
         {
             resources = ["energy"];
@@ -87,19 +132,23 @@ public sealed partial class GameWorld
         random.Shuffle(resources);
         var expires = NextDay(LastTick);
         var orders = new List<DailyOrder>();
-        for (var i = 0; i < OrdersPerDay; i++)
+        var count = Math.Min(OrdersPerDay, resources.Count);
+        for (var i = 0; i < count; i++)
         {
-            var resource = resources[i % resources.Count];
+            var resource = resources[i];
             var price = BasePrice(resource);
-            // About a quarter of an hour of a small chain early on, growing with the Company Level
-            var value = 120 * Math.Pow(company.Level, 1.35) * (1 + random.NextDouble());
-            var amount = Math.Max(10, Math.Round(value / price / 10) * 10);
+            var units = OrderIncomeMinutes / count * MeasuredIncome(company) * (0.75 + 0.5 * random.NextDouble()) / price;
+            if (selling.GetValueOrDefault(resource) is var rate && rate > 1e-6)
+            {
+                units = Math.Min(units, rate * OrderFillHours * 60);
+            }
+            var amount = Math.Max(10, Math.Round(units / 10) * 10);
             orders.Add(new DailyOrder
             {
                 Id = day * 10 + i,
                 Resource = resource,
                 Amount = amount,
-                RewardGold = Math.Round(amount * price * 2),
+                RewardGold = Math.Round(amount * price * 2 * (1 + WonderOrderBonus(company) + Refined(company, "hubOrders"))),
                 RewardXp = 30 + 8.0 * company.Level,
                 RewardReputation = 40,
                 ExpiresAt = expires,
@@ -108,48 +157,48 @@ public sealed partial class GameWorld
         return orders;
     }
 
-    /// <summary>Delivers what the storages have for an order; the reward comes when it is complete</summary>
-    public CommandResult DeliverOrder(long companyId, int orderId)
+    /// <summary>
+    /// What a company's trading posts sell fills its open orders of that good (shortage orders first): the order pays its
+    /// price for what it takes, so on top of the hub's price comes the difference; returns that difference
+    /// </summary>
+    private double FillOrders(Company company, string resource, double units, double price)
     {
-        if (Company(companyId) is not { } company)
+        var premium = 0.0;
+        foreach (var order in company.DailyOrders.Where(t => t.Resource == resource && !t.Done && t.ExpiresAt > LastTick).OrderByDescending(t => t.Urgent).ThenBy(t => t.Id).ToList())
         {
-            return CommandResult.Fail("Unknown company.");
+            if (units <= 1e-9)
+            {
+                break;
+            }
+            var take = Math.Min(units, order.Amount - order.Delivered);
+            units -= take;
+            order.Delivered = Math.Min(order.Amount, order.Delivered + take);
+            var paid = take * Math.Max(0, order.RewardGold / order.Amount - price);
+            order.Premium += paid;
+            premium += paid;
+            if (order.Done)
+            {
+                CompleteOrder(company, order);
+            }
+            company.Touch();
+            Changes.Companies.Add(company.Id);
         }
-        var order = company.DailyOrders.FirstOrDefault(t => t.Id == orderId);
-        if (order == null || order.ExpiresAt <= Now)
+        return premium;
+    }
+
+    /// <summary>An order is filled: reputation and XP, and it shows now ("Your coal filled a hub order")</summary>
+    private void CompleteOrder(Company company, DailyOrder order)
+    {
+        company.HubReputation += order.RewardReputation;
+        GainXp(company, order.RewardXp, "orders", order.Resource);
+        Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.OrderCompleted,
+            $"Your {GoodsWord(order.Resource)} filled {(order.Urgent ? "a shortage order" : "a hub order")}: {order.Amount:N0} at {(order.Urgent ? "three times" : "twice")} the price, +{order.Premium:N0} g over the hub's"));
+        company.Report.OrdersCompleted++;
+        company.Report.OrderGold += order.Premium;
+        if (!company.Report.OrdersFilled.Contains(order.Resource))
         {
-            return CommandResult.Fail("That order has expired.");
+            company.Report.OrdersFilled.Add(order.Resource);
         }
-        if (order.Done)
-        {
-            return CommandResult.Fail("That order is complete.");
-        }
-        var available = Materials(company.Id).TryGetValue(order.Resource, out var have) ? have : 0;
-        var amount = Math.Min(order.Amount - order.Delivered, available);
-        if (amount <= 1e-9)
-        {
-            return CommandResult.Fail($"Your storages have no {Content.Resources[order.Resource].Name.ToLowerInvariant()}.");
-        }
-        var payment = Pay(company, 0, new Dictionary<string, double> { [order.Resource] = amount });
-        if (!payment.Success)
-        {
-            return payment;
-        }
-        order.Delivered += amount;
-        if (order.Done)
-        {
-            company.Gold += order.RewardGold;
-            company.LifetimeEarnings += order.RewardGold;
-            company.Report.GoldEarned += order.RewardGold;
-            company.HubReputation += order.RewardReputation;
-            GainXp(company, order.RewardXp, "orders", order.Resource);
-            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.OrderCompleted, $"Order complete: +{order.RewardGold:N0} gold"));
-            company.Report.OrdersCompleted++;
-            AddStat(company, "orders", 1);
-            MarkCompanyNetworksDirty(company.Id);
-        }
-        company.Touch();
-        Changes.Companies.Add(company.Id);
-        return CommandResult.Ok;
+        AddStat(company, "orders", 1);
     }
 }

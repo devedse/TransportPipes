@@ -23,6 +23,14 @@ public sealed partial class GameWorld
         }
         PlanEvents();
         EnsureEraWonder();
+        if (!_grantsChecked)
+        {
+            _grantsChecked = true;
+            foreach (var company in _companies.Values.ToList())
+            {
+                GrantResearch(company);
+            }
+        }
         // Everything that finishes in between, in the order it happens
         var events = new List<(DateTime At, long Order, Action Run)>();
         foreach (var (at, run) in EventMoments(LastTick, now).ToList())
@@ -53,6 +61,21 @@ public sealed partial class GameWorld
         {
             events.Add((at, long.MinValue + 11, run));
         }
+        foreach (var (at, run) in LinkMoments(LastTick, now).ToList())
+        {
+            events.Add((at, long.MinValue + 12, run));
+        }
+        foreach (var (at, run) in AskMoments(LastTick, now).ToList())
+        {
+            events.Add((at, long.MinValue + 13, run));
+        }
+        foreach (var company in _companies.Values.Where(t => t.PendingBlocks.Count != 0))
+        {
+            foreach (var (other, at) in company.PendingBlocks.Where(t => t.Value <= now).ToList())
+            {
+                events.Add((at, -company.Id, () => ApplyBlock(company, other)));
+            }
+        }
         foreach (var building in _buildings.Values.Where(t => t.ConstructionEndsAt is { } end && end <= now))
         {
             events.Add((building.ConstructionEndsAt!.Value, building.Id, () => CompleteConstruction(building)));
@@ -61,19 +84,25 @@ public sealed partial class GameWorld
         {
             events.Add((company.ResearchEndsAt!.Value, -company.Id, () => CompleteResearch(company)));
         }
-        foreach (var company in _companies.Values.Where(t => t.PendingPrices.Count != 0))
+        // Banked points start research while the player is away, even with idle Labs (run 2: Ana's 64k points sat
+        // unspent in a Lab with no pipes)
+        foreach (var company in _companies.Values.Where(t => t.CurrentResearch == null && t.KeepResearching && t.ResearchQueue.Count == 0 && t.ResearchPoints > 0 && !t.IsNpc))
         {
-            foreach (var (resource, pending) in company.PendingPrices.Where(t => t.Value.At <= now).ToList())
-            {
-                events.Add((pending.At, -company.Id, () => ApplySellPrice(company, resource, pending.Price)));
-            }
+            StartQueuedResearch(company);
         }
         for (var at = NextMarketUpdate(LastTick); at <= now; at = NextMarketUpdate(at))
         {
             events.Add((at, long.MinValue, () =>
             {
                 UpdateMarkets();
+                UpdateTailwinds();
                 RunManagers();
+                if (ProjectsEnabled)
+                {
+                    CheckKeystones();
+                }
+                CheckRestingLabs();
+                CheckTradeFalls();
             }));
         }
         for (var at = NextDay(LastTick); at <= now; at = NextDay(at))
@@ -99,15 +128,30 @@ public sealed partial class GameWorld
         }
         foreach (var (at, _, run) in events.OrderBy(t => t.At).ThenBy(t => t.Order))
         {
+            CoupleUntil(at);
             if (at > LastTick)
             {
                 Advance(at);
             }
             run();
         }
+        CoupleUntil(now);
         Advance(now);
         CheckAchievements();
         CheckTutorial();
+    }
+
+    /// <summary>The Yards' rounds up to a moment (v1.2 §7): once a minute while terms move, less often when they don't</summary>
+    private void CoupleUntil(DateTime at)
+    {
+        for (var round = 0; round < 100_000 && NextCoupling() <= at; round++)
+        {
+            if (NextCoupling() > LastTick)
+            {
+                Advance(NextCoupling());
+            }
+            RunCoupling();
+        }
     }
 
     private void CompleteConstruction(Building building)
@@ -138,7 +182,8 @@ public sealed partial class GameWorld
     /// <summary>Finishes a construction right away (for tests and for paying to rush, later)</summary>
     public void FinishConstruction(long buildingId)
     {
-        if (Building(buildingId) is { UnderConstruction: true } building)
+        // A scaffold stands only once its materials are in
+        if (Building(buildingId) is { UnderConstruction: true } building && !IsSite(building))
         {
             CompleteConstruction(building);
         }
@@ -154,9 +199,46 @@ public sealed partial class GameWorld
         }
         SolveNetworks();
         ExpectContracts(minutes);
+        CountLinkDeliveries(minutes);
+        SettleStandIns(minutes);
+        SettleProjects(minutes);
+        SettleEraWonder(minutes);
+        SettleAsks(minutes);
+        SettleTrunks(minutes);
         foreach (var network in _networks.Values.OrderBy(t => t.Id).ToList())
         {
             AdvanceNetwork(network, minutes);
+        }
+        MeasureIncome(minutes);
+    }
+
+    /// <summary>Measured income I(c) is never below this many gold a minute (a newcomer's projects and allowances have a size)</summary>
+    public const double MinMeasuredIncome = 60;
+
+    /// <summary>A company's measured income I(c) (F4): the 24-hour average of what it earns by producing, at least 60 a minute</summary>
+    public double MeasuredIncome(Company company) => Math.Max(MinMeasuredIncome, company.MeasuredIncome);
+
+    /// <summary>What a company has earned by producing, all told: hub sales, what the Yard, Houses and stand-ins paid, the project</summary>
+    private static double ProductionEarned(Company company) =>
+        company.Stats.GetValueOrDefault("hubGold") + company.Stats.GetValueOrDefault("yardPaid") + company.Stats.GetValueOrDefault("yardFloor")
+        + company.Stats.GetValueOrDefault("npcGold") + company.Stats.GetValueOrDefault("projectGold");
+
+    /// <summary>Every company's measured income moves towards what it earned this step (a 24-hour average)</summary>
+    private void MeasureIncome(double minutes)
+    {
+        foreach (var company in _companies.Values.Where(t => !t.IsNpc))
+        {
+            var earned = ProductionEarned(company);
+            if (company.MeasuredEarned <= 0)
+            {
+                // The first measure (a new company, or a world from before I(c)): from what its networks earn now
+                company.MeasuredEarned = earned;
+                company.MeasuredIncome = Math.Max(company.MeasuredIncome, _networks.Values.Sum(t => t.Solution.GoldPerMinute.GetValueOrDefault(company.Id)));
+                continue;
+            }
+            var rate = Math.Max(0, earned - company.MeasuredEarned) / minutes;
+            company.MeasuredIncome += (rate - company.MeasuredIncome) * Math.Min(1, minutes / (24 * 60));
+            company.MeasuredEarned = earned;
         }
     }
 
@@ -169,7 +251,7 @@ public sealed partial class GameWorld
                 Solve(network);
             }
             var solution = network.Solution;
-            if (solution.Flows.Count == 0 && solution.ResearchPerMinute.Count == 0)
+            if (solution.Flows.Count == 0 && solution.ResearchPerMinute.Count == 0 && network.GateFlows.Count == 0 && !HasGateImports(network))
             {
                 return;
             }
@@ -226,6 +308,28 @@ public sealed partial class GameWorld
     private static readonly TimeSpan StorageFullNoticeEvery = TimeSpan.FromHours(6);
     private readonly Dictionary<long, DateTime> _storageFullNoticeAt = new();
 
+    /// <summary>
+    /// A full Storage as a line says it (run 2: Ana's warning said "full" for four weeks and never what was in it or what
+    /// waited behind it): "4,800 energy and 200 iron ingots", and the buildings that slow behind it ("your 4 Wind Moilies")
+    /// </summary>
+    public (string Holds, string? Waiting, Building? First) StorageLine(Building storage)
+    {
+        var holds = storage.Contents.Where(t => t.Value >= 1).OrderByDescending(t => t.Value).Take(2)
+            .Select(t => $"{(t.Value >= 100 ? t.Value.ToString("N0") : t.Value.ToString("0"))} {GoodsWord(t.Key)}").ToList();
+        var waiting = BuildingsOf(storage.Owner)
+            .Where(t => t.Id != storage.Id && IdleReasonOf(t).Cause == IdleCause.Full && PipeReach(t).Any(r => r.Id == storage.Id))
+            .ToList();
+        var kinds = waiting.GroupBy(t => Content.Building(t.Type).Name).OrderByDescending(t => t.Count())
+            .Select(t => t.Count() == 1 ? $"a {t.Key}" : $"{t.Count()} {Plural(t.Key)}").ToList();
+        return (holds.Count == 0 ? "goods" : string.Join(" and ", holds),
+            kinds.Count == 0 ? null : $"your {string.Join(" and ", kinds.Take(2))}{(kinds.Count > 2 ? " and more" : "")}",
+            waiting.FirstOrDefault());
+    }
+
+    /// <summary>"Wind Moilies", "Solar Panels", "Small Factories"</summary>
+    private static string Plural(string name) =>
+        name.EndsWith('y') && !name.EndsWith("ey", StringComparison.Ordinal) ? name[..^1] + "ies" : name.EndsWith('s') ? name : name + "s";
+
     /// <summary>Storages that are (nearly) full</summary>
     public IEnumerable<Building> FullStorages(long companyId) =>
         BuildingsOf(companyId).Where(t => Content.Building(t.Type).Kind == BuildingKind.Storage && !t.UnderConstruction
@@ -252,8 +356,8 @@ public sealed partial class GameWorld
             }
         }
 
-        TrackContracts(solution, minutes);
         var earnings = new Dictionary<long, double>();
+        SettleGateFlows(network, minutes, earnings);
         foreach (var flow in solution.Flows)
         {
             var from = _buildings[flow.From];
@@ -264,12 +368,15 @@ public sealed partial class GameWorld
                     earnings[from.Owner] = (earnings.TryGetValue(from.Owner, out var e) ? e : 0) + income;
                     if (flow.Kind == FlowKind.Sale && Company(from.Owner) is { } seller)
                     {
-                        Add(seller.Report.Sold, flow.Resource, flow.Delivered * minutes);
-                        // The hub's prices follow what players sell (tenants are the background of a district)
-                        if (!seller.IsNpc)
+                        // Today's hub orders buy at their own price as the goods pass (after run 3, step 7)
+                        if (seller.DailyOrders.Count > 0 && !seller.IsNpc)
                         {
-                            Market(network.District).AddSold(flow.Resource, flow.Delivered * minutes);
+                            earnings[from.Owner] += FillOrders(seller, flow.Resource, flow.Delivered * minutes, flow.PricePerUnit);
                         }
+                        AddStat(seller, "hubGold", income);
+                        Add(seller.Report.Sold, flow.Resource, flow.Delivered * minutes);
+                        // The company's own order at the hub follows what it sells there
+                        HubMarketOf(seller, network.District).AddSold(flow.Resource, flow.Delivered * minutes);
                         // Trading with your hub builds reputation: a point per 2,000 gold
                         var level = ReputationLevel(seller);
                         seller.HubReputation += income / 2000;
@@ -285,6 +392,8 @@ public sealed partial class GameWorld
                 && Content.Building(from.Type).Kind is not (BuildingKind.Storage or BuildingKind.TradingPost)
                 && Company(from.Owner) is { } producer)
             {
+                CountDiscovery(from, flow.Sent * minutes);
+                producer.EraOutput += flow.Sent * minutes * BasePrice(flow.Resource);
                 Add(producer.Report.Produced, flow.Resource, flow.Sent * minutes);
                 AddStat(producer, $"produced:{flow.Resource}", flow.Sent * minutes);
             }
@@ -294,8 +403,8 @@ public sealed partial class GameWorld
         {
             if (Company(companyId) is { } company)
             {
-                // The Caretaker of a dormant company
-                company.Gold -= earned * CaretakerShare(company);
+                // The Caretaker of a dormant company takes no fee: no sink is upkeep on a resting estate (the designers'
+                // rule after run 3)
                 TaxEarnings(company, earned);
                 company.LifetimeEarnings += earned;
                 company.Report.GoldEarned += earned;
@@ -310,6 +419,7 @@ public sealed partial class GameWorld
                 company.ResearchPoints += research * minutes;
                 company.Touch();
                 Changes.Companies.Add(companyId);
+                StartQueuedResearch(company);
             }
         }
 

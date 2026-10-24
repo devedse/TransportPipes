@@ -14,6 +14,7 @@ export const TERRAIN_COLORS: Record<TerrainType, string> = {
   mountain: "#8c9096",
   road: "#7d7a74",
   city: "#b7ae9f",
+  yard: "#c9a978",
   rock: "#3d342d",
   cavern: "#8a6a48",
 };
@@ -29,6 +30,7 @@ export const TERRAIN_MAP_COLORS: Record<TerrainType, string> = {
   mountain: "#9a9ea6",
   road: "#8a867e",
   city: "#c4bba9",
+  yard: "#d8b680",
   rock: "#3a312a",
   cavern: "#9a7650",
 };
@@ -140,6 +142,51 @@ export function drawTerrainTile(type: TerrainType, variant: number): HTMLCanvasE
         g.lineTo(i * 32 - 96, 96);
         g.stroke();
       }
+      break;
+    }
+    case "yard": {
+      // A station's Yard: warm flagstones laid in rows, worn smooth
+      const stones = 4;
+      for (let row = 0; row < stones; row++) {
+        for (let column = 0; column < stones; column++) {
+          // A flagstone in tile space (u, v in 0..1), drawn as a small diamond
+          const u0 = column / stones;
+          const v0 = row / stones;
+          const tone = 0.9 + hash01(seed * 31 + row * 7 + column * 13) * 0.2;
+          const point = (u: number, v: number) =>
+            [(u - v + 1) * (TILE_W / 2), (u + v) * (TILE_H / 2)] as const;
+          const inset = 0.012;
+          const corners = [
+            point(u0 + inset, v0 + inset),
+            point(u0 + 1 / stones - inset, v0 + inset),
+            point(u0 + 1 / stones - inset, v0 + 1 / stones - inset),
+            point(u0 + inset, v0 + 1 / stones - inset),
+          ];
+          g.fillStyle = shade(base, tone);
+          g.beginPath();
+          g.moveTo(corners[0]![0], corners[0]![1]);
+          corners.slice(1).forEach(([x, y]) => g.lineTo(x, y));
+          g.closePath();
+          g.fill();
+        }
+      }
+      g.strokeStyle = "rgba(90,60,30,0.35)";
+      g.lineWidth = 1.5;
+      for (let i = 1; i < stones; i++) {
+        const a = [(i / stones - 0 + 1) * (TILE_W / 2), (i / stones) * (TILE_H / 2)];
+        const b = [(i / stones - 1 + 1) * (TILE_W / 2), (i / stones + 1) * (TILE_H / 2)];
+        g.beginPath();
+        g.moveTo(a[0]!, a[1]!);
+        g.lineTo(b[0]!, b[1]!);
+        g.stroke();
+        const c = [(0 - i / stones + 1) * (TILE_W / 2), (i / stones) * (TILE_H / 2)];
+        const d = [(1 - i / stones + 1) * (TILE_W / 2), (1 + i / stones) * (TILE_H / 2)];
+        g.beginPath();
+        g.moveTo(c[0]!, c[1]!);
+        g.lineTo(d[0]!, d[1]!);
+        g.stroke();
+      }
+      speckle(g, seed, 60, [shade(base, 0.8), shade(base, 1.15)], [1, 3]);
       break;
     }
     case "rock": {

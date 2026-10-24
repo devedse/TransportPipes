@@ -14,6 +14,9 @@ public class TransportPipesOptions
     /// </summary>
     public double SaveSeconds { get; set; } = 30;
 
+    /// <summary>A world operation (a command, a query, a tick) that takes this long is logged with where its time went</summary>
+    public double SlowWorldMilliseconds { get; set; } = 500;
+
     /// <summary>
     /// The seed of a new world (only used when the database has no world yet)
     /// </summary>
@@ -53,4 +56,17 @@ public class TransportPipesOptions
     /// Allows the Cheat hub method (gold, levels, research points, finishing constructions) for testing. Never in production.
     /// </summary>
     public bool Cheats { get; set; }
+
+    /// <summary>How many guests (players without an account yet) one address may start a day</summary>
+    public int GuestsPerAddressPerDay { get; set; } = 5;
+
+    /// <summary>
+    /// A playtest server (docs/playtest-design.html): a clock the director moves, the /playtest calls (with
+    /// <see cref="PlaytestToken"/>) and a log of every world event in <see cref="PlaytestDataDir"/>. Never in production.
+    /// </summary>
+    public bool Playtest { get; set; }
+
+    public string PlaytestToken { get; set; } = "";
+
+    public string PlaytestDataDir { get; set; } = "playtest-data";
 }

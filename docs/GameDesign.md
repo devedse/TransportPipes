@@ -95,6 +95,12 @@ OpenTTD (infrastructure, tolls), Travian (shared map, slow real time), EVE Onlin
 | Nothing new once the land is full | **Six late-game paths** (§11): denser, deeper (the Deep Level), wider (expeditions, branches, teleporters), over others (infrastructure, finance, governance), prettier, Franchise | The game must stay fun after the estate is complete |
 | Inactive players occupied land | **Activity stages** with a Caretaker, sleeping estates move to the **Quiet Isles**, free relocation on return (§12) | Districts stay lively, nobody loses anything |
 | No moving | **Relocation** of the whole estate, crates, swaps, corporation blocks (§12.3) | Play next to friends and good partners |
+| Four gates per estate on public corridors, a gate policy each, shared corridor networks | **v1.2:** estates sit in **stations** of four (or two) seats around a shared **Yard**; one Yard gate per estate; networks never cross a gate; one **player price** (1.75 × base) for the Yard, links, contracts and the Exchange; **links** join two named companies in different stations | Three friends play together the first evening, nobody can block or fleece anybody, the district never becomes one network ([multiplayer-design.html](multiplayer-design.html)) |
+| One hub price per district that everyone's sales move | **v1.2:** a personal **Hub Order** per company and hub (√ curve), quiet grace on small servers; public copper **trunks** to the next hubs and the Port, crew steel trunks | Nobody's flood lowers a newcomer's price; growth in week 3 comes from crossing borders |
+| NPC tenants on free estates | **v1.2:** **Houses** ⚙ of four kinds as strong as their station, in every free seat on a small server, a starter kit for the newcomer who takes the seat; **stand-ins** keep a sleeper's trades | Never alone, never silent, and labelled: they never pretend to be people |
+| The Quiet Isles at day 30, a move once a week | **v1.2:** asleep in place (the seat held to day 90 in a crew, 37 alone), the way back's screens and landing cards; moves to a chosen seat, free, 5 minutes apart | Absence costs nobody else; coming back is a gift |
+| Corporations as the only groups | **v1.2:** **crews** of 1–8 friends (seat codes, guests), the **station's project** (Foundation → Landmark → **storeys** without end), Asks, the Plan board, tending, Discoveries with markers, leagues | Doing things together without votes, kicks or appointments |
+| Gold piles up once the estate is built | **After run 4:** the **pipe ladder** (Copper Pipes at Company Level 8, Steel with Era 2, for everyone; the next tier, then Widen, then the levels it carries, in one door on a full building's panel); **one order rule** (while a friend near makes a good, half of a shared goal comes by pipe; while nobody does, gold orders all of it at twice the price); **"Your gold can"** on the top bar (the bank in days, the shared goal first, Grow everything that pays back within a week, with Undo); the **Landmark's storeys**, a purse given in hours of each giver's own income, +10% on the residents' pipes each | The pipe tier is the real level cap (the hub never pays less than a quarter): gold has a job when it climbs the ladder, finishes what no friend near can make, and builds the station's next storey together ([playtest-run4-plan.html](playtest-run4-plan.html)) |
 
 ## 4. The world
 
@@ -245,13 +251,19 @@ can salvage).
 | Pipe | Unlock | Cost per tile | Loss per tile | Throughput per connection |
 | --- | --- | --- | --- | --- |
 | Grey Pipe | Start | 2 g | 0.3% | 100 / min |
-| Copper Pipe | Research | 10 g + 1 copper ingot | 0.15% | 500 / min |
-| Steel Pipe | Era 2 | 40 g + 1 steel | 0.05% | 5,000 / min |
+| Copper Pipe | Company Level 8 (a Lab's research gets it sooner) | 10 g + 1 copper ingot | 0.15% | 500 / min |
+| Steel Pipe | Era 2, for everyone | 40 g + 1 steel | 0.05% | 5,000 / min |
 | Glass Conduit | Era 4 | 200 g + glass, circuits | 0.01% | 50,000 / min |
+| Superconductor | Era 5 | expensive | 0 | unlimited |
 
 (Tuned in play: at 1% a grey pipe to a neighbour a hundred tiles away delivered a third, so trading only paid next
 door. At 0.3% three quarters arrive, and a neighbour pays more than the hub up to about 190 tiles.)
-| Superconductor | Era 5 | expensive | 0 | unlimited |
+
+- **The pipe ladder** (after run 4): a building whose pipe is full shows one door on its panel: the next tier on its
+  full links, then the levels the new pipe and its inputs carry, in one preview (gold a minute, payback). At a Copper or
+  Steel Pipe's limit the door widens it: ×2 for an hour of income per link, ×4 for two hours more; Grey doesn't widen.
+  The ingots come from your Storages, then a friend's spare through the Yard, then an order at twice the price when
+  nobody near makes them. The goal tracker shows the ladder ("Your pipes: Grey · Copper ▸ · Steel with Era 2").
 
 - **Losses** are counted over the shortest pipe path between producer and consumer, so compact layouts and good trunk
   pipes pay off.
@@ -649,6 +661,10 @@ districts.
 
 ## 9. Multiplayer systems
 
+> **Since v1.2 ("Playing together", [multiplayer-design.html](multiplayer-design.html)):** the Neighbourhood panel and
+> the gates of §9.1 gave way to stations, the Yard, links and crews; the rules below that still hold are corporations,
+> chat and the Exchange (at the one player price). See §3 for what changed.
+
 ### 9.1 Neighbours
 
 The **Neighbourhood** panel is the centre of multiplayer for most players: it lists the companies around you with their
@@ -684,6 +700,12 @@ district can deliver to it; when it is finished, everybody in the district gets 
 The Era Wonder in the Capital accepts deliveries from every district (by pipe for Capital residents, by cargo for
 everyone else). Contributions are recorded; contributors get rewards by tier (bronze, silver, gold, diamond) and the
 top companies and corporations get statues in the next season.
+
+After run 4 a stage is sized at hours of what the Capital's players seen this week earn (never from the floor; it
+grows only while nothing has arrived), and one order rule says where its goods come from: while a Capital player makes
+a good, half of it comes by pipe and the other half may be ordered; while nobody does, gold may order all of it at
+twice the price. The Wonders tab names who ordered what, what is on its way, and the chain that would make a missing
+good ("A Brickworks makes bricks from coal and stone: the Houses sell both through the Yard").
 
 ### 9.5 Competition
 
@@ -992,7 +1014,7 @@ titles. They give experienced players fresh puzzles every week.
 | --- | --- | --- |
 | **Active** | Played in the last 3 days | Normal |
 | **Resting** | 3–14 days away | Everything keeps running; managers keep acting; contracts continue. A small "resting" sign on the HQ |
-| **Dormant** | 14–30 days away | A **Caretaker** (an NPC) runs the trading so neighbours aren't hurt: it keeps gates open for existing partners and renews good contracts at *Auto* prices. The owner keeps earning (minus a 10% caretaker fee). Corporation roles pass to others. Ivy starts growing on the buildings |
+| **Dormant** | 14–30 days away | A **Caretaker** (an NPC) runs the trading so neighbours aren't hurt: it keeps gates open for existing partners and renews good contracts at *Auto* prices. The owner keeps earning, with no fee (after run 3: no sink is upkeep on a resting estate). Corporation roles pass to others. Ivy starts growing on the buildings |
 | **Asleep** | 30+ days away | The whole estate is **packed up and moved to the Quiet Isles**, a peaceful archipelago of sleeping estates. Balloons lift the estate out of the district; its spot becomes free for a newcomer or a moving player. Contracts end with notice; the owner's public pipes become toll-free hub pipes. **Nothing is lost** |
 | **Returning** | Any time | The offline report, a *Welcome back* package, and from the Quiet Isles a **free move** to any district with a free spot (or next to friends). The estate is unpacked with its complete layout |
 

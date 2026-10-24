@@ -120,27 +120,29 @@ public class CorporationFacts
     }
 
     [TestMethod]
-    public void MembersTradeWhateverTheMaximumPriceAndPayTax()
+    public void MembersPayTaxOnWhatTheyEarnInTheYard()
     {
         var (game, leader, corporation) = Founded();
-        var buyer = game.NewCompany("Buyer");
+        var buyer = game.NewCompany("Buyer", level: 2);
         game.World.InviteToCorporation(leader.Id, buyer.Id);
         game.World.ApplyToCorporation(buyer.Id, corporation.Id);
-        var origin = game.Local(leader, 1, 1);
-        game.Map(leader, origin, " W+");
-        game.Map(buyer, origin, "   M+T");
-        game.World.SetBuyMaxPrice(buyer.Id, "energy", 1);
-        game.World.SolveNetworks();
-
-        var flows = game.World.Networks.Single(t => t.Solution.Flows.Count > 0).Solution.Flows;
-        Assert.IsTrue(flows.Any(t => t.Kind == FlowKind.Trade && t.PricePerUnit == 1.75), "a member pays the seller's price even above its maximum");
+        Assert.AreEqual(leader.Slot + 1, buyer.Slot, "neighbours in one station");
+        var moily = game.Build(leader, "windMoily");
+        game.ConnectToGate(leader, moily);
+        var mine = game.Build(buyer, "ironMine", game.Spot(buyer, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
+        game.ConnectToGate(buyer, mine);
+        game.Connect(buyer, mine, game.TradingPost(buyer));
+        game.Pass(3);
 
         game.World.DonateToCorporation(leader.Id, 1);
         game.World.SetCorporationSettings(leader.Id, 0.1, null, "");
         var treasury = corporation.Treasury;
+        var energy = game.World.YardTrades(game.EstateOf(leader)).Where(t => t.Selling).Sum(t => t.PerMinute);
+        Assert.IsTrue(energy > 0, "the leader sells its energy to the buyer's mine");
+        var ore = game.World.NetworkOf(mine.Id)!.Solution.Flows.Where(t => t.Kind == FlowKind.Sale).Sum(t => t.Delivered * t.PricePerUnit);
         game.Pass(10);
-        // 10% of the leader's trade income (10 energy at 1.75) and of the buyer's ore sales (12 at 3)
-        Assert.AreEqual(treasury + (10 * 1.75 + 12 * 3) * 10 * 0.1, corporation.Treasury, 1e-6);
+        // 10% of the leader's trade income (at the player price) and of the buyer's ore sales
+        Assert.AreEqual(treasury + (energy * game.World.PlayerPrice("energy") + ore) * 10 * 0.1, corporation.Treasury, 1e-3);
     }
 
     [TestMethod]

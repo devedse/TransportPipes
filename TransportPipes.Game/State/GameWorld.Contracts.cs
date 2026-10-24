@@ -31,12 +31,9 @@ public sealed partial class GameWorld
     /// <summary>The stars (1..5) of a company's contract reputation: five only for (nearly) everything delivered</summary>
     public static int ContractStars(Company company) => Math.Clamp((int)Math.Floor(1 + 4 * company.ContractScore + 1e-9), 1, 5);
 
-    /// <summary>Contracts the solver serves in a network: active ones between companies that are in it</summary>
-    private List<FlowContract> ActiveContracts(IReadOnlySet<long> owners) =>
-        _contracts.Values
-            .Where(t => t.State == ContractState.Active && owners.Contains(t.Seller) && owners.Contains(t.Buyer))
-            .Select(t => new FlowContract(t.Id, t.Seller, t.Buyer, t.Resource, t.Rate, t.Price))
-            .ToList();
+    /// <summary>Whether two companies' goods can reach each other: they live in the same (big) station</summary>
+    public bool CanDeliver(Company a, Company b) =>
+        EstatesOf(a).Select(t => BigStation(t.Station)[0]).Intersect(EstatesOf(b).Select(t => BigStation(t.Station)[0])).Any();
 
     /// <summary>
     /// Proposes a contract: selling (you deliver) or buying (you receive), to one company or, without a partner, to
@@ -60,11 +57,8 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail($"A contract runs 1 to {MaxContractDays(company)} days{(HasResearch(company, "futures") ? "" : " (Futures allows longer ones)")}.");
         }
-        var basePrice = HubBuyPrice(company.District, resource);
-        if (price < basePrice * 0.5 || price > HubSellPrice(company.District, resource) * 1.2)
-        {
-            return CommandResult.Fail($"Choose a price between {basePrice * 0.5:0.##} and {HubSellPrice(company.District, resource) * 1.2:0.##} gold.");
-        }
+        // One price between players (v1.2 §8)
+        price = PlayerPrice(resource);
         Company? partner = null;
         if (partnerId is { } id)
         {
@@ -72,6 +66,11 @@ public sealed partial class GameWorld
             if (partner == null || partner.Id == company.Id)
             {
                 return CommandResult.Fail("Choose another company.");
+            }
+            var (from, to) = selling ? (company.Id, partner.Id) : (partner.Id, company.Id);
+            if (!CanDeliver(company, partner) && LinkBetween(from, to, resource) == null)
+            {
+                return CommandResult.Fail($"{partner.Name} doesn't live in your station: link your gates for {Content.Resources[resource].Name.ToLowerInvariant()} first, or contract through the Yard.");
             }
         }
         var seller = selling ? company.Id : partner?.Id ?? 0;
@@ -118,10 +117,9 @@ public sealed partial class GameWorld
     private void TenantAnswers(Company tenant, Contract contract)
     {
         var definitions = BuildingsOf(tenant.Id).Select(t => Content.Building(t.Type)).ToList();
-        var auto = AutoPrice(tenant, contract.Resource);
         var fair = contract.Seller == tenant.Id
-            ? definitions.Any(t => t.Out.ContainsKey(contract.Resource)) && contract.Price >= auto * 0.9
-            : definitions.Any(t => t.In.ContainsKey(contract.Resource)) && contract.Price <= auto * 1.1;
+            ? definitions.Any(t => t.Out.ContainsKey(contract.Resource))
+            : definitions.Any(t => t.In.ContainsKey(contract.Resource));
         // It accepts only what it can make (AcceptContract checks it), and declines the rest
         if (!fair || !AcceptContract(tenant.Id, contract.Id).Success)
         {
@@ -164,6 +162,7 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("You made this offer yourself.");
         }
+        var fromBoard = contract.Seller == 0 || contract.Buyer == 0;
         if (contract.Seller == 0)
         {
             if (Company(contract.Proposer)?.District != company.District)
@@ -188,10 +187,29 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("You already have a contract with them for this.");
         }
+        // The goods need a way: the Yard of a station both live in, or a link
+        if (Company(contract.Seller) is { } from && Company(contract.Buyer) is { } to && !CanDeliver(from, to)
+            && LinkBetween(from.Id, to.Id, contract.Resource) == null)
+        {
+            var other = from.Id == companyId ? to : from;
+            if (fromBoard)
+            {
+                // Back on the board for someone who can deliver
+                if (contract.Seller == companyId)
+                {
+                    contract.Seller = 0;
+                }
+                else
+                {
+                    contract.Buyer = 0;
+                }
+            }
+            return CommandResult.Fail($"{other.Name} doesn't live in your station: link your gates for {Content.Resources[contract.Resource].Name.ToLowerInvariant()} first.");
+        }
         // Nobody can promise more than they can make: a contract nobody could meet would only pay penalties
         if (Company(contract.Seller) is { } promiser && contract.Rate > PromisableRate(promiser, contract.Resource, contract.Id) + 1e-9)
         {
-            if (contract.Seller == companyId)
+            if (fromBoard && contract.Seller == companyId)
             {
                 contract.Seller = 0;
             }
@@ -201,8 +219,8 @@ public sealed partial class GameWorld
         contract.StartedAt = Now;
         contract.EndsAt = Now.AddDays(contract.Days);
         ContractChanged(contract);
-        MarkCompanyNetworksDirty(contract.Seller);
-        MarkCompanyNetworksDirty(contract.Buyer);
+        MarkTradeDirty(contract.Seller);
+        MarkTradeDirty(contract.Buyer);
         Changes.Events.Add(new WorldEvent(contract.Proposer, WorldEventKind.ContractChanged, $"{company.Name} accepted your contract"));
         return CommandResult.Ok;
     }
@@ -241,23 +259,13 @@ public sealed partial class GameWorld
         Changes.Contracts.Add(contract.Id);
     }
 
-    /// <summary>Counts what contracts delivered and should have delivered</summary>
-    private void TrackContracts(FlowSolution solution, double minutes)
+    /// <summary>What a seller delivered to a buyer through the Yard counts for their contract of that resource</summary>
+    private void ContractDelivered(long seller, long buyer, string resource, double units)
     {
-        foreach (var flow in solution.Flows)
+        if (_contracts.Values.FirstOrDefault(t => t.State == ContractState.Active && t.Seller == seller && t.Buyer == buyer && t.Resource == resource) is { } contract)
         {
-            if (flow.Kind != FlowKind.Contract)
-            {
-                continue;
-            }
-            var seller = _buildings[flow.From].Owner;
-            var buyer = _buildings[flow.To].Owner;
-            var contract = _contracts.Values.FirstOrDefault(t => t.State == ContractState.Active && t.Seller == seller && t.Buyer == buyer && t.Resource == flow.Resource);
-            if (contract != null)
-            {
-                contract.Delivered += flow.Delivered * minutes;
-                contract.Touch();
-            }
+            contract.Delivered += units;
+            contract.Touch();
         }
     }
 
@@ -312,8 +320,8 @@ public sealed partial class GameWorld
             }
         }
         ContractChanged(contract);
-        MarkCompanyNetworksDirty(contract.Seller);
-        MarkCompanyNetworksDirty(contract.Buyer);
+        MarkTradeDirty(contract.Seller);
+        MarkTradeDirty(contract.Buyer);
         RenewContract(contract);
     }
 
