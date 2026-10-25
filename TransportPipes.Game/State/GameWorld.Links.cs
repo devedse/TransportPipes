@@ -155,8 +155,8 @@ public sealed partial class GameWorld
             ? Math.Clamp(link.Tank + link.TankChange * (LastTick - last).TotalMinutes, 0, link.TankSize)
             : link.Tank;
 
-    /// <summary>What a link's pipe carries per minute (with the seller's pipe research)</summary>
-    public double LinkThroughput(Link link) => LinkPipe(link).Throughput * (1 + ThroughputBonus(link.Seller));
+    /// <summary>What a link's pipe carries per minute</summary>
+    public double LinkThroughput(Link link) => LinkPipe(link).Throughput;
 
     /// <summary>The share of what the seller sends that reaches the buyer's gate: the pipe's loss per tile over the route</summary>
     public double LinkEfficiency(Link link) => LinkEfficiency(link.Tier, link.Length);
@@ -274,7 +274,7 @@ public sealed partial class GameWorld
         {
             return Fail("Unknown pipe.");
         }
-        if (pipe.Era > Era || (pipe.Research != null && !HasResearch(company, pipe.Research)))
+        if (pipe.Era > YourEra(company) || (pipe.Research != null && !HasResearch(company, pipe.Research)))
         {
             return Fail($"Research {pipe.Name} first.");
         }
@@ -470,7 +470,7 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("Choose a better pipe.");
         }
-        if (pipe.Era > Era || (pipe.Research != null && !HasResearch(company, pipe.Research)))
+        if (pipe.Era > YourEra(company) || (pipe.Research != null && !HasResearch(company, pipe.Research)))
         {
             return CommandResult.Fail($"Research {pipe.Name} first.");
         }
@@ -632,15 +632,13 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// The links' share of this round, before the Yard (v1.2 §7: contracts, then links, then the Yard, then the hub): each
+    /// The links' share of this round, before the Yard (1.4 §8: links, then the Yard, then the market): each
     /// link takes what its buyer still lacks (as far as its pipe carries it) from what its seller still has spare, plus
     /// what fills the buyer's tank; what's left goes to the Yard and the hub
     /// </summary>
     private void MatchLinks(Dictionary<EstateKey, YardMember> members, Func<EstateKey, GateTerms> termsOf)
     {
-        var contracted = _contracts.Values.Where(t => t.State == ContractState.Active).Select(t => (t.Seller, t.Buyer, t.Resource)).ToHashSet();
-        foreach (var link in _links.Values.Where(t => t.State != LinkState.Offered)
-                     .OrderBy(t => contracted.Contains((t.Seller, t.Buyer, t.Resource)) ? 0 : 1).ThenBy(t => t.Id))
+        foreach (var link in _links.Values.Where(t => t.State != LinkState.Offered).OrderBy(t => t.Id))
         {
             link.Need = 0;
             link.Send = 0;

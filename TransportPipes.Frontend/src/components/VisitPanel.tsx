@@ -111,7 +111,7 @@ export function VisitPanel() {
                 )}
                 {w.orderCost !== null && (
                   <button className="small" onClick={() => void gameClient.orderRest(w.site, visit.name)}>
-                    Order it for them · {formatAmount(w.orderCost)} g
+                    Buy it for them · {formatAmount(w.orderCost)} g
                   </button>
                 )}
               </li>

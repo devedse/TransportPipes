@@ -504,13 +504,15 @@ const BRASS = { color: hex("#d2a24a"), spec: 0.75, shine: 50 };
 const BOLT_DARK = { color: hex("#5c5040"), spec: 0.4, shine: 30 };
 const RED = { color: hex("#c8402c"), spec: 0.55, shine: 40 };
 
-/** The materials of each tier (pipe and hub follow the tier's colour, see PIPE_COLORS in the game) */
+/** The materials of each tier (pipe and hub follow the tier's colour, see PIPE_COLORS in the game): grey, copper, steel,
+ * composite (charcoal carbon fibre, orange fittings), glass, superconductor */
 const TIERS = {
   1: { pipe: { color: hex("#8e979f"), spec: 0.42, shine: 30 }, flange: BRASS, collar: { color: hex("#a5adb4"), spec: 0.45, shine: 30 }, bolt: BOLT_DARK, hub: { color: hex("#8a939b"), spec: 0.5, shine: 30 }, cap: BRASS, gauge: { color: hex("#f2ead8"), spec: 0.6, shine: 60 } },
   2: { pipe: { color: hex("#cf7d3e"), spec: 0.85, shine: 46 }, flange: { color: hex("#5b4636"), spec: 0.45, shine: 30 }, collar: { color: hex("#b8743e"), spec: 0.6, shine: 40 }, bolt: BRASS, hub: { color: hex("#b86a32"), spec: 0.8, shine: 44 }, cap: { color: hex("#5b4636"), spec: 0.45, shine: 30 }, gauge: { color: hex("#f2ead8"), spec: 0.6, shine: 60 } },
   3: { pipe: { color: hex("#5f7a92"), spec: 0.7, shine: 44 }, flange: BRASS, collar: { color: hex("#6f88a0"), spec: 0.55, shine: 40 }, bolt: BOLT_DARK, hub: { color: hex("#536b81"), spec: 0.65, shine: 40 }, cap: BRASS, gauge: { color: hex("#f2ead8"), spec: 0.6, shine: 60 } },
-  4: { pipe: { color: hex("#a9e7f7"), spec: 1.0, shine: 80, glass: true }, flange: { color: hex("#8a949c"), spec: 0.6, shine: 40 }, collar: { color: hex("#9aa4ac"), spec: 0.55, shine: 40 }, bolt: BRASS, hub: { color: hex("#7f8b94"), spec: 0.6, shine: 40 }, cap: BRASS, gauge: { color: hex("#f2ead8"), spec: 0.6, shine: 60 }, core: hex("#6ff0ff") },
-  5: { pipe: { color: hex("#3a2f5e"), spec: 0.9, shine: 60, bands: hex("#c49bff") }, flange: { color: hex("#c3ccd6"), spec: 0.9, shine: 70 }, collar: { color: hex("#4a3d78"), spec: 0.7, shine: 50 }, bolt: { color: hex("#2c2448"), spec: 0.5, shine: 30 }, hub: { color: hex("#2f2650"), spec: 0.85, shine: 60 }, cap: { color: hex("#c3ccd6"), spec: 0.9, shine: 70 }, gauge: { color: hex("#d9c8ff"), spec: 0.6, shine: 60 }, core: hex("#b98cff") },
+  4: { pipe: { color: hex("#3d4147"), spec: 0.7, shine: 55 }, flange: { color: hex("#e07b39"), spec: 0.55, shine: 40 }, collar: { color: hex("#4a4f56"), spec: 0.6, shine: 45 }, bolt: { color: hex("#2a2c30"), spec: 0.4, shine: 30 }, hub: { color: hex("#373a40"), spec: 0.65, shine: 50 }, cap: { color: hex("#e07b39"), spec: 0.55, shine: 40 }, gauge: { color: hex("#f2ead8"), spec: 0.6, shine: 60 } },
+  5: { pipe: { color: hex("#a9e7f7"), spec: 1.0, shine: 80, glass: true }, flange: { color: hex("#8a949c"), spec: 0.6, shine: 40 }, collar: { color: hex("#9aa4ac"), spec: 0.55, shine: 40 }, bolt: BRASS, hub: { color: hex("#7f8b94"), spec: 0.6, shine: 40 }, cap: BRASS, gauge: { color: hex("#f2ead8"), spec: 0.6, shine: 60 }, core: hex("#6ff0ff") },
+  6: { pipe: { color: hex("#3a2f5e"), spec: 0.9, shine: 60, bands: hex("#c49bff") }, flange: { color: hex("#c3ccd6"), spec: 0.9, shine: 70 }, collar: { color: hex("#4a3d78"), spec: 0.7, shine: 50 }, bolt: { color: hex("#2c2448"), spec: 0.5, shine: 30 }, hub: { color: hex("#2f2650"), spec: 0.85, shine: 60 }, cap: { color: hex("#c3ccd6"), spec: 0.9, shine: 70 }, gauge: { color: hex("#d9c8ff"), spec: 0.6, shine: 60 }, core: hex("#b98cff") },
 };
 
 function material(tier, name) {
@@ -731,7 +733,7 @@ async function main() {
     const geometry = render(piece(shape === "none" ? "" : shape));
     const coreGeometry = render(core(shape === "none" ? "" : shape));
     const tiers = {};
-    for (const tier of [1, 2, 3, 4, 5]) {
+    for (const tier of [1, 2, 3, 4, 5, 6]) {
       tiers[tier] = compose(geometry, coreGeometry, tier, shape.includes("-") && !shape.startsWith("tee-"));
     }
     rendered.push({ shape, tiers });
@@ -739,7 +741,7 @@ async function main() {
   }
   if (only) {
     mkdirSync(new URL("./scratch/", import.meta.url).pathname, { recursive: true });
-    for (const tier of [1, 2, 3, 4, 5]) {
+    for (const tier of [1, 2, 3, 4, 5, 6]) {
       const file = new URL(`./scratch/pipe-${only}-${tier}.png`, import.meta.url).pathname;
       await sharp(rendered[0].tiers[tier], { raw: { width: W, height: H, channels: 4 } }).png().toFile(file);
       console.log(file);
@@ -769,7 +771,7 @@ async function main() {
     };
   });
   mkdirSync(join(OUT, "pipes"), { recursive: true });
-  for (const tier of [1, 2, 3, 4, 5]) {
+  for (const tier of [1, 2, 3, 4, 5, 6]) {
     const atlas = Buffer.alloc(columns * cellW * rows * cellH * 4);
     rendered.forEach(({ shape, tiers }) => {
       const f = frames[shape];
@@ -787,7 +789,7 @@ async function main() {
       .toFile(join(OUT, "pipes", `tier${tier}.webp`));
   }
   const m = manifest({});
-  m.pipes = { resolution: RES, top: TOP, z: Z * ZS, tiers: [1, 2, 3, 4, 5], frames };
+  m.pipes = { resolution: RES, top: TOP, z: Z * ZS, tiers: [1, 2, 3, 4, 5, 6], frames };
   save(m);
   console.log(`${rendered.length} pieces, atlas ${columns * cellW}×${rows * cellH} per tier`);
 }

@@ -23,7 +23,7 @@ public sealed partial class GameWorld
     public Chain? ChainFor(Company me, string good)
     {
         var choices = Content.BuildingList
-            .Where(t => t.Buildable && t.Out.ContainsKey(good) && t.Unlock.Era <= Era)
+            .Where(t => t.Buildable && t.Out.ContainsKey(good) && t.Unlock.Era <= TownEra(me.District))
             .Select(t => (Definition: t, Unlocked: IsUnlocked(me, t, out var reason), Reason: reason))
             .OrderBy(t => t.Unlocked ? 0 : 1)
             .ThenBy(t => t.Definition.Cost.Gold)
@@ -58,7 +58,7 @@ public sealed partial class GameWorld
             return null;
         }
         return Content.BuildingList
-            .Where(t => t.Buildable && t.Out.ContainsKey(good) && t.Unlock.Era <= Era && t.Unlock.Research == null)
+            .Where(t => t.Buildable && t.Out.ContainsKey(good) && t.Unlock.Era <= TownEra(me.District) && t.Unlock.Research == null)
             .OrderBy(t => t.Cost.Gold)
             .FirstOrDefault();
     }
@@ -146,7 +146,7 @@ public sealed partial class GameWorld
             var maker = near.FirstOrDefault(c => c.Id != company.Id && BuildingsOf(c.Id).Any(b => !b.UnderConstruction && Content.Building(b.Type).Out.ContainsKey(t.Key)));
             return maker != null
                 ? $"{NameFor(maker, company)} makes {GoodsWord(t.Key)}: the Yard brings them"
-                : $"nobody near makes {GoodsWord(t.Key)}: order them at twice the price ({Gold(Math.Ceiling(t.Value * BasePrice(t.Key) * OrderPrice))})";
+                : $"nobody near makes {GoodsWord(t.Key)}: buy them from the market ({Gold(Math.Ceiling(t.Value * WantMarketPrice(company, t.Key)))})";
         }).ToList();
         return (shortOf, $"It waits for {all} before it stands: {string.Join("; ", parts)}.");
     }

@@ -16,18 +16,11 @@ function Recipe({ definition, content }: { definition: BuildingDefinition; conte
     ));
   const inputs = part(definition.in);
   const outputs = part(definition.out);
-  if (definition.researchPerMinute > 0) {
-    outputs.push(
-      <span key="research" className="amount research">
-        {definition.researchPerMinute} 🔬
-      </span>,
-    );
-  }
   if (definition.kind === "storage") {
     outputs.push(<span key="capacity">holds {formatAmount(definition.capacity)}</span>);
   }
   if (definition.kind === "tradingPost") {
-    outputs.push(<span key="throughput">sells {formatAmount(definition.throughput)}/min</span>);
+    outputs.push(<span key="throughput">sells everything at your town's market</span>);
   }
   return (
     <div className="recipe">

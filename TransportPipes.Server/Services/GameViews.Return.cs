@@ -147,12 +147,11 @@ public static partial class GameViews
         {
             var good = world.GoodsWord(waiting.Want.Resource);
             var maker = world.NearPlayers(me).FirstOrDefault(c => c.Id != me.Id && world.BuildingsOf(c.Id).Any(b => !b.UnderConstruction && world.Content.Building(b.Type).Out.ContainsKey(waiting.Want.Resource)));
-            var how = waiting.Want.Order != null ? $"ordered, the hub brings them {world.OrderStartText(me, waiting.Want, me)}"
-                : maker != null ? $"{world.NameFor(maker, me)} makes {good}: the Yard brings them"
+            var how = maker != null ? $"{world.NameFor(maker, me)} makes {good}: the Yard brings them"
                 : $"nobody near makes {good}";
             Add(2, "look", "🏗", $"Your {waiting.Name} waits for {waiting.Want.Left:N0} {good}: {how}",
-                waiting.Want.Order == null && world.OrderCost(me, waiting.Target) is { } own && own <= me.Gold ? "orderWant" : "show",
-                waiting.Target > 0 ? waiting.Target : null, waiting.Want.Order == null ? world.OrderCost(me, waiting.Target) : null);
+                world.OrderCost(me, waiting.Target) is { } own && own <= me.Gold ? "orderWant" : "show",
+                waiting.Target > 0 ? waiting.Target : null, world.OrderCost(me, waiting.Target));
         }
         // A neighbour's scaffold you could help with (after run 3, step 2): your Storage at a tap, or your spare going there
         if (world.WantsNear(me).Where(t => t.Holds >= 1 || t.Makes).OrderByDescending(t => t.Holds).FirstOrDefault() is { Owner: not null } near)
@@ -169,7 +168,7 @@ public static partial class GameViews
         else
         {
             // Your station and your crew, a friend away for a month too (after run 4: crew mates elsewhere could only watch)
-            var orderable = world.WantsNear(me).Where(w => w.Want.Order == null)
+            var orderable = world.WantsNear(me)
                 .Select(w => (w.Owner, w.Target, w.Name, w.Want, Cost: world.OrderCost(me, w.Target)))
                 .Where(t => t.Cost is { } cost && cost <= me.Gold)
                 .OrderBy(t => t.Owner.CrewId != null && t.Owner.CrewId == me.CrewId ? 0 : 1)
@@ -190,7 +189,7 @@ public static partial class GameViews
             Add(2, "crew", "👥", crewLine.Text, crewLine.Target != null ? "fillWant" : null, crewLine.Target);
         }
         // How the last Era ended, and your part (after run 3, step 5: "Era 1 ended without me knowing the Dynamo result")
-        if (me.EraEnded is { } ended && world.EraStartedAt >= report.Since)
+        if (me.EraEnded is { } ended && world.TownAt(me.District).EraStartedAt >= report.Since)
         {
             Add(1, "project", "🏛", ended);
         }
@@ -241,7 +240,7 @@ public static partial class GameViews
                 Add(7, "invest", "💡", $"Grow everything that pays: about +{Amount(plan.Gain)} g/min for {Amount(plan.Cost)} g ({Math.Max(1, Math.Round(100 * plan.Cost / Math.Max(1, me.Gold))):0}% of your gold) · {what}",
                     "grow", null, plan.Cost);
             }
-            else if (producers.FirstOrDefault(t => world.IdleReasonOf(t).Cause is IdleCause.PipeFull or IdleCause.PostFull) is { } held)
+            else if (producers.FirstOrDefault(t => world.IdleReasonOf(t).Cause is IdleCause.PipeFull) is { } held)
             {
                 var reason = world.IdleReasonOf(held);
                 var good = reason.Resource ?? world.Content.Building(held.Type).Out.Keys.First();
@@ -321,7 +320,7 @@ public static partial class GameViews
         var parts = new List<string>();
         foreach (var mate in mates)
         {
-            if (world.EraWonder is { } wonder && wonder.Incoming.GetValueOrDefault(mate.Id)?.Where(t => t.Value > 1e-9).Select(t => t.Key).FirstOrDefault() is { } toWonder)
+            if (world.WonderOf(me.District) is { } wonder && wonder.Incoming.GetValueOrDefault(mate.Id)?.Where(t => t.Value > 1e-9).Select(t => t.Key).FirstOrDefault() is { } toWonder)
             {
                 parts.Add($"{world.NameFor(mate, me)} brings {world.GoodsWord(toWonder)} to the {world.WonderDefinition(wonder).Name.Replace("The ", "")}");
             }

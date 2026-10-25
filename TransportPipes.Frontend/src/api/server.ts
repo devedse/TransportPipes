@@ -19,14 +19,14 @@ import type {
   OutpostCheckDto,
   DistrictChoiceDto,
   ReportedMessageDto,
-  SeasonDto,
   CompanyDto,
-  ContractsDto,
   EstateVisitDto,
   InboxDto,
   LeaderboardDto,
   LeaderboardKind,
-  WondersDto,
+  TownDto,
+  TrackStateDto,
+  GiveMode,
   ExchangeDto,
   NeighbourDto,
   DistrictDto,
@@ -137,7 +137,6 @@ export interface ServerEvents {
   chatMessage(message: ChatMessageDto): void;
   inboxChanged(unread: number): void;
   wondersChanged(): void;
-  seasonChanged(): void;
   crewChanged(): void;
   linksChanged(): void;
   mapLinksChanged(): void;
@@ -154,7 +153,6 @@ const EVENT_NAMES: Record<keyof ServerEvents, string> = {
   chatMessage: "ChatMessage",
   inboxChanged: "InboxChanged",
   wondersChanged: "WondersChanged",
-  seasonChanged: "SeasonChanged",
   crewChanged: "CrewChanged",
   linksChanged: "LinksChanged",
   mapLinksChanged: "MapLinksChanged",
@@ -321,23 +319,13 @@ export class GameConnection {
   placeExchangeOrder = (resource: string, selling: boolean, amount: number, price: number) =>
     this.invoke<CommandResult>("PlaceExchangeOrder", resource, selling, amount, price);
   cancelExchangeOrder = (order: number) => this.invoke<CommandResult>("CancelExchangeOrder", order);
-  getContracts = () => this.invoke<ContractsDto | null>("GetContracts");
-  proposeContract = (
-    partner: number | null,
-    selling: boolean,
-    resource: string,
-    rate: number,
-    price: number,
-    days: number,
-  ) => this.invoke<CommandResult>("ProposeContract", partner, selling, resource, rate, price, days);
-  acceptContract = (contract: number) => this.invoke<CommandResult>("AcceptContract", contract);
-  declineContract = (contract: number) => this.invoke<CommandResult>("DeclineContract", contract);
   setNoTrade = (resource: string, noTrade: boolean) =>
     this.invoke<CommandResult>("SetNoTrade", resource, noTrade);
   setNoBuy = (resource: string, noBuy: boolean) => this.invoke<CommandResult>("SetNoBuy", resource, noBuy);
   setTradeBlocked = (other: number, blocked: boolean) =>
     this.invoke<CommandResult>("SetTradeBlocked", other, blocked);
-  setTradeWith = (tradeWith: string) => this.invoke<CommandResult>("SetTradeWith", tradeWith);
+  getTracks = () => this.invoke<TrackStateDto[]>("GetTracks");
+  /** An Era tree item, or a track's next tier (its id) */
   startResearch = (tech: string) => this.invoke<CommandResult>("StartResearch", tech);
   queueResearch = (tech: string, queued: boolean) =>
     this.invoke<CommandResult>("QueueResearch", tech, queued);
@@ -347,7 +335,6 @@ export class GameConnection {
   placePipes = (tiles: number[], tier: number) => this.invoke<CommandResult>("PlacePipes", tiles, tier);
   removePipes = (tiles: number[]) => this.invoke<CommandResult>("RemovePipes", tiles);
   upgradePipes = (tiles: number[], tier: number) => this.invoke<CommandResult>("UpgradePipes", tiles, tier);
-  widenPipes = (tiles: number[], factor: number) => this.invoke<CommandResult>("WidenPipes", tiles, factor);
   climbPipe = (buildingId: number, order: boolean) =>
     this.invoke<CommandResult>("ClimbPipe", buildingId, order);
   getGoldUses = () => this.invoke<GoldUsesDto | null>("GetGoldUses");
@@ -391,8 +378,6 @@ export class GameConnection {
     this.invoke<CommandResult>("SetImport", building, resource, enabled);
   setBuildingSetting = (building: number, value: number) =>
     this.invoke<CommandResult>("SetBuildingSetting", building, value);
-  setShowroomProduct = (building: number, resource: string) =>
-    this.invoke<CommandResult>("SetShowroomProduct", building, resource);
   setValveFilter = (building: number, resource: string, enabled: boolean) =>
     this.invoke<CommandResult>("SetValveFilter", building, resource, enabled);
   cheat = (what: string) => this.invoke<CommandResult>("Cheat", what);
@@ -414,7 +399,20 @@ export class GameConnection {
     this.invoke<CommandResult>("SetBlocked", company, blocked);
   getInbox = () => this.invoke<InboxDto | null>("GetInbox");
   markInboxRead = () => this.invoke<void>("MarkInboxRead");
-  getWonders = () => this.invoke<WondersDto | null>("GetWonders");
+  getTown = () => this.invoke<TownDto | null>("GetTown");
+  setGive = (resource: string, mode: GiveMode) => this.invoke<CommandResult>("SetGive", resource, mode);
+  giveFromStorages = () => this.invoke<CommandResult>("GiveFromStorages");
+  /** Buys what the stage lacks (one good, or every good) at the market's 2.5× and gives it */
+  buyAndGive = (resource: string | null, gold: number | null) =>
+    this.invoke<CommandResult>("BuyAndGive", resource, gold);
+  chooseMonument = (era: number, kind: string) => this.invoke<CommandResult>("ChooseMonument", era, kind);
+  payMonument = (era: number, gold: number) => this.invoke<CommandResult>("PayMonument", era, gold);
+  putInDepot = (resource: string, amount: number) =>
+    this.invoke<CommandResult>("PutInDepot", resource, amount);
+  takeFromDepot = (resource: string, amount: number) =>
+    this.invoke<CommandResult>("TakeFromDepot", resource, amount);
+  buyOutskirts = (index: number) => this.invoke<CommandResult>("BuyOutskirts", index);
+  setWantsFromMarket = (on: boolean) => this.invoke<CommandResult>("SetWantsFromMarket", on);
   getCompanyDetails = () => this.invoke<CompanyDetailsDto | null>("GetCompanyDetails");
   getDistricts = () => this.invoke<DistrictChoiceDto[]>("GetDistricts");
   placeCrate = (crate: number, x: number, y: number) => this.invoke<CommandResult>("PlaceCrate", crate, x, y);
@@ -424,15 +422,11 @@ export class GameConnection {
     this.invoke<CommandResult>("ModerateMessage", message, action);
   renameCompany = (company: number, name: string) =>
     this.invoke<CommandResult>("RenameCompany", company, name);
-  getSeason = () => this.invoke<SeasonDto>("GetSeason");
   checkOutpost = (x: number, y: number) => this.invoke<OutpostCheckDto | null>("CheckOutpost", x, y);
   claimOutpost = (x: number, y: number) => this.invoke<CommandResult>("ClaimOutpost", x, y);
   releaseOutpost = (outpost: number) => this.invoke<CommandResult>("ReleaseOutpost", outpost);
   hireManager = (manager: string) => this.invoke<CommandResult>("HireManager", manager);
   dismissManager = (manager: string) => this.invoke<CommandResult>("DismissManager", manager);
-  deliverToWonder = (eraWonder: boolean) => this.invoke<CommandResult>("DeliverToWonder", eraWonder);
-  orderForWonder = (resource: string, gold: number | null) =>
-    this.invoke<CommandResult>("OrderForWonder", resource, gold);
   getBlueprints = () => this.invoke<BlueprintsDto | null>("GetBlueprints");
   saveBlueprint = (name: string, x: number, y: number, width: number, height: number) =>
     this.invoke<CommandResult>("SaveBlueprint", name, x, y, width, height);

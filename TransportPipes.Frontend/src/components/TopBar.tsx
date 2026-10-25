@@ -69,8 +69,11 @@ export function TopBar() {
   }
   // The bank in days of what the top bar earns (a sleeping or new company: none)
   const bankDays = company.goldPerMinute > 0.5 ? gold / (company.goldPerMinute * 1440) : 0;
-  const levelSpan = company.nextLevelXp - company.levelXp;
-  const levelProgress = levelSpan > 0 ? Math.min(1, (company.xp - company.levelXp) / levelSpan) : 1;
+  // The Company Level comes from the gold earned in all (1.4 §14)
+  const levelSpan = company.nextLevelEarned - company.levelEarned;
+  const levelProgress =
+    levelSpan > 0 ? Math.min(1, (company.lifetimeEarnings - company.levelEarned) / levelSpan) : 1;
+  const researching = content !== null ? researchName(company, content) : null;
 
   return (
     <div className="top-bar" ref={bar}>
@@ -162,7 +165,7 @@ export function TopBar() {
         <button
           className="panel top-level"
           aria-expanded={xpOpen}
-          title="Experience: where it comes from"
+          title="Company Level: it comes from all the gold you earned. Tap: where it came from"
           onClick={() => setXpOpen((open) => !open)}
         >
           <div className="level-badge">{company.level}</div>
@@ -170,20 +173,16 @@ export function TopBar() {
             <div className="level-line">
               <span className="small">Company Level</span>
               <span className="xp-numbers">
-                {formatAmount(company.xp - company.levelXp)} / {formatAmount(levelSpan)} XP
+                {formatAmount(company.lifetimeEarnings - company.levelEarned)} / {formatAmount(levelSpan)} g
               </span>
             </div>
             <div className="xp-bar">
               <div className="xp-fill" style={{ width: `${levelProgress * 100}%` }} />
             </div>
             <div className="xp-pace small">
-              +{formatAmount(company.experience.perMinute)} XP/min
-              {levelEta(company) !== null && (
-                <>
-                  {" "}
-                  · Level {company.level + 1} in {formatDuration(levelEta(company)!)}
-                </>
-              )}
+              {levelEta(company) !== null
+                ? `Level ${company.level + 1} in ${formatDuration(levelEta(company)!)}`
+                : "earned in all"}
               <span className="xp-help">?</span>
             </div>
           </div>
@@ -205,59 +204,33 @@ export function TopBar() {
           </span>
         </div>
       )}
-      {company.season.endedAt !== null ? (
-        <button
-          className="panel top-era finale"
-          title="The season is over"
-          onClick={() => void gameClient.openSeason()}
-        >
-          <span className="era-number">Season {company.season.season}</span>
-          <span className="muted small">over · results</span>
-        </button>
-      ) : company.season.finaleAt !== null ? (
-        <button
-          className="panel top-era finale"
-          title="The Space Elevator launches: the season ends"
-          onClick={() => void gameClient.openHub("wonders")}
-        >
-          <span className="era-number">🚀 Launch</span>
-          <span className="muted small">
-            in {formatDuration(Math.max(0, (new Date(company.season.finaleAt).getTime() - serverNow) / 1000))}
-          </span>
-        </button>
-      ) : (
-        <button
-          className="panel top-era"
-          title="Wonders: the Era ends when the Era Wonder is finished, at the latest on its deadline"
-          onClick={() => void gameClient.openHub("wonders")}
-        >
-          <span className="era-number">Era {company.era}</span>
-          <span className="muted small">
-            {formatDuration(Math.max(0, (new Date(company.eraDeadline).getTime() - serverNow) / 1000))} left
-          </span>
-        </button>
-      )}
+      <button
+        className="panel top-era"
+        title="Your town: its Era, its Wonder, your Yard's Monuments"
+        onClick={() => void gameClient.openHub("wonders")}
+      >
+        <span className="era-number">Era {company.era}</span>
+        <span className="muted small">
+          {company.yourEra > company.era ? `you: Era ${company.yourEra}` : "your town"}
+        </span>
+      </button>
 
-      {company.researchPerMinute > 0 || company.researchPoints > 0 || company.currentResearch !== null ? (
+      {company.research.hasLab && (
         <button
           className="panel top-research"
-          title="Research (R)"
+          title="Research (R): the tracks on one line, the Era tree on the other"
           onClick={() => void gameClient.openResearch()}
         >
-          <span>🔬 {formatAmount(company.researchPoints)}</span>
-          <span className="muted small">{formatRate(company.researchPerMinute)}</span>
-          {company.currentResearch !== null && content !== null ? (
-            <span className="small current-research">→ {researchName(company, content)}</span>
+          <span>🔬</span>
+          {researching !== null ? (
+            <span className="small current-research">{researching}</span>
+          ) : company.research.open ? (
+            <span className="small current-research pick">pick one!</span>
           ) : (
-            company.researchPerMinute > 0 &&
-            (company.researchOpen ? (
-              <span className="small current-research pick">pick one!</span>
-            ) : (
-              <span className="small current-research muted">nothing left this Era</span>
-            ))
+            <span className="small current-research muted">nothing to research</span>
           )}
         </button>
-      ) : null}
+      )}
 
       <div className="top-spacer" />
 

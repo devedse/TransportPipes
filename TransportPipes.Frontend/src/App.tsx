@@ -23,7 +23,7 @@ import { HubPanel } from "./components/HubPanel";
 import { NeighboursPanel, PlannedRouteBanner } from "./components/NeighboursPanel";
 import { NetworkPanel } from "./components/NetworkPanel";
 import { OverlayBar } from "./components/OverlayBar";
-import { ParcelPanel } from "./components/ParcelPanel";
+import { OutskirtsPanel, ParcelPanel } from "./components/ParcelPanel";
 import { SelectionPanel } from "./components/SelectionPanel";
 import { KeysHelp } from "./components/KeysHelp";
 import { PipeTierBar } from "./components/PipeTierBar";
@@ -35,7 +35,6 @@ import { LevelUp } from "./components/LevelUp";
 import { PhotoBar } from "./components/PhotoBar";
 import { ModerationPanel } from "./components/ModerationPanel";
 import { ResearchPanel } from "./components/ResearchPanel";
-import { SeasonPanel } from "./components/SeasonPanel";
 import { Toasts } from "./components/Toasts";
 import { Toolbar } from "./components/Toolbar";
 import { TopBar } from "./components/TopBar";
@@ -254,6 +253,7 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="ParcelPanel">
             <ParcelPanel />
+            <OutskirtsPanel />
             <DeepParcelPanel />
             <LayerSwitch />
           </ErrorBoundary>
@@ -297,9 +297,6 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="ModerationPanel">
             <ModerationPanel />
-          </ErrorBoundary>
-          <ErrorBoundary name="SeasonPanel">
-            <SeasonPanel />
           </ErrorBoundary>
           {movePicker && (
             <ErrorBoundary name="PlotPicker">

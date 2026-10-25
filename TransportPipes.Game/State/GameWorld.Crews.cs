@@ -44,6 +44,12 @@ public sealed class Crew : Entity
     /// <summary>Newcomers who asked to settle while the Yard is closed</summary>
     public List<YardRequest> Requests { get; init; } = new();
 
+    /// <summary>The Yard's Monument sites, one per Era of its town (1.4 §13)</summary>
+    public List<Monument> Monuments { get; init; } = new();
+
+    /// <summary>What every resident put in the Yard's Depot, per good (1.4 §7)</summary>
+    public Dictionary<long, Dictionary<string, double>> Depot { get; init; } = new();
+
     /// <summary>Hidden after reports until a moderator looks at it (it shows as "Crew 12")</summary>
     public bool NameHidden { get; set; }
     public HashSet<long> NameReports { get; init; } = new();
@@ -220,8 +226,34 @@ public sealed partial class GameWorld
         company.CrewId = null;
         company.Touch();
         Changes.Companies.Add(company.Id);
+        // What it put in the Depot and its Storages didn't hold (see Pack) stays for the crew; so does the Depot it built
+        if (crew.Depot.Remove(company.Id, out var mine) && CrewMembers(crew).FirstOrDefault() is { } heir)
+        {
+            if (!crew.Depot.TryGetValue(heir.Id, out var theirs))
+            {
+                crew.Depot[heir.Id] = theirs = new Dictionary<string, double>();
+            }
+            foreach (var (resource, amount) in mine)
+            {
+                theirs[resource] = theirs.GetValueOrDefault(resource) + amount;
+            }
+        }
+        if (DepotOf(crew.Yard) is { } built && built.Owner == company.Id && CrewMembers(crew).FirstOrDefault() is { } keeper)
+        {
+            built.Owner = keeper.Id;
+            built.Touch();
+            foreach (var tile in built.Footprint())
+            {
+                Changes.Tiles.Add(tile);
+            }
+        }
         if (!CrewMembers(crew).Any())
         {
+            // The last one out (1.4 §7): the Yard's own buildings (the Depot) go with the crew; its Monuments with it
+            if (DepotOf(crew.Yard) is { } depot)
+            {
+                RemoveBuilding(depot);
+            }
             _crews.Remove(crew.Id);
             _crewAt.Remove(crew.Yard);
             Deleted.Add(crew);
@@ -488,7 +520,9 @@ public sealed partial class GameWorld
         {
             var lively = new List<(EstateKey Seat, int Active, int Rank)>();
             var empty = new List<(EstateKey Seat, int Rank)>();
-            foreach (var district in _openDistricts)
+            // A town of the company's Era or one below (a newcomer: Era 1)
+            var era = newcomer?.Era ?? 1;
+            foreach (var district in _openDistricts.Where(t => TownEra(t) == era || TownEra(t) == era - 1))
             {
                 var rank = DistrictRank(district);
                 foreach (var station in WorldLayout.Stations(district))
@@ -561,6 +595,10 @@ public sealed partial class GameWorld
         if (Estate(seat.District, seat.Slot) is not { OwnerId: null } target)
         {
             return CommandResult.Fail("That plot isn't free.");
+        }
+        if (EraMoveBlocker(company, seat.District) is { } era)
+        {
+            return CommandResult.Fail(era);
         }
         if (!SeatFree(seat, company, code, invitedBy))
         {

@@ -29,7 +29,7 @@ public class SpendingFacts
         var company = game.NewCompany(gold: 10_000_000, level: 30);
         var map = game.Map(company, game.Local(company, 1, 1), "W+T", pipeTier: 1);
         var moily = map[(0, 0)];
-        game.World.UpgradeMany(company.Id, [moily.Id], 14);
+        game.UpgradeNow(company, [moily.Id], 14);
         game.Pass(2);
         Assert.AreEqual(IdleCause.PipeFull, game.World.IdleReasonOf(moily).Cause, "its 100-a-minute pipe is full");
 
@@ -47,9 +47,9 @@ public class SpendingFacts
         var game = new TestGame(content: TestGame.PlainContent);
         var company = game.NewCompany(gold: 100_000_000, level: 30);
         var map = game.Map(company, game.Local(company, 1, 1), new string('S', 26) + "WWMFT\n" + new string('+', 31));
-        game.World.UpgradeMany(company.Id, [map[(26, 0)].Id, map[(27, 0)].Id], 20);
-        game.World.UpgradeMany(company.Id, [map[(28, 0)].Id], 9);
-        game.World.UpgradeMany(company.Id, [map[(30, 0)].Id], 15);
+        game.UpgradeNow(company, [map[(26, 0)].Id, map[(27, 0)].Id], 20);
+        game.UpgradeNow(company, [map[(28, 0)].Id], 9);
+        game.UpgradeNow(company, [map[(30, 0)].Id], 15);
         game.Pass(6 * 60);
         var factory = map[(29, 0)];
         double Income() => game.World.NetworkOf(factory.Id)!.Solution.GoldPerMinute.GetValueOrDefault(company.Id);
@@ -58,7 +58,7 @@ public class SpendingFacts
         var preview = game.World.UpgradePreview(company, factory, 20);
 
         StringAssert.StartsWith(preview.Text, "about +", "a network this big is estimated");
-        game.World.UpgradeMany(company.Id, [factory.Id], 20);
+        game.UpgradeNow(company, [factory.Id], 20);
         game.Pass(1);
         var got = Income() - before;
         Assert.IsGreaterThan(0, got);
@@ -66,18 +66,17 @@ public class SpendingFacts
     }
 
     [TestMethod]
-    public void UndoGivesThePriceBackLessWhatItEarnedAndTakesItsXp()
+    public void UndoGivesThePriceBackLessWhatItEarned()
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var company = game.NewCompany(gold: 1_000_000, level: 10);
         var map = game.Map(company, game.Local(company, 1, 1), "W+T");
         game.Pass(2);
         var moily = map[(0, 0)];
-        var (gold, xp, level) = (company.Gold, company.Xp, moily.Level);
+        var (gold, level) = (company.Gold, moily.Level);
 
         Assert.IsTrue(game.World.Upgrade(company.Id, moily.Id, 5).Success);
         var cost = gold - company.Gold;
-        Assert.IsGreaterThan(xp, company.Xp, "upgrades give XP");
         game.Pass(30);
         var undo = game.World.Undoable(company, moily);
         Assert.IsNotNull(undo);
@@ -89,7 +88,6 @@ public class SpendingFacts
 
         Assert.AreEqual(level, moily.Level, "its levels go");
         Assert.AreEqual(goldBefore + refund, company.Gold, 1e-6);
-        Assert.AreEqual(Math.Max(game.World.Content.Progression.XpForLevel(company.Level), xp), company.Xp, 1e-6, "and its XP");
         Assert.IsNull(game.World.Undoable(company, moily), "once");
     }
 

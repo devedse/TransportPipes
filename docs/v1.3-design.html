@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Own Place</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --teal: #24575a; --teal-dark: #173c3f; --accent: #236b69; --brass: #c9963a; --brass-dark: #94692a;
+  --cream: #f4ead3; --cream-strong: #fbf5e7; --paper: #fffaf0; --ink: #2b2418; --muted: #6b5c43;
+  --green: #33761f; --red: #a12f1f; --gold: #8a5d00; --line: rgba(80, 60, 30, 0.18);
+  --good-bg: #d6eccd; --bad-bg: #f6d3cc; --warn-bg: #f3e6c4;
+}
+* { box-sizing: border-box; }
+html { background: #e9dfc6; }
+body { margin: 0; font-family: Nunito, system-ui, sans-serif; color: var(--ink); line-height: 1.55; background: #e9dfc6; }
+.page { max-width: 1040px; margin: 24px auto; padding: 48px 56px; background: var(--paper); border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(40, 30, 10, 0.18); border: 1px solid var(--line); }
+@media (max-width: 720px) { .page { margin: 12px 8px; padding: 24px 16px; border-radius: 12px; } }
+h1, h2, h3 { font-family: Fraunces, Georgia, serif; color: var(--teal-dark); line-height: 1.2; text-wrap: balance; }
+h1 { font-size: 2.6rem; margin: 0 0 8px; }
+h2 { font-size: 1.9rem; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 3px solid var(--brass); }
+h3 { font-size: 1.25rem; margin: 26px 0 8px; }
+p { margin: 0 0 12px; max-width: 72ch; }
+ul, ol { padding-left: 22px; margin: 0 0 12px; }
+li { margin-bottom: 4px; }
+.kicker { text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; color: var(--brass-dark); font-size: 0.85rem; }
+.lead { font-size: 1.15rem; }
+.muted { color: var(--muted); }
+.small { font-size: 0.88rem; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+.grid2 > * { min-width: 0; }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 0.92rem; }
+th { text-align: left; background: var(--cream); color: var(--teal-dark); padding: 7px 10px; font-weight: 800; }
+td { padding: 7px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+tr.hl td { background: #fbefd4; }
+.quote { font-style: italic; color: var(--teal-dark); }
+.callout { padding: 14px 18px; border-radius: 12px; background: var(--cream); border-left: 6px solid var(--brass); margin: 14px 0; }
+.callout.decision { border-left-color: var(--accent); background: #e4efe9; }
+.callout.problem { border-left-color: var(--red); background: #f8e7e2; }
+.callout strong:first-child { display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; margin-bottom: 4px; }
+.pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 0.78rem; font-weight: 800; white-space: nowrap; }
+.pill.good { background: var(--good-bg); color: var(--green); }
+.pill.bad { background: var(--bad-bg); color: var(--red); }
+.pill.warn { background: var(--warn-bg); color: var(--gold); }
+.pill.info { background: #dde9f3; color: #24507a; }
+.cover { background: linear-gradient(160deg, #1f4d50 0%, #24575a 55%, #2f6b66 100%); color: #fff; }
+.cover h1 { color: #fff; font-size: 3rem; }
+.cover .kicker { color: #f2d27a; }
+.cover .lead { color: #f4ead3; }
+.themes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 26px; }
+@media (max-width: 720px) { .themes { grid-template-columns: 1fr; } .cover h1 { font-size: 2.2rem; } }
+.theme { background: rgba(255,255,255,0.1); border: 1px solid rgba(242,210,122,0.5); border-radius: 12px; padding: 12px 14px; }
+.theme b { color: #f2d27a; display: block; font-family: Fraunces, Georgia, serif; font-size: 1.05rem; }
+.theme span { color: #f4ead3; font-size: 0.9rem; }
+.flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: stretch; margin: 18px 0 8px; }
+@media (max-width: 860px) { .flow { grid-template-columns: 1fr; } }
+.node { background: var(--cream-strong); border: 2px solid var(--teal); border-radius: 12px; padding: 10px 12px; font-size: 0.86rem; }
+.node b { display: block; font-family: Fraunces, Georgia, serif; color: var(--teal-dark); font-size: 1rem; margin-bottom: 2px; }
+.node .who { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800; color: var(--brass-dark); }
+figure { margin: 16px 0 20px; }
+figure svg { width: 100%; height: auto; display: block; background: var(--cream-strong); border: 1px solid var(--line); border-radius: 12px; }
+figcaption { font-size: 0.86rem; color: var(--muted); margin-top: 6px; }
+.gone { color: var(--red); }
+section + section { margin-top: 18px; }
+code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.86em; background: var(--cream); padding: 1px 5px; border-radius: 5px; }
+ol.questions > li { margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<div class="page cover">
+  <div class="kicker">TransportPipes · v1.3 plan · after your first look at the test server</div>
+  <h1>Your Own Place</h1>
+  <p class="lead">You start with nothing but your land. You choose where you live by clicking a spot on the map. You can
+    trade with the market alone, or with friends at prices the seller sets. No computer-run companies share the map with
+    you, and the land and the Yard get much bigger.</p>
+  <div class="themes">
+    <div class="theme"><b>Start from scratch</b><span>An HQ, a trading post and 2,000 gold. You build everything else
+      yourself.</span></div>
+    <div class="theme"><b>Pick your spot</b><span>The start screen is the map. Click a free plot, next to a friend or
+      anywhere you like.</span></div>
+    <div class="theme"><b>Crews that grow</b><span>Found a crew whenever you want, and anyone can join it later. There
+      are no held seats and no codes.</span></div>
+    <div class="theme"><b>Room to build</b><span>Plots of 48×48 tiles (2.25 times today's land) and a Yard of 30×20
+      (six times today's).</span></div>
+    <div class="theme"><b>Only people</b><span>Houses and stand-ins are gone. A plot nobody lives on is simply free
+      land.</span></div>
+    <div class="theme"><b>Your own prices</b><span>The market always buys and sells. Friends beat it, at prices the
+      seller sets, with special prices for whoever they like.</span></div>
+  </div>
+</div>
+
+<div class="page">
+
+<section>
+  <h2>1 · What you said, and what it changes</h2>
+  <div class="scroll"><table>
+    <tr><th>You said</th><th>What changes</th><th>What goes</th></tr>
+    <tr><td class="quote">"I want to start from scratch."</td>
+      <td>You get an HQ, a trading post and 2,000 gold. Loady's first steps teach you to build from nothing (they did
+        that before the starter kit existed).</td>
+      <td class="gone">The land kit, the House's kit, and "your starter kit already did" in Loady's steps</td></tr>
+    <tr><td class="quote">"The invite screen works weird." · "a crew can grow or just people find their friends and
+        join next to them" · "you just find a spot where you want to join"</td>
+      <td>The start screen is the map. A friend's link opens the map at their place. You found a crew in the game,
+        whenever you like, and it grows.</td>
+      <td class="gone">"Start with friends", seat codes, held seats, the invite screen, the station picker's three ways,
+        and the crew limit of 8</td></tr>
+    <tr><td class="quote">"Can we make the yard twice as wide and twice the height" · "a way bigger area … a bit wider
+        than high"</td>
+      <td>A Yard of 30×20 tiles (today 10×10), with a use for the room (§7)</td><td>—</td></tr>
+    <tr><td class="quote">"the tiles a player has feel small"</td>
+      <td>Plots of 48×48 tiles (today 32×32), with a start area of 24×24 (today 16×16)</td><td>—</td></tr>
+    <tr><td class="quote">"the whole design with AI's and all that is also against what I want this game to be"</td>
+      <td>No computer-run companies. Your Yard trades only between the people who live there. What nobody takes goes
+        to the market.</td>
+      <td class="gone">Houses ⚙, stand-ins, small mode, the NPC cap, House prices, and the land backstop at 1.4×</td></tr>
+    <tr><td class="quote">"trade resources with the market … better to trade with friends … they can do a special price
+        for you"</td>
+      <td>The market buys and sells everything. Players set their own selling prices, with special prices for their
+        crew or for named players.</td>
+      <td class="gone">The one price between players (1.3× the base)</td></tr>
+  </table></div>
+  <p class="small muted">What stays as it is: buildings, pipes, research, the Eras, the Deep Level, the market's Hub
+    Orders, Loady and the Next steps card, links between Yards, crew trunks, the Exchange, contracts, moving, and the
+    way back after a long break.</p>
+</section>
+
+<section>
+  <h2>2 · Start from scratch</h2>
+  <p>A new company gets its <b>HQ</b> and its <b>trading post</b> (what you pipe to the post is sold to the market),
+    plus <b>2,000 gold</b>. It also gets a plot whose land it saw before choosing it. Nothing else is built.</p>
+  <p>The first minutes don't get slower. A Wind Moily costs 200 gold and makes 30 energy a minute, worth 30 gold at the
+    market. 2,000 gold buys several, and four of them with their pipes already make the kit's 100 gold a minute within
+    the first five minutes, except that you built them, where you wanted them.</p>
+  <ul>
+    <li>Loady's first chapter already starts from nothing: a panel, the first pipe and sale, an upgrade, a moily, the
+      Yard, a mine. The rule that its first two steps ignore the kit goes, together with the kit.</li>
+    <li>The bots (a test tool, never in the game) measure the first hour from nothing: when the first sale comes and
+      when 100 gold a minute comes. If the start drags, the starting gold changes, not the kit.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>3 · Pick your spot</h2>
+  <div class="flow">
+    <div class="node"><span class="who">1</span><b>Open the game</b>Or a friend's link: it opens straight at their
+      place.</div>
+    <div class="node"><span class="who">2</span><b>The map</b>The real world map, zoomed out. Free plots glow. Each
+      taken one shows its company, crew banner and level.</div>
+    <div class="node"><span class="who">3</span><b>A plot's card</b>Its land (wind, sun, deposits and its one strength),
+      the neighbours (level, crew, last played), and the way to the hub.</div>
+    <div class="node"><span class="who">4</span><b>Name and colour</b>Your company, as today.</div>
+    <div class="node"><span class="who">5</span><b>Play</b>As a guest if you like. You can keep the estate with a name
+      and password later.</div>
+  </div>
+  <ul>
+    <li><b>Find a player:</b> a name search on the map.</li>
+    <li><b>Pick for me:</b> a free plot in a Yard where people played in the last three days (today's "Find me
+      neighbours").</li>
+    <li><b>Your link:</b> every player has one, "Play next to me". It opens the map at your plot, with the free plots of
+      your Yard and the Yards around it marked. Nothing is reserved: the first to come gets the plot. When your Yard is
+      full, the nearest free plots are marked instead.</li>
+    <li><b>A crew's Yard:</b> when one crew lives on three of a Yard's four plots, the fourth is for its members unless the
+      crew opens it. This is today's rule, kept, so a friend who comes later still finds room next to you.</li>
+    <li><b>Moving later</b> works on the same map: pick a free plot. Moving stays free, with a few minutes between
+      moves.</li>
+    <li><b>Guests</b> stay as they are. No account is needed. A chat app's browser asks for one at once, because it
+      forgets guests.</li>
+  </ul>
+  <p class="small"><span class="gone">Goes:</span> the start screen's three ways, seat codes and held seats, the invite
+    screen, "Settle and invite my friends", the 28-day holds, the keep cards and the "Move to a fresh station
+    together?" card.</p>
+</section>
+
+<section>
+  <h2>4 · Crews that grow</h2>
+  <ul>
+    <li>You found a crew <b>in the game, at any time</b> from Level 1: a name and a banner. The start screen never asks
+      for one.</li>
+    <li><b>Joining:</b> any member invites a player (anyone, anywhere), or a player asks and any member lets them in.
+      When you settle next to a friend who has a crew, the game asks once: "Join Ana's crew?" Leaving takes one tap.</li>
+    <li><b>No limit on members.</b> A Yard still holds four plots. A crew bigger than that lives in Yards next to each
+      other and trades over links.</li>
+    <li><b>A crew gives you:</b> its chat, its banner on the members' plots, the crew price (§6), the crew's news, crew
+      trunks in Era 2, and "where we live": the members' plots, each with Go there.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>5 · Room to build</h2>
+  <figure>
+    <svg viewBox="0 0 590 410" role="img" aria-label="A station of four plots today and planned, to scale">
+      <text x="10" y="26" font-family="Fraunces, Georgia, serif" font-size="16" font-weight="800" fill="#173c3f">Today</text>
+      <rect x="10" y="40" width="210" height="210" fill="#b9ab8e"/>
+      <g fill="#cfe0b0"><rect x="16" y="46" width="96" height="96"/><rect x="118" y="46" width="96" height="96"/><rect x="16" y="148" width="96" height="96"/><rect x="118" y="148" width="96" height="96"/></g>
+      <g fill="#7fae5a"><rect x="40" y="70" width="48" height="48"/><rect x="142" y="70" width="48" height="48"/><rect x="40" y="172" width="48" height="48"/><rect x="142" y="172" width="48" height="48"/></g>
+      <rect x="100" y="130" width="30" height="30" fill="#e3cf9e" stroke="#94692a" stroke-width="1.5"/>
+      <text x="10" y="272" font-family="Nunito, sans-serif" font-size="12.5" fill="#2b2418">Plots 32×32 · start 16×16</text>
+      <text x="10" y="289" font-family="Nunito, sans-serif" font-size="12.5" fill="#2b2418">Yard 10×10 (100 tiles)</text>
+
+      <text x="268" y="26" font-family="Fraunces, Georgia, serif" font-size="16" font-weight="800" fill="#173c3f">Planned</text>
+      <rect x="268" y="40" width="306" height="306" fill="#b9ab8e"/>
+      <g fill="#cfe0b0"><rect x="274" y="46" width="144" height="144"/><rect x="424" y="46" width="144" height="144"/><rect x="274" y="196" width="144" height="144"/><rect x="424" y="196" width="144" height="144"/></g>
+      <g fill="#7fae5a"><rect x="310" y="82" width="72" height="72"/><rect x="460" y="82" width="72" height="72"/><rect x="310" y="232" width="72" height="72"/><rect x="460" y="232" width="72" height="72"/></g>
+      <rect x="376" y="163" width="90" height="60" fill="#e3cf9e" stroke="#94692a" stroke-width="1.5"/>
+      <text x="268" y="366" font-family="Nunito, sans-serif" font-size="12.5" fill="#2b2418">Plots 48×48 · start 24×24 · Yard 30×20 (600 tiles)</text>
+
+      <g font-family="Nunito, sans-serif" font-size="11.5" fill="#2b2418">
+        <rect x="10" y="318" width="12" height="12" fill="#7fae5a"/><text x="27" y="328">start area</text>
+        <rect x="10" y="336" width="12" height="12" fill="#cfe0b0"/><text x="27" y="346">parcels to buy</text>
+        <rect x="10" y="354" width="12" height="12" fill="#e3cf9e" stroke="#94692a"/><text x="27" y="364">the Yard</text>
+        <rect x="10" y="372" width="12" height="12" fill="#b9ab8e"/><text x="27" y="382">road</text>
+        <line x1="130" y1="330" x2="160" y2="330" stroke="#2b2418" stroke-width="2"/><text x="130" y="346">10 tiles</text>
+      </g>
+    </svg>
+    <figcaption>A station of four plots, both drawn to the same scale. Each plot gives the Yard a corner of its land:
+      today 4×4 tiles, planned 14×9.</figcaption>
+  </figure>
+  <ul>
+    <li><b>Plots of 48×48:</b> still 16 parcels, now 12×12 tiles each, with the same unlock order, levels and prices. You
+      get more land for the same gold. The start area of four parcels is 24×24.</li>
+    <li><b>A Yard of 30×20</b> at every crossing of four plots: three times as wide and twice as high as today, so wider
+      than high. The two-plot Yards on the hub's arms become 30×20 as well. A district grows from 172 to 252 tiles
+      across, and the hub city's block from 32×32 to 48×48.</li>
+    <li><b>Land for everyone:</b> every start area has small deposits of the Era 1 basics (iron, copper ore, coal and
+      stone), water, a little forest and a little beach, so you can play Era 1 alone. Each plot also has <b>one
+      strength</b>: a rich deposit, strong wind, strong sun, a big beach (sand) or old forest (wood). The plot's card
+      shows it before you choose. Dealing out the land per station, where no plot could run a chain alone, goes.</li>
+    <li><b>Speed:</b> a full 48×48 plot holds about 2.25 times as many buildings (around 500). Today, a build in a
+      grown plot (87 buildings) reaches the map in 0.06–0.16 seconds. At 216 buildings, solving the network alone takes
+      85–157 ms.
+      Step 2 measures a full plot with the <code>big-estate</code> script against 1.5 seconds on a laptop running 4×
+      slower. If it's over, the solve gets split up.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>6 · Only people, and your own prices</h2>
+  <h3>No computer-run companies</h3>
+  <ul>
+    <li>A free plot is free land, nothing more. Your Yard trades between the people who live in it. What nobody takes
+      goes to the market through your trading post, and what nobody sells you, the market sells.</li>
+    <li><b>Players who stop:</b> nothing changes except the stand-in. On day 23 their partners are told. From day 30 the
+      estate rests where it is and trades nothing. On day 90 it travels to the Quiet Isles and the plot is free again.
+      Back again, they pick a new spot.</li>
+    <li><b>Quiet servers</b> keep their bigger Hub Orders: that is the market being generous, not a player.</li>
+  </ul>
+  <h3>The market, and friends who beat it</h3>
+  <p>The market pays you the base price (less once you sell beyond your Hub Order) and charges 2.5× the base. Any trade
+    between those two prices is better for both sides than the market.</p>
+  <div class="grid2">
+    <div>
+      <ul>
+        <li><b>Your prices:</b> for every good you sell in the Yard, you set a price between what the market pays and
+          what it charges (1× to 2.5× the base). It starts at today's 1.3×, so nothing changes until you change it.</li>
+        <li><b>Special prices</b> for your crew and for named players: "Ben: 1.0×".</li>
+        <li><b>Buying:</b> a building that lacks a good takes it from the cheapest offer it can reach (your Yard, then
+          your links), and from the market last. When there isn't enough for everyone, a seller can put a player first,
+          as Send ▸ does today.</li>
+        <li><b>Price rises wait an hour</b>, with a note to the buyers. Cuts count at once.</li>
+        <li><b>Links, contracts and the Exchange</b> use the same prices.</li>
+      </ul>
+    </div>
+    <div>
+      <table>
+        <tr><th colspan="2">Ana makes energy (base 1 g)</th></tr>
+        <tr><td>The market pays Ana</td><td>1.0 g</td></tr>
+        <tr><td>The market charges a buyer</td><td>2.5 g</td></tr>
+        <tr class="hl"><td>Ana's price in the Yard</td><td>1.4 g</td></tr>
+        <tr class="hl"><td>Ana's crew price</td><td>1.2 g</td></tr>
+        <tr class="hl"><td>Ana's price for Ben</td><td>1.0 g</td></tr>
+      </table>
+      <p class="small muted">Each price sits between the market's two prices, so a trade with a friend is never worse
+        than the market for either side. The guards against one person running two accounts stay.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>7 · A Yard worth the room</h2>
+  <figure>
+    <svg viewBox="0 0 460 320" role="img" aria-label="The planned Yard close up: stalls at the four gates, the project in the middle, decorations">
+      <rect x="0" y="0" width="460" height="320" fill="#cfe0b0"/>
+      <rect x="0" y="148" width="460" height="24" fill="#b9ab8e"/>
+      <rect x="218" y="0" width="24" height="320" fill="#b9ab8e"/>
+      <defs><pattern id="pave" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="12" height="12" fill="#e3cf9e"/><path d="M12 0H0V12" fill="none" stroke="#d2bb85" stroke-width="1"/></pattern></defs>
+      <rect x="50" y="40" width="360" height="240" fill="url(#pave)" stroke="#94692a" stroke-width="2"/>
+      <g fill="#24575a"><rect x="38" y="40" width="12" height="12"/><rect x="410" y="40" width="12" height="12"/><rect x="38" y="268" width="12" height="12"/><rect x="410" y="268" width="12" height="12"/></g>
+      <g stroke="#94692a" stroke-width="1.5"><rect x="52" y="42" width="30" height="24" fill="#c0603a"/><rect x="378" y="42" width="30" height="24" fill="#3a78a8"/><rect x="52" y="254" width="30" height="24" fill="#6f9a3a"/><rect x="378" y="254" width="30" height="24" fill="#8e6ab0"/></g>
+      <g fill="none" stroke="#2b2418" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.55"><path d="M84 54 H200 Q222 54 222 76 V124 M222 196 V244 Q222 266 244 266 H376"/><path d="M376 54 H260 Q238 54 238 76 V124 M238 196 V244 Q238 266 216 266 H84"/></g>
+      <rect x="194" y="124" width="72" height="72" rx="6" fill="#f4ead3" stroke="#173c3f" stroke-width="2"/>
+      <text x="230" y="157" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="12" font-weight="800" fill="#173c3f">the</text>
+      <text x="230" y="172" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="12" font-weight="800" fill="#173c3f">project</text>
+      <g fill="#33761f"><circle cx="120" cy="120" r="7"/><circle cx="138" cy="200" r="7"/><circle cx="330" cy="110" r="7"/><circle cx="318" cy="214" r="7"/><circle cx="100" cy="170" r="5"/><circle cx="360" cy="160" r="5"/></g>
+      <g fill="#c9963a"><circle cx="180" cy="100" r="3.5"/><circle cx="280" cy="100" r="3.5"/><circle cx="180" cy="220" r="3.5"/><circle cx="280" cy="220" r="3.5"/></g>
+      <g font-family="Nunito, sans-serif" font-size="11" fill="#2b2418" font-weight="700">
+        <text x="56" y="82">Ana · energy 1.4 g</text>
+        <text x="404" y="82" text-anchor="end">Ben · copper ore 4.6 g</text>
+        <text x="56" y="246">Cleo · sand 1.6 g</text>
+        <text x="404" y="246" text-anchor="end">Dev · bricks 6.5 g</text>
+      </g>
+      <g font-family="Nunito, sans-serif" font-size="10.5" fill="#6b5c43">
+        <text x="6" y="18">a plot's corner</text><text x="454" y="18" text-anchor="end">a plot's corner</text>
+        <text x="6" y="312">■ a gate</text>
+      </g>
+    </svg>
+    <figcaption>The planned Yard, close up (12 px a tile). Each neighbour has a stall beside their gate showing what
+      they sell and at what price. Goods cross the paving from stall to stall, and the project stands in the middle.
+      Trees and lamps are decorations the neighbours placed.</figcaption>
+  </figure>
+  <ul>
+    <li><b>The project in the middle:</b> the Foundation, the Water Tower and the Landmark's storeys get room to stand
+      and grow. Today they sit in a corner of the Yard.</li>
+    <li><b>A stall at every gate,</b> on the Yard's edge, with a price sign. The goods the Yard trades are drawn moving
+      across the paving from the seller's stall to the buyer's.</li>
+    <li><b>Decorate together:</b> neighbours place today's decorations (trees, flower beds, lamps, fountains, statues) in
+      the Yard, where everyone in the station sees them. This also gives gold a place to go.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>8 · The order of the work</h2>
+  <p>Every step lands on the test server when it's done, and each one stays playable.</p>
+  <div class="scroll"><table>
+    <tr><th>Step</th><th>Size</th><th>What you see on the test server</th><th>How it's checked</th></tr>
+    <tr><td><b>1 · Start from scratch</b></td><td><span class="pill good">S</span></td>
+      <td>New players start with an HQ, a post and 2,000 gold, on today's world</td>
+      <td>Game tests; the onboarding e2e; the bots' first hour</td></tr>
+    <tr class="hl"><td><b>2 · Room to build</b>, land for everyone</td><td><span class="pill warn">L</span></td>
+      <td>48×48 plots and 30×20 Yards. This needs a <b>fresh world</b>: the test server's world is wiped on deploy, and
+        accounts stay</td>
+      <td><code>big-estate</code> at 48×48 within 1.5 s; screenshots of a station, the far view and a phone</td></tr>
+    <tr><td><b>3 · Only people</b></td><td><span class="pill info">M</span></td>
+      <td>No Houses or stand-ins; free plots are empty land</td><td>Game tests; the Yard and project e2e</td></tr>
+    <tr><td><b>4 · Pick your spot</b></td><td><span class="pill warn">L</span></td>
+      <td>The map is the start screen; friend links; find a player; Pick for me; guests</td>
+      <td>New e2e: four browsers find each other through links and the map; a phone</td></tr>
+    <tr><td><b>5 · Crews that grow</b></td><td><span class="pill info">M</span></td>
+      <td>Found a crew in the game, invite, ask to join, no limit</td><td>e2e: a crew grows from 2 to 6 across two Yards</td></tr>
+    <tr><td><b>6 · Your own prices</b></td><td><span class="pill warn">L</span></td>
+      <td>Prices per good, crew and player prices, the cheapest first, the market last</td>
+      <td>Game tests on the matching and the band; e2e of a crew price</td></tr>
+    <tr><td><b>7 · A Yard worth the room</b></td><td><span class="pill info">M</span></td>
+      <td>Stalls with price signs, goods crossing the Yard, the project in the middle, decorations</td>
+      <td>Screenshots; the art steps in CLAUDE.md for the stalls</td></tr>
+    <tr><td><b>8 · Balance, checks, docs</b></td><td><span class="pill info">M</span></td>
+      <td>Then you and your friends play</td>
+      <td>The bots: one player with the market against a crew that splits the work (the crew must earn more); every e2e
+        script up to date; the design docs</td></tr>
+  </table></div>
+  <p>Altogether I expect roughly two to three days of work.</p>
+</section>
+
+<section>
+  <h2>9 · What I expect to go wrong</h2>
+  <div class="callout problem"><strong>Friends may each build everything and never trade</strong>That was the first
+    playtest's failure, and dealing out the land was the answer to it. Now the answer is the gap between the market's
+    two prices: a friend's 1.3× beats the market's 2.5× for the buyer and its 1× for the seller. The bots check this in
+    step 8. If crews don't come out ahead, the plots' strengths get stronger.</div>
+  <ul>
+    <li><b>An empty Yard on a quiet server feels quiet.</b> That's the choice. Pick for me puts a newcomer next to people
+      who play.</li>
+    <li><b>Your own prices bring a little haggling,</b> and now and then a greedy neighbour. The market's own price
+      limits every price, and you can always buy from the market instead.</li>
+    <li><b>Bigger plots mean bigger networks.</b> This is measured in step 2, before anything else is built on it.</li>
+    <li><b>A lot of code and tests go</b> (Houses, stand-ins, seats, dealt land, kits). Several e2e scripts retire:
+      <code>houses</code>, <code>evening</code>, <code>crew</code>, <code>seat-race</code>, <code>friend-late</code>,
+      <code>land</code>.</li>
+    <li><b>The project's keystones</b> ("the good nobody here makes") came with dealt land. They still work without it,
+      but their baskets need tuning again.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>10 · Questions only you can answer</h2>
+  <ol class="questions">
+    <li><b>Plot size:</b> 48×48 (my pick), or 64×64 (four times today's land, with networks about twice as big again)?</li>
+    <li><b>The Yard:</b> 30×20 (my pick), or exactly twice today's, 20×20?</li>
+    <li><b>The HQ and the trading post</b> at the start: keep them (my pick), or do you want to place those yourself
+      too?</li>
+    <li><b>"AI's":</b> I read this as the computer-run companies (Houses and stand-ins). Loady, the guide, and the Next
+      steps card stay as help. Is that right?</li>
+    <li><b>The fresh world in step 2:</b> may I wipe the test server's world? Accounts stay. Today's world can't take
+      the new sizes.</li>
+    <li><b>The stalls' art in step 7:</b> may I use Codex image generation with the DeveAgentManager account, as for the
+      buildings?</li>
+    <li><b>Crews:</b> no limit on members (my pick)?</li>
+  </ol>
+</section>
+
+</div>
+</body>
+</html>

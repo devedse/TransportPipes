@@ -8,15 +8,14 @@ import type {
   NextStepDto,
   CompanyDetailsDto,
   OutpostCheckDto,
-  SeasonDto,
   CompanyDto,
-  ContractsDto,
   EstateVisitDto,
   ExchangeDto,
   InboxDto,
   LeaderboardDto,
   LeaderboardKind,
-  WondersDto,
+  TownDto,
+  TrackStateDto,
   GoldUsesDto,
   MarketDto,
   NeighbourDto,
@@ -92,6 +91,8 @@ export interface AppState {
   selectedParcel: number | null;
   /** Which of the company's estates the selected parcel belongs to (0 is the first, then the branches) */
   selectedParcelEstate: number;
+  /** One of the nine outskirts parcels set aside for your plot (1.4 §5), to buy */
+  selectedOutskirts: number | null;
   selectedNetwork: number | null;
   /** The Yard panel: your station, its residents and your trades with them */
   yardOpen: boolean;
@@ -123,17 +124,19 @@ export interface AppState {
   helpOpen: boolean;
   researchOpen: boolean;
   research: ResearchStateDto[];
+  /** The Lab's tracks (1.4 §12), loaded with the research panel */
+  tracks: TrackStateDto[];
   hubOpen: boolean;
   hubTab: HubTab;
   market: MarketDto | null;
-  wonders: WondersDto | null;
+  /** Your town (1.4 §11, §13): its Era, its Wonder, your Yard's Monuments */
+  town: TownDto | null;
   /** What your gold can do (after run 4), loaded when the top bar's gold is opened */
   goldUses: GoldUsesDto | null;
   exchange: ExchangeDto | null;
   neighboursOpen: boolean;
-  neighboursTab: "neighbours" | "contracts" | "board" | "trade";
+  neighboursTab: "neighbours" | "trade";
   neighbours: NeighbourDto[];
-  contracts: ContractsDto | null;
   /** A pipe route the player is looking at (Connect), drawn on the map until it is built or dropped */
   plannedRoute: TilePosition[] | null;
   plannedPartner: number | null;
@@ -177,9 +180,6 @@ export interface AppState {
   /** A Company Level just reached: the celebration shows */
   levelUp: number | null;
   outpostCheck: OutpostCheckDto | null;
-  /** The season results, shown when the season ended */
-  season: SeasonDto | null;
-  seasonOpen: boolean;
   moderationOpen: boolean;
   leaderboardOpen: boolean;
   leaderboardKind: LeaderboardKind;
@@ -220,6 +220,7 @@ export const initialState: AppState = {
   buildingDetails: null,
   selectedParcel: null,
   selectedParcelEstate: 0,
+  selectedOutskirts: null,
   selectedNetwork: null,
   yardOpen: false,
   yard: null,
@@ -242,16 +243,16 @@ export const initialState: AppState = {
   helpOpen: false,
   researchOpen: false,
   research: [],
+  tracks: [],
   hubOpen: false,
   hubTab: "orders",
   market: null,
-  wonders: null,
+  town: null,
   goldUses: null,
   exchange: null,
   neighboursOpen: false,
   neighboursTab: "neighbours",
   neighbours: [],
-  contracts: null,
   plannedRoute: null,
   plannedPartner: null,
   plannedTarget: null,
@@ -278,8 +279,6 @@ export const initialState: AppState = {
   mapShown: false,
   timeOfDay: "day",
   outpostCheck: null,
-  season: null,
-  seasonOpen: false,
   moderationOpen: false,
   leaderboardOpen: false,
   leaderboardKind: "netWorth",
@@ -326,6 +325,7 @@ const SIDE_PANELS = {
   selectedNetwork: { selectedNetwork: null, networkDetails: null },
   yardOpen: { yardOpen: false },
   selectedParcel: { selectedParcel: null },
+  selectedOutskirts: { selectedOutskirts: null },
   selectedDeepParcel: { selectedDeepParcel: null },
   wildTile: { wildTile: null, outpostCheck: null },
   visiting: { visiting: null, visit: null },

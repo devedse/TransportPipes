@@ -1677,8 +1677,7 @@ kbd {
   font-size: 1.5rem;
 }
 
-.neighbour-list,
-.contract-list {
+.neighbour-list {
   display: grid;
   gap: 8px;
 }
@@ -1697,20 +1696,6 @@ kbd {
 
 .contract {
   grid-template-columns: 1fr auto;
-}
-
-.contract.active {
-  border-color: rgba(46, 196, 166, 0.5);
-}
-
-.contract.offered {
-  border-color: rgba(246, 199, 68, 0.5);
-}
-
-.contract.ended,
-.contract.declined,
-.contract.cancelled {
-  opacity: 0.6;
 }
 
 .neighbour-body {
@@ -1737,12 +1722,6 @@ kbd {
   background: rgba(255, 255, 255, 0.05);
 }
 
-.stars {
-  color: var(--gold);
-  font-size: 0.8rem;
-  letter-spacing: -1px;
-}
-
 .badge {
   display: inline-block;
   margin-left: 6px;
@@ -1761,15 +1740,6 @@ kbd {
 
 .badge.connected {
   background: var(--info);
-}
-
-.contract-form {
-  display: grid;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid var(--accent);
-  background: rgba(46, 196, 166, 0.08);
 }
 
 .form-row {
@@ -2108,20 +2078,61 @@ button.link {
   font-size: 1.5rem;
 }
 
-.research-points {
-  flex: 1;
-  text-align: right;
-  margin-right: 10px;
+/* The Lab's two lines (1.4 §12): an Era's tracks or tree items in a row of cards */
+.research-panel h3 {
+  margin: 6px 0 0;
+  font-family: var(--font-title);
 }
 
-.research-grid {
+.research-era {
   display: grid;
-  grid-template-columns: 110px repeat(5, minmax(170px, 1fr));
+  grid-template-columns: 64px 1fr;
   gap: 6px;
+  align-items: start;
 }
 
-.branch-row {
-  display: contents;
+.research-era .era-head {
+  padding-top: 8px;
+}
+
+.research-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.track-pips {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.track-pips .pip {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.track-pips .pip.done {
+  background: var(--gold);
+}
+
+.track-pips .pip.now {
+  background: var(--info);
+  box-shadow: 0 0 5px var(--info);
+}
+
+@media (max-width: 600px) {
+  .research-era {
+    grid-template-columns: 1fr;
+  }
+  .research-era .era-head {
+    text-align: left;
+    padding-top: 0;
+  }
 }
 
 .era-head {
@@ -2129,30 +2140,6 @@ button.link {
   font-weight: 700;
   color: var(--gold);
   font-family: var(--font-title);
-}
-
-.branch-head {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  font-weight: 700;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.branch-icon {
-  font-size: 1.5rem;
-}
-
-.era-cell {
-  display: grid;
-  gap: 6px;
-  align-content: start;
-  padding: 6px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
 }
 
 .tech {
@@ -3021,7 +3008,7 @@ button.liked {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(128, 112, 88, 0.3);
 }
 
 .stage-dots .dot.done {
@@ -3112,6 +3099,34 @@ button.liked {
 
 .wonder-order-buttons {
   display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.segmented.small button {
+  padding: 3px 9px;
+  font-size: 0.78rem;
+}
+
+/* Your Yard's Monuments (1.4 §13): one site per Era of the town */
+.monument-sites {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+}
+
+.monument-site {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.15);
+  min-width: 0;
+}
+
+.monument-kinds {
+  display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
@@ -4577,16 +4592,6 @@ kbd {
 .opportunity p {
   margin: 0;
   font-size: 0.85rem;
-}
-
-.mastery {
-  display: grid;
-  gap: 6px;
-  padding: 10px 12px;
-  margin-bottom: 10px;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #fff3cf, #f3dfa5);
-  border: 2px solid var(--brass);
 }
 
 .opportunity.alert {

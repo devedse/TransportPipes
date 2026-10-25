@@ -47,19 +47,19 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
               <button
                 className="small"
                 disabled={gold < uses.shared.cost}
-                title="As much as a day of your income buys, at twice the price; it counts a quarter for your tier"
-                onClick={() => void gameClient.orderForWonder(uses.shared!.resource!, uses.shared!.cost)}
+                title="As much as a day of your income buys, at the market's 2.5×; it counts for your tier"
+                onClick={() => void gameClient.buyAndGive(null, uses.shared!.cost)}
               >
-                Order a day&apos;s worth · {formatAmount(uses.shared.cost)} g
+                Buy and give a day&apos;s worth · {formatAmount(uses.shared.cost)} g
               </button>
             )}
             {uses.shared.allCost !== null && (
               <button
                 className="small"
                 disabled={gold < uses.shared.allCost}
-                onClick={() => void gameClient.orderForWonder(uses.shared!.resource!)}
+                onClick={() => void gameClient.buyAndGive(null)}
               >
-                Order all of it · {formatAmount(uses.shared.allCost)} g
+                Buy and give all of it · {formatAmount(uses.shared.allCost)} g
               </button>
             )}
           </span>
@@ -77,7 +77,7 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
                 .then(() => gameClient.loadGoldUses())
             }
           >
-            {uses.want.forName !== null ? `Order it for ${uses.want.forName}` : "Order the rest"} ·{" "}
+            {uses.want.forName !== null ? `Buy it for ${uses.want.forName}` : "Buy the rest"} ·{" "}
             {formatAmount(uses.want.cost)} g
           </button>
         </div>
@@ -136,7 +136,7 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
         <p className="muted small">
           {uses?.shared?.action === "wonder" && (
             <button className="link small" onClick={() => void gameClient.openHub("wonders")}>
-              Hub › Wonders
+              Hub › Town &amp; Wonder
             </button>
           )}
         </p>

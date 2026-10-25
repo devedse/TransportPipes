@@ -26,7 +26,7 @@ public class WaitsFacts
     {
         var (game, ana, _) = Crew();
         var hall = game.World.Content.Building("marketHall");
-        StringAssert.StartsWith(game.World.MaterialsLine(ana, hall)!.Value.Text, "It waits for 500 bricks before it stands: nobody near makes bricks: order them at twice the price");
+        StringAssert.StartsWith(game.World.MaterialsLine(ana, hall)!.Value.Text, "It waits for 500 bricks before it stands: nobody near makes bricks: buy them from the market (6,250 g)");
 
         var placed = game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
 
@@ -45,21 +45,21 @@ public class WaitsFacts
         game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
 
         var events = game.World.TakeChanges().Events;
-        Assert.IsTrue(events.Any(t => t.Company == dev.Id && t.Text.Contains("you can order them for Ana in the Yard")), string.Join(" | ", events.Select(t => t.Text)));
+        Assert.IsTrue(events.Any(t => t.Company == dev.Id && t.Text.Contains("you can buy them for Ana in the Yard")), string.Join(" | ", events.Select(t => t.Text)));
         var near = game.World.WantsNear(dev).Single();
         Assert.IsFalse(near.Makes);
         Assert.AreEqual(0, near.Holds);
         var result = game.World.OrderRest(dev.Id, near.Target);
         Assert.IsTrue(result.Success, result.Error);
-        StringAssert.StartsWith(result.Note, "💛 Ordered for Ana: the hub brings it over the next 6 hours");
+        StringAssert.StartsWith(result.Note, "💛 Bought for Ana's Market Hall");
     }
 
     [TestMethod]
     public void TheFriendWithGoldIsOfferedTheBuildingThatMakesWhatAFriendWaitsFor()
     {
         var (game, ana, dev) = Crew();
-        // The Era Wonder waits for goods nobody makes too: here only the friend's building does
-        game.World.EraWonder!.FinishedAt = game.Time;
+        // The town's Wonder waits for goods nobody makes too: here only the friend's building does
+        game.World.WonderOf(ana.District)!.FullAt = game.Time;
         game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
 
         var step = game.World.NextSteps(dev, 8).FirstOrDefault(t => t.Title.StartsWith("Make the bricks"));

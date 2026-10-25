@@ -12,7 +12,8 @@ public class DenserFacts
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var company = game.NewCompany();
-        company.Researched.Add("complexes");
+        // Complexes come with a track's fourth tier (1.4 §12)
+        company.TrackTiers["power"] = 4;
         var origin = game.Local(company, 4, 4);
         game.Map(company, origin, "WW\nWW\n++\nO+");
         var moily = game.World.BuildingAt(origin)!;
@@ -28,8 +29,9 @@ public class DenserFacts
         Assert.AreEqual(4, game.World.ComplexMembers(complex));
         Assert.AreSame(complex, game.World.BuildingAt(origin.Offset(1, 1)));
         var stored = game.World.NetworkOf(complex.Id)!.Solution.Flows.Where(t => t.Kind == FlowKind.ToStorage).Sum(t => t.Sent);
-        Assert.AreEqual(game.World.Content.Building("windMoily").Out["energy"] * 5, stored, 1e-6);
-        Assert.AreEqual(4 * game.World.Content.Progression.UpgradeCost(game.World.Content.Building("windMoily"), 1), game.World.UpgradeCost(complex, 1), 0.01);
+        var track = game.World.TrackFactors(complex);
+        Assert.AreEqual(game.World.Content.Building("windMoily").Out["energy"] * 5 * track.Faster * track.PowerFree, stored, 1e-6, "the output of five, with the track's tiers");
+        Assert.AreEqual(4 * game.World.Content.Progression.UpgradeCost(game.World.CopyPrice(complex), 1), game.World.UpgradeCost(complex, 1), 0.01);
         StringAssert.Contains(game.World.Move(company.Id, complex.Id, origin.Offset(5, 5)).Error, "complex");
         Assert.IsNull(game.World.Building(moily.Id));
     }
@@ -66,7 +68,7 @@ public class DenserFacts
     {
         var game = new TestGame();
         var company = game.NewCompany(level: 40);
-        game.World.Era = 3;
+        game.TownToEra(3);
         company.Researched.Add("terraforming");
         var tile = game.Spot(company, "windMoily");
         StringAssert.Contains(game.World.Terraform(company.Id, tile, TerraformAction.Raise).Error, "Terraformer");
@@ -99,7 +101,7 @@ public class DenserFacts
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var company = game.NewCompany(level: 30);
-        game.World.Era = 2;
+        game.TownToEra(2);
         company.Researched.Add("bigTurbine");
         var origin = game.InStart(company, 2, 2);
         var map = game.Map(company, origin, "W+++\n    ");
@@ -140,7 +142,7 @@ public class DenserFacts
         var moily = map[(1, 1)];
 
         StringAssert.Contains(game.World.EvolvePlan(company, moily).Problem, "Era");
-        game.World.Era = 2;
+        game.TownToEra(2);
         company.Researched.Add("bigTurbine");
         StringAssert.Contains(game.World.EvolvePlan(company, moily).Problem, "Make room");
         StringAssert.Contains(game.World.Evolve(company.Id, map[(0, 0)].Id).Error, "Era 3", "solar panels evolve into Solar Farms (Era 3)");

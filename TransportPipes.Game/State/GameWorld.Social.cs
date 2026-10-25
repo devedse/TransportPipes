@@ -48,8 +48,9 @@ public sealed partial class GameWorld
         var factor = LikeFactor(owner.District);
         owner.Likes += factor;
         owner.Report.LikesReceived += factor;
-        owner.Gold += 20 * owner.Level * factor;
-        GainXp(owner, 10 * factor, "likes", "likes");
+        var gold = 20 * owner.Level * factor;
+        owner.Gold += gold;
+        CountEarned(owner, gold, "rewards", "likes");
         owner.Touch();
         Changes.Companies.Add(owner.Id);
         Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.Social, $"{liker.Name} likes your plot!"));
@@ -114,12 +115,7 @@ public sealed partial class GameWorld
         var value = company.Gold;
         foreach (var building in BuildingsOf(company.Id))
         {
-            var definition = Content.Building(building.Type);
-            value += definition.Cost.Gold;
-            for (var level = 1; level < building.Level; level++)
-            {
-                value += Content.Progression.UpgradeCost(definition, level);
-            }
+            value += EvolveCredit(building);
         }
         if (EstateOf(company) is { } estate)
         {
@@ -245,7 +241,7 @@ public sealed partial class GameWorld
             LeaderboardKind.NetWorth => NetWorth(company),
             LeaderboardKind.Income => (income!.GetValueOrDefault(company.Id)) * 60,
             LeaderboardKind.WeeklyEarnings => company.LifetimeEarnings - company.WeekStartEarnings,
-            LeaderboardKind.Level => company.Xp,
+            LeaderboardKind.Level => company.LifetimeEarnings,
             LeaderboardKind.Partners => partners!.GetValueOrDefault(company.Id),
             LeaderboardKind.Efficiency => TileEfficiency(company, income ??= GoldPerMinute()),
             _ => company.Likes,

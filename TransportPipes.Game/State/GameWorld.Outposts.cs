@@ -75,8 +75,8 @@ public sealed partial class GameWorld
 
     public IEnumerable<Outpost> OutpostsOf(long companyId) => _outposts.Values.Where(t => t.Owner == companyId);
 
-    /// <summary>The weekly lease of an outpost: grows with the Era</summary>
-    public double OutpostLease() => 3000 * Era;
+    /// <summary>The weekly lease of an outpost: grows with the company's Era</summary>
+    public double OutpostLease(Company company) => 3000 * YourEra(company);
 
     /// <summary>A discovered deposit on a tile (richness 5)</summary>
     private Discovery? DiscoveryAt(TilePos pos)
@@ -170,7 +170,7 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail(blocker);
         }
-        var lease = OutpostLease();
+        var lease = OutpostLease(company);
         var payment = Pay(company, lease, new Dictionary<string, double>());
         if (!payment.Success)
         {
@@ -273,7 +273,7 @@ public sealed partial class GameWorld
         var district = districts[random.Next(districts.Count)];
         if (WildSpotNear(district, random) is { } pos)
         {
-            var resources = Era >= 3 ? new[] { "oil", "rareEarth", "copperOre" } : ["copperOre", "coal", "ironOre"];
+            var resources = TownEra(district) >= 3 ? new[] { "oil", "rareEarth", "copperOre" } : ["copperOre", "coal", "ironOre"];
             var start = DateTime.SpecifyKind(day.AddHours(8 + random.Next(10)), DateTimeKind.Utc);
             if (start < LastTick + TimeSpan.FromHours(1))
             {

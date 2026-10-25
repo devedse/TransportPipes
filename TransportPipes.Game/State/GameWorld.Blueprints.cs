@@ -157,7 +157,7 @@ public sealed partial class GameWorld
 
     /// <summary>The best pipe up to a tier that the company has (a shared blueprint may use better pipes)</summary>
     private int BestPipeTier(Company company, int tier) =>
-        Content.PipeTiers.Where(t => t.Tier <= tier && t.Era <= Era && (t.Research == null || HasResearch(company, t.Research)))
+        Content.PipeTiers.Where(t => t.Tier <= tier && t.Era <= YourEra(company) && (t.Research == null || HasResearch(company, t.Research)))
             .Select(t => t.Tier).DefaultIfEmpty(1).Max();
 
     /// <summary>What building the blueprint costs a company now (gold; land, no bridges)</summary>

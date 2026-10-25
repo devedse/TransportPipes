@@ -34,9 +34,6 @@ public enum IdleCause
     /// <summary>An input (Resource) comes, but not enough</summary>
     InputShort,
 
-    /// <summary>Its trading post sells all it can</summary>
-    PostFull,
-
     /// <summary>The Storage it fills is full (for a Storage: it is full)</summary>
     Full,
 
@@ -49,8 +46,8 @@ public enum IdleCause
     /// <summary>What it makes (Resource) fills the pipe connections it leaves by, and they carry less than it could make</summary>
     PipeFull,
 
-    /// <summary>A Lab with nothing left to research: it rests and eats nothing</summary>
-    Resting,
+    /// <summary>A building of a later Era than its town's (1.4 §9): it sleeps until the town gets there</summary>
+    Sleeping,
 }
 
 /// <summary>Why a building doesn't run (fully): the cause, the good it is about, and the building it is about</summary>
@@ -104,11 +101,11 @@ public sealed partial class GameWorld
         }
         if (definition.Kind == BuildingKind.TradingPost)
         {
-            return network != null && TradingPostFull(building) ? new IdleReason(IdleCause.PostFull) : IdleReason.Running;
+            return IdleReason.Running;
         }
-        if (LabResting(building))
+        if (Sleeps(building))
         {
-            return new IdleReason(IdleCause.Resting);
+            return new IdleReason(IdleCause.Sleeping);
         }
         if (ToFlowNode(building) is not { Kind: FlowNodeKind.Building } node || (node.In.Count == 0 && node.Out.Count == 0))
         {
@@ -176,10 +173,6 @@ public sealed partial class GameWorld
         if (node.Out.Count > 0)
         {
             var linked = LinkedBuildings(building, network);
-            if (linked.Any(t => t.Owner == building.Owner && Content.Building(t.Type).Kind == BuildingKind.TradingPost && TradingPostFull(t)))
-            {
-                return new IdleReason(IdleCause.PostFull);
-            }
             if (linked.Any(t => t.Owner == building.Owner && Content.Building(t.Type).Kind == BuildingKind.Storage && StorageCapacity(t, Content.Building(t.Type)) - t.StoredTotal <= StorageEpsilon))
             {
                 return new IdleReason(IdleCause.Full);

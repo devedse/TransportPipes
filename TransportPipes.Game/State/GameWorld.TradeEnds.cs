@@ -39,7 +39,7 @@ public sealed partial class GameWorld
         }
         var takers = new List<TradeEnd>();
         var bids = new List<GoodBid>();
-        foreach (var resource in definition.Out.Keys.Where(t => t != GameContent.ResearchPoints))
+        foreach (var resource in definition.Out.Keys)
         {
             var share = reaches ? Share(resource, import: false) : 0;
             foreach (var trade in trades.Where(t => t.Selling && t.Resource == resource))

@@ -57,7 +57,7 @@ public sealed partial class GameWorld
         var targets = BuildingsOf(company.Id)
             .Where(t => t.Id != building.Id && !t.UnderConstruction && Content.Building(t.Type).Kind switch
             {
-                BuildingKind.TradingPost => !TradingPostFull(t),
+                BuildingKind.TradingPost => true,
                 BuildingKind.Storage => StorageCapacity(t, Content.Building(t.Type)) - t.StoredTotal > StorageEpsilon,
                 _ => false,
             })
@@ -106,7 +106,7 @@ public sealed partial class GameWorld
     /// <summary>Whether a player may lay a pipe on a tile (as PlacePipes checks it), and what it costs: null when not</summary>
     private double? PipeTileCost(Company company, TilePos tile, PipeTierDefinition pipe)
     {
-        if (WorldLayout.ZoneAt(tile.X, tile.Y).Kind != ZoneKind.Estate || OwnEstateAt(company, tile) == null || IsOccupied(tile))
+        if ((WorldLayout.ZoneAt(tile.X, tile.Y).Kind != ZoneKind.Estate || OwnEstateAt(company, tile) == null) && !OwnsOutskirts(company, tile) || IsOccupied(tile))
         {
             return null;
         }

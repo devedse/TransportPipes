@@ -225,7 +225,7 @@ public static class PlaytestEndpoints
                 station = station is { } at ? WorldNames.Station(at) : null,
                 slot = company.Slot,
                 level = company.Level,
-                xp = company.Xp,
+                era = world.YourEra(company),
                 gold = company.Gold,
                 goldPerMinute = gold.GetValueOrDefault(company.Id),
                 neighbourIncome = world.NeighbourIncome(company),
@@ -263,8 +263,11 @@ public static class PlaytestEndpoints
                 wantHub = company.Stats.GetValueOrDefault("wantHub"),
                 wonder = company.Stats.GetValueOrDefault("wonder"),
                 wonderGold = company.Stats.GetValueOrDefault("wonderGold"),
-                researchPoints = company.ResearchPoints,
-                labsRest = world.LabsRest(company),
+                tiers = new Dictionary<string, int>(company.TrackTiers),
+                researched = company.Researched.Count,
+                researchGold = company.Stats.GetValueOrDefault("researchGold"),
+                monumentGold = company.Stats.GetValueOrDefault("monumentGold"),
+                imported = company.Stats.GetValueOrDefault("imported"),
                 orders = company.Stats.GetValueOrDefault("orders"),
                 tradeFalls = company.TradeFalls.Count,
                 // After run 4: which doors were open at the sample, and what was pressed since the start ("doors logged
@@ -274,8 +277,8 @@ public static class PlaytestEndpoints
                 {
                     pipe = world.BuildingsOf(company.Id).Count(t => world.PipeDoorFor(company, t, preview: false) is { Kind: not PipeDoorKind.Locked }),
                     grow = world.PlanGrowth(company).Parts.Count,
-                    wonder = company.District == GameWorld.Capital && world.EraWonder is { } era ? era.Required.Keys.Count(t => world.WonderOrderOffer(t) != null) : 0,
-                    wants = world.WantsNear(company).Count(t => t.Want.Order == null),
+                    wonder = world.BuyAndGiveCost(company) > 0 ? 1 : 0,
+                    wants = world.WantsNear(company).Count,
                 },
                 pressed = company.Stats.Where(t => t.Key.StartsWith("pressed:", StringComparison.Ordinal)).ToDictionary(t => t.Key["pressed:".Length..], t => t.Value),
             };
@@ -283,7 +286,7 @@ public static class PlaytestEndpoints
         return new
         {
             now = world.Now,
-            era = world.Era,
+            towns = world.Towns.Select(t => new { x = t.X, y = t.Y, era = t.Era, wonder = t.Wonder?.Type, stage = t.Wonder?.Stage, full = t.Wonder?.FullAt }).ToList(),
             activePlayers = world.ActivePlayers(),
             players,
         };

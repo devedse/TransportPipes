@@ -130,43 +130,6 @@ public class SocietyFacts
 }
 
 [TestClass]
-public class SeasonServerFacts
-{
-    [TestMethod]
-    public async Task AfterTheChapterTheNextOneStartsAndTheWorldStays()
-    {
-        using var server = new GameServer();
-        var cookie = await server.RegisterAsync("Veteran");
-        await using var client = await server.ConnectAsync(cookie);
-        await client.Command("CreateCompany", "Old Timer", "#3399ff", null, null, null, null);
-        await server.World.RunAsync(world =>
-        {
-            var company = world.Companies.Single();
-            company.Gold = 5_000_000;
-            world.StartFinale();
-            world.EndSeason();
-        });
-        await server.World.SeasonAsync();
-        var season = await client.Invoke<SeasonDto>("GetSeason");
-        Assert.AreEqual(1, season.You!.Rank);
-        Assert.AreEqual("Season 1 Champion", season.You.Title);
-        var before = (await client.Invoke<HelloDto>("Hello")).Company!;
-
-        // A day later: the next chapter, in the same world
-        server.Time.Advance(TimeSpan.FromDays(1.1));
-        await server.World.SeasonAsync();
-
-        var company = (await client.Invoke<HelloDto>("Hello")).Company!;
-        Assert.AreEqual(before.Id, company.Id, "the company goes on");
-        Assert.AreEqual(before.EstateX, company.EstateX);
-        Assert.AreEqual(2, company.Season.Season);
-        Assert.IsNull(company.Season.EndedAt);
-        Assert.IsTrue(company.Titles.Contains("Season 1 Champion"));
-        Assert.IsGreaterThan(0, company.LegacyLevel, "Legacy grows for the company that goes on");
-    }
-}
-
-[TestClass]
 public class ModerationFacts
 {
     [TestMethod]

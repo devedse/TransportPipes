@@ -209,8 +209,7 @@ export function takesPipes(definition: BuildingDefinition | undefined): boolean 
     definition !== undefined &&
     (PIPE_KINDS.has(definition.kind) ||
       Object.keys(definition.in).length > 0 ||
-      Object.keys(definition.out).length > 0 ||
-      definition.researchPerMinute > 0)
+      Object.keys(definition.out).length > 0)
   );
 }
 
@@ -3080,14 +3079,16 @@ export class Engine {
       return;
     }
     for (const estate of district.estates) {
-      for (const parcel of outskirtsParcels(estate.slot)) {
+      outskirtsParcels(estate.slot).forEach((parcel, index) => {
+        // A bought one is the owner's land: drawn like it (1.4 §5)
+        const bought = (estate.outskirtsParcels & (1 << index)) !== 0;
         traceFootprint(g, ox + parcel.x, oy + parcel.y, PARCEL_SIZE);
         g.stroke({
           color: estate.ownerColor ?? 0xfff2c8,
-          width: 2,
-          alpha: estate.ownerId !== null ? 0.3 : 0.14,
+          width: bought ? 3 : 2,
+          alpha: bought ? 0.85 : estate.ownerId !== null ? 0.3 : 0.14,
         });
-      }
+      });
     }
   }
 

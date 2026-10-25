@@ -11,6 +11,10 @@ public class DbBuilding
     public int Y { get; set; }
     public int Size { get; set; }
     public int Level { get; set; }
+
+    /// <summary>What the copy cost to build: its levels cost from it</summary>
+    public double Price { get; set; }
+
     public DateTime? ConstructionEndsAt { get; set; }
 
     /// <summary>Storage contents per resource (jsonb)</summary>

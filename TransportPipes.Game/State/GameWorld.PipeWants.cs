@@ -50,17 +50,12 @@ public sealed partial class GameWorld
         {
             return;
         }
-        foreach (var part in parts)
-        {
-            CloseOrder(part);
-        }
         var laid = 0;
         foreach (var pos in ask.PipeTiles!)
         {
             if (_conductors.TryGetValue(pos, out var conductor) && conductor.Kind == ConductorKind.Pipe && conductor.Owner == owner.Id && conductor.Tier < ask.PipeTier)
             {
                 conductor.Tier = ask.PipeTier;
-                conductor.Widen = 1;
                 conductor.Touch();
                 MarkDirty(pos);
                 Changes.Tiles.Add(pos);
@@ -97,10 +92,6 @@ public sealed partial class GameWorld
             return CommandResult.Fail("That pipe has what it needs.");
         }
         var tier = Content.PipeTier(parts[0].PipeTier);
-        foreach (var part in parts)
-        {
-            CloseOrder(part);
-        }
         var refund = parts.Sum(t => t.Paid) + tier.Gold * parts[0].PipeTiles!.Count;
         foreach (var ask in parts)
         {

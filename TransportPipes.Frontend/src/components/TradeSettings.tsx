@@ -5,16 +5,6 @@ import type { FoundPlayerDto, PriceDto } from "../api/contracts";
 import { useAppStore } from "../state/store";
 import { ResourceIcon } from "./ResourceIcon";
 
-const TRADE_WITH: Array<{ id: "everyone" | "corporation" | "contracts"; name: string; text: string }> = [
-  {
-    id: "everyone",
-    name: "Everyone",
-    text: "everyone in your Yard and on your links (unless you block someone below)",
-  },
-  { id: "corporation", name: "My Yard", text: "only the people who live around your Yard" },
-  { id: "contracts", name: "Contracts only", text: "nobody, except what you agreed in a contract" },
-];
-
 /** The price band (GameWorld.MinPriceFactor, MaxPriceFactor) and the defaults */
 const MIN_PRICE = 1;
 const MAX_PRICE = 2.5;
@@ -264,22 +254,18 @@ export function TradeSettings() {
       </section>
 
       <section>
-        <h4>Who you trade with</h4>
-        <div className="segmented">
-          {TRADE_WITH.map((option) => (
-            <button
-              key={option.id}
-              className={company.tradeWith === option.id ? "active" : ""}
-              title={option.text}
-              onClick={() => void gameClient.setTradeWith(option.id)}
-            >
-              {option.name}
-            </button>
-          ))}
-        </div>
+        <h4>What the market brings</h4>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={company.wantsFromMarket}
+            onChange={(e) => void gameClient.setWantsFromMarket(e.target.checked)}
+          />
+          The market brings what your levels and new buildings still lack
+        </label>
         <p className="muted small">
-          You trade with {TRADE_WITH.find((t) => t.id === company.tradeWith)?.text}. Contracts always go
-          through.
+          First come your Storages, your own spare, your Yard and its Depot. What none of them has, the market
+          brings within about ten minutes, at 2.5× its price. Off: your levels wait for goods from players.
         </p>
       </section>
 

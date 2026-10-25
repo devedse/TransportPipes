@@ -86,7 +86,7 @@ public class TutorialFacts
 
         game.Pass(1);
         Assert.AreEqual(1, game.World.CurrentTutorialStep(climber)!.Chapter);
-        game.World.GainXp(climber, game.World.Content.Progression.XpForLevel(10) - climber.Xp, "test", "level");
+        game.ReachLevel(climber, 10);
         game.Pass(1);
 
         Assert.AreEqual(2, game.World.CurrentTutorialStep(veteran)!.Chapter, "a veteran starts with chapter 2");

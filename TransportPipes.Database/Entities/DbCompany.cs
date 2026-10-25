@@ -9,9 +9,7 @@ public class DbCompany
     public string Name { get; set; } = string.Empty;
     public string Color { get; set; } = string.Empty;
     public double Gold { get; set; }
-    public double Xp { get; set; }
     public int Level { get; set; }
-    public double ResearchPoints { get; set; }
     public double LifetimeEarnings { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime LastSeenAt { get; set; }

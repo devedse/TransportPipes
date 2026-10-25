@@ -109,7 +109,6 @@ public sealed class WorldHost : BackgroundService
         try
         {
             var stopwatch = Stopwatch.StartNew();
-            GameViews.SeasonBreak = TimeSpan.FromDays(_options.SeasonBreakDays);
             var world = await LoadWorldAsync(stoppingToken);
             var away = Now - world.LastTick;
             world.Tick();
@@ -137,7 +136,6 @@ public sealed class WorldHost : BackgroundService
                 {
                     await TickAsync();
                     await SaveAsync(force: false);
-                    await SeasonAsync();
                 }
                 catch (Exception ex)
                 {
@@ -165,83 +163,6 @@ public sealed class WorldHost : BackgroundService
         world.EventsEnabled = _options.Events;
         world.TutorialEnabled = _options.Tutorial;
         return world;
-    }
-
-    /// <summary>
-    /// The end of a season: the results go to the players' Legacy (once), and after the break the next world opens
-    /// </summary>
-    public async Task SeasonAsync()
-    {
-        List<SeasonResult>? results = null;
-        DateTime? ended = null;
-        var season = 1;
-        await _lock.WaitAsync();
-        try
-        {
-            if (_world!.SeasonEndedAt is { } endedAt)
-            {
-                ended = endedAt;
-                season = _world.Season;
-                if (!_store.ResultsSaved)
-                {
-                    // Claimed here, so the results go to Legacy only once
-                    results = _world.SeasonResults.ToList();
-                    _store.ResultsSaved = true;
-                }
-            }
-        }
-        finally
-        {
-            _lock.Release();
-        }
-        if (results != null)
-        {
-            Dictionary<long, int> legacy;
-            try
-            {
-                legacy = await _accounts.AddLegacyAsync(results);
-            }
-            catch
-            {
-                _store.ResultsSaved = false;
-                throw;
-            }
-            // In a persistent world the companies keep going: their Legacy level grows now
-            await RunAsync(world =>
-            {
-                foreach (var (user, total) in legacy)
-                {
-                    if (world.CompanyOfUser(user) is { } company)
-                    {
-                        company.LegacyLevel = GameWorld.LegacyLevelOf(total);
-                        company.Touch();
-                    }
-                }
-            });
-            _saveSoon = true;
-            _logger.LogInformation("Season {Season} ended: Legacy for {Players} players", season, results.Count);
-        }
-        if (ended is { } end && Now >= end + GameViews.SeasonBreak)
-        {
-            await _lock.WaitAsync();
-            try
-            {
-                // Someone else may have started the next chapter meanwhile
-                if (_world!.SeasonEndedAt != end)
-                {
-                    return;
-                }
-                _world.StartNextChapter();
-                _store.ResultsSaved = false;
-                _saveSoon = true;
-            }
-            finally
-            {
-                _lock.Release();
-            }
-            _logger.LogInformation("Chapter {Season} begins", season + 1);
-            await _hub.Clients.All.SeasonChanged();
-        }
     }
 
     /// <summary>Simulates the world up to now and sends what changed</summary>
@@ -377,10 +298,9 @@ public sealed class WorldHost : BackgroundService
         if (companies.Count != 0)
         {
             var gold = world.GoldPerMinute();
-            var research = world.ResearchPerMinute();
             foreach (var company in companies)
             {
-                var dto = GameViews.Company(world, company, gold.GetValueOrDefault(company.Id), research.GetValueOrDefault(company.Id));
+                var dto = GameViews.Company(world, company, gold.GetValueOrDefault(company.Id));
                 pushes.Add(() => _hub.Clients.Group(GameHub.UserGroup(company.UserId)).CompanyChanged(dto));
             }
         }

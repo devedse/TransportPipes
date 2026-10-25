@@ -95,7 +95,7 @@ public sealed class NetworkIndex
     /// <summary>A company's trading posts in the network that can sell</summary>
     public IReadOnlySet<long> PostsOf(long owner)
     {
-        _postsOf ??= _nodes.Where(t => t.Kind == FlowNodeKind.TradingPost && t.Throughput > 0).GroupBy(t => t.Owner).ToDictionary(t => t.Key, t => t.Select(n => n.Id).ToHashSet());
+        _postsOf ??= _nodes.Where(t => t.Kind == FlowNodeKind.TradingPost).GroupBy(t => t.Owner).ToDictionary(t => t.Key, t => t.Select(n => n.Id).ToHashSet());
         return _postsOf.TryGetValue(owner, out var posts) ? posts : [];
     }
 }

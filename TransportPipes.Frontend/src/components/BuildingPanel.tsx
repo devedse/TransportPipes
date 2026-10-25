@@ -3,12 +3,20 @@ import { researchName } from "../app/research";
 import { gameClient } from "../app/client";
 import { formatAmount, formatDuration, possessive } from "../app/format";
 import { useNow } from "../app/useNow";
-import type { BuildingDetailsDto, BuildingFlowDto, BuildingTradeDto, SiteDto } from "../api/contracts";
+import type {
+  BuildingDetailsDto,
+  BuildingFlowDto,
+  BuildingTradeDto,
+  LevelWaitDto,
+  SiteDto,
+  SiteWantDto,
+} from "../api/contracts";
 import type { Content } from "../game/content";
 import type { TerraformAction } from "../game/Engine";
 import { currentGold, useAppStore } from "../state/store";
 import { levelTier, nextTier } from "../game/levels";
 import { NetworkSummary } from "./NetworkSummary";
+import { DepotSection } from "./DepotSection";
 
 /** A phone-sized screen when the panel opens: long blocks start folded */
 const PHONE = typeof window !== "undefined" && window.matchMedia?.("(max-width: 720px)").matches === true;
@@ -186,9 +194,76 @@ function Flows({ details, content }: { details: BuildingDetailsDto; content: Con
 }
 
 /**
- * A scaffold that wants its materials (after run 3, step 2): each one with what is in and what comes now, who brought
- * it, the chain when nobody near makes it, and Cancel with the gold it gives back
+ * What a scaffold or a level step still wants (after run 3, step 2): each good with what is in and what comes now, who
+ * brought it, the chain when nobody near makes it, and Buy the rest
  */
+function WantList({
+  wants,
+  content,
+  mine,
+  building,
+}: {
+  wants: SiteWantDto[];
+  content: Content;
+  mine: boolean;
+  building: number;
+}) {
+  return (
+    <ul className="site-list">
+      {wants.map((want) => {
+        const name = content.resourceName(want.resource).toLowerCase();
+        return (
+          <li key={want.resource}>
+            <span>
+              Wants {formatAmount(want.amount)} {name} · <strong>{formatAmount(want.got)} in</strong>
+              {want.perMinute > 0.005 && (
+                <span className="muted"> · {formatAmount(want.perMinute)}/min coming</span>
+              )}
+            </span>
+            <span className="goal-bar">
+              <span
+                style={{ width: `${Math.round(Math.min(1, want.got / Math.max(1, want.amount)) * 100)}%` }}
+              />
+            </span>
+            {want.from.length > 0 && <span className="muted small">from {want.from.join(" · ")}</span>}
+            {want.chain !== null && (
+              <span className="small">
+                {want.chain}
+                {want.chainBuilding !== null && (
+                  <button className="link small" onClick={() => gameClient.handBuilding(want.chainBuilding!)}>
+                    Show me
+                  </button>
+                )}
+              </span>
+            )}
+            {want.order !== null && <span className="small">{want.order}</span>}
+            {mine && want.orderCost !== null && (
+              <button className="small" onClick={() => void gameClient.orderRest(building)}>
+                Buy the rest · {formatAmount(want.orderCost)} g
+              </button>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Where a want's goods come from (1.4 §9), said once under the list */
+function WantsNote() {
+  const fromMarket = useAppStore((s) => s.company?.wantsFromMarket ?? true);
+  return (
+    <p className="muted small">
+      Your Storages give what they hold; your spare, your neighbours&apos; and the Depot&apos;s reach it
+      through the Yard by themselves.{" "}
+      {fromMarket
+        ? "What nobody has, the market brings within about ten minutes at 2.5× its price; Buy the rest brings it at once."
+        : "The market brings nothing (your trade settings): Buy the rest brings it at once at 2.5× its price."}
+    </p>
+  );
+}
+
+/** A scaffold that wants its materials, and Cancel with the gold it gives back */
 function SiteWants({
   site,
   content,
@@ -203,57 +278,47 @@ function SiteWants({
   return (
     <div className="site-wants">
       <p className="status building">🏗 A scaffold: it stands once its materials are in</p>
-      <ul className="site-list">
-        {site.wants.map((want) => {
-          const name = content.resourceName(want.resource).toLowerCase();
-          return (
-            <li key={want.resource}>
-              <span>
-                Wants {formatAmount(want.amount)} {name} · <strong>{formatAmount(want.got)} in</strong>
-                {want.perMinute > 0.005 && (
-                  <span className="muted"> · {formatAmount(want.perMinute)}/min coming</span>
-                )}
-              </span>
-              <span className="goal-bar">
-                <span
-                  style={{ width: `${Math.round(Math.min(1, want.got / Math.max(1, want.amount)) * 100)}%` }}
-                />
-              </span>
-              {want.from.length > 0 && <span className="muted small">from {want.from.join(" · ")}</span>}
-              {want.chain !== null && (
-                <span className="small">
-                  {want.chain}
-                  {want.chainBuilding !== null && (
-                    <button
-                      className="link small"
-                      onClick={() => gameClient.handBuilding(want.chainBuilding!)}
-                    >
-                      Show me
-                    </button>
-                  )}
-                </span>
-              )}
-              {want.order !== null && <span className="small">{want.order}</span>}
-              {mine && want.orderCost !== null && (
-                <button className="small" onClick={() => void gameClient.orderRest(building)}>
-                  Order the rest · {formatAmount(want.orderCost)} g
-                </button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      <p className="muted small">
-        Your Storages give it what they hold; your spare and your neighbours&apos; reach it through the Yard
-        by themselves; a neighbour can send theirs from their Storage. An order waits for the friends who make
-        it to have had their turn, then the hub brings the rest over six hours; what friends bring comes off
-        it.
-      </p>
+      <WantList wants={site.wants} content={content} mine={mine} building={building} />
+      <WantsNote />
       {mine && (
         <button className="small" onClick={() => void gameClient.cancelSite(building)}>
           Give it up · {formatAmount(site.refund)} g back
         </button>
       )}
+    </div>
+  );
+}
+
+/**
+ * Levels bought whose goods are still coming (1.4 §9): from level 11 a step takes goods as well as gold, and the
+ * building works at its old level under a little scaffolding until they are in
+ */
+function LevelWait({
+  wait,
+  level,
+  content,
+  mine,
+  building,
+}: {
+  wait: LevelWaitDto;
+  level: number;
+  content: Content;
+  mine: boolean;
+  building: number;
+}) {
+  return (
+    <div className="site-wants level-wait">
+      <p className="status building">
+        🏗 {wait.boughtLevel === level + 1 ? `Level ${level + 1}` : `Levels ${level + 1}–${wait.boughtLevel}`}{" "}
+        bought: it works at level {level} until the goods are in
+      </p>
+      <WantList wants={wait.wants} content={content} mine={mine} building={building} />
+      {mine && wait.buyRest !== null && wait.wants.length > 1 && (
+        <button className="small" onClick={() => void gameClient.orderRest(building)}>
+          Buy all the rest · {formatAmount(wait.buyRest)} g
+        </button>
+      )}
+      <WantsNote />
     </div>
   );
 }
@@ -295,8 +360,10 @@ export function BuildingPanel() {
   const secondsLeft = underConstruction
     ? (new Date(building.constructionEndsAt!).getTime() - (now + serverOffset)) / 1000
     : 0;
-  const nextMilestone = content.nextMilestone(building.level);
-  const isProducer = details.inputs.length + details.outputs.length > 0 || details.researchPerMinute > 0;
+  // The levels bought whose goods are still coming count: the next one to buy comes after them (1.4 §9)
+  const bought = details.levelWait?.boughtLevel ?? building.level;
+  const nextMilestone = content.nextMilestone(bought);
+  const isProducer = details.inputs.length + details.outputs.length > 0;
   const thumbnail = gameClient.textures?.thumbnail(definition.id, definition.size);
 
   return (
@@ -335,6 +402,10 @@ export function BuildingPanel() {
 
       {details.site !== null ? (
         <SiteWants site={details.site} content={content} mine={mine} building={building.id} />
+      ) : details.sleeping ? (
+        <p className="status idle">
+          💤 Asleep: it belongs to Era {definition.unlock.era}, and wakes when your town gets there
+        </p>
       ) : underConstruction ? (
         <p className="status building">
           🏗 Under construction · ready in {formatDuration(Math.max(0, secondsLeft))}
@@ -380,6 +451,26 @@ export function BuildingPanel() {
           {details.rate > 0.005 && details.trade?.runsOn != null && ` · ${details.trade.runsOn}`}
         </p>
       ) : null}
+      {details.levelWait !== null && (
+        <LevelWait
+          wait={details.levelWait}
+          level={building.level}
+          content={content}
+          mine={mine}
+          building={building.id}
+        />
+      )}
+      {details.track !== null && (
+        <p className="muted small track-line">
+          🔬 {content.track(details.track)?.name ?? details.track} track · tier {details.trackTiers} of{" "}
+          {content.dto.trackTiers.length}
+          {mine && (
+            <button className="link small" onClick={() => void gameClient.openResearch()}>
+              Research
+            </button>
+          )}
+        </p>
+      )}
       {/* Upgrading at the top: it stays under the pointer while the rest of the panel refreshes */}
       {mine && details.upgradeCost !== null && !underConstruction && (
         <section className="upgrade">
@@ -403,7 +494,7 @@ export function BuildingPanel() {
               disabled={gold < details.upgradeCost}
               onClick={() => void gameClient.upgrade(building.id, 1)}
             >
-              Level {building.level + 1} · {formatAmount(details.upgradeCost)} g{asTime(details.upgradeCost)}
+              Level {bought + 1} · {formatAmount(details.upgradeCost)} g{asTime(details.upgradeCost)}
             </button>
             {details.upgradeCost10 !== null && (
               <button
@@ -420,6 +511,20 @@ export function BuildingPanel() {
               </button>
             )}
           </div>
+          {/* 1.4 §9: every copy costs 7% more than the last, and its levels cost from what it cost */}
+          <p className="muted small">
+            This one cost {formatAmount(details.copyPrice)} g: its levels cost from that, 15% more each
+            {details.nextLevelGoods !== null && details.nextLevelGoods.length > 0 && (
+              <>
+                {" "}
+                · the next takes{" "}
+                {details.nextLevelGoods
+                  .map((t) => `${formatAmount(t.amount)} ${content.resourceName(t.resource).toLowerCase()}`)
+                  .join(" and ")}{" "}
+                as well
+              </>
+            )}
+          </p>
           {/* What it will do, before the click (after run 3: the Lab's Max cut Cleo's income from 783 to 285 g/min) */}
           {(details.upgradePreview !== null || details.maxPreview !== null) && (
             <p
@@ -427,7 +532,7 @@ export function BuildingPanel() {
             >
               {details.upgradePreview !== null && (
                 <>
-                  Level {building.level + 1}: {details.upgradePreview}
+                  Level {bought + 1}: {details.upgradePreview}
                 </>
               )}
               {details.maxPreview !== null && (
@@ -441,7 +546,7 @@ export function BuildingPanel() {
             <PipeDoor details={details} content={content} gold={gold} income={income} />
           ) : (
             details.maxMore !== null && (
-              <MaxMore details={details} content={content} gold={gold} level={building.level} />
+              <MaxMore details={details} content={content} gold={gold} level={bought} />
             )
           )}
         </section>
@@ -558,10 +663,9 @@ export function BuildingPanel() {
           ))}
         </section>
       )}
-      {details.researchPerMinute > 0 && <p>🔬 {formatAmount(details.researchPerMinute)} research/min</p>}
       {definition.kind === "lab" && mine && company !== null && (
         <button className="primary wide" onClick={() => void gameClient.openResearch()}>
-          {company.currentResearch !== null
+          {researchName(company, content) !== null
             ? `Researching ${researchName(company, content) ?? ""} · open research`
             : "🔬 Pick a research"}
         </button>
@@ -590,10 +694,8 @@ export function BuildingPanel() {
           ))}
           {details.keep !== null &&
             Object.entries(details.contents).some(([r, a]) => a > (details.keep!.keeps[r] ?? 0) + 1) && (
-              <p className={details.keep.tradingPostFull ? "status idle" : "muted small"}>
-                {details.keep.tradingPostFull
-                  ? "It holds more than it keeps (the line): your trading post is full, so what it can't sell comes in here instead of going to waste. Upgrade the trading post or build another one to sell it."
-                  : "It holds more than it keeps (the line) from before: new surplus is sold, and it fills up again only when your trading post is full."}
+              <p className="muted small">
+                It holds more than it keeps (the line) from before: new surplus goes on to be sold.
               </p>
             )}
           {definition.kind === "storage" && (
@@ -659,30 +761,7 @@ export function BuildingPanel() {
         </section>
       )}
 
-      {definition.kind === "showroom" && details.filter !== null && (
-        <section>
-          <h4>Showroom · partners pay 10% more for</h4>
-          {mine ? (
-            <select
-              value={details.filter[0] ?? ""}
-              onChange={(e) => void gameClient.setShowroomProduct(building.id, e.target.value)}
-            >
-              <option value="">Choose a product…</option>
-              {content.resources
-                .filter((r) => r.id !== "energy")
-                .map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-            </select>
-          ) : (
-            <p className="small">
-              {details.filter[0] !== undefined ? content.resourceName(details.filter[0]) : "Nothing yet"}
-            </p>
-          )}
-        </section>
-      )}
+      {definition.kind === "depot" && <DepotSection />}
 
       {definition.kind === "valve" && details.filter !== null && (
         <section>
@@ -722,14 +801,15 @@ export function BuildingPanel() {
           <Meter
             label={`Company Level ${company.level}`}
             color="#c9963a"
-            amount={company.xp - company.levelXp}
-            max={company.nextLevelXp - company.levelXp}
-            unit=" XP"
+            amount={company.lifetimeEarnings - company.levelEarned}
+            max={company.nextLevelEarned - company.levelEarned}
+            unit=" g"
           />
           <p className="muted small">
-            Level {company.level + 1} in {formatAmount(company.nextLevelXp - company.xp)} XP. Your company
-            gains XP from the gold it earns, new kinds of buildings, upgrades, research, parcels and daily
-            orders.
+            Level {company.level + 1} once you have earned{" "}
+            {formatAmount(company.nextLevelEarned - company.lifetimeEarnings)} g more. The Company Level comes
+            from all the gold your company ever earned: at the market, from players, from orders and rewards.
+            Spending takes nothing away.
           </p>
         </section>
       )}

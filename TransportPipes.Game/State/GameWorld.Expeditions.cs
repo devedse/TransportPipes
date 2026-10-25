@@ -98,7 +98,7 @@ public sealed partial class GameWorld
             }
             else if (roll < 0.7 && WildSpotNear(company.District, random) is { } spot)
             {
-                var resources = Era >= 3 ? new[] { "oil", "rareEarth", "copperOre", "coal" } : ["copperOre", "coal", "ironOre"];
+                var resources = YourEra(company) >= 3 ? new[] { "oil", "rareEarth", "copperOre", "coal" } : ["copperOre", "coal", "ironOre"];
                 var resource = resources[random.Next(resources.Length)];
                 StartDiscovery(spot, resource);
                 finds.Add($"a rich {Content.Resources[resource].Name.ToLowerInvariant()} deposit in the wilderness");

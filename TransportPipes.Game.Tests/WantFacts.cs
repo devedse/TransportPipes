@@ -148,7 +148,7 @@ public class WantFacts
         var company = game.NewCompany(gold: 10_000_000, level: 30);
         company.Researched.Add("copperPipes");
         var map = game.Map(company, game.Local(company, 1, 1), "W+T", pipeTier: 1);
-        game.World.UpgradeMany(company.Id, [map[(0, 0)].Id], 14);
+        game.UpgradeNow(company, [map[(0, 0)].Id], 14);
         game.Pass(2);
 
         var fix = game.World.IdleStatusOf(map[(0, 0)]).Fix;
@@ -159,7 +159,7 @@ public class WantFacts
     }
 
     [TestMethod]
-    public void AnOrderShipsTheRestOverSixHoursWhenNobodyNearMakesIt()
+    public void BuyTheRestFillsAWantAtOnceAtTheMarketsPrice()
     {
         var (game, ana, _) = Station();
         game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
@@ -167,39 +167,28 @@ public class WantFacts
         var gold = ana.Gold;
 
         Assert.IsTrue(game.World.OrderRest(ana.Id, site.Id).Success);
-        Assert.AreEqual(gold - 500 * game.World.BasePrice("bricks") * GameWorld.OrderPrice, ana.Gold, 1, "paid up front at 2 × base");
-        game.Pass(3 * 60);
-        var want = game.World.WantsOf(site).Single();
-        Assert.AreEqual(250, want.Got, 15, "half in three hours");
-        game.Pass(3 * 60 + 5);
 
-        Assert.IsFalse(GameWorld.IsSite(site), "in six hours it has them all, and is built");
+        Assert.AreEqual(gold - 500 * game.World.BasePrice("bricks") * 2.5, ana.Gold, 1, "the market's 2.5× (1.4 §9)");
+        Assert.IsFalse(GameWorld.IsSite(site), "it has them all, and is built");
     }
 
     [TestMethod]
-    public void AnOrderWaitsForTheFriendWhoHoldsItThenFriendsComeFirst()
+    public void AWantTakesTheMarketsGoodsUnlessItsOwnerTurnedThatOff()
     {
-        // The friends' window: Ben holds bricks and hasn't played since Ana's Market Hall wanted them
-        var (game, ana, ben) = Station();
-        Store(game, ben, "bricks", 800);
-        ben.LastSeenAt = game.World.Now.AddHours(-1);
+        var (game, ana, _) = Station();
+        Assert.IsTrue(game.World.SetWantsFromMarket(ana.Id, false).Success);
         game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
         var site = MarketHall(game, ana);
-        game.World.OrderRest(ana.Id, site.Id);
-        var paid = ana.Gold;
+        game.Pass(5);
+        Assert.AreEqual(0, game.World.WantsOf(site).Single().Got, 1e-9, "nobody brings them, and the market is off");
+        var post = game.TradingPost(ana);
+        game.World.SetImport(ana.Id, post.Id, "bricks", true);
+        var gold = ana.Gold;
 
-        game.Pass(60);
-        var want = game.World.WantsOf(site).Single();
-        Assert.AreEqual(0, want.Got, 1e-6, "the hub waits for Ben's turn");
-        StringAssert.Contains(game.World.OrderStartText(ana, want, ana), "Ben's next session");
+        game.Pass(12);
 
-        // Ben comes and sends his: what he brings comes off the order, its gold back to Ana
-        ben.LastSeenAt = game.World.Now;
-        Assert.IsTrue(game.World.SendToSite(ben.Id, site.Id).Success);
-
-        Assert.IsFalse(GameWorld.IsSite(site));
-        Assert.AreEqual(paid + 500 * game.World.BasePrice("bricks") * GameWorld.OrderPrice - 500 * game.World.PriceFor(ben, ana, "bricks"), ana.Gold, 1,
-            "the order's gold back, Ben's bricks paid at his price for Ana");
+        Assert.IsFalse(GameWorld.IsSite(site), "importing bricks: the market brought them within about ten minutes");
+        Assert.AreEqual(gold - 500 * game.World.BasePrice("bricks") * 2.5, ana.Gold, 1);
     }
 
     [TestMethod]
@@ -213,8 +202,7 @@ public class WantFacts
         Assert.IsTrue(game.World.OrderRest(ben.Id, site.Id).Success);
 
         Assert.AreEqual(anaGold, ana.Gold, 1e-6, "Ana pays nothing");
-        Assert.IsLessThan(benGold, ben.Gold, "Ben paid the hub for her");
-        game.Pass(6 * 60 + 5);
+        Assert.AreEqual(benGold - 500 * game.World.BasePrice("bricks") * 2.5, ben.Gold, 1, "Ben bought them from the market for her");
         Assert.IsFalse(GameWorld.IsSite(site));
     }
 

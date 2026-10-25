@@ -17,8 +17,8 @@ function actionLabel(line: ReturnLineDto): string | null {
       return `Grow it · ${formatAmount(line.cost ?? 0)} g`;
     case "orderWant":
       return line.partnerName === null
-        ? `Order the rest · ${formatAmount(line.cost ?? 0)} g`
-        : `Order the rest for ${line.partnerName} · ${formatAmount(line.cost ?? 0)} g`;
+        ? `Buy the rest · ${formatAmount(line.cost ?? 0)} g`
+        : `Buy the rest for ${line.partnerName} · ${formatAmount(line.cost ?? 0)} g`;
     case "show":
     case "upgrade":
       return "Show me";

@@ -84,7 +84,7 @@ public sealed partial class GameWorld
             // Short of the very good it bought is the fall itself: what holds it back is where its own goods go (run 3's
             // test: a mine whose pipe to its post was cut takes no energy, and read "energy short")
             if (reason.Cause is IdleCause.InputShort or IdleCause.InputMissing && reason.Resource == resource
-                && Content.Building(taker.Type).Out.Keys.FirstOrDefault(t => t != GameContent.ResearchPoints) is { } made
+                && Content.Building(taker.Type).Out.Keys.FirstOrDefault() is { } made
                 && !PipeReach(taker).Any(t => t.Owner == taker.Owner && Content.Building(t.Type).Kind is BuildingKind.TradingPost or BuildingKind.Storage))
             {
                 var word = GoodsWord(made);

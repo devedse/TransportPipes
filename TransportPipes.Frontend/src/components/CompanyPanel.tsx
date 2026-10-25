@@ -52,8 +52,12 @@ function ManagerCard({ manager, freeSlot }: { manager: ManagerDto; freeSlot: boo
 function Achievement({ achievement }: { achievement: AchievementDto }) {
   const progress = Math.min(1, achievement.value / achievement.amount);
   const rewards = [
-    achievement.xp > 0 ? `${formatAmount(achievement.xp)} XP` : null,
-    achievement.gold > 0 ? `${formatAmount(achievement.gold)} g` : null,
+    // It pays hours of your income, at least its gold
+    achievement.hours > 0
+      ? `${achievement.hours} h of income (at least ${formatAmount(achievement.gold)} g)`
+      : achievement.gold > 0
+        ? `${formatAmount(achievement.gold)} g`
+        : null,
     achievement.title !== null ? `“${achievement.title}”` : null,
   ].filter((t) => t !== null);
   return (

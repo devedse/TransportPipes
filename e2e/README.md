@@ -16,6 +16,7 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 | --- | --- |
 | `start-map.mjs` | The start on the map (1.4 §6): the free plots glowing, the whole town zoomed out, Pick for me and the plot card, Play (`start-map.mjs shots/x phone` on a phone) |
 | `four-friends.mjs` | Phase A's check: Ana names her Yard and sends her "Play next to me" link; Ben opens it on a phone as a guest and lands next to her; Cleo finds Ana by name on the map; Ana closes the Yard, Dev's Pick for me goes elsewhere and his tap on the last plot asks; Ana says yes (four browsers) |
+| `economy.mjs` | 1.4 phase B: the Company Level from gold earned; a Lab's two lines (a track tier and an Era tree item at once); the market's Hub Orders; the town's Wonder and a give switch; a level from 11 that waits for its goods; a workshop at the Yard's end and the Depot; an outskirts parcel bought in Era 2 |
 | `onboarding.mjs` | A new player following Loady's first steps |
 | `yard.mjs` | Two neighbours in one Yard, each piped to their Yard gate with the Yard panel's button: one's energy goes to the other's mine at the seller's crew price (two browsers, moved into a Yard nobody else lives at; the `yard` cheat runs the Yards' rounds now) |
 | `links.mjs` | A link between two stations: A's Links tab suggests B (who needs A's energy), A offers it, B accepts, and both see it flow at the player price, drawn along the corridors (two browsers) |
@@ -36,9 +37,9 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 | `consistency.mjs` | After each kind of action (pipes, gates, upgrade, build, demolish, move) the playing tab matches a freshly loaded one (slow: a reload per action, about 5 min) |
 | `network-ids.mjs` | A selected network rebuilt three times: the selection covers every pipe, its buildings don't go idle |
 | `guide.mjs` | Loady's later steps: the Storage and what it keeps, the daily orders, a step that waits for a level |
-| `art-check.mjs`, `showcase.mjs` | Generated buildings on an estate (`showcase.mjs shots/x type,type,...`) |
+| `art-check.mjs`, `showcase.mjs` | Generated buildings on an estate (`showcase.mjs shots/x type,type,...`; scaffolds buy their materials) |
 | `pipes.mjs` | Pipes and flowing resources |
-| `pipe-gallery.mjs` | Every pipe piece close up: runs, bends, junctions, ends, sockets into buildings, the five tiers |
+| `pipe-gallery.mjs` | Every pipe piece close up: runs, bends, junctions, ends, sockets into buildings, the six tiers |
 | `juice.mjs` | A finished building, coin pops and the level-up |
 | `ui-check.mjs`, `title.mjs` | The panels, the title screen and the managers |
 | `mobile.mjs` | The phone layout (390×844) |

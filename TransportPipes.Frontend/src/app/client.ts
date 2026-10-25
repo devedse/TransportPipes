@@ -7,6 +7,7 @@ import type {
   ChatMessageDto,
   CommandResult,
   CompanyDto,
+  GiveMode,
   LeaderboardKind,
   NextStepDto,
   ReturnLineDto,
@@ -30,6 +31,7 @@ import {
   PARCELS_PER_SIDE,
   isDeep,
   isParcelUnlocked,
+  outskirtsOwner,
   parcelOf,
   startCentre,
   yardGate,
@@ -269,11 +271,9 @@ export class GameClient {
         void this.refreshInbox();
       }
     });
-    // A new season: a new world, everything starts again
-    c.on("seasonChanged", () => location.reload());
     c.on("wondersChanged", () => {
       if (appStore.getState().hubOpen && appStore.getState().hubTab === "wonders") {
-        void this.refreshWonders();
+        void this.refreshTown();
       }
     });
     c.on("crewChanged", () => {
@@ -370,9 +370,6 @@ export class GameClient {
     if (this.homedCompany !== hello.company.id) {
       this.goHome();
     }
-    if (hello.company.season.endedAt !== null) {
-      void this.openSeason();
-    }
   }
 
   private setCompany(company: CompanyDto) {
@@ -389,10 +386,6 @@ export class GameClient {
       this.hintOverlay = null;
     }
     this.world?.setDeepLevel(company.estateX, company.estateY, company.deep.parcels);
-    if (company.season.endedAt !== null && previous?.season.endedAt === null) {
-      // The ceremony
-      void this.openSeason();
-    }
     if (
       previous !== null &&
       previous.id === company.id &&
@@ -401,6 +394,10 @@ export class GameClient {
       // The estate moved: the camera follows it to its new seat (where it lands)
       this.engine?.invalidate();
       this.goHome();
+    }
+    // A new Era or Level changes what the advisor says (the town's next Era comes from everyone's gifts)
+    if (previous !== null && (previous.era !== company.era || previous.level !== company.level)) {
+      this.scheduleNextSteps(1000);
     }
     if (
       previous !== null &&
@@ -421,9 +418,11 @@ export class GameClient {
     }
     if (
       appStore.getState().researchOpen &&
-      (previous?.currentResearch !== company.currentResearch ||
-        previous?.researched.length !== company.researched.length ||
-        Math.floor((previous?.researchPoints ?? 0) / 10) !== Math.floor(company.researchPoints / 10))
+      (previous?.research.currentResearch !== company.research.currentResearch ||
+        previous?.research.researched.length !== company.research.researched.length ||
+        previous?.research.currentTrack !== company.research.currentTrack ||
+        previous?.research.trackQueue.length !== company.research.trackQueue.length ||
+        Math.floor((previous?.gold ?? 0) / 1000) !== Math.floor(company.gold / 1000))
     ) {
       void this.refreshResearch();
     }
@@ -435,14 +434,10 @@ export class GameClient {
   }
 
   async refreshNeighbours() {
-    const [neighbours, contracts] = await Promise.all([
-      this.connection.getNeighbourhood().catch(() => null),
-      this.connection.getContracts().catch(() => null),
-    ]);
-    setState({
-      ...(neighbours !== null ? { neighbours } : {}),
-      ...(contracts !== null ? { contracts } : {}),
-    });
+    const neighbours = await this.connection.getNeighbourhood().catch(() => null);
+    if (neighbours !== null) {
+      setState({ neighbours });
+    }
   }
 
   /**
@@ -670,55 +665,89 @@ export class GameClient {
     this.engine?.lookAt(middle.x, middle.y, 0.8);
   }
 
-  async proposeContract(
-    partner: number | null,
-    selling: boolean,
-    resource: string,
-    rate: number,
-    price: number,
-    days: number,
-  ) {
-    const ok = await this.command(
-      this.connection.proposeContract(partner, selling, resource, rate, price, days),
-      partner === null ? "Your offer is on the contract board" : "Offer sent",
-    );
-    if (ok) {
-      await this.refreshNeighbours();
-    }
-    return ok;
-  }
-
-  async acceptContract(contract: number) {
-    if (await this.command(this.connection.acceptContract(contract), "Contract signed")) {
-      await this.refreshNeighbours();
-    }
-  }
-
-  async declineContract(contract: number) {
-    if (await this.command(this.connection.declineContract(contract))) {
-      await this.refreshNeighbours();
-    }
-  }
-
   async openHub(tab?: HubTab) {
     setState({ ...MODALS, hubOpen: true, ...(tab !== undefined ? { hubTab: tab } : {}) });
-    await Promise.all([this.refreshMarket(), this.refreshWonders()]);
+    await Promise.all([this.refreshMarket(), this.refreshTown()]);
   }
 
-  async refreshWonders() {
-    const wonders = await this.connection.getWonders().catch(() => null);
-    if (wonders !== null) {
-      setState({ wonders });
+  async refreshTown() {
+    const town = await this.connection.getTown().catch(() => null);
+    if (town !== null) {
+      setState({ town });
     }
   }
 
-  async deliverToWonder(eraWonder: boolean) {
-    if (await this.command(this.connection.deliverToWonder(eraWonder), "Delivered: thank you, builder!")) {
-      await this.refreshWonders();
+  /** Your give switch for a good (1.4 §13): what the Yard round sends the Wonder by itself */
+  async setGive(resource: string, mode: GiveMode) {
+    if (await this.command(this.connection.setGive(resource, mode))) {
+      await this.refreshTown();
     }
   }
 
-  /** Orders part of the Era Wonder from the hub: it ships over six hours and counts a quarter for your tier */
+  /** Gives the Wonder what your Storages (and your goods in the Depot) hold of what it lacks */
+  async giveFromStorages() {
+    if (await this.command(this.connection.giveFromStorages(), "Given: thank you, builder!")) {
+      await this.refreshTown();
+    }
+  }
+
+  /** Buys what the stage lacks at the market's 2.5× and gives it: one good, or all; at most this much gold */
+  async buyAndGive(resource: string | null, gold: number | null = null) {
+    if (
+      await this.command(this.connection.buyAndGive(resource, gold), "Bought and given: thank you, builder!")
+    ) {
+      if (appStore.getState().goldUses !== null) {
+        void this.loadGoldUses();
+      }
+      await this.refreshTown();
+      void this.refreshCompany();
+    }
+  }
+
+  /** Builds a Monument of a kind on its Era's site in your Yard */
+  async chooseMonument(era: number, kind: string) {
+    if (await this.command(this.connection.chooseMonument(era, kind))) {
+      await this.refreshTown();
+    }
+  }
+
+  /** Pays gold into a Monument's next stage */
+  async payMonument(era: number, gold: number) {
+    if (await this.command(this.connection.payMonument(era, gold), "Paid into the Monument")) {
+      await this.refreshTown();
+      void this.refreshCompany();
+    }
+  }
+
+  async putInDepot(resource: string, amount: number) {
+    if (await this.command(this.connection.putInDepot(resource, amount), "In the Depot, for the crew")) {
+      void this.refreshCompany();
+    }
+  }
+
+  async takeFromDepot(resource: string, amount: number) {
+    if (await this.command(this.connection.takeFromDepot(resource, amount), "Back in your Storages")) {
+      void this.refreshCompany();
+    }
+  }
+
+  async buyOutskirts(index: number) {
+    if (
+      await this.command(this.connection.buyOutskirts(index), "The parcel is yours: build and pipe on it")
+    ) {
+      setState({ selectedOutskirts: null });
+      void this.refreshCompany();
+      this.engine?.invalidate();
+    }
+  }
+
+  /** Whether the market brings what your levels and buildings still lack (1.4 §9) */
+  async setWantsFromMarket(on: boolean) {
+    if (await this.command(this.connection.setWantsFromMarket(on))) {
+      void this.refreshCompany();
+    }
+  }
+
   /** What your gold can do: the shared goal, a want, and "Grow everything that pays" (after run 4) */
   async loadGoldUses() {
     setState({ goldUses: await this.connection.getGoldUses() });
@@ -737,22 +766,6 @@ export class GameClient {
     if (await this.command(this.connection.undoGrowth())) {
       void this.refreshCompany();
       void this.loadGoldUses();
-    }
-  }
-
-  /** Orders an Era Wonder good: all that may be ordered, or as much as some gold buys (an hour of your income) */
-  async orderForWonder(resource: string, gold: number | null = null) {
-    if (
-      await this.command(
-        this.connection.orderForWonder(resource, gold),
-        "Ordered: the hub ships it over six hours",
-      )
-    ) {
-      if (appStore.getState().goldUses !== null) {
-        void this.loadGoldUses();
-      }
-      await this.refreshWonders();
-      void this.refreshCompany();
     }
   }
 
@@ -792,10 +805,6 @@ export class GameClient {
     }
   }
 
-  async setTradeWith(tradeWith: "everyone" | "corporation" | "contracts") {
-    await this.command(this.connection.setTradeWith(tradeWith));
-  }
-
   /** One of your prices (1.4 §8; null: back to its default): a cut counts at once, a rise waits an hour */
   async setPrice(key: string, value: number | null) {
     return this.command(this.connection.setPrice(key, value));
@@ -821,14 +830,17 @@ export class GameClient {
   }
 
   async refreshResearch() {
-    const research = await this.connection.getResearch().catch(() => null);
-    if (research !== null) {
-      setState({ research });
-    }
+    const [research, tracks] = await Promise.all([
+      this.connection.getResearch().catch(() => null),
+      this.connection.getTracks().catch(() => null),
+    ]);
+    setState({ ...(research !== null ? { research } : {}), ...(tracks !== null ? { tracks } : {}) });
   }
 
+  /** An Era tree item, or a track's next tier */
   async startResearch(tech: string) {
-    const name = appStore.getState().content?.research(tech)?.name ?? tech;
+    const content = appStore.getState().content;
+    const name = content?.research(tech)?.name ?? content?.track(tech)?.name ?? tech;
     if (await this.command(this.connection.startResearch(tech), `Researching ${name}`)) {
       await this.refreshCompany();
       await this.refreshResearch();
@@ -1347,8 +1359,22 @@ export class GameClient {
           return;
         }
       }
+      // An outskirts parcel set aside for your plot that you don't own yet (1.4 §5): buy it
+      const zone = zoneAt(tile.x, tile.y);
+      const outskirts = zone.kind === "outskirts" ? outskirtsOwner(zone.localX, zone.localY) : null;
+      if (
+        outskirts !== null &&
+        zone.districtX === company.districtX &&
+        zone.districtY === company.districtY &&
+        outskirts.slot === company.slot &&
+        ((company.outskirts?.parcels ?? 0) & (1 << outskirts.index)) === 0
+      ) {
+        this.stopDetails();
+        setState({ selectedOutskirts: outskirts.index, selectedBuilding: null, buildingDetails: null });
+        return;
+      }
       // The wilderness: an outpost, or a claim
-      if (zoneAt(tile.x, tile.y).kind === "wilderness") {
+      if (zone.kind === "wilderness") {
         this.select(null);
         void this.selectWild(tile);
         return;
@@ -1446,6 +1472,8 @@ export class GameClient {
       this.setPhotoMode(false);
     } else if (state.selectedDeepParcel !== null) {
       setState({ selectedDeepParcel: null });
+    } else if (state.selectedOutskirts !== null) {
+      setState({ selectedOutskirts: null });
     } else if (state.blueprintDraft !== null) {
       setState({ blueprintDraft: null });
     } else if (state.inboxOpen) {
@@ -1481,6 +1509,7 @@ export class GameClient {
       buildingDetails: null,
       buildingNetwork: null,
       selectedParcel: null,
+      selectedOutskirts: null,
       selectedNetwork: null,
       networkDetails: null,
     });
@@ -1946,12 +1975,6 @@ export class GameClient {
     }
   }
 
-  async setShowroomProduct(building: number, resource: string) {
-    if (await this.command(this.connection.setShowroomProduct(building, resource))) {
-      await this.refreshDetails();
-    }
-  }
-
   async setValveFilter(building: number, resource: string, enabled: boolean) {
     if (await this.command(this.connection.setValveFilter(building, resource, enabled))) {
       await this.refreshDetails();
@@ -2216,13 +2239,6 @@ export class GameClient {
   placeCrate(crate: number, type: string) {
     setState({ companyOpen: false });
     this.setTool({ kind: "build", type, crate });
-  }
-
-  // ---------------------------------------------------------------- The season
-
-  async openSeason() {
-    const season = await this.connection.getSeason().catch(() => null);
-    setState({ season, seasonOpen: season !== null });
   }
 
   // ---------------------------------------------------------------- Outposts

@@ -85,6 +85,9 @@ namespace TransportPipes.Database.Migrations
                     b.Property<long>("OwnerId")
                         .HasColumnType("bigint");
 
+                    b.Property<double>("Price")
+                        .HasColumnType("double precision");
+
                     b.Property<double>("Setting")
                         .HasColumnType("double precision");
 
@@ -191,9 +194,6 @@ namespace TransportPipes.Database.Migrations
                         .IsRequired()
                         .HasColumnType("jsonb");
 
-                    b.Property<double>("ResearchPoints")
-                        .HasColumnType("double precision");
-
                     b.Property<string>("Settings")
                         .IsRequired()
                         .HasColumnType("jsonb");
@@ -203,9 +203,6 @@ namespace TransportPipes.Database.Migrations
 
                     b.Property<long>("UserId")
                         .HasColumnType("bigint");
-
-                    b.Property<double>("Xp")
-                        .HasColumnType("double precision");
 
                     b.HasKey("Id");
 
@@ -235,127 +232,9 @@ namespace TransportPipes.Database.Migrations
                     b.Property<int>("Tier")
                         .HasColumnType("integer");
 
-                    b.Property<int>("Widen")
-                        .HasColumnType("integer");
-
                     b.HasKey("X", "Y");
 
                     b.ToTable("Conductors", (string)null);
-                });
-
-            modelBuilder.Entity("TransportPipes.Database.Entities.DbContract", b =>
-                {
-                    b.Property<long>("Id")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("Buyer")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<double>("Days")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("Delivered")
-                        .HasColumnType("double precision");
-
-                    b.Property<DateTime?>("EndsAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<double>("Expected")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("PenaltyRate")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("Price")
-                        .HasColumnType("double precision");
-
-                    b.Property<long>("Proposer")
-                        .HasColumnType("bigint");
-
-                    b.Property<double>("Rate")
-                        .HasColumnType("double precision");
-
-                    b.Property<string>("Resource")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<long>("Seller")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime?>("StartedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("State")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("State");
-
-                    b.ToTable("Contracts", (string)null);
-                });
-
-            modelBuilder.Entity("TransportPipes.Database.Entities.DbCorporation", b =>
-                {
-                    b.Property<long>("Id")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Color")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Data")
-                        .IsRequired()
-                        .HasColumnType("jsonb");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(400)
-                        .HasColumnType("character varying(400)");
-
-                    b.Property<int>("DistrictX")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("DistrictY")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("HqLevel")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<string>("PerkResource")
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<string>("Tag")
-                        .IsRequired()
-                        .HasMaxLength(8)
-                        .HasColumnType("character varying(8)");
-
-                    b.Property<double>("Tax")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("Treasury")
-                        .HasColumnType("double precision");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Tag")
-                        .IsUnique();
-
-                    b.ToTable("Corporations", (string)null);
                 });
 
             modelBuilder.Entity("TransportPipes.Database.Entities.DbEstate", b =>
@@ -369,14 +248,11 @@ namespace TransportPipes.Database.Migrations
                     b.Property<int>("Slot")
                         .HasColumnType("integer");
 
+                    b.Property<int>("OutskirtsParcels")
+                        .HasColumnType("integer");
+
                     b.Property<long?>("OwnerId")
                         .HasColumnType("bigint");
-
-                    b.Property<long?>("ReservedFor")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime?>("ReservedUntil")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("UnlockedParcels")
                         .HasColumnType("integer");
@@ -552,9 +428,6 @@ namespace TransportPipes.Database.Migrations
                         .HasColumnType("jsonb")
                         .HasDefaultValueSql("'[]'::jsonb");
 
-                    b.Property<int>("Era")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Events")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -582,29 +455,11 @@ namespace TransportPipes.Database.Migrations
                         .HasColumnType("jsonb")
                         .HasDefaultValueSql("'{}'::jsonb");
 
-                    b.Property<string>("Projects")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("jsonb")
-                        .HasDefaultValueSql("'[]'::jsonb");
-
                     b.Property<int>("Rules")
                         .HasColumnType("integer");
 
-                    b.Property<string>("Season")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("jsonb")
-                        .HasDefaultValueSql("'{}'::jsonb");
-
                     b.Property<int>("Seed")
                         .HasColumnType("integer");
-
-                    b.Property<string>("Trunks")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("jsonb")
-                        .HasDefaultValueSql("'[]'::jsonb");
 
                     b.Property<string>("Wonders")
                         .IsRequired()

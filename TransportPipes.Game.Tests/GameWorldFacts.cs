@@ -21,7 +21,7 @@ public class GameWorldFacts
         Assert.IsTrue(WorldLayout.StartParcels(estate.Slot).All(estate.IsUnlocked), "the start area against the Yard");
         CollectionAssert.AreEquivalent(new[] { "hq", "tradingPost" }, game.World.BuildingsOf(company.Id).Select(t => t.Type).ToArray());
         Assert.AreEqual(estate.YardGate, game.World.Conductors.Single(t => t.Kind == ConductorKind.Gate && t.Owner == company.Id).Pos);
-        Assert.AreEqual(0, company.Xp, "the free buildings give no XP");
+        Assert.AreEqual(0, company.LifetimeEarnings, "nothing earned yet");
     }
 
     [TestMethod]
@@ -46,24 +46,27 @@ public class GameWorldFacts
 
         StringAssert.Contains(game.World.PlaceBuilding(company.Id, "windMoily", game.Local(company, 2, 2)).Error, "locked");
         StringAssert.Contains(game.World.PlaceBuilding(company.Id, "windMoily", game.Local(neighbour, 12, 12)).Error, "own plot");
-        StringAssert.Contains(game.World.PlaceBuilding(company.Id, "windMoily", game.Local(company, -1, 12)).Error, "own plot");
+        // Just beside the plot: a road, or the outskirts set aside for it (1.4 §5)
+        var beside = game.World.PlaceBuilding(company.Id, "windMoily", game.Local(company, -1, 12)).Error!;
+        Assert.IsTrue(beside.Contains("own plot") || beside.Contains("outskirts"), beside);
         StringAssert.Contains(game.World.PlaceBuilding(company.Id, "windMoily", hq.Position).Error, "already");
         Assert.IsTrue(game.World.PlaceBuilding(company.Id, "windMoily", game.Spot(company, "windMoily")).Success);
     }
 
     [TestMethod]
-    public void BuildingCostsGoldGivesXpAndEveryCopyCostsMore()
+    public void BuildingCostsGoldAndEveryCopyCostsMore()
     {
         var game = new TestGame();
         var company = game.NewCompany(gold: 2000);
 
-        game.Build(company, "windMoily");
+        var first = game.Build(company, "windMoily");
         Assert.AreEqual(1800, company.Gold);
-        Assert.AreEqual(60, company.Xp, "10 for a building, 50 for the first of its type");
+        Assert.AreEqual(0, company.LifetimeEarnings, "spending isn't earning: the Company Level counts gold earned");
 
-        game.Build(company, "windMoily");
+        var second = game.Build(company, "windMoily");
         Assert.AreEqual(1800 - 214, company.Gold, "the second copy costs 7% more");
-        Assert.AreEqual(70, company.Xp);
+        Assert.AreEqual(200, first.Price);
+        Assert.AreEqual(214, second.Price, "each copy remembers what it cost: its levels cost from it");
     }
 
     [TestMethod]
@@ -112,8 +115,8 @@ public class GameWorldFacts
         var loss = game.World.Content.PipeTier(1).LossPerTile;
         Assert.AreEqual(30 * wind * Math.Pow(1 - loss, path.Count), sale.Delivered, 1e-9, "the grey pipe loses a little per tile");
         Assert.AreEqual(gold + sale.Delivered * 1 * 10, company.Gold, 1e-6);
-        Assert.AreEqual(sale.Delivered * 10, company.LifetimeEarnings, 1e-6);
-        Assert.AreEqual(sale.Delivered * 10 / 25, company.Xp - 60, 1e-6, "one XP per 25 gold at Company Level 1");
+        Assert.AreEqual(sale.Delivered * 10, company.LifetimeEarnings, 1e-6, "the gold earned counts for the Company Level");
+        Assert.AreEqual(sale.Delivered * 10, company.EarnedLog["market"]["energy"], 1e-6);
     }
 
     [TestMethod]
@@ -251,14 +254,14 @@ public class GameWorldFacts
         var a = once.World.Companies.Single();
         var b = often.World.Companies.Single();
         Assert.AreEqual(b.Gold, a.Gold, 1e-6 * b.Gold);
-        Assert.AreEqual(b.Xp, a.Xp, 1e-6 * b.Xp);
+        Assert.AreEqual(b.LifetimeEarnings, a.LifetimeEarnings, 1e-6 * b.LifetimeEarnings);
         var storageA = once.World.Buildings.Single(t => t.Type == "storage");
         var storageB = often.World.Buildings.Single(t => t.Type == "storage");
         Assert.AreEqual(storageB.StoredTotal, storageA.StoredTotal, 1e-6);
     }
 
     [TestMethod]
-    public void UpgradingRaisesTheOutputAndMilestonesDoubleIt()
+    public void UpgradingRaisesTheOutputTenPercentALevel()
     {
         var game = new TestGame();
         var company = game.NewCompany();
@@ -278,8 +281,8 @@ public class GameWorldFacts
         Assert.IsTrue(game.World.Upgrade(company.Id, moily.Id, 8).Success);
         game.World.SolveNetworks();
         Assert.AreEqual(10, moily.Level);
-        Assert.AreEqual(level1 * Math.Pow(1.1, 9) * 2, game.World.ToFlowNode(moily)!.Out["energy"], 1e-9, "level 10 is a milestone");
-        Assert.AreEqual(100, Sent(), 1e-9, "a grey pipe carries 100 per minute");
+        Assert.AreEqual(level1 * Math.Pow(1.1, 9), game.World.ToFlowNode(moily)!.Out["energy"], 1e-9);
+        Assert.AreEqual(Math.Min(100, level1 * Math.Pow(1.1, 9)), Sent(), 1e-9, "a grey pipe carries 100 per minute");
     }
 
     [TestMethod]
@@ -305,7 +308,7 @@ public class GameWorldFacts
     public void ParcelsAreBoughtNextToYourLandWhenYourLevelIsHighEnough()
     {
         var game = new TestGame();
-        var company = game.NewCompany(gold: 6000);
+        var company = game.NewCompany(gold: 25_000);
         var estate = game.EstateOf(company);
         bool Touches(int parcel) => new[] { -1, 1, -4, 4 }.Select(t => parcel + t)
             .Where(t => t is >= 0 and < 16 && (Math.Abs(t % 4 - parcel % 4) + Math.Abs(t / 4 - parcel / 4)) == 1).Any(estate.IsUnlocked);
@@ -316,9 +319,9 @@ public class GameWorldFacts
         company.Level = 5;
         StringAssert.Contains(game.World.BuyParcel(company.Id, far).Error, "next to land you own");
         Assert.IsTrue(game.World.BuyParcel(company.Id, next).Success);
-        Assert.AreEqual(1000, company.Gold);
+        Assert.AreEqual(5_000, company.Gold, "20,000 for the first");
         Assert.IsTrue(estate.IsUnlocked(next));
-        Assert.AreEqual((10000, 7), game.World.NextParcel(company));
+        Assert.AreEqual((50_000, 7), game.World.NextParcel(company), "each 2.5 times the last, at every second level");
         var (px, py) = WorldLayout.ParcelOrigin(next);
         var spot = game.Local(company, px + 4, py + 2);
         Assert.IsTrue(game.World.PlaceBuilding(company.Id, "solarPanel", spot).Success || game.World.Tile(spot).Terrain is TerrainType.Water or TerrainType.Mountain || game.World.Tile(spot).Deposit != null);

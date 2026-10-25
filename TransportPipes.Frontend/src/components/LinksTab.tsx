@@ -24,7 +24,7 @@ function LinkCard({ link, content }: { link: LinkDto; content: Content }) {
     (t) =>
       t.tier === link.tier + 1 &&
       t.era <= era &&
-      (t.research === null || company.researched.includes(t.research)),
+      (t.research === null || company.research.researched.includes(t.research)),
   );
   const good = content.resourceName(link.resource).toLowerCase();
   const tankMinutes = link.need > 1e-6 ? link.tank / link.need : 0;
@@ -200,7 +200,7 @@ function NewLink({
   const plan =
     draft.partnerId !== null && draft.resource !== "" && planned?.key === key ? planned.plan : null;
   const tiers = content.pipeTiers.filter(
-    (t) => t.era <= era && (t.research === null || company.researched.includes(t.research)),
+    (t) => t.era <= era && (t.research === null || company.research.researched.includes(t.research)),
   );
   const resources = content.resources.filter((r) => r.era <= era);
   const partner = links.partners.find((t) => t.id === draft.partnerId);

@@ -94,7 +94,10 @@ function unlocksAt(
     } else if (Object.keys(building.in).length > 0) {
       note = "you make all it needs";
     }
-    if (building.unlock.research !== null && !company.researched.includes(building.unlock.research)) {
+    if (
+      building.unlock.research !== null &&
+      !company.research.researched.includes(building.unlock.research)
+    ) {
       const tech = content.research(building.unlock.research)?.name ?? building.unlock.research;
       note = `${note !== null ? `${note} · ` : ""}+ research ${tech}`;
       ok = ok === false ? false : null;

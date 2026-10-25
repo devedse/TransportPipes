@@ -3,47 +3,48 @@ using TransportPipes.Game.World;
 
 namespace TransportPipes.Game.State;
 
-/// <summary>A Wonder being built: a District Wonder or the Era Wonder of the Capital</summary>
-public sealed class Wonder
+/// <summary>A town (1.4 §11): its own Era, its Era Wonder and its launch party</summary>
+public sealed class Town
+{
+    public int X { get; init; }
+    public int Y { get; init; }
+    public int Era { get; set; } = 1;
+    public DateTime EraStartedAt { get; set; }
+
+    /// <summary>The Wonder of the town's Era (null after the Launch)</summary>
+    public TownWonder? Wonder { get; set; }
+
+    /// <summary>Everyone in the town makes 10% more until then (a new Era's launch party)</summary>
+    public DateTime? PartyUntil { get; set; }
+
+    /// <summary>When its Space Elevator launched (null: not yet)</summary>
+    public DateTime? LaunchedAt { get; set; }
+
+    public DistrictCoord Coord => new(X, Y);
+}
+
+/// <summary>A town's Era Wonder being built (1.4 §13)</summary>
+public sealed class TownWonder
 {
     public required string Type { get; init; }
 
-    /// <summary>The district of a District Wonder; null for the Era Wonder</summary>
-    public DistrictCoord? District { get; init; }
-
-    /// <summary>The stage being built; equal to the number of stages when the Wonder is finished</summary>
+    /// <summary>The stages built (the current stage is the next one)</summary>
     public int Stage { get; set; }
 
-    /// <summary>What the current stage needs and what was delivered so far</summary>
+    /// <summary>What the current stage needs and what was given so far</summary>
     public Dictionary<string, double> Required { get; set; } = new();
     public Dictionary<string, double> Delivered { get; set; } = new();
 
-    /// <summary>The value (in gold at base prices) every company delivered</summary>
-    public Dictionary<long, double> Contributions { get; init; } = new();
+    /// <summary>The worth at base prices every company gave to the current stage, and to the whole Wonder</summary>
+    public Dictionary<long, double> StageGiven { get; set; } = new();
+    public Dictionary<long, double> Given { get; set; } = new();
 
-    public DateTime? FinishedAt { get; set; }
+    /// <summary>The current stage is full: it is built a day after (null: still taking goods)</summary>
+    public DateTime? FullAt { get; set; }
 
-    public bool Finished => FinishedAt != null;
-
-    /// <summary>
-    /// The Era Wonder as the Capital's want (after run 3, step 5): what each seller's gate was matched last round, what
-    /// arrives now a minute, what Houses brought of each good (a quarter at most), and the orders on it (half at most)
-    /// </summary>
+    /// <summary>The Yard rounds' gifts: what each giver's gate was matched last round, and what arrives now a minute</summary>
     public Dictionary<long, Dictionary<string, double>> Matched { get; set; } = new();
     public Dictionary<long, Dictionary<string, double>> Incoming { get; set; } = new();
-    public Dictionary<string, double> FromHouses { get; set; } = new();
-    public List<WonderOrder> Orders { get; set; } = new();
-}
-
-/// <summary>Gold for part of an Era Wonder stage: paid up front at 2 × base, shipped over six hours, credited a quarter</summary>
-public sealed class WonderOrder
-{
-    public long By { get; set; }
-    public required string Resource { get; init; }
-    public double Units { get; set; }
-    public double Price { get; set; }
-    public double Shipped { get; set; }
-    public DateTime At { get; set; }
 }
 
 public enum WonderTier
@@ -56,360 +57,604 @@ public enum WonderTier
 }
 
 /// <summary>
-/// District Wonders, the Era Wonder and Eras (GDD §8.8, §9.3, §9.4). Everyone delivers to them from their storages; a
-/// finished District Wonder gives its district a perk for the season, a finished Era Wonder starts the next Era (and so
-/// does the Era's deadline).
+/// Per-town Eras and their Wonders (1.4 §11, §13). Each town has its own Era, and moves up when its Era Wonder is finished,
+/// never by a deadline. A Wonder is built with goods by everyone in the town in three stages of fixed sizes (rule 2): its
+/// residents give their spare by itself with a good's "give" switch (beyond their Hub Order, or all of it), give from
+/// their Storages, or buy and give with gold at the market's 2.5×. Giving is a gift: no gold comes back, and the goods
+/// leave the game. A stage takes at least a day to build once it's full; the givers' shares of it pay rewards. Each stage
+/// gives the town a perk for good; the last brings the next Era.
 /// </summary>
 public sealed partial class GameWorld
 {
-    public static readonly DistrictCoord Capital = new(0, 0);
-    public static readonly TimeSpan EraLength = TimeSpan.FromDays(21);
     public const int LastEra = 5;
 
-    private readonly Dictionary<DistrictCoord, Wonder> _districtWonders = new();
+    /// <summary>A full stage stands this long after</summary>
+    public static readonly TimeSpan StageBuildTime = TimeSpan.FromDays(1);
 
-    public Wonder? EraWonder { get; private set; }
+    /// <summary>A new Era's launch party: +10% production in the town for a day</summary>
+    public static readonly TimeSpan PartyLength = TimeSpan.FromDays(1);
+    public const double PartyBonus = 0.1;
 
-    /// <summary>When the current Era began; it ends at the latest EraLength later</summary>
-    public DateTime EraStartedAt { get; set; }
+    /// <summary>The shares of a stage that make a Bronze, Silver, Gold and Diamond builder, and the hours of income they pay</summary>
+    private static readonly (WonderTier Tier, double Share, double Hours)[] Tiers =
+    [
+        (WonderTier.Diamond, 0.15, 12),
+        (WonderTier.Gold, 0.07, 6),
+        (WonderTier.Silver, 0.03, 3),
+        (WonderTier.Bronze, 0.01, 1),
+    ];
 
-    public DateTime EraDeadline => EraStartedAt + EraLength;
+    private readonly Dictionary<DistrictCoord, Town> _towns = new();
 
-    public IReadOnlyDictionary<DistrictCoord, Wonder> DistrictWonders => _districtWonders;
+    /// <summary>How many towns finished each Wonder (the trail: every one makes it 10% smaller for the towns after)</summary>
+    public Dictionary<string, int> WondersFinished { get; private set; } = new();
 
-    public void LoadWonders(DateTime eraStartedAt, Wonder? eraWonder, IEnumerable<Wonder> districtWonders)
+    /// <summary>The Era Wonders buy in the Yards (on in the server; off in tests unless a test sets it)</summary>
+    public bool WonderBuysEnabled { get; set; }
+
+    public IEnumerable<Town> Towns => _towns.Values;
+
+    public void LoadTowns(IEnumerable<Town> towns, Dictionary<string, int>? finished)
     {
-        EraStartedAt = eraStartedAt;
-        EraWonder = eraWonder;
-        foreach (var wonder in districtWonders.Where(t => t.District != null))
+        foreach (var town in towns)
         {
-            _districtWonders[wonder.District!.Value] = wonder;
+            _towns[town.Coord] = town;
         }
+        WondersFinished = finished ?? new();
     }
 
-    public WonderDefinition WonderDefinition(Wonder wonder) =>
-        (wonder.District == null ? Content.EraWonders : Content.DistrictWonders).First(t => t.Id == wonder.Type);
-
-    /// <summary>The District Wonder of a district (the Capital builds the Era Wonder next to it)</summary>
-    public Wonder? DistrictWonder(DistrictCoord district)
+    /// <summary>A town, made when first asked for: Era 1, its Great Dynamo open</summary>
+    public Town TownAt(DistrictCoord coord)
     {
-        if (Content.DistrictWonders.Count == 0)
+        if (!_towns.TryGetValue(coord, out var town))
+        {
+            town = new Town { X = coord.X, Y = coord.Y, EraStartedAt = LastTick };
+            town.Wonder = NewWonder(1);
+            _towns[coord] = town;
+        }
+        return town;
+    }
+
+    /// <summary>A town's Era</summary>
+    public int TownEra(DistrictCoord coord) => _towns.TryGetValue(coord, out var town) ? town.Era : 1;
+
+    /// <summary>A company's Era: the highest Era a town reached while it lived there (it never goes down)</summary>
+    public int YourEra(Company company) => Math.Max(company.Era, TownEra(company.District));
+
+    /// <summary>The town a building stands in (a Deep Level building: the town above it)</summary>
+    public static DistrictCoord TownOf(Building building) => WorldLayout.Surface(building.Position) is var surface ? WorldLayout.DistrictOf(surface.X, surface.Y) : default;
+
+    /// <summary>The Era of the town a building stands in</summary>
+    public int EraAt(Building building) => TownEra(TownOf(building));
+
+    /// <summary>A building from a later Era than its town's sleeps (1.4 §9): it makes and uses nothing until the town gets there</summary>
+    public bool Sleeps(Building building) => Content.Building(building.Type).Unlock.Era > EraAt(building);
+
+    public WonderDefinition WonderDefinition(TownWonder wonder) => Content.EraWonders.First(t => t.Id == wonder.Type);
+
+    /// <summary>The town's Wonder, or null after the Launch</summary>
+    public TownWonder? WonderOf(DistrictCoord town) => TownAt(town).Wonder;
+
+    private TownWonder? NewWonder(int era)
+    {
+        if (Content.EraWonders.FirstOrDefault(t => t.Era == era) is not { } definition)
         {
             return null;
         }
-        if (!_districtWonders.TryGetValue(district, out var wonder))
-        {
-            // Every district has its own Wonder, picked from the seed
-            var index = (int)(Noise.Hash(Generator.Seed, 5003, district.X, district.Y) % (ulong)Content.DistrictWonders.Count);
-            var definition = Content.DistrictWonders[index];
-            wonder = new Wonder { Type = definition.Id, District = district, Required = StageRequirements(definition, 0) };
-            _districtWonders[district] = wonder;
-        }
+        var wonder = new TownWonder { Type = definition.Id };
+        wonder.Required = StageRequirements(definition, 0);
         return wonder;
     }
 
-    /// <summary>Makes sure the Era Wonder of the current Era exists (and the Era has a start)</summary>
-    private void EnsureEraWonder()
-    {
-        if (EraStartedAt == default)
-        {
-            EraStartedAt = LastTick;
-        }
-        if (EraWonder == null && Content.EraWonders.FirstOrDefault(t => t.Era == Era) is { } definition)
-        {
-            EraWonder = new Wonder { Type = definition.Id, Required = StageRequirements(definition, 0) };
-        }
-    }
+    /// <summary>The trail: every town that finished a Wonder before makes it 10% smaller, down to half</summary>
+    public double TrailFactor(WonderDefinition definition) => Math.Max(0.5, 1 - 0.1 * WondersFinished.GetValueOrDefault(definition.Id));
 
-    /// <summary>Whether a Wonder's stage waits to be sized (it opens at a midnight when somebody there has played this week)</summary>
-    public static bool Unsized(Wonder wonder) => !wonder.Finished && wonder.Required.Count == 0;
-
-    /// <summary>Once a day: a stage that still waits for its size (a world from before fixed sizes) gets it</summary>
-    public void SizeWonderStages()
+    /// <summary>A stage's goods: its share of the Wonder's worth (with the trail), split evenly over its goods at base prices</summary>
+    private Dictionary<string, double> StageRequirements(WonderDefinition definition, int stage)
     {
-        foreach (var wonder in _districtWonders.Values.Append(EraWonder).OfType<Wonder>().Where(Unsized))
-        {
-            wonder.Required = StageRequirements(WonderDefinition(wonder), wonder.Stage);
-            MarkWonderTiles(wonder);
-        }
+        var part = definition.Stages[stage];
+        var worth = definition.Worth * part.Share * TrailFactor(definition) / part.Goods.Count;
+        return part.Goods.ToDictionary(t => t, t => Math.Ceiling(worth / Math.Max(0.01, BasePrice(t))));
     }
 
     /// <summary>What goods are worth at base</summary>
     private double Worth(IReadOnlyDictionary<string, double> goods) => goods.Sum(t => t.Value * BasePrice(t.Key));
 
-    /// <summary>
-    /// A Wonder stage (1.4 rule 2): a fixed basket of goods, the same in every town whoever and however many play there
-    /// </summary>
-    private Dictionary<string, double> StageRequirements(WonderDefinition definition, int stage) =>
-        definition.Stages[stage].ToDictionary(t => t.Key, t => t.Value);
+    /// <summary>What a Wonder's current stage still lacks of a good (nothing once it's full)</summary>
+    public double WonderLacks(TownWonder wonder, string good) =>
+        wonder.FullAt != null ? 0 : Math.Max(0, wonder.Required.GetValueOrDefault(good) - wonder.Delivered.GetValueOrDefault(good));
 
     // ---------------------------------------------------------------- Perks
 
-    /// <summary>The perk of the finished District Wonder of a district</summary>
-    private double PerkAmount(DistrictCoord district, WonderPerk perk) =>
-        _districtWonders.TryGetValue(district, out var wonder) && wonder.Finished && WonderDefinition(wonder) is { } definition && definition.Perk == perk
-            ? definition.PerkAmount
-            : 0;
+    /// <summary>The perks of every Wonder stage a town has built (they last for good), of a kind</summary>
+    public double TownPerk(DistrictCoord coord, WonderPerk perk)
+    {
+        if (!_towns.TryGetValue(coord, out var town))
+        {
+            return 0;
+        }
+        var total = 0.0;
+        foreach (var definition in Content.EraWonders.Where(t => t.Era <= town.Era))
+        {
+            var built = definition.Era < town.Era ? definition.Stages.Count : town.Wonder?.Type == definition.Id ? town.Wonder.Stage : 0;
+            total += definition.Stages.Take(built).Where(t => t.Perk == perk).Sum(t => t.PerkAmount);
+        }
+        return total;
+    }
 
-    private double WonderOutputFactor(Building building) =>
-        _districtWonders.Count == 0 ? 1 : 1 + PerkAmount(WorldLayout.DistrictOf(building.X, building.Y), WonderPerk.Production);
+    /// <summary>What a building makes more from its town's Wonders and launch party</summary>
+    private double WonderOutputFactor(Building building, BuildingDefinition definition, string resource)
+    {
+        var town = TownOf(building);
+        var factor = 1 + TownPerk(town, WonderPerk.Everything);
+        if (resource == "energy")
+        {
+            factor += TownPerk(town, WonderPerk.Energy);
+        }
+        if (definition.Category == "factory")
+        {
+            factor += TownPerk(town, WonderPerk.Factories);
+        }
+        if (_towns.TryGetValue(town, out var t) && t.PartyUntil > LastTick)
+        {
+            factor += PartyBonus;
+        }
+        return factor;
+    }
 
-    private double WonderResearchFactor(Building building) =>
-        _districtWonders.Count == 0 ? 1 : 1 + PerkAmount(WorldLayout.DistrictOf(building.X, building.Y), WonderPerk.Research);
+    private double WonderHubOrderFactor(DistrictCoord town) => 1 + TownPerk(town, WonderPerk.HubOrders);
 
-    private double WonderDemandFactor(DistrictCoord district) => _districtWonders.Count == 0 ? 1 : 1 + PerkAmount(district, WonderPerk.HubDemand);
+    /// <summary>Research is faster with the town's Wonders (the Thinking Machine)</summary>
+    private double WonderResearchFactor(Company company) => 1 / (1 + TownPerk(company.District, WonderPerk.Research));
 
-    private double WonderCargoFactor(Company company) => 1 - PerkAmount(company.District, WonderPerk.Cargo);
+    // ---------------------------------------------------------------- Giving
 
-    // ---------------------------------------------------------------- Deliveries
+    /// <summary>Sets what a company gives the town's Wonder of a good by itself</summary>
+    public CommandResult SetGive(long companyId, string resource, GiveMode mode)
+    {
+        if (Company(companyId) is not { } company || !Content.Resources.ContainsKey(resource))
+        {
+            return CommandResult.Fail("Unknown good.");
+        }
+        if (mode == GiveMode.Off)
+        {
+            company.Give.Remove(resource);
+        }
+        else
+        {
+            company.Give[resource] = mode;
+        }
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        MarkTradeDirty(company.Id);
+        return CommandResult.Ok;
+    }
 
-    /// <summary>Delivers what the storages have for the current stage of a Wonder</summary>
-    public CommandResult DeliverToWonder(long companyId, bool eraWonder)
+    /// <summary>Gives the town's Wonder what the company's Storages hold of what the stage still lacks</summary>
+    public CommandResult GiveFromStorages(long companyId)
     {
         if (Company(companyId) is not { } company)
         {
             return CommandResult.Fail("Unknown company.");
         }
-        EnsureEraWonder();
-        var wonder = eraWonder ? EraWonder : DistrictWonder(company.District);
-        if (wonder == null)
+        if (WonderOf(company.District) is not { } wonder)
         {
-            return CommandResult.Fail("There is no Wonder to deliver to.");
+            return CommandResult.Fail("Your town has no Wonder to build.");
         }
-        if (wonder.Finished)
+        if (wonder.FullAt != null)
         {
-            return CommandResult.Fail("This Wonder is finished.");
+            return CommandResult.Fail("This stage is full: it's being built.");
         }
-        if (Unsized(wonder))
-        {
-            return CommandResult.Fail("It opens at midnight, sized to what the town's builders make.");
-        }
+        // Its own goods in the Yard's Depot first ("where the crew piles goods for the Wonder", 1.4 §7)
+        var fromDepot = GiveFromDepot(company, wonder);
         var materials = Materials(company.Id);
-        var delivery = new Dictionary<string, double>();
-        foreach (var (resource, required) in wonder.Required)
+        var gift = new Dictionary<string, double>();
+        foreach (var good in wonder.Required.Keys)
         {
-            var missing = required - wonder.Delivered.GetValueOrDefault(resource);
-            var amount = Math.Min(missing, materials.GetValueOrDefault(resource));
+            var amount = Math.Floor(Math.Min(WonderLacks(wonder, good), materials.GetValueOrDefault(good)) * 1000) / 1000;
             if (amount > 1e-9)
             {
-                delivery[resource] = Math.Floor(amount * 1000) / 1000;
+                gift[good] = amount;
             }
         }
-        if (delivery.Values.Sum() < 1e-6)
+        if (gift.Count == 0 && fromDepot > 0)
         {
-            var names = string.Join(", ", wonder.Required.Where(t => wonder.Delivered.GetValueOrDefault(t.Key) < t.Value).Select(t => Content.Resources[t.Key].Name.ToLowerInvariant()));
-            return CommandResult.Fail($"Your storages have nothing it needs ({names}).");
+            CheckStageFull(TownAt(company.District));
+            return CommandResult.Ok;
         }
-        var payment = Pay(company, 0, delivery);
+        if (gift.Count == 0)
+        {
+            return CommandResult.Fail($"Your Storages hold nothing it needs ({string.Join(", ", wonder.Required.Keys.Where(t => WonderLacks(wonder, t) > 1e-6).Select(GoodsWord))}).");
+        }
+        var payment = Pay(company, 0, gift);
         if (!payment.Success)
         {
             return payment;
         }
-        var value = 0.0;
-        foreach (var (resource, amount) in delivery)
+        foreach (var (good, amount) in gift)
         {
-            wonder.Delivered[resource] = wonder.Delivered.GetValueOrDefault(resource) + amount;
-            value += amount * BasePrice(resource);
+            CountGift(company, wonder, good, amount);
         }
-        wonder.Contributions[company.Id] = wonder.Contributions.GetValueOrDefault(company.Id) + value;
-        AddStat(company, "wonder", value);
-        // Building a Wonder is as good for your company's experience as selling the goods
-        GainXpFromEarnings(company, value);
-        company.Touch();
-        Changes.Companies.Add(company.Id);
-        Changes.Wonders = true;
-
-        if (wonder.Required.Count > 0 && wonder.Required.All(t => wonder.Delivered.GetValueOrDefault(t.Key) >= t.Value - 1e-6))
-        {
-            CompleteStage(wonder);
-        }
+        CheckStageFull(TownAt(company.District));
         return CommandResult.Ok;
     }
 
-    private void CompleteStage(Wonder wonder)
+    /// <summary>What buying and giving the rest of a stage's goods costs: what it lacks at the market's 2.5×</summary>
+    public double BuyAndGiveCost(Company company, string? good = null) =>
+        WonderOf(company.District) is { } wonder
+            ? Math.Ceiling(wonder.Required.Keys.Where(t => good == null || t == good).Sum(t => WonderLacks(wonder, t) * HubSellPrice(company.District, t)))
+            : 0;
+
+    /// <summary>
+    /// "Buy and give" (1.4 §13): gold buys the goods the stage still needs from the market at 2.5× and gives them; all of a
+    /// good (or of every good), or as much as some gold buys
+    /// </summary>
+    public CommandResult BuyAndGive(long companyId, string? good = null, double? gold = null)
     {
-        var definition = WonderDefinition(wonder);
-        wonder.Stage++;
-        wonder.Delivered.Clear();
-        var everyone = wonder.District is { } district
-            ? _companies.Values.Where(t => t.District == district)
-            : _companies.Values;
-        if (wonder.District == null)
+        if (Company(companyId) is not { } company)
         {
-            // Its stage lifts the Capital (step 5): pipes carry more, Hub Orders pay more
-            CapitalPipesChanged();
+            return CommandResult.Fail("Unknown company.");
         }
-        if (wonder.Stage < definition.Stages.Count)
+        if (WonderOf(company.District) is not { } wonder)
         {
-            wonder.Required = StageRequirements(definition, wonder.Stage);
-            foreach (var company in everyone)
-            {
-                Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder, $"{definition.Name}: stage {wonder.Stage} of {definition.Stages.Count} is built!"));
-            }
-            MarkWonderTiles(wonder);
+            return CommandResult.Fail("Your town has no Wonder to build.");
+        }
+        if (wonder.FullAt != null)
+        {
+            return CommandResult.Fail("This stage is full: it's being built.");
+        }
+        var goods = wonder.Required.Keys.Where(t => (good == null || t == good) && WonderLacks(wonder, t) > 1e-6).ToList();
+        var cost = goods.Sum(t => WonderLacks(wonder, t) * HubSellPrice(company.District, t));
+        if (cost <= 0)
+        {
+            return CommandResult.Fail("It has what it needs.");
+        }
+        var budget = Math.Min(gold ?? cost, company.Gold);
+        var share = Math.Min(1, budget / cost);
+        if (share * cost < 1)
+        {
+            return CommandResult.Fail($"It costs {Math.Ceiling(cost):N0} gold.");
+        }
+        var spent = 0.0;
+        foreach (var item in goods)
+        {
+            var units = WonderLacks(wonder, item) * share;
+            spent += units * HubSellPrice(company.District, item);
+            CountGift(company, wonder, item, units);
+        }
+        company.Gold -= spent;
+        company.Report.GoldSpent += spent;
+        AddStat(company, "goldSpent", spent);
+        AddStat(company, "wonderGold", spent);
+        AddStat(company, "pressed:buyAndGive", 1);
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        CheckStageFull(TownAt(company.District));
+        return CommandResult.Ok;
+    }
+
+    /// <summary>A gift arrives: it counts for the stage, and as the giver's part</summary>
+    private void CountGift(Company giver, TownWonder wonder, string good, double units)
+    {
+        var counted = Math.Min(units, WonderLacks(wonder, good));
+        if (counted <= 1e-9)
+        {
             return;
         }
+        wonder.Delivered[good] = wonder.Delivered.GetValueOrDefault(good) + counted;
+        var worth = counted * BasePrice(good);
+        wonder.StageGiven[giver.Id] = wonder.StageGiven.GetValueOrDefault(giver.Id) + worth;
+        wonder.Given[giver.Id] = wonder.Given.GetValueOrDefault(giver.Id) + worth;
+        AddStat(giver, "wonder", worth);
+        giver.Touch();
+        Changes.Companies.Add(giver.Id);
+        Changes.Wonders = true;
+    }
 
-        wonder.Required.Clear();
-        wonder.FinishedAt = LastTick;
-        MarkWonderTiles(wonder);
-        if (wonder.District is { } home)
+    /// <summary>A stage with all its goods is full: it stands a day later</summary>
+    private void CheckStageFull(Town town)
+    {
+        if (town.Wonder is not { FullAt: null } wonder || wonder.Required.Count == 0
+            || wonder.Required.Any(t => wonder.Delivered.GetValueOrDefault(t.Key) < t.Value - 1e-6))
         {
-            foreach (var company in everyone)
-            {
-                Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder, $"The {definition.Name} is finished! {definition.Description}"));
-            }
-            // The perk changes production and prices in the district
-            foreach (var network in _networks.Values.Where(t => t.District == home))
-            {
-                network.NeedsSolve = true;
-                Changes.Networks.Add(network.Id);
-            }
-            Changes.Markets.Add(home);
+            return;
         }
-        else if (Era >= LastEra)
+        wonder.FullAt = LastTick;
+        wonder.Matched.Clear();
+        wonder.Incoming.Clear();
+        var definition = WonderDefinition(wonder);
+        foreach (var company in CompaniesInTown(town.Coord))
         {
-            StartFinale();
+            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder,
+                $"{definition.Name}: stage {wonder.Stage + 1} has all its goods! It stands {LastTick + StageBuildTime:ddd HH:mm}"));
         }
-        else
+        MarkWonderTiles(town);
+    }
+
+    private IEnumerable<Company> CompaniesInTown(DistrictCoord town) => _companies.Values.Where(t => t.District == town);
+
+    /// <summary>The hub (with the Wonder) is drawn again</summary>
+    private void MarkWonderTiles(Town town)
+    {
+        Changes.Wonders = true;
+        Changes.Districts.Add(town.Coord);
+    }
+
+    /// <summary>A full stage that has been building a day stands: its perk, its rewards, the next stage or the next Era</summary>
+    private void CheckStagesBuilt()
+    {
+        foreach (var town in _towns.Values.Where(t => t.Wonder is { FullAt: not null } w && LastTick - w.FullAt >= StageBuildTime).ToList())
         {
-            AdvanceEra();
+            CompleteStage(town);
         }
     }
 
-    /// <summary>The hub (with the Wonder) is drawn again</summary>
-    private void MarkWonderTiles(Wonder wonder)
+    private void CompleteStage(Town town)
     {
-        Changes.Wonders = true;
-        if (wonder.District is { } district)
+        var wonder = town.Wonder!;
+        var definition = WonderDefinition(wonder);
+        var stage = definition.Stages[wonder.Stage];
+        PayStageRewards(town, wonder, definition);
+        wonder.Stage++;
+        wonder.FullAt = null;
+        wonder.Delivered.Clear();
+        wonder.StageGiven.Clear();
+        // The perk changes production and prices in the town
+        MarkTownDirty(town.Coord);
+        if (wonder.Stage < definition.Stages.Count)
         {
-            Changes.Districts.Add(district);
+            wonder.Required = StageRequirements(definition, wonder.Stage);
+            var perk = stage.Perk == WonderPerk.None ? "" : $": {PerkText(stage.Perk, stage.PerkAmount)} for everyone in the town";
+            foreach (var company in CompaniesInTown(town.Coord))
+            {
+                Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder, $"{definition.Name}: stage {wonder.Stage} of {definition.Stages.Count} stands{perk}"));
+            }
+            MarkWonderTiles(town);
+            return;
         }
-        else
+        WondersFinished[definition.Id] = WondersFinished.GetValueOrDefault(definition.Id) + 1;
+        if (town.Era >= LastEra)
         {
-            Changes.Districts.Add(Capital);
+            town.Wonder = null;
+            town.LaunchedAt = LastTick;
+            foreach (var company in CompaniesInTown(town.Coord))
+            {
+                company.Titles.Add("Launched the Space Elevator");
+                Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder, $"{definition.Name} launches! Your town reached the stars"));
+            }
+            MarkWonderTiles(town);
+            return;
+        }
+        AdvanceEra(town);
+    }
+
+    private static string PerkText(WonderPerk perk, double amount) => perk switch
+    {
+        WonderPerk.Energy => $"+{amount:P0} energy",
+        WonderPerk.HubOrders => $"Hub Orders +{amount:P0}",
+        WonderPerk.Factories => $"factories +{amount:P0}",
+        WonderPerk.Research => $"research {amount:P0} faster",
+        _ => $"+{amount:P0} production",
+    };
+
+    /// <summary>A giver's share of a stage, and the tier that makes</summary>
+    public (double Share, WonderTier Tier) StageTier(TownWonder wonder, long companyId)
+    {
+        var needed = Worth(wonder.Required);
+        var share = needed <= 0 ? 0 : wonder.StageGiven.GetValueOrDefault(companyId) / needed;
+        foreach (var (tier, least, _) in Tiers)
+        {
+            if (share >= least - 1e-9)
+            {
+                return (share, tier);
+            }
+        }
+        return (share, WonderTier.None);
+    }
+
+    /// <summary>A builder's tier pays hours of its own income</summary>
+    public double TierReward(Company company, WonderTier tier) =>
+        Math.Round(60 * MeasuredIncome(company) * Tiers.Where(t => t.Tier == tier).Select(t => t.Hours).DefaultIfEmpty(0).First());
+
+    private void PayStageRewards(Town town, TownWonder wonder, WonderDefinition definition)
+    {
+        foreach (var (companyId, _) in wonder.StageGiven)
+        {
+            if (Company(companyId) is not { } company || StageTier(wonder, companyId) is not { Tier: not WonderTier.None } result)
+            {
+                continue;
+            }
+            var reward = TierReward(company, result.Tier);
+            company.Gold += reward;
+            CountEarned(company, reward, "rewards", definition.Name);
+            company.Titles.Add($"{definition.Name} · {result.Tier}");
+            company.Touch();
+            Changes.Companies.Add(company.Id);
+            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder,
+                $"{result.Tier} builder of {definition.Name}'s stage {wonder.Stage + 1} ({result.Share:P0} of it): +{Gold(reward)}"));
         }
     }
 
     // ---------------------------------------------------------------- Eras
 
-    /// <summary>The share of the Era Wonder a company built, and the tier that gives</summary>
-    public (double Share, WonderTier Tier) EraWonderTier(Company company)
+    /// <summary>
+    /// A town's next Era (1.4 §11): its buildings wake, the market buys the new goods and wants more of the old, the
+    /// Era's tracks and tree open, a launch party, a new Monument site in every Yard
+    /// </summary>
+    public void AdvanceEra(Town town)
     {
-        if (EraWonder == null)
-        {
-            return (0, WonderTier.None);
-        }
-        var total = EraWonder.Contributions.Values.Sum();
-        var mine = EraWonder.Contributions.GetValueOrDefault(company.Id);
-        if (total <= 0 || mine <= 0)
-        {
-            return (0, WonderTier.None);
-        }
-        // v1.2 §13: the share of your own Era output you delivered, so a small company counts as much as a big one
-        var share = mine / Math.Max(1, company.EraOutput);
-        return (share, share >= 0.15 ? WonderTier.Diamond : share >= 0.07 ? WonderTier.Gold : share >= 0.03 ? WonderTier.Silver : share >= 0.01 ? WonderTier.Bronze : WonderTier.None);
-    }
-
-    /// <summary>A builder's tier pays hours of its own income (after run 3, step 5: 2k–100k × Era was a rounding error of a 17M bank)</summary>
-    public double TierReward(Company company, WonderTier tier) => Math.Round(60 * Math.Max(MinMeasuredIncome, MeasuredIncome(company)) * tier switch
-    {
-        WonderTier.Diamond => 12,
-        WonderTier.Gold => 6,
-        WonderTier.Silver => 3,
-        WonderTier.Bronze => 1,
-        _ => 0,
-    });
-
-    /// <summary>The next Era: rewards for the Era Wonder's builders, new content, a launch party</summary>
-    public void AdvanceEra()
-    {
-        if (Era >= LastEra)
+        if (town.Era >= LastEra)
         {
             return;
         }
-        EnsureEraWonder();
-        if (EraWonder != null)
+        var finished = town.Wonder is { } old ? WonderDefinition(old).Name : "The Wonder";
+        town.Era++;
+        town.EraStartedAt = LastTick;
+        town.PartyUntil = LastTick + PartyLength;
+        town.Wonder = NewWonder(town.Era);
+        foreach (var company in CompaniesInTown(town.Coord).ToList())
         {
-            var name = WonderDefinition(EraWonder).Name;
-            // Every card tells how it ended, and your part (run 3: "Era 1 ended without me knowing the Dynamo result")
-            var stages = WonderDefinition(EraWonder).Stages.Count;
-            var the = name.StartsWith("The ", StringComparison.Ordinal) ? $"the {name[4..]}" : $"the {name}";
-            var result = EraWonder.Finished ? $"{the} stands, all {stages} stages"
-                : EraWonder.Stage > 0 ? $"{the} got {EraWonder.Stage} of its {stages} stages"
-                : $"{the} got {Math.Floor(100 * EraWonder.Required.Sum(t => Math.Min(t.Value, EraWonder.Delivered.GetValueOrDefault(t.Key)) * BasePrice(t.Key)) / Math.Max(1, EraWonder.Required.Sum(t => t.Value * BasePrice(t.Key)))):0}% of its first stage";
-            foreach (var company in _companies.Values)
-            {
-                var part = EraWonder.Contributions.GetValueOrDefault(company.Id);
-                company.EraEnded = $"Era {Era} ended: {result}; {(part > 0 ? $"your part: {part:N0} g of goods" : "you gave nothing to it")}";
-                company.Touch();
-            }
-            foreach (var company in _companies.Values)
-            {
-                var (_, tier) = EraWonderTier(company);
-                if (tier == WonderTier.None)
-                {
-                    continue;
-                }
-                var reward = TierReward(company, tier);
-                company.Gold += reward;
-                company.Titles.Add($"{name} · {tier}");
-                company.Touch();
-                Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder, $"{tier} builder of {name}: +{reward:N0} gold"));
-            }
-        }
-
-        Era++;
-        EraStartedAt = LastTick;
-        foreach (var company in _companies.Values.ToList())
-        {
+            company.Era = Math.Max(company.Era, town.Era);
+            company.EraEnded = $"{finished} stands: Era {town.Era} began";
+            company.Touch();
             GrantResearch(company);
-        }
-        var lifted = EraWonder is { Stage: >= 1 };
-        // The tiers of the next Era Wonder are a share of what each makes in that Era
-        foreach (var company in _companies.Values)
-        {
-            company.EraOutput = 0;
-        }
-        EraWonder = null;
-        EnsureEraWonder();
-        if (lifted)
-        {
-            // The last Era's lift ends with it
-            CapitalPipesChanged();
-        }
-        foreach (var company in _companies.Values)
-        {
-            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder, $"Era {Era} begins! New buildings and resources, and +10% production for a day"));
+            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder,
+                $"{finished} stands: Era {town.Era} begins in your town! New buildings, goods and research, a new Monument site, and +10% production for a day"));
             Changes.Companies.Add(company.Id);
         }
-        // Hub demand grows with the Era, new buildings unlock
-        foreach (var network in _networks.Values)
+        MarkTownDirty(town.Coord);
+        MarkWonderTiles(town);
+        Changes.Outposts = true;
+    }
+
+    /// <summary>For tests and admins: a town's next Era at once</summary>
+    public void AdvanceEra(DistrictCoord town) => AdvanceEra(TownAt(town));
+
+    /// <summary>Everything in a town is solved again (perks, sleeping buildings, Hub Orders) and its market redrawn</summary>
+    private void MarkTownDirty(DistrictCoord town)
+    {
+        foreach (var network in _networks.Values.Where(t => t.District == town))
         {
             network.NeedsSolve = true;
             Changes.Networks.Add(network.Id);
         }
-        foreach (var district in _openDistricts)
+        foreach (var company in CompaniesInTown(town))
         {
-            Changes.Markets.Add(district);
+            MarkCompanyNetworksDirty(company.Id);
         }
-        Changes.Districts.Add(Capital);
-        Changes.Wonders = true;
-        // A quick next Era ends the party of the last one (both would be called after the current Era)
-        foreach (var launch in _events.Where(t => t.Kind == EventKind.EraLaunch && t.Started && !t.Ended).ToList())
-        {
-            launch.EndsAt = LastTick;
-            EndEvent(launch);
-        }
-        StartEventNow(EventKind.EraLaunch, null, TimeSpan.FromDays(1));
+        Changes.Markets.Add(town);
     }
 
-    /// <summary>The Era's deadline in a span: the next Era starts even when the Wonder isn't finished</summary>
-    private IEnumerable<(DateTime At, Action Run)> EraMoments(DateTime from, DateTime to)
+    // ---------------------------------------------------------------- Gifts in the Yard round
+
+    /// <summary>Whether the Wonders take gifts in the Yards now</summary>
+    private bool WondersGiving => WonderBuysEnabled && Content.EraWonders.Count > 0;
+
+    /// <summary>The start of a Yard round: what the gates were matched for the Wonder last round arrives now, less when they sent less</summary>
+    private void DeliverWonderGifts(StationRef station, List<YardMember> members)
     {
-        if (Content.EraWonders.Count != 0 && EraStartedAt != default && EraDeadline <= to && FinaleAt == null)
+        if (!WondersGiving || WonderOf(station.District) is not { FullAt: null } wonder)
         {
-            yield return (EraDeadline > from ? EraDeadline : from, Era < LastEra ? AdvanceEra : StartFinale);
+            return;
+        }
+        foreach (var giver in members)
+        {
+            if (!wonder.Matched.TryGetValue(giver.Company.Id, out var goods) || !_gateTerms.TryGetValue(giver.Key, out var sent))
+            {
+                continue;
+            }
+            foreach (var (good, amount) in goods)
+            {
+                var exported = sent.Export.GetValueOrDefault(good);
+                var ratio = exported <= 1e-12 ? 0 : Math.Min(1, giver.Sent.GetValueOrDefault(good) / exported);
+                if (amount * ratio > 1e-9)
+                {
+                    if (!wonder.Incoming.TryGetValue(giver.Company.Id, out var incoming))
+                    {
+                        wonder.Incoming[giver.Company.Id] = incoming = new Dictionary<string, double>();
+                    }
+                    incoming[good] = incoming.GetValueOrDefault(good) + amount * ratio;
+                }
+            }
         }
     }
+
+    /// <summary>
+    /// After the Yard's trade: the residents' "give" switches send the Wonder their spare of what it lacks (beyond their
+    /// Hub Order, or all of it); the next round comes no later than it would be full
+    /// </summary>
+    private Dictionary<(EstateKey Giver, string Resource), double> MatchWonderGifts(StationRef station, List<YardMember> members, ref TimeSpan? limit)
+    {
+        var result = new Dictionary<(EstateKey, string), double>();
+        if (!WondersGiving || WonderOf(station.District) is not { FullAt: null } wonder)
+        {
+            return result;
+        }
+        foreach (var good in wonder.Required.Keys.Order(StringComparer.Ordinal))
+        {
+            // What arrives this minute is on its way already
+            var open = WonderLacks(wonder, good) - wonder.Incoming.Values.Sum(t => t.GetValueOrDefault(good));
+            var lacks = open - wonder.Matched.Values.Sum(t => t.GetValueOrDefault(good));
+            foreach (var member in members.Where(t => t.Company.Give.ContainsKey(good) && t.Spare.GetValueOrDefault(good) > 1e-9).OrderBy(t => t.Company.Id))
+            {
+                if (lacks <= 1e-9)
+                {
+                    break;
+                }
+                var spare = member.Spare[good];
+                var gives = member.Company.Give[good] == GiveMode.All ? spare : Math.Max(0, spare - HubOrder(member.Company, good));
+                var amount = Math.Min(gives, lacks);
+                if (amount <= 1e-9)
+                {
+                    continue;
+                }
+                Add(member.Spare, good, -amount);
+                lacks -= amount;
+                result[(member.Key, good)] = amount;
+                if (!wonder.Matched.TryGetValue(member.Company.Id, out var goods))
+                {
+                    wonder.Matched[member.Company.Id] = goods = new Dictionary<string, double>();
+                }
+                goods[good] = goods.GetValueOrDefault(good) + amount;
+            }
+            var rate = wonder.Matched.Values.Sum(t => t.GetValueOrDefault(good));
+            if (rate > 1e-9)
+            {
+                var until = TimeSpan.FromMinutes(Math.Clamp(open / rate, CouplingInterval.TotalMinutes, MaxCouplingInterval.TotalMinutes));
+                limit = limit is { } l && l < until ? l : until;
+            }
+        }
+        return result;
+    }
+
+    /// <summary>What arrived at the Wonders counts as its givers' part (no gold: a gift)</summary>
+    private void SettleWonderGifts(double minutes)
+    {
+        if (!WondersGiving)
+        {
+            return;
+        }
+        foreach (var town in _towns.Values.Where(t => t.Wonder is { FullAt: null }).ToList())
+        {
+            var wonder = town.Wonder!;
+            foreach (var (giverId, goods) in wonder.Incoming)
+            {
+                if (Company(giverId) is not { } giver)
+                {
+                    continue;
+                }
+                foreach (var (good, perMinute) in goods)
+                {
+                    var units = perMinute * minutes;
+                    if (units > 1e-9)
+                    {
+                        Add(giver.Report.Sold, good, units);
+                        CountGift(giver, wonder, good, units);
+                    }
+                }
+            }
+            CheckStageFull(town);
+        }
+    }
+
+    /// <summary>The town's players who make a good: played this week and own a finished building that makes it</summary>
+    public List<Company> WonderMakers(DistrictCoord town, string good)
+    {
+        var since = LastTick - ActivePeriod;
+        return CompaniesInTown(town)
+            .Where(t => t.LastSeenAt >= since && BuildingsOf(t.Id).Any(b => !b.UnderConstruction && Content.Building(b.Type).Out.ContainsKey(good)))
+            .OrderBy(t => t.Id)
+            .ToList();
+    }
+
+    // ---------------------------------------------------------------- Legacy
+
+    /// <summary>Legacy (1.4 §13, after the Launch): from level 5 a free manager slot for any future company</summary>
+    public const int LegacyManagerLevel = 5;
+
+    /// <summary>Legacy level from Legacy points: the square root, in tens</summary>
+    public static int LegacyLevelOf(int legacy) => (int)Math.Floor(Math.Sqrt(Math.Max(0, legacy) / 10.0));
+
+    /// <summary>The extra starting gold Legacy gives (at most 10,000)</summary>
+    public static double LegacyGold(int legacyLevel) => Math.Min(10_000, 500.0 * legacyLevel);
 }

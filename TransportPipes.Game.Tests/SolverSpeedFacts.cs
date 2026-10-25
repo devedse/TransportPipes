@@ -21,7 +21,6 @@ public class SolverSpeedFacts
             Kind = n.TryGetProperty("kind", out var kind) ? Enum.Parse<FlowNodeKind>(kind.GetString()!) : FlowNodeKind.Building,
             In = Amounts(n, "in"),
             Out = Amounts(n, "out"),
-            Throughput = n.TryGetProperty("throughput", out var throughput) ? throughput.GetDouble() : 0,
         }).ToList();
         var links = doc.GetProperty("links").EnumerateArray()
             .Select(l => new FlowLink(l[0].GetInt64(), l[1].GetInt64(), l[2].GetDouble(), l[3].GetDouble(), [new TilePos(0, 0)]))
@@ -38,7 +37,8 @@ public class SolverSpeedFacts
         var solution = FlowSolver.Solve(nodes, links, market);
 
         Assert.IsLessThan(60, solution.Rounds, "it took 500 rounds (0.4 s) before");
-        Assert.AreEqual(1610.824, solution.GoldPerMinute[1], 0.01, "the same result as with 500 rounds");
+        // 1.4 §8: the trading posts have no unit limit any more, so the network sells more than with the 500 rounds of before
+        Assert.AreEqual(2085.881, solution.GoldPerMinute[1], 0.01, "the same result every time");
         // Nothing comes from nothing: every building gets what its rate needs
         foreach (var node in nodes.Where(t => t.Kind == FlowNodeKind.Building))
         {

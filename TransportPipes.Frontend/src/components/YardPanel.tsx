@@ -7,6 +7,7 @@ import { setState, useAppStore } from "../state/store";
 import { LinksTab } from "./LinksTab";
 import { PlanBoard } from "./PlanBoard";
 import { ResourceIcon } from "./ResourceIcon";
+import { DepotSection } from "./DepotSection";
 
 function Rates({ rates, content, kind }: { rates: ResourceRateDto[]; content: Content; kind: string }) {
   if (rates.length === 0) {
@@ -148,7 +149,7 @@ export function YardPanel() {
                     </span>
                     {w.orderCost !== null && (
                       <button className="small" onClick={() => void gameClient.orderRest(w.target)}>
-                        Order the rest · {formatAmount(w.orderCost)} g
+                        Buy the rest · {formatAmount(w.orderCost)} g
                       </button>
                     )}
                     <button className="link small" onClick={() => void gameClient.cancelSite(w.target)}>
@@ -342,6 +343,7 @@ export function YardPanel() {
               })}
             </section>
           )}
+          <DepotSection />
           {yard.totals.length > 0 && (
             <section>
               <h4>Through the Yard, all residents</h4>

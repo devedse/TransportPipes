@@ -17,8 +17,8 @@ public class GrowFacts
         var game = new TestGame(content: TestGame.PlainContent);
         var company = game.NewCompany(gold: 2_000_000, level: 12);
         var map = game.Map(company, game.Local(company, 1, 1), "W+++T\n    +\nS+++T", pipeTier: 1);
-        game.World.UpgradeMany(company.Id, [map[(0, 0)].Id], 14);
-        game.World.UpgradeMany(company.Id, [map[(4, 0)].Id, map[(4, 2)].Id], 9);
+        game.UpgradeNow(company, [map[(0, 0)].Id], 14);
+        game.UpgradeNow(company, [map[(4, 0)].Id, map[(4, 2)].Id], 9);
         game.Build(company, "storage").Contents["copperIngot"] = 100;
         game.Pass(2);
         return (game, company, map[(0, 0)], map[(0, 2)]);
@@ -43,7 +43,8 @@ public class GrowFacts
         StringAssert.StartsWith(result.Note, $"Grown: a new parcel and {plan.Parts.Count - 1} buildings", result.Note);
         Assert.AreEqual(parcels + 1, game.EstateOf(company).UnlockedCount);
         Assert.AreEqual(plan.Cost, gold - company.Gold, plan.Cost * 0.05, "what it said");
-        game.Pass(2);
+        // The goods of the levels from 11 come in (the market brings what nobody near makes within about ten minutes)
+        game.Pass(12);
         Assert.AreEqual(before + plan.Gain, game.World.GoldPerMinute()[company.Id], plan.Gain * 0.25, "about what it said: the parts are solved one by one");
 
         // An hour's Undo: the levels back, less what they earned
@@ -86,19 +87,19 @@ public class GrowFacts
     }
 
     [TestMethod]
-    public void ABankOfADaysIncomeIsOfferedTheEraWonder()
+    public void ABankOfADaysIncomeIsOfferedTheTownsWonder()
     {
         var game = new TestGame(content: TestGame.PlainContent);
         game.World.WonderBuysEnabled = true;
         var company = game.NewCompany(gold: 10_000_000, level: 12);
         game.Pass(1);
-        game.World.EraWonder!.Required = new Dictionary<string, double> { ["bricks"] = 1_000 };
+        game.World.WonderOf(company.District)!.Required = new Dictionary<string, double> { ["bricks"] = 1_000 };
 
         var step = game.World.NextSteps(company, 8).FirstOrDefault(t => t.Kind == AdvisorKind.Shared);
 
         Assert.IsNotNull(step, string.Join(" | ", game.World.NextSteps(company, 8).Select(t => t.Title)));
         Assert.AreEqual(AdvisorAction.Wonder, step.Action);
-        StringAssert.StartsWith(step.Title, "Give to The Great Dynamo: it wants 1,000 bricks");
-        StringAssert.StartsWith(step.Reason, "Nobody here makes bricks, so all of it may be ordered");
+        StringAssert.StartsWith(step.Title, "Give to The Great Dynamo: its stage 1 wants 5,000 g of goods");
+        StringAssert.StartsWith(step.Reason, "Buy and give: a day of your income buys 12.5k g of its goods");
     }
 }

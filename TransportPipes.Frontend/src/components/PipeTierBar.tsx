@@ -17,7 +17,8 @@ export function PipeTierBar() {
         .filter((tier) => tier.era <= era + 1)
         .map((tier) => {
           const locked =
-            tier.era > era || (tier.research !== null && !company.researched.includes(tier.research));
+            tier.era > era ||
+            (tier.research !== null && !company.research.researched.includes(tier.research));
           const tech = tier.research !== null ? content.research(tier.research) : undefined;
           // Copper Pipes come at Company Level 8, Steel Pipes with Era 2 (after run 4)
           const why =

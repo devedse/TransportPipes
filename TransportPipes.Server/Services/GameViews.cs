@@ -12,7 +12,7 @@ public static partial class GameViews
 {
     public static string Camel<T>(T value) where T : struct, Enum => JsonNamingPolicy.CamelCase.ConvertName(value.ToString());
 
-    public static CompanyDto Company(GameWorld world, Company company, double goldPerMinute, double researchPerMinute)
+    public static CompanyDto Company(GameWorld world, Company company, double goldPerMinute)
     {
         // While the estate is packed (moving, or asleep) there is no estate
         var estate = world.EstateOf(company);
@@ -24,12 +24,9 @@ public static partial class GameViews
             company.Color,
             company.Gold,
             goldPerMinute,
-            company.Xp,
             company.Level,
-            progression.XpForLevel(company.Level),
-            company.Level >= progression.MaxCompanyLevel ? progression.XpForLevel(company.Level) : progression.XpForLevel(company.Level + 1),
-            company.ResearchPoints,
-            researchPerMinute,
+            progression.EarnedForLevel(company.Level),
+            company.Level >= progression.MaxCompanyLevel ? progression.EarnedForLevel(company.Level) : progression.EarnedForLevel(company.Level + 1),
             company.LifetimeEarnings,
             company.District.X,
             company.District.Y,
@@ -40,25 +37,20 @@ public static partial class GameViews
             parcelLevel == int.MaxValue ? null : parcelCost,
             parcelLevel == int.MaxValue ? null : parcelLevel,
             world.BuildingsOf(company.Id).GroupBy(t => t.Type).ToDictionary(t => t.Key, t => t.Count()),
-            company.Researched.OrderBy(t => t).ToList(),
-            company.CurrentResearch,
-            company.ResearchEndsAt,
-            company.HubReputation,
-            world.ReputationLevel(company),
-            world.ReputationLevel(company) < GameWorld.ReputationLevels.Length ? GameWorld.ReputationLevels[world.ReputationLevel(company)] : null,
+            new ResearchLinesDto(world.HasLab(company), company.Researched.OrderBy(t => t).ToList(), company.CurrentResearch, company.ResearchEndsAt, company.ResearchQueue.ToList(),
+                new Dictionary<string, int>(company.TrackTiers), company.CurrentTrack, company.TrackEndsAt, company.TrackQueue.ToList(), company.KeepResearching, world.ResearchOpen(company)),
             Orders(world, company),
             company.NoTrade.OrderBy(t => t).ToList(),
             company.MentorId,
             company.Likes,
             world.Calendar(company).Select(t => Event(world, t)).ToList(),
             (int)world.Horizon(company).TotalHours,
-            world.Era,
-            world.EraDeadline,
+            world.TownEra(company.District),
+            world.YourEra(company),
             company.Titles.OrderBy(t => t).ToList(),
             company.Achievements.Where(t => t.StartsWith("collection:")).Select(t => t["collection:".Length..]).ToList(),
             world.OutpostsOf(company.Id).Select(t => Outpost(world, t, company.Id)).ToList(),
             company.LegacyLevel,
-            SeasonInfo(world),
             new MovingDto(
                 Camel(world.ActivityOf(company)),
                 company.ArrivesAt,
@@ -85,29 +77,48 @@ public static partial class GameViews
                 company.Expedition == null ? world.ExpeditionBlocker(company) : null,
                 company.ExpeditionLog.Take(5).ToList(),
                 company.Relics.OrderBy(t => t).ToList()),
-            new MasteryDto(company.Mastery, world.ResearchedEverything(company), GameWorld.MasteryCost(company), GameWorld.MasteryMinutes(company), company.Mastery * GameWorld.MasteryBonus),
             world.Alerts(company).Select(t => new AlertDto(t.Text, t.Building, t.Kind,
                 t.Kind == "damage" ? Math.Round(world.BuildingsOf(company.Id).Where(b => b.Damaged).Sum(world.RepairCost)) : null)).ToList(),
             world.Now,
-            Experience(world, company, goldPerMinute),
-            Camel(company.TradeWith),
+            new EarnedDto(Math.Max(0, goldPerMinute),
+                company.EarnedLog.ToDictionary(t => t.Key, t => (IReadOnlyDictionary<string, double>)t.Value.ToDictionary(i => i.Key, i => Math.Round(i.Value)))),
             world.CrewOf(company) is { } crew
                 ? new CrewBadgeDto(crew.Id, crew.NameHidden ? WorldNames.Station(crew.Yard) : crew.Name, crew.Emblem, crew.Color, crew.Color2, world.CrewMembers(crew).Count(), crew.Requests.Count)
                 : null,
             Land(world, company),
-            company.ResearchQueue.ToList(),
-            company.KeepResearching,
-            world.ResearchOpen(company),
             world.WantsNear(company).Select(t => new WantNearDto(t.Target, world.NameFor(t.Owner, company), t.Name, t.Want.Resource,
-                Math.Round(t.Want.Left), Math.Floor(t.Holds), t.Makes, t.Want.Order == null ? Math.Ceiling(t.Want.Left * world.BasePrice(t.Want.Resource) * GameWorld.OrderPrice) : null)).ToList(),
+                Math.Round(t.Want.Left), Math.Floor(t.Holds), t.Makes, Math.Ceiling(t.Want.Left * world.WantMarketPrice(t.Owner, t.Want.Resource)))).ToList(),
             world.OpenWants(company).Select(t => new OwnWantDto(t.Target, t.Name, t.Want.Resource, t.Want.Amount, Math.Round(t.Want.Got, 1),
-                Math.Round(t.Want.Incoming.Values.Sum() + (t.Want.Order?.Started != null ? t.Want.Order.Rate : 0), 2), t.Want.PipeTiles?.Count,
-                t.Want.Order != null ? $"Ordered: the hub brings the rest {world.OrderStartText(company, t.Want, company)}" : null,
-                t.Want.Order == null ? Math.Ceiling(t.Want.Left * world.BasePrice(t.Want.Resource) * GameWorld.OrderPrice) : null)).ToList(),
+                Math.Round(t.Want.Incoming.Values.Sum(), 2), t.Want.PipeTiles?.Count, null,
+                Math.Ceiling(t.Want.Left * world.WantMarketPrice(company, t.Want.Resource)))).ToList(),
             EraWonderLine(world, company),
             PipesLine(world, company),
             company.Prices.OrderBy(t => t.Key, StringComparer.Ordinal).Select(t => new PriceDto(t.Key, t.Value.Value, t.Value.Pending, t.Value.Back, t.Value.PendingAt,
-                t.Key.StartsWith("for:", StringComparison.Ordinal) && long.TryParse(t.Key[4..], out var id) ? world.Company(id)?.Name : null)).ToList());
+                t.Key.StartsWith("for:", StringComparison.Ordinal) && long.TryParse(t.Key[4..], out var id) ? world.Company(id)?.Name : null)).ToList(),
+            company.Give.ToDictionary(t => t.Key, t => Camel(t.Value)),
+            company.WantsFromMarket,
+            estate == null ? null : new OutskirtsDto(estate.OutskirtsParcels, world.NextOutskirtsCost(company), world.OutskirtsBlocker(company)),
+            Workshops(world, company));
+    }
+
+    /// <summary>Building in the Yard (1.4 §7): your workshop tiles, and the crew's Depot</summary>
+    private static WorkshopsDto? Workshops(GameWorld world, Company company)
+    {
+        if (world.EstateOf(company) is not { } estate)
+        {
+            return null;
+        }
+        var crew = world.CrewOf(company);
+        var depot = world.DepotOf(estate.Station);
+        return new WorkshopsDto(
+            world.WorkshopTilesUsed(company),
+            GameWorld.WorkshopTiles,
+            GameWorld.WorkshopLevel,
+            depot == null || crew == null
+                ? null
+                : new DepotDto(depot.Id, depot.X, depot.Y, world.DepotCapacity(estate.Station), world.DepotHolds(crew),
+                    crew.Depot.SelectMany(t => t.Value.Where(g => g.Value >= 1).Select(g => new DepotGoodDto(g.Key, Math.Floor(g.Value), t.Key, world.Company(t.Key)?.Name ?? "", t.Key == company.Id)))
+                        .OrderByDescending(t => t.Yours).ThenBy(t => t.Resource, StringComparer.Ordinal).ToList()));
     }
 
     /// <summary>
@@ -118,24 +129,15 @@ public static partial class GameViews
     {
         var hour = Math.Round(60 * Math.Max(GameWorld.MinMeasuredIncome, world.MeasuredIncome(me)));
         GoldLineDto? shared = null;
-        if (me.District == GameWorld.Capital && world.EraWonder is { Finished: false } wonder && !GameWorld.Unsized(wonder))
+        if (world.WonderOf(me.District) is { FullAt: null } wonder && world.BuyAndGiveCost(me) is > 0 and var all)
         {
             var name = world.WonderDefinition(wonder).Name;
-            var best = wonder.Required.Keys
-                .Select(t => (Good: t, Offer: world.WonderOrderOffer(t)))
-                .Where(t => t.Offer != null)
-                .OrderByDescending(t => t.Offer!.Value.Cost)
-                .FirstOrDefault();
-            if (best.Offer is { } offer)
-            {
-                var good = world.GoodsWord(best.Good);
-                var who = world.WonderMakers(best.Good) is { Count: > 0 } makers ? $"half comes by pipe from {And(MakerNames(makers.Take(2), me))}" : $"nobody here makes {good}";
-                var day = Math.Min(offer.Cost, 24 * hour);
-                shared = new GoldLineDto($"{name} wants {offer.Units:N0} {good} you can order: {who}", "wonder", day < offer.Cost ? day : null, best.Good, AllCost: offer.Cost);
-            }
+            var day = Math.Min(all, 24 * hour);
+            shared = new GoldLineDto($"{name}'s stage {wonder.Stage + 1} wants goods: buy and give them, and your town gets nearer to Era {world.TownEra(me.District) + 1}", "wonder",
+                day < all ? day : null, AllCost: all);
         }
         GoldLineDto? want = null;
-        if (world.WantsNear(me).Where(t => t.Want.Order == null && !t.Makes && t.Holds < 1)
+        if (world.WantsNear(me).Where(t => !t.Makes && t.Holds < 1)
                 .Select(t => (t.Owner, t.Target, t.Name, t.Want, Cost: world.OrderCost(me, t.Target)))
                 .Where(t => t.Cost is { } cost && cost <= me.Gold)
                 .OrderBy(t => t.Owner.CrewId != null && t.Owner.CrewId == me.CrewId ? 0 : 1)
@@ -144,7 +146,7 @@ public static partial class GameViews
             var name = world.NameFor(friend.Owner, me);
             want = new GoldLineDto($"{world.PossessiveFor(friend.Owner, me)} {friend.Name} waits for {friend.Want.Left:N0} {world.GoodsWord(friend.Want.Resource)}", "want", friend.Cost, friend.Want.Resource, friend.Target, name);
         }
-        else if (world.OpenWants(me).Where(t => t.Want.Order == null && t.Want.Left > 1e-6)
+        else if (world.OpenWants(me).Where(t => t.Want.Left > 1e-6)
                      .Select(t => (t.Target, t.Name, t.Want, Cost: world.OrderCost(me, t.Target)))
                      .FirstOrDefault(t => t.Cost is { } cost && cost <= me.Gold) is { Name: not null } own)
         {
@@ -176,46 +178,40 @@ public static partial class GameViews
         var name = world.Content.Building(best.Type).Name;
         var door = world.PipeDoorFor(me, best, preview: false);
         var text = door != null ? $"Your {name}'s pipe is full · {door.Text}" : $"Your {name}'s pipe is full";
-        var ladder = string.Join(" · ", world.Content.PipeTiers.Where(t => t.Era <= Math.Max(2, world.Era)).Select(t =>
-            t.Research == null || world.HasResearch(me, t.Research) ? (t.Era <= world.Era ? t.Name : $"{t.Name} with Era {t.Era}")
-            : world.Content.Research.GetValueOrDefault(t.Research) is { Grant: > 0 } grant ? $"{t.Name} at Level {grant.Grant}{(t.Era > world.Era ? $" in Era {t.Era}" : "")}"
-            : $"{t.Name} by research"));
+        var era = world.YourEra(me);
+        var ladder = string.Join(" · ", world.Content.PipeTiers.Where(t => t.Era <= Math.Max(2, era + 1)).Select(t =>
+            t.Research == null || world.HasResearch(me, t.Research) ? (t.Era <= era ? t.Name : $"{t.Name} with Era {t.Era}")
+            : world.Content.Research.GetValueOrDefault(t.Research) is { Grant: > 0 } grant ? $"{t.Name} at Level {grant.Grant}{(t.Era > era ? $" in Era {t.Era}" : "")}"
+            : $"{t.Name} by research{(t.Era > era ? $" in Era {t.Era}" : "")}"));
         return new PipesLineDto(full.Count > 1 ? $"{text} ({full.Count} buildings at their pipe's limit)" : text, best.Id, full.Count, ladder);
     }
 
     /// <summary>
-    /// The Era Wonder on the goal tracker (after run 3, step 5: Cleo found the Great Dynamo only by hunting, and "Era 1
-    /// ended without me knowing"): its stage's share, and your goods going in or what it wants and who in the Capital makes it
+    /// The town's Era Wonder on the goal tracker (after run 3, step 5: Cleo found the Great Dynamo only by hunting, and "Era
+    /// 1 ended without me knowing"): its stage's share, and your goods going in or what it wants and who in the town makes it
     /// </summary>
     private static ProjectWeekDto? EraWonderLine(GameWorld world, Company me)
     {
-        // It is the Capital's want: elsewhere the District Wonder is the shared goal
-        if (!world.WonderBuysEnabled || me.District != GameWorld.Capital || world.EraWonder is not { Finished: false } wonder)
+        if (!world.WonderBuysEnabled || world.WonderOf(me.District) is not { } wonder)
         {
             return null;
         }
-        string Name(string resource) => world.GoodsWord(resource);
         var definition = world.WonderDefinition(wonder);
-        if (GameWorld.Unsized(wonder))
+        if (wonder.FullAt is { } full)
         {
-            return new ProjectWeekDto($"🏛 {definition.Name} opens at midnight, sized to six hours of what the Capital makes · {Span(world.EraDeadline - world.Now)} left", 0);
+            return new ProjectWeekDto($"🏛 {definition.Name} stage {wonder.Stage + 1} has its goods · it stands in {Span(full + GameWorld.StageBuildTime - world.Now)}", 1);
         }
         var target = wonder.Required.Sum(t => t.Value * world.BasePrice(t.Key));
         var share = target <= 0 ? 0 : wonder.Required.Sum(t => Math.Min(t.Value, wonder.Delivered.GetValueOrDefault(t.Key)) * world.BasePrice(t.Key)) / target;
-        var head = $"🏛 {definition.Name} {(definition.Stages.Count > 1 ? $"stage {wonder.Stage + 1} " : "")}{Math.Floor(share * 100):0}% · {Span(world.EraDeadline - world.Now)} left";
-        var mine = wonder.Incoming.GetValueOrDefault(me.Id)?.Where(t => t.Value > 1e-9).Select(t => Name(t.Key)).ToList() ?? [];
+        var head = $"🏛 {definition.Name} stage {wonder.Stage + 1} of {definition.Stages.Count} {Math.Floor(share * 100):0}%";
+        var mine = wonder.Incoming.GetValueOrDefault(me.Id)?.Where(t => t.Value > 1e-9).Select(t => world.GoodsWord(t.Key)).ToList() ?? [];
         if (mine.Count > 0)
         {
             return new ProjectWeekDto($"{head} · your {And(mine)} {(mine.Count == 1 ? "goes" : "go")} in", share);
         }
-        var lacking = wonder.Required.Where(t => wonder.Delivered.GetValueOrDefault(t.Key) < t.Value - 1e-6).Select(t => t.Key).ToList();
-        var wants = lacking.Select(t => world.WonderMakers(t) is { Count: > 0 } who ? $"{world.GoodsWord(t)} ({And(MakerNames(who.Take(2), me))})" : world.GoodsWord(t)).ToList();
-        // Nobody here makes them: gold may order all of it (after run 4, the Cathedral's steel and concrete)
-        var orderable = lacking.Where(t => world.WonderMakers(t).Count == 0 && world.WonderOrderOffer(t) != null).ToList();
-        var tail = orderable.Count == 0 ? ""
-            : orderable.Count == lacking.Count ? " · nobody here makes them: order them in Hub › Wonders"
-            : $" · nobody here makes {And(orderable.Select(world.GoodsWord).ToList())}: order in Hub › Wonders";
-        return new ProjectWeekDto($"{head} · wants {And(wants)}{tail}", share);
+        var lacking = wonder.Required.Keys.Where(t => world.WonderLacks(wonder, t) > 1e-6).ToList();
+        var wants = lacking.Select(t => world.WonderMakers(me.District, t) is { Count: > 0 } who ? $"{world.GoodsWord(t)} ({And(MakerNames(who.Take(2), me))})" : world.GoodsWord(t)).ToList();
+        return new ProjectWeekDto($"{head} · wants {And(wants)}: give them in Hub › Town & Wonder", share);
     }
 
     /// <summary>Your plot's land (1.4 §5): what it has and lacks, its strength, and every plot of your Yard with theirs</summary>
@@ -243,7 +239,7 @@ public static partial class GameViews
     private static List<DailyOrderDto> Orders(GameWorld world, Company company)
     {
         var selling = world.SellingPerMinute(company);
-        return company.DailyOrders.Select(t => new DailyOrderDto(t.Id, t.Resource, t.Amount, Math.Floor(t.Delivered), t.RewardGold, t.RewardXp, t.RewardReputation, t.ExpiresAt, t.Urgent,
+        return company.DailyOrders.Select(t => new DailyOrderDto(t.Id, t.Resource, t.Amount, Math.Floor(t.Delivered), t.RewardGold, t.ExpiresAt, t.Urgent,
             Math.Round(selling.GetValueOrDefault(t.Resource), 2), Math.Round(t.Premium))).ToList();
     }
 
@@ -256,28 +252,6 @@ public static partial class GameViews
         items.Count <= 1 ? items.FirstOrDefault() ?? "" : $"{string.Join(", ", items.Take(items.Count - 1))} and {items[^1]}";
 
     private static string Capital(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
-
-    private static ExperienceDto Experience(GameWorld world, Company company, double goldPerMinute)
-    {
-        var p = world.Content.Progression;
-        var goldPerXp = p.XpReward("goldPerXp") * company.Level;
-        var rules = new List<XpRuleDto>
-        {
-            new("earnings", $"1 XP per {goldPerXp:N0} gold earned (it grows with your level)"),
-            new("buildings", $"{p.XpReward("building"):N0} XP per building, {p.XpReward("firstBuildingOfType"):N0} more for the first of its kind"),
-            new("upgrades", $"{p.XpReward("upgradeLevel"):N0} XP per level, {p.XpReward("milestone"):N0} more at levels 10, 25, 50, 75 and 100"),
-            new("parcels", $"{p.XpReward("parcel"):N0} XP per parcel"),
-            new("research", $"{p.XpReward("research"):N0} XP per research"),
-            new("orders", $"{30 + 8 * company.Level:N0} XP per daily order (it grows with your level)"),
-            new("contracts", $"{p.XpReward("contract"):N0} XP per finished contract"),
-            new("achievements", "XP for every achievement"),
-            new("likes", "10 XP per like of your plot"),
-        };
-        return new ExperienceDto(
-            Math.Max(0, goldPerMinute) / goldPerXp,
-            company.XpLog.ToDictionary(t => t.Key, t => (IReadOnlyDictionary<string, double>)t.Value.ToDictionary(i => i.Key, i => Math.Round(i.Value, 1))),
-            rules);
-    }
 
     public static GameEventDto Event(GameWorld world, GameEvent gameEvent) => new(
         gameEvent.Id,
@@ -294,19 +268,17 @@ public static partial class GameViews
     {
         var district = company.District;
         var market = world.HubMarketOf(company, district);
-        var resources = world.Content.ResourceList
-            .Where(t => t.Era <= world.Era + 1)
+        var resources = world.MarketGoods(district)
             .Select(t => new MarketResourceDto(
                 t.Id,
                 t.Price,
                 world.HubBuyPrice(company, district, t.Id),
                 world.HubSellPrice(district, t.Id),
                 market.SoldRate.TryGetValue(t.Id, out var sold) ? sold : 0,
-                world.HubDemand(district, t.Id),
+                world.HubOrder(company, district, t.Id),
                 world.PlayerPrice(t.Id),
                 company.NoTrade.Contains(t.Id),
-                company.NoBuy.Contains(t.Id),
-                world.HubPriceHeading(company, t.Id)))
+                company.NoBuy.Contains(t.Id)))
             .ToList();
         return new MarketDto(district.X, district.Y, WorldNames.District(district), resources, GameWorld.NextMarketUpdate(world.Now));
     }
@@ -319,6 +291,19 @@ public static partial class GameViews
                 : world.ResearchBlocker(company, tech) is null ? "available"
                 : "locked";
             return new ResearchStateDto(tech.Id, state, world.ResearchCost(company, tech), state == "locked" ? world.ResearchBlocker(company, tech) : null);
+        }).ToList();
+
+    /// <summary>Every track as the research panel shows it (1.4 §12)</summary>
+    public static List<TrackStateDto> Tracks(GameWorld world, Company company) =>
+        world.Content.TrackList.Select(track =>
+        {
+            var next = world.NextTier(company, track);
+            var cost = next is { } tier ? world.TierCost(company, track, tier) : default;
+            var effect = next is { } t ? world.Content.TrackRules.Tiers[t - 1] : null;
+            return new TrackStateDto(track.Id, world.TrackTier(company, track.Id), next, cost.Gold, cost.Good, cost.Units, cost.FromStorages, cost.Bought, cost.Total,
+                effect == null ? 0 : Math.Round(world.ResearchMinutes(company, effect.Minutes)), effect == null ? null : Camel(effect.Effect), effect?.Amount ?? 0,
+                Math.Round(world.TierGain(company, track), 1), track.Goods.Select(g => world.TrackHubOrderFactor(company, g)).DefaultIfEmpty(1).Max(),
+                world.TierBlocker(company, track));
         }).ToList();
 
     public static BuildingDto Building(GameWorld world, Building building) => new(
@@ -351,21 +336,36 @@ public static partial class GameViews
             return null;
         }
         var wants = world.WantsOf(site);
+        var refund = wants.Sum(t => t.Paid) + (owner.Purchases.FirstOrDefault(p => p.Building == site.Id)?.Cost ?? world.BuildCost(owner, world.Content.Building(site.Type)));
+        return new SiteDto(WantViews(world, owner, wants, viewer), Math.Round(refund));
+    }
+
+    /// <summary>A level's goods still coming (1.4 §9): the wants, and what buying the rest costs</summary>
+    private static LevelWaitDto? LevelWait(GameWorld world, Building building, Company? viewer)
+    {
+        if (!world.WaitsForLevel(building) || world.Company(building.Owner) is not { } owner)
+        {
+            return null;
+        }
+        return new LevelWaitDto(world.BoughtLevel(building), WantViews(world, owner, world.WantsOf(building), viewer), world.OrderCost(viewer ?? owner, building.Id));
+    }
+
+    /// <summary>Wants as a panel shows them: who brought what, what comes now, what the rest costs, the chain when nobody near makes it</summary>
+    private static List<SiteWantDto> WantViews(GameWorld world, Company owner, List<CompanyAsk> wants, Company? viewer)
+    {
         // What players near make (your station and crew, who played this week): the same rule as the placing toast and
         // Next steps, so the panel never says less than they did
         var near = world.NearPlayers(owner).SelectMany(c => world.BuildingsOf(c.Id).Where(b => !b.UnderConstruction))
             .SelectMany(b => world.Content.Building(b.Type).Out.Keys).ToHashSet();
-        var list = wants.Select(t => new SiteWantDto(t.Resource, t.Amount, Math.Round(t.Got, 1), Math.Round(t.Incoming.Values.Sum() + (t.Order?.Started != null ? t.Order.Rate : 0), 2),
+        return wants.Select(t => new SiteWantDto(t.Resource, t.Amount, Math.Round(t.Got, 1), Math.Round(t.Incoming.Values.Sum(), 2),
             t.From.Where(f => f.Value >= 0.5).OrderByDescending(f => f.Value)
                 .Select(f => f.Key == owner.Id ? $"you: {f.Value:N0}"
                     : f.Key == GameWorld.HubSource ? $"bought: {f.Value:N0}"
                     : $"{(world.Company(f.Key) is { } who && viewer != null ? world.NameFor(who, viewer) : "a neighbour")}: {f.Value:N0}").ToList(),
             near.Contains(t.Resource) ? null : SiteChain(world, t.Resource, viewer ?? owner).Text,
-            t.Order != null ? $"Ordered: the hub brings the rest {world.OrderStartText(owner, t, viewer ?? owner)}" : null,
-            t.Order == null && t.Left > 1e-6 ? Math.Ceiling(t.Left * world.BasePrice(t.Resource) * GameWorld.OrderPrice) : null,
+            null,
+            t.Left > 1e-6 ? Math.Ceiling(t.Left * world.WantMarketPrice(owner, t.Resource)) : null,
             near.Contains(t.Resource) ? null : SiteChain(world, t.Resource, viewer ?? owner).Building)).ToList();
-        var refund = wants.Sum(t => t.Paid) + (owner.Purchases.FirstOrDefault(p => p.Building == site.Id)?.Cost ?? world.BuildCost(owner, world.Content.Building(site.Type)));
-        return new SiteDto(list, Math.Round(refund));
     }
 
     /// <summary>
@@ -429,19 +429,6 @@ public static partial class GameViews
     }
 
     /// <summary>The next world opens this long after the season ended</summary>
-    public static TimeSpan SeasonBreak { get; set; } = TimeSpan.FromDays(7);
-
-    public static SeasonInfoDto SeasonInfo(GameWorld world) =>
-        new(world.Season, world.FinaleAt, world.SeasonEndedAt, world.SeasonEndedAt is { } ended ? ended + SeasonBreak : null);
-
-    public static SeasonDto Season(GameWorld world, long userId)
-    {
-        SeasonResultDto View(SeasonResult result) => new(result.Company, result.NetWorth, result.Rank, result.Legacy, result.Title, result.UserId == userId);
-        var info = SeasonInfo(world);
-        var you = world.SeasonResults.FirstOrDefault(t => t.UserId == userId);
-        return new SeasonDto(info.Season, info.FinaleAt, info.EndedAt, info.NextWorldAt, world.SeasonResults.Take(20).Select(View).ToList(), you == null ? null : View(you));
-    }
-
     public static OutpostDto Outpost(GameWorld world, Outpost outpost, long? viewer)
     {
         var owner = world.Company(outpost.Owner);
@@ -482,7 +469,7 @@ public static partial class GameViews
             .Where(t => t.Deposit != null && t.Richness >= 3)
             .ToList();
         var deposit = tiles.GroupBy(t => t.Deposit).OrderByDescending(t => t.Count()).Select(t => t.Key).FirstOrDefault();
-        return new OutpostCheckDto(error, origin.X, origin.Y, world.OutpostLease(), GameWorld.OutpostSize, deposit, tiles.Count);
+        return new OutpostCheckDto(error, origin.X, origin.Y, world.OutpostLease(company), GameWorld.OutpostSize, deposit, tiles.Count);
     }
 
     public static ChunkDto Chunk(GameWorld world, int cx, int cy)
@@ -543,7 +530,8 @@ public static partial class GameViews
                 owner is { } ? Camel(world.ActivityOf(owner)) : null,
                 profile.Goods,
                 profile.Lacks,
-                profile.Strength));
+                profile.Strength,
+                estate?.OutskirtsParcels ?? 0));
         }
         return new DistrictDto(
             district.X,
@@ -559,39 +547,19 @@ public static partial class GameViews
                 : new DistrictYardDto(t.Index, WorldNames.Station(t), null, null, null, true, [])).ToList());
     }
 
-    /// <summary>The two billboards of a hub: the richest companies of the district with the Brand tech</summary>
-    private static readonly (int X, int Y)[] Billboards = [(9, 9), (20, 17)];
-
     private static List<HubStructureDto> HubStructures(GameWorld world, DistrictCoord district)
     {
         var structures = new List<HubStructureDto>();
         foreach (var structure in world.Generator.HubStructures(district))
         {
-            var wonder = structure.Type switch
-            {
-                "wonderSite" => world.DistrictWonder(district),
-                "eraWonderSite" => world.EraWonder,
-                _ => null,
-            };
-            if (wonder != null)
+            // The town's Era Wonder at its site (1.4 §13)
+            if (structure.Type == "eraWonderSite" && world.WonderOf(district) is { } wonder)
             {
                 var definition = world.WonderDefinition(wonder);
                 structures.Add(new HubStructureDto(structure.Type, structure.X, structure.Y, structure.Size, definition.Name, Level: wonder.Stage, Variant: wonder.Type, Stages: definition.Stages.Count));
                 continue;
             }
             structures.Add(new HubStructureDto(structure.Type, structure.X, structure.Y, structure.Size));
-            if (structure.Type == "marketHall")
-            {
-                var brands = world.Companies
-                    .Where(t => t.District == district && world.HasResearch(t, "brand"))
-                    .OrderByDescending(world.NetWorth)
-                    .Take(Billboards.Length)
-                    .ToList();
-                for (var i = 0; i < brands.Count; i++)
-                {
-                    structures.Add(new HubStructureDto("billboard", Billboards[i].X, Billboards[i].Y, 2, brands[i].Name, brands[i].Color));
-                }
-            }
         }
         return structures;
     }
@@ -606,7 +574,7 @@ public static partial class GameViews
             world.ManagerSlots(company),
             world.Content.Managers.Select(t => new ManagerDto(t.Id, t.Name, t.Cost, t.Color, t.Automation, t.Bonus, company.Managers.Contains(t.Id))).ToList(),
             world.Content.Achievements
-                .Select(t => new AchievementDto(t.Id, t.Name, t.Description, t.Amount, world.StatValue(company, t.Stat, partners), company.Achievements.Contains(t.Id), t.Xp, t.Gold, t.Title))
+                .Select(t => new AchievementDto(t.Id, t.Name, t.Description, t.Amount, world.StatValue(company, t.Stat, partners), company.Achievements.Contains(t.Id), t.Hours, t.Gold, t.Title))
                 .ToList(),
             world.Content.Collections
                 .Select(t => new CollectionDto(
@@ -627,10 +595,11 @@ public static partial class GameViews
                 new StatDto("Pipe tiles laid", world.StatValue(company, "pipes")),
                 new StatDto("Levels bought", world.StatValue(company, "levelsBought")),
                 new StatDto("Trading partners", partners.GetValueOrDefault(company.Id)),
-                new StatDto("Contracts finished", company.ContractsCompleted),
                 new StatDto("Daily orders", world.StatValue(company, "orders")),
-                new StatDto("Techs researched", company.Researched.Count),
-                new StatDto("Delivered to Wonders (g)", world.StatValue(company, "wonder")),
+                new StatDto("Track tiers researched", company.TrackTiers.Values.Sum()),
+                new StatDto("Era tree items researched", company.Researched.Count),
+                new StatDto("Given to Wonders (g)", world.StatValue(company, "wonder")),
+                new StatDto("Paid into Monuments (g)", world.StatValue(company, "monumentGold")),
                 new StatDto("Likes", company.Likes),
                 new StatDto("Gold per tile per hour", world.TileEfficiency(company)),
             ],
@@ -638,72 +607,80 @@ public static partial class GameViews
                 .Select(t => new StatDto(t.Key["produced:".Length..], t.Value)).ToList());
     }
 
-    public static WondersDto Wonders(GameWorld world, Company company)
+    /// <summary>Your town and Yard (1.4 §11, §13): the town's Era and Wonder, your Yard's Monuments</summary>
+    public static TownDto Town(GameWorld world, Company company)
     {
-        // The Capital builds the Era Wonder: its District Wonder would be a second, greyed goal beside it (run 4: Ben took
-        // the Observatory's "Deliver from storage" for the Cathedral's missing Order button)
-        var district = company.District == GameWorld.Capital && world.WonderBuysEnabled ? null : world.DistrictWonder(company.District);
-        return new WondersDto(
-            world.Era,
-            world.EraStartedAt,
-            world.EraDeadline,
-            district == null ? null : Wonder(world, district, company),
-            world.EraWonder == null ? null : Wonder(world, world.EraWonder, company),
-            WorldNames.District(company.District));
+        var town = world.TownAt(company.District);
+        var crew = world.CrewOf(company);
+        var sites = crew == null ? [] : world.MonumentsOf(crew);
+        return new TownDto(
+            WorldNames.District(company.District),
+            town.Era,
+            world.YourEra(company),
+            town.EraStartedAt,
+            town.PartyUntil > world.Now ? town.PartyUntil : null,
+            town.Wonder == null ? null : TownWonder(world, town.Wonder, company),
+            sites.Select(t => world.MonumentKind(t.Kind) is var kind ? new MonumentDto(t.Era, t.Kind, kind?.Name, t.Stages, Math.Round(t.Paid), world.MonumentStageCost(t),
+                world.MonumentCapped(t), kind?.Description, Math.Round(t.PaidBy.GetValueOrDefault(company.Id))) : null).OfType<MonumentDto>().ToList(),
+            world.Content.Monuments.Kinds.Select(t => new MonumentKindDto(t.Id, t.Name, t.Description, sites.Any(s => s.Kind == t.Id))).ToList(),
+            world.Content.Monuments.Level,
+            Math.Round(60 * world.MeasuredIncome(company)),
+            town.LaunchedAt);
     }
 
-    private static WonderDto Wonder(GameWorld world, Wonder wonder, Company company)
+    private static TownWonderDto TownWonder(GameWorld world, TownWonder wonder, Company company)
     {
         var definition = world.WonderDefinition(wonder);
         var materials = world.Materials(company.Id);
-        var total = wonder.Contributions.Values.Sum();
-        var (share, tier) = wonder.District == null ? world.EraWonderTier(company) : (total > 0 ? wonder.Contributions.GetValueOrDefault(company.Id) / total : 0, WonderTier.None);
-        var era = wonder.District == null && company.District == GameWorld.Capital;
+        var (share, tier) = world.StageTier(wonder, company.Id);
         WonderNeedDto Need(string good, double required)
         {
-            var offer = era ? world.WonderOrderOffer(good) : null;
-            var orders = wonder.Orders.Where(o => o.Resource == good).ToList();
-            var orderers = orders.GroupBy(o => o.By)
-                .Select(g => world.Company(g.Key) is { } c ? $"{(c.Id == company.Id ? "you" : world.NameFor(c, company))} {g.Sum(o => o.Units):N0}" : null)
-                .OfType<string>()
-                .ToList();
-            var makers = era ? world.WonderMakers(good) : [];
+            var makers = world.WonderMakers(company.District, good);
             // Nobody makes it: say which building would, and where its inputs come from (the friend with gold gets a role)
-            // What neither arrived nor is ordered: once it's all ordered, the line has nothing left to say
-            var lacks = wonder.Delivered.GetValueOrDefault(good) + orders.Sum(o => o.Units - o.Shipped) < required - 1;
-            var chain = era && lacks && makers.Count == 0 ? world.ChainFor(company, good) : null;
-            return new WonderNeedDto(good, required, wonder.Delivered.GetValueOrDefault(good), materials.GetValueOrDefault(good),
-                offer?.Units, offer?.Cost,
+            var chain = world.WonderLacks(wonder, good) > 1 && makers.All(t => t.Id != company.Id) ? world.ChainFor(company, good) : null;
+            return new WonderNeedDto(good, required, Math.Floor(wonder.Delivered.GetValueOrDefault(good)), Math.Floor(materials.GetValueOrDefault(good)),
+                world.BuyAndGiveCost(company, good),
                 Math.Round(wonder.Incoming.Values.Sum(g => g.GetValueOrDefault(good)), 2),
-                Math.Floor(orders.Sum(o => o.Units - o.Shipped)),
-                Math.Floor(orders.Sum(o => o.Units)),
-                orderers,
-                era ? world.WonderOrderCap(good) : 0,
+                Camel(company.Give.GetValueOrDefault(good)),
                 makers.Select(c => c.Id == company.Id ? "you" : world.NameFor(c, company)).ToList(),
                 chain == null ? null : world.ChainText(chain, good, company),
                 chain is { Locked: null } ? chain.Building.Id : null);
         }
-        double Hours(Company c) => 60 * Math.Max(GameWorld.MinMeasuredIncome, world.MeasuredIncome(c));
-        return new WonderDto(
+        var stageWorth = wonder.Required.Sum(t => t.Value * world.BasePrice(t.Key));
+        var built = definition.Stages.Take(wonder.Stage).Where(t => t.Perk != WonderPerk.None).Select(t => PerkLine(t.Perk, t.PerkAmount)).ToList();
+        var next = wonder.Stage < definition.Stages.Count ? definition.Stages[wonder.Stage] : null;
+        return new TownWonderDto(
             wonder.Type,
             definition.Name,
             definition.Description,
-            wonder.District == null,
+            definition.Era,
             wonder.Stage,
             definition.Stages.Count,
-            wonder.Finished,
             wonder.Required.Select(t => Need(t.Key, t.Value)).ToList(),
-            total,
-            wonder.Contributions.GetValueOrDefault(company.Id),
-            Camel(tier),
+            Math.Round(stageWorth),
+            Math.Round(definition.Worth * world.TrailFactor(definition)),
+            wonder.FullAt + GameWorld.StageBuildTime,
             share,
-            wonder.Contributions.OrderByDescending(t => t.Value).Take(5)
-                .Select(t => world.Company(t.Key) is { } c ? new WonderBuilderDto(c.Id, c.Name, c.Color, t.Value, Math.Round(t.Value / Hours(c), 1)) : null)
+            Camel(tier),
+            Math.Round(wonder.Given.GetValueOrDefault(company.Id)),
+            wonder.StageGiven.OrderByDescending(t => t.Value).Take(5)
+                .Select(t => world.Company(t.Key) is { } c ? new WonderBuilderDto(c.Id, c.Name, c.Color, Math.Round(t.Value), stageWorth <= 0 ? 0 : t.Value / stageWorth) : null)
                 .OfType<WonderBuilderDto>()
                 .ToList(),
-            GameWorld.Unsized(wonder),
-            Math.Round(Hours(company)));
+            world.BuyAndGiveCost(company),
+            world.TrailFactor(definition),
+            built,
+            next == null ? null : next.Perk == WonderPerk.None ? $"Era {definition.Era + 1}" : PerkLine(next.Perk, next.PerkAmount));
     }
+
+    private static string PerkLine(WonderPerk perk, double amount) => perk switch
+    {
+        WonderPerk.Energy => $"+{amount:P0} energy",
+        WonderPerk.HubOrders => $"Hub Orders +{amount:P0}",
+        WonderPerk.Factories => $"factories +{amount:P0}",
+        WonderPerk.Research => $"research {amount:P0} faster",
+        _ => $"+{amount:P0} production",
+    };
 
     public static LeaderboardDto Leaderboard(GameWorld world, Company viewer, LeaderboardKind kind, bool district)
     {
@@ -740,7 +717,7 @@ public static partial class GameViews
             owner.Id == viewer.Id ? null
                 : world.WantsNear(viewer).Where(t => t.Owner.Id == owner.Id)
                     .Select(t => new WantNearDto(t.Target, world.NameFor(t.Owner, viewer), t.Name, t.Want.Resource, Math.Round(t.Want.Left), Math.Floor(t.Holds), t.Makes,
-                        t.Want.Order == null ? world.OrderCost(viewer, t.Target) : null))
+                        world.OrderCost(viewer, t.Target)))
                     .ToList());
     }
 
@@ -817,12 +794,13 @@ public static partial class GameViews
         var inputs = node?.In.Select(t => new ResourceAmountDto(t.Key, received.TryGetValue(t.Key, out var v) ? v : 0, t.Value)).ToList() ?? [];
         var outputs = node?.Out.Select(t => new ResourceAmountDto(t.Key, sent.TryGetValue(t.Key, out var v) ? v : 0, t.Value)).ToList() ?? [];
 
-        var upgradable = definition.Kind is not (BuildingKind.Hq or BuildingKind.Gate or BuildingKind.Decoration)
-            && building.Level < world.Content.Progression.MaxBuildingLevel;
+        var upgradable = world.CanUpgrade(building);
         // Max buys the levels its pipes can feed (F8)
         var max = upgradable && owner != null ? world.SmartMax(owner, building) : null;
         var affordable = max?.Levels ?? 0;
-        var maxLevels = world.Content.Progression.MaxBuildingLevel - building.Level;
+        var bought = world.BoughtLevel(building);
+        var maxLevels = world.Content.Progression.MaxBuildingLevel - bought;
+        var (track, tiers) = world.TrackOf(building);
 
         return new BuildingDetailsDto(
             Building(world, building),
@@ -831,12 +809,11 @@ public static partial class GameViews
             world.LocationMultiplier(building, definition),
             inputs,
             outputs,
-            definition.ResearchPerMinute * world.Content.Progression.OutputMultiplier(building.Level) * rate,
             definition.Kind == BuildingKind.Storage ? building.Contents : null,
             definition.Kind == BuildingKind.Storage ? world.StorageCapacity(building, definition) : null,
-            definition.Kind == BuildingKind.TradingPost ? world.TradingPostThroughput(building, definition) : null,
+            null,
             definition.Kind == BuildingKind.TradingPost ? building.Imports.OrderBy(t => t).ToList() : null,
-            definition.Kind is BuildingKind.Valve or BuildingKind.Showroom ? building.Filter.OrderBy(t => t).ToList() : null,
+            definition.Kind is BuildingKind.Valve ? building.Filter.OrderBy(t => t).ToList() : null,
             network?.PumpFactorOf(building.Owner) ?? 1,
             upgradable ? world.UpgradeCost(building, 1) : null,
             upgradable ? world.UpgradeCost(building, Math.Min(10, maxLevels)) : null,
@@ -861,7 +838,13 @@ public static partial class GameViews
             owner != null && viewer?.Id == owner.Id && world.Undoable(owner, building) is { } undo ? undo.Refund : null,
             owner != null && viewer?.Id == owner.Id && world.Undoable(owner, building) is { } until ? until.Purchase.At + GameWorld.UndoFor : null,
             Site(world, building, viewer),
-            owner != null && viewer?.Id == owner.Id && world.PipeDoorFor(owner, building) is { } door ? Door(world, door) : null);
+            owner != null && viewer?.Id == owner.Id && world.PipeDoorFor(owner, building) is { } door ? Door(world, door) : null,
+            LevelWait(world, building, viewer),
+            Math.Round(world.CopyPrice(building)),
+            upgradable ? world.LevelGoods(building, bought + 1).Select(t => new ResourceAmountDto(t.Key, t.Value, t.Value)).ToList() : null,
+            track?.Name,
+            tiers,
+            world.Sleeps(building));
     }
 
     private static PipeDoorDto Door(GameWorld world, PipeDoor door) => new(
@@ -952,10 +935,7 @@ public static partial class GameViews
         var resources = storage.Contents.Keys
             .Concat(network?.Solution.Flows.Where(t => t.To == storage.Id).Select(t => t.Resource) ?? [])
             .Distinct();
-        var full = network != null && network.Buildings
-            .Select(world.Building)
-            .Any(t => t != null && t.Owner == storage.Owner && world.Content.Building(t.Type).Kind == BuildingKind.TradingPost && world.TradingPostFull(t));
-        return new StorageKeepDto(resources.ToDictionary(t => t, t => Math.Round(world.StorageKeep(storage, definition, t), 1)), full);
+        return new StorageKeepDto(resources.ToDictionary(t => t, t => Math.Round(world.StorageKeep(storage, definition, t), 1)));
     }
 
     private static EvolveDto Evolve(GameWorld world, Company owner, Building building, string next)
@@ -1041,7 +1021,7 @@ public static partial class GameViews
             {
                 OwnerRow(from.Owner, flow.Resource)[0] += flow.Sent;
             }
-            if (to != null && Machine(flow.To) && flow.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.Contract or FlowKind.FromStorage or FlowKind.Import)
+            if (to != null && Machine(flow.To) && flow.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.FromStorage or FlowKind.Import)
             {
                 OwnerRow(to.Owner, flow.Resource)[1] += flow.Delivered;
             }
@@ -1055,7 +1035,7 @@ public static partial class GameViews
                 case FlowKind.Sale when from != null:
                     Money(from.Owner)[0] += value;
                     break;
-                case FlowKind.Trade or FlowKind.Contract when from != null && to != null:
+                case FlowKind.Trade when from != null && to != null:
                     Money(from.Owner)[1] += value;
                     Money(to.Owner)[2] += value;
                     break;
@@ -1069,7 +1049,7 @@ public static partial class GameViews
             {
                 row[0] += flow.Sent;
             }
-            if (Machine(flow.To) && flow.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.Contract or FlowKind.FromStorage or FlowKind.Import)
+            if (Machine(flow.To) && flow.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.FromStorage or FlowKind.Import)
             {
                 row[1] += flow.Delivered;
             }
@@ -1077,7 +1057,7 @@ public static partial class GameViews
             {
                 case FlowKind.Sale: row[2] += flow.Delivered; break;
                 case FlowKind.Import: row[3] += flow.Sent; break;
-                case FlowKind.Trade or FlowKind.Contract: row[4] += flow.Delivered; break;
+                case FlowKind.Trade: row[4] += flow.Delivered; break;
                 case FlowKind.ToStorage: row[5] += flow.Delivered; break;
                 case FlowKind.FromStorage: row[6] += flow.Sent; break;
             }
@@ -1198,7 +1178,6 @@ public static partial class GameViews
                     t.Name,
                     t.Color,
                     t.Level,
-                    GameWorld.ContractStars(t),
                     t.Slot,
                     estate.Origin.X,
                     estate.Origin.Y,
@@ -1545,7 +1524,6 @@ public static partial class GameViews
             line,
             Discoveries(world, station),
             world.BuildingsOf(me.Id).Where(t => !t.UnderConstruction).SelectMany(t => world.Content.Building(t.Type).Out.Keys).Distinct()
-                .Where(t => t != GameContent.ResearchPoints)
                 .SelectMany(t => world.Bids(me, t, residents))
                 .OrderByDescending(t => t.PerMinute * world.BasePrice(t.Resource))
                 .Take(4)
@@ -1593,52 +1571,11 @@ public static partial class GameViews
         }).ToList();
     }
 
-    public static ContractDto Contract(GameWorld world, Contract contract)
-    {
-        string Name(long id) => id == 0 ? "" : world.Company(id)?.Name ?? "?";
-        var proposer = world.Company(contract.Proposer);
-        return new ContractDto(
-            contract.Id,
-            contract.Proposer,
-            Name(contract.Proposer),
-            contract.Seller,
-            Name(contract.Seller),
-            contract.Buyer,
-            Name(contract.Buyer),
-            contract.Resource,
-            contract.Rate,
-            contract.Price,
-            contract.Days,
-            Camel(contract.State),
-            contract.CreatedAt,
-            contract.EndsAt,
-            contract.Delivered,
-            contract.Expected,
-            proposer == null ? 0 : GameWorld.ContractStars(proposer));
-    }
-
-    public static ContractsDto Contracts(GameWorld world, Company me)
-    {
-        var recent = world.Now.AddDays(-3);
-        var mine = world.Contracts
-            .Where(t => t.Proposer == me.Id || t.Seller == me.Id || t.Buyer == me.Id)
-            .Where(t => t.IsOpen || (t.EndsAt ?? t.CreatedAt) > recent)
-            .OrderBy(t => t.State).ThenByDescending(t => t.Id)
-            .Select(t => Contract(world, t))
-            .ToList();
-        var board = world.Contracts
-            .Where(t => t.State == ContractState.Offered && (t.Seller == 0 || t.Buyer == 0) && t.Proposer != me.Id && world.Company(t.Proposer)?.District == me.District)
-            .OrderByDescending(t => t.Id)
-            .Select(t => Contract(world, t))
-            .ToList();
-        return new ContractsDto(mine, board);
-    }
-
     public static ExchangeDto Exchange(GameWorld world, Company me)
     {
-        // Global Exchange: the global orders of every hub as well
-        var global = world.HasResearch(me, "globalExchange");
-        var orders = world.ExchangeOrders.Where(t => t.District == me.District || (global && t.Global)).ToList();
+        // Every town's orders: the Exchange is how towns trade (1.4 §8)
+        const bool global = true;
+        var orders = world.ExchangeOrders.Where(t => t.District == me.District || t.Global).ToList();
         var books = orders
             .GroupBy(t => t.Resource)
             .OrderBy(t => t.Key)
@@ -1661,8 +1598,8 @@ public static partial class GameViews
             .OrderBy(t => t.ArrivesAt)
             .Select(t => new ShipmentDto(t.Id, t.Resource, t.Amount, t.ArrivesAt, t.To == me.Id, world.Company(t.To == me.Id ? t.From : t.To)?.Name ?? ""))
             .ToList();
-        return new ExchangeDto(world.HasBuilding(me.Id, BuildingKind.ExchangeOffice), books, mine, shipments, GameWorld.ExchangeFee, global,
-            world.Content.ResourceList.Where(t => t.Era <= world.Era + 1).ToDictionary(t => t.Id, t => world.PlayerPrice(t.Id)),
+        return new ExchangeDto(me.Level >= GameWorld.ExchangeLevel ? null : GameWorld.ExchangeLevel, books, mine, shipments, GameWorld.ExchangeFee, global,
+            world.Content.ResourceList.Where(t => t.Era <= world.YourEra(me)).ToDictionary(t => t.Id, t => world.PlayerPrice(t.Id)),
             world.Content.ResourceList.Select(t => (t.Id, Stored: world.StoredOf(me.Id, t.Id))).Where(t => t.Stored >= 0.5).ToDictionary(t => t.Id, t => Math.Floor(t.Stored)));
     }
 
@@ -1675,17 +1612,24 @@ public static partial class GameViews
         Buildings = content.BuildingList,
         content.PipeTiers,
         Research = content.ResearchList,
+        Tracks = content.TrackList,
+        TrackTiers = content.TrackRules.Tiers.Select(t => new { t.Tier, t.Minutes, Effect = Camel(t.Effect), t.Amount, t.Gold }).ToList(),
+        content.TrackRules.HubOrderFrom,
+        content.TrackRules.HubOrderPerTier,
+        Monuments = content.Monuments.Kinds,
+        Wonders = content.EraWonders.Select(t => new { t.Id, t.Name, t.Era, t.Description, t.Worth }).ToList(),
         content.Relics,
         Progression = new
         {
             content.Progression.MaxCompanyLevel,
-            XpForLevel = Enumerable.Range(0, content.Progression.MaxCompanyLevel + 2).Select(content.Progression.XpForLevel).ToList(),
-            content.Progression.XpRewards,
+            EarnedForLevel = Enumerable.Range(0, content.Progression.MaxCompanyLevel + 2).Select(content.Progression.EarnedForLevel).ToList(),
             content.Progression.MaxBuildingLevel,
             content.Progression.OutputPerLevel,
             content.Progression.CostPerLevel,
             content.Progression.Milestones,
             content.Progression.CostPerCopy,
+            content.Progression.LevelGoodsFrom,
+            content.Progression.LevelGoodsShare,
             content.Progression.ParcelLevels,
             ParcelCosts = Enumerable.Range(0, content.Progression.ParcelLevels.Count).Select(content.Progression.ParcelCost).ToList(),
             content.Progression.HubSpread,

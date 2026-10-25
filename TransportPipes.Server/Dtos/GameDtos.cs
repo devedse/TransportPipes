@@ -58,12 +58,10 @@ public record CompanyDto(
     string Color,
     double Gold,
     double GoldPerMinute,
-    double Xp,
+    /// <summary>The Company Level (1.4 §14): the gold earned in all it needs, and what the next one needs</summary>
     int Level,
-    double LevelXp,
-    double NextLevelXp,
-    double ResearchPoints,
-    double ResearchPerMinute,
+    double LevelEarned,
+    double NextLevelEarned,
     double LifetimeEarnings,
     int DistrictX,
     int DistrictY,
@@ -74,44 +72,31 @@ public record CompanyDto(
     double? NextParcelCost,
     int? NextParcelLevel,
     IReadOnlyDictionary<string, int> BuildingCounts,
-    IReadOnlyList<string> Researched,
-    string? CurrentResearch,
-    DateTime? ResearchEndsAt,
-    double HubReputation,
-    int ReputationLevel,
-    double? NextReputation,
+    ResearchLinesDto Research,
     IReadOnlyList<DailyOrderDto> DailyOrders,
     IReadOnlyList<string> NoTrade,
     long? MentorId,
     int Likes,
     IReadOnlyList<GameEventDto> Events,
     int ForecastHours,
+    /// <summary>Your town's Era, and your own (the highest a town reached while you lived there)</summary>
     int Era,
-    DateTime EraDeadline,
+    int YourEra,
     IReadOnlyList<string> Titles,
     IReadOnlyList<string> Collections,
     IReadOnlyList<OutpostDto> Outposts,
     /// <summary>The Legacy level the player brought from earlier seasons</summary>
     int LegacyLevel,
-    SeasonInfoDto Season,
     MovingDto Moving,
     DeepDto Deep,
     TutorialDto? Tutorial,
     ExpeditionDto Expedition,
-    MasteryDto Mastery,
     IReadOnlyList<AlertDto> Alerts,
     DateTime ServerTime,
-    ExperienceDto Experience,
-    string TradeWith,
+    EarnedDto Earned,
     CrewBadgeDto? Crew,
     /// <summary>Your plot's land: what it has, and who in your Yard has the rest</summary>
     LandDto? Land = null,
-    /// <summary>The research queue (F11): techs that start by themselves, in order</summary>
-    IReadOnlyList<string>? ResearchQueue = null,
-    /// <summary>With nothing queued, the cheapest tech the points cover starts by itself</summary>
-    bool KeepResearching = true,
-    /// <summary>Something can be researched now (run 3: "pick one!" over 449k points with every tech locked)</summary>
-    bool ResearchOpen = true,
     /// <summary>Neighbours' scaffolds and pipes this player could help with (after run 3, steps 2 and 3)</summary>
     IReadOnlyList<WantNearDto>? WantsNear = null,
     /// <summary>This player's own open wants, a building's or a pipe's</summary>
@@ -121,7 +106,39 @@ public record CompanyDto(
     /// <summary>The pipe ladder on the goal tracker while a pipe is full (after run 4: the way up was nowhere in sight)</summary>
     PipesLineDto? Pipes = null,
     /// <summary>Your prices for other players (1.4 §8): every one you set, with a rise that waits</summary>
-    IReadOnlyList<PriceDto>? Prices = null);
+    IReadOnlyList<PriceDto>? Prices = null,
+    /// <summary>What you give your town's Wonder by itself, per good: "beyondHubOrder" or "all" (1.4 §13)</summary>
+    IReadOnlyDictionary<string, string>? Give = null,
+    /// <summary>Whether the market brings what your levels and buildings lack, at 2.5× (1.4 §9)</summary>
+    bool WantsFromMarket = true,
+    OutskirtsDto? Outskirts = null,
+    WorkshopsDto? Workshops = null);
+
+/// <summary>Your plot's outskirts (1.4 §5): the parcels you bought (bits 0..8), what the next costs, and why you can't buy one yet</summary>
+public record OutskirtsDto(int Parcels, double NextCost, string? Blocker);
+
+/// <summary>Building in the Yard (1.4 §7): the tiles of its ends your workshops cover, of how many, from which Level; the crew's Depot</summary>
+public record WorkshopsDto(int TilesUsed, int Tiles, int Level, DepotDto? Depot);
+
+/// <summary>The Yard's Depot: where it stands, what it holds of how much, and every resident's goods in it</summary>
+public record DepotDto(long Building, int X, int Y, double Capacity, double Holds, IReadOnlyList<DepotGoodDto> Goods);
+
+public record DepotGoodDto(string Resource, double Amount, long Owner, string OwnerName, bool Yours);
+
+/// <summary>
+/// The Lab's two lines (1.4 §12): the Era tree's items done, being researched and queued; the tracks' tiers, the tier
+/// being researched and the queue (a track once for every tier); whether research starts by itself while you're away,
+/// and whether something can be researched now
+/// </summary>
+public record ResearchLinesDto(bool HasLab, IReadOnlyList<string> Researched, string? CurrentResearch, DateTime? ResearchEndsAt, IReadOnlyList<string> ResearchQueue,
+    IReadOnlyDictionary<string, int> Tiers, string? CurrentTrack, DateTime? TrackEndsAt, IReadOnlyList<string> TrackQueue, bool KeepResearching, bool Open);
+
+/// <summary>
+/// A track as the research panel shows it: its tiers, the next tier's price (gold, and from tier 3 its good: from your
+/// Storages, the rest bought), how long it takes, what it does and about what it adds a minute; why it can't start
+/// </summary>
+public record TrackStateDto(string Id, int Tiers, int? Next, double Gold, string? Good, double Units, double FromStorages, double Bought, double Total,
+    double Minutes, string? Effect, double Amount, double Gain, double HubOrderFactor, string? Reason);
 
 /// <summary>
 /// One of your prices: its key ("public", "crew", "public:good", "crew:good", "for:companyId"), what it is now, and a
@@ -164,20 +181,12 @@ public record LandSeatDto(int Slot, string? Owner, bool You, IReadOnlyList<strin
 /// <summary>Your Yard's crew on the top bar: its name and banner, its residents, the requests that wait for an answer</summary>
 public record CrewBadgeDto(long Id, string Name, string Emblem, string Color, string Color2, int Members, int Requests);
 
-/// <summary>
-/// Experience: XP per minute from what the company earns now, where its XP came from (per source per item) and what
-/// gives XP
-/// </summary>
-public record ExperienceDto(double PerMinute, IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>> Log, IReadOnlyList<XpRuleDto> Rules);
-
-public record XpRuleDto(string Source, string Text);
+/// <summary>The gold earned (1.4 §14): what it earns a minute now, and where it came from (per source per item)</summary>
+public record EarnedDto(double PerMinute, IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>> Log);
 
 /// <summary>Something that holds the company back, with the building to look at</summary>
 /// <summary>What holds a company back (the goal tracker): pumps, post, storage or damage (Repair all), with the building to look at and what repairing all costs</summary>
 public record AlertDto(string Text, long? Building, string Kind = "", double? Cost = null);
-
-/// <summary>Mastery research after the whole tree: the level reached and the next step</summary>
-public record MasteryDto(int Level, bool Available, double Cost, double Minutes, double Bonus);
 
 /// <summary>Expeditions (GDD §11.3): the one out, what they cost, what came back, the relics found</summary>
 public record ExpeditionDto(int? Hours, DateTime? EndsAt, IReadOnlyDictionary<int, double> Costs, string? Blocker, IReadOnlyList<string> Log, IReadOnlyList<string> Relics);
@@ -208,23 +217,16 @@ public record CrateDto(int Index, string Type, int Level);
 /// <summary>A district a company could move to</summary>
 public record DistrictChoiceDto(int X, int Y, string Name, int FreeEstates, int Players, double ActiveShare, bool Yours);
 
-/// <summary>The season: the finale countdown, and when it ended the next world's opening</summary>
-public record SeasonInfoDto(int Season, DateTime? FinaleAt, DateTime? EndedAt, DateTime? NextWorldAt);
-
-public record SeasonResultDto(string Company, double NetWorth, int Rank, int Legacy, string? Title, bool You);
-
-public record SeasonDto(int Season, DateTime? FinaleAt, DateTime? EndedAt, DateTime? NextWorldAt, IReadOnlyList<SeasonResultDto> Top, SeasonResultDto? You);
-
 /// <summary>An event in the calendar (GDD §15)</summary>
 public record GameEventDto(long Id, string Kind, string Name, string Effect, DateTime StartsAt, DateTime EndsAt, string? Resource, bool Active, bool Everywhere);
 
 /// <param name="Selling">What the company's trading posts sell of the good a minute now (an order fills from it, after run 3, step 7)</param>
 /// <param name="Premium">What it paid over the hub's price so far</param>
-public record DailyOrderDto(int Id, string Resource, double Amount, double Delivered, double RewardGold, double RewardXp, double RewardReputation, DateTime ExpiresAt, bool Urgent, double Selling = 0, double Premium = 0);
+public record DailyOrderDto(int Id, string Resource, double Amount, double Delivered, double RewardGold, DateTime ExpiresAt, bool Urgent, double Selling = 0, double Premium = 0);
 
 /// <summary>
-/// One resource at the hub of the player's district: what the hub pays the player (its own Hub Order), what it charges,
-/// what the player sold there lately against the order, the one price between players, and the player's trade settings
+/// One good at the market of the player's town (1.4 §8): what it pays the player now (its own Hub Order), what it
+/// charges, what the player sold there lately against its Hub Order, the default player price, and the trade settings
 /// </summary>
 public record MarketResourceDto(
     string Resource,
@@ -232,11 +234,10 @@ public record MarketResourceDto(
     double BuyPrice,
     double SellPrice,
     double SoldPerMinute,
-    double Demand,
+    double HubOrder,
     double PlayerPrice,
     bool NoTrade,
-    bool NoBuy,
-    double? Heading);
+    bool NoBuy);
 
 public record MarketDto(int DistrictX, int DistrictY, string District, IReadOnlyList<MarketResourceDto> Resources, DateTime NextUpdate);
 
@@ -287,7 +288,7 @@ public record TerrainOverrideDto(int X, int Y, string Terrain);
 /// <summary>An estate on the map; Goods: the land goods dealt to it (step 5), House: a House lives there</summary>
 /// <summary>A plot on the map: who lives there, its parcels, and its land (what it has and lacks, its strength)</summary>
 public record EstateDto(int Slot, int X, int Y, long? OwnerId, string? OwnerName, string? OwnerColor, int OwnerLevel, int UnlockedParcels, string Primary, string? Secondary, string? Activity,
-    IReadOnlyList<string>? Goods = null, IReadOnlyList<string>? Lacks = null, string? Strength = null);
+    IReadOnlyList<string>? Goods = null, IReadOnlyList<string>? Lacks = null, string? Strength = null, int OutskirtsParcels = 0);
 
 /// <summary>A hub structure; a Wonder site has its Wonder's name, stage and variant</summary>
 public record HubStructureDto(string Type, int X, int Y, int Size, string? Label = null, string? Color = null, int Level = 0, string? Variant = null, int Stages = 0);
@@ -315,7 +316,6 @@ public record BuildingDetailsDto(
     double LocationMultiplier,
     IReadOnlyList<ResourceAmountDto> Inputs,
     IReadOnlyList<ResourceAmountDto> Outputs,
-    double ResearchPerMinute,
     IReadOnlyDictionary<string, double>? Contents,
     double? Capacity,
     double? Throughput,
@@ -348,7 +348,20 @@ public record BuildingDetailsDto(
     SiteDto? Site = null,
     /// <summary>The station's Refinements this building gets, named: "Bricks +6% · Cleo's research 💛"</summary>
     /// <summary>Its pipe door, when its pipe is what holds it back (after run 4)</summary>
-    PipeDoorDto? PipeDoor = null);
+    PipeDoorDto? PipeDoor = null,
+    /// <summary>The levels bought whose goods are still coming (1.4 §9; null: none)</summary>
+    LevelWaitDto? LevelWait = null,
+    /// <summary>What this copy cost to build (its levels cost from it), and the goods the next step takes</summary>
+    double CopyPrice = 0,
+    IReadOnlyList<ResourceAmountDto>? NextLevelGoods = null,
+    /// <summary>The track it follows and your tiers in it (1.4 §12)</summary>
+    string? Track = null,
+    int TrackTiers = 0,
+    /// <summary>A building of a later Era than its town's: it sleeps until the town gets there</summary>
+    bool Sleeping = false);
+
+/// <summary>A building that works at its old level until the goods of the levels bought are in (1.4 §9)</summary>
+public record LevelWaitDto(int BoughtLevel, IReadOnlyList<SiteWantDto> Wants, double? BuyRest);
 
 /// <summary>
 /// The way up a full pipe (after run 4: the pipe tier is the game's real level cap, and its door was nowhere a player
@@ -403,7 +416,7 @@ public record MaxMoreDto(int Levels, double Cost, double Share, string? Resource
 /// A storage: how much of each resource it keeps (its setting, or what the company needs), and whether a full trading
 /// post of its network sends it the rest (then it holds more)
 /// </summary>
-public record StorageKeepDto(IReadOnlyDictionary<string, double> Keeps, bool TradingPostFull);
+public record StorageKeepDto(IReadOnlyDictionary<string, double> Keeps);
 
 /// <summary>Upgrading several buildings: the levels bought and the gold spent (or why nothing happened)</summary>
 public record BulkUpgradeDto(bool Success, string? Error, int Levels, double Gold);
@@ -496,7 +509,6 @@ public record NeighbourDto(
     string Name,
     string Color,
     int Level,
-    int ContractStars,
     int Slot,
     int EstateX,
     int EstateY,
@@ -513,27 +525,6 @@ public record NeighbourDto(
     /// <summary>You don't trade with them (trade settings)</summary>
     bool Blocked);
 
-public record ContractDto(
-    long Id,
-    long Proposer,
-    string ProposerName,
-    long Seller,
-    string SellerName,
-    long Buyer,
-    string BuyerName,
-    string Resource,
-    double Rate,
-    double Price,
-    double Days,
-    string State,
-    DateTime CreatedAt,
-    DateTime? EndsAt,
-    double Delivered,
-    double Expected,
-    int ProposerStars);
-
-public record ContractsDto(IReadOnlyList<ContractDto> Mine, IReadOnlyList<ContractDto> Board);
-
 public record ExchangeOrderDto(long Id, string Resource, bool Selling, double Amount, double Price, DateTime CreatedAt, bool Mine, bool Global,
     /// <summary>What was placed (0: not kept), and when it closes</summary>
     double Placed = 0, DateTime? ExpiresAt = null);
@@ -542,8 +533,9 @@ public record ShipmentDto(long Id, string Resource, double Amount, DateTime Arri
 
 public record ExchangeBookDto(string Resource, double BestBid, double BidAmount, double BestAsk, double AskAmount);
 
-public record ExchangeDto(bool HasOffice, IReadOnlyList<ExchangeBookDto> Books, IReadOnlyList<ExchangeOrderDto> Orders, IReadOnlyList<ShipmentDto> Shipments, double Fee, bool Global,
-    /// <summary>The one player price of each good, and what your Storages hold (a sell order holds its goods there; after run 4)</summary>
+/// <param name="Opens">The Company Level the Exchange opens at (1.4 §8: 12), null once it's open</param>
+public record ExchangeDto(int? Opens, IReadOnlyList<ExchangeBookDto> Books, IReadOnlyList<ExchangeOrderDto> Orders, IReadOnlyList<ShipmentDto> Shipments, double Fee, bool Global,
+    /// <summary>The default player price of each good, and what your Storages hold (a sell order holds its goods there; after run 4)</summary>
     IReadOnlyDictionary<string, double>? Prices = null, IReadOnlyDictionary<string, double>? Stored = null);
 
 // ---------------------------------------------------------------- Society (M4)
@@ -588,47 +580,56 @@ public record InboxMessageDto(long Id, string Kind, string Text, DateTime At, bo
 
 public record InboxDto(IReadOnlyList<InboxMessageDto> Messages, int Unread);
 
-// ---------------------------------------------------------------- Wonders and Eras (M5)
+// ---------------------------------------------------------------- Your town: its Era, its Wonder, your Yard's Monuments (1.4 §11, §13)
 
-/// <param name="OrderUnits">The Era Wonder: how much of it may be ordered now (half of each good while a Capital player makes it, else all), and for what</param>
-/// <param name="Ordered">The Era Wonder: what the hub still ships of the orders on it</param>
-/// <param name="OrderedTotal">All the units ordered for it so far, and who ordered them ("Cleo 900")</param>
-/// <param name="OrderCap">The share of the good orders may bring: 0.5 while a Capital player makes it, else 1</param>
-/// <param name="Makers">The Capital's players who make it (the pipe half comes from them)</param>
-/// <param name="Chain">When nobody makes it: the building that would, and where its inputs come from ("A Brickworks (1,400 g) makes bricks from …")</param>
+/// <param name="BuyCost">What buying and giving the rest of it costs (the market's 2.5×)</param>
+/// <param name="PerMinute">What the town's "give" switches send it now a minute</param>
+/// <param name="Give">Your give switch for it: "off", "beyondHubOrder" or "all"</param>
+/// <param name="Makers">The town's players who make it</param>
+/// <param name="Chain">When you don't make it: the building that would ("A Brickworks (1,400 g) makes bricks from …")</param>
 /// <param name="ChainBuilding">That building's type, for Show me (null when you may not build it yet)</param>
-public record WonderNeedDto(string Resource, double Required, double Delivered, double YourStock, double? OrderUnits = null, double? OrderCost = null, double PerMinute = 0, double Ordered = 0,
-    double OrderedTotal = 0, IReadOnlyList<string>? Orderers = null, double OrderCap = 0.5, IReadOnlyList<string>? Makers = null, string? Chain = null, string? ChainBuilding = null);
+public record WonderNeedDto(string Resource, double Required, double Delivered, double YourStock, double BuyCost, double PerMinute, string Give,
+    IReadOnlyList<string> Makers, string? Chain = null, string? ChainBuilding = null);
 
-/// <param name="Hours">What they built in hours of their own income, so an hour of a small company's stands beside a day of a big one's</param>
-public record WonderBuilderDto(long Company, string Name, string Color, double Value, double Hours = 0);
+public record WonderBuilderDto(long Company, string Name, string Color, double Value, double Share);
 
-/// <param name="Opens">The stage waits to be sized: it opens at a midnight, from what the builders there make</param>
-/// <param name="YourHour">An hour of your income, for ordering by the hour</param>
-public record WonderDto(
+/// <summary>A town's Era Wonder: its stage and goods, when a full stage stands, your part and tier, the perks it gave</summary>
+/// <param name="Trail">How much smaller towns that finished it before made it (0.9: 10%)</param>
+public record TownWonderDto(
     string Type,
     string Name,
     string Description,
-    bool IsEra,
+    int Era,
     int Stage,
     int Stages,
-    bool Finished,
     IReadOnlyList<WonderNeedDto> Needs,
-    double Total,
-    double YourContribution,
+    double StageWorth,
+    double Worth,
+    DateTime? StandsAt,
+    double YourStageShare,
     string YourTier,
-    double YourShare,
+    double YourGiven,
     IReadOnlyList<WonderBuilderDto> TopBuilders,
-    bool Opens = false,
-    double YourHour = 0);
+    double BuyAllCost,
+    double Trail,
+    IReadOnlyList<string> Perks,
+    string? NextPerk);
 
-public record WondersDto(int Era, DateTime EraStartedAt, DateTime EraDeadline, WonderDto? District, WonderDto? EraWonder, string DistrictName);
+/// <summary>A Monument site of your Yard: its Era, what was built there, its stages and the next stage's price</summary>
+public record MonumentDto(int Era, string? Kind, string? Name, int Stages, double Paid, double NextCost, bool Capped, string? Perk, double YourPaid);
+
+public record MonumentKindDto(string Id, string Name, string Description, bool Built);
+
+/// <summary>Your town and Yard (1.4 §11, §13): its Era, its launch party, its Wonder, your Yard's Monuments</summary>
+public record TownDto(string Name, int Era, int YourEra, DateTime EraStartedAt, DateTime? PartyUntil, TownWonderDto? Wonder, IReadOnlyList<MonumentDto> Monuments,
+    IReadOnlyList<MonumentKindDto> Kinds, int MonumentLevel, double YourHour, DateTime? LaunchedAt);
 
 // ---------------------------------------------------------------- Company: managers, achievements, statistics (M5)
 
 public record ManagerDto(string Id, string Name, double Cost, string Color, string Automation, string Bonus, bool Hired);
 
-public record AchievementDto(string Id, string Name, string Description, double Amount, double Value, bool Done, double Xp, double Gold, string? Title);
+/// <param name="Gold">What it pays: hours of your income, at least this much gold</param>
+public record AchievementDto(string Id, string Name, string Description, double Amount, double Value, bool Done, double Hours, double Gold, string? Title);
 
 public record CollectionDto(string Id, string Name, string Description, int Level, IReadOnlyList<string> Buildings, IReadOnlyList<string> Done, bool Finished, string? Reward);
 

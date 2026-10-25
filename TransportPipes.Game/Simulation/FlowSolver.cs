@@ -252,12 +252,8 @@ public sealed class FlowSolver
         {
             return true;
         }
-        if (_market.Contracts.Any(t => t.Seller == supplier.Owner && t.Buyer == consumer.Owner && t.Resource == resource))
-        {
-            return _market.LinkTradeAllowed(link, supplier.Owner, consumer.Owner, resource);
-        }
         var price = _market.SellerPrice(supplier.Owner, resource);
-        return (_market.BuyerMaxPrice(consumer.Owner, resource) >= price - Epsilon || _market.IgnoreMaxPrice(supplier.Owner, consumer.Owner))
+        return _market.BuyerMaxPrice(consumer.Owner, resource) >= price - Epsilon
             && _market.TradeAllowed(supplier.Owner, consumer.Owner, resource)
             && _market.LinkTradeAllowed(link, supplier.Owner, consumer.Owner, resource);
     }
@@ -299,7 +295,7 @@ public sealed class FlowSolver
     {
         var node = _nodes[producer];
         var post = Neighbours(producer, resource)
-            .Where(n => _nodes[n.Other].Owner == node.Owner && _nodes[n.Other].Kind == FlowNodeKind.TradingPost && _nodes[n.Other].Throughput > 0)
+            .Where(n => _nodes[n.Other].Owner == node.Owner && _nodes[n.Other].Kind == FlowNodeKind.TradingPost)
             .Select(n => n.Link.Efficiency * (1 + _nodes[n.Other].PriceBonus))
             .DefaultIfEmpty(0)
             .Max();
@@ -312,7 +308,7 @@ public sealed class FlowSolver
         {
             var node = _nodes[n.Other];
             return node.Owner == producer.Owner
-                && ((node.Kind == FlowNodeKind.Storage && node.StorageCanAccept) || (node.Kind == FlowNodeKind.TradingPost && node.Throughput > 0));
+                && ((node.Kind == FlowNodeKind.Storage && node.StorageCanAccept) || node.Kind == FlowNodeKind.TradingPost);
         });
 
     private static double MinOrOne(IEnumerable<double> values)
@@ -348,7 +344,7 @@ public sealed class FlowSolver
                 : (sent, delivered, price);
             SentTotals[(from, resource)] = Sent(from, resource) + sent;
             ReceivedTotals[(to, resource)] = Received(to, resource) + delivered;
-            if (kind is FlowKind.Internal or FlowKind.Trade or FlowKind.Contract)
+            if (kind is FlowKind.Internal or FlowKind.Trade)
             {
                 SentToBuildingTotals[(from, resource)] = SentToBuildings(from, resource) + sent;
             }
@@ -373,15 +369,7 @@ public sealed class FlowSolver
             Share(resource, producers, consumers, (p, c, _) => _nodes[p].Owner == _nodes[c].Owner, FlowKind.Internal, (_, _) => 0, priorityOnly: true);
             Share(resource, producers, consumers, (p, c, _) => _nodes[p].Owner == _nodes[c].Owner, FlowKind.Internal, (_, _) => 0);
 
-            // 2. Contracts, up to the contracted amount
-            foreach (var contract in _market.Contracts.Where(t => t.Resource == resource).OrderBy(t => t.Id))
-            {
-                Share(resource, producers, consumers, (p, c, link) =>
-                    _nodes[p].Owner == contract.Seller && _nodes[c].Owner == contract.Buyer && _market.LinkTradeAllowed(link, contract.Seller, contract.Buyer, resource),
-                    FlowKind.Contract, (_, _) => contract.Price, budget: contract.Rate);
-            }
-
-            // 3. Between companies, cheapest sellers first
+            // 2. Between companies, cheapest sellers first
             var priceLevels = producers
                 .Select(p => _market.SellerPrice(_nodes[p].Owner, resource))
                 .Distinct()
@@ -395,7 +383,7 @@ public sealed class FlowSolver
                     var buyer = _nodes[c].Owner;
                     return seller != buyer
                         && _market.SellerPrice(seller, resource) == price
-                        && (_market.BuyerMaxPrice(buyer, resource) >= price - Epsilon || _market.IgnoreMaxPrice(seller, buyer))
+                        && _market.BuyerMaxPrice(buyer, resource) >= price - Epsilon
                         && _market.TradeAllowed(seller, buyer, resource)
                         && _market.LinkTradeAllowed(link, seller, buyer, resource)
                         && WorthSelling(p, resource, price, link);
@@ -619,13 +607,13 @@ public sealed class FlowSolver
                 {
                     continue;
                 }
-                var scale = Math.Min(1, post.Throughput / total);
+                // A trading post has no limit (1.4 §8): it sells everything that reaches it
                 foreach (var (other, resource, link, amount, sale) in wanted)
                 {
                     // Several posts can reach the same producer: this one takes its share of what the posts after it haven't
                     // taken yet, so together they place everything
                     var reachingPosts = posts.Skip(index).Count(p => p.Owner == post.Owner && Neighbours(other, resource).Any(n => n.Other == p.Id));
-                    var share = sale ? Math.Min(amount * scale, offerLeft[(other, resource)] / Math.Max(1, reachingPosts)) : amount * scale;
+                    var share = sale ? Math.Min(amount, offerLeft[(other, resource)] / Math.Max(1, reachingPosts)) : amount;
                     var sent = Math.Min(share, CapacityLeft(link));
                     if (sent <= Epsilon)
                     {
@@ -675,7 +663,7 @@ public sealed class FlowSolver
             var to = _nodes[flow.To];
             switch (flow.Kind)
             {
-                case FlowKind.Trade or FlowKind.Contract:
+                case FlowKind.Trade:
                     AddGold(from.Owner, flow.Delivered * flow.PricePerUnit);
                     AddGold(to.Owner, -flow.Delivered * flow.PricePerUnit);
                     break;
@@ -694,18 +682,11 @@ public sealed class FlowSolver
             }
         }
 
-        var research = new Dictionary<long, double>();
-        foreach (var building in _buildings.Where(t => t.ResearchPerMinute > 0))
-        {
-            research[building.Owner] = (research.TryGetValue(building.Owner, out var v) ? v : 0) + building.ResearchPerMinute * rates[building.Id];
-        }
-
         return new FlowSolution
         {
             Rates = rates,
             Flows = flows,
             GoldPerMinute = gold,
-            ResearchPerMinute = research,
             StorageNet = storage.ToDictionary(t => t.Key, t => (IReadOnlyDictionary<string, double>)t.Value),
         };
     }

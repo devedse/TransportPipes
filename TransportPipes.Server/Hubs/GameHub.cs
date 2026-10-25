@@ -24,7 +24,6 @@ public interface IGameClient
     Task ChatMessage(ChatMessageDto message);
     Task InboxChanged(int unread);
     Task WondersChanged();
-    Task SeasonChanged();
     Task CrewChanged();
 
     /// <summary>Your links changed (an offer, an answer, a notice, the end)</summary>
@@ -118,7 +117,7 @@ public sealed class GameHub : Hub<IGameClient>
             var company = world.CompanyOfUser(userId);
             if (company == null)
             {
-                return (Hello: new HelloDto(user, null, null, world.Now, world.Era, 0), Away: (GameViews.AwayFacts?)null, Company: (Company?)null, Crew: false);
+                return (Hello: new HelloDto(user, null, null, world.Now, 1, 0), Away: (GameViews.AwayFacts?)null, Company: (Company?)null, Crew: false);
             }
             // The return card (F5): what happened since the last session (from before the company wakes and its next report starts)
             var away = new GameViews.AwayFacts(world.Now - company.LastSeenAt, company.Report);
@@ -134,7 +133,7 @@ public sealed class GameHub : Hub<IGameClient>
             world.SeenOn(company, browserId, ipDay);
             world.CountPlayDay(company);
             world.EnsureOrders(company);
-            return (Hello: new HelloDto(user, CompanyView(world, company), null, world.Now, world.Era, 0, leftAt), Away: hasCard ? away : null, Company: company, Crew: world.CrewOf(company) != null);
+            return (Hello: new HelloDto(user, CompanyView(world, company), null, world.Now, world.TownEra(company.District), 0, leftAt), Away: hasCard ? away : null, Company: company, Crew: world.CrewOf(company) != null);
         });
         var hello = start.Hello;
         if (start is { Away: { } facts, Company: { } me })
@@ -166,7 +165,7 @@ public sealed class GameHub : Hub<IGameClient>
     }
 
     private static CompanyDto CompanyView(GameWorld world, Company company) =>
-        GameViews.Company(world, company, world.GoldPerMinute().GetValueOrDefault(company.Id), world.ResearchPerMinute().GetValueOrDefault(company.Id));
+        GameViews.Company(world, company, world.GoldPerMinute().GetValueOrDefault(company.Id));
 
     /// <summary>
     /// A new company (1.4 §6) on the plot the player chose on the map (a plot of a closed Yard: it plays where Pick for
@@ -248,12 +247,7 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> SendToSite(long siteId) =>
         Command((world, company) => world.SendToSite(company, siteId));
 
-    /// <summary>Orders part of the Capital's Era Wonder (after run 3, step 5): half of each good at most, 2 × base, over six hours</summary>
-    /// <summary>Orders an Era Wonder good: all that may be ordered, or as much as the gold buys (null: all)</summary>
-    public Task<CommandResultDto> OrderForWonder(string resource, double? gold) =>
-        Command((world, company) => world.OrderForWonder(company, resource, gold));
-
-    /// <summary>Orders the rest of a want, one's own or a neighbour's (after run 3, step 4): 2 × base, after the friends' window, over 6 hours</summary>
+    /// <summary>Buys the rest of a want, one's own or a neighbour's, at once from the market (1.4 §9)</summary>
     public Task<CommandResultDto> OrderRest(long target) =>
         Command((world, company) => world.OrderRest(company, target));
 
@@ -378,10 +372,15 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<IReadOnlyList<ResearchStateDto>> GetResearch() =>
         _world.RunAsync<IReadOnlyList<ResearchStateDto>>(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Research(world, company) : [], changesWorld: false);
 
+    /// <summary>The tracks (the Lab's first line, 1.4 §12)</summary>
+    public Task<IReadOnlyList<TrackStateDto>> GetTracks() =>
+        _world.RunAsync<IReadOnlyList<TrackStateDto>>(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Tracks(world, company) : [], changesWorld: false);
+
+    /// <summary>Starts an Era tree item on the second line, or a track's next tier on the first</summary>
     public Task<CommandResultDto> StartResearch(string tech) =>
         Command((world, company) => world.StartResearch(company, tech));
 
-    /// <summary>The research queue (F11): up to five techs that start by themselves, in order</summary>
+    /// <summary>A line's queue (1.4 §12): up to five, started by themselves in order; a track once for each of its tiers</summary>
     public Task<CommandResultDto> QueueResearch(string tech, bool queued) =>
         Command((world, company) => world.QueueResearch(company, tech, queued));
 
@@ -429,19 +428,6 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<IReadOnlyList<NeighbourDto>> GetNeighbourhood() =>
         _world.RunAsync<IReadOnlyList<NeighbourDto>>(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Neighbourhood(world, company) : [], changesWorld: false);
 
-    public Task<ContractsDto?> GetContracts() =>
-        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Contracts(world, company) : null, changesWorld: false);
-
-    /// <summary>partner: a company id, or null for the contract board</summary>
-    public Task<CommandResultDto> ProposeContract(long? partner, bool selling, string resource, double rate, double price, double days) =>
-        Command((world, company) => world.ProposeContract(company, partner, selling, resource, rate, price, days));
-
-    public Task<CommandResultDto> AcceptContract(long contract) =>
-        Command((world, company) => world.AcceptContract(company, contract));
-
-    public Task<CommandResultDto> DeclineContract(long contract) =>
-        Command((world, company) => world.DeclineContract(company, contract));
-
     public Task<ExchangeDto?> GetExchange() =>
         _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Exchange(world, company) : null, changesWorld: false);
 
@@ -457,11 +443,6 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> SetTradeBlocked(long other, bool blocked) =>
         Command((world, company) => world.SetTradeBlocked(company, other, blocked));
 
-    public Task<CommandResultDto> SetTradeWith(string tradeWith) =>
-        Enum.TryParse<TradeWith>(tradeWith, ignoreCase: true, out var value)
-            ? Command((world, company) => world.SetTradeWith(company, value))
-            : Task.FromResult(CommandResultDto.Fail("Unknown choice."));
-
     public Task<CommandResultDto> SetNoBuy(string resource, bool noBuy) =>
         Command((world, company) => world.SetNoBuy(company, resource, noBuy));
 
@@ -475,14 +456,6 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<CommandResultDto> DismissManager(string manager) =>
         Command((world, company) => world.DismissManager(company, manager));
-
-    // ---------------------------------------------------------------- The season
-
-    public Task<SeasonDto> GetSeason()
-    {
-        var userId = UserId;
-        return _world.RunAsync(world => GameViews.Season(world, userId), changesWorld: false);
-    }
 
     // ---------------------------------------------------------------- Moving (GDD §12)
 
@@ -568,13 +541,48 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> DeleteBlueprint(long blueprint) =>
         Command((world, company) => world.DeleteBlueprint(company, blueprint));
 
-    // ---------------------------------------------------------------- Wonders
+    // ---------------------------------------------------------------- Your town: its Wonder, your Yard's Monuments (1.4 §13)
 
-    public Task<WondersDto?> GetWonders() =>
-        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Wonders(world, company) : null, changesWorld: false);
+    public Task<TownDto?> GetTown() =>
+        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Town(world, company) : null, changesWorld: false);
 
-    public Task<CommandResultDto> DeliverToWonder(bool eraWonder) =>
-        Command((world, company) => world.DeliverToWonder(company, eraWonder));
+    /// <summary>What you give the Wonder of a good by itself: "off", "beyondHubOrder" or "all"</summary>
+    public Task<CommandResultDto> SetGive(string resource, string mode) =>
+        Enum.TryParse<GiveMode>(mode, ignoreCase: true, out var value)
+            ? Command((world, company) => world.SetGive(company, resource, value))
+            : Task.FromResult(CommandResultDto.Fail("Unknown choice."));
+
+    /// <summary>Gives the Wonder what your Storages hold of what it lacks</summary>
+    public Task<CommandResultDto> GiveFromStorages() =>
+        Command((world, company) => world.GiveFromStorages(company));
+
+    /// <summary>Buys what the stage lacks (one good, or every good) at the market's 2.5× and gives it; gold: at most this much</summary>
+    public Task<CommandResultDto> BuyAndGive(string? resource, double? gold) =>
+        Command((world, company) => world.BuyAndGive(company, resource, gold));
+
+    public Task<CommandResultDto> ChooseMonument(int era, string kind) =>
+        Command((world, company) => world.ChooseMonument(company, era, kind));
+
+    public Task<CommandResultDto> PayMonument(int era, double gold) =>
+        Command((world, company) => world.PayMonument(company, era, gold));
+
+    // ---------------------------------------------------------------- The Yard's Depot and the outskirts (1.4 §5, §7)
+
+    /// <summary>Puts goods from your Storages into your Yard's Depot, for the crew</summary>
+    public Task<CommandResultDto> PutInDepot(string resource, double amount) =>
+        Command((world, company) => world.PutInDepot(company, resource, amount));
+
+    /// <summary>Takes your own goods back from the Depot</summary>
+    public Task<CommandResultDto> TakeFromDepot(string resource, double amount) =>
+        Command((world, company) => world.TakeFromDepot(company, resource, amount));
+
+    /// <summary>Buys one of the nine outskirts parcels set aside for your plot</summary>
+    public Task<CommandResultDto> BuyOutskirts(int index) =>
+        Command((world, company) => world.BuyOutskirts(company, index));
+
+    /// <summary>Whether the market brings what your levels and buildings still lack, at 2.5× (on by default)</summary>
+    public Task<CommandResultDto> SetWantsFromMarket(bool on) =>
+        Command((world, company) => world.SetWantsFromMarket(company, on));
 
     // ---------------------------------------------------------------- Visiting, mentors and leaderboards
 
@@ -939,15 +947,19 @@ public sealed class GameHub : Hub<IGameClient>
                     company.Touch();
                     break;
                 case "earn":
-                    // A million earned (for the Franchise)
+                    // A million earned
                     company.Gold += 1_000_000;
-                    company.LifetimeEarnings += 1_000_000;
+                    world.CountEarned(company, 1_000_000, "cheats", "earn");
                     break;
                 case "level":
-                    world.GainXp(company, world.Content.Progression.XpForLevel(company.Level + 5) - company.Xp, "cheats", "level");
+                    // Five Company Levels: the gold earned they need, and that gold
+                    var gold = world.Content.Progression.EarnedForLevel(company.Level + 5) - company.LifetimeEarnings;
+                    company.Gold += Math.Max(0, gold);
+                    world.CountEarned(company, gold, "cheats", "level");
                     break;
                 case "research":
-                    company.ResearchPoints += 5_000;
+                    // Both lines' research done at once
+                    world.FinishResearch(companyId);
                     break;
                 case "bricks":
                     // 600 bricks into its Storages (wants, after run 3)
@@ -983,15 +995,14 @@ public sealed class GameHub : Hub<IGameClient>
                     world.StartEventNow(kind, kind == EventKind.Festival ? null : company.District, TimeSpan.FromHours(2), resource);
                     break;
                 case "era":
-                    world.AdvanceEra();
+                    world.AdvanceEra(company.District);
                     break;
                 case "alltech":
                     world.GrantAllResearch(company);
                     break;
                 case "eratech":
-                    // This Era's tree done: the Labs rest
+                    // Every tier and tree item of your Era
                     world.GrantAllResearch(company, thisEra: true);
-                    company.ResearchPoints += 100_000;
                     break;
                 case "district":
                     world.OpenNextDistrict();
@@ -1005,17 +1016,12 @@ public sealed class GameHub : Hub<IGameClient>
                     company.Report.Since = company.LastSeenAt;
                     company.Touch();
                     break;
-                case "finale":
-                    // To Era 5 and the launch countdown
-                    while (world.Era < GameWorld.LastEra)
+                case "era5":
+                    // Your town to Era 5
+                    while (world.TownEra(company.District) < GameWorld.LastEra)
                     {
-                        world.AdvanceEra();
+                        world.AdvanceEra(company.District);
                     }
-                    world.StartFinale();
-                    break;
-                case "endseason":
-                    world.StartFinale();
-                    world.EndSeason();
                     break;
                 case "discover":
                     // A copper Discovery in the wilderness north of your estate, 8 tiles from the district's edge
@@ -1032,22 +1038,22 @@ public sealed class GameHub : Hub<IGameClient>
                     {
                         return CommandResult.Fail("Build a storage first.");
                     }
-                    foreach (var definition in world.Content.ResourceList.Where(t => t.Era <= world.Era && t.Id != "energy"))
+                    foreach (var definition in world.Content.ResourceList.Where(t => t.Era <= world.YourEra(company) && t.Id != "energy"))
                     {
                         store.Contents[definition.Id] = store.Contents.GetValueOrDefault(definition.Id) + 1000;
                     }
                     store.Touch();
                     break;
                 case "wonder":
-                    // Fills your storages with what the next stages need (an hour of a big district's work)
+                    // Fills your storages with what your town's Wonder's stage still lacks
                     var silo = world.BuildingsOf(companyId).FirstOrDefault(t => world.Content.Building(t.Type).Kind == TransportPipes.Game.Content.BuildingKind.Storage);
-                    if (silo == null || world.DistrictWonder(company.District) is not { } districtWonder)
+                    if (silo == null || world.WonderOf(company.District) is not { } townWonder)
                     {
                         return CommandResult.Fail("Build a storage first.");
                     }
-                    foreach (var (need, required) in districtWonder.Required)
+                    foreach (var need in townWonder.Required.Keys)
                     {
-                        silo.Contents[need] = silo.Contents.GetValueOrDefault(need) + required;
+                        silo.Contents[need] = silo.Contents.GetValueOrDefault(need) + world.WonderLacks(townWonder, need);
                     }
                     silo.Touch();
                     break;
@@ -1095,10 +1101,6 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<CommandResultDto> UpgradePipes(int[] tiles, int tier) =>
         Command((world, company) => world.UpgradePipes(company, Tiles(tiles), tier));
-
-    /// <summary>Widens Copper or Steel Pipe tiles ×2 or ×4 for hours of income (after run 3, step 9)</summary>
-    public Task<CommandResultDto> WidenPipes(int[] tiles, int factor) =>
-        Command((world, company) => world.WidenPipes(company, Tiles(tiles), factor));
 
     /// <summary>What your gold can do: the shared goal, a want, and "Grow everything that pays" (after run 4)</summary>
     public Task<GoldUsesDto?> GetGoldUses()
@@ -1154,8 +1156,7 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> SetBuildingSetting(long building, double value) =>
         Command((world, company) => world.SetBuildingSetting(company, building, value));
 
-    public Task<CommandResultDto> SetShowroomProduct(long building, string resource) =>
-        Command((world, company) => world.SetShowroomProduct(company, building, resource));
+
 
     public Task<CommandResultDto> SetValveFilter(long building, string resource, bool enabled) =>
         Command((world, company) => world.SetValveFilter(company, building, resource, enabled));

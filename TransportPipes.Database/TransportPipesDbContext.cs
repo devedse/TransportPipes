@@ -19,8 +19,6 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<DbBuilding> Buildings => Set<DbBuilding>();
     public DbSet<DbConductor> Conductors => Set<DbConductor>();
     public DbSet<DbTerrainOverride> TerrainOverrides => Set<DbTerrainOverride>();
-    public DbSet<DbContract> Contracts => Set<DbContract>();
-    public DbSet<DbCorporation> Corporations => Set<DbCorporation>();
     public DbSet<DbChatMessage> ChatMessages => Set<DbChatMessage>();
     public DbSet<DbInboxMessage> InboxMessages => Set<DbInboxMessage>();
     public DbSet<DbGuestbookNote> GuestbookNotes => Set<DbGuestbookNote>();
@@ -54,12 +52,9 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
             world.Property(t => t.Events).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
             world.Property(t => t.Wonders).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
             world.Property(t => t.Outposts).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
-            world.Property(t => t.Season).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
             world.Property(t => t.Blueprints).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
             world.Property(t => t.Crews).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
             world.Property(t => t.Links).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
-            world.Property(t => t.Projects).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
-            world.Property(t => t.Trunks).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
         });
 
         modelBuilder.Entity<DbCompany>(company =>
@@ -95,27 +90,6 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
         {
             conductor.ToTable("Conductors");
             conductor.HasKey(t => new { t.X, t.Y });
-        });
-
-        modelBuilder.Entity<DbContract>(contract =>
-        {
-            contract.ToTable("Contracts");
-            contract.Property(t => t.Id).ValueGeneratedNever();
-            contract.Property(t => t.Resource).HasMaxLength(40);
-            contract.HasIndex(t => t.State);
-        });
-
-        modelBuilder.Entity<DbCorporation>(corporation =>
-        {
-            corporation.ToTable("Corporations");
-            corporation.Property(t => t.Id).ValueGeneratedNever();
-            corporation.Property(t => t.Name).HasMaxLength(40);
-            corporation.Property(t => t.Tag).HasMaxLength(8);
-            corporation.Property(t => t.Color).HasMaxLength(16);
-            corporation.Property(t => t.PerkResource).HasMaxLength(40);
-            corporation.Property(t => t.Description).HasMaxLength(400);
-            corporation.Property(t => t.Data).HasColumnType("jsonb");
-            corporation.HasIndex(t => t.Tag).IsUnique();
         });
 
         modelBuilder.Entity<DbChatMessage>(message =>

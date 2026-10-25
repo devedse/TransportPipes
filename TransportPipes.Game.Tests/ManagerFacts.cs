@@ -11,13 +11,13 @@ public class ManagerFacts
     public void ManagersNeedAFreeSlot()
     {
         var game = new TestGame();
-        var company = game.NewCompany(level: 9);
+        var company = game.NewCompany(gold: 100_000_000, level: 9);
         StringAssert.Contains(game.World.HireManager(company.Id, GameWorld.EngineerJo).Error, "No free manager slot");
 
         company.Level = 10;
         Assert.AreEqual(1, game.World.ManagerSlots(company));
         Assert.IsTrue(game.World.HireManager(company.Id, GameWorld.EngineerJo).Success);
-        Assert.AreEqual(1_000_000 - 5000, company.Gold);
+        Assert.AreEqual(100_000_000 - 2_000_000, company.Gold, "about an hour of income on day 2");
         StringAssert.Contains(game.World.HireManager(company.Id, GameWorld.PlannerSam).Error, "No free manager slot");
 
         game.Build(company, "engineerWorkshop");
@@ -31,7 +31,7 @@ public class ManagerFacts
     public void EngineerJoRepairsStormDamageRightAwayAndAddsWind()
     {
         var game = new TestGame();
-        var company = game.NewCompany(level: 10);
+        var company = game.NewCompany(gold: 100_000_000, level: 10);
         var map = game.Map(company, game.Local(company, 1, 1), " " + new string('W', 40) + "\nO" + new string('+', 40));
         double Stored() => game.World.NetworkOf(map[(0, 1)].Id)!.Solution.Flows.Where(t => t.Kind == FlowKind.ToStorage).Sum(t => t.Delivered);
         var before = Stored();
@@ -52,7 +52,6 @@ public class ManagerFacts
         var company = game.NewCompany(level: 10, gold: 100);
         var storage = game.Map(company, game.Local(company, 1, 1), "O").Values.Single();
         storage.Contents["bricks"] = 5000;
-        game.World.HireManager(company.Id, GameWorld.EngineerJo);
         company.Managers.Clear();
         company.Managers.Add(GameWorld.AccountantBea);
 
@@ -79,19 +78,20 @@ public class ManagerFacts
     }
 
     [TestMethod]
-    public void PlannerSamStartsTheNextResearch()
+    public void PlannerSamKeepsBothLinesBusy()
     {
         var game = new TestGame();
         var company = game.NewCompany(level: 10);
+        game.Build(company, "lab");
         company.Managers.Add(GameWorld.PlannerSam);
-        company.ResearchPoints = 1000;
-        Assert.IsTrue(game.World.StartResearch(company.Id, "betterBearings").Success);
-        Assert.AreEqual(game.Time.AddMinutes(5 * 0.9), company.ResearchEndsAt, "10% faster");
+        Assert.IsTrue(game.World.StartResearch(company.Id, "iron").Success);
+        Assert.AreEqual(game.Time.AddMinutes(10 * 0.9), company.TrackEndsAt, "10% faster");
 
-        game.Pass(5);
+        game.Pass(15);
 
-        Assert.IsTrue(company.Researched.Contains("betterBearings"));
-        Assert.IsNotNull(company.CurrentResearch, "the next one started");
+        Assert.AreEqual(1, game.World.TrackTier(company, "iron"));
+        Assert.IsNotNull(company.CurrentTrack, "the next tier started");
+        Assert.IsNotNull(company.CurrentResearch, "and the Era tree's line too");
     }
 
     [TestMethod]
@@ -106,7 +106,7 @@ public class ManagerFacts
         game.Pass(2);
 
         Assert.IsTrue(company.Achievements.Contains("firstSteps"));
-        Assert.IsGreaterThan(0, company.Xp);
+        Assert.IsGreaterThan(0, company.LifetimeEarnings, "it pays gold, counted as earned");
 
         // A collection: every building on its list at level 10
         var collection = game.World.Content.Collections.First(t => t.Id == "powerOfEra1");

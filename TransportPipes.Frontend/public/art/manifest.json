@@ -860,6 +860,62 @@
    "ax": 289,
    "ay": 786,
    "attachments": []
+  },
+  "aluminiumWorks": {
+   "w": 578,
+   "h": 539,
+   "ax": 289,
+   "ay": 537,
+   "attachments": []
+  },
+  "batteryWorks": {
+   "w": 578,
+   "h": 442,
+   "ax": 288,
+   "ay": 409,
+   "attachments": []
+  },
+  "bauxitePit": {
+   "w": 290,
+   "h": 174,
+   "ax": 144,
+   "ay": 158,
+   "attachments": []
+  },
+  "motorWorks": {
+   "w": 598,
+   "h": 482,
+   "ax": 289,
+   "ay": 464,
+   "attachments": []
+  },
+  "spaceframeWorks": {
+   "w": 867,
+   "h": 728,
+   "ax": 433,
+   "ay": 660,
+   "attachments": []
+  },
+  "titaniumMine": {
+   "w": 578,
+   "h": 421,
+   "ax": 289,
+   "ay": 413,
+   "attachments": []
+  },
+  "titaniumWorks": {
+   "w": 578,
+   "h": 525,
+   "ax": 289,
+   "ay": 491,
+   "attachments": []
+  },
+  "yardDepot": {
+   "w": 578,
+   "h": 497,
+   "ax": 289,
+   "ay": 488,
+   "attachments": []
   }
  },
  "rotors": {
@@ -1046,7 +1102,10 @@
   }
  },
  "hashes": {
+  "buildings/aluminiumWorks.webp": "6e7f0e32f4",
   "buildings/assemblyPlant.webp": "21dd3b1ea4",
+  "buildings/batteryWorks.webp": "44d156b2c4",
+  "buildings/bauxitePit.webp": "1a73412ca6",
   "buildings/bigFactory.webp": "9475a06afc",
   "buildings/bigTurbine-rotor.webp": "07cd48328f",
   "buildings/bigTurbine.webp": "4f4a608134",
@@ -1094,6 +1153,7 @@
   "buildings/machineShop.webp": "ea80dab2ea",
   "buildings/magmaTap.webp": "0037e60779",
   "buildings/marketHall.webp": "41f4ab75d1",
+  "buildings/motorWorks.webp": "1bf2884edf",
   "buildings/oilDerrick.webp": "e2642a1a39",
   "buildings/pneumaticPost.webp": "bf2df5af7d",
   "buildings/powerLinePylon.webp": "391d06ecbf",
@@ -1114,12 +1174,15 @@
   "buildings/smelter.webp": "6c39f2014d",
   "buildings/solarFarm.webp": "7f552939a3",
   "buildings/solarPanel.webp": "51542bd24a",
+  "buildings/spaceframeWorks.webp": "cfd53535a6",
   "buildings/statue.webp": "87aa021eea",
   "buildings/steamTurbine.webp": "faac57be4d",
   "buildings/steelMill.webp": "a913f3f961",
   "buildings/storage.webp": "2db646976d",
   "buildings/superconductorLab.webp": "43e4088342",
   "buildings/terraformer.webp": "5dd1a91cc3",
+  "buildings/titaniumMine.webp": "336e1784c2",
+  "buildings/titaniumWorks.webp": "32d3693878",
   "buildings/tollMeter.webp": "9218358f26",
   "buildings/town-house1.webp": "29f3b260aa",
   "buildings/town-house2.webp": "a06e28bded",
@@ -1145,6 +1208,7 @@
   "buildings/wonder-refineryTower.webp": "f2c0f37d32",
   "buildings/wonder-spaceElevator.webp": "5d54bb56fa",
   "buildings/wonder-thinkingMachine.webp": "3d8ad050ff",
+  "buildings/yardDepot.webp": "6ad774e3be",
   "terrain/beach.webp": "a09e0bc9dd",
   "terrain/cavern.webp": "2ffba477f3",
   "terrain/city.webp": "bf53cda1da",
@@ -1181,8 +1245,9 @@
   "pipes/tier1.webp": "1bf3a562fd",
   "pipes/tier2.webp": "9e8d781e54",
   "pipes/tier3.webp": "1ac680cc49",
-  "pipes/tier4.webp": "9776255d90",
-  "pipes/tier5.webp": "c0c3a11317"
+  "pipes/tier4.webp": "7d4603c104",
+  "pipes/tier5.webp": "9776255d90",
+  "pipes/tier6.webp": "c0c3a11317"
  },
  "pipes": {
   "resolution": 1.5,
@@ -1193,7 +1258,8 @@
    2,
    3,
    4,
-   5
+   5,
+   6
   ],
   "frames": {
    "": {

@@ -19,9 +19,12 @@ public sealed partial class GameWorld
     /// <summary>Whether a building is a scaffold that still wants materials</summary>
     public static bool IsSite(Building building) => building.ConstructionEndsAt == SiteWaiting;
 
-    /// <summary>A scaffold's wants: one per material still lacking (its owner's Asks for that building)</summary>
+    /// <summary>A building's wants: one per material (or level good) still lacking (its owner's Asks for that building)</summary>
     public List<CompanyAsk> WantsOf(Building building) =>
         Company(building.Owner) is { } owner ? owner.Asks.Where(t => t.Site == building.Id).ToList() : [];
+
+    /// <summary>Whether a building waits for goods: a scaffold's materials or a level's goods</summary>
+    public bool Wanting(Building building) => IsSite(building) || WaitsForLevel(building);
 
     /// <summary>
     /// A building whose gold is there but not its materials: it stands as a scaffold, takes what its owner's Storages
@@ -32,7 +35,7 @@ public sealed partial class GameWorld
         company.Gold -= cost;
         company.Report.GoldSpent += cost;
         AddStat(company, "goldSpent", cost);
-        var site = AddBuilding(company, definition.Id, pos, finished: false);
+        var site = AddBuilding(company, definition.Id, pos, finished: false, cost);
         site.ConstructionEndsAt = SiteWaiting;
         foreach (var (resource, amount) in definition.Cost.Materials)
         {
@@ -69,7 +72,7 @@ public sealed partial class GameWorld
                 var mate = friend.CrewId != null && friend.CrewId == owner.CrewId;
                 var text = holds >= 1 ? $"your Storage holds {holds:N0}"
                     : makes ? "your spare goes there first"
-                    : mate && !anyMaker ? $"nobody near makes {GoodsWord(ask.Resource)}: you can order them for {NameFor(owner, friend)} in the Yard ({Gold(Math.Ceiling(ask.Left * BasePrice(ask.Resource) * OrderPrice))})"
+                    : mate && !anyMaker ? $"nobody near makes {GoodsWord(ask.Resource)}: you can buy them for {NameFor(owner, friend)} in the Yard ({Gold(Math.Ceiling(ask.Left * WantMarketPrice(owner, ask.Resource)))})"
                     : null;
                 if (text != null)
                 {
@@ -120,6 +123,7 @@ public sealed partial class GameWorld
     /// <summary>What the Yard brought a want arrives in the build: its owner's own goods free, a neighbour's at the one player price</summary>
     private void SettleWant(Company owner, CompanyAsk ask, double minutes)
     {
+        var brought = 0.0;
         foreach (var (sellerId, perMinute) in ask.Incoming)
         {
             if (Company(sellerId) is not { } seller)
@@ -132,17 +136,25 @@ public sealed partial class GameWorld
                 continue;
             }
             ask.Got += units;
+            brought += units;
             ask.From[sellerId] = ask.From.GetValueOrDefault(sellerId) + units;
             if (seller.Id != owner.Id)
             {
                 PayForWant(owner, seller, ask, units);
             }
         }
-        ShipOrder(owner, ask, minutes);
         FillWantsFromStorages(owner);
+        ImportForWant(owner, ask, minutes, brought);
         if (ask.Site is { } id && Building(id) is { } site)
         {
-            FinishWantsIfFull(owner, site);
+            if (ask.ToLevel > 0)
+            {
+                StepUpIfFull(owner, site);
+            }
+            else
+            {
+                FinishWantsIfFull(owner, site);
+            }
         }
         else if (ask.PipeTiles != null)
         {
@@ -161,7 +173,7 @@ public sealed partial class GameWorld
         seller.Report.GoldEarned += gold;
         Add(seller.Report.Sold, ask.Resource, units);
         AddStat(seller, "wantGold", gold);
-        GainXpFromEarnings(seller, gold);
+        CountEarned(seller, gold, "players", ask.Resource);
         seller.Touch();
         owner.Touch();
         Changes.Companies.Add(seller.Id);
@@ -187,10 +199,6 @@ public sealed partial class GameWorld
         foreach (var tile in site.Footprint())
         {
             Changes.Tiles.Add(tile);
-        }
-        foreach (var want in wants)
-        {
-            CloseOrder(want);
         }
         // The playtest's measure of who held the keys (run 4): the wants' materials by where they came from, in base worth
         foreach (var want in wants)
@@ -225,7 +233,7 @@ public sealed partial class GameWorld
         {
             return SendToPipeWant(friendId, -siteId);
         }
-        if (Company(friendId) is not { } friend || Building(siteId) is not { } site || !IsSite(site) || Company(site.Owner) is not { } owner)
+        if (Company(friendId) is not { } friend || Building(siteId) is not { } site || !Wanting(site) || Company(site.Owner) is not { } owner)
         {
             return CommandResult.Fail("That building has what it needs.");
         }
@@ -260,6 +268,7 @@ public sealed partial class GameWorld
         }
         Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.Neighbour, $"{NameFor(friend, owner)} sent {string.Join(" and ", sent)} to your {Content.Building(site.Type).Name} 💛"));
         FinishWantsIfFull(owner, site);
+        StepUpIfFull(owner, site);
         return CommandResult.Ok;
     }
 
@@ -309,10 +318,6 @@ public sealed partial class GameWorld
             return CommandResult.Fail("Only a building that still waits for its materials can be given up.");
         }
         var wants = WantsOf(site);
-        foreach (var want in wants)
-        {
-            CloseOrder(want);
-        }
         var refund = wants.Sum(t => t.Paid) + (company.Purchases.FirstOrDefault(t => t.Building == siteId)?.Cost ?? BuildCost(company, Content.Building(site.Type)));
         // What its owner's own Storages gave goes back into them, as far as they hold it
         foreach (var ask in wants)
@@ -334,10 +339,10 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
-    /// <summary>For tests: a scaffold gets all its materials, as if brought (it starts being built)</summary>
+    /// <summary>For tests: a scaffold gets all its materials, a level all its goods, as if brought</summary>
     public void FillSite(long buildingId)
     {
-        if (Building(buildingId) is not { } site || !IsSite(site) || Company(site.Owner) is not { } owner)
+        if (Building(buildingId) is not { } site || !Wanting(site) || Company(site.Owner) is not { } owner)
         {
             return;
         }
@@ -346,6 +351,7 @@ public sealed partial class GameWorld
             want.Got = want.Amount;
         }
         FinishWantsIfFull(owner, site);
+        StepUpIfFull(owner, site);
     }
 
     /// <summary>For tests and the dev cheat: goods put into a company's Storages; returns how much fitted</summary>

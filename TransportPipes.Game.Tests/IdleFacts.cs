@@ -143,8 +143,8 @@ public class IdleFacts
         var mine = map[(2, 0)];
         company.Gold = 1e12;
         company.Level = 60;
-        game.World.UpgradeMany(company.Id, [mine.Id], 24);
-        game.World.UpgradeMany(company.Id, [map[(0, 0)].Id, map[(0, 2)].Id, map[(2, 2)].Id], 15);
+        game.UpgradeNow(company, [mine.Id], 24);
+        game.UpgradeNow(company, [map[(0, 0)].Id, map[(0, 2)].Id, map[(2, 2)].Id], 15);
         game.Pass(1);
         var rate = game.World.NetworkOf(mine.Id)!.Solution.Rate(mine.Id);
         Assert.IsTrue(rate < 0.9, $"it runs at {rate:P0}");
@@ -163,7 +163,7 @@ public class IdleFacts
         var company = game.NewCompany(level: 6);
         var map = game.Map(company, game.Local(company, 1, 1), "W+T", pipeTier: 1);
         company.Gold = 1e9;
-        game.World.UpgradeMany(company.Id, [map[(0, 0)].Id], 14);
+        game.UpgradeNow(company, [map[(0, 0)].Id], 14);
         game.Pass(2);
 
         var status = game.World.IdleStatusOf(map[(0, 0)]);

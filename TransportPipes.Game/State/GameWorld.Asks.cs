@@ -22,7 +22,10 @@ public sealed class CompanyAsk
     /// build, never a Storage; the owner's own spare comes first, then the neighbours' at the one player price; it has no
     /// deadline (an Order finishes it)
     /// </summary>
-    public long? Site { get; init; }
+    public long? Site { get; set; }
+
+    /// <summary>A level step's goods (1.4 §9): the level the building steps up to once they're in (0: a scaffold's materials)</summary>
+    public int ToLevel { get; init; }
 
     /// <summary>A pipe want (after run 3, step 3): the pipe tiles that become a better tier once its materials are in</summary>
     public List<TilePos>? PipeTiles { get; init; }
@@ -37,32 +40,11 @@ public sealed class CompanyAsk
     /// <summary>When the want was raised (its friends' window counts sessions from then)</summary>
     public DateTime Raised { get; init; }
 
-    /// <summary>The rest ordered from the hub (after run 3, step 4): null when nobody ordered it</summary>
-    public WantOrder? Order { get; set; }
-
     /// <summary>A want: the gold its owner paid for what others brought (Cancel gives it back), and who brought how much</summary>
     public double Paid { get; set; }
     public Dictionary<long, double> From { get; set; } = new();
 
     public double Left => Math.Max(0, Amount - Got);
-}
-
-/// <summary>
-/// "Order the rest" (after run 3, the design team's step 4): gold paid up front for what a want still lacks, at 2 × base;
-/// the hub ships it evenly over 6 hours once the friends' window has passed, and what friends bring meanwhile comes off
-/// it, its gold back to whoever paid
-/// </summary>
-public sealed class WantOrder
-{
-    public long By { get; set; }
-    public double Escrow { get; set; }
-    public double Price { get; set; }
-    public DateTime At { get; set; }
-
-    /// <summary>When the hub started shipping (null: the friends' window is still open), and at what pace</summary>
-    public DateTime? Started { get; set; }
-    public double Rate { get; set; }
-    public double Shipped { get; set; }
 }
 
 public sealed partial class GameWorld
@@ -217,6 +199,10 @@ public sealed partial class GameWorld
             {
                 SettleWant(asker, ask, minutes);
             }
+        }
+        foreach (var crew in _crews.Values.Where(t => t.Depot.Values.Any(g => g.Count > 0)).ToList())
+        {
+            FillWantsFromDepot(crew);
         }
     }
 }

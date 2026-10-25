@@ -29,7 +29,7 @@ export function NetworkPanel() {
     .sort((a, b) => a.tier - b.tier)[0];
   const weakest = [...full.values()].filter((t) => t.tier === lowest);
   const nextUnlocked =
-    next !== undefined && (next.research === null || company?.researched.includes(next.research));
+    next !== undefined && (next.research === null || company?.research.researched.includes(next.research));
   return (
     <aside className="panel network-panel" aria-label="Network">
       <div className="panel-header">

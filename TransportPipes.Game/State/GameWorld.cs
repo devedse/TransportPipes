@@ -54,8 +54,6 @@ public sealed class WorldChanges
     public HashSet<long> Storages { get; } = new();
     public HashSet<(DistrictCoord District, int Slot)> Estates { get; } = new();
     public HashSet<DistrictCoord> Markets { get; } = new();
-    public HashSet<long> Contracts { get; } = new();
-    public HashSet<long> Corporations { get; } = new();
     public HashSet<long> Crews { get; } = new();
     /// <summary>Companies whose links were offered, changed or ended</summary>
     public HashSet<long> Links { get; } = new();
@@ -69,7 +67,7 @@ public sealed class WorldChanges
     public bool Blueprints { get; set; }
     public List<WorldEvent> Events { get; } = new();
 
-    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Contracts.Count == 0 && Corporations.Count == 0 && Crews.Count == 0 && Links.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && !Outposts && !Blueprints && Events.Count == 0;
+    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Crews.Count == 0 && Links.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && !Outposts && !Blueprints && Events.Count == 0;
 }
 
 /// <summary>
@@ -82,7 +80,6 @@ public sealed partial class GameWorld
 
     public GameContent Content { get; }
     public WorldGenerator Generator { get; }
-    public int Era { get; set; } = 1;
     public DateTime LastTick { get; set; }
 
     private readonly Func<DateTime> _clock;
@@ -328,7 +325,8 @@ public sealed partial class GameWorld
         {
             seat = StationSeats(home.Station).Where(t => SeatFree(t, null, code)).Select(t => (EstateKey?)t).FirstOrDefault();
         }
-        var chosen = seat is { } s && SeatFree(s, null, code) ? s : PickForMe();
+        // Newcomers start in an Era-1 town (1.4 §11)
+        var chosen = seat is { } s && SeatFree(s, null, code) && TownEra(s.District) == 1 ? s : PickForMe();
         var estate = Estate(chosen.District, chosen.Slot)!;
         var now = Now;
         var company = new Company
@@ -404,7 +402,8 @@ public sealed partial class GameWorld
         }
     }
 
-    private Building AddBuilding(Company company, string type, TilePos pos, bool finished)
+    /// <summary>A new building; price: what the copy cost (its levels cost from it), by default the next copy's price</summary>
+    private Building AddBuilding(Company company, string type, TilePos pos, bool finished, double? price = null)
     {
         var definition = Content.Building(type);
         var building = new Building
@@ -415,6 +414,7 @@ public sealed partial class GameWorld
             X = pos.X,
             Y = pos.Y,
             Size = definition.Size,
+            Price = price ?? BuildCost(company, definition),
             ConstructionEndsAt = finished || definition.BuildSeconds <= 0 ? null : Now.AddSeconds(definition.BuildSeconds),
         };
         _buildings[building.Id] = building;
@@ -441,7 +441,8 @@ public sealed partial class GameWorld
             reason = $"{definition.Name} can't be built.";
             return false;
         }
-        if (definition.Unlock.Era > Era)
+        // A town's Era opens its buildings (1.4 §11)
+        if (definition.Unlock.Era > TownEra(company.District))
         {
             reason = $"{definition.Name} needs Era {definition.Unlock.Era}.";
             return false;
@@ -514,7 +515,20 @@ public sealed partial class GameWorld
             }
             else if (WorldLayout.ZoneAt(tile.X, tile.Y).Kind == ZoneKind.Yard)
             {
-                return CommandResult.Fail("Nobody builds in the Yard.");
+                // Workshops and the Depot at the Yard's ends (1.4 §7)
+                if (WorkshopBlocker(company, definition, footprint) is { } blocker)
+                {
+                    return CommandResult.Fail(blocker);
+                }
+            }
+            else if (WorldLayout.ZoneAt(tile.X, tile.Y).Kind == ZoneKind.Outskirts)
+            {
+                if (!OwnsOutskirts(company, tile))
+                {
+                    return CommandResult.Fail(OutskirtsParcelAt(Estate, tile) is { } parcel && parcel.Plot == estate
+                        ? "This outskirts parcel is set aside for you: buy it first."
+                        : "These outskirts are set aside for another plot.");
+                }
             }
             else if (OwnEstateAt(company, tile) is not { } own)
             {
@@ -549,7 +563,9 @@ public sealed partial class GameWorld
         {
             for (var dx = 0; dx < definition.Size; dx++)
             {
-                var terrain = Tile(pos.Offset(dx, dy)).Terrain;
+                var tile = pos.Offset(dx, dy);
+                // The Yard's ends are laid out like grass for its workshops (1.4 §7)
+                var terrain = Tile(tile).Terrain is TerrainType.Yard && InWorkshops(tile) ? TerrainType.Grass : Tile(tile).Terrain;
                 if (!definition.Placement.Terrain.Contains(terrain))
                 {
                     return CommandResult.Fail(definition.Placement.Shore && terrain == TerrainType.Water
@@ -656,8 +672,9 @@ public sealed partial class GameWorld
 
     // ---------------------------------------------------------------- Costs
 
+    /// <summary>What a company's next copy of a building costs (1.4 §9: 7% more for every copy it owns; the Workshop Monument)</summary>
     public double BuildCost(Company company, BuildingDefinition definition) =>
-        Content.Progression.BuildCost(definition, CopiesOwned(company.Id, definition.Id));
+        Math.Round(Content.Progression.BuildCost(definition, CopiesOwned(company.Id, definition.Id)) * CostFactor(company));
 
     /// <summary>
     /// Builds a building on every spot of a painted row or area, in order, until the gold runs out (spots where it can't
@@ -776,12 +793,11 @@ public sealed partial class GameWorld
         if (company.Gold >= cost - 1e-9 && definition.Cost.Materials.Count > 0
             && definition.Cost.Materials.Any(t => Materials(company.Id).GetValueOrDefault(t.Key) < t.Value - 1e-9))
         {
-            var xpAtSite = company.Xp;
             // Said as it is (after run 4: "Big Factory is being built", and it waited for its bricks to the end)
             var line = MaterialsLine(company, definition);
             var site = PlaceSite(company, definition, pos, cost);
-            GainXp(company, Content.Progression.XpReward("building") + (company.BuiltTypes.Add(type) ? Content.Progression.XpReward("firstBuildingOfType") : 0), "buildings", type);
-            RecordPurchase(company, PurchaseKind.Build, site, 0, cost, company.Xp - xpAtSite);
+            company.BuiltTypes.Add(type);
+            RecordPurchase(company, PurchaseKind.Build, site, 0, cost);
             return CommandResult.Done($"Your {definition.Name} stands as a scaffold. {line?.Text}".TrimEnd());
         }
         var payment = Pay(company, cost, definition.Cost.Materials);
@@ -790,10 +806,9 @@ public sealed partial class GameWorld
             return payment;
         }
 
-        var xpBefore = company.Xp;
-        var placed = AddBuilding(company, type, pos, finished: false);
-        GainXp(company, Content.Progression.XpReward("building") + (company.BuiltTypes.Add(type) ? Content.Progression.XpReward("firstBuildingOfType") : 0), "buildings", type);
-        RecordPurchase(company, PurchaseKind.Build, placed, 0, cost, company.Xp - xpBefore);
+        var placed = AddBuilding(company, type, pos, finished: false, cost);
+        company.BuiltTypes.Add(type);
+        RecordPurchase(company, PurchaseKind.Build, placed, 0, cost);
         if (definition.Kind == BuildingKind.Storage && StorageKeepsText(company) is { } keeps)
         {
             // Placing a Storage says what it holds back (after run 3, row 9: "Nobody warned me that storing means not selling")
@@ -806,7 +821,7 @@ public sealed partial class GameWorld
     public string? StorageKeepsText(Company company)
     {
         var made = BuildingsOf(company.Id).Where(t => !t.UnderConstruction).SelectMany(t => Content.Building(t.Type).Out.Keys).ToHashSet();
-        var keeps = made.Where(t => t != GameContent.ResearchPoints)
+        var keeps = made
             .Select(t => (Resource: t, Amount: StorageNeed(company, t)))
             .Where(t => t.Amount >= 1)
             .OrderByDescending(t => t.Amount * BasePrice(t.Resource))
@@ -846,9 +861,12 @@ public sealed partial class GameWorld
     public bool DemolishedRecently(Company company, string type, double days = 7) =>
         company.Stats.TryGetValue($"demolished:{type}", out var minute) && (LastTick - DateTime.UnixEpoch).TotalMinutes - minute < days * 24 * 60;
 
-    /// <summary>Half the gold back, all of it with a Recycler (rearranging and evolving the estate costs nothing then)</summary>
+    /// <summary>Half what the copy cost back, all of it with a Recycler (rearranging and evolving the estate costs nothing then)</summary>
     public double DemolishRefund(Building building) =>
-        Math.Round(Content.Building(building.Type).Cost.Gold * (HasBuilding(building.Owner, BuildingKind.Recycler) ? 1 : 0.5) * ComplexMembers(building));
+        Math.Round(CopyPrice(building) * (HasBuilding(building.Owner, BuildingKind.Recycler) ? 1 : 0.5) * ComplexMembers(building));
+
+    /// <summary>What a copy cost to build (1.4 §9: its levels cost from it); an old building without one, its type's price</summary>
+    public double CopyPrice(Building building) => building.Price > 0 ? building.Price : Content.Building(building.Type).Cost.Gold;
 
     private void RemoveBuilding(Building building)
     {
@@ -927,28 +945,29 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
+    /// <summary>The gold of a building's next levels (from the level it was bought up to, its goods still coming or not)</summary>
     public double UpgradeCost(Building building, int levels)
     {
-        var definition = Content.Building(building.Type);
+        var from = BoughtLevel(building);
         double total = 0;
-        for (var level = building.Level; level < building.Level + levels; level++)
+        for (var level = from; level < from + levels; level++)
         {
-            total += Content.Progression.UpgradeCost(definition, level);
+            total += Content.Progression.UpgradeCost(CopyPrice(building), level);
         }
-        // A complex upgrades all its members; Foreman Rick
-        return Math.Round(total * ComplexMembers(building) * ManagerUpgradeFactor(Company(building.Owner)), 2);
+        // A complex upgrades all its members; Foreman Rick; the Workshop Monument
+        return Math.Round(total * ComplexMembers(building) * ManagerUpgradeFactor(Company(building.Owner)) * CostFactor(Company(building.Owner)), 2);
     }
 
     /// <summary>How many levels the company can afford right now, priced like the upgrade (a complex's members, Foreman Rick)</summary>
     public int AffordableLevels(Company company, Building building)
     {
-        var definition = Content.Building(building.Type);
-        var factor = ComplexMembers(building) * ManagerUpgradeFactor(company);
+        var factor = ComplexMembers(building) * ManagerUpgradeFactor(company) * CostFactor(company);
+        var from = BoughtLevel(building);
         var gold = company.Gold;
         var levels = 0;
-        while (building.Level + levels < Content.Progression.MaxBuildingLevel)
+        while (from + levels < Content.Progression.MaxBuildingLevel)
         {
-            var cost = Content.Progression.UpgradeCost(definition, building.Level + levels) * factor;
+            var cost = Content.Progression.UpgradeCost(CopyPrice(building), from + levels) * factor;
             if (cost > gold + 1e-6)
             {
                 break;
@@ -978,30 +997,29 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("Wait until it is built.");
         }
-        levels = Math.Min(levels, Content.Progression.MaxBuildingLevel - building.Level);
+        var from = BoughtLevel(building);
+        levels = Math.Min(levels, Content.Progression.MaxBuildingLevel - from);
         if (levels <= 0)
         {
             return CommandResult.Fail("This building is at its maximum level.");
         }
-        var payment = Pay(company, UpgradeCost(building, levels), new Dictionary<string, double>());
+        var cost = UpgradeCost(building, levels);
+        var payment = Pay(company, cost, new Dictionary<string, double>());
         if (!payment.Success)
         {
             return payment;
         }
 
-        var from = building.Level;
-        var xpBefore = company.Xp;
-        building.Level += levels;
         AddStat(company, "levelsBought", levels);
+        // From level 11 a step also takes goods (1.4 §9): the building works at its old level until they're in
+        AddLevelSteps(company, building, from, levels);
         building.Touch();
         MarkDirty(building);
         foreach (var tile in building.Footprint())
         {
             Changes.Tiles.Add(tile);
         }
-        var milestones = Content.Progression.Milestones.Count(t => t > from && t <= building.Level);
-        GainXp(company, levels * Content.Progression.XpReward("upgradeLevel") + milestones * Content.Progression.XpReward("milestone"), "upgrades", building.Type);
-        RecordPurchase(company, PurchaseKind.Upgrade, building, levels, UpgradeCostFrom(building, from, levels), company.Xp - xpBefore);
+        RecordPurchase(company, PurchaseKind.Upgrade, building, levels, cost);
         return CommandResult.Ok;
     }
 
@@ -1010,7 +1028,7 @@ public sealed partial class GameWorld
     {
         var definition = Content.Building(building.Type);
         return definition.Kind is not (BuildingKind.Hq or BuildingKind.Gate or BuildingKind.Decoration) && definition.Buildable
-            && !building.UnderConstruction && building.Level < Content.Progression.MaxBuildingLevel;
+            && !building.UnderConstruction && BoughtLevel(building) < Content.Progression.MaxBuildingLevel;
     }
 
     /// <summary>
@@ -1050,7 +1068,7 @@ public sealed partial class GameWorld
             // Cheapest first: when the gold doesn't reach for all, the most of them get their levels
             foreach (var building in buildings.OrderBy(t => UpgradeCost(t, 1)))
             {
-                var each = Math.Min(levelsEach, Content.Progression.MaxBuildingLevel - building.Level);
+                var each = Math.Min(levelsEach, Content.Progression.MaxBuildingLevel - BoughtLevel(building));
                 if (each > 0 && Upgrade(companyId, building.Id, each).Success)
                 {
                     levels += each;
@@ -1089,7 +1107,7 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail($"Your next parcel needs Company Level {levelNeeded}.");
         }
-        var payment = Pay(company, Content.Progression.ParcelCost(extra), new Dictionary<string, double>());
+        var payment = Pay(company, Math.Round(Content.Progression.ParcelCost(extra) * CostFactor(company)), new Dictionary<string, double>());
         if (!payment.Success)
         {
             return payment;
@@ -1106,7 +1124,6 @@ public sealed partial class GameWorld
                 Changes.Tiles.Add(estate.Origin.Offset(ox + x, oy + y));
             }
         }
-        GainXp(company, Content.Progression.XpReward("parcel"), "parcels", "parcel");
         return CommandResult.Ok;
     }
 
@@ -1119,7 +1136,7 @@ public sealed partial class GameWorld
         {
             return (0, int.MaxValue);
         }
-        return (Content.Progression.ParcelCost(extra), Content.Progression.ParcelLevels[extra]);
+        return (Math.Round(Content.Progression.ParcelCost(extra) * CostFactor(company)), Content.Progression.ParcelLevels[extra]);
     }
 
     public CommandResult PlacePipes(long companyId, IReadOnlyList<TilePos> tiles, int tier = 1)
@@ -1133,7 +1150,7 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("Unknown pipe.");
         }
-        if (pipe.Era > Era || (pipe.Research != null && !HasResearch(company, pipe.Research)))
+        if (pipe.Era > YourEra(company) || (pipe.Research != null && !HasResearch(company, pipe.Research)))
         {
             return CommandResult.Fail($"{pipe.Name}s are not unlocked yet.");
         }
@@ -1168,6 +1185,12 @@ public sealed partial class GameWorld
                     if (OwnEstateAt(company, tile) == null)
                     {
                         return CommandResult.Fail("You can't lay pipes on someone else's plot. Trade through your Yard gate.");
+                    }
+                    break;
+                case ZoneKind.Outskirts:
+                    if (!OwnsOutskirts(company, tile))
+                    {
+                        return CommandResult.Fail("Only on your own outskirts.");
                     }
                     break;
                 case ZoneKind.Wilderness:
@@ -1230,7 +1253,7 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("Unknown pipe.");
         }
-        if (pipe.Era > Era || (pipe.Research != null && !HasResearch(company, pipe.Research)))
+        if (pipe.Era > YourEra(company) || (pipe.Research != null && !HasResearch(company, pipe.Research)))
         {
             return CommandResult.Fail($"{pipe.Name}s are not unlocked yet.");
         }
@@ -1258,7 +1281,6 @@ public sealed partial class GameWorld
         foreach (var conductor in upgrade)
         {
             conductor.Tier = tier;
-            conductor.Widen = 1;
             conductor.Touch();
             MarkDirty(conductor.Pos);
             Changes.Tiles.Add(conductor.Pos);
@@ -1354,22 +1376,32 @@ public sealed partial class GameWorld
         MarkCompanyNetworksDirty(company.Id);
     }
 
-    // ---------------------------------------------------------------- Experience
+    // ---------------------------------------------------------------- Gold earned and the Company Level
 
-    /// <summary>XP for a company, recorded by where it came from (see Company.XpLog)</summary>
-    public void GainXp(Company company, double xp, string source, string item)
+    /// <summary>
+    /// Gold a company earned (1.4 §14): what the market and other players paid it, orders, rewards and expeditions, never
+    /// refunds, the start gold or buy-backs. The caller adds the gold; this counts it for the Company Level, recorded by
+    /// where it came from (see Company.EarnedLog).
+    /// </summary>
+    public void CountEarned(Company company, double gold, string source, string item)
     {
-        if (xp <= 0)
+        if (gold <= 0)
         {
             return;
         }
-        if (!company.XpLog.TryGetValue(source, out var items))
+        if (!company.EarnedLog.TryGetValue(source, out var items))
         {
-            company.XpLog[source] = items = new Dictionary<string, double>();
+            company.EarnedLog[source] = items = new Dictionary<string, double>();
         }
-        items[item] = items.GetValueOrDefault(item) + xp;
-        company.Xp += xp;
-        var level = Content.Progression.LevelForXp(company.Xp);
+        items[item] = items.GetValueOrDefault(item) + gold;
+        company.LifetimeEarnings += gold;
+        CheckCompanyLevel(company);
+    }
+
+    /// <summary>The Company Level follows the gold earned in all; it never goes down</summary>
+    public void CheckCompanyLevel(Company company)
+    {
+        var level = Content.Progression.LevelForEarned(company.LifetimeEarnings);
         if (level > company.Level)
         {
             company.Report.LevelsGained += level - company.Level;

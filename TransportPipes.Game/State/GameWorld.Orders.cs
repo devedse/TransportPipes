@@ -6,21 +6,8 @@ namespace TransportPipes.Game.State;
 
 public sealed partial class GameWorld
 {
-    /// <summary>Reputation points needed for hub reputation levels 1..10</summary>
-    public static readonly double[] ReputationLevels = [0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500];
-
-    /// <summary>Hub orders a day at most: one a good</summary>
+    /// <summary>Hub orders a day at most: one a good (1.4 §19: three a day, about half an hour of income)</summary>
     public const int OrdersPerDay = 3;
-
-    public int ReputationLevel(Company company)
-    {
-        var level = 1;
-        while (level < ReputationLevels.Length && company.HubReputation >= ReputationLevels[level])
-        {
-            level++;
-        }
-        return level;
-    }
 
     /// <summary>The next midnight (UTC) after a moment: daily orders change then</summary>
     public static DateTime NextDay(DateTime after) => after.Date.AddDays(1);
@@ -28,7 +15,6 @@ public sealed partial class GameWorld
     private void NewDay()
     {
         _likesToday.Clear();
-        SizeWonderStages();
         PlanEvents();
         CheckRequests();
         ForgetOldUsualTrades();
@@ -67,13 +53,11 @@ public sealed partial class GameWorld
         var made = BuildingsOf(company.Id)
             .Where(t => !t.UnderConstruction)
             .SelectMany(t => Content.Building(t.Type).Out.Keys)
-            .Where(t => t != GameContent.ResearchPoints)
             .ToHashSet();
         // Processing only (more than energy goes in): extraction needs a deposit the company may not have
         var next = Content.BuildingList
             .Where(t => t.Buildable && t.Out.Count != 0 && t.In.Keys.Any(k => k != "energy") && t.In.Keys.All(made.Contains) && IsUnlocked(company, t, out _))
-            .SelectMany(t => t.Out.Keys)
-            .Where(t => t != GameContent.ResearchPoints);
+            .SelectMany(t => t.Out.Keys);
         return made.Concat(next).Distinct().Order(StringComparer.Ordinal).ToList();
     }
 
@@ -136,9 +120,7 @@ public sealed partial class GameWorld
                 Id = day * 10 + i,
                 Resource = resource,
                 Amount = amount,
-                RewardGold = Math.Round(amount * price * 2 * (1 + WonderOrderBonus(company))),
-                RewardXp = 30 + 8.0 * company.Level,
-                RewardReputation = 40,
+                RewardGold = Math.Round(amount * price * 2),
                 ExpiresAt = expires,
             });
         }
@@ -174,11 +156,9 @@ public sealed partial class GameWorld
         return premium;
     }
 
-    /// <summary>An order is filled: reputation and XP, and it shows now ("Your coal filled a hub order")</summary>
+    /// <summary>An order is filled: it shows now ("Your coal filled a hub order")</summary>
     private void CompleteOrder(Company company, DailyOrder order)
     {
-        company.HubReputation += order.RewardReputation;
-        GainXp(company, order.RewardXp, "orders", order.Resource);
         Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.OrderCompleted,
             $"Your {GoodsWord(order.Resource)} filled {(order.Urgent ? "a shortage order" : "a hub order")}: {order.Amount:N0} at {(order.Urgent ? "three times" : "twice")} the price, +{order.Premium:N0} g over the hub's"));
         company.Report.OrdersCompleted++;

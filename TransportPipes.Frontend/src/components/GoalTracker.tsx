@@ -60,7 +60,8 @@ export function GoalTracker() {
   const filled = company.dailyOrders.filter((t) => t.delivered >= t.amount - 1e-9);
   const levelShare = Math.min(
     1,
-    (company.xp - company.levelXp) / Math.max(1, company.nextLevelXp - company.levelXp),
+    (company.lifetimeEarnings - company.levelEarned) /
+      Math.max(1, company.nextLevelEarned - company.levelEarned),
   );
   return (
     <aside className="goal-tracker" aria-label="Goals">
@@ -241,7 +242,7 @@ export function GoalTracker() {
                     disabled={company.gold < want.orderCost}
                     onClick={() => void gameClient.orderRest(want.target)}
                   >
-                    Order the rest · {formatAmount(want.orderCost)} g
+                    Buy the rest · {formatAmount(want.orderCost)} g
                   </button>
                 )}
                 <span className="goal-bar">

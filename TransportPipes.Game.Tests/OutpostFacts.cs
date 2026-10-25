@@ -37,7 +37,7 @@ public class OutpostFacts
         StringAssert.Contains(game.World.ClaimOutpost(company.Id, estate).Error, "wilderness");
         var spot = Claimable(game, company);
         Assert.IsTrue(game.World.ClaimOutpost(company.Id, spot).Success);
-        Assert.AreEqual(1_000_000 - game.World.OutpostLease(), company.Gold);
+        Assert.AreEqual(1_000_000 - game.World.OutpostLease(company), company.Gold);
         StringAssert.Contains(game.World.ClaimOutpost(company.Id, spot).Error, "claimed already");
 
         // Buildings go up in the outpost, not next to it
@@ -58,7 +58,7 @@ public class OutpostFacts
         var company = game.NewCompany(level: 15);
         var spot = Claimable(game, company);
         game.World.ClaimOutpost(company.Id, spot);
-        var lease = game.World.OutpostLease();
+        var lease = game.World.OutpostLease(company);
         var gold = company.Gold;
 
         game.Pass(7 * 24 * 60 + 1);

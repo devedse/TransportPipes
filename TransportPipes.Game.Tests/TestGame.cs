@@ -21,9 +21,7 @@ internal sealed class TestGame
     public static GameContent PlainContent { get; } = CreatePlainContent();
 
     /// <summary>PlainContent whose pipes lose nothing (so how long a pipe is doesn't matter)</summary>
-    public static GameContent LosslessContent { get; } = new(PlainContent.ResourceList, PlainContent.BuildingList, PlainContent.PipeTiers.Select(t => t with { LossPerTile = 0 }).ToList(),
-        PlainContent.Progression, PlainContent.ResearchList, [.. PlainContent.DistrictWonders, .. PlainContent.EraWonders], PlainContent.Managers, PlainContent.Achievements,
-        PlainContent.Collections, PlainContent.Tutorial, PlainContent.Relics);
+    public static GameContent LosslessContent { get; } = PlainContent.With(pipeTiers: PlainContent.PipeTiers.Select(t => t with { LossPerTile = 0 }).ToList());
 
     private static GameContent CreatePlainContent()
     {
@@ -42,7 +40,6 @@ internal sealed class TestGame
             In = t.In,
             Out = t.Out,
             OutFromDeposit = t.OutFromDeposit,
-            ResearchPerMinute = t.ResearchPerMinute,
             Placement = t.Placement,
             Modifier = ProductionModifier.None,
             Capacity = t.Capacity,
@@ -55,7 +52,7 @@ internal sealed class TestGame
             Sprite = t.Sprite,
             Description = t.Description,
         }).ToList();
-        return new GameContent(content.ResourceList, buildings, content.PipeTiers, content.Progression, content.ResearchList, [.. content.DistrictWonders, .. content.EraWonders], content.Managers, content.Achievements, content.Collections, content.Tutorial, content.Relics);
+        return content.With(buildings: buildings);
     }
 
     private static readonly Dictionary<char, string> MapLetters = new()
@@ -69,22 +66,20 @@ internal sealed class TestGame
         ['V'] = "valve",
         ['P'] = "priorityValve",
         ['U'] = "pumpStation",
-        ['E'] = "exchangeOffice",
         ['C'] = "cargoDepot",
         ['L'] = "powerLinePylon",
-        ['H'] = "showroom",
         ['B'] = "blueprintOffice",
-        ['Q'] = "pneumaticPost",
+        ['K'] = "quantumLink",
         ['R'] = "lab",
     };
 
     /// <summary>
     /// Puts a map like the original game's tests on the world, without any placement rules: W wind moily, S solar panel,
-    /// M iron mine, F small factory, O storage, T trading post, V valve, P priority valve, U pump station, L power line pylon, H showroom, B blueprint office, Q pneumatic post, R lab, + pipe
+    /// M iron mine, F small factory, O storage, T trading post, V valve, P priority valve, U pump station, C cargo depot, L power line pylon, B blueprint office, K quantum link (2×2), R lab, + pipe
     /// (lossless by default, like the original game).
     /// Returns the buildings by their map position.
     /// </summary>
-    public Dictionary<(int X, int Y), Building> Map(Company company, TilePos origin, string map, int pipeTier = 5)
+    public Dictionary<(int X, int Y), Building> Map(Company company, TilePos origin, string map, int pipeTier = 6)
     {
         var buildings = new Dictionary<(int X, int Y), Building>();
         var rows = map.Replace("\r", "").Split('\n');
@@ -100,7 +95,7 @@ internal sealed class TestGame
                 }
                 else if (MapLetters.TryGetValue(c, out var type))
                 {
-                    var building = new Building { Id = World.NextBuildingId, Type = type, Owner = company.Id, X = pos.X, Y = pos.Y };
+                    var building = new Building { Id = World.NextBuildingId, Type = type, Owner = company.Id, X = pos.X, Y = pos.Y, Size = World.Content.Building(type).Size };
                     World.LoadBuilding(building);
                     buildings[(x, y)] = building;
                 }
@@ -124,6 +119,41 @@ internal sealed class TestGame
         // What a company of that level has: Copper Pipes from Level 8, as a level-up grants them
         World.GrantResearch(company);
         return company;
+    }
+
+    /// <summary>A building at a level, as if it had been bought (its networks are solved again)</summary>
+    public void SetLevel(Building building, int level)
+    {
+        building.Level = level;
+        World.MarkCompanyNetworksDirty(building.Owner);
+        World.SolveNetworks();
+    }
+
+    /// <summary>Buys levels and has their goods come at once (level goods have tests of their own)</summary>
+    public void UpgradeNow(Company company, IReadOnlyCollection<long> ids, int levels)
+    {
+        World.UpgradeMany(company.Id, ids, levels);
+        foreach (var id in ids)
+        {
+            World.FillSite(id);
+        }
+    }
+
+    /// <summary>The first town (where new companies settle) moves up to an Era</summary>
+    public void TownToEra(int era)
+    {
+        var town = new DistrictCoord(0, 0);
+        while (World.TownEra(town) < era)
+        {
+            World.AdvanceEra(town);
+        }
+    }
+
+    /// <summary>The gold earned a Company Level needs (1.4 §14), as earned: the company reaches it like a player would</summary>
+    public void ReachLevel(Company company, int level)
+    {
+        var gold = World.Content.Progression.EarnedForLevel(level) - company.LifetimeEarnings;
+        World.CountEarned(company, Math.Max(0, gold), "test", "level");
     }
 
     public Estate EstateOf(Company company) => World.EstateOf(company)!;

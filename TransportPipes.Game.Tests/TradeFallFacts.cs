@@ -76,6 +76,5 @@ public class TradeFallFacts
         Assert.IsGreaterThan(1, units);
         Assert.AreEqual(units, b.Report.BoughtFromUnits.GetValueOrDefault($"{a.Id}:energy"), 1e-6);
         Assert.AreEqual(a.Gold - gold, a.Report.SoldToGold.GetValueOrDefault($"{b.Id}:energy"), 1, "what Ana was paid, no more");
-        Assert.AreEqual(GameWorld.Capital, a.District);
     }
 }

@@ -13,8 +13,6 @@ public enum EventKind
     Shortage,
     Discovery,
     Festival,
-    EraLaunch,
-    Finale,
 }
 
 /// <summary>A temporary multiplier with a start and an end (GDD §15)</summary>
@@ -118,10 +116,6 @@ public sealed partial class GameWorld
         {
             factor *= 0.5;
         }
-        if (EventActive(district, EventKind.EraLaunch))
-        {
-            factor *= 1.1;
-        }
         return factor;
     }
 
@@ -217,8 +211,9 @@ public sealed partial class GameWorld
             AddEvent(new GameEvent { Id = NextEventId++, Kind = kind, District = district, StartsAt = start, EndsAt = start.AddHours(hours), Resource = resource });
         }
 
-        var products = Content.ResourceList.Where(t => t.Era <= Era && t.Tier >= 2).Select(t => t.Id).ToList();
-        var basics = Content.ResourceList.Where(t => t.Era <= Era && t.Tier <= 2 && t.Id != "water").Select(t => t.Id).ToList();
+        var era = TownEra(district);
+        var products = Content.ResourceList.Where(t => t.Era <= era && t.Tier >= 2).Select(t => t.Id).ToList();
+        var basics = Content.ResourceList.Where(t => t.Era <= era && t.Tier <= 2 && t.Id != "water").Select(t => t.Id).ToList();
         Maybe(EventKind.Storm, 1 / 7.0, 0, 20, 6);
         Maybe(EventKind.Heatwave, 1 / 14.0, 9, 13, 10);
         Maybe(EventKind.Drought, 1 / 30.0, 0, 12, 24);
@@ -293,9 +288,7 @@ public sealed partial class GameWorld
         EventKind.Expo => $"{ResourceName(gameEvent.Resource)} Expo",
         EventKind.Shortage => $"{ResourceName(gameEvent.Resource)} Shortage",
         EventKind.Discovery => $"{ResourceName(gameEvent.Resource)} Discovery",
-        EventKind.Festival => "Festival",
-        EventKind.Finale => "Season finale: the Space Elevator launches",
-        _ => $"Era {Era} launch",
+        _ => "Festival",
     };
 
     public string EventEffect(GameEvent gameEvent) => gameEvent.Kind switch
@@ -307,9 +300,7 @@ public sealed partial class GameWorld
         EventKind.Expo => $"The hub pays ×3 for {ResourceName(gameEvent.Resource).ToLowerInvariant()}",
         EventKind.Shortage => $"An urgent order for {ResourceName(gameEvent.Resource).ToLowerInvariant()} with a big reward",
         EventKind.Discovery => $"A rich {ResourceName(gameEvent.Resource).ToLowerInvariant()} deposit appears in the wilderness: claim an outpost on it",
-        EventKind.Festival => "Likes count double",
-        EventKind.Finale => "The season ends with the launch: rankings, Legacy, and a new world a week later",
-        _ => "+10% production for everyone",
+        _ => "Likes count double",
     };
 
     private string ResourceName(string? resource) => resource != null && Content.Resources.TryGetValue(resource, out var definition) ? definition.Name : "";
@@ -482,8 +473,8 @@ public sealed partial class GameWorld
     {
         var resource = shortage.Resource!;
         var price = BasePrice(resource);
-        // Twice a normal order, three times the reward per unit
-        var value = 240 * Math.Pow(company.Level, 1.35);
+        // Twice a normal order (an hour of the company's income at base), three times the reward per unit
+        var value = 2 * OrderIncomeMinutes * MeasuredIncome(company);
         var amount = Math.Max(20, Math.Round(value / price / 10) * 10);
         company.DailyOrders.Add(new DailyOrder
         {
@@ -491,8 +482,6 @@ public sealed partial class GameWorld
             Resource = resource,
             Amount = amount,
             RewardGold = Math.Round(amount * price * 3),
-            RewardXp = 60 + 12.0 * company.Level,
-            RewardReputation = 80,
             ExpiresAt = shortage.EndsAt,
             Urgent = true,
         });

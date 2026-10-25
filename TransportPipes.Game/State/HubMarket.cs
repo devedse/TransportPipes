@@ -1,9 +1,9 @@
 namespace TransportPipes.Game.State;
 
 /// <summary>
-/// A company's order at one hub (v1.2 §8, the Hub Order): the hub buys every resource; when the company sells more than
-/// the hub's order, its price drops (to a quarter at most), up to the order it pays the full price. Nobody else's sales
-/// move it. Updated every 15 minutes.
+/// A company's prices at one hub (1.4 §8, the Hub Order): up to its order of a good the hub pays the full price; beyond
+/// it the average falls as √(order ÷ sold), to a quarter at most. Nobody else's sales move it. Updated every 15 minutes,
+/// from what it sold over about the last hour.
 /// </summary>
 public sealed class HubMarket
 {
@@ -26,13 +26,6 @@ public sealed class HubMarket
 
     /// <summary>The price multiplier the hub pays with now (the last announced one, so all networks agree)</summary>
     public double Multiplier(string resource) => Announced.TryGetValue(resource, out var m) ? m : 1;
-
-    /// <summary>Market Insight: the multiplier the next updates move towards, with what was sold lately</summary>
-    public double Heading(string resource, double demand)
-    {
-        var rate = SoldRate.TryGetValue(resource, out var r) ? r : 0;
-        return rate <= 1e-9 ? MaxMultiplier : Math.Round(Math.Clamp(Math.Sqrt(demand / rate), MinMultiplier, MaxMultiplier), 3);
-    }
 
     public void AddSold(string resource, double amount) =>
         SoldSinceUpdate[resource] = (SoldSinceUpdate.TryGetValue(resource, out var v) ? v : 0) + amount;

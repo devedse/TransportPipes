@@ -117,8 +117,8 @@ public class YardFacts
     [TestMethod]
     public void ABuyerHeldBackByAnotherInputIsMatchedOnlyWhatItCanUse()
     {
-        // Cleo's Lab, small: B's factory at level 10 could use 94 energy a minute, but its one mine brings only a fifth
-        // of the iron ore it needs, so the energy it can use is a fifth too
+        // B's factory at level 16 could use 84 energy a minute, but its one mine brings only a quarter of the iron ore it
+        // needs, so the energy it can use is a quarter too
         var game = new TestGame(content: TestGame.LosslessContent);
         var a = game.NewCompany("A");
         var post = game.TradingPost(a);
@@ -131,7 +131,7 @@ public class YardFacts
         var b = game.NewCompany("B", level: 10);
         var mine = game.Build(b, "ironMine", game.Spot(b, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
         var factory = game.Build(b, "smallFactory");
-        Assert.IsTrue(game.World.Upgrade(b.Id, factory.Id, 9).Success);
+        game.UpgradeNow(b, [factory.Id], 15);
         game.Connect(b, mine, factory);
         game.ConnectToGate(b, mine);
         game.ConnectToGate(b, factory);
@@ -438,20 +438,6 @@ public class YardFacts
         game.Pass(30);
 
         Assert.AreSame(solution, game.World.NetworkOf(moily.Id)!.Solution, "nothing changed, so nothing was solved again");
-    }
-
-    [TestMethod]
-    public void AContractIsDeliveredThroughTheYard()
-    {
-        var (game, a, b, _, _) = Neighbours();
-        Assert.IsTrue(game.World.ProposeContract(a.Id, b.Id, selling: true, "energy", 5, 99, 1).Success);
-        var contract = game.World.Contracts.Single();
-        Assert.AreEqual(1.3, contract.Price, "one price between players");
-        Assert.IsTrue(game.World.AcceptContract(b.Id, contract.Id).Success);
-
-        game.Pass(60);
-
-        Assert.IsTrue(contract.Fulfillment > 0.9, $"delivered {contract.Fulfillment:P0}");
     }
 
     [TestMethod]

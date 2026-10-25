@@ -4,9 +4,13 @@ using TransportPipes.Game.World;
 namespace TransportPipes.Game.State;
 
 /// <summary>
-/// Prices (v1.2 §8): one price between players, and the hub's order for every company. The hub pays a company the full
-/// price up to its own Hub Order of a good and less beyond it (base × clamp(√(order ÷ what it sells), 0.25, 1)); nobody's
-/// sales move anybody else's price. The hub sells at its spread over the base price.
+/// The market (1.4 §8): every town's hub buys every good of the town's Era and older, and sells the same goods at 2.5×.
+/// A company's Hub Order of a good is how much of it the market buys from it at the full base price each minute: 1,000
+/// gold's worth for an Era-1 good, four times as much a later Era, half as much again for every Era the town is past
+/// the good's, +10% for every trading post level, ×1.8 for every tier of its track beyond the fourth. Beyond the order
+/// the market pays base × √(order × sold) up to sixteen orders, then a quarter of the base for every further unit: an
+/// average price of base × clamp(√(order ÷ sold), 0.25, 1), measured over about an hour. Nobody's sales move anybody
+/// else's price, and nothing depends on how many people play (rule 2).
 /// </summary>
 public sealed partial class GameWorld
 {
@@ -31,8 +35,7 @@ public sealed partial class GameWorld
         var key = HubKey(district);
         if (!company.HubMarkets.TryGetValue(key, out var market))
         {
-            var together = Content.Progression.Together;
-            market = new HubMarket { LastUpdate = LastTick, MinMultiplier = together.HubMinMultiplier, MaxMultiplier = together.HubMaxMultiplier };
+            market = new HubMarket { LastUpdate = LastTick, MinMultiplier = Content.Progression.Market.Floor, MaxMultiplier = 1 };
             company.HubMarkets[key] = market;
         }
         return market;
@@ -40,8 +43,11 @@ public sealed partial class GameWorld
 
     /// <summary>What the hub of a district pays a company for a resource (its own order there)</summary>
     public double HubBuyPrice(Company? company, DistrictCoord district, string resource) =>
-        Math.Round(BasePrice(resource) * (company != null && company.HubMarkets.TryGetValue(HubKey(district), out var market) ? market.Multiplier(resource) : Content.Progression.Together.HubMaxMultiplier)
-            * EventPriceFactor(district, resource) * (company == null ? 1 : ShowroomFactor(company, resource)), 4);
+        Content.Resources.TryGetValue(resource, out var good) && good.Era > TownEra(district)
+            // A good of a later Era than the town's: the market doesn't want it (a quarter of the base, like a flood)
+            ? Math.Round(good.Price * Content.Progression.Market.Floor, 4)
+            : Math.Round(BasePrice(resource) * (company != null && company.HubMarkets.TryGetValue(HubKey(district), out var market) ? market.Multiplier(resource) : 1)
+                * EventPriceFactor(district, resource), 4);
 
     /// <summary>What a company's home hub pays it for a resource</summary>
     public double HubBuyPrice(Company company, string resource) => HubBuyPrice(company, company.District, resource);
@@ -50,42 +56,8 @@ public sealed partial class GameWorld
     public double HubSellPrice(DistrictCoord district, string resource) =>
         Math.Round(BasePrice(resource) * Content.Progression.HubSpread * EventPriceFactor(district, resource), 4);
 
-    /// <summary>A Showroom: the hub pays 10% more for the product it shows</summary>
-    public double ShowroomFactor(Company company, string resource) =>
-        BuildingsOf(company.Id).Any(t => !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Showroom && t.Filter.Contains(resource)) ? 1.1 : 1;
-
-    /// <summary>Chooses the one product a Showroom shows</summary>
-    public CommandResult SetShowroomProduct(long companyId, long buildingId, string resource)
-    {
-        if (Building(buildingId) is not { } building || building.Owner != companyId || Content.Building(building.Type).Kind != BuildingKind.Showroom)
-        {
-            return CommandResult.Fail("That is not your Showroom.");
-        }
-        if (!Content.Resources.ContainsKey(resource))
-        {
-            return CommandResult.Fail("Unknown resource.");
-        }
-        building.Filter.Clear();
-        building.Filter.Add(resource);
-        building.Touch();
-        MarkCompanyNetworksDirty(companyId);
-        return CommandResult.Ok;
-    }
-
-    /// <summary>Market Insight: where a company's hub price of a resource is heading (null without the tech)</summary>
-    public double? HubPriceHeading(Company company, string resource) =>
-        HasResearch(company, "marketInsight")
-            ? Math.Round(BasePrice(resource) * HubMarketOf(company, company.District).Heading(resource, HubDemand(company.District, resource)) * EventPriceFactor(company.District, resource), 4)
-            : null;
-
-    /// <summary>Whether a company trades freely (not by contract) with another one: its partner list and choice</summary>
-    public bool TradesWith(Company company, Company other) =>
-        !company.TradeBlocked.Contains(other.Id) && company.TradeWith switch
-        {
-            TradeWith.Corporation => company.CrewId != null && company.CrewId == other.CrewId,
-            TradeWith.Contracts => false,
-            _ => true,
-        };
+    /// <summary>Whether a company trades freely with another one (neither blocked the other)</summary>
+    public bool TradesWith(Company company, Company other) => !company.TradeBlocked.Contains(other.Id);
 
     /// <summary>
     /// Stops (or starts again) trading with one company (Block, v1.2 §6): private, and after an hour's notice (what is
@@ -132,20 +104,6 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>Who a company trades with</summary>
-    public CommandResult SetTradeWith(long companyId, TradeWith tradeWith)
-    {
-        if (Company(companyId) is not { } company)
-        {
-            return CommandResult.Fail("Unknown company.");
-        }
-        company.TradeWith = tradeWith;
-        company.Touch();
-        MarkTradeDirty(company.Id);
-        Changes.Companies.Add(company.Id);
-        return CommandResult.Ok;
-    }
-
     /// <summary>Whether a company buys a resource from other companies</summary>
     public CommandResult SetNoBuy(long companyId, string resource, bool noBuy)
     {
@@ -187,12 +145,8 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
-    /// <summary>Companies that played in the last week, in a district</summary>
-    public int ActiveCompanies(DistrictCoord district)
-    {
-        var since = LastTick - ActivePeriod;
-        return _companies.Values.Count(t => t.District == district && t.LastSeenAt >= since);
-    }
+    /// <summary>Who played in this period counts as playing this week (who makes a good, who an order waits for)</summary>
+    public static readonly TimeSpan ActivePeriod = TimeSpan.FromDays(7);
 
     /// <summary>Players who opened the game in the last 3 days (a lit seat, v1.2 §3)</summary>
     public static readonly TimeSpan LitPeriod = TimeSpan.FromDays(3);
@@ -202,14 +156,58 @@ public sealed partial class GameWorld
     /// <summary>Active players on the whole server</summary>
     public int ActivePlayers() => _companies.Values.Count(IsActive);
 
-    /// <summary>A company's Hub Order at a hub: what the hub takes of a resource per minute at the full price</summary>
-    public double HubDemand(DistrictCoord district, string resource) =>
-        (Content.Resources.TryGetValue(resource, out var definition) ? definition.Demand : 0) * Math.Pow(1.5, Era - 1)
-        * EventDemandFactor(district, resource) * WonderDemandFactor(district);
+    /// <summary>The level of a company's trading post (its Market Hall): every level raises every Hub Order by 10%</summary>
+    public int PostLevel(Company company) =>
+        BuildingsOf(company.Id).Where(t => !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.TradingPost).Select(t => t.Level).DefaultIfEmpty(1).Max();
+
+    /// <summary>
+    /// A company's Hub Order of a good in a town (1.4 §22): units a minute the market buys from it at the full base price.
+    /// None for a good of a later Era than the town's (the market doesn't buy it yet).
+    /// </summary>
+    public double HubOrder(Company company, DistrictCoord town, string resource)
+    {
+        if (!Content.Resources.TryGetValue(resource, out var good) || good.Price <= 0)
+        {
+            return 0;
+        }
+        var market = Content.Progression.Market;
+        var townEra = TownEra(town);
+        if (good.Era > townEra)
+        {
+            return 0;
+        }
+        return market.HubOrderValue * Math.Pow(market.EraValue, good.Era - 1) / good.Price
+            * Math.Pow(market.EraGrowth, townEra - good.Era)
+            * Math.Pow(market.PostLevel, PostLevel(company) - 1)
+            * TrackHubOrderFactor(company, resource)
+            * MonumentHubOrderFactor(company) * WonderHubOrderFactor(town) * ManagerHubOrderFactor(company)
+            * EventDemandFactor(town, resource);
+    }
+
+    /// <summary>
+    /// About what more trading post levels add a minute: every good the company sold at its hub lately, paid against Hub
+    /// Orders 10% bigger a level
+    /// </summary>
+    public double PostLevelGain(Company company, int levels)
+    {
+        var market = Content.Progression.Market;
+        var gain = 0.0;
+        foreach (var (resource, rate) in HubMarketOf(company, company.District).SoldRate.Where(t => t.Value > 1e-9))
+        {
+            var order = HubOrder(company, resource);
+            gain += market.Pays(BasePrice(resource), order * Math.Pow(market.PostLevel, levels), rate) - market.Pays(BasePrice(resource), order, rate);
+        }
+        return gain;
+    }
+
+    /// <summary>A company's Hub Order of a good at its home town's market</summary>
+    public double HubOrder(Company company, string resource) => HubOrder(company, company.District, resource);
+
+    /// <summary>The goods a town's market buys and sells: those of its Era and older</summary>
+    public IEnumerable<ResourceDefinition> MarketGoods(DistrictCoord town) => Content.ResourceList.Where(t => t.Era <= TownEra(town));
 
     private void UpdateMarkets()
     {
-        var resources = Content.ResourceList.Where(t => t.Era <= Era + 1).Select(t => t.Id).ToList();
         foreach (var company in _companies.Values)
         {
             foreach (var (key, market) in company.HubMarkets)
@@ -217,7 +215,7 @@ public sealed partial class GameWorld
                 var parts = key.Split(',');
                 var district = new DistrictCoord(int.Parse(parts[0]), int.Parse(parts[1]));
                 // LastTick: during a catch-up this runs at the moment of the update, not at the end
-                if (market.Update(LastTick, resource => HubDemand(district, resource), resources))
+                if (market.Update(LastTick, resource => HubOrder(company, district, resource), MarketGoods(district).Select(t => t.Id)))
                 {
                     MarkCompanyNetworksDirty(company.Id);
                     Changes.Companies.Add(company.Id);

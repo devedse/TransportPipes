@@ -5,6 +5,7 @@ import type {
   PipeTierDefinition,
   ResearchDefinition,
   ResourceDefinition,
+  TrackDefinition,
 } from "../api/contracts";
 
 /** The game content (resources, buildings, pipes, progression) with the same formulas as the server */
@@ -15,6 +16,7 @@ export class Content {
   private readonly buildingById = new Map<string, BuildingDefinition>();
   private readonly resourceById = new Map<string, ResourceDefinition>();
   private readonly researchById = new Map<string, ResearchDefinition>();
+  private readonly trackById = new Map<string, TrackDefinition>();
 
   readonly dto: GameContentDto;
 
@@ -31,6 +33,9 @@ export class Content {
     }
     for (const tech of dto.research) {
       this.researchById.set(tech.id, tech);
+    }
+    for (const track of dto.tracks) {
+      this.trackById.set(track.id, track);
     }
   }
 
@@ -63,14 +68,14 @@ export class Content {
     return Math.pow(p.outputPerLevel, level - 1) * Math.pow(2, milestones);
   }
 
-  /** Gold to upgrade from this level to the next */
-  upgradeCost(definition: BuildingDefinition, level: number): number {
+  /** Gold to upgrade from this level to the next (1.4 §9: from what the copy cost, its build price when unknown) */
+  upgradeCost(definition: BuildingDefinition, level: number, copyPrice?: number): number {
     return Math.round(
-      Math.max(definition.cost.gold, 10) * Math.pow(this.progression.costPerLevel, level - 1),
+      Math.max(copyPrice ?? definition.cost.gold, 10) * Math.pow(this.progression.costPerLevel, level - 1),
     );
   }
 
-  /** Gold for another copy when you already own some */
+  /** Gold for another copy when you already own some (every copy 7% more than the last) */
   buildCost(definition: BuildingDefinition, copiesOwned: number): number {
     return Math.round(definition.cost.gold * Math.pow(this.progression.costPerCopy, copiesOwned));
   }
@@ -79,12 +84,28 @@ export class Content {
     return this.progression.milestones.find((t) => t > level) ?? null;
   }
 
-  xpForLevel(level: number): number {
-    return this.progression.xpForLevel[level] ?? Infinity;
+  /** The gold earned in all a Company Level needs (1.4 §14) */
+  earnedForLevel(level: number): number {
+    return this.progression.earnedForLevel[level] ?? Infinity;
   }
 
   research(id: string): ResearchDefinition | undefined {
     return this.researchById.get(id);
+  }
+
+  track(id: string): TrackDefinition | undefined {
+    return this.trackById.get(id);
+  }
+
+  get tracks(): TrackDefinition[] {
+    return this.dto.tracks;
+  }
+
+  /** The track a building follows (a Coal Pit has two: the first is shown) */
+  trackOf(building: string): TrackDefinition | undefined {
+    return this.dto.tracks.find((t) =>
+      t.buildings.some((b) => b === building || b.startsWith(`${building}:`)),
+    );
   }
 
   get researchList(): ResearchDefinition[] {
@@ -94,7 +115,7 @@ export class Content {
   /** Why a building can't be built yet, or null */
   lockReason(
     definition: BuildingDefinition,
-    company: Pick<CompanyDto, "level" | "researched"> & Partial<Pick<CompanyDto, "collections">>,
+    company: Pick<CompanyDto, "level" | "research"> & Partial<Pick<CompanyDto, "collections">>,
     era: number,
   ): string | null {
     if (!definition.buildable) {
@@ -106,7 +127,10 @@ export class Content {
     if (company.level < definition.unlock.level) {
       return `Level ${definition.unlock.level}`;
     }
-    if (definition.unlock.research !== null && !company.researched.includes(definition.unlock.research)) {
+    if (
+      definition.unlock.research !== null &&
+      !company.research.researched.includes(definition.unlock.research)
+    ) {
       return `Research ${this.research(definition.unlock.research)?.name ?? definition.unlock.research}`;
     }
     if (

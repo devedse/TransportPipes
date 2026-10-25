@@ -8,7 +8,6 @@ public class DbEstate
     public long? OwnerId { get; set; }
     public int UnlockedParcels { get; set; }
 
-    /// <summary>A corporation block: kept for a corporation's members until then</summary>
-    public long? ReservedFor { get; set; }
-    public DateTime? ReservedUntil { get; set; }
+    /// <summary>The outskirts parcels bought (1.4 §5): bit n for parcel n of the nine</summary>
+    public int OutskirtsParcels { get; set; }
 }

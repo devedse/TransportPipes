@@ -58,7 +58,7 @@ public sealed partial class GameWorld
                 continue;
             }
             // Its pipe door first: the levels come with it
-            if (PipeDoorFor(company, building) is { Kind: PipeDoorKind.Tier or PipeDoorKind.Widen, Short.Count: 0 } door && door.Gain > 0.5)
+            if (PipeDoorFor(company, building) is { Kind: PipeDoorKind.Tier, Short.Count: 0 } door && door.Gain > 0.5)
             {
                 parts.Add(new GrowPart(building.Id, $"{definition.Name}: {char.ToLowerInvariant(door.Text[0])}{door.Text[1..]}", true, door.ToLevel, door.Gold + door.LevelCost, door.Gain));
                 continue;

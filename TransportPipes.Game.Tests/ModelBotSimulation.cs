@@ -78,12 +78,12 @@ public class ModelBotSimulation
         }
         foreach (var post in game.World.BuildingsOf(company.Id).Where(t => game.World.Content.Building(t.Type).Kind == Content.BuildingKind.TradingPost))
         {
-            report.AppendLine($"- {post.Type} level {post.Level}: sells up to {game.World.TradingPostThroughput(post, game.World.Content.Building(post.Type)):N0}/min, full {game.World.TradingPostFull(post)}, upgrade {game.World.UpgradeCost(post, 1):N0} g, Max {game.World.SmartMax(company, post).Levels} levels");
+            report.AppendLine($"- {post.Type} level {post.Level}: upgrade {game.World.UpgradeCost(post, 1):N0} g for +{game.World.PostLevelGain(company, 1):N1}/min, Max {game.World.SmartMax(company, post).Levels} levels");
         }
         var idle = game.World.BuildingsOf(company.Id).Select(t => game.World.IdleReasonOf(t).Cause).GroupBy(t => t).Select(t => $"{t.Key} ×{t.Count()}");
         report.AppendLine($"- idle: {string.Join(", ", idle)}; alerts: {string.Join(" | ", game.World.Alerts(company).Select(t => t.Text))}");
         var (parcelCost, parcelLevel) = game.World.NextParcel(company);
-        report.AppendLine($"- next parcel {parcelCost:N0} g at Level {parcelLevel}; research {company.CurrentResearch ?? "none"}; points {company.ResearchPoints:N0}; grow {game.World.PlanGrowth(company).Parts.Count} parts, saving {game.World.PlanGrowth(company).Saving}");
+        report.AppendLine($"- next parcel {parcelCost:N0} g at Level {parcelLevel}; research {company.CurrentTrack ?? "none"} and {company.CurrentResearch ?? "none"}, tiers {string.Join(" ", company.TrackTiers.Select(t => $"{t.Key} {t.Value}"))}; grow {game.World.PlanGrowth(company).Parts.Count} parts, saving {game.World.PlanGrowth(company).Saving}");
         TestContext.WriteLine(report.ToString());
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "model-days.md"), report.ToString());
     }

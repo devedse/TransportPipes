@@ -3,8 +3,8 @@ using TransportPipes.Game.Content;
 namespace TransportPipes.Game.State;
 
 /// <summary>
-/// Managers (GDD §8.4): hired once with gold into a slot, each with one automation and one bonus. Slots come from the
-/// Company Level, the Automation tech, an Engineer's Workshop and a corporation HQ of level 4.
+/// Managers (GDD §8.4, 1.4 §19): hired once with gold into a slot, each with one automation and one bonus. Slots come
+/// from the Company Level, the Automation research and an Engineer's Workshop.
 /// </summary>
 public sealed partial class GameWorld
 {
@@ -104,6 +104,11 @@ public sealed partial class GameWorld
             {
                 UpgradeBestBuilding(company);
             }
+            if (HasManager(company, TraderLin))
+            {
+                BuyStaleWants(company);
+            }
+            PlanNextResearch(company);
         }
     }
 
@@ -123,7 +128,7 @@ public sealed partial class GameWorld
                 gold += amount * HubBuyPrice(company, resource);
             }
             company.Gold += gold;
-            company.LifetimeEarnings += gold;
+            CountEarned(company, gold, "market", "storages");
             company.Report.GoldEarned += gold;
             storage.Touch();
             Changes.Storages.Add(storage.Id);
@@ -141,8 +146,7 @@ public sealed partial class GameWorld
         foreach (var building in BuildingsOf(company.Id))
         {
             var definition = Content.Building(building.Type);
-            if (building.UnderConstruction || definition.Out.Count == 0 || building.Level >= Content.Progression.MaxBuildingLevel
-                || NetworkOf(building.Id) is not { } network)
+            if (building.UnderConstruction || definition.Out.Count == 0 || !CanUpgrade(building) || NetworkOf(building.Id) is not { } network)
             {
                 continue;
             }
@@ -168,35 +172,39 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>Planner Sam starts the cheapest tech the company can afford</summary>
+    /// <summary>Trader Lin: Hub Orders +5%</summary>
+    private double ManagerHubOrderFactor(Company? company) => HasManager(company, TraderLin) ? 1.05 : 1;
+
+    /// <summary>Planner Sam keeps both lines busy: the cheapest research the company can afford, when a line is free and its queue empty</summary>
     private void PlanNextResearch(Company company)
     {
-        if (!HasManager(company, PlannerSam) || company.CurrentResearch != null)
+        if (!HasManager(company, PlannerSam))
         {
             return;
         }
-        var next = Content.ResearchList
-            .Where(t => !company.Researched.Contains(t.Id) && ResearchBlocker(company, t) == null && ResearchCost(company, t) <= company.ResearchPoints)
-            .OrderBy(t => ResearchCost(company, t))
-            .FirstOrDefault();
-        if (next != null && StartResearch(company.Id, next.Id).Success)
+        if (company.CurrentResearch == null && company.ResearchQueue.Count == 0 && CheapestResearch(company) is { } next && StartResearch(company.Id, next.Id).Success)
         {
-            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ResearchFinished, $"Planner Sam started researching {next.Name}"));
+            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ResearchFinished, $"Planner Sam started researching {next.Name}", Bell: false));
+        }
+        if (company.CurrentTrack == null && company.TrackQueue.Count == 0 && CheapestTier(company) is { } track && StartTier(company, track).Success)
+        {
+            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ResearchFinished, $"Planner Sam started {track.Name} tier {TrackTier(company, track.Id) + 1}", Bell: false));
         }
     }
 
-    /// <summary>Trader Lin offers a contract that ended well again</summary>
-    private void RenewContract(Contract contract)
+    /// <summary>
+    /// Trader Lin buys what a want still lacks from the market when nobody in the Yard has brought any of it for an hour
+    /// (wants raised an hour ago or more that got nothing this round)
+    /// </summary>
+    private void BuyStaleWants(Company company)
     {
-        if (Company(contract.Proposer) is not { } proposer || !HasManager(proposer, TraderLin) || contract.Fulfillment < 0.9)
+        foreach (var ask in company.Asks.Where(t => t.IsWant && t.Left > 1e-6 && LastTick - t.Raised >= TimeSpan.FromHours(1) && t.Incoming.Values.Sum() <= 1e-9).ToList())
         {
-            return;
-        }
-        var selling = contract.Seller == proposer.Id;
-        var partner = selling ? contract.Buyer : contract.Seller;
-        if (ProposeContract(proposer.Id, partner, selling, contract.Resource, contract.Rate, contract.Price, contract.Days).Success)
-        {
-            Changes.Events.Add(new WorldEvent(proposer.Id, WorldEventKind.ContractChanged, $"Trader Lin offered the {Content.Resources[contract.Resource].Name.ToLowerInvariant()} contract again"));
+            var target = ask.Site ?? -ask.WantId;
+            if (OrderCost(company, target) is { } cost && cost <= company.Gold && OrderRest(company.Id, target).Success)
+            {
+                Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Neighbour, $"Trader Lin bought the rest of what your {WantName(ask)} waited for ({Gold(cost)})", Bell: false));
+            }
         }
     }
 }

@@ -18,10 +18,10 @@ public class FlowSolverFacts
         public Func<long, long, string, bool> TradeAllowed = (_, _, _) => true;
         private long _nextId = 1;
 
-        public long Building(long owner, Dictionary<string, double>? input = null, Dictionary<string, double>? output = null, double maxRate = 1, double research = 0)
+        public long Building(long owner, Dictionary<string, double>? input = null, Dictionary<string, double>? output = null, double maxRate = 1)
         {
             var id = _nextId++;
-            Nodes.Add(new FlowNode { Id = id, Owner = owner, In = input ?? new(), Out = output ?? new(), MaxRate = maxRate, ResearchPerMinute = research });
+            Nodes.Add(new FlowNode { Id = id, Owner = owner, In = input ?? new(), Out = output ?? new(), MaxRate = maxRate });
             return id;
         }
 
@@ -38,10 +38,10 @@ public class FlowSolverFacts
             return id;
         }
 
-        public long TradingPost(long owner, double throughput = 600, params string[] imports)
+        public long TradingPost(long owner, params string[] imports)
         {
             var id = _nextId++;
-            Nodes.Add(new FlowNode { Id = id, Owner = owner, Kind = FlowNodeKind.TradingPost, Throughput = throughput, Imports = imports.ToHashSet() });
+            Nodes.Add(new FlowNode { Id = id, Owner = owner, Kind = FlowNodeKind.TradingPost, Imports = imports.ToHashSet() });
             return id;
         }
 
@@ -427,7 +427,7 @@ public class FlowSolverFacts
         var net = new Net();
         var wind = net.Wind(1);
         var factory = net.Factory(1);
-        var post = net.TradingPost(1, 600, "ironOre");
+        var post = net.TradingPost(1, "ironOre");
         net.Group(wind, factory, post);
 
         var solution = net.Solve();
@@ -438,32 +438,17 @@ public class FlowSolverFacts
     }
 
     [TestMethod]
-    public void TradingPostThroughputIsShared()
+    public void ATradingPostSellsEverythingThatReachesIt()
     {
         var net = new Net();
         var wind = net.Wind(1, energy: 500);
         var other = net.Building(1, output: new() { ["ironOre"] = 500 });
-        var post = net.TradingPost(1, 600);
+        var post = net.TradingPost(1);
         net.Group(wind, other, post);
 
         var solution = net.Solve();
 
-        Assert.AreEqual(600, net.Delivered(solution, post, "energy") + net.Delivered(solution, post, "ironOre"), Tolerance);
-    }
-
-    [TestMethod]
-    public void LabsMakeResearchPoints()
-    {
-        var net = new Net();
-        var wind = net.Wind(1);
-        var storage = net.Storage(1, true, "ironIngot");
-        var lab = net.Building(1, new() { ["energy"] = 10, ["ironIngot"] = 2 }, research: 5);
-        net.Group(wind, storage, lab);
-
-        var solution = net.Solve();
-
-        Assert.AreEqual(1, solution.Rate(lab), Tolerance);
-        Assert.AreEqual(5, solution.ResearchPerMinute[1], Tolerance);
+        Assert.AreEqual(1000, net.Delivered(solution, post, "energy") + net.Delivered(solution, post, "ironOre"), Tolerance, "1.4 §8: no unit limit");
     }
 
     [TestMethod]
@@ -515,8 +500,8 @@ public class FlowSolverFacts
                     1 => net.Mine(owner),
                     2 => net.Factory(owner),
                     3 => net.Storage(owner, random.Next(2) == 0, random.Next(2) == 0 ? ["energy"] : []),
-                    4 => net.TradingPost(owner, random.Next(1, 100), random.Next(3) == 0 ? ["energy", "ironOre"] : []),
-                    5 => net.Building(owner, new() { ["energy"] = random.Next(1, 30) }, new() { ["glass"] = 2 }, research: 1),
+                    4 => net.TradingPost(owner, random.Next(3) == 0 ? ["energy", "ironOre"] : []),
+                    5 => net.Building(owner, new() { ["energy"] = random.Next(1, 30) }, new() { ["glass"] = 2 }),
                     _ => net.Building(owner, new() { ["ironIngot"] = random.Next(1, 5) }, new() { ["machineParts"] = 1 }, maxRate: random.NextDouble()),
                 });
             }

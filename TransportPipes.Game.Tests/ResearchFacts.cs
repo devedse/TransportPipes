@@ -1,186 +1,246 @@
+using TransportPipes.Game.Content;
 using TransportPipes.Game.State;
 
 namespace TransportPipes.Game.Tests;
 
+/// <summary>Research (1.4 §12): two lines in the Lab, the tracks and the Era tree</summary>
 [TestClass]
 public class ResearchFacts
 {
     [TestMethod]
     public void TheResearchContentIsComplete()
     {
-        var content = TransportPipes.Game.Content.GameContent.Default;
+        var content = GameContent.Default;
 
-        Assert.IsGreaterThanOrEqualTo(40, content.ResearchList.Count);
-        foreach (var branch in Enum.GetValues<TransportPipes.Game.Content.ResearchBranch>())
+        Assert.HasCount(21, content.TrackList);
+        Assert.HasCount(9, content.TrackRules.Tiers);
+        CollectionAssert.AreEqual(new double[] { 500, 3000, 20000, 100000, 500000, 2_000_000, 8_000_000, 20_000_000, 50_000_000 },
+            content.TrackRules.Tiers.Select(t => t.Gold).ToArray(), "the tier gold of an Era-1 track (1.4 §22)");
+        Assert.AreEqual(9.7 * 24 * 60, content.TrackRules.Tiers.Sum(t => t.Minutes), 60, "about ten days to master a track");
+        Assert.AreEqual(4 * 3000, content.TrackRules.TierGold(2, 2), "four times the gold a later Era");
+        Assert.AreEqual(6, content.TrackList.Count(t => t.Era == 1), "Power, Iron, Copper, Stone, Sand, Wood");
+        Assert.IsFalse(content.Tracks.ContainsKey("coal"), "coal belongs to the Copper and Stone tracks");
+        foreach (var era in Enumerable.Range(1, 5))
         {
-            Assert.IsGreaterThanOrEqualTo(3, content.ResearchList.Count(t => t.Era == 1 && t.Branch == branch), $"Era 1 needs {branch} techs");
+            Assert.IsNotEmpty(content.ResearchList.Where(t => t.Era == era), $"the Era tree has items in Era {era}");
         }
-        // Every tech that a building or pipe needs exists (checked when loading), and every Era 1 tech can be reached
-        foreach (var tech in content.ResearchList.Where(t => t.Era == 1))
-        {
-            Assert.IsTrue(tech.Requires.All(r => content.Research[r].Era <= tech.Era), tech.Id);
-        }
+        Assert.AreEqual(75_000_000, content.ResearchList.Where(t => t.Era == 2).Sum(t => t.Gold), "the Era tree costs 75 million in Era 2");
+    }
+
+    private static (TestGame Game, Company Company) WithLab(int level = 4, double gold = 1_000_000_000)
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(gold: gold, level: level);
+        game.Build(company, "lab");
+        return (game, company);
     }
 
     [TestMethod]
-    public void LabsTurnEnergyAndIngotsIntoResearchPoints()
+    public void ResearchNeedsALab()
     {
         var game = new TestGame();
         var company = game.NewCompany(level: 4);
-        var lab = game.Build(company, "lab");
-        var post = game.TradingPost(company);
-        game.Connect(company, lab, post);
-        game.World.SetImport(company.Id, post.Id, "energy", true);
-        game.World.SetImport(company.Id, post.Id, "ironIngot", true);
 
-        game.Pass(10);
-
-        Assert.AreEqual(5 * 10, company.ResearchPoints, 1e-6, "5 research points per minute at level 1");
+        StringAssert.Contains(game.World.StartResearch(company.Id, "iron").Error, "Lab");
+        StringAssert.Contains(game.World.StartResearch(company.Id, "valves").Error, "Lab");
+        game.Build(company, "lab");
+        Assert.IsTrue(game.World.StartResearch(company.Id, "iron").Success);
     }
 
     [TestMethod]
-    public void ResearchCostsPointsTakesTimeAndThenGivesItsBonus()
+    public void ATierCostsGoldAndTimeThenItsBuildingsWorkFaster()
     {
-        var game = new TestGame();
-        var company = game.NewCompany();
-        var moily = game.Build(company, "windMoily");
-        game.Connect(company, moily, game.TradingPost(company));
-        game.World.SolveNetworks();
-        var wind = 30 * game.World.LocationMultiplier(moily, game.World.Content.Building("windMoily"));
-        Assert.AreEqual(wind, game.World.ToFlowNode(moily)!.Out["energy"], 1e-9);
+        var (game, company) = WithLab();
+        var mine = game.Build(company, "ironMine", game.Spot(company, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
+        var before = game.World.ToFlowNode(mine)!;
+        var gold = company.Gold;
 
-        StringAssert.Contains(game.World.StartResearch(company.Id, "betterBearings").Error, "150 research points");
-        company.ResearchPoints = 200;
-        Assert.IsTrue(game.World.StartResearch(company.Id, "betterBearings").Success);
-        Assert.AreEqual(50, company.ResearchPoints);
-        StringAssert.Contains(game.World.StartResearch(company.Id, "solarTracking").Error, "busy");
-
-        game.Pass(4);
-        Assert.IsFalse(game.World.HasResearch(company, "betterBearings"));
-        var goldBefore = company.Gold;
+        Assert.IsTrue(game.World.StartResearch(company.Id, "iron").Success);
+        Assert.AreEqual(gold - 500, company.Gold, 1e-6, "tier 1 costs 500 gold");
+        game.Pass(9);
+        Assert.AreEqual(0, game.World.TrackTier(company, "iron"), "ten minutes");
         game.Pass(2);
 
-        Assert.IsTrue(game.World.HasResearch(company, "betterBearings"));
-        Assert.IsNull(company.CurrentResearch);
-        Assert.AreEqual(wind * 1.25, game.World.ToFlowNode(moily)!.Out["energy"], 1e-9);
-        // Done after 5 minutes: 1 minute at the old output, 1 minute at the new one (minus the pipe's losses)
-        var efficiency = game.World.NetworkOf(moily.Id)!.Links.Single(t => t.Connects(moily.Id, game.TradingPost(company).Id)).Efficiency;
-        Assert.AreEqual(goldBefore + (wind + wind * 1.25) * efficiency, company.Gold, 1e-6);
+        Assert.AreEqual(1, game.World.TrackTier(company, "iron"));
+        var after = game.World.ToFlowNode(mine)!;
+        Assert.AreEqual(before.Out["ironOre"] * 1.25, after.Out["ironOre"], 1e-9, "faster: ×1.25");
+        Assert.AreEqual(before.In["energy"] * 1.25, after.In["energy"], 1e-9, "everything it takes goes up too");
     }
 
     [TestMethod]
-    public void ATechNeedsItsPrerequisitesAndItsEra()
+    public void ThePowerTrackCountsHalfAndItsLeanerTiersMakeWindAndSunMore()
     {
-        var game = new TestGame();
-        var company = game.NewCompany();
-        company.ResearchPoints = 100_000;
+        var (game, company) = WithLab();
+        var moily = game.Build(company, "windMoily");
+        var wind = game.World.ToFlowNode(moily)!.Out["energy"];
 
-        StringAssert.Contains(game.World.StartResearch(company.Id, "valves").Error, "Copper Pipes first");
-        StringAssert.Contains(game.World.StartResearch(company.Id, "steelPipes").Error, "Era 2");
-        StringAssert.Contains(game.World.StartResearch(company.Id, "deepLift").Error, "Company Level 30");
-        Assert.IsTrue(game.World.StartResearch(company.Id, "copperPipes").Success);
-        game.World.FinishResearch(company.Id);
-        Assert.IsTrue(game.World.StartResearch(company.Id, "valves").Success);
+        game.World.SetTrackTiers(company, "power", 1);
+        Assert.AreEqual(wind * 1.125, game.World.ToFlowNode(moily)!.Out["energy"], 1e-9, "half of ×1.25");
+        game.World.SetTrackTiers(company, "power", 2);
+        Assert.AreEqual(wind * 1.125 * 1.2, game.World.ToFlowNode(moily)!.Out["energy"], 1e-9, "leaner: wind has no inputs to save, it makes 20% more");
     }
 
     [TestMethod]
-    public void ResearchUnlocksBuildings()
+    public void LeanerTiersSaveInputs()
     {
-        var game = new TestGame();
-        var company = game.NewCompany(level: 6);
-        var hydro = game.World.Content.Building("hydroWheel");
+        var (game, company) = WithLab();
+        var factory = game.Build(company, "smallFactory");
+        var before = game.World.ToFlowNode(factory)!;
 
-        Assert.IsFalse(game.World.IsUnlocked(company, hydro, out var reason));
-        StringAssert.Contains(reason, "research");
-        company.Researched.Add("hydroWheel");
-        Assert.IsTrue(game.World.IsUnlocked(company, hydro, out _));
+        game.World.SetTrackTiers(company, "iron", 2);
+
+        var after = game.World.ToFlowNode(factory)!;
+        Assert.AreEqual(before.Out["ironIngot"] * 1.25, after.Out["ironIngot"], 1e-9);
+        Assert.AreEqual(before.In["ironOre"] * 1.25 * 0.8, after.In["ironOre"], 1e-9, "20% less of every input for the same output");
     }
 
     [TestMethod]
-    public void ResearchFinishesDuringACatchUp()
+    public void ACoalPitFollowsTheBetterOfCopperAndStone()
     {
-        var game = new TestGame();
-        var company = game.NewCompany();
-        company.ResearchPoints = 1000;
-        game.World.StartResearch(company.Id, "copperPipes");
+        var (game, company) = WithLab(level: 5);
+        var pit = game.Build(company, "coalPit", game.Seed(company, "coal"));
+        var coal = game.World.ToFlowNode(pit)!.Out["coal"];
 
-        game.Pass(60 * 24);
+        game.World.SetTrackTiers(company, "stone", 1);
+        game.World.SetTrackTiers(company, "copper", 3);
 
-        Assert.IsTrue(game.World.HasResearch(company, "copperPipes"));
-        Assert.IsTrue(game.World.TakeChanges().Events.Any(t => t.Kind == WorldEventKind.ResearchFinished));
+        Assert.AreEqual("copper", game.World.TrackOf(pit).Track?.Id);
+        Assert.AreEqual(coal * 1.25 * 1.5, game.World.ToFlowNode(pit)!.Out["coal"], 1e-9);
     }
 
     [TestMethod]
-    public void AfterTheWholeTreeMasteryGivesHalfAPercentPerStepForEver()
+    public void FromTierThreeATierTakesItsTracksGoodAndBuysWhatTheStoragesLack()
     {
-        var game = new TestGame(content: TestGame.PlainContent);
-        var company = game.NewCompany(level: 40);
-        company.ResearchPoints = 1_000_000;
-        StringAssert.Contains(game.World.StartResearch(company.Id, GameWorld.MasteryId).Error, "whole research tree");
-        company.Researched.UnionWith(game.World.Content.ResearchList.Select(t => t.Id));
-        var cost = GameWorld.MasteryCost(company);
+        var (game, company) = WithLab();
+        game.World.SetTrackTiers(company, "iron", 2);
+        game.Build(company, "storage");
+        game.World.Stock(company.Id, "ironIngot", 100);
+        var track = game.World.Content.Tracks["iron"];
+        var cost = game.World.TierCost(company, track, 3);
+        Assert.AreEqual(20_000, cost.Gold);
+        Assert.AreEqual(Math.Ceiling(20_000 * 0.2 / 14), cost.Units, "iron ingots worth a fifth of the gold");
+        Assert.AreEqual(100, cost.FromStorages);
+        var gold = company.Gold;
 
-        Assert.IsTrue(game.World.StartResearch(company.Id, GameWorld.MasteryId).Success);
-        Assert.AreEqual(1_000_000 - cost, company.ResearchPoints);
-        game.World.FinishResearch(company.Id);
+        Assert.IsTrue(game.World.StartResearch(company.Id, "iron").Success);
 
-        Assert.AreEqual(1, company.Mastery);
-        Assert.IsGreaterThan(cost, GameWorld.MasteryCost(company), "every step costs more");
-        var moily = game.World.Content.Building("windMoily");
-        var before = game.World.OutputBonus(company, moily, "energy");
-        Assert.IsTrue(game.World.StartResearch(company.Id, GameWorld.MasteryId).Success);
-        game.World.FinishResearch(company.Id);
-        Assert.AreEqual(before + GameWorld.MasteryBonus, game.World.OutputBonus(company, moily, "energy"), 1e-9);
+        Assert.AreEqual(0, game.World.Materials(company.Id).GetValueOrDefault("ironIngot"), 1e-9, "its Storages gave theirs");
+        Assert.AreEqual(gold - 20_000 - (cost.Units - 100) * 14 * 2.5, company.Gold, 1, "the rest bought at the market's 2.5×");
     }
 
     [TestMethod]
-    public void TheQueueStartsEachTechByItselfInOrder()
+    public void FromTierFiveEveryTierMakesTheTracksHubOrdersBigger()
     {
-        // F11: a research queue of five
-        var game = new TestGame();
-        var company = game.NewCompany(level: 5);
-        company.ResearchPoints = 600;
-        Assert.IsTrue(game.World.QueueResearch(company.Id, "oreWashing", true).Success);
-        Assert.AreEqual("oreWashing", company.CurrentResearch, "the Labs were free: it starts at once");
-        Assert.IsTrue(game.World.QueueResearch(company.Id, "doubleFurnace", true).Success);
-        Assert.IsTrue(game.World.QueueResearch(company.Id, "betterBearings", true).Success);
-        CollectionAssert.AreEqual(new[] { "doubleFurnace", "betterBearings" }, company.ResearchQueue.ToArray());
+        var (game, company) = WithLab();
+        var order = game.World.HubOrder(company, "ironIngot");
+        Assert.AreEqual(1000 / 14.0, order, 1e-6, "an Era-1 good: 1,000 gold's worth a minute");
+
+        game.World.SetTrackTiers(company, "iron", 4);
+        Assert.AreEqual(order, game.World.HubOrder(company, "ironIngot"), 1e-6, "the first four tiers make the chain better, not the market bigger");
+        game.World.SetTrackTiers(company, "iron", 6);
+        Assert.AreEqual(order * 1.8 * 1.8, game.World.HubOrder(company, "ironIngot"), 1e-6);
+        Assert.AreEqual(1000 / 3.5, game.World.HubOrder(company, "planks"), 1e-6, "only its own goods");
+    }
+
+    [TestMethod]
+    public void TheTwoLinesRunSideBySideAndTheirQueuesStartByThemselves()
+    {
+        var (game, company) = WithLab();
+        Assert.IsTrue(game.World.StartResearch(company.Id, "iron").Success);
+        Assert.IsTrue(game.World.StartResearch(company.Id, "copperPipes").Success, "the Era tree on the second line");
+        Assert.IsTrue(game.World.QueueResearch(company.Id, "iron", true).Success);
+        Assert.IsTrue(game.World.QueueResearch(company.Id, "power", true).Success);
+        Assert.IsTrue(game.World.QueueResearch(company.Id, "valves", true).Success);
 
         game.Pass(11);
-        Assert.IsTrue(company.Researched.Contains("oreWashing"));
-        Assert.AreEqual("doubleFurnace", company.CurrentResearch, "the next starts by itself, once its prerequisite is done");
+        Assert.AreEqual(1, game.World.TrackTier(company, "iron"));
+        Assert.IsTrue(game.World.HasResearch(company, "copperPipes"));
+        Assert.AreEqual("iron", company.CurrentTrack, "its second tier, from the queue");
+        Assert.AreEqual("valves", company.CurrentResearch);
 
-        foreach (var tech in new[] { "solarTracking", "hydroWheel", "copperPipes", "valves" })
+        game.Pass(61);
+        Assert.AreEqual(2, game.World.TrackTier(company, "iron"));
+        Assert.AreEqual("power", company.CurrentTrack);
+        Assert.IsTrue(game.World.HasResearch(company, "valves"));
+    }
+
+    [TestMethod]
+    public void ATrackStandsInTheQueueOnlyAsOftenAsItHasTiersLeft()
+    {
+        var (game, company) = WithLab();
+        game.World.SetTrackTiers(company, "wood", 7);
+        Assert.IsTrue(game.World.QueueResearch(company.Id, "wood", true).Success);
+        Assert.IsTrue(game.World.QueueResearch(company.Id, "wood", true).Success);
+
+        StringAssert.Contains(game.World.QueueResearch(company.Id, "wood", true).Error, "Every tier");
+    }
+
+    [TestMethod]
+    public void TheMasterGetsATitle()
+    {
+        var (game, company) = WithLab();
+        game.World.SetTrackTiers(company, "sand", 8);
+
+        Assert.IsTrue(game.World.StartResearch(company.Id, "sand").Success);
+        game.World.FinishResearch(company.Id);
+
+        Assert.AreEqual(9, game.World.TrackTier(company, "sand"));
+        Assert.Contains("Sand Master", company.Titles);
+        StringAssert.Contains(game.World.StartResearch(company.Id, "sand").Error, "Mastered");
+    }
+
+    [TestMethod]
+    public void ComplexesComeWithTheTracksFourthTier()
+    {
+        var (game, company) = WithLab();
+        var panels = game.Map(company, game.Local(company, 20, 20), "SS\nSS").Values.ToList();
+        foreach (var panel in panels)
         {
-            game.World.QueueResearch(company.Id, tech, true);
+            game.World.FinishConstruction(panel.Id);
         }
-        StringAssert.Contains(game.World.QueueResearch(company.Id, "bigFactory", true).Error, "5");
-        Assert.IsTrue(game.World.QueueResearch(company.Id, "valves", false).Success);
-        Assert.HasCount(4, company.ResearchQueue);
+        Assert.HasCount(4, game.World.BuildingsOf(company.Id).Where(t => t.Type == "solarPanel"));
+
+        game.World.SetTrackTiers(company, "power", 4);
+
+        var complex = game.World.BuildingsOf(company.Id).Single(t => t.Type == "solarPanel");
+        Assert.AreEqual(4, game.World.ComplexMembers(complex));
+        Assert.IsFalse(panels.Any(t => game.World.Building(t.Id) != null), "the four merged into one");
+    }
+
+    [TestMethod]
+    public void CopperPipesComeAtLevelEightForEveryone()
+    {
+        var game = new TestGame();
+        var company = game.NewCompany(level: 7);
+        Assert.IsFalse(game.World.HasResearch(company, "copperPipes"));
+
+        company.Gold += game.World.Content.Progression.EarnedForLevel(8);
+        game.World.CountEarned(company, game.World.Content.Progression.EarnedForLevel(8), "test", "gold");
+
+        Assert.AreEqual(8, company.Level);
+        Assert.IsTrue(game.World.HasResearch(company, "copperPipes"));
     }
 
     [TestMethod]
     public void ResearchKeepsGoingWhileThePlayerIsAway()
     {
-        // Run 2: research points piled up to 64k while the queue sat empty; with nothing queued, the cheapest tech the
-        // points cover starts by itself, once the player has been away half an hour (one who is here chooses)
-        var game = new TestGame();
-        var company = game.NewCompany(level: 5);
-        company.ResearchPoints = 100_000;
-        game.Build(company, "lab");
-        game.Pass(10);
-        Assert.IsNull(company.CurrentResearch, "the player is here: they choose");
+        var (game, company) = WithLab();
+        company.LastSeenAt = game.Time;
 
-        company.LastSeenAt = game.World.Now.AddHours(-1);
-        game.Pass(10);
+        game.Pass(60);
 
-        Assert.IsNotNull(company.CurrentResearch, "away: the cheapest tech started");
-        Assert.AreEqual(game.World.Content.ResearchList.Where(t => game.World.ResearchBlocker(company, t) == null || t.Id == company.CurrentResearch)
-            .Min(t => game.World.ResearchCost(company, t)), game.World.ResearchCost(company, game.World.Content.Research[company.CurrentResearch!]), 1e-9);
+        Assert.IsGreaterThanOrEqualTo(1, company.TrackTiers.Values.Sum() + company.Researched.Count(t => t != "copperPipes"), "the cheapest started by itself");
+        Assert.IsNotNull(company.CurrentTrack ?? company.CurrentResearch);
+    }
 
-        company.CurrentResearch = null;
-        Assert.IsTrue(game.World.SetKeepResearching(company.Id, false).Success);
-        game.Pass(10);
-        Assert.IsNull(company.CurrentResearch, "switched off");
+    [TestMethod]
+    public void AnEraTwoTrackWaitsForEraTwo()
+    {
+        var (game, company) = WithLab();
+
+        StringAssert.Contains(game.World.StartResearch(company.Id, "steel").Error, "Era 2");
+        game.World.AdvanceEra(company.District);
+        Assert.IsTrue(game.World.StartResearch(company.Id, "steel").Success);
+        Assert.AreEqual(500 * 4, game.World.Content.TrackRules.TierGold(1, 2));
     }
 }

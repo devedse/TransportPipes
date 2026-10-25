@@ -43,6 +43,10 @@ public sealed partial class GameWorld
         {
             return;
         }
+        // The outskirts stay with the plot: bought back, their buildings in crates; workshops come along in crates too
+        SellOutskirts(company, estate);
+        PackWorkshops(company);
+        TakeAllFromDepot(company);
         var packed = new PackedEstate { Side = WorldLayout.SideOf(estate.Slot), UnlockedParcels = estate.UnlockedParcels };
         foreach (var building in BuildingsOf(company.Id).Where(t => InEstateOrBelow(estate, t.Position)).ToList())
         {
@@ -83,6 +87,8 @@ public sealed partial class GameWorld
         Dx = building.X - origin.X,
         Dy = building.Y - origin.Y,
         Level = building.Level,
+        Price = building.Price,
+        OldId = building.Id,
         Contents = new(building.Contents),
         Imports = new(building.Imports),
         Filter = new(building.Filter),
@@ -165,8 +171,13 @@ public sealed partial class GameWorld
 
     private Building Restore(Company company, PackedBuilding item, TilePos pos)
     {
-        var building = AddBuilding(company, item.Type, pos, finished: true);
+        var building = AddBuilding(company, item.Type, pos, finished: true, item.Price > 0 ? item.Price : null);
         building.Level = item.Level;
+        // The goods its levels still wait for follow it
+        foreach (var ask in company.Asks.Where(t => t.Site == item.OldId && t.ToLevel > 0))
+        {
+            ask.Site = building.Id;
+        }
         foreach (var (resource, amount) in item.Contents)
         {
             building.Contents[resource] = amount;
@@ -187,6 +198,19 @@ public sealed partial class GameWorld
 
     // ---------------------------------------------------------------- Moving
 
+    /// <summary>
+    /// The Era rule for moving (1.4 §11): towns of your own Era or one below, never higher (to reach an Era you help a
+    /// town get there); null when the town is fine
+    /// </summary>
+    public string? EraMoveBlocker(Company company, DistrictCoord town)
+    {
+        var era = TownEra(town);
+        var yours = YourEra(company);
+        return town == company.District || era == yours || era == yours - 1 ? null
+            : era > yours ? $"That town is in Era {era}: you can move to towns of your Era ({yours}) or one below."
+            : $"That town is in Era {era}: you can move to towns of your Era ({yours}) or one below, where your newer buildings sleep.";
+    }
+
     public string? MoveBlocker(Company company, DistrictCoord district)
     {
         if (company.Packed != null)
@@ -204,6 +228,10 @@ public sealed partial class GameWorld
         if (!_openDistricts.Contains(district))
         {
             return "That town isn't open.";
+        }
+        if (EraMoveBlocker(company, district) is { } era)
+        {
+            return era;
         }
         if (company.Gold < MoveCost(company))
         {
@@ -283,18 +311,9 @@ public sealed partial class GameWorld
             : $"Your plot has landed; {company.Crates.Count} buildings didn't fit and wait in crates"));
     }
 
-    /// <summary>Ends what ties a company to its neighbours: contracts and Exchange orders</summary>
+    /// <summary>Ends what ties a company to where it lived: its Exchange orders (links take the new way)</summary>
     private void EndTradeOf(Company company)
     {
-        // A contract that runs over a link goes on (the link takes the new way); one through the Yard ends
-        foreach (var contract in _contracts.Values.Where(t => t.IsOpen && (t.Seller == company.Id || t.Buyer == company.Id)
-                     && LinkBetween(t.Seller, t.Buyer, t.Resource) == null).ToList())
-        {
-            contract.State = ContractState.Ended;
-            ContractChanged(contract);
-            var partner = contract.Seller == company.Id ? contract.Buyer : contract.Seller;
-            Changes.Events.Add(new WorldEvent(partner, WorldEventKind.ContractChanged, $"Your contract with {company.Name} ended: they moved away"));
-        }
         foreach (var order in _orders.Where(t => t.Company == company.Id).ToList())
         {
             Refund(order);

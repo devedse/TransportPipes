@@ -234,23 +234,6 @@ public class LinkFacts
     }
 
     [TestMethod]
-    public void AContractBetweenStationsRunsOverALink()
-    {
-        var (game, ana, ben, _, _) = Apart();
-        var price = game.World.PlayerPrice("energy");
-
-        StringAssert.Contains(game.World.ProposeContract(ana.Id, ben.Id, true, "energy", 5, price, 1).Error, "link");
-        Linked(game, ana, ben);
-        var proposed = game.World.ProposeContract(ana.Id, ben.Id, true, "energy", 5, price, 1);
-        Assert.IsTrue(proposed.Success, proposed.Error);
-        var contract = game.World.Contracts.Single(t => t.Seller == ana.Id && t.Buyer == ben.Id);
-        Assert.IsTrue(game.World.AcceptContract(ben.Id, contract.Id).Success);
-
-        game.Pass(60);
-        Assert.IsGreaterThan(0, contract.Delivered, "the link delivers the contract");
-    }
-
-    [TestMethod]
     public void ALinkTakesTheNewWayWhenAnEstateMoves()
     {
         var (game, ana, ben, _, _) = Apart();

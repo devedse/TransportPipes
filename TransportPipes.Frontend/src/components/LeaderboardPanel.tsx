@@ -17,8 +17,9 @@ function Row({ entry, kind }: { entry: LeaderboardEntryDto; kind: LeaderboardKin
   const content = useAppStore((s) => s.content);
   let level = 0;
   if (kind === "level" && content !== null) {
-    content.dto.progression.xpForLevel.forEach((xp, i) => {
-      if (xp <= entry.value) {
+    // Its value is the gold earned in all: the Company Level comes from it (1.4 §14)
+    content.dto.progression.earnedForLevel.forEach((earned, i) => {
+      if (earned <= entry.value) {
         level = i;
       }
     });

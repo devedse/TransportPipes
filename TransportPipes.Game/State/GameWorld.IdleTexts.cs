@@ -126,17 +126,9 @@ public sealed partial class GameWorld
                 var (have, need) = InputHaveNeed(building, reason.Resource!);
                 var rate = NetworkOf(building.Id)?.Solution.Rate(building.Id) ?? 0;
                 return new IdleStatus(reason, $"Running at {rate:P0}: {good} short", $"Its pipes bring {Amount(have)} of the {Amount(need)} {good} it needs.", null);
-            case IdleCause.PostFull when definition.Kind == BuildingKind.TradingPost:
-                return new IdleStatus(reason, "Sells all it can", $"{Amount(TradingPostThroughput(building, definition))} a minute: upgrade it, or build a Market Hall, to sell more.",
-                    new IdleFix(IdleFixKind.Upgrade, $"Upgrade it · {Gold(UpgradeCost(building, 1))}", Building: building.Id, Cost: UpgradeCost(building, 1)));
-            case IdleCause.PostFull:
-                var post = PipeReach(building).FirstOrDefault(t => t.Owner == building.Owner && Content.Building(t.Type).Kind == BuildingKind.TradingPost && TradingPostFull(t));
-                return new IdleStatus(reason, "Slowed: Trading Post full",
-                    post == null ? null : $"It sells all it can: {Amount(TradingPostThroughput(post, Content.Building(post.Type)))} a minute.",
-                    post == null ? null : new IdleFix(IdleFixKind.Upgrade, $"Upgrade the Trading Post · {Gold(UpgradeCost(post, 1))}", Building: post.Id, Cost: UpgradeCost(post, 1)));
-            case IdleCause.Resting:
-                return new IdleStatus(reason, "Rests: nothing to research",
-                    "Every tech this Era is done and every Refinement is at its cap: it eats nothing until the next Era's research.", null);
+            case IdleCause.Sleeping:
+                return new IdleStatus(reason, $"Sleeps until your town reaches Era {definition.Unlock.Era}",
+                    $"A building of Era {definition.Unlock.Era} in an Era {EraAt(building)} town makes and uses nothing, and costs nothing. It wakes when the town gets there.", null);
             case IdleCause.Pumps:
                 var network = NetworkOf(building.Id);
                 return new IdleStatus(reason, "Slowed: too few pumps",

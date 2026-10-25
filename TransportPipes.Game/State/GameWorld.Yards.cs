@@ -161,7 +161,6 @@ public sealed partial class GameWorld
             Rates = solution.Rates.Where(t => t.Key > 0).ToDictionary(t => t.Key, t => t.Value),
             Flows = flows,
             GoldPerMinute = gold,
-            ResearchPerMinute = solution.ResearchPerMinute,
             StorageNet = solution.StorageNet,
             Rounds = solution.Rounds,
         };
@@ -205,12 +204,15 @@ public sealed partial class GameWorld
                 BookHubSale(seller, payment.Resource, units, gold, earnings, "yardFloor");
                 continue;
             }
-            seller.Gold += gold;
-            earnings[seller.Id] = earnings.GetValueOrDefault(seller.Id) + gold;
+            // The Lighthouse: the market pays the seller a share on top (1.4 §13)
+            var lighthouse = gold * LighthouseBonus(seller);
+            seller.Gold += gold + lighthouse;
+            earnings[seller.Id] = earnings.GetValueOrDefault(seller.Id) + gold + lighthouse;
+            CountEarned(seller, gold + lighthouse, "players", payment.Resource);
             // Measures (the playtest's): gold the Yard paid a player
             AddStat(seller, "yardPaid", gold);
+            AddStat(seller, "lighthouseGold", lighthouse);
             Add(seller.Report.Sold, payment.Resource, units);
-            ContractDelivered(seller.Id, buyer.Id, payment.Resource, units);
             AddStat(seller, "soldToPlayers", units);
             AddStat(buyer, "boughtFromPlayers", units);
             CountUsualTrade(seller, buyer, payment.Resource, units, minutes);
@@ -365,20 +367,15 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>Gold a company gets for goods as if it had sold them at its hub: its report, its Hub Order and its reputation count them</summary>
+    /// <summary>Gold a company gets for goods as if it had sold them at its hub: its report and its Hub Order count them</summary>
     private void BookHubSale(Company seller, string resource, double units, double gold, Dictionary<long, double> earnings, string stat)
     {
         seller.Gold += gold;
         earnings[seller.Id] = earnings.GetValueOrDefault(seller.Id) + gold;
+        CountEarned(seller, gold, "market", resource);
         AddStat(seller, stat, gold);
         Add(seller.Report.Sold, resource, units);
         HubMarketOf(seller, seller.District).AddSold(resource, units);
-        var level = ReputationLevel(seller);
-        seller.HubReputation += gold / 2000;
-        if (ReputationLevel(seller) != level)
-        {
-            MarkCompanyNetworksDirty(seller.Id);
-        }
         seller.Touch();
         Changes.Companies.Add(seller.Id);
     }
@@ -615,7 +612,7 @@ public sealed partial class GameWorld
                 }
                 if (other.Kind == FlowNodeKind.Building && other.Out.TryGetValue(resource, out var makes))
                 {
-                    var toBuildings = network.Index.FlowsFrom(other.Id).Where(t => t.Resource == resource && t.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.Contract).Sum(t => t.Sent);
+                    var toBuildings = network.Index.FlowsFrom(other.Id).Where(t => t.Resource == resource && t.Kind is FlowKind.Internal or FlowKind.Trade).Sum(t => t.Sent);
                     potential += Math.Max(0, makes * other.MaxRate - toBuildings) * link.Efficiency;
                 }
             }
@@ -700,10 +697,10 @@ public sealed partial class GameWorld
         }
         var linked = LinkedBuildings(building, network);
         var full = linked.Any(t => t.Owner == building.Owner
-            && ((Content.Building(t.Type).Kind == BuildingKind.TradingPost && TradingPostFull(t))
-                || (Content.Building(t.Type).Kind == BuildingKind.Storage && StorageCapacity(t, Content.Building(t.Type)) - t.StoredTotal <= StorageEpsilon)));
+            && Content.Building(t.Type).Kind == BuildingKind.Storage && StorageCapacity(t, Content.Building(t.Type)) - t.StoredTotal <= StorageEpsilon);
         var otherWays = network.Index.GateLinksOf(building.Id).Count > 0
-            || linked.Any(t => (t.Owner == building.Owner && Content.Building(t.Type).Kind is BuildingKind.TradingPost or BuildingKind.Storage && !(Content.Building(t.Type).Kind == BuildingKind.TradingPost ? TradingPostFull(t) : StorageCapacity(t, Content.Building(t.Type)) - t.StoredTotal <= StorageEpsilon))
+            || linked.Any(t => (t.Owner == building.Owner && (Content.Building(t.Type).Kind == BuildingKind.TradingPost
+                    || (Content.Building(t.Type).Kind == BuildingKind.Storage && StorageCapacity(t, Content.Building(t.Type)) - t.StoredTotal > StorageEpsilon)))
                 || (ToFlowNode(t) is { Kind: FlowNodeKind.Building } taker && node.Out.Keys.Any(taker.In.ContainsKey)));
         return full && !otherWays ? network.Solution.Rate(building.Id) / Math.Max(1e-12, node.MaxRate) : 1;
     }
@@ -832,23 +829,7 @@ public sealed partial class GameWorld
                 continue;
             }
 
-            // Contracts first, up to their rate
-            foreach (var contract in _contracts.Values.Where(t => t.State == ContractState.Active && t.Resource == resource).OrderBy(t => t.Id))
-            {
-                if (index.TryGetValue(contract.Seller, out var s) && index.TryGetValue(contract.Buyer, out var b))
-                {
-                    var amount = Math.Min(contract.Rate, Math.Min(spare[s], lacks[b]));
-                    if (amount > 1e-9)
-                    {
-                        spare[s] -= amount;
-                        lacks[b] -= amount;
-                        var key = (members[s].Key, members[b].Key, resource);
-                        result[key] = result.GetValueOrDefault(key) + amount;
-                    }
-                }
-            }
-
-            // Usual partners next: a player's running trade with a player (its rate over the last 7 days) comes before
+            // Usual partners first: a player's running trade with a player (its rate over the last 7 days) comes before
             // anything new, so nobody's trade is cut by someone else's arrival (Mia's coal when Dev moves in)
             for (var s = 0; s < members.Count; s++)
             {
@@ -902,14 +883,17 @@ public sealed partial class GameWorld
         {
             Handshakes(members);
         }
-        if (EraWonderBuying)
+        if (WondersGiving)
         {
-            EraWonder!.Incoming = new Dictionary<long, Dictionary<string, double>>();
+            foreach (var town in _towns.Values.Where(t => t.Wonder != null))
+            {
+                town.Wonder!.Incoming = new Dictionary<long, Dictionary<string, double>>();
+            }
         }
         foreach (var (station, members) in byStation)
         {
             var byKey = members.ToDictionary(t => t.Key);
-            DeliverEraWonder(station, members);
+            DeliverWonderGifts(station, members);
             // What sellers sent last round arrives now, in the shares they were matched (less when they sent less)
             foreach (var seller in members)
             {
@@ -957,9 +941,12 @@ public sealed partial class GameWorld
         DeliverLinks(all, TermsOf, ref limit);
         MatchLinks(all, TermsOf);
 
-        if (EraWonderBuying)
+        if (WondersGiving)
         {
-            EraWonder!.Matched = new Dictionary<long, Dictionary<string, double>>();
+            foreach (var town in _towns.Values.Where(t => t.Wonder != null))
+            {
+                town.Wonder!.Matched = new Dictionary<long, Dictionary<string, double>>();
+            }
         }
         foreach (var (station, members) in byStation)
         {
@@ -976,7 +963,7 @@ public sealed partial class GameWorld
                     byKey[buyerKey].Lacks[resource] = Math.Max(0, byKey[buyerKey].Lacks.GetValueOrDefault(resource) - amount);
                 }
             }
-            // Contracts and the usual partners' running trade first: nobody's trade is cut by somebody new
+            // The usual partners' running trade first: nobody's trade is cut by somebody new
             if (members.Count >= 2)
             {
                 Trade(MatchYard(members, kept: true));
@@ -986,8 +973,8 @@ public sealed partial class GameWorld
             {
                 Trade(MatchYard(members, kept: false));
             }
-            // Then the Capital's Era Wonder (after run 3, step 5)
-            foreach (var ((sellerKey, resource), amount) in MatchEraWonder(station, members, ref limit))
+            // Then the town's Wonder: what the residents give of their spare (1.4 §13)
+            foreach (var ((sellerKey, resource), amount) in MatchWonderGifts(station, members, ref limit))
             {
                 var terms = TermsOf(sellerKey);
                 terms.Export[resource] = terms.Export.GetValueOrDefault(resource) + amount;
