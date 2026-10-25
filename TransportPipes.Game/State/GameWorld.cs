@@ -1158,7 +1158,10 @@ public sealed partial class GameWorld
             return CommandResult.Fail($"{pipe.Name}s are not unlocked yet.");
         }
 
-        var newTiles = tiles.Distinct().Where(t => !(_conductors.TryGetValue(t, out var existing) && existing.Owner == companyId && existing.Kind == ConductorKind.Pipe)).ToList();
+        // Your own pipes on the way are there already, and so is your Yard gate: a pipe runs on through it (1.4: the
+        // gate stands by the trading post, so a drag from a building to the post often crosses it)
+        var newTiles = tiles.Distinct().Where(t => !(_conductors.TryGetValue(t, out var existing) && existing.Owner == companyId
+            && existing.Kind is ConductorKind.Pipe or ConductorKind.Gate)).ToList();
         double cost = 0;
         foreach (var tile in newTiles)
         {

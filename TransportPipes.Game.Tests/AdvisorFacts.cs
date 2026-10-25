@@ -57,6 +57,34 @@ public class AdvisorFacts
     }
 
     [TestMethod]
+    public void OresSoldPastTheirHubOrderSuggestTheFactoryThatTurnsThemIntoIngots()
+    {
+        // The solo bot on the model's plot (B13): nine Copper Mines at level 25 sold 900 ore a minute at a quarter of its
+        // price for days, and no Smelter was ever suggested (its ore and coal were priced at the market's 2.5×, so every
+        // extractor of the real content ranked before it and the advisor tries eight)
+        var game = new TestGame();
+        var company = game.NewCompany(gold: 1e9, level: 12);
+        var post = game.TradingPost(company);
+        // Six mines and four Moilys at level 22, each piped to the post as it stands (89 ore a minute a mine, the Hub
+        // Order 333)
+        for (var i = 0; i < 10; i++)
+        {
+            var building = i < 6
+                ? game.Build(company, "ironMine", game.Spot(company, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"))
+                : game.Build(company, "windMoily");
+            game.Connect(company, building, post);
+            building.Level = 22;
+        }
+        game.World.MarkCompanyNetworksDirty(company.Id);
+        game.Pass(90);
+        Assert.IsGreaterThan(game.World.HubOrder(company, "ironOre"), game.World.SellingNow(company)["ironOre"], "it sells iron ore past its Hub Order");
+
+        var steps = game.World.NextSteps(company, 12);
+
+        Assert.IsTrue(steps.Any(t => t.BuildingType == "smallFactory"), string.Join(" | ", steps.Select(t => t.Title)));
+    }
+
+    [TestMethod]
     public void AFactoryWhoseIngotsCantLeaveIsNotShortOfEnergy()
     {
         // Ana's day 4: the factory piped to the mine and a windmill, the mine to the trading post and a windmill of its

@@ -1004,10 +1004,19 @@ public sealed partial class GameWorld
         var main = networks.OrderByDescending(t => t.Buildings.Count(b => _buildings[b].Owner == company.Id && Content.Building(_buildings[b].Type).Kind == BuildingKind.TradingPost))
             .ThenByDescending(t => t.Buildings.Count).First();
         var evaluated = 0;
+        // The room left in a good's Hub Order by what the posts sell now (the hour's average lags behind a growing plot)
+        var selling = SellingNow(company);
+        double Room(string resource) => Math.Max(0, HubOrder(company, resource)
+            - Math.Max(HubMarketOf(company, company.District).SoldRate.GetValueOrDefault(resource), selling.GetValueOrDefault(resource)));
+        // An input the company makes is worth what selling it brings now: the full price within its Hub Order, a quarter
+        // beyond (at the market's 2.5× a Smelter ranked last behind every extractor, and the bot's plot sold 900 copper ore
+        // a minute at a quarter of its price for days without one)
+        var makes = networks.SelectMany(t => made[t]).ToHashSet();
+        double InputValue(string resource) => makes.Contains(resource) ? BasePrice(resource) * (Room(resource) > 0 ? 1 : 0.25) : HubBuyPrice(company, resource);
         // 1.4 §8: every good has its own Hub Order, so the most promising first: what a copy would sell at the market
         // while its goods' Hub Orders have room
         var candidates = Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.Count > 0 && IsUnlocked(company, t, out _))
-            .OrderByDescending(t => t.Out.Sum(o => o.Value * HubOrderValue(company, o.Key, o.Value)) - t.In.Sum(i => i.Value * HubBuyPrice(company, i.Key)))
+            .OrderByDescending(t => t.Out.Sum(o => o.Value * HubOrderValue(company, o.Key, o.Value)) - t.In.Sum(i => i.Value * InputValue(i.Key)))
             .ToList();
         foreach (var definition in candidates)
         {
@@ -1021,7 +1030,7 @@ public sealed partial class GameWorld
             if (extractor)
             {
                 // An extractor of something its land holds: the first one, or another while its goods' Hub Orders have room
-                network = owned == 0 || definition.Out.Keys.Any(t => HubOrderRoom(company, t) > definition.Out[t]) ? main : null;
+                network = owned == 0 || definition.Out.Keys.Any(t => Room(t) > definition.Out[t]) ? main : null;
             }
             else if (definition.In.Count > 0)
             {

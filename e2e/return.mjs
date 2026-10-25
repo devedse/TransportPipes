@@ -8,6 +8,9 @@ const a = await start(out, { width: 1280, height: 860 });
 await newPlayer(a.page, "ra");
 // A plot starts empty (1.4 §6): something that earns while A is away
 console.log(await settle(a, "solarPanel"));
+// Earning before A goes (a card that has nothing to say isn't shown)
+for (let i = 0; i < 30 && !(await a.page.evaluate(() => (tp.appStore.getState().company?.goldPerMinute ?? 0) > 0)); i++) await a.page.waitForTimeout(1000);
+await a.page.waitForTimeout(5000);
 
 // Ten days away: what happened, that the estate is safe
 await a.cheat("gone");

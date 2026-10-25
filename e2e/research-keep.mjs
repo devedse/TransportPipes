@@ -15,7 +15,7 @@ const before = await box.isChecked();
 await shot("1-research-panel");
 await box.click();
 await page.waitForTimeout(1500);
-const after = await page.evaluate(() => tp.appStore.getState().company.keepResearching);
+const after = await page.evaluate(() => tp.appStore.getState().company.research.keepResearching);
 console.log("on by default:", before, "after the click:", after);
 const pass = before === true && after === false;
 console.log(pass ? "PASS" : "FAIL", "errors:", errors.length ? errors.join(" | ") : "none");

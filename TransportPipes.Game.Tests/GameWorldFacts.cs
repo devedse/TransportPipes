@@ -403,6 +403,24 @@ public class GameWorldFacts
     }
 
     [TestMethod]
+    public void APipeRunsOnThroughYourOwnYardGate()
+    {
+        // 1.4's e2e: the gate stands by the trading post, and a drag from a building to the post crossed it
+        var game = new TestGame();
+        var a = game.NewCompany("A");
+        var b = game.NewCompany("B");
+        var gate = game.EstateOf(a).YardGate;
+        var free = TestGame.Neighbours(gate).Where(t => WorldLayout.ZoneAt(t.X, t.Y).Kind == ZoneKind.Estate
+            && game.World.ConductorAt(t) == null && game.World.BuildingAt(t) == null).ToList();
+
+        var placed = game.World.PlacePipes(a.Id, [free[0], gate]);
+
+        Assert.IsTrue(placed.Success, placed.Error);
+        Assert.AreEqual(ConductorKind.Gate, game.World.ConductorAt(gate)!.Kind, "the gate stays a gate");
+        StringAssert.Contains(game.World.PlacePipes(b.Id, [gate]).Error, "someone else's plot", "not through someone else's");
+    }
+
+    [TestMethod]
     public void TheNetworkOfAnUntouchedAreaKeepsItsSolution()
     {
         var game = new TestGame();

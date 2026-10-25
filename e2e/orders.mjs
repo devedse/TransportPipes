@@ -2,11 +2,14 @@
 // Storage; each order says what the trading posts sell of its good and when it is full; the goal tracker and the
 // toolbar don't ask for them (they show once filled).
 //   node orders.mjs shots/orders
-import { start, newPlayer } from "./lib.mjs";
+import { start, newPlayer, kit } from "./lib.mjs";
 
 const out = process.argv[2] ?? "shots/orders";
 const { browser, page, errors, shot } = await start(out);
 await newPlayer(page, "orders");
+// 1.4: a plot starts empty: a small estate that sells energy first (today's orders ask for what you could sell)
+await kit(page);
+for (let i = 0; i < 20 && !(await page.evaluate(() => tp.appStore.getState().company.dailyOrders.every((t) => t.selling > 0))); i++) await page.waitForTimeout(1000);
 for (let i = 0; i < 3 && (await page.locator("[role=dialog]:visible").count()) > 0; i++) {
   await page.keyboard.press("Escape");
   await page.waitForTimeout(400);
