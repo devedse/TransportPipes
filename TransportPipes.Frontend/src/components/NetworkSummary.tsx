@@ -199,7 +199,7 @@ export function NetworkSummary({
       {allMine !== null && here !== null && Math.abs(allMine - here) >= 1 && (
         <p className="muted small">
           This network&apos;s pipes now. Your top bar&apos;s {formatRate(allMine)} counts all your pipes, and
-          what the Yard&apos;s Houses, the project and Asks pay too.
+          what your neighbours and links pay too.
         </p>
       )}
       {details.owners.length > 1 && (

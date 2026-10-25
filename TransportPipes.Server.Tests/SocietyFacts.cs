@@ -90,7 +90,7 @@ public class SocietyFacts
         // The owner hears about both in the inbox
         await TestClient.WaitFor(ann.Inbox, t => t >= 2);
         var inbox = await ann.Invoke<InboxDto>("GetInbox");
-        Assert.IsTrue(inbox.Messages.Any(t => t.Kind == "social" && t.Text.Contains("likes your estate")));
+        Assert.IsTrue(inbox.Messages.Any(t => t.Kind == "social" && t.Text.Contains("likes your plot")));
         Assert.IsTrue(inbox.Messages.Any(t => t.Kind == "guestbook" && t.Text.Contains("Lovely pipes!")));
         await ann.Invoke<object>("MarkInboxRead");
         Assert.AreEqual(0, (await ann.Invoke<InboxDto>("GetInbox")).Unread);

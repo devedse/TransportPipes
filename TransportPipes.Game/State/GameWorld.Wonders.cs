@@ -182,7 +182,7 @@ public sealed partial class GameWorld
         }
         if (Unsized(wonder))
         {
-            return CommandResult.Fail("It opens at midnight, sized to what the district's builders make.");
+            return CommandResult.Fail("It opens at midnight, sized to what the town's builders make.");
         }
         var materials = Materials(company.Id);
         var delivery = new Dictionary<string, double>();

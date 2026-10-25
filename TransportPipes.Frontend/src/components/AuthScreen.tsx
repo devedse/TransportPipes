@@ -48,7 +48,7 @@ export function AuthScreen() {
           <img className="game-logo" src="/art/ui/logo.webp" alt="TransportPipes" />
         </h1>
         <p className="tagline">
-          Build your estate. Pipe your neighbours. Grow an empire that keeps running while you sleep.
+          Build your plot. Pipe your neighbours. Grow an empire that keeps running while you sleep.
         </p>
       </div>
       <div className="panel play-now">
@@ -56,7 +56,7 @@ export function AuthScreen() {
           Play now
         </button>
         <p className="muted small">
-          No account needed: keep your estate with a name and a password whenever you like.
+          No account needed: keep your plot with a name and a password whenever you like.
         </p>
       </div>
       <form className="panel auth-panel" onSubmit={(event) => void submit(event)}>

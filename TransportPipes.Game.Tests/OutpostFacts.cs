@@ -45,7 +45,7 @@ public class OutpostFacts
             .Select(i => spot.Offset(i % GameWorld.OutpostSize, i / GameWorld.OutpostSize))
             .First(t => game.World.CanPlace(company, game.World.Content.Building("storage"), t).Success);
         Assert.IsTrue(game.World.PlaceBuilding(company.Id, "storage", inside).Success);
-        StringAssert.Contains(game.World.CanPlace(company, game.World.Content.Building("storage"), spot.Offset(-1, 0)).Error, "your own estate");
+        StringAssert.Contains(game.World.CanPlace(company, game.World.Content.Building("storage"), spot.Offset(-1, 0)).Error, "your own plot");
 
         var other = game.NewCompany("Neighbour", level: 15);
         StringAssert.Contains(game.World.CanPlace(other, game.World.Content.Building("storage"), inside.Offset(0, 1)).Error, "someone else's outpost");

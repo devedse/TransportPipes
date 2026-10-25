@@ -174,7 +174,7 @@ export function canPlace(
       if (deep) {
         // The caverns under your own estate
         if (!insideEstate(company, tx, ty - DEEP_OFFSET)) {
-          return fail("Only under your own estate");
+          return fail("Only under your own plot");
         }
         const building = world.buildingAt(tx, ty);
         if (
@@ -200,7 +200,7 @@ export function canPlace(
       } else {
         const estate = ownEstateAt(company, tx, ty);
         if (estate === undefined) {
-          return fail("Only on your own estates and outposts");
+          return fail("Only on your own plots and outposts");
         }
         if (!isParcelUnlocked(estate.unlockedParcels, parcelOf(tx - estate.x, ty - estate.y))) {
           return fail("Buy this parcel first");

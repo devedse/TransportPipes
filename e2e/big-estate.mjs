@@ -16,7 +16,8 @@ const grown = await p.page.evaluate(async (spacing) => {
   const w = tp.gameClient.world;
   const s = () => tp.appStore.getState();
   const me = () => s().company;
-  for (let parcel = 0; parcel < 16; parcel++) await c.buyParcel(parcel, 0);
+  // A parcel is bought next to the land owned: in passes outwards from the start area against the Yard (1.4 §5)
+  for (let pass = 0; pass < 4; pass++) for (let parcel = 0; parcel < 16; parcel++) await c.buyParcel(parcel, 0);
   await new Promise((r) => setTimeout(r, 1500));
   const ox = me().estateX, oy = me().estateY;
   const types = ["windMoily", "solarPanel", "smallFactory", "lab", "storage", "solarPanel"];

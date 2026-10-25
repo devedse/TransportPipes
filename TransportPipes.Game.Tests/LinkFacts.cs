@@ -224,7 +224,7 @@ public class LinkFacts
         var ben = game.NewCompany("Ben", slot: 1);
         var dee = game.NewCompany("Dee", slot: 8);
 
-        StringAssert.Contains(game.World.OfferLink(ana.Id, ben.Id, "coal", true).Result.Error, "your station", "neighbours trade through the Yard");
+        StringAssert.Contains(game.World.OfferLink(ana.Id, ben.Id, "coal", true).Result.Error, "at your Yard", "neighbours trade through the Yard");
         foreach (var resource in new[] { "coal", "wood", "stone", "sand", "water" })
         {
             Assert.IsTrue(game.World.OfferLink(ana.Id, dee.Id, resource, true).Result.Success);

@@ -188,7 +188,7 @@ export class GameClient {
       // Nothing kept
     }
     setState({ user: result.user, keepOpen: false });
-    toast(`Your estate is yours: log in as ${result.user.userName} anywhere.`, "success", 7000);
+    toast(`Your plot is yours: log in as ${result.user.userName} anywhere.`, "success", 7000);
     return null;
   }
 
@@ -1036,7 +1036,7 @@ export class GameClient {
     requestDistrict: (x, y) => {
       void this.connection.getDistrict(x, y).then(
         (district) => this.world?.setDistrict(district),
-        (error: unknown) => console.warn("Could not load a district", error),
+        (error: unknown) => console.warn("Could not load a town", error),
       );
     },
     onHover: (tile, placement) => {
@@ -1918,7 +1918,7 @@ export class GameClient {
       }
     }
     if (best === null) {
-      toast(`${definition.name} in hand, but no free spot on your estate fits it: buy a parcel first`);
+      toast(`${definition.name} in hand, but no free spot on your plot fits it: buy a parcel first`);
       return false;
     }
     this.engine?.lookAt(best.x, best.y, 0.8);

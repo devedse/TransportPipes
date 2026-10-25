@@ -79,7 +79,7 @@ function CalendarTab({ serverNow }: { serverNow: number }) {
   return (
     <div className="calendar">
       <p className="muted small">
-        What is coming to your district in the next {company.forecastHours} hours.
+        What is coming to your town in the next {company.forecastHours} hours.
         {company.forecastHours < 72 && " A Weather Station sees three days ahead and halves storm damage."}
       </p>
       {company.events.length === 0 && <p className="muted">A quiet day: nothing planned.</p>}
@@ -340,11 +340,11 @@ function ExchangeTab({ serverNow }: { serverNow: number }) {
   return (
     <div className="exchange">
       <p className="muted small">
-        Trade with anyone {exchange.global ? "at every hub (Global Exchange)" : "in the district"} without a
-        pipe. Sell orders hold their goods from your storages, buy orders hold their gold. Goods go by cargo
-        (faster with a Cargo Depot and Trains); the seller pays a {Math.round(exchange.fee * 100)}% fee that
-        disappears. <strong>Your station&apos;s neighbours and its project need no Exchange:</strong> what you
-        pipe to your Yard gate goes to them by itself.
+        Trade with anyone {exchange.global ? "at every hub (Global Exchange)" : "in the town"} without a pipe.
+        Sell orders hold their goods from your storages, buy orders hold their gold. Goods go by cargo (faster
+        with a Cargo Depot and Trains); the seller pays a {Math.round(exchange.fee * 100)}% fee that
+        disappears. <strong>Your Yard&apos;s neighbours need no Exchange:</strong> what you pipe to your Yard
+        gate goes to them by itself.
       </p>
       {!exchange.hasOffice ? (
         <p className="status idle">Build an Exchange Office (Company Level 12) to place orders.</p>

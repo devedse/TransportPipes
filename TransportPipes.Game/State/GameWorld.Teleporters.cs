@@ -59,7 +59,7 @@ public sealed partial class GameWorld
             var b = WorldLayout.Surface(receiver.Position);
             if (WorldLayout.DistrictOf(a.X, a.Y) != WorldLayout.DistrictOf(b.X, b.Y))
             {
-                return $"A {Content.Building(sender.Type).Name} only reaches stations in the same district.";
+                return $"A {Content.Building(sender.Type).Name} only reaches stations in the same town.";
             }
         }
         return null;

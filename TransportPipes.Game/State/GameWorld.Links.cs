@@ -284,7 +284,7 @@ public sealed partial class GameWorld
         }
         if (mine.Station == theirs.Station)
         {
-            return Fail($"{partner.Name} lives in your station: you trade through the Yard already.");
+            return Fail($"{partner.Name} lives at your Yard: you trade through the Yard already.");
         }
         var (seller, buyer) = selling ? (mine, theirs) : (theirs, mine);
         var route = LinkRoute(seller.YardGate, seller.Station, buyer.YardGate, buyer.Station);
@@ -313,7 +313,7 @@ public sealed partial class GameWorld
         }
         if (LinksOf(company.Id).Count() >= MaxLinksPerEstate)
         {
-            return (CommandResult.Fail($"An estate has at most {MaxLinksPerEstate} links."), null);
+            return (CommandResult.Fail($"A plot has at most {MaxLinksPerEstate} links."), null);
         }
         if (LinksOf(partner.Id).Count() >= MaxLinksPerEstate)
         {
@@ -368,7 +368,7 @@ public sealed partial class GameWorld
         }
         if (LinksOf(companyId).Count(t => t.State != LinkState.Offered) >= MaxLinksPerEstate)
         {
-            return CommandResult.Fail($"An estate has at most {MaxLinksPerEstate} links.");
+            return CommandResult.Fail($"A plot has at most {MaxLinksPerEstate} links.");
         }
         link.State = LinkState.Active;
         link.AcceptedAt = LastTick;

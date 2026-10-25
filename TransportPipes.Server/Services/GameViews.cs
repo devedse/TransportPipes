@@ -271,7 +271,7 @@ public static partial class GameViews
             new("orders", $"{30 + 8 * company.Level:N0} XP per daily order (it grows with your level)"),
             new("contracts", $"{p.XpReward("contract"):N0} XP per finished contract"),
             new("achievements", "XP for every achievement"),
-            new("likes", "10 XP per like of your estate"),
+            new("likes", "10 XP per like of your plot"),
         };
         return new ExperienceDto(
             Math.Max(0, goldPerMinute) / goldPerXp,

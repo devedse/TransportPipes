@@ -18,7 +18,7 @@ district:
   - id: grandFountain
     name: Grand Fountain
     perk: { kind: production, amount: 0.05 }
-    description: Everyone in the district makes 5% more.
+    description: Everyone in the town makes 5% more.
     stages:
       - { stone: 4000, planks: 2000 }
       - { bricks: 3000, glass: 1500 }

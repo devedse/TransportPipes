@@ -508,7 +508,7 @@
   cost: { gold: 10000, materials: { planks: 100 } }
   buildSeconds: 300
   throughput: 200
-  description: Trucks connect all your Cargo Depots (estate and outposts) like a pipe without losses, 200 per minute per level. Halves Exchange cargo times.
+  description: Trucks connect all your Cargo Depots (plot and outposts) like a pipe without losses, 200 per minute per level. Halves Exchange cargo times.
 
 - id: powerLinePylon
   name: Power Line Pylon
@@ -556,7 +556,7 @@
   unlock: { level: 12 }
   cost: { gold: 5000 }
   buildSeconds: 120
-  description: Access to the Exchange order book from your estate.
+  description: Access to the Exchange order book from your plot.
 
 - id: showroom
   name: Showroom
@@ -725,7 +725,7 @@
   buildSeconds: 900
   throughput: 200
   range: district
-  description: A pair of capsule stations linking two of your networks in the district.
+  description: A pair of capsule stations linking two of your networks in the town.
 
 - id: terraformer
   name: Terraformer
@@ -735,7 +735,7 @@
   unlock: { era: 3, research: terraforming }
   cost: { gold: 500000, materials: { steel: 300 } }
   buildSeconds: 3600
-  description: Reshapes your estate.
+  description: Reshapes your plot.
 
 - id: quantumLink
   name: Quantum Link

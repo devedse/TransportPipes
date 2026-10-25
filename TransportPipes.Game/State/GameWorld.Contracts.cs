@@ -70,7 +70,7 @@ public sealed partial class GameWorld
             var (from, to) = selling ? (company.Id, partner.Id) : (partner.Id, company.Id);
             if (!CanDeliver(company, partner) && LinkBetween(from, to, resource) == null)
             {
-                return CommandResult.Fail($"{partner.Name} doesn't live in your station: link your gates for {Content.Resources[resource].Name.ToLowerInvariant()} first, or contract through the Yard.");
+                return CommandResult.Fail($"{partner.Name} doesn't live at your Yard: link your gates for {Content.Resources[resource].Name.ToLowerInvariant()} first, or contract through the Yard.");
             }
         }
         var seller = selling ? company.Id : partner?.Id ?? 0;
@@ -163,7 +163,7 @@ public sealed partial class GameWorld
         {
             if (Company(contract.Proposer)?.District != company.District)
             {
-                return CommandResult.Fail("That offer is for another district.");
+                return CommandResult.Fail("That offer is for another town.");
             }
             contract.Seller = companyId;
         }
@@ -171,7 +171,7 @@ public sealed partial class GameWorld
         {
             if (Company(contract.Proposer)?.District != company.District)
             {
-                return CommandResult.Fail("That offer is for another district.");
+                return CommandResult.Fail("That offer is for another town.");
             }
             contract.Buyer = companyId;
         }
@@ -200,7 +200,7 @@ public sealed partial class GameWorld
                     contract.Buyer = 0;
                 }
             }
-            return CommandResult.Fail($"{other.Name} doesn't live in your station: link your gates for {Content.Resources[contract.Resource].Name.ToLowerInvariant()} first.");
+            return CommandResult.Fail($"{other.Name} doesn't live at your Yard: link your gates for {Content.Resources[contract.Resource].Name.ToLowerInvariant()} first.");
         }
         // Nobody can promise more than they can make: a contract nobody could meet would only pay penalties
         if (Company(contract.Seller) is { } promiser && contract.Rate > PromisableRate(promiser, contract.Resource, contract.Id) + 1e-9)

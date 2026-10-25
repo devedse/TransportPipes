@@ -116,7 +116,7 @@ public sealed partial class GameWorld
     {
         if (Company(companyId) is not { } company || EstateOf(company) is not { } estate)
         {
-            return CommandResult.Fail("You don't have an estate.");
+            return CommandResult.Fail("You don't have a plot.");
         }
         if (!HasDeepLevel(company))
         {

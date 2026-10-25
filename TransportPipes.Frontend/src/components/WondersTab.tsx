@@ -106,7 +106,7 @@ function WonderCard({ wonder, era }: { wonder: WonderDto; era: number }) {
       <div className="wonder-head">
         <div>
           <div className="panel-title">
-            {wonder.isEra ? `Era ${era} Wonder · the Capital` : "District Wonder"}
+            {wonder.isEra ? `Era ${era} Wonder · the Capital` : "Town Wonder"}
           </div>
           <h3>{wonder.name}</h3>
           <div className="small">{wonder.description}</div>
@@ -128,7 +128,7 @@ function WonderCard({ wonder, era }: { wonder: WonderDto; era: number }) {
       {wonder.opens && (
         <p className="small wonder-opens">
           Its stage opens at midnight, sized to six hours of what{" "}
-          {wonder.isEra ? "the Capital's builders" : "the district's builders"} make.
+          {wonder.isEra ? "the Capital's builders" : "the town's builders"} make.
         </p>
       )}
       {!wonder.finished && !wonder.opens && (

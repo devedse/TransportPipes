@@ -54,7 +54,7 @@ public sealed partial class GameWorld
             // Your station or your crew (after run 4: friends who live elsewhere could only watch)
             if (!NearPlayers(payer, activeOnly: false).Any(t => t.Id == owner.Id))
             {
-                return CommandResult.Fail("Only your station's neighbours and your crew can order for it.");
+                return CommandResult.Fail("Only your Yard's neighbours can order for it.");
             }
             if (SameDevice(payer, owner))
             {

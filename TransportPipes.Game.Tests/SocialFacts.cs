@@ -12,7 +12,7 @@ public class SocialFacts
         var visitor = game.NewCompany("Visitor");
         var owner = game.NewCompany("Owner", gold: 0, level: 3);
 
-        StringAssert.Contains(game.World.LikeEstate(owner.Id, owner.Id).Error, "own estate");
+        StringAssert.Contains(game.World.LikeEstate(owner.Id, owner.Id).Error, "own plot");
         Assert.IsTrue(game.World.LikeEstate(visitor.Id, owner.Id).Success);
         StringAssert.Contains(game.World.LikeEstate(visitor.Id, owner.Id).Error, "today");
         Assert.AreEqual(1, owner.Likes);

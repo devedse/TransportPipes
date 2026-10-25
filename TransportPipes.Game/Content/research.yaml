@@ -374,7 +374,7 @@
   cost: 5000
   minutes: 120
   requires: [bigFactory]
-  description: Unlocks the Deep Lift to build under your estate, and the Magma Tap and Vault down there.
+  description: Unlocks the Deep Lift to build under your plot, and the Magma Tap and Vault down there.
 
 - id: pneumaticPost
   name: Pneumatic Post
@@ -384,7 +384,7 @@
   cost: 8000
   minutes: 180
   requires: [pumpStations]
-  description: Unlocks the Pneumatic Post, a teleporter between your estates.
+  description: Unlocks the Pneumatic Post, a teleporter between your plots.
 
 - id: terraforming
   name: Terraforming

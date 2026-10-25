@@ -63,7 +63,7 @@ public class TeleporterFacts
         var far = new TilePos(game.Local(company, 0, 0).X + WorldLayout.DistrictPitchX * 2, game.Local(company, 0, 0).Y);
         var post = game.Map(company, game.Local(company, 2, 2), "Q")[(0, 0)];
         var farPost = game.Map(company, far.Offset(0, 6), "Q")[(0, 0)];
-        StringAssert.Contains(game.World.LinkTeleporter(company.Id, post.Id, farPost.Id, "ironOre").Error, "same district");
+        StringAssert.Contains(game.World.LinkTeleporter(company.Id, post.Id, farPost.Id, "ironOre").Error, "same town");
 
         // Home: an ore storage and solar panels (plenty of energy for the distance) next to a Quantum Link
         var home = game.Local(company, 2, 10);

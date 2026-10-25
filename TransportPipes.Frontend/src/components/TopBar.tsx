@@ -91,7 +91,7 @@ export function TopBar() {
                   setState({ keepOpen: true, keepNudge: false });
                 }}
               >
-                Keep my estate
+                Keep my plot
               </button>
             ) : (
               user?.userName
@@ -197,7 +197,7 @@ export function TopBar() {
       </div>
 
       {company.moving.arrivesAt !== null && (
-        <div className="panel top-era finale" title="Your estate is moving to its new district">
+        <div className="panel top-era finale" title="Your plot is moving to its new town">
           <span className="era-number">🎈 Moving</span>
           <span className="muted small">
             lands in{" "}
@@ -286,7 +286,7 @@ export function TopBar() {
         >
           <img className="ui-icon" src="/art/ui/ui-trophy.webp" alt="" />
         </button>
-        <button className="icon-button" title="Back to my estate (H)" onClick={() => gameClient.goHome()}>
+        <button className="icon-button" title="Back to my plot (H)" onClick={() => gameClient.goHome()}>
           <img className="ui-icon" src="/art/ui/ui-home.webp" alt="" />
         </button>
         <button

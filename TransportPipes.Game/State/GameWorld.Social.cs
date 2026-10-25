@@ -38,11 +38,11 @@ public sealed partial class GameWorld
         }
         if (likerId == ownerId)
         {
-            return CommandResult.Fail("You can't like your own estate.");
+            return CommandResult.Fail("You can't like your own plot.");
         }
         if (!_likesToday.Add((likerId, ownerId)))
         {
-            return CommandResult.Fail("You liked this estate today already.");
+            return CommandResult.Fail("You liked this plot today already.");
         }
         // Festivals: likes count double
         var factor = LikeFactor(owner.District);
@@ -52,7 +52,7 @@ public sealed partial class GameWorld
         GainXp(owner, 10 * factor, "likes", "likes");
         owner.Touch();
         Changes.Companies.Add(owner.Id);
-        Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.Social, $"{liker.Name} likes your estate!"));
+        Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.Social, $"{liker.Name} likes your plot!"));
         return CommandResult.Ok;
     }
 

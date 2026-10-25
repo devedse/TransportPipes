@@ -77,7 +77,7 @@ public class DeepFacts
 
         StringAssert.Contains(game.World.CanPlace(company, magmaTap, game.Local(company, 10, 10)).Error, "Deep Level");
         StringAssert.Contains(game.World.CanPlace(company, game.World.Content.Building("windMoily"), WorldLayout.Deep(game.Local(company, 10, 10))).Error, "Deep Level");
-        StringAssert.Contains(game.World.CanPlace(company, game.World.Content.Building("storage"), WorldLayout.Deep(game.Local(company, 40, 10))).Error, "your own estate");
+        StringAssert.Contains(game.World.CanPlace(company, game.World.Content.Building("storage"), WorldLayout.Deep(game.Local(company, 40, 10))).Error, "your own plot");
 
         // Rich veins of metal and magma down there
         var deposits = new Dictionary<string, int>();

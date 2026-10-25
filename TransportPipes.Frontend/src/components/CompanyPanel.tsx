@@ -140,9 +140,9 @@ export function CompanyPanel() {
           <div className="company-overview">
             {user?.isGuest === true && (
               <div className="keep-note">
-                <span>You play as a guest: only this browser knows your estate.</span>
+                <span>You play as a guest: only this browser knows your plot.</span>
                 <button className="primary" onClick={() => setState({ keepOpen: true })}>
-                  Keep my estate
+                  Keep my plot
                 </button>
               </div>
             )}

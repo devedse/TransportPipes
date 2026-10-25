@@ -18,7 +18,7 @@ function close(level: number) {
   });
   if (guest && KEEP_AT.includes(level)) {
     toast(
-      `Level ${level}: keep your estate with a name and a password, to play it anywhere: Keep my estate, top left`,
+      `Level ${level}: keep your plot with a name and a password, to play it anywhere: Keep my plot, top left`,
       "info",
       9000,
     );

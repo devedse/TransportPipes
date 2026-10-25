@@ -5,16 +5,16 @@ namespace TransportPipes.Game.State;
 
 /// <summary>
 /// The chain that would make a good nobody near makes (after run 4: "Bricks need stone + coal, I have neither", dev d14,
-/// while the Houses sold both through the Yard and Dev had 12M gold; the Dynamo waited 15 days for a Brickworks nobody
-/// built): the cheapest building that makes it, and where each of its inputs would come from.
+/// while stone and coal were to be had and Dev had 12M gold; the Dynamo waited 15 days for a Brickworks nobody built):
+/// the cheapest building that makes it, and where each of its inputs would come from.
 /// </summary>
 public sealed partial class GameWorld
 {
     /// <summary>
-    /// One input of a chain: who near makes it (you first), whether the Houses sell it through the Yard, and else the
-    /// building you could make it with yourself (an Iron Mine for iron ore)
+    /// One input of a chain: who near makes it (you first), the building you could make it with yourself (an Iron Mine
+    /// for iron ore), and whether it is a land good the market sells to a plot that lacks it (1.4 §5)
     /// </summary>
-    public sealed record ChainInput(string Good, List<Company> Makers, bool Houses, BuildingDefinition? YouCould);
+    public sealed record ChainInput(string Good, List<Company> Makers, bool Market, BuildingDefinition? YouCould);
 
     /// <summary>A building that makes a good, whether this company may build it now (else why not), and its inputs</summary>
     public sealed record Chain(BuildingDefinition Building, double Cost, string? Locked, List<ChainInput> Inputs);
@@ -80,7 +80,7 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// "A Brickworks (1,400 g) makes bricks from stone and coal: Ana makes stone, Cleo makes coal; the Yard brings both",
-    /// "… stone and coal: the Houses sell both through the Yard"
+    /// "… stone and coal: the market sells both"
     /// </summary>
     public string ChainText(Chain chain, string good, Company viewer)
     {
@@ -99,22 +99,22 @@ public sealed partial class GameWorld
                 parts.Add(maker.Id == viewer.Id ? $"you make {Name(input.Good)}" : $"{NameFor(maker, viewer)} makes {Name(input.Good)}");
             }
         }
-        var bought = chain.Inputs.Where(t => t.Makers.Count == 0 && t.Houses).Select(t => Name(t.Good)).ToList();
-        if (bought.Count > 0)
-        {
-            parts.Add($"the Houses sell {Join(bought)} through the Yard");
-        }
-        foreach (var input in chain.Inputs.Where(t => t.Makers.Count == 0 && !t.Houses && t.YouCould != null))
+        foreach (var input in chain.Inputs.Where(t => t.Makers.Count == 0 && t.YouCould != null))
         {
             parts.Add($"you can make {Name(input.Good)} with {Article(input.YouCould!.Name)}");
         }
-        var missing = chain.Inputs.Where(t => t.Makers.Count == 0 && !t.Houses && t.YouCould == null).Select(t => Name(t.Good)).ToList();
+        var bought = chain.Inputs.Where(t => t.Makers.Count == 0 && t.YouCould == null && t.Market).Select(t => Name(t.Good)).ToList();
+        if (bought.Count > 0)
+        {
+            parts.Add($"the market sells {Join(bought)} at 2.5× until a neighbour makes {(bought.Count == 1 ? "it" : "them")}");
+        }
+        var missing = chain.Inputs.Where(t => t.Makers.Count == 0 && t.YouCould == null && !t.Market).Select(t => Name(t.Good)).ToList();
         if (missing.Count > 0)
         {
             parts.Add($"nobody near makes {Join(missing)} yet");
         }
         var text = parts.Count == 0 ? head : $"{head}: {string.Join("; ", parts)}";
-        if (chain.Inputs.Any(t => t.Makers.Any(m => m.Id != viewer.Id) || t.Houses) && missing.Count == 0)
+        if (chain.Inputs.Any(t => t.Makers.Any(m => m.Id != viewer.Id)) && missing.Count == 0 && bought.Count == 0)
         {
             text += chain.Inputs.Count > 1 ? "; the Yard brings them" : "; the Yard brings it";
         }

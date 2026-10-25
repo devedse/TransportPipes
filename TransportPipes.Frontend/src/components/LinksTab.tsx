@@ -345,11 +345,11 @@ export function LinksTab() {
       <div className="link-picture" aria-hidden="true">
         <span className="link-end">🏠 your Yard gate</span>
         <span className="link-pipe">one good ▶</span>
-        <span className="link-end">🏠 a friend in another station</span>
+        <span className="link-end">🏠 a friend at another Yard</span>
       </div>
       <p className="small">
-        <strong>A link pipes one good to one company in another station</strong>, every minute, at the one
-        player price. Inside your own station you need none: the Yard shares by itself.
+        <strong>A link pipes one good to one company at another Yard</strong>, every minute, at the
+        seller&apos;s price for you. Inside your own Yard you need none: the Yard shares by itself.
       </p>
       {links.links.length > 0 ? (
         <ul className="link-list">

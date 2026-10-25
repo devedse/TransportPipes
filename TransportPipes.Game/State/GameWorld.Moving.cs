@@ -191,7 +191,7 @@ public sealed partial class GameWorld
     {
         if (company.Packed != null)
         {
-            return "Your estate is on its way already.";
+            return "Your plot is on its way already.";
         }
         if (company.LastMovedAt is { } last && last + MoveEvery > LastTick && company.FreeMoves == 0)
         {
@@ -203,7 +203,7 @@ public sealed partial class GameWorld
         }
         if (!_openDistricts.Contains(district))
         {
-            return "That district isn't open.";
+            return "That town isn't open.";
         }
         if (company.Gold < MoveCost(company))
         {
@@ -225,7 +225,7 @@ public sealed partial class GameWorld
         }
         if (FreeEstateIn(district) is not { } target)
         {
-            return CommandResult.Fail("That district has no free estate.");
+            return CommandResult.Fail("That town has no free plot.");
         }
         var cost = MoveCost(company);
         if (company.FreeMoves > 0)
@@ -279,8 +279,8 @@ public sealed partial class GameWorld
         Unpack(company, estate);
         RerouteLinks(company);
         Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Neighbour, company.Crates.Count == 0
-            ? "Your estate has landed in its new spot"
-            : $"Your estate has landed; {company.Crates.Count} buildings didn't fit and wait in crates"));
+            ? "Your plot has landed in its new spot"
+            : $"Your plot has landed; {company.Crates.Count} buildings didn't fit and wait in crates"));
     }
 
     /// <summary>Ends what ties a company to its neighbours: contracts and Exchange orders</summary>

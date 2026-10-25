@@ -45,8 +45,8 @@ public class GameWorldFacts
         var hq = game.World.BuildingsOf(company.Id).Single(t => t.Type == "hq");
 
         StringAssert.Contains(game.World.PlaceBuilding(company.Id, "windMoily", game.Local(company, 2, 2)).Error, "locked");
-        StringAssert.Contains(game.World.PlaceBuilding(company.Id, "windMoily", game.Local(neighbour, 12, 12)).Error, "own estate");
-        StringAssert.Contains(game.World.PlaceBuilding(company.Id, "windMoily", game.Local(company, -1, 12)).Error, "own estate");
+        StringAssert.Contains(game.World.PlaceBuilding(company.Id, "windMoily", game.Local(neighbour, 12, 12)).Error, "own plot");
+        StringAssert.Contains(game.World.PlaceBuilding(company.Id, "windMoily", game.Local(company, -1, 12)).Error, "own plot");
         StringAssert.Contains(game.World.PlaceBuilding(company.Id, "windMoily", hq.Position).Error, "already");
         Assert.IsTrue(game.World.PlaceBuilding(company.Id, "windMoily", game.Spot(company, "windMoily")).Success);
     }
@@ -395,7 +395,7 @@ public class GameWorldFacts
         var a = game.NewCompany("A");
         var b = game.NewCompany("B");
 
-        StringAssert.Contains(game.World.PlacePipes(a.Id, [game.Local(b, 12, 12)]).Error, "someone else's estate");
+        StringAssert.Contains(game.World.PlacePipes(a.Id, [game.Local(b, 12, 12)]).Error, "someone else's plot");
         Assert.IsTrue(game.World.PlacePipes(a.Id, [game.Local(a, 2, 2)]).Success, "pipes may cross parcels you haven't bought");
     }
 

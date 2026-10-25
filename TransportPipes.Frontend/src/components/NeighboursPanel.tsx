@@ -309,7 +309,7 @@ export function NeighboursPanel() {
 
         {tab === "neighbours" && (
           <div className="neighbour-list">
-            {neighbours.length === 0 && <p className="muted">Nobody else in your district yet.</p>}
+            {neighbours.length === 0 && <p className="muted">Nobody else in your town yet.</p>}
             {neighbours.map((n) => (
               <div key={n.id} className="neighbour">
                 <span className="company-dot" style={{ background: n.color }} />
@@ -339,10 +339,7 @@ export function NeighboursPanel() {
                 <div className="neighbour-actions">
                   {!n.connected && <span className="muted small">not piped to the Yard yet</span>}
                   <span className="button-row">
-                    <button
-                      title="Visit their estate"
-                      onClick={() => void gameClient.visitEstate(n.id, true)}
-                    >
+                    <button title="Visit their plot" onClick={() => void gameClient.visitEstate(n.id, true)}>
                       Visit
                     </button>
                     <button

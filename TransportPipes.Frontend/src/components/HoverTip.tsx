@@ -92,7 +92,7 @@ export function HoverTip() {
     text = placement?.ok === false ? placement.reason : "Click where it should go · right-click to cancel";
     tone = placement?.ok === false ? "bad" : "";
   } else if (tool.kind === "blueprintArea") {
-    text = "Drag a rectangle over your estate to save it as a blueprint (right-click or Esc to stop)";
+    text = "Drag a rectangle over your plot to save it as a blueprint (right-click or Esc to stop)";
   } else if (tool.kind === "blueprint") {
     const blueprint = tool.blueprint;
     if (placement !== null && placement.ok && placement.reason === null) {
@@ -113,7 +113,7 @@ export function HoverTip() {
       forest: "Plant a forest",
       seedDeposit: `Seed ${tool.resource !== undefined ? content.resourceName(tool.resource).toLowerCase() : "a deposit"}`,
     };
-    text = `${names[tool.action] ?? tool.action}: click tiles of your estate (right-click or Esc to stop)`;
+    text = `${names[tool.action] ?? tool.action}: click tiles of your plot (right-click or Esc to stop)`;
   }
 
   if (text === null && info !== null) {

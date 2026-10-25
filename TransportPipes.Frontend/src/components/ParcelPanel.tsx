@@ -35,7 +35,7 @@ export function ParcelPanel() {
         </button>
       </div>
       <p className="muted">
-        8×8 tiles of your estate. You can already lay pipes over it; buy it to build on it.
+        8×8 tiles of your plot. You can already lay pipes over it; buy it to build on it.
       </p>
       <ParcelContents
         x={own.x + (parcel % PARCELS_PER_SIDE) * PARCEL_SIZE}

@@ -474,7 +474,7 @@ public sealed partial class GameWorld
         var estate = EstateOf(company);
         if (estate == null)
         {
-            return CommandResult.Fail("You don't have an estate.");
+            return CommandResult.Fail("You don't have a plot.");
         }
         var footprint = new List<TilePos>();
         for (var dy = 0; dy < definition.Size; dy++)
@@ -518,7 +518,7 @@ public sealed partial class GameWorld
             }
             else if (OwnEstateAt(company, tile) is not { } own)
             {
-                return CommandResult.Fail("You can only build on your own estates and your outposts.");
+                return CommandResult.Fail("You can only build on your own plots and your outposts.");
             }
             else if (!own.IsUnlocked(own.ParcelAt(tile)))
             {
@@ -593,7 +593,7 @@ public sealed partial class GameWorld
         {
             if (!InEstateOrBelow(estate, tile))
             {
-                return CommandResult.Fail("In the Deep Level you build only under your own estate.");
+                return CommandResult.Fail("In the Deep Level you build only under your own plot.");
             }
             if ((_buildingAt.TryGetValue(tile, out var other) && other != ignoreBuilding) || _conductors.ContainsKey(tile))
             {
@@ -1065,7 +1065,7 @@ public sealed partial class GameWorld
     {
         if (Company(companyId) is not { } company || EstatesOf(company).ElementAtOrDefault(estateIndex) is not { } estate)
         {
-            return CommandResult.Fail("You don't have that estate.");
+            return CommandResult.Fail("You don't have that plot.");
         }
         if (parcel is < 0 or >= WorldLayout.ParcelCount)
         {
@@ -1126,7 +1126,7 @@ public sealed partial class GameWorld
     {
         if (Company(companyId) is not { } company || EstateOf(company) is not { } estate)
         {
-            return CommandResult.Fail("You don't have an estate.");
+            return CommandResult.Fail("You don't have a plot.");
         }
         var pipe = Content.PipeTiers.FirstOrDefault(t => t.Tier == tier);
         if (pipe == null)
@@ -1147,7 +1147,7 @@ public sealed partial class GameWorld
                 // Down in the Deep Level: only in your own caverns
                 if (!estate.Contains(WorldLayout.Surface(tile)))
                 {
-                    return CommandResult.Fail("In the Deep Level pipes stay under your own estate.");
+                    return CommandResult.Fail("In the Deep Level pipes stay under your own plot.");
                 }
                 if (IsOccupied(tile))
                 {
@@ -1167,7 +1167,7 @@ public sealed partial class GameWorld
                     // Pipes may cross parcels you haven't bought yet, so the Yard gate can be reached from the start
                     if (OwnEstateAt(company, tile) == null)
                     {
-                        return CommandResult.Fail("You can't lay pipes on someone else's estate. Trade through your Yard gate.");
+                        return CommandResult.Fail("You can't lay pipes on someone else's plot. Trade through your Yard gate.");
                     }
                     break;
                 case ZoneKind.Wilderness:
@@ -1180,7 +1180,7 @@ public sealed partial class GameWorld
                 case ZoneKind.Yard:
                     return CommandResult.Fail("The Yard is shared: pipe to your Yard gate, the game does the rest.");
                 default:
-                    return CommandResult.Fail("Pipes go on your estate (the corridors carry links, which the game lays).");
+                    return CommandResult.Fail("Pipes go on your plot (the roads carry links, which the game lays).");
             }
             if (IsOccupied(tile))
             {

@@ -291,17 +291,25 @@ public class WonderFacts
     [TestMethod]
     public void TheChainLineSaysWhatWouldMakeAGoodAndWhereItsInputsComeFrom()
     {
-        // Run 4: "Bricks need stone + coal, I have neither" (dev d14), while the Houses sold both through the Yard
+        // Run 4: "Bricks need stone + coal, I have neither" (dev d14), while both were to be had
         var game = new TestGame();
         var dev = game.NewCompany("Dev", level: 12);
         var chain = game.World.ChainFor(dev, "bricks")!;
 
         Assert.AreEqual("brickworks", chain.Building.Id);
         CollectionAssert.AreEquivalent(new[] { "coal", "stone" }, chain.Inputs.Select(t => t.Good).ToArray());
-        Assert.IsTrue(chain.Inputs.All(t => t.Houses), "land goods: the Houses sell them through the Yard");
+        Assert.IsTrue(chain.Inputs.All(t => t.Market), "land goods: the market sells them to a plot that lacks them");
         var text = game.World.ChainText(chain, "bricks", dev);
         StringAssert.StartsWith(text, "A Brickworks (");
-        StringAssert.Contains(text, "makes bricks from coal and stone: the Houses sell coal and stone through the Yard; the Yard brings them");
+        StringAssert.Contains(text, "makes bricks from coal and stone: ");
+        // What Dev's land has he can make himself; what it lacks the market sells (1.4 §5)
+        var estate = game.EstateOf(dev);
+        foreach (var good in new[] { "coal", "stone" })
+        {
+            StringAssert.Contains(text, game.World.Generator.LacksOf(estate.District, estate.Slot).Contains(good)
+                ? $"the market sells {good} at 2.5×"
+                : $"you can make {good} with");
+        }
 
         // Iron ore isn't dealt land: Dev can mine it himself
         var ingots = game.World.ChainFor(dev, "ironIngot")!;

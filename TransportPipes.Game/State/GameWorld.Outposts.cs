@@ -108,7 +108,7 @@ public sealed partial class GameWorld
         {
             if (WorldLayout.ZoneAt(tile.X, tile.Y).Kind != ZoneKind.Wilderness)
             {
-                return "Outposts are claimed in the wilderness between the districts.";
+                return "Outposts are claimed in the wilderness between the towns.";
             }
             if (OutpostAt(tile) != null)
             {

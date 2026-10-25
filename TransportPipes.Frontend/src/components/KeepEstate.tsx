@@ -30,9 +30,9 @@ export function KeepEstate() {
         onSubmit={(e) => void submit(e)}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2>Keep your estate</h2>
+        <h2>Keep your plot</h2>
         <p className="muted">
-          You play as a guest: this browser remembers you. With a name and a password your estate is yours on
+          You play as a guest: this browser remembers you. With a name and a password your plot is yours on
           any device.
         </p>
         <label>
@@ -67,7 +67,7 @@ export function KeepEstate() {
           </p>
         )}
         <button className="primary" type="submit" disabled={busy}>
-          {busy ? "One moment…" : "Keep my estate"}
+          {busy ? "One moment…" : "Keep my plot"}
         </button>
       </form>
     </div>

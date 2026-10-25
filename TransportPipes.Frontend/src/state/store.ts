@@ -153,7 +153,7 @@ export interface AppState {
   pickerReload: number;
   /** The form that turns a guest into an account */
   keepOpen: boolean;
-  /** A guest reached a keep level: the top bar's "Keep my estate" glows until it is tapped */
+  /** A guest reached a keep level: the top bar's "Keep my plot" glows until it is tapped */
   keepNudge: boolean;
   companyOpen: boolean;
   companyDetails: CompanyDetailsDto | null;

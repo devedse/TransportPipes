@@ -235,7 +235,7 @@ public sealed partial class GameWorld
         }
         if (EstateOf(friend) is not { } estate || !StationPlayers(estate.Station).Any(t => t.Id == owner.Id))
         {
-            return CommandResult.Fail("Only your station's neighbours can send to it.");
+            return CommandResult.Fail("Only your Yard's neighbours can send to it.");
         }
         if (SameDevice(friend, owner))
         {

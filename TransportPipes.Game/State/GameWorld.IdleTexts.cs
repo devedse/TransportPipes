@@ -156,7 +156,7 @@ public sealed partial class GameWorld
                     $"It could make {Amount(could)} a minute, but a pipe connection carries only so much (Grey Pipe: 100 a minute). A better or wider pipe, or a second taker on a pipe of its own, takes more.",
                     fix);
             case IdleCause.GateOnly:
-                return new IdleStatus(reason, $"Waiting: nobody here takes its {good}", "Its only way out is your Yard gate (G), and nobody in your station needs it now.", FixPipe());
+                return new IdleStatus(reason, $"Waiting: nobody here takes its {good}", "Its only way out is your Yard gate (G), and nobody at your Yard needs it now.", FixPipe());
             default:
                 return new IdleStatus(reason, null, null, null);
         }

@@ -70,7 +70,7 @@ export function VisitPanel() {
           <button
             className={visit.likedToday ? "liked" : "primary"}
             disabled={visit.likedToday}
-            title="One like per estate per day: the owner gets a little gold and XP"
+            title="One like per plot per day: the owner gets a little gold and XP"
             onClick={() => void gameClient.likeEstate(visit.id)}
           >
             {visit.likedToday ? "♥ Liked today" : "♥ Like"}
@@ -78,7 +78,7 @@ export function VisitPanel() {
           <button onClick={() => void gameClient.messageCompany(visit.id, visit.name)}>✉ Message</button>
           <button
             onClick={() => gameClient.lookAtEstate(visit.estateX, visit.estateY)}
-            title="Look at the estate"
+            title="Look at the plot"
           >
             👁 Look
           </button>

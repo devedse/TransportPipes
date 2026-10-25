@@ -126,9 +126,9 @@ export function ChatPanel() {
             {current?.kind === "crew"
               ? "Only your crew reads this, wherever they live."
               : current?.kind === "station"
-                ? "Only the players of your station read this: your project, your Yard."
+                ? "Only the players of your Yard read this."
                 : current?.kind === "district"
-                  ? "Say hello to your neighbours! Everyone in your district reads this."
+                  ? "Say hello to your neighbours! Everyone in your town reads this."
                   : current?.kind === "corporation"
                     ? "Only members of your corporation read this."
                     : "Only the two of you read this."}
