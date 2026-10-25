@@ -28,12 +28,12 @@ public class ModelBotSimulation
             Assert.Inconclusive("Set TP_BALANCE=1 to run the model's days.");
         }
         var days = int.TryParse(Environment.GetEnvironmentVariable("TP_BALANCE_DAYS"), out var d) ? d : 7;
-        var game = new TestGame(seed: 7, tutorial: true);
+        var game = new TestGame(seed: 4, tutorial: true);
         // The first evening starts at 19:30
         game.Time = game.Time.Date.AddHours(19.5);
-        // The model's plot (§17's Jo): it lacks sand and oil and has a rich iron deposit (seed 4242's first seat lacked
-        // copper ore, the most valuable basic, and half the gap to the model was that)
-        var company = game.NewCompany("Model", gold: game.World.StartingGold, slot: 13);
+        // The model's plot (§17's Jo): it lacks sand and oil, has a rich iron deposit and copper ore in its start area
+        // (seed 4242's first seat lacked copper ore, the most valuable basic, and half the gap to the model was that)
+        var company = game.NewCompany("Model", gold: game.World.StartingGold, slot: 15);
         CollectionAssert.AreEqual(new[] { "sand", "oil" }, game.World.Generator.LacksOf(company.District, company.Slot).ToArray());
         var start = company.Gold;
         var bot = new BalanceSimulation.Bot(game, company);
