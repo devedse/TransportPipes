@@ -88,7 +88,14 @@ describe("the plot picker (1.4 §6)", () => {
     const dto = stations();
     dto.stations[1]!.seats = dto.stations[1]!.seats.map((t) => ({ ...t, state: "taken" as const }));
     dto.pickForMe = { districtX: 1, districtY: 0, slot: 2 };
+    dto.stations[0]!.seats = dto.stations[0]!.seats.map((t) => ({ ...t, state: "taken" as const }));
     expect(chooseSeat(dto, null, 1)).toBeNull();
+  });
+
+  it("offers a free plot of another town than Pick for me's, next to people first", () => {
+    const dto = stations();
+    dto.pickForMe = { districtX: 1, districtY: 0, slot: 2 };
+    expect(chooseSeat(dto, null)?.slot).toBe(5);
   });
 });
 

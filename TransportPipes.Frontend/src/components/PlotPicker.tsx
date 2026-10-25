@@ -493,6 +493,8 @@ export function PlotPicker({ mode }: { mode: PickMode }) {
               value={`${stations.districtX},${stations.districtY}`}
               onChange={(e) => {
                 const [x, y] = e.target.value.split(",").map(Number);
+                // The town's own free plot comes once it loads (the choice elsewhere would pull the map back)
+                setState({ picker: { mode, seats: picker?.seats ?? {}, chosen: null } });
                 setTown({ x: x!, y: y! });
                 gameClient.lookAtTown(x!, y!);
               }}

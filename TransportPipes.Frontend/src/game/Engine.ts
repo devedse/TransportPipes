@@ -3042,12 +3042,39 @@ export class Engine {
         }
       }
     }
+    const tower = this.textures.generated("hub-gateTower", 2);
     for (const gate of TOWN_GATES_LOCAL) {
-      // The town gate: a paved apron where the road leaves the town
+      // The town gate: a paved apron where the road leaves the town, a gate tower on each side of the road
       traceFootprint(g, ox + gate.x0, oy + gate.y0, gate.x1 - gate.x0 + 1, gate.y1 - gate.y0 + 1);
       g.fill({ color: 0xcdb48a, alpha: far ? 0.6 : 0.45 });
       traceFootprint(g, ox + gate.x0, oy + gate.y0, gate.x1 - gate.x0 + 1, gate.y1 - gate.y0 + 1);
       g.stroke({ color: 0x5a4630, width: far ? 10 : 4, alpha: 0.8 });
+      if (far || tower === null) {
+        continue;
+      }
+      const across = gate.x1 - gate.x0 > gate.y1 - gate.y0;
+      for (const [x, y] of across
+        ? [
+            [gate.x0, gate.y0],
+            [gate.x1 - 1, gate.y0],
+          ]
+        : [
+            [gate.x0, gate.y0],
+            [gate.x0, gate.y1 - 1],
+          ]) {
+        const sprite = new Sprite(tower.frames[0]);
+        placeArt(sprite, tower, footprintAnchor(ox + x!, oy + y!, 2), 2);
+        sprite.zIndex = (ox + x! + oy + y! + 2) * 4 + 3;
+        this.objectLayer.addChild(sprite);
+        view.hub.push({
+          display: sprite,
+          effects: null,
+          building: null,
+          machine: null,
+          idle: null,
+          progress: null,
+        });
+      }
     }
     if (far) {
       return;

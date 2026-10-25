@@ -79,6 +79,7 @@
 - { id: hub-contractBoard, size: 2, look: "a timber pavilion with a big notice board full of pinned contracts and a little bench" }
 - { id: hub-tradingHouse, size: 2, look: "a merchant's trading house: a warm brick building with a shop front, crates and sacks outside, an awning" }
 - { id: hub-park, size: 3, look: "a little town park: green lawn, a round fountain in the middle, trees, benches and flower beds, paths" }
+- { id: hub-gateTower, size: 2, look: "a town gate tower: a square gatehouse tower of warm grey stone, three storeys, crenellations on top with a tall pennant flag, a big arched niche with an iron lantern at the bottom, small arched windows; two of them flank the road where it enters the town" }
 - { id: town-house1, size: 1, look: "a narrow cozy townhouse of red brick with a dark roof and glowing windows" }
 - { id: town-house2, size: 1, look: "a narrow cozy townhouse painted cream with a teal roof and a flower box" }
 - { id: town-house3, size: 1, look: "a small corner shop with a striped awning and a bakery sign without letters" }

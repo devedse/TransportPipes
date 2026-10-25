@@ -82,6 +82,14 @@ export async function settle(player, type, deposit) {
 
 /** Free plots of one Yard nobody lives at, in any open town (not in the Yards given, as "x,y,index") */
 export async function emptySeats(page, count, notIn = []) {
+  const found = await findEmptySeats(page, count, notIn);
+  if (found.length > 0) return found;
+  // A busy test world: the next town (dev cheat, needs a company on the page)
+  await page.evaluate(() => tp.gameClient.connection.cheat("district"));
+  return findEmptySeats(page, count, notIn);
+}
+
+async function findEmptySeats(page, count, notIn) {
   return page.evaluate(async ({ count, notIn }) => {
     const c = tp.gameClient.connection;
     const first = await c.getStations(null, null);

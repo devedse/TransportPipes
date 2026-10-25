@@ -124,7 +124,7 @@ export function ChatPanel() {
         {messages?.length === 0 && (
           <p className="muted small">
             {current?.kind === "crew"
-              ? "Only your crew reads this, wherever they live."
+              ? "Only your Yard's crew reads this."
               : current?.kind === "station"
                 ? "Only the players of your Yard read this."
                 : current?.kind === "district"

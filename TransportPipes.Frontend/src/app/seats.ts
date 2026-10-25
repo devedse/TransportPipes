@@ -28,7 +28,7 @@ export function findSeat(dto: StationsDto, ref: SeatRefDto): { seat: SeatDto; st
 /**
  * The plot the picker shows chosen after it loads a town: the player's own choice while it can still be chosen there,
  * else the first free plot of the Yard it looks at (a friend's; in a closed Yard a request), else Pick for me's when it
- * lies in this town
+ * lies in this town, else the town's first free plot (at a Yard where people live first)
  */
 export function chooseSeat(
   dto: StationsDto,
@@ -47,7 +47,20 @@ export function chooseSeat(
     return { districtX: station.districtX, districtY: station.districtY, slot: free.slot };
   }
   const pick = dto.pickForMe;
-  return pick.districtX === dto.districtX && pick.districtY === dto.districtY ? pick : null;
+  if (pick.districtX === dto.districtX && pick.districtY === dto.districtY) {
+    return pick;
+  }
+  // Another town: its first free plot, at a Yard where people live first
+  const lived = (t: StationDto) => t.seats.some((s) => s.state === "taken" || s.state === "you");
+  for (const town of [dto.stations.filter(lived), dto.stations.filter((t) => !lived(t))]) {
+    for (const station of town) {
+      const free = station.seats.find((t) => t.state === "free");
+      if (free !== undefined) {
+        return { districtX: station.districtX, districtY: station.districtY, slot: free.slot };
+      }
+    }
+  }
+  return null;
 }
 
 export function sameSeat(a: SeatRefDto | null, b: SeatRefDto | null): boolean {

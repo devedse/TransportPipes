@@ -853,6 +853,13 @@
    "ax": 289,
    "ay": 465,
    "attachments": []
+  },
+  "hub-gateTower": {
+   "w": 578,
+   "h": 803,
+   "ax": 289,
+   "ay": 786,
+   "attachments": []
   }
  },
  "rotors": {
@@ -1068,6 +1075,7 @@
   "buildings/hq.webp": "2d7f54b07e",
   "buildings/hub-contractBoard.webp": "6667835653",
   "buildings/hub-exchange.webp": "f46995f5aa",
+  "buildings/hub-gateTower.webp": "e2f70f4550",
   "buildings/hub-marketHall.webp": "24bbf4c8aa",
   "buildings/hub-park.webp": "5d224bc051",
   "buildings/hub-project-foundation.webp": "a4f6ea5e3b",
