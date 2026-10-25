@@ -5,7 +5,7 @@ numbers and the history of each choice are in `docs/v1.4-design.html` (built fro
 model in its `sim/`). What is built when, and what each playtest found, is in `docs/ImplementationStatus.md`; the look
 in `docs/ArtDirection.md`.
 
-Numbers marked *provisional* are set by the rules of Eras 1 and 2 but not yet played out by the model or the bots.
+The numbers of all five Eras come from the model of `docs/design-notes/v1.4/sim` (Eras 3 to 5 played out in phase C).
 
 ## Contents
 
@@ -239,8 +239,10 @@ the gold (from your Storages; what they lack is bought at 2.5×).
 ## 13. Wonders, Monuments, the Launch and missions
 
 - **The Era Wonder** (one per town and Era): three stages of goods at a fixed size (rule 2), a sixth, a third and a half
-  of its worth. The Great Dynamo (Era 1) is worth 4.3 billion gold of goods, the Copper Cathedral (Era 2) 84 billion;
-  the Grand Refinery Tower, the Thinking Machine and the Space Elevator follow (*provisional*). Every town that built a
+  of its worth. The Great Dynamo (Era 1) is worth 4.3 billion gold of goods, the Copper Cathedral (Era 2) 84 billion,
+  the Grand Refinery Tower (Era 3) 560 billion, the Thinking Machine (Era 4) 1.85 trillion and the Space Elevator (Era
+  5) 5 trillion: what a town of eight regular players gives in about 12 days, three weeks, four weeks, four weeks and a
+  month, so a town of eight launches about four months after its first plot. Every town that built a
   Wonder before makes it 10% smaller for the towns after it, down to half.
   - **Giving goods**: each good has a give switch (off, beyond my Hub Order, all) that sends it through your Yard gate;
     you can give from your Storages and the Depot at any time; **buy and give** buys what a stage lacks at 2.5×.
@@ -283,11 +285,11 @@ Exchange (12), Monuments (5) and expeditions (20).
 - **Discoveries**: every four days a rich deposit appears in the wilderness; every Yard whose players bring something
   out of it in its first three days gets its marker.
 - **Outposts** (Era 4, the research Outposts): up to three 8×8 claims on rich deposits you mapped, bought once (20
-  billion, each next one twice the last, *provisional*) and yours for good. Goods come home by Cargo Depot or Quantum
+  billion, each next one twice the last: about five hours of income when Era 4 begins) and yours for good. Goods come home by Cargo Depot or Quantum
   Link.
 - **The Deep Level** (Era 3, the Deep Lift): the caverns under your plot, dug out parcel by parcel, with the Magma Tap.
 - **Trunk lines** (Era 3, the research Trunk Lines): a line from your town's gate to the facing gate of a neighbouring
-  town, its right of way bought once (10 million a tile, *provisional*) in a pipe tier, and its builder is its carrier.
+  town, its right of way bought once (10 million a tile) in a pipe tier, and its builder is its carrier.
   Whoever builds a route first has it. It carries links between players of the two towns, and sales to the other
   town's market, where your Hub Order is half of your own town's (goods go only to towns of their Era or later). The
   carrier sets fees from nothing to 10% of the goods' base value (public, crew and per player), paid by the seller. A
@@ -321,10 +323,10 @@ reporting, guestbooks and likes, leaderboards, decorations, photo mode.
 | Market | pays base up to the Hub Order, √ beyond, a quarter beyond 16×; sells at 2.5× |
 | Player prices | 1×–2.5× base; public 1.3×, crew 1.15× by default |
 | Track tier gold | 500 · 3k · 20k · 100k · 500k · 2M · 8M · 20M · 50M, ×4 per Era |
-| The Great Dynamo | 4.3 billion g of goods; the Copper Cathedral 84 billion |
+| Era Wonders | 4.3 billion · 84 billion · 560 billion · 1.85 trillion · 5 trillion g of goods |
 | Monument stage | 100 million × 10^(Era−1) × 1.4^(stage−1) |
 | Workshops / Depot | 64 tiles from Level 10 / 20,000 units |
 | Exchange | Level 12, 4% fee |
-| Mission | 100 trillion g of Era-5 goods × 1.1 per mission done, *provisional* |
-| Trunk line | 10 million a tile of right of way, *provisional*; fees 0–10% |
-| Outposts | 20 billion × 2ⁿ, *provisional* |
+| Mission | 600 billion g of Era-5 goods × 1.1 per mission done (about three days of a town of eight) |
+| Trunk line | 10 million a tile of right of way; fees 0–10% |
+| Outposts | 4 billion × 2ⁿ |

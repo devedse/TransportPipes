@@ -59,7 +59,8 @@ tracks:
   - { id: spaceframes,     name: Spaceframes,     era: 5, good: spaceframes,     goods: [spaceframes],           buildings: [spaceframeWorks], description: "Spaceframe Works." }
 
 # The second line: the Era tree. Short research that opens an Era's pipes, buildings and systems, priced at about an
-# hour of income when the Era begins (Eras 3–5 provisional). grant: every company gets it at that Company Level
+# hour of income when the Era begins (Eras 3–5 from the model: 2.8M, 12M and 35M g a minute for a regular player).
+# grant: every company gets it at that Company Level
 tree:
   # Era 1
   - { id: copperPipes,  name: Copper Pipes,  era: 1, minutes: 10, gold: 300,  grant: 8, description: "Copper pipes: fifty times what a grey pipe carries, half its loss. Everyone gets them at Level 8 anyway." }
@@ -73,16 +74,16 @@ tree:
   - { id: deepMining,  name: Deep Mining,           era: 2, minutes: 120, gold: 20000000, description: "The Deep Mine on rich (★3 or more) deposits of iron ore, copper ore and coal." }
   - { id: survey,      name: Survey the Outskirts,  era: 2, minutes: 120, gold: 30000000, description: "Buy the nine outskirts parcels set aside for your plot." }
   # Era 3
-  - { id: compositePipes, name: Composite Pipes, era: 3, minutes: 240, gold: 1000000000, description: "Composite pipes: ten times what a steel pipe carries." }
-  - { id: trains,         name: Trains,          era: 3, minutes: 240, gold: 1000000000, description: "Cargo Depots carry twice as much and Exchange cargo travels twice as fast." }
-  - { id: trunkLines,     name: Trunk Lines,     era: 3, minutes: 360, gold: 2000000000, description: "Build trunk lines from a town gate to other towns." }
-  - { id: deepLift,       name: The Deep Lift,   era: 3, minutes: 480, gold: 3000000000, description: "The Deep Level under your plot, the Magma Tap and the Vault." }
-  - { id: terraforming,   name: Terraforming,    era: 3, minutes: 720, gold: 5000000000, description: "The Terraformer: reshape your land, or seed a deposit you lack." }
+  - { id: compositePipes, name: Composite Pipes, era: 3, minutes: 240, gold: 200000000, description: "Composite pipes: ten times what a steel pipe carries." }
+  - { id: trains,         name: Trains,          era: 3, minutes: 240, gold: 200000000, description: "Cargo Depots carry twice as much and Exchange cargo travels twice as fast." }
+  - { id: trunkLines,     name: Trunk Lines,     era: 3, minutes: 360, gold: 300000000, description: "Build trunk lines from a town gate to other towns." }
+  - { id: deepLift,       name: The Deep Lift,   era: 3, minutes: 480, gold: 400000000, description: "The Deep Level under your plot, the Magma Tap and the Vault." }
+  - { id: terraforming,   name: Terraforming,    era: 3, minutes: 720, gold: 600000000, description: "The Terraformer: reshape your land, or seed a deposit you lack." }
   # Era 4
-  - { id: glassConduit, name: Glass Conduit, era: 4, minutes: 720, gold: 40000000000, description: "Glass conduits: ten times what a composite pipe carries." }
-  - { id: outposts,     name: Outposts,      era: 4, minutes: 720, gold: 50000000000, description: "Claims in the wilderness: up to three outposts on rich deposits." }
-  - { id: automation,   name: Automation,    era: 4, minutes: 480, gold: 40000000000, managerSlots: 1, description: "One more manager." }
-  - { id: quantumLink,  name: Quantum Link,  era: 4, minutes: 960, gold: 60000000000, description: "The Quantum Link: joins two of your own networks anywhere, 2% lost." }
+  - { id: glassConduit, name: Glass Conduit, era: 4, minutes: 720, gold: 800000000, description: "Glass conduits: ten times what a composite pipe carries." }
+  - { id: outposts,     name: Outposts,      era: 4, minutes: 720, gold: 1000000000, description: "Claims in the wilderness: up to three outposts on rich deposits." }
+  - { id: automation,   name: Automation,    era: 4, minutes: 480, gold: 800000000, managerSlots: 1, description: "One more manager." }
+  - { id: quantumLink,  name: Quantum Link,  era: 4, minutes: 960, gold: 1200000000, description: "The Quantum Link: joins two of your own networks anywhere, 2% lost." }
   # Era 5
-  - { id: superconductorPipes, name: Superconductor Pipes, era: 5, minutes: 1440, gold: 1000000000000, description: "Superconductor pipes: no limit and no loss." }
-  - { id: orbitalLogistics,    name: Orbital Logistics,    era: 5, minutes: 1440, gold: 1000000000000, description: "Quantum Links carry four times as much." }
+  - { id: superconductorPipes, name: Superconductor Pipes, era: 5, minutes: 1440, gold: 3000000000, description: "Superconductor pipes: no limit and no loss." }
+  - { id: orbitalLogistics,    name: Orbital Logistics,    era: 5, minutes: 1440, gold: 3000000000, description: "Quantum Links carry four times as much." }

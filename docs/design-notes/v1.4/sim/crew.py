@@ -9,11 +9,15 @@ ALL = ['power', 'iron', 'copper', 'coal', 'stone', 'wood', 'sand']
 ALL2 = ['steel', 'wire', 'concrete', 'aluminium']
 
 def spec(main, quick, main2=None):
-    # the first two tiers of everything, the main track to master, then the Era-2 track, then the rest wide
+    # the first two tiers of everything, the main track to master, then the Era-2 track, then the rest wide; main2 may
+    # list a main track for every later Era (phase C), and the later Eras' tracks go wide from their first tier (a
+    # track of an Era the town hasn't reached is skipped, so Eras 1 and 2 play as before)
+    from content import TRACKS3, TRACKS4, TRACKS5
     plan = [(t, 2) for t in ALL] + [(main, 9)]
-    if main2:
-        plan += [(main2, 9)]
+    for m in ([main2] if isinstance(main2, str) else main2 or []):
+        plan += [(m, 9)]
     plan += [(t, n) for n in range(3, 10) for t in ALL + ALL2]
+    plan += [(t, n) for n in range(1, 10) for t in TRACKS3 + TRACKS4 + TRACKS5]
     return plan
 
 def crew_plots(apm, schedule='regular', coordinated=False):

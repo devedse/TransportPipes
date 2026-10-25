@@ -5,8 +5,12 @@ from content import B, PRICE, ERA_OF_GOOD, TIERS, level_mult
 GOOD_TRACK = {'energy': 'power', 'water': 'power', 'ironOre': 'iron', 'ironIngot': 'iron', 'copperOre': 'copper',
               'copperIngot': 'copper', 'coal': 'coal', 'stone': 'stone', 'bricks': 'stone', 'sand': 'sand', 'glass': 'sand',
               'wood': 'wood', 'planks': 'wood', 'steel': 'steel', 'copperWire': 'wire', 'concrete': 'concrete',
-              'bauxite': 'aluminium', 'aluminium': 'aluminium'}
-POWER_FREE = {'windMoily', 'solarPanel', 'hydroWheel', 'bigTurbine'}  # power from wind, sun, water: leaner = more output
+              'bauxite': 'aluminium', 'aluminium': 'aluminium',
+              'oil': 'oil', 'plastic': 'oil', 'gears': 'gears', 'motors': 'motors', 'rareEarth': 'rareEarth',
+              'circuits': 'circuits', 'batteries': 'batteries', 'robots': 'robots', 'titaniumOre': 'titanium',
+              'titanium': 'titanium', 'superconductors': 'superconductors', 'spaceframes': 'spaceframes'}
+# power from wind, sun, water and magma: leaner = more output
+POWER_FREE = {'windMoily', 'solarPanel', 'hydroWheel', 'bigTurbine', 'solarFarm', 'magmaTap'}
 
 
 class Rules:
@@ -49,6 +53,7 @@ class Rules:
         self.start_gold = 2000
         self.pipe_caps = None           # units a minute one connection carries, by pipe tier ({'grey': 100, ...})
         self.era_tree = False           # the Era tree on the second research line: costs, and what it opens
+        self.outpost_first = 4e9        # the first outpost (Era 4); each next one twice the last
         self.ho_track_from = 1          # the first tier that raises its goods' Hub Orders
         self.coal_in = None             # tracks that also cover coal (coal pits follow the best of them), no Coal track
         self.recipes = {}               # building -> {'inp': ..., 'out': ...} replacing its recipe
@@ -136,7 +141,10 @@ def hub_order(good, rules, town_era):
 
 
 MATS = {1: [(11, ['planks', 'bricks']), (16, ['planks', 'bricks', 'ironIngot', 'glass']), (21, ['planks', 'bricks', 'ironIngot', 'glass', 'copperIngot'])],
-        2: [(11, ['steel', 'concrete']), (16, ['steel', 'concrete', 'copperWire']), (21, ['steel', 'concrete', 'copperWire', 'aluminium'])]}
+        2: [(11, ['steel', 'concrete']), (16, ['steel', 'concrete', 'copperWire']), (21, ['steel', 'concrete', 'copperWire', 'aluminium'])],
+        3: [(11, ['plastic', 'gears']), (16, ['plastic', 'gears', 'steel']), (21, ['plastic', 'gears', 'steel', 'motors'])],
+        4: [(11, ['circuits', 'aluminium']), (16, ['circuits', 'aluminium', 'batteries']), (21, ['circuits', 'aluminium', 'batteries', 'robots'])],
+        5: [(11, ['titanium', 'circuits']), (16, ['titanium', 'circuits', 'superconductors']), (21, ['titanium', 'circuits', 'superconductors', 'spaceframes'])]}
 
 
 def materials(era, level, gold, share):

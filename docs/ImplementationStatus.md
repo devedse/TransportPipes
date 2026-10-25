@@ -569,6 +569,13 @@ and the solver's sharing loop allocates nothing per consumer.
   missions follow without end, each a star and +1% production for the town; the race (Era, Launch, stars) on the map
   and in the picker.
 - Loady opens a chapter for each Era (waiting until the town gets there).
+- The model plays Eras 3 to 5 (`sim/eras.py`): a regular player's income grows three to four times an Era (2.8M, 13M,
+  35M and 90M g a minute at the ends of Eras 2 to 5; Hub Orders cap it), not twenty. So the Grand Refinery Tower is 560
+  billion, the Thinking Machine 1.85 trillion, the Space Elevator 5 trillion (what a town of eight gives in four, four
+  and four and a half weeks: the Launch about day 120), the first mission 600 billion; the Era tree of Eras 3 to 5 costs
+  an hour or two of income when its Era begins, and the first outpost 4 billion.
+- Look inside a pipe: hovering it (or holding Alt for every pipe) cuts it open, each flow a core in its good's colour at
+  its lane's height, thicker the fuller the pipe; the tip says what runs in which lane. The connectors fade zoomed out.
 
 ### After v1
 

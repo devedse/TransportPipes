@@ -51,8 +51,11 @@ public sealed partial class GameWorld
     private const int OutpostMinDeposits = 4;
     private const int DiscoveryRadius = 2;
 
-    /// <summary>The first outpost's price; every next one twice the last (provisional until the model plays Era 4)</summary>
-    public const double OutpostFirstPrice = 20_000_000_000;
+    /// <summary>
+    /// The first outpost's price; every next one twice the last (the model, phase C: about five hours of a regular
+    /// player's income when Era 4 begins, so the outposts come early in Era 4)
+    /// </summary>
+    public const double OutpostFirstPrice = 4_000_000_000;
 
     private readonly Dictionary<long, Outpost> _outposts = new();
     private readonly List<Discovery> _discoveries = new();

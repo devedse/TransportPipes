@@ -5,7 +5,9 @@
 # Each stage gives everyone in the town its perk for good; the last stage brings the next Era (the Space Elevator's, the
 # Launch). Perks: energy (energy buildings make more), hubOrders, factories (factories make more), research (faster),
 # everything (every building makes more).
-# Eras 3 to 5 are provisional until phase C plays them in the model.
+# Eras 3 to 5 were sized in phase C the same way as the first two: what a town of eight regular players gives in the Era
+# the design aims at (four weeks for Eras 3 and 4, a month for Era 5: the Launch about four months from an empty plot),
+# in the model of docs/design-notes/v1.4/sim (eras.py). Their incomes grow three to four times an Era, not twenty.
 era:
   - id: greatDynamo
     era: 1
@@ -31,7 +33,7 @@ era:
     era: 3
     name: The Grand Refinery Tower
     description: Oil becomes everything. Its last stage brings Era 4.
-    worth: 1600000000000
+    worth: 560000000000
     stages:
       - { share: 0.1667, goods: [plastic, steel], perk: { kind: factories, amount: 0.05 } }
       - { share: 0.3333, goods: [gears, motors, concrete], perk: { kind: factories, amount: 0.05 } }
@@ -41,7 +43,7 @@ era:
     era: 4
     name: The Thinking Machine
     description: A machine that thinks. Its last stage brings Era 5.
-    worth: 32000000000000
+    worth: 1850000000000
     stages:
       - { share: 0.1667, goods: [circuits, batteries], perk: { kind: research, amount: 0.05 } }
       - { share: 0.3333, goods: [robots, circuits, copperWire], perk: { kind: research, amount: 0.05 } }
@@ -51,7 +53,7 @@ era:
     era: 5
     name: The Space Elevator
     description: The town's way to the stars. Its last stage is the Launch.
-    worth: 630000000000000
+    worth: 5000000000000
     stages:
       - { share: 0.1667, goods: [titanium, superconductors, steel], perk: { kind: everything, amount: 0.05 } }
       - { share: 0.3333, goods: [spaceframes, robots], perk: { kind: everything, amount: 0.05 } }
@@ -75,12 +77,12 @@ monuments:
     - { id: lighthouse, name: Lighthouse, perk: yardSales, amount: 0.03, cap: 10, description: "Every stage: what residents sell in the Yard and on links pays 3% on top, paid by the market (up to 30%)." }
 
 # After a town's Launch (1.4 §13): missions without end, each a launch from the Space Elevator that asks for Era-5 goods
-# worth growth times the last (the first about a sixth of the Space Elevator, provisional until the model plays Era 5),
+# worth growth times the last (the first about three days of a town of eight's giving late in Era 5, in the model),
 # and gives everyone in the town +1% production for good and the town a star on the world map
 missions:
   name: Mission
   description: "A launch from your town's Space Elevator. Each one finished gives everyone in the town +1% production for good, and the town a star."
-  worth: 100000000000000
+  worth: 600000000000
   growth: 1.1
   perk: 0.01
   goods: [spaceframes, robots, superconductors, titanium]
