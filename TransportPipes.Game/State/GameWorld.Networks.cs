@@ -880,7 +880,8 @@ public sealed partial class GameWorld
         {
             HubBuyPrice = resource => HubBuyPrice(owner, network.District, resource),
             HubSellPrice = resource => HubSellPrice(network.District, resource),
-            SellerPrice = (_, resource) => PlayerPrice(resource),
+            // A gate node sells at its price class; a company's buildings at its public price (what the gate pays is settled apart)
+            SellerPrice = (seller, resource) => PriceClassPrice(seller, resource) ?? PlayerPrice(resource),
             BuyerMaxPrice = (_, _) => double.MaxValue,
             TradeAllowed = (seller, buyer, resource) =>
                 seller < 0 || buyer < 0

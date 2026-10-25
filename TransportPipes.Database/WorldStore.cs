@@ -94,6 +94,7 @@ public sealed class WorldStore
                 TradeBlocked = settings.TradeBlocked,
                 PendingBlocks = settings.PendingBlocks,
                 CrewId = settings.CrewId,
+                Prices = settings.Prices ?? new Dictionary<string, PriceSetting>(),
                 NextToMeCode = settings.NextToMeCode,
                 NextToMeUntil = settings.NextToMeUntil,
                 NextToMeUsed = settings.NextToMeUsed,
@@ -352,6 +353,7 @@ public sealed class WorldStore
                     TradeBlocked = company.TradeBlocked,
                     PendingBlocks = company.PendingBlocks,
                     CrewId = company.CrewId,
+                    Prices = company.Prices,
                     NextToMeCode = company.NextToMeCode,
                     NextToMeUntil = company.NextToMeUntil,
                     NextToMeUsed = company.NextToMeUsed,
@@ -658,6 +660,7 @@ public sealed class WorldStore
         public HashSet<long> TradeBlocked { get; init; } = new();
         public Dictionary<long, DateTime> PendingBlocks { get; init; } = new();
         public long? CrewId { get; init; }
+        public Dictionary<string, PriceSetting>? Prices { get; init; }
         public string? NextToMeCode { get; init; }
         public DateTime? NextToMeUntil { get; init; }
         public bool NextToMeUsed { get; init; }

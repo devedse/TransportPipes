@@ -72,6 +72,9 @@ public sealed class Company : Entity
     public List<string> ResearchQueue { get; set; } = new();
     public DateTime? ResearchEndsAt { get; set; }
 
+    /// <summary>Its prices for other players (1.4 §8), by key: "public", "crew", "public:good", "crew:good", "for:companyId"</summary>
+    public Dictionary<string, PriceSetting> Prices { get; set; } = new();
+
     /// <summary>The crew of the Yard this company lives at (1.4 §7)</summary>
     public long? CrewId { get; set; }
 

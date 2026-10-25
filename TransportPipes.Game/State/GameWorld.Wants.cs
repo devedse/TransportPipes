@@ -150,10 +150,10 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>A neighbour's goods in a want: the owner pays the one player price (the goods are in a build, not to be resold)</summary>
+    /// <summary>A neighbour's goods in a want: the owner pays the seller's price for them (the goods are in a build, not to be resold)</summary>
     private void PayForWant(Company owner, Company seller, CompanyAsk ask, double units)
     {
-        var gold = units * PlayerPrice(ask.Resource);
+        var gold = units * PriceFor(seller, owner, ask.Resource);
         owner.Gold -= gold;
         ask.Paid += gold;
         AddStat(owner, "wantPaid", gold);

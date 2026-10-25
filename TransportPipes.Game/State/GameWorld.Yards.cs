@@ -108,7 +108,7 @@ public sealed partial class GameWorld
                 var total = sources.Values.Sum();
                 if (total > 1e-9)
                 {
-                    Add(new FlowNode { Id = nextId--, Owner = PlayerSeller, Kind = FlowNodeKind.Building, Out = new Dictionary<string, double> { [resource] = total } }, resource, true, priceClass);
+                    Add(new FlowNode { Id = nextId--, Owner = PriceClassOwner(priceClass), Kind = FlowNodeKind.Building, Out = new Dictionary<string, double> { [resource] = total } }, resource, true, priceClass);
                 }
             }
         }
@@ -168,11 +168,15 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// The gold per unit a seller gets for what a buyer took at the gate: the one player price; two players on one
-    /// device trade at the seller's hub price (no premium moves between an account and its alt)
+    /// The gold per unit a seller gets for what a buyer took at the gate: the seller's price for that buyer (1.4 §8); two
+    /// players on one device trade at the seller's hub price (no premium moves between an account and its alt)
     /// </summary>
     private double SettlementPrice(Company seller, Company buyer, string resource) =>
-        SameDevice(seller, buyer) ? HubBuyPrice(seller, resource) : PlayerPrice(resource);
+        SameDevice(seller, buyer) ? HubBuyPrice(seller, resource) : PriceFor(seller, buyer, resource);
+
+    /// <summary>The price class a buyer's gate brings a seller's goods at (two players on one device: the seller's hub price)</summary>
+    private int GateClass(Company seller, Company buyer, string resource) =>
+        SameDevice(seller, buyer) ? (int)Math.Round(100 * HubBuyPrice(seller, resource) / Math.Max(1e-9, BasePrice(resource))) : PriceClass(seller, buyer, resource);
 
     /// <summary>
     /// The sellers of what a network's gates delivered get their pay (what the buyer paid, in proportion to what each of
@@ -352,7 +356,7 @@ public sealed partial class GameWorld
                 {
                     continue;
                 }
-                var arriving = _gateTerms.GetValueOrDefault(buyerKey)?.Import.GetValueOrDefault((resource, 0))?.GetValueOrDefault(sellerId) ?? 0;
+                var arriving = _gateTerms.GetValueOrDefault(buyerKey)?.Import.Where(t => t.Key.Resource == resource).Sum(t => t.Value.GetValueOrDefault(sellerId)) ?? 0;
                 if (matched - arriving > 1e-9)
                 {
                     Add(sellerId, (matched - arriving) * SettlementPrice(seller, buyer, resource));
@@ -809,7 +813,22 @@ public sealed partial class GameWorld
 
             if (!kept)
             {
-                Record(Share(spare, lacks, Allowed));
+                // The seller with the lowest price for each buyer first (1.4 §8); within a price, in proportion
+                var classes = new Dictionary<(int, int), int>();
+                for (var s = 0; s < members.Count; s++)
+                {
+                    for (var b = 0; b < members.Count; b++)
+                    {
+                        if (s != b && spare[s] > 1e-9 && lacks[b] > 1e-9 && Allowed(s, b))
+                        {
+                            classes[(s, b)] = GateClass(members[s].Company, members[b].Company, resource);
+                        }
+                    }
+                }
+                foreach (var level in classes.Values.Distinct().Order())
+                {
+                    Record(Share(spare, lacks, (s, b) => classes.TryGetValue((s, b), out var c) && c == level));
+                }
                 continue;
             }
 
@@ -906,7 +925,7 @@ public sealed partial class GameWorld
                     {
                         continue;
                     }
-                    const int priceClass = 0;
+                    var priceClass = byKey[buyerKey].Company is var buyerCompany ? GateClass(seller.Company, buyerCompany, resource) : 0;
                     var import = TermsOf(buyerKey).Import;
                     if (!import.TryGetValue((resource, priceClass), out var sources))
                     {

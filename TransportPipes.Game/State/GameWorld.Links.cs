@@ -622,9 +622,10 @@ public sealed partial class GameWorld
                 continue;
             }
             var import = termsOf(KeyOf(buyerEstate)).Import;
-            if (!import.TryGetValue((link.Resource, 0), out var sources))
+            var priceClass = GateClass(seller, buyer, link.Resource);
+            if (!import.TryGetValue((link.Resource, priceClass), out var sources))
             {
-                import[(link.Resource, 0)] = sources = new Dictionary<long, double>();
+                import[(link.Resource, priceClass)] = sources = new Dictionary<long, double>();
             }
             sources[seller.Id] = sources.GetValueOrDefault(seller.Id) + link.Rate;
         }

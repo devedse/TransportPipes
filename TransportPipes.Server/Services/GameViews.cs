@@ -105,7 +105,9 @@ public static partial class GameViews
                 t.Want.Order != null ? $"Ordered: the hub brings the rest {world.OrderStartText(company, t.Want, company)}" : null,
                 t.Want.Order == null ? Math.Ceiling(t.Want.Left * world.BasePrice(t.Want.Resource) * GameWorld.OrderPrice) : null)).ToList(),
             EraWonderLine(world, company),
-            PipesLine(world, company));
+            PipesLine(world, company),
+            company.Prices.OrderBy(t => t.Key, StringComparer.Ordinal).Select(t => new PriceDto(t.Key, t.Value.Value, t.Value.Pending, t.Value.Back, t.Value.PendingAt,
+                t.Key.StartsWith("for:", StringComparison.Ordinal) && long.TryParse(t.Key[4..], out var id) ? world.Company(id)?.Name : null)).ToList());
     }
 
     /// <summary>
@@ -1350,7 +1352,7 @@ public static partial class GameViews
         var name = partner?.Name ?? "Your partner";
         var good = world.Content.Resources.TryGetValue(link.Resource, out var r) ? r.Name.ToLowerInvariant() : link.Resource;
         var selling = link.Seller == me.Id;
-        var price = world.PlayerPrice(link.Resource);
+        var price = LinkPrice(world, link);
         var tank = world.TankNow(link);
         var tankTime = link.Need > 1e-9 && tank > 1e-6 ? Span(TimeSpan.FromMinutes(tank / link.Need)) : null;
         if (link.State == LinkState.Offered)
@@ -1396,6 +1398,10 @@ public static partial class GameViews
         return (tone, line + "." + resting + notice);
     }
 
+    /// <summary>What a link's buyer pays for a unit: the seller's special or public price for them (1.4 §8)</summary>
+    private static double LinkPrice(GameWorld world, Link link) =>
+        world.Company(link.Seller) is { } seller && world.Company(link.Buyer) is { } buyer ? world.PriceFor(seller, buyer, link.Resource) : world.PlayerPrice(link.Resource);
+
     public static LinkDto Link(GameWorld world, Link link, Company me)
     {
         var partner = world.Company(link.Partner(me.Id));
@@ -1413,7 +1419,7 @@ public static partial class GameViews
             link.Length,
             world.LinkEfficiency(link),
             world.LinkThroughput(link),
-            world.PlayerPrice(link.Resource),
+            LinkPrice(world, link),
             link.Need,
             link.Rate,
             world.TankNow(link),
@@ -1508,7 +1514,9 @@ public static partial class GameViews
             connected,
             residents.Select(t => new YardResidentDto(t.Company.Id, world.NameFor(t.Company, me), t.Company.Color, t.Company.Level, t.Slot, t.Connected,
                 Camel(world.ActivityOf(t.Company)), Rates(t.Spare), Rates(t.Lacks), me.TradeBlocked.Contains(t.Company.Id),
-                t.Company.PinMakes.Order().ToList(), t.Company.PinNeeds.Order().ToList())).ToList(),
+                t.Company.PinMakes.Order().ToList(), t.Company.PinNeeds.Order().ToList(),
+                t.Company.Id == me.Id ? new Dictionary<string, double>()
+                    : t.Spare.Keys.ToDictionary(r => r, r => Math.Round(world.PriceFactor(t.Company, me, r), 2)))).ToList(),
             yours,
             world.YardTotals(station).Select(t => new ResourceRateDto(t.Key, t.Value)).OrderByDescending(t => t.PerMinute).ToList(),
             line,

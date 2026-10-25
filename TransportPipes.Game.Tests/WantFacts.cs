@@ -65,8 +65,9 @@ public class WantFacts
         Assert.IsFalse(GameWorld.IsSite(site), "it has its bricks");
         Assert.IsTrue(site.UnderConstruction, "and is being built");
         Assert.AreEqual(300, game.World.Materials(ben.Id).GetValueOrDefault("bricks"), 1e-6, "500 left Ben's Storage");
-        var price = 500 * game.World.PlayerPrice("bricks");
-        Assert.AreEqual(benGold + price, ben.Gold, 1e-6, "Ben is paid the one player price");
+        var price = 500 * game.World.PriceFor(ben, ana, "bricks");
+        Assert.AreEqual(GameWorld.DefaultCrewPrice * game.World.BasePrice("bricks"), game.World.PriceFor(ben, ana, "bricks"), 1e-9, "Ben's crew price");
+        Assert.AreEqual(benGold + price, ben.Gold, 1e-6, "Ben is paid his price for Ana");
         Assert.AreEqual(anaGold - price, ana.Gold, 1e-6);
         var events = game.World.TakeChanges().Events;
         Assert.IsTrue(events.Any(t => t.Company == ana.Id && t.Text.Contains("Ben") && t.Text.Contains("Market Hall")), string.Join(" | ", events.Select(t => t.Text)));
@@ -197,8 +198,8 @@ public class WantFacts
         Assert.IsTrue(game.World.SendToSite(ben.Id, site.Id).Success);
 
         Assert.IsFalse(GameWorld.IsSite(site));
-        Assert.AreEqual(paid + 500 * game.World.BasePrice("bricks") * GameWorld.OrderPrice - 500 * game.World.PlayerPrice("bricks"), ana.Gold, 1,
-            "the order's gold back, Ben's bricks paid at the one player price");
+        Assert.AreEqual(paid + 500 * game.World.BasePrice("bricks") * GameWorld.OrderPrice - 500 * game.World.PriceFor(ben, ana, "bricks"), ana.Gold, 1,
+            "the order's gold back, Ben's bricks paid at his price for Ana");
     }
 
     [TestMethod]

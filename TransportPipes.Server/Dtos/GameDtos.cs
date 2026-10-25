@@ -119,7 +119,15 @@ public record CompanyDto(
     /// <summary>The Era Wonder on the goal tracker (after run 3, step 5): its stage's share, and your part or what it wants</summary>
     ProjectWeekDto? EraWonderLine = null,
     /// <summary>The pipe ladder on the goal tracker while a pipe is full (after run 4: the way up was nowhere in sight)</summary>
-    PipesLineDto? Pipes = null);
+    PipesLineDto? Pipes = null,
+    /// <summary>Your prices for other players (1.4 §8): every one you set, with a rise that waits</summary>
+    IReadOnlyList<PriceDto>? Prices = null);
+
+/// <summary>
+/// One of your prices: its key ("public", "crew", "public:good", "crew:good", "for:companyId"), what it is now, and a
+/// rise that counts at PendingAt (Pending null with Back: the setting goes); ForName names a special price's player
+/// </summary>
+public record PriceDto(string Key, double Value, double? Pending, bool Back, DateTime? PendingAt, string? ForName);
 
 /// <summary>
 /// What your gold can do (after run 4, "your gold can"): at most three lines, shared first: the shared goal, a want
@@ -662,8 +670,9 @@ public record BlueprintsDto(bool HasOffice, bool CanRebuild, int Max, IReadOnlyL
 /// A resident of a Yard: whether its pipes reach its Yard gate, what it has spare (goes to the hub) and lacks, and what it
 /// pinned on the Plan board
 /// </summary>
+/// <param name="Prices">Their price for you (a multiple of the base) of each good they have spare: what their stall shows you</param>
 public record YardResidentDto(long Id, string Name, string Color, int Level, int Slot, bool Connected, string? Activity, IReadOnlyList<ResourceRateDto> Spare, IReadOnlyList<ResourceRateDto> Lacks, bool Blocked,
-    IReadOnlyList<string> Makes, IReadOnlyList<string> Needs);
+    IReadOnlyList<string> Makes, IReadOnlyList<string> Needs, IReadOnlyDictionary<string, double> Prices);
 
 /// <summary>One of your trades through the Yard: with whom, what, how much per minute, which way, at what price</summary>
 public record YardTradeDto(long Partner, string PartnerName, string Resource, double PerMinute, bool Selling, double Price);

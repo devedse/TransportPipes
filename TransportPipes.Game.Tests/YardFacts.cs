@@ -36,7 +36,7 @@ public class YardFacts
         game.World.NetworkOf(building.Id)!.GateFlows.Where(t => !t.Import && t.Building == building.Id && t.Resource == resource).Sum(t => t.Delivered);
 
     [TestMethod]
-    public void NeighboursTradeThroughTheYardAtThePlayerPrice()
+    public void NeighboursTradeThroughTheYardAtTheCrewPrice()
     {
         var (game, a, b, moily, mine) = Neighbours();
 
@@ -48,16 +48,16 @@ public class YardFacts
         var atTheGate = game.World.NetworkOf(mine.Id)!.GateFlows.Where(t => t.Import).Sum(t => t.Sent);
         Assert.IsGreaterThan(10, atTheGate, "B's own pipe loses a little between its gate and its mine");
         Assert.AreEqual(atTheGate, ExportedBy(game, moily, "energy"), 1e-6, "A sends that to the Yard");
-        Assert.AreEqual(1.3, game.World.PlayerPrice("energy"));
+        Assert.AreEqual(GameWorld.DefaultCrewPrice, game.World.PriceFor(a, b, "energy"), "neighbours in a Yard are its crew: 1.15× the base");
 
         var goldA = a.Gold;
         var goldB = b.Gold;
-        var paid = atTheGate * 1.3;
+        var paid = atTheGate * GameWorld.DefaultCrewPrice;
         var oreSales = game.World.NetworkOf(mine.Id)!.Solution.GoldPerMinute[b.Id] + paid;
         var energySales = game.World.NetworkOf(moily.Id)!.Solution.GoldPerMinute[a.Id];
         game.Pass(10);
         Assert.AreEqual(goldA + 10 * (energySales + paid), a.Gold, 1e-6, "A earns what B pays for the energy, besides its hub sales");
-        Assert.AreEqual(goldB + 10 * (oreSales - paid), b.Gold, 1e-6, "B pays the player price for what leaves the Yard for it");
+        Assert.AreEqual(goldB + 10 * (oreSales - paid), b.Gold, 1e-6, "B pays A's price for what leaves the Yard for it");
     }
 
     /// <summary>
@@ -238,7 +238,7 @@ public class YardFacts
         var ownB = game.World.NetworkOf(mine.Id)!.Solution.GoldPerMinute[b.Id];
         game.Pass(10);
 
-        Assert.AreEqual(taken * game.World.PlayerPrice("energy") * 10, Paid() - paid, 1e-6, "A gets what B's buildings took, at the player price");
+        Assert.AreEqual(taken * game.World.PriceFor(a, b, "energy") * 10, Paid() - paid, 1e-6, "A gets what B's buildings took, at A's price for B");
         Assert.AreEqual(goldB + 10 * ownB, b.Gold, 1e-6, "and B paid exactly that (its network's rate already counts it)");
         Assert.AreEqual(0, game.World.StatValue(a, "yardFloor"), 1e-9, "the mine takes all it was matched");
     }
