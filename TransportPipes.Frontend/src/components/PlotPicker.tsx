@@ -521,17 +521,19 @@ export function PlotPicker({ mode }: { mode: PickMode }) {
             </span>
           </h3>
           <Land seat={seat} />
-          <h4>The Yard</h4>
-          <Residents station={station} chosen={chosen} />
-          {((station.makes?.length ?? 0) > 0 || (station.needs?.length ?? 0) > 0) && (
-            <p className="muted small">
-              📌{" "}
-              {andList([
-                ...(station.makes ?? []).map((t) => `makes ${goodWord(t)}`),
-                ...(station.needs ?? []).map((t) => `needs ${goodWord(t)}`),
-              ])}
-            </p>
-          )}
+          <section className="plot-yard">
+            <h4>The Yard</h4>
+            <Residents station={station} chosen={chosen} />
+            {((station.makes?.length ?? 0) > 0 || (station.needs?.length ?? 0) > 0) && (
+              <p className="muted small">
+                📌{" "}
+                {andList([
+                  ...(station.makes ?? []).map((t) => `makes ${goodWord(t)}`),
+                  ...(station.needs ?? []).map((t) => `needs ${goodWord(t)}`),
+                ])}
+              </p>
+            )}
+          </section>
           {!pickable(seat) ? (
             <p className="muted small">
               {seat.state === "you" ? "This is your plot." : "Someone lives here: tap a glowing plot."}

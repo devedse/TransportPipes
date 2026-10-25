@@ -34,6 +34,9 @@ public sealed partial class GameWorld
 
     private static double? Setting(Company seller, string key) => seller.Prices.TryGetValue(key, out var setting) ? setting.Value : null;
 
+    /// <summary>One of a seller's own prices, or null where it keeps the default</summary>
+    public static double? PriceSetting(Company seller, string key) => Setting(seller, key);
+
     /// <summary>A seller's price for a buyer (a multiple of the base): the lowest of its public, crew and special prices that apply</summary>
     public double PriceFactor(Company seller, Company buyer, string good)
     {
@@ -120,6 +123,8 @@ public sealed partial class GameWorld
         }
         company.Touch();
         Changes.Companies.Add(company.Id);
+        // The stall at the Yard gate shows the crew price
+        Changes.Districts.Add(company.District);
         MarkTradeDirty(company.Id);
         return CommandResult.Ok;
     }

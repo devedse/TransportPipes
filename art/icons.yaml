@@ -5,6 +5,7 @@
 - { id: tool-remove, look: "a small yellow bulldozer" }
 - { id: tool-neighbours, look: "a friendly handshake" }
 - { id: tool-corp, look: "a small office tower with a flag on top" }
+- { id: tool-crew, look: "a two-coloured swallowtail banner (teal and gold halves) hanging from a short wooden pole with a brass knob: a Yard's crew banner" }
 - { id: tool-hub, look: "a market stall with a red and white striped awning" }
 - { id: tool-research, look: "a glass flask with bubbling green liquid" }
 - { id: tool-plans, look: "a rolled blue blueprint with a ruler" }

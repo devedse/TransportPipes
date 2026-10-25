@@ -31,6 +31,7 @@ import {
   isDeep,
   isParcelUnlocked,
   parcelOf,
+  startCentre,
   yardGate,
   zoneAt,
 } from "../game/layout";
@@ -973,7 +974,9 @@ export class GameClient {
     const company = appStore.getState().company;
     if (company !== null && this.engine !== null) {
       this.homedCompany = company.id;
-      this.engine?.lookAt(company.estateX + ESTATE_SIZE / 2, company.estateY + ESTATE_SIZE / 2, 0.42);
+      // The start area against the Yard, where the HQ and the trading post stand
+      const centre = startCentre(company.slot);
+      this.engine?.lookAt(company.estateX + centre.x, company.estateY + centre.y, 0.42);
     }
   }
 

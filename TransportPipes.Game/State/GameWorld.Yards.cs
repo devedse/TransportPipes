@@ -1165,6 +1165,40 @@ public sealed partial class GameWorld
         return residents;
     }
 
+    /// <summary>
+    /// A resident's stall at its Yard gate (1.4 §7): up once its pipes reach the gate, with what it sells the crew (its
+    /// spare, the dearest first), its crew price and the goods it would buy
+    /// </summary>
+    public sealed record Stall(int Slot, IReadOnlyList<string> Sells, double CrewPrice, IReadOnlyList<string> Wants);
+
+    public IReadOnlyList<Stall> Stalls(StationRef station)
+    {
+        SolveNetworks();
+        return YardMembers(station)
+            .Select(t => new Stall(
+                t.Key.Slot,
+                t.Spare.Where(s => s.Value > 0.01).OrderByDescending(s => s.Value * BasePrice(s.Key)).Take(3).Select(s => s.Key).ToList(),
+                PriceSetting(t.Company, CrewKey()) ?? DefaultCrewPrice,
+                t.Lacks.Where(s => s.Value > 0.01).OrderByDescending(s => s.Value * BasePrice(s.Key)).Take(2).Select(s => s.Key).ToList()))
+            .ToList();
+    }
+
+    private readonly Dictionary<StationRef, string> _stallSigns = new();
+
+    /// <summary>Once a market round: the towns whose stalls changed are sent again (what a stall shows moves slowly)</summary>
+    private void CheckStalls()
+    {
+        foreach (var station in _crewAt.Keys.ToList())
+        {
+            var sign = string.Join("|", Stalls(station).Select(t => $"{t.Slot}:{string.Join(",", t.Sells)}:{t.CrewPrice}:{string.Join(",", t.Wants)}"));
+            if (_stallSigns.GetValueOrDefault(station) != sign)
+            {
+                _stallSigns[station] = sign;
+                Changes.Districts.Add(station.District);
+            }
+        }
+    }
+
     /// <summary>What the price per unit of a Yard trade is, as seen from this company (selling or buying)</summary>
     public double YardPrice(Company me, Company partner, string resource, bool selling) =>
         selling ? SettlementPrice(me, partner, resource) : SettlementPrice(partner, me, resource);

@@ -6469,9 +6469,10 @@ h5.chat-day {
   text-transform: capitalize;
 }
 
-.start-form {
+.start-form,
+.plot-yard {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 @media (max-width: 720px) {
@@ -6485,6 +6486,15 @@ h5.chat-day {
 
   .picker-title h2 {
     font-size: 1.2rem;
+  }
+
+  /* On a phone the name and Play come before the Yard's residents, so Play is in view */
+  .plot-card .plot-yard {
+    order: 2;
+  }
+
+  .plot-card .start-form {
+    order: 1;
   }
 
   .plot-card {

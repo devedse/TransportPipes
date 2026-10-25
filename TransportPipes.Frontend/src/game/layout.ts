@@ -248,6 +248,15 @@ export function startParcels(slot: number): number[] {
   }
 }
 
+/** The middle of a plot's start area (plot-local): where the camera looks at home */
+export function startCentre(slot: number): { x: number; y: number } {
+  const parcels = startParcels(slot).map(parcelOrigin);
+  return {
+    x: parcels.reduce((sum, [x]) => sum + x, 0) / parcels.length + PARCEL_SIZE / 2,
+    y: parcels.reduce((sum, [, y]) => sum + y, 0) / parcels.length + PARCEL_SIZE / 2,
+  };
+}
+
 export function startMask(slot: number): number {
   return startParcels(slot).reduce((mask, parcel) => mask | (1 << parcel), 0);
 }
@@ -258,6 +267,18 @@ export function hqLocal(slot: number): { x: number; y: number } {
   const gate = yardGateLocal(slot);
   const [along] = toYardFrame(side, gate.x, gate.y);
   const [x, y] = moveFootprint("south", side, along - 3, 1, 2);
+  return { x, y };
+}
+
+/**
+ * Where a resident's stall stands (plot-local, outside the plot): in the Yard a tile from the gate, in front of the HQ
+ * (the trading post on the other side is a booth too)
+ */
+export function stallLocal(slot: number): { x: number; y: number } {
+  const side = sideOf(slot);
+  const gate = yardGateLocal(slot);
+  const [along] = toYardFrame(side, gate.x, gate.y);
+  const [x, y] = fromYardFrame(side, along - 2, -2);
   return { x, y };
 }
 

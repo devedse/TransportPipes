@@ -19,6 +19,7 @@ import type {
   MapLinkDto,
   OutpostDto,
   SeatState,
+  StallDto,
   TerrainType,
 } from "../api/contracts";
 import { createCanvas, hash01 } from "./art/iso";
@@ -50,6 +51,7 @@ import {
   isParcelUnlocked,
   outskirtsParcels,
   sideOf,
+  stallLocal,
   tileKey,
   yardRect,
   zoneAt,
@@ -2868,9 +2870,9 @@ export class Engine {
       }
 
       // The name of the company at the top of its estate
-      // Free estates are only named up close, far away the map would be full of labels
+      // Free plots are only named up close, far away the map would be full of labels
       if (estate.ownerName !== null || (!far && this.camera.scale < 0.3)) {
-        const text = estate.ownerName ?? "Free estate";
+        const text = estate.ownerName ?? "Free plot";
         const label = new Text({
           text: estate.ownerName !== null ? `${text}  ·  Lv ${estate.ownerLevel}` : text,
           style: {
@@ -3030,8 +3032,15 @@ export class Engine {
       label.anchor.set(0.5);
       const center = tileCenter(rect.x0 + width / 2 - 0.5, rect.y0 + height / 2 - 0.5);
       label.position.set(center.x, center.y);
-      label.label = "estate";
+      label.label = "yard";
       view.labels.addChild(label);
+    }
+    if (!far) {
+      for (const yard of district.yards ?? []) {
+        for (const stall of yard.stalls) {
+          this.drawStall(view, district, stall);
+        }
+      }
     }
     for (const gate of TOWN_GATES_LOCAL) {
       // The town gate: a paved apron where the road leaves the town
@@ -3055,13 +3064,79 @@ export class Engine {
     }
   }
 
+  /**
+   * A resident's stall at its Yard gate (1.4 §7): a market stall, and over it a sign with what it sells the crew (a dot in
+   * each good's colour), its crew price and a red ring for each good it wants
+   */
+  private drawStall(view: DistrictView, district: DistrictDto, stall: StallDto) {
+    const content = this.callbacks.getState().content;
+    const origin = estateOrigin(district.x, district.y, stall.slot);
+    const local = stallLocal(stall.slot);
+    const x = origin.x + local.x;
+    const y = origin.y + local.y;
+    const art = this.textures.generated("town-stall", 1);
+    if (art !== null) {
+      const sprite = new Sprite(art.frames[0]);
+      placeArt(sprite, art, footprintAnchor(x, y, 1), 1);
+      sprite.zIndex = (x + y) * 4 + 3;
+      this.objectLayer.addChild(sprite);
+      view.hub.push({
+        display: sprite,
+        effects: null,
+        building: null,
+        machine: null,
+        idle: null,
+        progress: null,
+      });
+    }
+    const sign = new Container();
+    const price = new Text({
+      text: `${stall.crewPrice.toFixed(2).replace(/0$/, "")}×`,
+      style: { fontFamily: "system-ui", fontSize: 34, fontWeight: "800", fill: "#3b2a14" },
+    });
+    const dots = stall.sells.length + stall.wants.length;
+    const width = 24 + dots * 32 + (dots > 0 ? 8 : 0) + price.width;
+    const board = new Graphics()
+      .roundRect(-width / 2, -27, width, 54, 14)
+      .fill({ color: 0xfff4d6, alpha: 0.95 })
+      .stroke({ color: 0x5a4630, width: 4 });
+    sign.addChild(board);
+    let cursor = -width / 2 + 24;
+    for (const good of stall.sells) {
+      board
+        .circle(cursor, 0, 12)
+        .fill({ color: content.resourceColor(good) })
+        .stroke({ color: 0x2b1d0e, width: 3 });
+      cursor += 32;
+    }
+    for (let i = 0; i < stall.wants.length; i++) {
+      // A good it wants: a hollow ring
+      board.circle(cursor, 0, 10).stroke({ color: 0xc0392b, width: 5 });
+      cursor += 32;
+    }
+    price.anchor.set(0, 0.5);
+    price.position.set(cursor + (dots > 0 ? 8 : 0) - 12, 0);
+    sign.addChild(price);
+    const top = tileCenter(x, y);
+    sign.position.set(top.x, top.y - 170);
+    sign.label = "stall";
+    view.labels.addChild(sign);
+  }
+
   /** Labels keep a readable size on screen at every zoom */
   private scaleLabels() {
     const scale = this.camera.scale;
     for (const view of this.districtViews.values()) {
       for (const label of view.labels.children) {
+        // A town's name, its Yards' names and its companies' names stay readable when the whole town is in view
         const factor =
-          label.label === "district" ? Math.min(6, 0.9 / scale) : Math.min(5, Math.max(1, 0.55 / scale));
+          label.label === "district"
+            ? Math.min(16, 0.9 / scale)
+            : label.label === "stall"
+              ? Math.min(2.5, Math.max(1, 0.5 / scale))
+              : label.label === "yard"
+                ? Math.min(14, Math.max(1, 0.6 / scale))
+                : Math.min(9, Math.max(1, 0.55 / scale));
         label.scale.set(factor);
       }
     }
@@ -3465,45 +3540,59 @@ export class Engine {
     }
   }
 
-  /** The plots a picker shows: drawn again when they change, the free ones' glow pulses */
+  /**
+   * The plots a picker shows: drawn again when they change or the zoom does (the lines keep their width on screen), the
+   * free ones' glow pulses
+   */
   private drawPicker() {
     const picker = this.callbacks.getState().picker;
-    const key = picker === null ? "" : `${JSON.stringify(picker)}|${this.far}`;
+    const zoom = Math.round(Math.log(this.camera.scale) * 6);
+    const key = picker === null ? "" : `${JSON.stringify(picker)}|${zoom}`;
     if (key !== this.pickKey) {
       this.pickKey = key;
       const glow = this.pickGlow;
       const marks = this.pickMarks;
       glow.clear();
       marks.clear();
+      // Pixels on screen, whatever the zoom
+      const px = (pixels: number) => pixels / this.camera.scale;
       if (picker !== null) {
-        const far = this.far;
         for (const [seat, state] of Object.entries(picker.seats)) {
           const [dx, dy, slot] = seat.split(",").map(Number) as [number, number, number];
           const origin = estateOrigin(dx, dy, slot);
           if (state === "free") {
+            // A soft halo, wide and faint, around a bright line, over a light veil
             traceFootprint(glow, origin.x, origin.y, ESTATE_SIZE);
-            glow.fill({ color: 0x9cf07a, alpha: 0.3 });
+            glow.fill({ color: 0xfffbe0, alpha: 0.16 });
+            for (const [width, alpha] of [
+              [22, 0.12],
+              [12, 0.22],
+              [6, 0.45],
+            ] as const) {
+              traceFootprint(glow, origin.x, origin.y, ESTATE_SIZE);
+              glow.stroke({ color: 0xeaffc8, width: px(width), alpha });
+            }
             traceFootprint(glow, origin.x, origin.y, ESTATE_SIZE);
-            glow.stroke({ color: 0xd8ffb0, width: far ? 30 : 8, alpha: 0.95 });
+            glow.stroke({ color: 0xffffff, width: px(2.5), alpha: 1 });
           } else if (state === "closed") {
             traceFootprint(marks, origin.x, origin.y, ESTATE_SIZE);
-            marks.fill({ color: 0xf2b134, alpha: 0.16 });
+            marks.fill({ color: 0xf2b134, alpha: 0.18 });
             traceFootprint(marks, origin.x, origin.y, ESTATE_SIZE);
-            marks.stroke({ color: 0xf2b134, width: far ? 22 : 6, alpha: 0.8 });
+            marks.stroke({ color: 0xf2b134, width: px(3), alpha: 0.9 });
           }
         }
         const chosen = picker.chosen;
         if (chosen !== null) {
           const origin = estateOrigin(chosen.districtX, chosen.districtY, chosen.slot);
           traceFootprint(marks, origin.x, origin.y, ESTATE_SIZE);
-          marks.stroke({ color: 0x2b1d0e, width: far ? 70 : 20, alpha: 0.6 });
+          marks.stroke({ color: 0x2b1d0e, width: px(8), alpha: 0.6 });
           traceFootprint(marks, origin.x, origin.y, ESTATE_SIZE);
-          marks.stroke({ color: 0xffd34d, width: far ? 44 : 12, alpha: 1 });
+          marks.stroke({ color: 0xffd34d, width: px(4), alpha: 1 });
         }
       }
     }
     if (picker !== null) {
-      this.pickGlow.alpha = 0.55 + 0.45 * Math.sin(performance.now() / 380);
+      this.pickGlow.alpha = 0.6 + 0.4 * Math.sin(performance.now() / 380);
     }
   }
 

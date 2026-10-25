@@ -98,6 +98,7 @@ public sealed partial class GameWorld
                 RunManagers();
                 CheckRestingLabs();
                 CheckTradeFalls();
+                CheckStalls();
             }));
         }
         for (var at = NextDay(LastTick); at <= now; at = NextDay(at))

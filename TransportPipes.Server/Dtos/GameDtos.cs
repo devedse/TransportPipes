@@ -294,8 +294,11 @@ public record HubStructureDto(string Type, int X, int Y, int Size, string? Label
 
 public record DistrictDto(int X, int Y, int OriginX, int OriginY, string Name, IReadOnlyList<EstateDto> Estates, IReadOnlyList<HubStructureDto> Hub, IReadOnlyList<DistrictYardDto> Yards);
 
-/// <summary>A town's Yard on the map: its crew's name and banner (none while nobody lives there), open or closed</summary>
-public record DistrictYardDto(int Index, string Name, string? Emblem, string? Color, string? Color2, bool Open);
+/// <summary>A town's Yard on the map: its crew's name and banner (none while nobody lives there), open or closed, its stalls</summary>
+public record DistrictYardDto(int Index, string Name, string? Emblem, string? Color, string? Color2, bool Open, IReadOnlyList<StallDto> Stalls);
+
+/// <summary>A resident's stall at its Yard gate: what it sells the crew, its crew price, what it would buy</summary>
+public record StallDto(int Slot, IReadOnlyList<string> Sells, double CrewPrice, IReadOnlyList<string> Wants);
 
 public record FlowDto(long From, long To, string Resource, double Sent, double Delivered, string Kind, double Price, IReadOnlyList<int> Path);
 

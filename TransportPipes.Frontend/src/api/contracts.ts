@@ -470,7 +470,7 @@ export interface DistrictDto {
   yards: DistrictYardDto[];
 }
 
-/** A town's Yard on the map: its crew's name and banner (none while nobody lives there), open or closed */
+/** A town's Yard on the map: its crew's name and banner (none while nobody lives there), open or closed, its stalls */
 export interface DistrictYardDto {
   index: number;
   name: string;
@@ -478,6 +478,15 @@ export interface DistrictYardDto {
   color: string | null;
   color2: string | null;
   open: boolean;
+  stalls: StallDto[];
+}
+
+/** A resident's stall at its Yard gate (1.4 §7): what it sells the crew, its crew price, what it would buy */
+export interface StallDto {
+  slot: number;
+  sells: string[];
+  crewPrice: number;
+  wants: string[];
 }
 
 export type FlowKind = "internal" | "trade" | "toStorage" | "fromStorage" | "sale" | "import";

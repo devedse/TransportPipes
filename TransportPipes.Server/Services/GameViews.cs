@@ -554,8 +554,9 @@ public static partial class GameViews
             estates,
             HubStructures(world, district),
             WorldLayout.Stations(district).Select(t => world.CrewAt(t) is { } crew
-                ? new DistrictYardDto(t.Index, crew.NameHidden ? WorldNames.Station(t) : crew.Name, crew.Emblem, crew.Color, crew.Color2, crew.Open)
-                : new DistrictYardDto(t.Index, WorldNames.Station(t), null, null, null, true)).ToList());
+                ? new DistrictYardDto(t.Index, crew.NameHidden ? WorldNames.Station(t) : crew.Name, crew.Emblem, crew.Color, crew.Color2, crew.Open,
+                    world.Stalls(t).Select(s => new StallDto(s.Slot, s.Sells, s.CrewPrice, s.Wants)).ToList())
+                : new DistrictYardDto(t.Index, WorldNames.Station(t), null, null, null, true, [])).ToList());
     }
 
     /// <summary>The two billboards of a hub: the richest companies of the district with the Brand tech</summary>
