@@ -1,3 +1,4 @@
+using TransportPipes.Game.World;
 using TransportPipes.Game.Content;
 
 namespace TransportPipes.Game.State;
@@ -45,6 +46,9 @@ public sealed partial class GameWorld
         return new Chain(definition, BuildCost(me, definition), unlocked ? null : why, inputs);
     }
 
+    /// <summary>A good a plot may lack (copper ore, coal, sand, wood, stone): it comes from a neighbour or the market</summary>
+    public bool IsLandGood(string resource) => WorldGenerator.LandGoods.Contains(resource);
+
     /// <summary>A building that would make a good on this company's own land (not a land good dealt to another seat), cheapest first</summary>
     private BuildingDefinition? OwnMaker(Company me, string good)
     {
@@ -69,7 +73,7 @@ public sealed partial class GameWorld
         var station = EstateOf(me) is { } estate ? StationPlayers(estate.Station) : [];
         var crew = me.CrewId is { } id && Crew(id) is { } c ? CrewMembers(c) : [];
         return station.Concat(crew).Append(me)
-            .Where(t => !t.IsNpc && (t.Id == me.Id || !activeOnly || (!t.Asleep && t.LastSeenAt >= since)))
+            .Where(t => (t.Id == me.Id || !activeOnly || (t.LastSeenAt >= since)))
             .DistinctBy(t => t.Id)
             .ToList();
     }

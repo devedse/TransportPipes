@@ -51,7 +51,6 @@ function estate(): { world: WorldModel; company: CompanyDto; panel: BuildingDto;
     estateX: origin.x,
     estateY: origin.y,
     unlockedParcels: -1,
-    branches: [],
   } as unknown as CompanyDto;
   return { world, company, panel, post };
 }

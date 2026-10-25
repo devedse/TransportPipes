@@ -81,7 +81,7 @@ public class WantFacts
         var site = MarketHall(game, ana);
         // The engine is the same for any good: an energy want, which Ben's and Ana's moilies have spare at their gates
         ana.Asks.RemoveAll(t => t.Site == site.Id);
-        ana.Asks.Add(new CompanyAsk { Resource = "energy", Amount = 300, Until = DateTime.MaxValue, Site = site.Id });
+        ana.Asks.Add(new CompanyAsk { Resource = "energy", Amount = 300, Site = site.Id });
         game.ConnectToGate(ben, game.Build(ben, "windMoily"));
         var benGold = ben.Gold;
 

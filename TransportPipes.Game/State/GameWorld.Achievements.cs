@@ -18,7 +18,7 @@ public sealed partial class GameWorld
 
     public void AddStat(Company company, string stat, double amount)
     {
-        if (company.IsNpc || amount == 0)
+        if (amount == 0)
         {
             return;
         }
@@ -34,7 +34,6 @@ public sealed partial class GameWorld
         "reputation" => ReputationLevel(company),
         "researched" => company.Researched.Count,
         "likes" => company.Likes,
-        "corporation" => company.CorporationId != null ? 1 : 0,
         "mentees" => Mentees(company.Id),
         "parcels" => EstateOf(company)?.UnlockedCount ?? 0,
         "estates" => EstatesOf(company).Count(),
@@ -43,8 +42,6 @@ public sealed partial class GameWorld
         "maxLevel" => BuildingsOf(company.Id).Where(t => Content.Building(t.Type).Kind != BuildingKind.Hq).Select(t => t.Level).DefaultIfEmpty(0).Max(),
         // Gold a minute neighbours pay now (trades and contracts)
         "neighbourIncome" => NeighbourIncome(company),
-        // Its Sends (Loady's gift step); without projects the step is done by itself
-        "sends" => ProjectsEnabled ? company.Sends.Count + company.ProjectFirst.Count : 1,
         _ => company.Stats.GetValueOrDefault(stat),
     };
 
@@ -63,7 +60,7 @@ public sealed partial class GameWorld
         }
         _lastAchievementCheck = LastTick;
         Dictionary<long, int>? partners = null;
-        foreach (var company in _companies.Values.Where(t => !t.IsNpc))
+        foreach (var company in _companies.Values)
         {
             foreach (var achievement in Content.Achievements)
             {

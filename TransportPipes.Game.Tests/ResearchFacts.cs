@@ -97,27 +97,6 @@ public class ResearchFacts
     }
 
     [TestMethod]
-    public void KnowledgeSpreads()
-    {
-        var game = new TestGame();
-        var me = game.NewCompany("Me");
-        var others = Enumerable.Range(0, 4).Select(t => game.NewCompany($"Other {t}")).ToList();
-        var tech = game.World.Content.Research["oreWashing"];
-
-        Assert.AreEqual(200, game.World.ResearchCost(me, tech));
-        others[0].Researched.Add("oreWashing");
-        others[1].Researched.Add("oreWashing");
-        Assert.AreEqual(150, game.World.ResearchCost(me, tech), "half of the others have it: 25% cheaper");
-
-        // Companies that have been away for more than a week don't count
-        foreach (var other in others.Skip(2))
-        {
-            other.LastSeenAt = game.Time.AddDays(-8);
-        }
-        Assert.AreEqual(100, game.World.ResearchCost(me, tech));
-    }
-
-    [TestMethod]
     public void ResearchFinishesDuringACatchUp()
     {
         var game = new TestGame();

@@ -1,7 +1,7 @@
 # Achievements (GDD §8.5): stat is what is counted, amount the goal. Rewards: XP, gold, a title, sometimes a small
 # permanent output bonus (targets as in research.yaml, quoted).
 # Stats: buildings, pipes, levelsBought, produced:<resource>, earned, partners, contracts, orders, reputation,
-#   researched, likes, corporation, mentees, wonder (gold value delivered), parcels, repairs, level, exchangeTrades,
+#   researched, likes, mentees, wonder (gold value delivered), parcels, repairs, level, exchangeTrades,
 #   dug (Deep Level parcels dug out)
 achievements:
   # Building
@@ -47,7 +47,6 @@ achievements:
   # Society
   - { id: prettyEstate,  name: Pretty Estate,   stat: likes,     amount: 10,  xp: 200, description: "Get 10 likes." }
   - { id: landmark,      name: Landmark,        stat: likes,     amount: 100, xp: 2000, title: Landmark, description: "Get 100 likes." }
-  - { id: teamPlayer,    name: Team Player,     stat: corporation, amount: 1, xp: 200, description: "Join a corporation." }
   - { id: mentor,        name: Mentor,          stat: mentees,   amount: 1,   xp: 500, title: Mentor, description: "Take a newcomer under your wing." }
   - { id: wonderBuilder, name: Builder of Wonders, stat: wonder, amount: 10000,   xp: 300, description: "Deliver 10,000 gold worth to Wonders." }
   - { id: wonderWorker,  name: Wonder Worker,   stat: wonder,    amount: 1000000, xp: 3000, title: Wonder Worker, description: "Deliver a million gold worth to Wonders." }

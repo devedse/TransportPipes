@@ -282,7 +282,7 @@ public sealed partial class GameWorld
     }
 
     private IEnumerable<Company> CompaniesIn(GameEvent gameEvent) =>
-        _companies.Values.Where(t => !t.IsNpc && gameEvent.Covers(t.District));
+        _companies.Values.Where(t => gameEvent.Covers(t.District));
 
     public string EventName(GameEvent gameEvent) => gameEvent.Kind switch
     {
@@ -409,7 +409,7 @@ public sealed partial class GameWorld
         {
             var definition = Content.Building(building.Type);
             if (building.UnderConstruction || building.Damaged || definition.Modifier != ProductionModifier.Wind
-                || !storm.Covers(WorldLayout.DistrictOf(building.X, building.Y)) || Company(building.Owner) is not { IsNpc: false } owner)
+                || !storm.Covers(WorldLayout.DistrictOf(building.X, building.Y)) || Company(building.Owner) is not { } owner)
             {
                 continue;
             }

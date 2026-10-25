@@ -23,7 +23,6 @@ public interface IGameClient
     Task ExchangeChanged();
     Task ChatMessage(ChatMessageDto message);
     Task InboxChanged(int unread);
-    Task CorporationChanged();
     Task WondersChanged();
     Task SeasonChanged();
     Task CrewChanged();
@@ -122,7 +121,7 @@ public sealed class GameHub : Hub<IGameClient>
                 return (Hello: new HelloDto(user, null, null, world.Now, world.Era, 0), Away: (GameViews.AwayFacts?)null, Company: (Company?)null, Crew: false);
             }
             // The return card (F5): what happened since the last session (from before the company wakes and its next report starts)
-            var away = new GameViews.AwayFacts(world.Now - company.LastSeenAt, company.Report, company.StandIn?.Name, company.Asleep, company.Asleep && company.Packed != null);
+            var away = new GameViews.AwayFacts(world.Now - company.LastSeenAt, company.Report);
             var leftAt = company.LastSeenAt;
             var hasCard = world.Now - company.Report.Since >= ReportAfter;
             if (hasCard)
@@ -134,8 +133,6 @@ public sealed class GameHub : Hub<IGameClient>
             company.SessionStartedAt = world.Now;
             world.SeenOn(company, browserId, ipDay);
             world.CountPlayDay(company);
-            // Back from sleep (in place, or from the Quiet Isles)
-            world.WakeUp(company);
             world.EnsureOrders(company);
             return (Hello: new HelloDto(user, CompanyView(world, company), null, world.Now, world.Era, 0, leftAt), Away: hasCard ? away : null, Company: company, Crew: world.CrewOf(company) != null);
         });
@@ -172,8 +169,9 @@ public sealed class GameHub : Hub<IGameClient>
         GameViews.Company(world, company, world.GoldPerMinute().GetValueOrDefault(company.Id), world.ResearchPerMinute().GetValueOrDefault(company.Id));
 
     /// <summary>
-    /// A new company on a seat the player chose (or the one the game suggests: next to active players), or on the seat
-    /// a friend's code holds for it (it joins the friend's crew)
+    /// A new company (1.4 §6) on the plot the player chose on the map (a plot of a closed Yard: it plays where Pick for
+    /// me puts it and asks there), or where Pick for me puts it; a friend's "Play next to me" code lets it into their
+    /// Yard although the Yard is closed
     /// </summary>
     public async Task<CommandResultDto> CreateCompany(string name, string color, int? districtX, int? districtY, int? slot, string? code)
     {
@@ -195,11 +193,10 @@ public sealed class GameHub : Hub<IGameClient>
                 return CommandResultDto.Fail("Pick a colour.");
             }
             var seat = districtX is { } x && districtY is { } y && slot is { } s ? new EstateKey(new DistrictCoord(x, y), s) : (EstateKey?)null;
-            if (seat is { } chosen && code == null && !world.SeatFree(chosen))
+            if (seat is { } chosen && world.Estate(chosen.District, chosen.Slot) is { OwnerId: not null })
             {
-                return CommandResultDto.Fail("Someone took that seat a moment ago: here's the next free one.", "seatTaken");
+                return CommandResultDto.Fail("Someone took that plot a moment ago: pick another one.", "seatTaken");
             }
-            seat ??= code == null ? world.SuggestSeat(Placement.Neighbours) : null;
             var created = world.CreateCompany(userId, name, color, GameWorld.LegacyLevelOf(legacy), titles, seat, code);
             created.IsGuest = guest;
             world.CountPlayDay(created);
@@ -208,59 +205,36 @@ public sealed class GameHub : Hub<IGameClient>
         });
     }
 
-    /// <summary>Start with friends: a company on the seat the player picked and a crew, with the station's other seats held for friends</summary>
-    public async Task<FoundCrewResultDto> StartWithFriends(string name, string color, string crewName, string emblem, string crewColor, string crewColor2, int districtX, int districtY, int slot, int holdSeats)
-    {
-        var created = await CreateCompany(name, color, districtX, districtY, slot, null);
-        if (!created.Success)
-        {
-            return new FoundCrewResultDto(false, created.Error, [], created.Code);
-        }
-        return await FoundCrew(crewName, emblem, crewColor, crewColor2, holdSeats);
-    }
-
-    /// <summary>The stations of a district for the picker (the suggested one when none is given)</summary>
-    public Task<StationsDto> GetStations(int? districtX, int? districtY) =>
+    /// <summary>A town's Yards for the start on the map (the town Pick for me chooses when none is given)</summary>
+    public Task<StationsDto> GetStations(int? districtX, int? districtY, string? code) =>
         _world.RunAsync(world =>
         {
             var company = world.CompanyOfUser(UserId);
-            return GameViews.Stations(world, company, districtX is { } x && districtY is { } y ? new DistrictCoord(x, y) : null);
+            return GameViews.Stations(world, company, districtX is { } x && districtY is { } y ? new DistrictCoord(x, y) : null, code);
         });
 
     public Task<CrewViewDto?> GetCrew() =>
         _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Crew(world, company) : null, changesWorld: false);
 
-    public Task<FoundCrewResultDto> FoundCrew(string name, string emblem, string color, string color2, int holdSeats) =>
-        _world.RunAsync(world =>
-        {
-            if (world.CompanyOfUser(UserId) is not { } company)
-            {
-                return new FoundCrewResultDto(false, "Found your company first.", []);
-            }
-            var (result, crew) = world.FoundCrew(company.Id, name, emblem, color, color2, holdSeats);
-            return new FoundCrewResultDto(result.Success, result.Error, crew?.Holds.Select(t => GameViews.Held(world, t)).ToList() ?? []);
-        });
+    /// <summary>Any resident names the Yard and picks its banner (1.4 §7)</summary>
+    public Task<CommandResultDto> SetYard(string name, string emblem, string color, string color2) =>
+        Command((world, company) => world.SetYard(company, name, emblem, color, color2));
 
-    public Task<CommandResultDto> JoinCrew(string code) =>
-        Command((world, company) => world.JoinCrew(company, code));
+    /// <summary>Any resident opens or closes the Yard</summary>
+    public Task<CommandResultDto> SetYardOpen(bool open) =>
+        Command((world, company) => world.SetYardOpen(company, open));
 
-    public Task<CommandResultDto> LeaveCrew() =>
-        Command((world, company) => world.LeaveCrew(company));
+    /// <summary>Asks to settle on a free plot of a closed Yard (the request waits three days)</summary>
+    public Task<CommandResultDto> RequestPlot(int districtX, int districtY, int slot) =>
+        Command((world, company) => world.RequestPlot(company, new EstateKey(new DistrictCoord(districtX, districtY), slot)));
 
-    public Task<CommandResultDto> AcceptJoinRequest(long applicant) =>
-        Command((world, company) => world.AcceptJoinRequest(company, applicant));
+    /// <summary>A resident says yes (the newcomer moves in for free) or no to a request</summary>
+    public Task<CommandResultDto> AnswerRequest(long requester, bool yes) =>
+        Command((world, company) => world.AnswerRequest(company, requester, yes));
 
-    public Task<CommandResultDto> RenewInvite() =>
-        Command((world, company) => world.RenewInvite(company));
-
-    public Task<CommandResultDto> HoldSeats(int count) =>
-        Command((world, company) => world.HoldSeatsFor(company, count));
-
-    public Task<CommandResultDto> ReleaseHold(string code) =>
-        Command((world, company) => world.ReleaseHold(company, code));
-
-    public Task<CommandResultDto> NameHold(string code, string? name) =>
-        Command((world, company) => world.NameHold(company, code, name));
+    /// <summary>Your "Play next to me" link (1.4 §6): its code, valid for seven days</summary>
+    public Task<string?> GetNextToMeLink() =>
+        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameWorld.ShowCode(world.NextToMeLink(company.Id)) : null);
 
     /// <summary>A friend's tap: what your Storages hold of what a neighbour's scaffold wants goes into it (after run 3, step 2)</summary>
     public Task<CommandResultDto> SendToSite(long siteId) =>
@@ -270,10 +244,6 @@ public sealed class GameHub : Hub<IGameClient>
     /// <summary>Orders an Era Wonder good: all that may be ordered, or as much as the gold buys (null: all)</summary>
     public Task<CommandResultDto> OrderForWonder(string resource, double? gold) =>
         Command((world, company) => world.OrderForWonder(company, resource, gold));
-
-    /// <summary>The line the Labs refine next (null: walls first, then the best-earning good)</summary>
-    public Task<CommandResultDto> ChooseRefinement(string? line) =>
-        Command((world, company) => world.ChooseRefinement(company, line));
 
     /// <summary>Orders the rest of a want, one's own or a neighbour's (after run 3, step 4): 2 × base, after the friends' window, over 6 hours</summary>
     public Task<CommandResultDto> OrderRest(long target) =>
@@ -287,15 +257,9 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> Undo(long buildingId) =>
         Command((world, company) => world.Undo(company, buildingId));
 
-    /// <summary>A friend's seat link opened while playing elsewhere: kept in front of the player until they answer (decline: "Not with them")</summary>
-    public Task<CommandResultDto> SawSeatCode(string code, bool decline) =>
-        Command((world, company) => world.SawSeatCode(company, code, decline));
-
-    public Task<CommandResultDto> SetStationOpen(bool open) =>
-        Command((world, company) => world.SetStationOpen(company, open));
-
-    public Task<CommandResultDto> RelocateTo(int districtX, int districtY, int slot) =>
-        Command((world, company) => world.RelocateTo(company, new EstateKey(new DistrictCoord(districtX, districtY), slot)));
+    /// <summary>Moves your plot to a free one (into a closed Yard with a friend's "Play next to me" code)</summary>
+    public Task<CommandResultDto> RelocateTo(int districtX, int districtY, int slot, string? code) =>
+        Command((world, company) => world.RelocateTo(company, new EstateKey(new DistrictCoord(districtX, districtY), slot), code));
 
     private static bool IsColor(string color) =>
         color.Length == 7 && color[0] == '#' && color.Skip(1).All(Uri.IsHexDigit);
@@ -403,16 +367,6 @@ public sealed class GameHub : Hub<IGameClient>
         return _world.RunAsync(world => world.Building(id) is { } building ? GameViews.BuildingDetails(world, building, world.CompanyOfUser(userId)) : null, changesWorld: false);
     }
 
-    /// <summary>A Send (step 4): a good's spare goes to a neighbour (to: a company) or the station's project (to: null) first</summary>
-    public Task<CommandResultDto> SendGood(string resource, long? to, long? building) =>
-        Command((world, company) => world.SendGood(company, resource, to, building));
-
-    public Task<CommandResultDto> StopSend(string resource, long? to) =>
-        Command((world, company) => world.StopSend(company, resource, to));
-
-    public Task<CommandResultDto> Thank(long giver, string resource) =>
-        Command((world, company) => world.Thank(company, giver, resource));
-
     public Task<IReadOnlyList<ResearchStateDto>> GetResearch() =>
         _world.RunAsync<IReadOnlyList<ResearchStateDto>>(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Research(world, company) : [], changesWorld: false);
 
@@ -429,46 +383,8 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<MarketDto?> GetMarket() =>
         _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Market(world, company) : null, changesWorld: false);
 
-    public Task<IReadOnlyList<LandingCardDto>> GetLivelierStations() =>
-        _world.RunAsync<IReadOnlyList<LandingCardDto>>(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Livelier(world, company) : [], changesWorld: false);
-
-    public Task<CommandResultDto> DismissLoneCard() =>
-        Command((world, company) => world.DismissLoneCard(company));
-
-    /// <summary>Moves the crew together: you to the suggested station, a seat there kept for everyone else for a week</summary>
-    public Task<CommandResultDto> CrewMove() =>
-        Command((world, company) => world.Company(company) is { } me ? world.CrewMove(company, world.CrewMoveSeat(me)) : CommandResult.Fail("Unknown company."));
-
-    public Task<CommandResultDto> Consolidate() =>
-        Command((world, company) => world.Consolidate(company));
-
-    public Task<CommandResultDto> DismissConsolidation() =>
-        Command((world, company) => world.DismissConsolidation(company));
-
     public Task<CommandResultDto> SetPin(string resource, bool need, bool on) =>
         Command((world, company) => world.SetPin(company, resource, need, on));
-
-    public Task<CommandResultDto> Ask(string resource, double amount, double hours, bool renew) =>
-        Command((world, company) => world.Ask(company, resource, amount, hours, renew));
-
-    public Task<CommandResultDto> CancelAsk(string resource) =>
-        Command((world, company) => world.CancelAsk(company, resource));
-
-    public Task<ProjectDto?> GetProject() =>
-        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Project(world, company) : null, changesWorld: false);
-
-    public Task<CommandResultDto> SetProjectFirst(string resource, bool first) =>
-        Command((world, company) => world.SetProjectFirst(company, resource, first));
-
-    public Task<CommandResultDto> Tend(long friendId) =>
-        Command((world, company) => world.Tend(company, friendId));
-
-    public Task<CommandResultDto> KeepSeat(long sleeperId, bool keep) =>
-        Command((world, company) => world.KeepSeat(company, sleeperId, keep));
-
-    /// <summary>Where you could land now (the third screen of the way back; a move there is free once)</summary>
-    public Task<IReadOnlyList<LandingCardDto>> GetLandingCards() =>
-        _world.RunAsync<IReadOnlyList<LandingCardDto>>(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Landing(world, company) : [], changesWorld: false);
 
     public Task<YardDto?> GetYard() =>
         _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Yard(world, company) : null, changesWorld: false);
@@ -498,12 +414,6 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<CommandResultDto> UpgradeLink(long linkId, int tier) =>
         Command((world, company) => world.UpgradeLink(company, linkId, tier));
-
-    public Task<CommandResultDto> StartTrunk(int? districtX, int? districtY, bool port) =>
-        Command((world, company) => world.StartTrunk(company, districtX is { } x && districtY is { } y ? new DistrictCoord(x, y) : null, port).Result);
-
-    public Task<CommandResultDto> BuildTrunkSegment(long trunkId) =>
-        Command((world, company) => world.BuildTrunkSegment(company, trunkId));
 
     public Task<IReadOnlyList<MapLinkDto>> GetMapLinks() =>
         _world.RunAsync(GameViews.MapLinks, changesWorld: false);
@@ -547,54 +457,6 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> SetNoBuy(string resource, bool noBuy) =>
         Command((world, company) => world.SetNoBuy(company, resource, noBuy));
 
-    // ---------------------------------------------------------------- Corporations
-
-    public Task<CorporationsDto?> GetCorporations()
-    {
-        var online = _connectedUsers.OnlineUsers.ToHashSet();
-        return _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Corporations(world, company, online) : null, changesWorld: false);
-    }
-
-    public Task<CommandResultDto> FoundCorporation(string name, string tag, string color) =>
-        IsColor(color)
-            ? Command((world, company) => world.FoundCorporation(company, name, tag, color))
-            : Task.FromResult(CommandResultDto.Fail("Pick a colour."));
-
-    public Task<CommandResultDto> ApplyToCorporation(long corporation) =>
-        Command((world, company) => world.ApplyToCorporation(company, corporation));
-
-    /// <summary>An officer accepts an application or invites a company</summary>
-    public Task<CommandResultDto> InviteToCorporation(long company) =>
-        Command((world, officer) => world.InviteToCorporation(officer, company));
-
-    /// <summary>A company declines an invite, or an officer declines an application (corporation = your own, company = them)</summary>
-    public Task<CommandResultDto> DeclineCorporation(long corporation) =>
-        Command((world, company) => world.DeclineCorporation(company, corporation));
-
-    public Task<CommandResultDto> DeclineApplication(long applicant) =>
-        Command((world, officer) => world.DeclineApplication(officer, applicant));
-
-    public Task<CommandResultDto> LeaveCorporation() =>
-        Command((world, company) => world.LeaveCorporation(company));
-
-    public Task<CommandResultDto> KickFromCorporation(long member) =>
-        Command((world, officer) => world.KickFromCorporation(officer, member));
-
-    public Task<CommandResultDto> SetCorporationRole(long member, CorporationRole role) =>
-        Command((world, leader) => world.SetCorporationRole(leader, member, role));
-
-    public Task<CommandResultDto> DonateToCorporation(double gold) =>
-        Command((world, company) => world.DonateToCorporation(company, gold));
-
-    public Task<CommandResultDto> SetCorporationSettings(double tax, string? perkResource, string description) =>
-        Command((world, officer) => world.SetCorporationSettings(officer, tax, perkResource, description));
-
-    public Task<CommandResultDto> UpgradeCorporationHq() =>
-        Command((world, officer) => world.UpgradeCorporationHq(officer));
-
-    public Task<CommandResultDto> DeliverToCorporationGoal() =>
-        Command((world, company) => world.DeliverToCorporationGoal(company));
-
     // ---------------------------------------------------------------- Company: managers and achievements
 
     public Task<CompanyDetailsDto?> GetCompanyDetails() =>
@@ -606,11 +468,7 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> DismissManager(string manager) =>
         Command((world, company) => world.DismissManager(company, manager));
 
-    // ---------------------------------------------------------------- Franchise and season
-
-    /// <summary>Opens a franchise: a new estate, in the given district or (district null) the frontier</summary>
-    public Task<CommandResultDto> OpenFranchise(int? districtX, int? districtY) =>
-        Command((world, company) => world.OpenFranchise(company, districtX is { } x && districtY is { } y ? new DistrictCoord(x, y) : null));
+    // ---------------------------------------------------------------- The season
 
     public Task<SeasonDto> GetSeason()
     {
@@ -630,9 +488,8 @@ public sealed class GameHub : Hub<IGameClient>
             return world.OpenDistricts.OrderBy(t => t.X).ThenBy(t => t.Y).Select(district =>
             {
                 var estates = Enumerable.Range(0, WorldLayout.EstatesPerDistrict).Select(slot => world.Estate(district, slot)).OfType<Estate>().ToList();
-                var players = world.Companies.Where(t => !t.IsNpc && !t.Asleep && t.District == district).ToList();
-                var free = estates.Count(t => (t.OwnerId == null || world.Company(t.OwnerId.Value) is { IsNpc: true })
-                    && (t.ReservedFor == null || t.ReservedUntil <= world.Now || t.ReservedFor == me.CorporationId));
+                var players = world.Companies.Where(t => t.District == district).ToList();
+                var free = estates.Count(t => t.OwnerId == null);
                 return new DistrictChoiceDto(
                     district.X,
                     district.Y,
@@ -640,7 +497,6 @@ public sealed class GameHub : Hub<IGameClient>
                     free,
                     players.Count,
                     players.Count == 0 ? 0 : players.Count(t => world.ActivityOf(t) == Activity.Active) / (double)players.Count,
-                    estates.Any(t => t.ReservedFor != null && t.ReservedFor == me.CorporationId && t.ReservedUntil > world.Now),
                     district == me.District);
             }).ToList();
         }, changesWorld: false);
@@ -650,17 +506,6 @@ public sealed class GameHub : Hub<IGameClient>
 
     public Task<CommandResultDto> ScrapCrate(int crate) =>
         Command((world, company) => world.ScrapCrate(company, crate));
-
-    public Task<CommandResultDto> ProposeSwap(long other) =>
-        Command((world, company) => world.ProposeSwap(company, other));
-
-    public Task<CommandResultDto> ReserveBlock(int x, int y) =>
-        Command((world, company) => world.ReserveBlock(company, new DistrictCoord(x, y)));
-
-    public Task<IReadOnlyList<SleeperDto>> GetQuietIsles() =>
-        _world.RunAsync<IReadOnlyList<SleeperDto>>(world =>
-            world.QuietIsles.OrderByDescending(t => t.Level).Take(100).Select(t => new SleeperDto(t.Id, t.Name, t.Color, t.Level, t.LastSeenAt)).ToList(),
-            changesWorld: false);
 
     // ---------------------------------------------------------------- Outposts
 
@@ -763,7 +608,7 @@ public sealed class GameHub : Hub<IGameClient>
             {
                 return (null, "Found your company first.");
             }
-            if (world.Company(owner) is not { IsNpc: false } ownerCompany || ownerCompany.Id == company.Id)
+            if (world.Company(owner) is not { } ownerCompany || ownerCompany.Id == company.Id)
             {
                 return (null, "You can only write in other players' guestbooks.");
             }
@@ -795,25 +640,20 @@ public sealed class GameHub : Hub<IGameClient>
     {
         if (channel == SocialService.DistrictChannel(company.District.X, company.District.Y))
         {
-            var recipients = world.Companies.Where(t => t.District == company.District && !t.IsNpc).Select(t => t.UserId).ToList();
+            var recipients = world.Companies.Where(t => t.District == company.District).Select(t => t.UserId).ToList();
             return (true, WorldNames.District(company.District), recipients);
         }
-        if (world.CorporationOf(company) is { } corporation && channel == SocialService.CorporationChannel(corporation.Id))
+        if (channel == SocialService.WorldChannel)
         {
-            return (true, corporation.Name, world.Members(corporation).Select(t => t.UserId).ToList());
+            return (true, "World", world.Companies.Select(t => t.UserId).ToList());
         }
-        // Your station's own channel, and your crew's (after run 3, row 12: "Capital chat full of other Mias … unclear who
-        // my friends are")
-        if (world.EstateOf(company) is { } estate && world.BigStation(estate.Station)[0] is var corner && channel == SocialService.StationChannel(corner))
-        {
-            return (true, WorldNames.Station(corner), world.StationPlayers(estate.Station).Select(t => t.UserId).ToList());
-        }
+        // Your Yard's own channel (after run 3, row 12: "Capital chat full of other Mias … unclear who my friends are")
         if (world.CrewOf(company) is { } crew && channel == SocialService.CrewChannel(crew.Id))
         {
             return (true, crew.Name, world.CrewMembers(crew).Select(t => t.UserId).ToList());
         }
         if (SocialService.DirectPair(channel) is { } pair && (pair.A == company.Id || pair.B == company.Id)
-            && world.Company(pair.A == company.Id ? pair.B : pair.A) is { IsNpc: false } other)
+            && world.Company(pair.A == company.Id ? pair.B : pair.A) is { } other)
         {
             return (true, other.Name, [company.UserId, other.UserId]);
         }
@@ -824,46 +664,32 @@ public sealed class GameHub : Hub<IGameClient>
     {
         var userId = UserId;
         var me = await _world.RunAsync(world => world.CompanyOfUser(userId) is { } company
-            ? (company.Id, company.District, world.CorporationOf(company) is { } c ? (c.Id, c.Name) : default((long Id, string Name)?),
-                world.CrewOf(company) is { } crew ? (crew.Id, crew.Name) : default((long Id, string Name)?),
-                world.EstateOf(company) is { } estate && world.BigStation(estate.Station)[0] is var corner
-                    ? (SocialService.StationChannel(corner), WorldNames.Station(corner)) : default((string Id, string Name)?),
-                world.Now - GameWorld.ActivePeriod)
-            : default((long, DistrictCoord, (long Id, string Name)?, (long Id, string Name)?, (string Id, string Name)?, DateTime)?), changesWorld: false);
+            ? (company.Id, company.District, world.CrewOf(company) is { } crew ? (crew.Id, crew.NameHidden ? $"Crew {crew.Id}" : crew.Name, world.CrewMembers(crew).Count()) : default((long Id, string Name, int Members)?))
+            : default((long, DistrictCoord, (long Id, string Name, int Members)?)?), changesWorld: false);
         if (me is not { } info)
         {
             return null;
         }
-        var (companyId, district, corporation, ownCrew, station, week) = info;
+        var (companyId, district, ownCrew) = info;
+        // Your Yard first, then your town and the world (1.4 §19); alone in your Yard the town first, where people are
+        // (run 4: Mia's four greetings went to a channel that held only a silent Jo)
         var channels = new List<ChatChannelDto>();
-        // Your crew first, then your station: the people you play with (after run 3, row 12)
+        var districtChannel = SocialService.DistrictChannel(district.X, district.Y);
+        var districtLine = new ChatChannelDto(districtChannel, WorldNames.District(district), "district", await _social.LastMessageAtAsync(districtChannel));
+        if (ownCrew is not { Members: > 1 })
+        {
+            channels.Add(districtLine);
+        }
         if (ownCrew is { } myCrew)
         {
             var crewChannel = SocialService.CrewChannel(myCrew.Id);
             channels.Add(new ChatChannelDto(crewChannel, myCrew.Name, "crew", await _social.LastMessageAtAsync(crewChannel)));
         }
-        var districtChannel = SocialService.DistrictChannel(district.X, district.Y);
-        var districtLine = new ChatChannelDto(districtChannel, WorldNames.District(district), "district", await _social.LastMessageAtAsync(districtChannel));
-        // Alone, with nobody else speaking in your station this week: the district first, where people are (after run 4:
-        // Mia's four greetings went to a channel that held only a silent Jo)
-        var quiet = ownCrew == null && station is { } here && !await _social.OthersSpokeAsync(here.Id, companyId, week);
-        if (quiet)
+        if (ownCrew is { Members: > 1 })
         {
             channels.Add(districtLine);
         }
-        if (station is { } myStation)
-        {
-            channels.Add(new ChatChannelDto(myStation.Id, myStation.Name, "station", await _social.LastMessageAtAsync(myStation.Id)));
-        }
-        if (!quiet)
-        {
-            channels.Add(districtLine);
-        }
-        if (corporation is { } corp)
-        {
-            var corporationChannel = SocialService.CorporationChannel(corp.Id);
-            channels.Add(new ChatChannelDto(corporationChannel, corp.Name, "corporation", await _social.LastMessageAtAsync(corporationChannel)));
-        }
+        channels.Add(new ChatChannelDto(SocialService.WorldChannel, "World", "world", await _social.LastMessageAtAsync(SocialService.WorldChannel)));
         var direct = await _social.DirectChannelsAsync(companyId);
         var names = await _world.RunAsync(world => direct.ToDictionary(t => t.Channel, t =>
         {
@@ -944,7 +770,7 @@ public sealed class GameHub : Hub<IGameClient>
             var where = channel.StartsWith("district:", StringComparison.Ordinal) ? WorldNames.District(company.District) : WorldNames.Station(estate.Station);
             var text = $"👋 {company.Name}, new in {WorldNames.Station(estate.Station)}, said hello in the {where} chat: answer there";
             return world.Crews
-                .Select(crew => (Crew: crew, Members: world.CrewMembers(crew).Where(t => !t.IsNpc).ToList()))
+                .Select(crew => (Crew: crew, Members: world.CrewMembers(crew).ToList()))
                 .Where(t => t.Members.Any(m => m.District == company.District))
                 .Select(t => (Channel: SocialService.CrewChannel(t.Crew.Id), Text: text, Users: t.Members.Select(m => m.UserId).ToList()))
                 .ToList();
@@ -961,14 +787,14 @@ public sealed class GameHub : Hub<IGameClient>
         var userId = UserId;
         // The world may only be read inside RunAsync: collect the channels the reporter may read first
         var me = await _world.RunAsync(world => world.CompanyOfUser(userId) is { } company
-            ? (company.Id, SocialService.DistrictChannel(company.District.X, company.District.Y), company.CorporationId is { } corporationId ? SocialService.CorporationChannel(corporationId) : null)
-            : default((long Id, string District, string? Corporation)?), changesWorld: false);
+            ? (company.Id, SocialService.DistrictChannel(company.District.X, company.District.Y), company.CrewId is { } crewId ? SocialService.CrewChannel(crewId) : null)
+            : default((long Id, string District, string? Crew)?), changesWorld: false);
         if (me is not { } reporter)
         {
             return CommandResultDto.Fail("Found your company first.");
         }
         var reported = await _social.ReportAsync(message, channel =>
-            channel == reporter.District || channel == reporter.Corporation || SocialService.DirectPair(channel) is { } pair && (pair.A == reporter.Id || pair.B == reporter.Id));
+            channel == reporter.District || channel == reporter.Crew || channel == SocialService.WorldChannel || SocialService.DirectPair(channel) is { } pair && (pair.A == reporter.Id || pair.B == reporter.Id));
         return reported != null ? CommandResultDto.Ok : CommandResultDto.Fail("Unknown message.");
     }
 
@@ -1155,7 +981,7 @@ public sealed class GameHub : Hub<IGameClient>
                     world.GrantAllResearch(company);
                     break;
                 case "eratech":
-                    // This Era's tree done: Refinements open (after run 3, step 6)
+                    // This Era's tree done: the Labs rest
                     world.GrantAllResearch(company, thisEra: true);
                     company.ResearchPoints += 100_000;
                     break;
@@ -1165,32 +991,11 @@ public sealed class GameHub : Hub<IGameClient>
                 case "arrive":
                     world.LandNow(company);
                     break;
-                case "sleep":
-                    world.PutToSleep(company);
-                    break;
                 case "gone":
                     // The next Hello comes as if the player was away for ten days (the way back's screens)
                     company.LastSeenAt = world.Now.AddDays(-10);
                     company.Report.Since = company.LastSeenAt;
                     company.Touch();
-                    break;
-                case "restage":
-                    // Every project's stage starts again by today's rules
-                    world.RestageProjects();
-                    break;
-                case "project":
-                    // The station's project: its stage is delivered now
-                    if (world.EstateOf(company) is { } home)
-                    {
-                        world.FinishStageNow(home.Station);
-                    }
-                    break;
-                case "isles":
-                    // Asleep, and the hold over: the estate waits on the Quiet Isles
-                    world.PutToSleep(company);
-                    world.PackForTesting(company);
-                    company.LastSeenAt = world.Now.AddDays(-40);
-                    company.Report.Since = company.LastSeenAt;
                     break;
                 case "finale":
                     // To Era 5 and the launch countdown
@@ -1237,15 +1042,6 @@ public sealed class GameHub : Hub<IGameClient>
                         silo.Contents[need] = silo.Contents.GetValueOrDefault(need) + required;
                     }
                     silo.Touch();
-                    break;
-                case "storey":
-                    // The station's project to its Landmark, then a storey more (and the next one open)
-                    world.RaiseStorey(company);
-                    world.OpenStoreysNow();
-                    break;
-                case "wonderopen":
-                    // A Wonder stage that waits for midnight opens now, sized to who played this week
-                    world.SizeWonderStages();
                     break;
                 case "away":
                     // The next Hello shows the report as if the player was away for an hour
@@ -1304,9 +1100,6 @@ public sealed class GameHub : Hub<IGameClient>
     }
 
     public Task<CommandResultDto> GrowEverything() => Command((world, company) => world.GrowEverything(company));
-
-    /// <summary>Gives hours of your income (1, 6 or 24) to the open storey of your station's Landmark, or the one next door</summary>
-    public Task<CommandResultDto> GiveToStorey(double hours) => Command((world, company) => world.GiveToStorey(company, hours));
 
     public Task<CommandResultDto> UndoGrowth() => Command((world, company) => world.UndoGrowth(company));
 

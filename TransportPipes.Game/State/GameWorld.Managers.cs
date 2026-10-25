@@ -28,10 +28,6 @@ public sealed partial class GameWorld
         {
             slots++;
         }
-        if (CorporationOf(company) is { HqLevel: >= 4 })
-        {
-            slots++;
-        }
         // Legacy from earlier seasons
         if (company.LegacyLevel >= LegacyManagerLevel)
         {

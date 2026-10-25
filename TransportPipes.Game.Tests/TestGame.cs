@@ -12,9 +12,9 @@ internal sealed class TestGame
     public DateTime Time { get; set; } = Start;
     public GameWorld World { get; }
 
-    public TestGame(int seed = 1234, GameContent? content = null, bool events = false, bool achievements = false, bool tutorial = false, bool surveys = false, bool dealtLand = false)
+    public TestGame(int seed = 1234, GameContent? content = null, bool events = false, bool achievements = false, bool tutorial = false)
     {
-        World = new GameWorld(content ?? GameContent.Default, seed, () => Time, dealtLand) { EventsEnabled = events, AchievementsEnabled = achievements, TutorialEnabled = tutorial, SurveysEnabled = surveys };
+        World = new GameWorld(content ?? GameContent.Default, seed, () => Time) { EventsEnabled = events, AchievementsEnabled = achievements, TutorialEnabled = tutorial };
     }
 
     /// <summary>The game content without location modifiers (wind, sun, richness), so every building makes its listed amount</summary>
@@ -150,6 +150,27 @@ internal sealed class TestGame
             }
         }
         throw new AssertFailedException($"No spot for {type}");
+    }
+
+    /// <summary>A 2×2 deposit of a resource on free open land of the start area (the land's own deposits vary by plot)</summary>
+    public TilePos Seed(Company company, string resource, int richness = 2)
+    {
+        var estate = EstateOf(company);
+        for (var y = 8; y < 23; y++)
+        {
+            for (var x = 8; x < 23; x++)
+            {
+                var pos = estate.Origin.Offset(x, y);
+                var square = new[] { pos, pos.Offset(1, 0), pos.Offset(0, 1), pos.Offset(1, 1) };
+                if (square.All(t => !World.IsOccupied(t) && World.Tile(t).Terrain is TerrainType.Grass or TerrainType.Hills && World.Tile(t).Deposit == null)
+                    && GameWorld.BorderTiles(pos, 2).Any(t => !World.IsOccupied(t) && World.Tile(t).Terrain is not (TerrainType.Mountain or TerrainType.Water)))
+                {
+                    World.LoadSeeds(square.Select(t => (t, resource, richness)));
+                    return pos;
+                }
+            }
+        }
+        throw new AssertFailedException($"No room for a {resource} deposit");
     }
 
     public Building Build(Company company, string type, TilePos? pos = null, bool finish = true)

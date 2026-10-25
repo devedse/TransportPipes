@@ -36,7 +36,7 @@ public sealed partial class GameWorld
         site.ConstructionEndsAt = SiteWaiting;
         foreach (var (resource, amount) in definition.Cost.Materials)
         {
-            company.Asks.Add(new CompanyAsk { Resource = resource, Amount = amount, Until = DateTime.MaxValue, Hours = 0, Site = site.Id, Raised = LastTick });
+            company.Asks.Add(new CompanyAsk { Resource = resource, Amount = amount, Site = site.Id, Raised = LastTick });
         }
         FillWantsFromStorages(company);
         FinishWantsIfFull(company, site);

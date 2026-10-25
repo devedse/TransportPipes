@@ -45,14 +45,8 @@ public class BalanceSimulation
             Assert.Inconclusive($"Only {only}.");
         }
         var days = int.TryParse(Environment.GetEnvironmentVariable("TP_BALANCE_DAYS"), out var d) ? d : 14;
-        // Like a real server: Loady, achievements, and the surveyors' starter kit on every estate
-        var game = new TestGame(seed: 4242, achievements: true, tutorial: true, surveys: true);
-        if (profile == "typical-together")
-        {
-            game.World.TenantsEnabled = true;
-            game.World.ProjectsEnabled = true;
-            game.World.TrunksEnabled = true;
-        }
+        // Like a real server: Loady and achievements
+        var game = new TestGame(seed: 4242, achievements: true, tutorial: true);
         var company = game.NewCompany("Bot", gold: game.World.StartingGold);
         var bot = new Bot(game, company);
         var report = new StringBuilder();
@@ -151,9 +145,8 @@ public class BalanceSimulation
         {
             Assert.Inconclusive("Set TP_BALANCE=1 to run the balance simulation.");
         }
-        // Like a real server: Loady, achievements, and the surveyors' starter kit on every estate
-        var game = new TestGame(seed: 4242, achievements: true, tutorial: true, surveys: true);
-        game.World.TenantsEnabled = true;
+        // Like a real server: Loady and achievements
+        var game = new TestGame(seed: 4242, achievements: true, tutorial: true);
         var company = game.NewCompany("Bot", gold: game.World.StartingGold);
         // The server gives a new company today's orders
         game.World.EnsureOrders(company);
@@ -335,8 +328,7 @@ public class BalanceSimulation
                     AdvisorAction.Parcel => World.BuyParcel(company.Id, step.Parcel!.Value).Success,
                     AdvisorAction.Partner => ConnectNeighbour() != null,
                     AdvisorAction.Climb => World.ClimbPipe(company.Id, step.Building!.Value, order: true).Success,
-                    // The shared goals (after run 4): an hour of income to the storey, a day's order for the Era Wonder
-                    AdvisorAction.Storey => World.GiveToStorey(company.Id, 1).Success,
+                    // The shared goal (after run 4): a day's order for the Era Wonder
                     AdvisorAction.Wonder => World.EraWonder is { } wonder && wonder.Required.Keys.ToList().Any(good => World.OrderForWonder(company.Id, good, step.Cost).Success),
                     AdvisorAction.Connect => ConnectAll(),
                     _ => false,
@@ -429,8 +421,6 @@ public class BalanceSimulation
                     return ConnectNeighbour() is { } partner ? ($"piped to {partner}", 45) : (null, 0);
                 case "secondParcel":
                     return TryParcel() ? ("bought a parcel", 20) : (null, 0);
-                case "corporation":
-                    return World.FoundCorporation(company.Id, "Bot Guild", "BOT", "#3366cc").Success ? ("founded a corporation", 60) : (null, 0);
                 default:
                     return (null, 0);
             }

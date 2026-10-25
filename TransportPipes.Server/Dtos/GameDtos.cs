@@ -33,8 +33,7 @@ public record HelloDto(UserInfo User, CompanyDto? Company, ReturnCardDto? Card, 
 
 /// <summary>
 /// The return card (F5): one card for every return with news, built on the server's clock. Gold and level, the fine
-/// print (the caretaker, the rest, research done), at most six lines in their sections, and where to land after the
-/// Quiet Isles.
+/// print (research done), and at most six lines in their sections.
 /// </summary>
 public record ReturnCardDto(
     string Away,
@@ -43,19 +42,15 @@ public record ReturnCardDto(
     int Level,
     IReadOnlyList<string> Fine,
     IReadOnlyList<ReturnLineDto> Lines,
-    IReadOnlyList<LandingCardDto> Landing,
     string? Hint,
     /// <summary>What folds under "more" (after run 3, row 11: the card leads with what matters)</summary>
     IReadOnlyList<ReturnLineDto>? Folded = null);
 
 /// <summary>
-/// A line of the return card: its section, and its one button (repairAll, show, project, upgrade, links, send: Partner's
-/// Resource, thank: PartnerName for their Resource) with what it costs
+/// A line of the return card: its section, and its one button (repairAll, show, upgrade, links, fillWant, orderWant,
+/// grow) with what it costs
 /// </summary>
 public record ReturnLineDto(string Kind, string Icon, string Text, string? Action, long? Building, double? Cost, long? Partner = null, string? Resource = null, string? PartnerName = null);
-
-/// <summary>A place to land: your seat, next to your crew, a lively station, the Frontier; with the crates it would mean</summary>
-public record LandingCardDto(string Kind, SeatRefDto Seat, string Station, int Crates, bool Here, int Neighbours);
 
 public record CompanyDto(
     long Id,
@@ -87,9 +82,6 @@ public record CompanyDto(
     double? NextReputation,
     IReadOnlyList<DailyOrderDto> DailyOrders,
     IReadOnlyList<string> NoTrade,
-    long? CorporationId,
-    string? CorporationTag,
-    string? CorporationRole,
     long? MentorId,
     int Likes,
     IReadOnlyList<GameEventDto> Events,
@@ -99,11 +91,11 @@ public record CompanyDto(
     IReadOnlyList<string> Titles,
     IReadOnlyList<string> Collections,
     IReadOnlyList<OutpostDto> Outposts,
-    FranchiseDto Franchise,
+    /// <summary>The Legacy level the player brought from earlier seasons</summary>
+    int LegacyLevel,
     SeasonInfoDto Season,
     MovingDto Moving,
     DeepDto Deep,
-    IReadOnlyList<BranchDto> Branches,
     TutorialDto? Tutorial,
     ExpeditionDto Expedition,
     MasteryDto Mastery,
@@ -112,15 +104,7 @@ public record CompanyDto(
     ExperienceDto Experience,
     string TradeWith,
     CrewBadgeDto? Crew,
-    /// <summary>The XP multiplier while far behind the people you live with (v1.2 §10)</summary>
-    double Tailwind,
-    /// <summary>The lone-human card waits: nobody else in the station played lately</summary>
-    bool LoneCard,
-    /// <summary>The league it plays in this week (null: none)</summary>
-    int? League,
-    /// <summary>The station's project on the "This week" row (null: none, the next parcel shows)</summary>
-    ProjectWeekDto? Week = null,
-    /// <summary>Dealt land: your seat's goods and who in your station holds the others (null on old land)</summary>
+    /// <summary>Your plot's land: what it has, and who in your Yard has the rest</summary>
     LandDto? Land = null,
     /// <summary>The research queue (F11): techs that start by themselves, in order</summary>
     IReadOnlyList<string>? ResearchQueue = null,
@@ -128,16 +112,12 @@ public record CompanyDto(
     bool KeepResearching = true,
     /// <summary>Something can be researched now (run 3: "pick one!" over 449k points with every tech locked)</summary>
     bool ResearchOpen = true,
-    /// <summary>A seat a friend keeps for you, whose link you opened while living elsewhere (null: none)</summary>
-    KeptSeatDto? KeptSeat = null,
     /// <summary>Neighbours' scaffolds and pipes this player could help with (after run 3, steps 2 and 3)</summary>
     IReadOnlyList<WantNearDto>? WantsNear = null,
     /// <summary>This player's own open wants, a building's or a pipe's</summary>
     IReadOnlyList<OwnWantDto>? Wants = null,
     /// <summary>The Era Wonder on the goal tracker (after run 3, step 5): its stage's share, and your part or what it wants</summary>
     ProjectWeekDto? EraWonderLine = null,
-    /// <summary>Refinements after an Era's tree (after run 3, step 6)</summary>
-    RefineDto? Refine = null,
     /// <summary>The pipe ladder on the goal tracker while a pipe is full (after run 4: the way up was nowhere in sight)</summary>
     PipesLineDto? Pipes = null);
 
@@ -148,8 +128,8 @@ public record CompanyDto(
 public record GoldUsesDto(GoldLineDto? Shared, GoldLineDto? Want, GrowPlanDto? Grow, double Hour);
 
 /// <summary>
-/// One line: its words, and what its button does ("storey": give hours of your income to the station's storey, Cost an
-/// hour; "wonder": order Resource for Cost, or all; "want": order the rest of Target for Cost, for ForName)
+/// One line: its words, and what its button does ("wonder": order Resource for Cost, or all; "want": order the rest of
+/// Target for Cost, for ForName)
 /// </summary>
 public record GoldLineDto(string Text, string Action, double? Cost = null, string? Resource = null, long? Target = null, string? ForName = null, double? AllCost = null);
 
@@ -161,26 +141,14 @@ public record GrowPartDto(long Building, string Text, double Cost, double Gain);
 /// <summary>"Your Iron Mine's Grey Pipe is full: Copper Pipe on its link, then Level 30": the building to open, and the ladder ("Grey · Copper · Steel with Era 2")</summary>
 public record PipesLineDto(string Text, long Building, int Full, string Ladder);
 
-/// <summary>
-/// Refinements: whether they are open (the Era's tree is done), what the next costs, what the Labs refine now and next, the
-/// player's choice, whether the Labs rest, and every line with the station's percentage and whose research it is
-/// </summary>
-public record RefineDto(bool Open, double Cost, double Minutes, string? Current, string? Next, string? Choice, bool Resting, IReadOnlyList<RefineLineDto> Lines);
-
-/// <summary>A Refinement line: "pipes", "trading", "hubOrders" or a good; the station's percentage now, a step, your steps, who else</summary>
-public record RefineLineDto(string Id, string Name, bool Wall, double Now, double Step, int Mine, string? By, bool Capped);
-
 /// <summary>An own want: its target (a building's id, or minus a pipe want's number), what it wants, what is in and coming; Tiles for a pipe</summary>
 public record OwnWantDto(long Target, string Name, string Resource, double Amount, double Got, double PerMinute, int? Tiles, string? Order = null, double? OrderCost = null);
-
-/// <summary>A friend's kept seat: its code, who keeps it, their crew, and where it is and where you live</summary>
-public record KeptSeatDto(string Code, string From, string Crew, string Station, string? YourStation);
 
 /// <summary>Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there</summary>
 public record LandDto(IReadOnlyList<string> Goods, IReadOnlyList<LandSeatDto> Station);
 
 /// <param name="Makes">Of its land goods, those its owner makes now (a finished building of theirs makes it)</param>
-public record LandSeatDto(int Slot, string? Owner, bool House, bool You, IReadOnlyList<string> Goods, IReadOnlyList<string> Makes);
+public record LandSeatDto(int Slot, string? Owner, bool You, IReadOnlyList<string> Goods, IReadOnlyList<string> Makes);
 
 /// <summary>A company's crew as the top bar and the map show it</summary>
 public record CrewBadgeDto(long Id, string Name, string Emblem, string Color, string Color2, int Members);
@@ -215,27 +183,19 @@ public record ExpeditionDto(int? Hours, DateTime? EndsAt, IReadOnlyDictionary<in
 public record TutorialDto(int Step, int Steps, string Id, string Text, double Progress, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint, int? WaitLevel, string? Tip, int Chapter, int ChapterStep, int ChapterSteps,
     string? PhoneText = null, int[]? Pipe = null, double PipeCost = 0, string? PipeTarget = null, DateTime? Since = null);
 
-/// <summary>A branch estate opened by a franchise (its index for BuyParcel is its place in this list plus one)</summary>
-public record BranchDto(int DistrictX, int DistrictY, string DistrictName, int Slot, int X, int Y, int UnlockedParcels, double NextParcelCost, int NextParcelLevel);
-
 /// <summary>
 /// The Deep Level (GDD §11.2): whether there is a lift, the dug out parcels, the parcel being dug and what the next one
 /// costs. Deep tiles are surface tiles shifted down by DeepOffset.
 /// </summary>
 public record DeepDto(bool Open, int Parcels, int? DigParcel, DateTime? DigStartedAt, DateTime? DigEndsAt, double NextCost, double NextHours, int Offset);
 
-/// <summary>Moving and activity (GDD §12): a move in progress, crates, free moves, a proposed swap</summary>
-public record MovingDto(string Activity, bool Asleep, DateTime? ArrivesAt, IReadOnlyList<CrateDto> Crates, int FreeMoves, double MoveCost, DateTime? CanMoveAt, long? SwapWith);
+/// <summary>Moving and activity (1.4 §18): a move in progress, crates, free moves</summary>
+public record MovingDto(string Activity, DateTime? ArrivesAt, IReadOnlyList<CrateDto> Crates, int FreeMoves, double MoveCost, DateTime? CanMoveAt);
 
 public record CrateDto(int Index, string Type, int Level);
 
 /// <summary>A district a company could move to</summary>
-public record DistrictChoiceDto(int X, int Y, string Name, int FreeEstates, int Players, double ActiveShare, bool ReservedForYou, bool Yours);
-
-public record SleeperDto(long Id, string Name, string Color, int Level, DateTime Since);
-
-/// <summary>The Franchise (GDD §8.7): Shares so far and what a franchise would give now</summary>
-public record FranchiseDto(int Shares, int Franchises, int SharesNow, string? Blocker, DateTime? At, int LegacyLevel);
+public record DistrictChoiceDto(int X, int Y, string Name, int FreeEstates, int Players, double ActiveShare, bool Yours);
 
 /// <summary>The season: the finale countdown, and when it ended the next world's opening</summary>
 public record SeasonInfoDto(int Season, DateTime? FinaleAt, DateTime? EndedAt, DateTime? NextWorldAt);
@@ -270,7 +230,7 @@ public record MarketResourceDto(
 public record MarketDto(int DistrictX, int DistrictY, string District, IReadOnlyList<MarketResourceDto> Resources, DateTime NextUpdate);
 
 /// <summary>A tech as one company sees it</summary>
-public record ResearchStateDto(string Id, string State, double Cost, string? Reason, double Diffusion);
+public record ResearchStateDto(string Id, string State, double Cost, string? Reason);
 
 /// <param name="SiteShare">A scaffold that wants materials: how much of them is in (0–1); null for any other building</param>
 public record BuildingDto(long Id, string Type, long Owner, int X, int Y, int Size, int Level, DateTime? ConstructionEndsAt, int? Network, bool Damaged, long? Link = null, double? SiteShare = null);
@@ -314,11 +274,10 @@ public record OutpostCheckDto(string? Error, int X, int Y, double Lease, int Siz
 public record TerrainOverrideDto(int X, int Y, string Terrain);
 
 /// <summary>An estate on the map; Goods: the land goods dealt to it (step 5), House: a House lives there</summary>
-public record EstateDto(int Slot, int X, int Y, long? OwnerId, string? OwnerName, string? OwnerColor, int OwnerLevel, int UnlockedParcels, string Primary, string? Secondary, string? CorporationTag, string? Activity, string? ReservedFor, IReadOnlyList<string>? Goods = null, bool House = false);
+public record EstateDto(int Slot, int X, int Y, long? OwnerId, string? OwnerName, string? OwnerColor, int OwnerLevel, int UnlockedParcels, string Primary, string? Secondary, string? Activity, IReadOnlyList<string>? Goods = null);
 
-/// <summary>A hub structure; corporation HQs have the corporation's tag, colour and HQ level</summary>
-/// <param name="Storeys">A station Landmark's storeys: its tower rises one band a storey (after run 4)</param>
-public record HubStructureDto(string Type, int X, int Y, int Size, string? Label = null, string? Color = null, int Level = 0, long? Corporation = null, string? Variant = null, int Stages = 0, int Storeys = 0);
+/// <summary>A hub structure; a Wonder site has its Wonder's name, stage and variant</summary>
+public record HubStructureDto(string Type, int X, int Y, int Size, string? Label = null, string? Color = null, int Level = 0, string? Variant = null, int Stages = 0);
 
 public record DistrictDto(int X, int Y, int OriginX, int OriginY, string Name, IReadOnlyList<EstateDto> Estates, IReadOnlyList<HubStructureDto> Hub);
 
@@ -369,7 +328,6 @@ public record BuildingDetailsDto(
     /// <summary>A scaffold that still wants materials (null: none)</summary>
     SiteDto? Site = null,
     /// <summary>The station's Refinements this building gets, named: "Bricks +6% · Cleo's research 💛"</summary>
-    IReadOnlyList<string>? Refined = null,
     /// <summary>Its pipe door, when its pipe is what holds it back (after run 4)</summary>
     PipeDoorDto? PipeDoor = null);
 
@@ -392,23 +350,16 @@ public record BuildingTradeDto(
     IReadOnlyList<TradeEndDto> Takers,
     IReadOnlyList<TradeEndDto> Suppliers,
     IReadOnlyList<BidDto> Bids,
-    IReadOnlyList<ProjectWantDto> Project,
     bool ReachesGate,
     BuildingFixDto? GatePipe,
-    /// <summary>"runs on Ben's sand 💛": its biggest supplier among the players</summary>
-    string? RunsOn,
-    int Sends,
-    int MaxSends);
+    /// <summary>"runs on Ben's sand": its biggest supplier</summary>
+    string? RunsOn);
 
 /// <summary>One end of a Yard trade: the partner, its building, how much a minute at what price; Sent: a Send; CanThank: Thanks today</summary>
-public record TradeEndDto(string Resource, long Partner, string PartnerName, string? PartnerBuilding, long? PartnerBuildingId, double PerMinute, double Price, bool Sent, bool House, bool CanThank);
+public record TradeEndDto(string Resource, long Partner, string PartnerName, string? PartnerBuilding, long? PartnerBuildingId, double PerMinute, double Price);
 
 /// <summary>"Ana's Glassworks could use 15/min · it buys from Bertha ⚙ now · Send to Ana ▸"</summary>
-public record BidDto(string Resource, long Buyer, string BuyerName, string? Building, long? BuildingId, double PerMinute, string? House);
-
-/// <summary>"🏗 The Water Tower wants 5,400 · you make it · Send ▸"</summary>
-/// <summary>What the project wants of a building's goods, what it sends now, and why nothing moves when nothing does</summary>
-public record ProjectWantDto(string Resource, string Stage, double Wants, double PerMinute, bool Sent, string? NothingMoves = null);
+public record BidDto(string Resource, long Buyer, string BuyerName, string? Building, long? BuildingId, double PerMinute);
 
 /// <summary>
 /// A building's panel head (F2): why it doesn't run fully (Cause, from IdleReason), the status pill (the cause in five
@@ -501,9 +452,7 @@ public record OwnerResourceDto(string Resource, double Made, double Used, double
 /// (bought from neighbours, imported from the hub)
 /// </summary>
 public record NetworkOwnerDto(long Id, string Name, string Color, double GoldPerMinute, IReadOnlyList<OwnerResourceDto> Resources,
-    double HubSales, double NeighbourSales, double NeighbourPurchases, double HubPurchases,
-    /// <summary>What the station's project pays for goods through the gate, and its stage's name</summary>
-    double ProjectSales = 0, string? Project = null);
+    double HubSales, double NeighbourSales, double NeighbourPurchases, double HubPurchases);
 
 public record BottleneckDto(long A, long B, double Capacity, double Used, IReadOnlyList<int> Path);
 
@@ -529,7 +478,6 @@ public record NeighbourDto(
     string Color,
     int Level,
     int ContractStars,
-    bool IsNpc,
     int Slot,
     int EstateX,
     int EstateY,
@@ -581,33 +529,6 @@ public record ExchangeDto(bool HasOffice, IReadOnlyList<ExchangeBookDto> Books, 
 
 // ---------------------------------------------------------------- Society (M4)
 
-public record CorporationSummaryDto(long Id, string Name, string Tag, string Color, string Description, int Members, int HqLevel, double WeeklyEarnings, bool Applied, bool Invited);
-
-public record CorporationMemberDto(long Id, string Name, string Color, int Level, string Role, double WeeklyEarnings, double Contribution, bool Online);
-
-public record CorporationGoalDto(string Resource, double Amount, double Delivered, double RewardGold, DateTime EndsAt, double YourContribution, double YourStock, bool Rewarded);
-
-public record CorporationPerkDto(int Level, string Text, bool Active);
-
-public record CorporationDto(
-    long Id,
-    string Name,
-    string Tag,
-    string Color,
-    string Description,
-    double Treasury,
-    double Tax,
-    int HqLevel,
-    double? NextHqCost,
-    string? PerkResource,
-    string YourRole,
-    IReadOnlyList<CorporationMemberDto> Members,
-    IReadOnlyList<CorporationMemberDto> Applications,
-    CorporationGoalDto? Goal,
-    IReadOnlyList<CorporationPerkDto> Perks);
-
-public record CorporationsDto(CorporationDto? Mine, IReadOnlyList<CorporationSummaryDto> District, int FoundLevel, double FoundCost, int MaxMembers, DateTime? CanJoinAt);
-
 public record LeaderboardEntryDto(long Company, string Name, string Color, double Value, int Rank, bool You);
 
 public record LeaderboardDto(string Kind, bool District, IReadOnlyList<LeaderboardEntryDto> Entries, LeaderboardEntryDto? You);
@@ -620,12 +541,11 @@ public record EstateVisitDto(
     string Name,
     string Color,
     int Level,
-    bool IsNpc,
     bool IsYou,
     int Likes,
     bool LikedToday,
-    string? CorporationTag,
-    string? CorporationName,
+    /// <summary>The Yard they live at</summary>
+    string? Yard,
     double NetWorth,
     int Buildings,
     int Partners,
@@ -636,8 +556,6 @@ public record EstateVisitDto(
     bool IsYourMentor,
     int Mentees,
     IReadOnlyList<GuestbookNoteDto> Guestbook,
-    bool SwapFromThem,
-    bool SwapFromYou,
     /// <summary>What their scaffolds and pipes wait for, and what ordering it for them costs you (after run 4: a friend's want in sight where you visit)</summary>
     IReadOnlyList<WantNearDto>? Wants = null);
 
@@ -735,34 +653,25 @@ public record BlueprintDto(
 
 public record BlueprintsDto(bool HasOffice, bool CanRebuild, int Max, IReadOnlyList<BlueprintDto> Mine, IReadOnlyList<BlueprintDto> Corporation, IReadOnlyList<BlueprintDto> Board);
 
-/// <summary>A resident of a station: whether its pipes reach its Yard gate, what it has spare (goes to the hub) and lacks</summary>
-/// <summary>A resident of a station; House is a House's kind (reliable, collector, grower, neighbourInNeed), StandIn the House standing in for an asleep player</summary>
-public record YardResidentDto(long Id, string Name, string Color, int Level, bool IsNpc, int Slot, bool Connected, string? Activity, IReadOnlyList<ResourceRateDto> Spare, IReadOnlyList<ResourceRateDto> Lacks, bool Blocked, string? House, string? StandIn,
-    IReadOnlyList<string> Makes, IReadOnlyList<string> Needs, IReadOnlyList<AskDto> Asks);
-
-/// <summary>An Ask (v1.2 §12): a good asked of the station, how much came, until when, whether it renews itself</summary>
-public record AskDto(string Resource, double Amount, double Got, DateTime Until, bool Renew, double PerMinute);
+/// <summary>
+/// A resident of a Yard: whether its pipes reach its Yard gate, what it has spare (goes to the hub) and lacks, and what it
+/// pinned on the Plan board
+/// </summary>
+public record YardResidentDto(long Id, string Name, string Color, int Level, int Slot, bool Connected, string? Activity, IReadOnlyList<ResourceRateDto> Spare, IReadOnlyList<ResourceRateDto> Lacks, bool Blocked,
+    IReadOnlyList<string> Makes, IReadOnlyList<string> Needs);
 
 /// <summary>One of your trades through the Yard: with whom, what, how much per minute, which way, at what price</summary>
-/// <summary>A Yard trade of yours; Sent: a Send (yours, or theirs to you), CanThank: Thanks today, House: an NPC partner</summary>
-public record YardTradeDto(long Partner, string PartnerName, string Resource, double PerMinute, bool Selling, double Price, bool Sent = false, bool CanThank = false, bool House = false);
+public record YardTradeDto(long Partner, string PartnerName, string Resource, double PerMinute, bool Selling, double Price);
+
+/// <summary>What you and a neighbour sold each other of a good this week (units each way)</summary>
+public record WeekTradeDto(long Partner, string Name, string Resource, double Given, double Received);
 
 /// <summary>
-/// A Send of yours (step 4): the good, who it goes to (null: the project), the building it's for, what it brings now,
-/// what it moved this week (since it began), and why it moves nothing now if it doesn't
-/// </summary>
-public record SendDto(string Resource, long? To, string ToName, string? Building, double PerMinute, double Week = 0, string? Idle = null);
-
-/// <summary>What you and a neighbour gave each other this week, in units each way; Sent: by a Send (yours, theirs)</summary>
-public record GiftDto(long Partner, string Name, string Resource, double Given, double Received, bool YouSend, bool TheySend);
-
-/// <summary>
-/// Your station and its Yard (v1.2 §7): its name and place, its residents, your trades with them, what goes through the
-/// Yard, whether your own pipes reach your Yard gate, and one line about what happens
+/// Your Yard (1.4 §7): its name and place, its residents, your trades with them, what goes through the Yard, whether
+/// your own pipes reach your Yard gate, and one line about what happens
 /// </summary>
 public record YardDto(
     string Station,
-    bool Small,
     int X0,
     int Y0,
     int X1,
@@ -775,88 +684,65 @@ public record YardDto(
     IReadOnlyList<ResourceRateDto> Totals,
     string Line,
     IReadOnlyList<DiscoveryDto> Discoveries,
-    IReadOnlyList<SendDto> Sends,
-    int SendCount,
-    int MaxSends,
-    /// <summary>Who could use your goods ("Ana's Glassworks could use your sand · Send ▸")</summary>
+    /// <summary>Who could use your goods ("Ana's Glassworks could use your sand")</summary>
     IReadOnlyList<BidDto> Bids,
-    IReadOnlyList<GiftDto> Gifts,
+    /// <summary>What you and each neighbour sold each other this week</summary>
+    IReadOnlyList<WeekTradeDto> Trades,
     /// <summary>What the Yard pays you of your income, and whom for it (after run 4: Cleo added up her trades and asked where the rest came from)</summary>
     string? IncomeLine = null);
 
 /// <summary>A Discovery (v1.2 §13): where, until when its markers are given, which stations got one, the three who brought most</summary>
 public record DiscoveryDto(string Resource, int X, int Y, string Near, DateTime MarkingEnds, IReadOnlyList<string> Stations, IReadOnlyList<string> Top, bool YourStation);
 
-/// <summary>A seat of a station as the picker shows it: its land, and who lives there (or that it is free, held, warmed by a House)</summary>
+/// <summary>
+/// A plot as the map's card shows it (1.4 §6): its land and who lives there. State: free, closed (free, but its Yard is
+/// closed: you ask first), taken, you
+/// </summary>
 public record SeatDto(
     int Slot,
     int EstateX,
     int EstateY,
     string Primary,
     string? Secondary,
-    /// <summary>free, house (a House keeps it warm: you can take it), held (kept for a crew's friend), taken, you</summary>
     string State,
     long? OwnerId,
     string? OwnerName,
     string? OwnerColor,
     int OwnerLevel,
-    /// <summary>For strangers: lively, some days or resting (never a count of days)</summary>
+    /// <summary>For others: lively, some days or resting (never a count of days)</summary>
     string? Activity,
-    string? CrewName,
-    bool HeldForYou,
-    /// <summary>Dealt land: the goods the seat holds (beside the HQ, then in the first parcels), what the picker says it has</summary>
+    /// <summary>What the plot's land holds</summary>
     IReadOnlyList<string>? Goods = null);
 
-/// <summary>A station on the picker: its seats, how lively it is, whether strangers may settle</summary>
-public record StationDto(int DistrictX, int DistrictY, int Index, string Name, bool Small, bool Open, int Free, int Lively, IReadOnlyList<SeatDto> Seats, string? CrewName, int X0, int Y0, int X1, int Y1, string? Project = null,
-    IReadOnlyList<string>? Makes = null, IReadOnlyList<string>? Needs = null);
+/// <summary>A Yard on the map: its crew's name and banner, whether anyone may settle, its plots and its Plan board</summary>
+public record StationDto(int DistrictX, int DistrictY, int Index, string Name, string? Emblem, string? Color, string? Color2, bool Open, int Free, int Lively,
+    IReadOnlyList<SeatDto> Seats, int X0, int Y0, int X1, int Y1, IReadOnlyList<string> Makes, IReadOnlyList<string> Needs);
 
 public record SeatRefDto(int DistrictX, int DistrictY, int Slot);
 
-/// <summary>The stations of a district for the picker, with the seats the game suggests for each way of starting</summary>
-public record StationsDto(int DistrictX, int DistrictY, string District, IReadOnlyList<StationDto> Stations, SeatRefDto Neighbours, SeatRefDto OwnStation, SeatRefDto Friends, IReadOnlyList<DistrictRefDto> Districts);
+/// <summary>A town's Yards for the start on the map, the plot Pick for me chooses, and the open towns</summary>
+public record StationsDto(int DistrictX, int DistrictY, string District, IReadOnlyList<StationDto> Stations, SeatRefDto PickForMe, IReadOnlyList<DistrictRefDto> Districts);
 
 public record DistrictRefDto(int DistrictX, int DistrictY, string Name);
 
-/// <summary>What a seat code or crew link opens: the crew, who invites, the station and (for a seat code) the seat kept, and for whom</summary>
-public record InviteDto(bool Valid, string? CrewName, string? Emblem, string? Color, string? Color2, string? From, StationDto? Station, int? Slot, bool SeatCode, bool NeedsApproval, string? Name, string? FriendName = null);
+/// <summary>What a "Play next to me" link opens (1.4 §6): who sent it, their Yard, whether it lets you into a closed Yard, a free company name</summary>
+public record NextToMeDto(bool Valid, string? From, string? FromColor, StationDto? Yard, bool Opens, string? Name);
 
-/// <summary>A crew mate; CanTend: you may tend their estate today (v1.2 §12), Tended: someone did lately, Asleep: a stand-in runs their trades</summary>
-public record CrewMemberDto(long Id, string Name, string Color, int Level, string? Activity, string Station, int Slot, bool You, bool CanTend = false, bool Tended = false, bool Asleep = false, string? TendLabel = null);
+/// <summary>A resident of your Yard</summary>
+public record CrewMemberDto(long Id, string Name, string Color, int Level, string? Activity, int Slot, bool You);
 
-/// <summary>The keep card (v1.2 §10): an asleep crew mate's seat whose hold ends soon</summary>
-public record KeepCardDto(long Id, string Name, DateTime Ends);
+/// <summary>Someone who asked to settle in your closed Yard, on which plot, and until when the request waits</summary>
+public record CrewRequestDto(long Id, string Name, string Color, int Level, int Slot, DateTime Until);
 
-/// <summary>A seat the crew keeps: for a friend (with its code), or for a member (For: a crew move, an asleep friend's seat)</summary>
-/// <param name="OpenedBy">Who opened its link while living elsewhere, and where they live (run 3: Ben); Declined: they said "Not with them"</param>
-public record HeldSeatDto(string Code, int DistrictX, int DistrictY, int Slot, string Primary, string? Secondary, DateTime Until, long? For = null, string? ForName = null, string? Station = null, string? FriendName = null,
-    string? OpenedBy = null, string? OpenedByStation = null, bool Declined = false, long? OpenedById = null);
-
-/// <summary>Your crew: its members, the seats it keeps for friends (with their codes), its invite link and who asked to join</summary>
-public record CrewDto(
-    long Id,
-    string Name,
-    string Emblem,
-    string Color,
-    string Color2,
-    IReadOnlyList<CrewMemberDto> Members,
-    IReadOnlyList<HeldSeatDto> Holds,
-    string InviteCode,
-    DateTime InviteOpenUntil,
-    IReadOnlyList<CrewMemberDto> Requests,
-    bool StationOpen,
-    bool StationClosed,
-    int MaxSize,
-    IReadOnlyList<KeepCardDto> KeepCards,
-    bool ConsolidationCard,
-    /// <summary>Where the crew could move together (a station with a seat for everyone)</summary>
-    string? MoveTo);
+/// <summary>
+/// Your Yard's crew (1.4 §7): its name and banner (Named: a resident named it), open or closed, its residents, the
+/// requests, your "Play next to me" link and until when it works, and whether you'd be the last one out
+/// </summary>
+public record CrewDto(long Id, string Name, string Emblem, string Color, string Color2, bool Named, bool Open, IReadOnlyList<CrewMemberDto> Members,
+    IReadOnlyList<CrewRequestDto> Requests, string? Link, DateTime? LinkUntil, bool LastOut);
 
 /// <summary>The crew panel: your crew (or none), and the emblems to choose from</summary>
 public record CrewViewDto(CrewDto? Crew, IReadOnlyList<string> Emblems);
-
-/// <summary>Founding a crew with friends: the seats held for them, each with its code</summary>
-public record FoundCrewResultDto(bool Success, string? Error, IReadOnlyList<HeldSeatDto> Holds, string? Code = null);
 
 /// <summary>
 /// A link (v1.2 §7) as one of its ends sees it: the good, the partner, the flow, the tank at the buyer's gate, the notice,
@@ -894,25 +780,7 @@ public record LinkDto(
 
 public record LinkSuggestionDto(long PartnerId, string PartnerName, string PartnerColor, string Station, string Resource, bool YouSell, double PerMinute, int Length, double Efficiency);
 
-public record LinksDto(IReadOnlyList<LinkDto> Links, IReadOnlyList<LinkSuggestionDto> Suggestions, int Max, IReadOnlyList<LinkPartnerDto> Partners, TrunksDto Trunks);
-
-/// <summary>
-/// Beyond your own hub (v1.2 §13): what goes to far markets now, your crew's trunks, and where a new one could go
-/// </summary>
-public record TrunksDto(
-    IReadOnlyList<RemoteSaleDto> Sales,
-    IReadOnlyList<TrunkDto> Crew,
-    IReadOnlyList<TrunkTargetDto> Targets,
-    double SegmentGold,
-    IReadOnlyList<ResourceRateDto> SegmentMaterials,
-    bool CanBuild,
-    string? Blocker);
-
-public record RemoteSaleDto(string Resource, string Market, double PerMinute, double Price, bool Public);
-
-public record TrunkDto(long Id, string Target, int Length, int Segments, int Needed, IReadOnlyList<string> Colors, bool Built, double Efficiency);
-
-public record TrunkTargetDto(int? DistrictX, int? DistrictY, bool Port, string Name);
+public record LinksDto(IReadOnlyList<LinkDto> Links, IReadOnlyList<LinkSuggestionDto> Suggestions, int Max, IReadOnlyList<LinkPartnerDto> Partners);
 
 /// <summary>Someone a link could go to (players outside your station)</summary>
 public record LinkPartnerDto(long Id, string Name, string Color, int Level, string Station, bool Crew = false);
@@ -922,51 +790,6 @@ public record LinkPlanDto(int Length, double Efficiency, double Throughput, doub
 /// <summary>A link on the map: its route (x, y pairs) along the corridors</summary>
 public record MapLinkDto(long Id, string Resource, int Tier, bool Flowing, long Seller, long Buyer, IReadOnlyList<int> Route, string Kind = "link", IReadOnlyList<string>? Colors = null, int Needed = 0);
 
-/// <summary>
-/// A station's project (v1.2 §12): the stage, its basket (with the keystone nobody here makes), who helped (the ring of
-/// colours, as shares, never a list of who didn't), what the finished stages give every seat, and your own part
-/// </summary>
-public record ProjectDto(
-    string Station,
-    string Stage,
-    int StageIndex,
-    IReadOnlyList<string> Stages,
-    IReadOnlyList<ProjectGoodDto> Basket,
-    IReadOnlyList<ProjectHelperDto> Helpers,
-    double Bonus,
-    IReadOnlyList<string> FoundryChains,
-    DateTime? OpensAt,
-    double YourCredit,
-    double YourAllowance,
-    IReadOnlyList<string> ProjectFirst,
-    string Line,
-    /// <summary>How much of the stage is in, by worth</summary>
-    double Share,
-    /// <summary>At this pace (null: a good nobody brings now)</summary>
-    double? MinutesLeft,
-    /// <summary>Your goods that go in now</summary>
-    IReadOnlyList<string> GoingIn,
-    /// <summary>Your spare is more than your daily share takes (the card says so only then)</summary>
-    bool ShareCapped,
-    double SharePerDay,
-    /// <summary>What the stage gives every seat when it stands, and that in gold a minute for you and for the station</summary>
-    double StageBonus,
-    double YourGain,
-    double StationGain,
-    /// <summary>The Landmark's storeys (after run 4): the open one's number, purse and givers, the pipe perk, an hour of yours</summary>
-    StoreyDto? Storey = null);
-
-/// <summary>
-/// The Landmark's storeys: how many stand, the open one (its purse, what was given, who gave in hours of their own
-/// income), the perk on the station's pipes, when the next opens, and the last plaque
-/// </summary>
-public record StoreyDto(int Storeys, bool Open, double Purse, double Given, IReadOnlyList<string> Givers, double PipeBonus, DateTime? NextAt, IReadOnlyList<string> Plaque, double YourHour);
-
-/// <summary>A good of a project's basket: what it pays, and for one nobody makes yet who could and with what building</summary>
-public record ProjectGoodDto(string Resource, double Target, double Delivered, bool Keystone, bool MadeHere, double Price, IReadOnlyList<string> Makers, string? MakerBuilding);
-
 /// <summary>The "This week" row while the station builds its project (F4): "🏗 Water Tower 12% · wants sand · Ben can"</summary>
 /// <summary>The station's project in one line (This week, the return card, the Project tab), and the step its Show me takes</summary>
 public record ProjectWeekDto(string Text, double Share, NextStepDto? Step = null);
-
-public record ProjectHelperDto(string Color, double Share, bool You);

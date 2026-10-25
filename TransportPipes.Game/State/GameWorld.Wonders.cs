@@ -102,9 +102,7 @@ public sealed partial class GameWorld
             // Every district has its own Wonder, picked from the seed
             var index = (int)(Noise.Hash(Generator.Seed, 5003, district.X, district.Y) % (ulong)Content.DistrictWonders.Count);
             var definition = Content.DistrictWonders[index];
-            wonder = new Wonder { Type = definition.Id, District = district };
-            // Nobody there who played this week: it opens at a midnight when somebody has
-            wonder.Required = StageRequirements(definition, 0, district) ?? new();
+            wonder = new Wonder { Type = definition.Id, District = district, Required = StageRequirements(definition, 0) };
             _districtWonders[district] = wonder;
         }
         return wonder;
@@ -119,84 +117,31 @@ public sealed partial class GameWorld
         }
         if (EraWonder == null && Content.EraWonders.FirstOrDefault(t => t.Era == Era) is { } definition)
         {
-            // Its first stage is sized to the Capital's builders once their income has been measured for half a day,
-            // else at the next midnight (run 4: sized at world start with only Jo seated, 21.6k of goods for a Capital
-            // that earned 5,000 a minute by the second Era)
-            var measured = _companies.Values.Any(t => !t.IsNpc && t.District == Capital && LastTick - t.CreatedAt >= TimeSpan.FromHours(12));
-            EraWonder = new Wonder { Type = definition.Id, Required = (measured ? StageRequirements(definition, 0, null) : null) ?? new() };
+            EraWonder = new Wonder { Type = definition.Id, Required = StageRequirements(definition, 0) };
         }
     }
 
     /// <summary>Whether a Wonder's stage waits to be sized (it opens at a midnight when somebody there has played this week)</summary>
     public static bool Unsized(Wonder wonder) => !wonder.Finished && wonder.Required.Count == 0;
 
-    /// <summary>
-    /// Once a day: a stage that waits is sized now, and one nobody delivered to or ordered for yet is sized again, upward
-    /// only, from those who played this week (run 4: the daily resize counted three days, and while everyone was away it
-    /// shrank the Copper Cathedral to the 60 g/min floor; a delivery froze the Dynamo at its world-start size)
-    /// </summary>
+    /// <summary>Once a day: a stage that still waits for its size (a world from before fixed sizes) gets it</summary>
     public void SizeWonderStages()
     {
-        foreach (var wonder in _districtWonders.Values.Append(EraWonder).OfType<Wonder>().Where(t => !t.Finished))
+        foreach (var wonder in _districtWonders.Values.Append(EraWonder).OfType<Wonder>().Where(Unsized))
         {
-            if (wonder.Delivered.Values.Any(t => t > 1e-6) || wonder.Orders.Count > 0)
-            {
-                continue;
-            }
-            if (StageRequirements(WonderDefinition(wonder), wonder.Stage, wonder.District) is not { } sized)
-            {
-                continue;
-            }
-            if (Unsized(wonder) || Worth(sized) > Worth(wonder.Required) * 1.02)
-            {
-                var opened = Unsized(wonder);
-                wonder.Required = sized;
-                MarkWonderTiles(wonder);
-                if (opened && wonder.District == null)
-                {
-                    var name = WonderDefinition(wonder).Name;
-                    var the = name.StartsWith("The ", StringComparison.Ordinal) ? name : $"The {name}";
-                    foreach (var company in _companies.Values.Where(t => !t.IsNpc && t.District == Capital))
-                    {
-                        Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder,
-                            $"{the} opens: it wants {string.Join(" and ", sized.Select(t => $"{t.Value:N0} {GoodsWord(t.Key)}"))}, six hours of what the Capital makes"));
-                    }
-                }
-            }
+            wonder.Required = StageRequirements(WonderDefinition(wonder), wonder.Stage);
+            MarkWonderTiles(wonder);
         }
     }
 
     /// <summary>What goods are worth at base</summary>
     private double Worth(IReadOnlyDictionary<string, double> goods) => goods.Sum(t => t.Value * BasePrice(t.Key));
 
-    public int ActiveCompaniesEverywhere()
-    {
-        var since = LastTick - ActivePeriod;
-        return _companies.Values.Count(t => !t.IsNpc && t.LastSeenAt >= since);
-    }
-
     /// <summary>
-    /// A Wonder stage sized like a project's basket (v1.2 §13, F4): six hours of measured income I(c) of every player of
-    /// the district who played this week (the Capital's for the Era Wonder), each at least the floor, in the stage's own
-    /// mix of goods, so a district of one human still finishes its stage; null when nobody there played this week
+    /// A Wonder stage (1.4 rule 2): a fixed basket of goods, the same in every town whoever and however many play there
     /// </summary>
-    private Dictionary<string, double>? StageRequirements(WonderDefinition definition, int stage, DistrictCoord? district)
-    {
-        // The Era Wonder is the Capital's want (after run 3, step 5): sized by those who live in the Capital
-        var since = LastTick - ActivePeriod;
-        var people = _companies.Values.Where(t => !t.IsNpc && !t.Asleep && t.LastSeenAt >= since && t.District == (district ?? Capital)).ToList();
-        if (people.Count == 0)
-        {
-            return null;
-        }
-        var worth = people.Sum(t => WonderHours * 60 * MeasuredIncome(t));
-        var goods = definition.Stages[stage];
-        var base_ = goods.Sum(t => t.Value * BasePrice(t.Key));
-        var scale = base_ <= 0 ? 1 : worth / base_;
-        return goods.ToDictionary(t => t.Key, t => Math.Max(10, Math.Round(t.Value * scale / 10) * 10));
-    }
-
-    private const double WonderHours = 6;
+    private Dictionary<string, double> StageRequirements(WonderDefinition definition, int stage) =>
+        definition.Stages[stage].ToDictionary(t => t.Key, t => t.Value);
 
     // ---------------------------------------------------------------- Perks
 
@@ -287,8 +232,8 @@ public sealed partial class GameWorld
         wonder.Stage++;
         wonder.Delivered.Clear();
         var everyone = wonder.District is { } district
-            ? _companies.Values.Where(t => !t.IsNpc && t.District == district)
-            : _companies.Values.Where(t => !t.IsNpc);
+            ? _companies.Values.Where(t => t.District == district)
+            : _companies.Values;
         if (wonder.District == null)
         {
             // Its stage lifts the Capital (step 5): pipes carry more, Hub Orders pay more
@@ -296,7 +241,7 @@ public sealed partial class GameWorld
         }
         if (wonder.Stage < definition.Stages.Count)
         {
-            wonder.Required = StageRequirements(definition, wonder.Stage, wonder.District) ?? new();
+            wonder.Required = StageRequirements(definition, wonder.Stage);
             foreach (var company in everyone)
             {
                 Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder, $"{definition.Name}: stage {wonder.Stage} of {definition.Stages.Count} is built!"));
@@ -393,13 +338,13 @@ public sealed partial class GameWorld
             var result = EraWonder.Finished ? $"{the} stands, all {stages} stages"
                 : EraWonder.Stage > 0 ? $"{the} got {EraWonder.Stage} of its {stages} stages"
                 : $"{the} got {Math.Floor(100 * EraWonder.Required.Sum(t => Math.Min(t.Value, EraWonder.Delivered.GetValueOrDefault(t.Key)) * BasePrice(t.Key)) / Math.Max(1, EraWonder.Required.Sum(t => t.Value * BasePrice(t.Key)))):0}% of its first stage";
-            foreach (var company in _companies.Values.Where(t => !t.IsNpc))
+            foreach (var company in _companies.Values)
             {
                 var part = EraWonder.Contributions.GetValueOrDefault(company.Id);
                 company.EraEnded = $"Era {Era} ended: {result}; {(part > 0 ? $"your part: {part:N0} g of goods" : "you gave nothing to it")}";
                 company.Touch();
             }
-            foreach (var company in _companies.Values.Where(t => !t.IsNpc))
+            foreach (var company in _companies.Values)
             {
                 var (_, tier) = EraWonderTier(company);
                 if (tier == WonderTier.None)
@@ -433,7 +378,7 @@ public sealed partial class GameWorld
             // The last Era's lift ends with it
             CapitalPipesChanged();
         }
-        foreach (var company in _companies.Values.Where(t => !t.IsNpc))
+        foreach (var company in _companies.Values)
         {
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder, $"Era {Era} begins! New buildings and resources, and +10% production for a day"));
             Changes.Companies.Add(company.Id);

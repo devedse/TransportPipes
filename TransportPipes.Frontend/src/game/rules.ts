@@ -40,7 +40,7 @@ function insideEstate(company: CompanyDto, x: number, y: number): boolean {
   );
 }
 
-/** One of the company's estates: the first (index 0) or a branch */
+/** The company's plot */
 export interface OwnEstate {
   index: number;
   x: number;
@@ -60,14 +60,6 @@ export function ownEstates(company: CompanyDto): OwnEstate[] {
       nextParcelCost: company.nextParcelCost,
       nextParcelLevel: company.nextParcelLevel,
     },
-    ...(company.branches ?? []).map((t, i) => ({
-      index: i + 1,
-      x: t.x,
-      y: t.y,
-      unlockedParcels: t.unlockedParcels,
-      nextParcelCost: t.nextParcelCost,
-      nextParcelLevel: t.nextParcelLevel,
-    })),
   ];
 }
 

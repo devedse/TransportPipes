@@ -15,7 +15,6 @@ public enum LeaderboardKind
     Efficiency,
 
     /// <summary>Your league (v1.2 §13): about 25 companies at a similar stage, by what they earned this week</summary>
-    League,
 }
 
 public sealed record LeaderboardEntry(long Company, string Name, string Color, double Value, int Rank);
@@ -33,7 +32,7 @@ public sealed partial class GameWorld
     /// <summary>One like per estate per day: the owner gets a little gold and XP</summary>
     public CommandResult LikeEstate(long likerId, long ownerId)
     {
-        if (Company(likerId) is not { } liker || Company(ownerId) is not { } owner || owner.IsNpc)
+        if (Company(likerId) is not { } liker || Company(ownerId) is not { } owner)
         {
             return CommandResult.Fail("Unknown company.");
         }
@@ -62,7 +61,7 @@ public sealed partial class GameWorld
     /// <summary>A newcomer chooses a mentor (Company Level 30+); both are rewarded at levels 10, 15 and 20</summary>
     public CommandResult ChooseMentor(long newcomerId, long mentorId)
     {
-        if (Company(newcomerId) is not { } newcomer || Company(mentorId) is not { IsNpc: false } mentor)
+        if (Company(newcomerId) is not { } newcomer || Company(mentorId) is not { } mentor)
         {
             return CommandResult.Fail("Unknown company.");
         }
@@ -237,7 +236,7 @@ public sealed partial class GameWorld
     public int Mentees(long mentorId) => _companies.Values.Count(t => t.MentorId == mentorId);
 
     /// <summary>The top companies (players only), of one district or of the whole world</summary>
-    public List<LeaderboardEntry> Leaderboard(LeaderboardKind kind, DistrictCoord? district, int count = 50, int? league = null)
+    public List<LeaderboardEntry> Leaderboard(LeaderboardKind kind, DistrictCoord? district, int count = 50)
     {
         Dictionary<long, double>? income = kind == LeaderboardKind.Income ? GoldPerMinute() : null;
         var partners = kind == LeaderboardKind.Partners ? PartnerCounts() : null;
@@ -245,14 +244,14 @@ public sealed partial class GameWorld
         {
             LeaderboardKind.NetWorth => NetWorth(company),
             LeaderboardKind.Income => (income!.GetValueOrDefault(company.Id)) * 60,
-            LeaderboardKind.WeeklyEarnings or LeaderboardKind.League => company.LifetimeEarnings - company.WeekStartEarnings,
+            LeaderboardKind.WeeklyEarnings => company.LifetimeEarnings - company.WeekStartEarnings,
             LeaderboardKind.Level => company.Xp,
             LeaderboardKind.Partners => partners!.GetValueOrDefault(company.Id),
             LeaderboardKind.Efficiency => TileEfficiency(company, income ??= GoldPerMinute()),
             _ => company.Likes,
         };
         return _companies.Values
-            .Where(t => !t.IsNpc && (district == null || t.District == district) && (kind != LeaderboardKind.League || (league != null && t.League == league)))
+            .Where(t => district == null || t.District == district)
             .Select(t => (Company: t, Value: Value(t)))
             .OrderByDescending(t => t.Value).ThenBy(t => t.Company.Id)
             .Take(count)

@@ -66,7 +66,7 @@ public class GrowFacts
     public void ABankOfADaysIncomeIsOfferedTheEraWonder()
     {
         var game = new TestGame(content: TestGame.PlainContent);
-        game.World.ProjectsEnabled = true;
+        game.World.WonderBuysEnabled = true;
         var company = game.NewCompany(gold: 10_000_000, level: 12);
         game.Pass(1);
         game.World.EraWonder!.Required = new Dictionary<string, double> { ["bricks"] = 1_000 };

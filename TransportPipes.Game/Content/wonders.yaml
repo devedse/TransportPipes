@@ -1,6 +1,5 @@
 # Wonders (GDD §9.3, §9.4). Everyone delivers to them from their storages.
-# Stage amounts are for 8 active companies (in the district, or on the server); when a stage begins they scale with the
-# number of active companies (at least 3).
+# Stage amounts are fixed: the same in every town, however many play there (1.4 rule 2).
 # District Wonders give everyone in the district a perk for the rest of the season when they are finished:
 #   hubDemand  the hub wants more of everything        production  more production for everyone
 #   research   labs make more research points          cargo       Exchange cargo arrives faster

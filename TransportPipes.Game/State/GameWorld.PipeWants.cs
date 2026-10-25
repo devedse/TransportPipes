@@ -22,7 +22,7 @@ public sealed partial class GameWorld
         {
             company.Asks.Add(new CompanyAsk
             {
-                Resource = resource, Amount = amount, Until = DateTime.MaxValue, Hours = 0,
+                Resource = resource, Amount = amount,
                 PipeTiles = pipes.Select(t => t.Pos).ToList(), PipeTier = tier.Tier, WantId = id, Paid = 0, Raised = LastTick,
             });
         }

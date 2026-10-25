@@ -1,6 +1,7 @@
 import { createStore } from "zustand/vanilla";
 import { useStore } from "zustand";
 import type {
+  NextToMeDto,
   BuildingDetailsDto,
   ChatDto,
   ChatMessageDto,
@@ -10,7 +11,6 @@ import type {
   SeasonDto,
   CompanyDto,
   ContractsDto,
-  CorporationsDto,
   EstateVisitDto,
   ExchangeDto,
   InboxDto,
@@ -28,10 +28,7 @@ import type {
   LinksDto,
   MapLinkDto,
   ReturnCardDto,
-  ProjectDto,
   CrewViewDto,
-  HeldSeatDto,
-  InviteDto,
 } from "../api/contracts";
 import type { ConnectionStatus } from "../api/server";
 import type { Content } from "../game/content";
@@ -84,8 +81,7 @@ export interface AppState {
   yardOpen: boolean;
   yard: YardDto | null;
   /** The Yard panel's tab: your station, or your links to other stations */
-  yardTab: "yard" | "links" | "project";
-  project: ProjectDto | null;
+  yardTab: "yard" | "links";
   /** The return card (F5): what happened since the last session, until the player continues */
   returnCard: ReturnCardDto | null;
   /** When the player last left (the chat marks what came since) */
@@ -131,19 +127,15 @@ export interface AppState {
   justBuilt: { x: number; y: number; size: number; name: string } | null;
   plannedDone: string | null;
 
-  corporationOpen: boolean;
-  /** Your crew (v1.2 §6): its members, held seats with their codes, its invite link */
+  /** Your Yard's crew (1.4 §7): its name and banner, open or closed, its residents, the requests, your link */
   crewOpen: boolean;
   crew: CrewViewDto | null;
-  /** The seat code or crew link this visit came with, and what it opens */
-  invite: { code: string; dto: InviteDto } | null;
-  /** The codes of the seats held for friends right after starting with them (the share screen) */
-  shareCodes: HeldSeatDto[] | null;
+  /** The "Play next to me" link this visit came with, and what it opens */
+  invite: { code: string; dto: NextToMeDto } | null;
   /** The form that turns a guest into an account */
   keepOpen: boolean;
   /** A guest reached a keep level: the top bar's "Keep my estate" glows until it is tapped */
   keepNudge: boolean;
-  corporations: CorporationsDto | null;
   companyOpen: boolean;
   companyDetails: CompanyDetailsDto | null;
   blueprintsOpen: boolean;
@@ -213,7 +205,6 @@ export const initialState: AppState = {
   yardOpen: false,
   yard: null,
   yardTab: "yard",
-  project: null,
   returnCard: null,
   leftAt: null,
   links: null,
@@ -247,14 +238,11 @@ export const initialState: AppState = {
   plannedTarget: null,
   justBuilt: null,
   plannedDone: null,
-  corporationOpen: false,
   crewOpen: false,
   crew: null,
   invite: null,
-  shareCodes: null,
   keepOpen: false,
   keepNudge: false,
-  corporations: null,
   companyOpen: false,
   companyDetails: null,
   blueprintsOpen: false,
@@ -293,7 +281,6 @@ export const MODALS = {
   researchOpen: false,
   hubOpen: false,
   neighboursOpen: false,
-  corporationOpen: false,
   crewOpen: false,
   leaderboardOpen: false,
   companyOpen: false,

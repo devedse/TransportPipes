@@ -219,7 +219,7 @@ public class AdvisorFacts
     [TestMethod]
     public void TheNextParcelShowsWhatItHolds()
     {
-        var game = new TestGame(surveys: true);
+        var game = new TestGame();
         var company = game.NewCompany(gold: 1_000_000, level: 5);
 
         var parcel = game.World.NextSteps(company, 8).SingleOrDefault(t => t.Kind == AdvisorKind.Parcel);
@@ -306,7 +306,7 @@ public class AdvisorFacts
     public void PipesWithoutTheirIngotsAreOrderedWhenNobodyNearMakesThem()
     {
         // After run 4: the step went quiet when the company made the ingots itself, couldn't make them, or had no Storage
-        var game = new TestGame(content: TestGame.PlainContent, surveys: true);
+        var game = new TestGame(content: TestGame.PlainContent);
         var company = game.NewCompany(level: 10);
         var map = game.Map(company, game.Local(company, 2, 2), "W+++T", pipeTier: 1);
         Assert.IsTrue(game.World.Upgrade(company.Id, map[(0, 0)].Id, 9).Success);

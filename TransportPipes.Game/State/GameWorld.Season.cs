@@ -47,7 +47,7 @@ public sealed partial class GameWorld
         FinaleAt = LastTick + FinaleCountdown;
         var finale = new GameEvent { Id = NextEventId++, Kind = EventKind.Finale, StartsAt = FinaleAt.Value, EndsAt = FinaleAt.Value.AddDays(7), Announced = true };
         _events.Add(finale);
-        foreach (var company in _companies.Values.Where(t => !t.IsNpc))
+        foreach (var company in _companies.Values)
         {
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder, $"The Space Elevator launches {FinaleAt:ddd HH:mm} UTC: the season finale! Last chance to climb the rankings"));
             Changes.Companies.Add(company.Id);
@@ -71,7 +71,7 @@ public sealed partial class GameWorld
             return;
         }
         SeasonEndedAt = LastTick;
-        var ranked = _companies.Values.Where(t => !t.IsNpc)
+        var ranked = _companies.Values
             .Select(t => (Company: t, Worth: NetWorth(t)))
             .OrderByDescending(t => t.Worth).ThenBy(t => t.Company.Id)
             .ToList();
@@ -82,7 +82,6 @@ public sealed partial class GameWorld
             var legacy = (int)Math.Floor(Math.Sqrt(t.Worth / 1000))
                 + 10 * company.Achievements.Count
                 + 5 * company.Titles.Count
-                + 20 * company.Franchises
                 + Math.Max(0, 100 - 10 * i);
             var title = i < titles.Length ? titles[i] : null;
             if (title != null)
@@ -117,7 +116,7 @@ public sealed partial class GameWorld
         EraStartedAt = LastTick;
         EraWonder = null;
         EnsureEraWonder();
-        foreach (var company in _companies.Values.Where(t => !t.IsNpc))
+        foreach (var company in _companies.Values)
         {
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder, $"Chapter {Season} begins: a new race for the Space Elevator, and new rankings"));
             Changes.Companies.Add(company.Id);

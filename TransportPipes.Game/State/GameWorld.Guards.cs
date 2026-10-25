@@ -47,7 +47,7 @@ public sealed partial class GameWorld
     public bool MaybeSameDevice(Company a, Company b) => ShareDevice(a, b, ipToo: true);
 
     private bool ShareDevice(Company a, Company b, bool ipToo) =>
-        a.Id != b.Id && !a.IsNpc && !b.IsNpc
+        a.Id != b.Id
         && a.Devices.Any(t => (ipToo || t.Key.StartsWith("b:", StringComparison.Ordinal)) && LastTick - t.Value < DeviceMemory
             && b.Devices.TryGetValue(t.Key, out var seen) && LastTick - seen < DeviceMemory);
 
@@ -56,7 +56,7 @@ public sealed partial class GameWorld
     /// signals it was last seen with count whatever their age (it keeps them until it comes back)
     /// </summary>
     public bool SharedDeviceWithSleeper(Company sleeper, Company partner) =>
-        sleeper.Id != partner.Id && !partner.IsNpc && sleeper.Devices.Keys.Any(partner.Devices.ContainsKey);
+        sleeper.Id != partner.Id && sleeper.Devices.Keys.Any(partner.Devices.ContainsKey);
 
     private int WorldDay => (int)Math.Floor((LastTick - DateTime.UnixEpoch).TotalDays);
 
@@ -79,7 +79,7 @@ public sealed partial class GameWorld
     /// <summary>A seller's trade with a buyer this settlement: taken and paid units, over these minutes</summary>
     private void CountUsualTrade(Company seller, Company buyer, string resource, double units, double minutes)
     {
-        if (seller.IsNpc || buyer.IsNpc || seller.Id == buyer.Id || units <= 1e-12)
+        if (seller.Id == buyer.Id || units <= 1e-12)
         {
             return;
         }

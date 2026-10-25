@@ -6,7 +6,6 @@ import { BuildMenu } from "./components/BuildMenu";
 import { ChatPanel } from "./components/ChatPanel";
 import { EventBar } from "./components/EventBar";
 import { CompanyPanel } from "./components/CompanyPanel";
-import { CorporationPanel } from "./components/CorporationPanel";
 import { InboxPanel } from "./components/InboxPanel";
 import { LeaderboardPanel } from "./components/LeaderboardPanel";
 import { VisitPanel } from "./components/VisitPanel";
@@ -29,7 +28,6 @@ import { SelectionPanel } from "./components/SelectionPanel";
 import { KeysHelp } from "./components/KeysHelp";
 import { PipeTierBar } from "./components/PipeTierBar";
 import { ReturnCard } from "./components/ReturnCard";
-import { LoneCard } from "./components/LoneCard";
 import { BlueprintPanel, BlueprintSaveDialog } from "./components/BlueprintPanel";
 import { DeepParcelPanel, DeepVignette, LayerSwitch } from "./components/DeepPanel";
 import { GoalTracker } from "./components/GoalTracker";
@@ -128,13 +126,6 @@ function useShortcuts() {
           break;
         case "v":
           gameClient.setTool({ kind: "select" });
-          break;
-        case "c":
-          if (state.corporationOpen) {
-            setState({ corporationOpen: false });
-          } else {
-            void gameClient.openCorporation();
-          }
           break;
         case "i":
           if (state.companyOpen) {
@@ -288,9 +279,6 @@ export function App() {
             <BlueprintPanel />
             <BlueprintSaveDialog />
           </ErrorBoundary>
-          <ErrorBoundary name="CorporationPanel">
-            <CorporationPanel />
-          </ErrorBoundary>
           <ErrorBoundary name="LeaderboardPanel">
             <LeaderboardPanel />
           </ErrorBoundary>
@@ -315,9 +303,6 @@ export function App() {
           <ErrorBoundary name="ReturnCard">
             {/* Over the drawn map, not a dark screen (run 2) */}
             {mapShown && <ReturnCard />}
-          </ErrorBoundary>
-          <ErrorBoundary name="LoneCard">
-            <LoneCard />
           </ErrorBoundary>
           <ConnectionOverlay />
         </>

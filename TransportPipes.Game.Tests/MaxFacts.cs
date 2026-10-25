@@ -133,7 +133,7 @@ public class MaxFacts
     {
         // After run 4's bots: Mia's Trading Post, back in 5 minutes, waited under the storey's purse to day 28
         var (game, company, _, post) = FullPost();
-        game.World.ProjectsEnabled = true;
+        game.World.WonderBuysEnabled = true;
         game.Pass(1);
         game.World.EraWonder!.Required = new Dictionary<string, double> { ["bricks"] = 1_000 };
 

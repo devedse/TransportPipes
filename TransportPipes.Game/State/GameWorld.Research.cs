@@ -14,10 +14,6 @@ public sealed partial class GameWorld
     /// </summary>
     public void GrantResearch(Company company)
     {
-        if (company.IsNpc)
-        {
-            return;
-        }
         foreach (var tech in Content.ResearchList.Where(t => t.Grant > 0 && t.Era <= Era && company.Level >= t.Grant && !company.Researched.Contains(t.Id)))
         {
             company.Researched.Add(tech.Id);
@@ -43,35 +39,10 @@ public sealed partial class GameWorld
     /// <summary>Every company's grants, once after the world is loaded (a world from before the grants)</summary>
     private bool _grantsChecked;
 
-    /// <summary>A tech costs at most this much less when every active company has it</summary>
-    public const double MaxDiffusionDiscount = 0.5;
-
     public bool HasResearch(Company company, string research) => company.Researched.Contains(research);
 
-    /// <summary>The share (0..1) of the other active companies that have a tech</summary>
-    public double ResearchDiffusion(Company company, string research)
-    {
-        var since = Now - ActivePeriod;
-        var active = 0;
-        var having = 0;
-        foreach (var other in _companies.Values)
-        {
-            if (other.Id == company.Id || other.IsNpc || other.LastSeenAt < since)
-            {
-                continue;
-            }
-            active++;
-            if (other.Researched.Contains(research))
-            {
-                having++;
-            }
-        }
-        return active == 0 ? 0 : having / (double)active;
-    }
-
-    /// <summary>Research points a tech costs this company (cheaper when many others have it)</summary>
-    public double ResearchCost(Company company, ResearchDefinition tech) =>
-        Math.Round(tech.Cost * (1 - MaxDiffusionDiscount * ResearchDiffusion(company, tech.Id)) * (1 - CorporationResearchDiscount(company)));
+    /// <summary>Research points a tech costs this company</summary>
+    public double ResearchCost(Company company, ResearchDefinition tech) => Math.Round(tech.Cost);
 
     /// <summary>Why a company can't start a tech, or null when it can</summary>
     public string? ResearchBlocker(Company company, ResearchDefinition tech)
@@ -127,19 +98,6 @@ public sealed partial class GameWorld
         if (techId == MasteryId)
         {
             return StartMastery(company);
-        }
-        if (techId.StartsWith(RefinePrefix, StringComparison.Ordinal))
-        {
-            // A Refinement: it becomes the line the Labs take, and starts now when they're free
-            if (ChooseRefinement(companyId, techId[RefinePrefix.Length..]) is { Success: false } refused)
-            {
-                return refused;
-            }
-            if (company.CurrentResearch == null && !StartRefinement(company))
-            {
-                return CommandResult.Fail($"You need {RefineCost(company):N0} research points. Labs make them.");
-            }
-            return CommandResult.Ok;
         }
         if (!Content.Research.TryGetValue(techId, out var tech))
         {
@@ -214,12 +172,6 @@ public sealed partial class GameWorld
             if (company.KeepResearching && LastTick - company.LastSeenAt >= KeepResearchingAway && CheapestResearch(company) is { } next)
             {
                 StartResearch(company.Id, next.Id);
-                return;
-            }
-            // After the Era's tree, Refinements go on by themselves (after run 3, step 6)
-            if (company.KeepResearching)
-            {
-                StartRefinement(company);
             }
             return;
         }
@@ -291,12 +243,6 @@ public sealed partial class GameWorld
         {
             return;
         }
-        if (Refining(company) is { } line)
-        {
-            CompleteRefinement(company, line);
-            CheckRestingLabs([company]);
-            return;
-        }
         if (techId == MasteryId)
         {
             company.Mastery++;
@@ -354,8 +300,7 @@ public sealed partial class GameWorld
         {
             return 0;
         }
-        var bonus = CorporationOutputBonus(company, resource) + ManagerOutputBonus(company, building) + AchievementOutputBonus(company, building, resource)
-            + ShareBonus(company) + company.Mastery * MasteryBonus + Refined(company, resource);
+        var bonus = ManagerOutputBonus(company, building) + AchievementOutputBonus(company, building, resource) + company.Mastery * MasteryBonus;
         foreach (var techId in company.Researched)
         {
             if (Content.Research.TryGetValue(techId, out var tech))
@@ -374,7 +319,7 @@ public sealed partial class GameWorld
 
     public double ThroughputBonus(long companyId) =>
         (Company(companyId) is { } company ? company.Researched.Sum(t => Content.Research.TryGetValue(t, out var tech) ? tech.ThroughputBonus : 0) : 0)
-        + WonderPipeBonus(companyId) + Refined(Company(companyId), "pipes") + StoreyPipeBonusOf(companyId);
+        + WonderPipeBonus(companyId);
 
     public double BandWidthBonus(Company company) =>
         company.Researched.Sum(t => Content.Research.TryGetValue(t, out var tech) ? tech.BandWidthBonus : 0);

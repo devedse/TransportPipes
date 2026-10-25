@@ -97,7 +97,7 @@ public sealed class GameContent
         var wonders = Read<WondersDto>("wonders.yaml");
         var managers = Read<List<ManagerDto>>("managers.yaml").Select(t => new ManagerDefinition(t.Id, t.Name, t.Cost, t.Color, t.Automation, t.Bonus)).ToList();
         var achievements = Read<AchievementsDto>("achievements.yaml");
-        var tutorial = Read<List<TutorialDto>>("tutorial.yaml").Select(t => new TutorialStep(t.Id, t.Text, t.Stat, t.Amount, t.Gold, t.Hint, t.Chapter, t.PhoneText, t.DealtText)).ToList();
+        var tutorial = Read<List<TutorialDto>>("tutorial.yaml").Select(t => new TutorialStep(t.Id, t.Text, t.Stat, t.Amount, t.Gold, t.Hint, t.Chapter, t.PhoneText)).ToList();
         var relics = Read<List<RelicDto>>("relics.yaml").Select(t => new RelicDefinition(t.Id, t.Name, t.Lore)).ToList();
         return new GameContent(
             resources,
@@ -367,7 +367,6 @@ public sealed class GameContent
         public Dictionary<string, string> Hint { get; set; } = new();
         public int Chapter { get; set; } = 1;
         public string? PhoneText { get; set; }
-        public string? DealtText { get; set; }
     }
 
     private sealed class AchievementsDto
@@ -545,39 +544,21 @@ public sealed class GameContent
     private sealed class TogetherDto
     {
         public double PlayerPrice { get; set; } = 1.75;
-        public double HouseBuy { get; set; } = 1.25;
-        public double HouseSell { get; set; } = 2.0;
-        public double HouseSellLand { get; set; } = 1.4;
-        public double NpcCap { get; set; } = 0.25;
         public double HubMaxMultiplier { get; set; } = 1.0;
         public double HubMinMultiplier { get; set; } = 0.25;
-        public List<QuietGraceDto> QuietGrace { get; set; } = [new() { Below = 10, Factor = 4 }, new() { Below = 50, Factor = 2 }];
         public double MoveCooldownMinutes { get; set; } = 5;
         public double MoveFlightMinutes { get; set; } = 1;
         public double MoveCostPerLevel { get; set; }
-        public Dictionary<int, double> TypicalIncome { get; set; } = new();
 
         public TogetherSettings ToSettings() => new()
         {
             PlayerPrice = PlayerPrice,
-            HouseBuy = HouseBuy,
-            HouseSell = HouseSell,
-            HouseSellLand = HouseSellLand,
-            NpcCap = NpcCap,
             HubMaxMultiplier = HubMaxMultiplier,
             HubMinMultiplier = HubMinMultiplier,
-            QuietGrace = QuietGrace.Select(t => new QuietGrace(t.Below, t.Factor)).ToList(),
             MoveCooldownMinutes = MoveCooldownMinutes,
             MoveFlightMinutes = MoveFlightMinutes,
             MoveCostPerLevel = MoveCostPerLevel,
-            TypicalIncome = TypicalIncome,
         };
-    }
-
-    private sealed class QuietGraceDto
-    {
-        public int Below { get; set; }
-        public double Factor { get; set; }
     }
 
     private sealed class CompanyLevelDto

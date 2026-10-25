@@ -150,7 +150,7 @@ public class WonderFacts
     private static (TestGame Game, Company Ana, Wonder Wonder) CapitalMiner()
     {
         var game = new TestGame(content: TestGame.PlainContent);
-        game.World.ProjectsEnabled = true;
+        game.World.WonderBuysEnabled = true;
         var ana = game.NewCompany("Ana", level: 3);
         Assert.AreEqual(GameWorld.Capital, ana.District);
         foreach (var _ in Enumerable.Range(0, 3))
@@ -213,7 +213,7 @@ public class WonderFacts
     public void AnOrderedGoodCountsAQuarterForTheTier()
     {
         var game = new TestGame(content: TestGame.PlainContent);
-        game.World.ProjectsEnabled = true;
+        game.World.WonderBuysEnabled = true;
         var ana = game.NewCompany("Ana", level: 3);
         Assert.AreEqual(GameWorld.Capital, ana.District);
         game.Pass(1);
@@ -235,7 +235,7 @@ public class WonderFacts
         // Run 4: the Dynamo's bricks and the Cathedral's steel and concrete waited all Era on a pipe half nobody could fill,
         // and the Order button vanished once its half was ordered
         var game = new TestGame(content: TestGame.PlainContent);
-        game.World.ProjectsEnabled = true;
+        game.World.WonderBuysEnabled = true;
         var ana = game.NewCompany("Ana", level: 3);
         var ben = game.NewCompany("Ben", level: 3);
         game.Pass(1);
@@ -268,63 +268,31 @@ public class WonderFacts
     private static double Worth(TestGame game, IReadOnlyDictionary<string, double> goods) => goods.Sum(t => t.Value * game.World.BasePrice(t.Key));
 
     [TestMethod]
-    public void TheEraWondersFirstStageOpensAtMidnightSizedToTheCapitalsIncome()
+    public void AWondersStageIsTheSameHoweverManyPlay()
     {
-        // Run 4: sized at world start with only Jo seated, then frozen by his first delivery: 21.6k of goods for a Capital
-        // that earned 5,000 a minute
+        // 1.4 rule 2: a Wonder's stages are fixed baskets (v1.2 sized them to the Capital's players)
         var game = new TestGame(content: TestGame.PlainContent);
-        game.World.ProjectsEnabled = true;
-        var ana = game.NewCompany("Ana");
-        var ben = game.NewCompany("Ben");
+        game.World.WonderBuysEnabled = true;
+        game.NewCompany("Ana");
         game.Pass(1);
-        Assert.IsTrue(GameWorld.Unsized(game.World.EraWonder!), "nobody's income is measured yet");
-        StringAssert.Contains(game.World.DeliverToWonder(ana.Id, eraWonder: true).Error, "opens at midnight");
+        var alone = game.World.EraWonder!.Required.ToDictionary();
+        CollectionAssert.AreEquivalent(game.World.Content.EraWonders.First().Stages[0].ToList(), alone.ToList());
 
-        game.Pass((game.Time.Date.AddDays(1) - game.Time).TotalMinutes - 5);
-        ana.MeasuredIncome = 1000;
-        ben.MeasuredIncome = 500;
-        var wonder = OpenEraWonder(game);
-
-        Assert.AreEqual(6 * 60 * 1500, Worth(game, wonder.Required), 6 * 60 * 1500 * 0.05, "six hours of the Capital's income");
-    }
-
-    [TestMethod]
-    public void AStageIsSizedAgainOnlyUpwardAndOnlyFromPlayersSeenThisWeek()
-    {
-        // Run 4: everyone was away three days, and the daily resize shrank the Copper Cathedral to the 60 g/min floor
-        var game = new TestGame(content: TestGame.PlainContent);
-        game.World.ProjectsEnabled = true;
-        var ana = game.NewCompany("Ana");
-        game.Pass(1);
-        ana.MeasuredIncome = 1000;
-        var wonder = OpenEraWonder(game);
-        var size = Worth(game, wonder.Required);
-
-        // Away for three days, earning less: no smaller
-        ana.LastSeenAt = game.Time.AddDays(-3);
-        ana.MeasuredIncome = 100;
+        foreach (var name in new[] { "Ben", "Cleo", "Dev" })
+        {
+            game.NewCompany(name).MeasuredIncome = 5000;
+        }
         game.Pass(24 * 60);
-        Assert.AreEqual(size, Worth(game, wonder.Required), 1e-6, "never smaller");
 
-        // Earning more, seen this week: larger, until something arrives
-        ana.MeasuredIncome = 4000;
-        ana.MeasuredEarned = 1;
-        game.Pass(24 * 60);
-        Assert.IsGreaterThan(size * 2, Worth(game, wonder.Required), "sized up to the Capital's new income");
-
-        // Nobody seen this week: it waits as it is
-        var grown = Worth(game, wonder.Required);
-        ana.LastSeenAt = game.Time.AddDays(-8);
-        ana.MeasuredIncome = 10000;
-        game.Pass(24 * 60);
-        Assert.AreEqual(grown, Worth(game, wonder.Required), 1e-6);
+        CollectionAssert.AreEquivalent(alone.ToList(), game.World.EraWonder!.Required.ToList());
+        Assert.IsFalse(GameWorld.Unsized(game.World.EraWonder));
     }
 
     [TestMethod]
     public void TheChainLineSaysWhatWouldMakeAGoodAndWhereItsInputsComeFrom()
     {
         // Run 4: "Bricks need stone + coal, I have neither" (dev d14), while the Houses sold both through the Yard
-        var game = new TestGame(dealtLand: true);
+        var game = new TestGame();
         var dev = game.NewCompany("Dev", level: 12);
         var chain = game.World.ChainFor(dev, "bricks")!;
 
@@ -344,7 +312,7 @@ public class WonderFacts
     public void OnlyTheCapitalOrdersForItsWonder()
     {
         var game = new TestGame(content: TestGame.PlainContent);
-        game.World.ProjectsEnabled = true;
+        game.World.WonderBuysEnabled = true;
         var ana = game.NewCompany("Ana");
         game.Pass(1);
         ana.District = new DistrictCoord(1, 0);

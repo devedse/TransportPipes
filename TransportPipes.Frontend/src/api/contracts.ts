@@ -67,9 +67,6 @@ export interface CompanyDto {
   nextReputation: number | null;
   dailyOrders: DailyOrderDto[];
   noTrade: string[];
-  corporationId: number | null;
-  corporationTag: string | null;
-  corporationRole: CorporationRole | null;
   mentorId: number | null;
   likes: number;
   /** Running events and the ones within the forecast */
@@ -81,12 +78,11 @@ export interface CompanyDto {
   /** Finished collections (they unlock decorations) */
   collections: string[];
   outposts: OutpostDto[];
-  franchise: FranchiseDto;
+  /** The Legacy level the player brought from earlier seasons */
+  legacyLevel: number;
   season: SeasonInfoDto;
   moving: MovingDto;
   deep: DeepDto;
-  /** Branch estates opened by franchising */
-  branches: BranchDto[];
   /** Loady's guide: the current step (null when done) */
   tutorial: TutorialDto | null;
   expedition: ExpeditionDto;
@@ -110,15 +106,7 @@ export interface CompanyDto {
   tradeWith: "everyone" | "corporation" | "contracts";
   /** The company's crew (v1.2 §6) */
   crew: CrewBadgeDto | null;
-  /** The XP multiplier while far behind the people you live with (v1.2 §10) */
-  tailwind: number;
-  /** The lone-human card waits: nobody else in the station played lately */
-  loneCard: boolean;
-  /** The league it plays in this week (v1.2 §13; none in small mode) */
-  league: number | null;
-  /** The station's project on the "This week" row (null: none, the next parcel shows) */
-  week: ProjectWeekDto | null;
-  /** Dealt land: your seat's goods and who in your station holds the others (null on old land) */
+  /** Your plot's land: what it has, and who in your Yard has the rest */
   land: LandDto | null;
   /** The research queue (F11): techs that start by themselves, in order */
   researchQueue: string[] | null;
@@ -126,45 +114,14 @@ export interface CompanyDto {
   keepResearching: boolean;
   /** Something can be researched now (run 3: "pick one!" over 449k points with every tech locked) */
   researchOpen: boolean;
-  /** A seat a friend keeps for you, whose link you opened while living elsewhere (null: none) */
-  keptSeat: KeptSeatDto | null;
   /** Neighbours' scaffolds and pipes this player could help with */
   wantsNear: WantNearDto[] | null;
   /** This player's own open wants, a building's or a pipe's */
   wants: OwnWantDto[] | null;
   /** The Era Wonder on the goal tracker (after run 3, step 5): its stage's share, and your part or what it wants */
   eraWonderLine: ProjectWeekDto | null;
-  /** Refinements after an Era's tree (after run 3, step 6) */
-  refine: RefineDto;
   /** The pipe ladder on the goal tracker while a pipe is full (after run 4) */
   pipes: PipesLineDto | null;
-}
-
-/**
- * Refinements: whether they are open (the Era's tree is done), what the next costs, what the Labs refine now and next, the
- * player's choice, whether the Labs rest, and every line with the station's percentage and whose research it is
- */
-export interface RefineDto {
-  open: boolean;
-  cost: number;
-  minutes: number;
-  current: string | null;
-  next: string | null;
-  choice: string | null;
-  resting: boolean;
-  lines: RefineLineDto[];
-}
-
-/** A Refinement line: "pipes", "trading", "hubOrders" or a good; the station's share now, a step, your steps, who else */
-export interface RefineLineDto {
-  id: string;
-  name: string;
-  wall: boolean;
-  now: number;
-  step: number;
-  mine: number;
-  by: string | null;
-  capped: boolean;
 }
 
 /** Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there */
@@ -176,25 +133,22 @@ export interface LandDto {
 export interface LandSeatDto {
   slot: number;
   owner: string | null;
-  house: boolean;
   you: boolean;
   goods: string[];
   /** Of its land goods, those its owner makes now */
   makes: string[];
 }
 
-export type ActivityStage = "active" | "resting" | "dormant" | "asleep";
+export type ActivityStage = "active" | "resting" | "dormant";
 
 /** Moving and activity (GDD §12) */
 export interface MovingDto {
   activity: ActivityStage;
-  asleep: boolean;
   arrivesAt: string | null;
   crates: CrateDto[];
   freeMoves: number;
   moveCost: number;
   canMoveAt: string | null;
-  swapWith: number | null;
 }
 
 export interface CrateDto {
@@ -210,26 +164,7 @@ export interface DistrictChoiceDto {
   freeEstates: number;
   players: number;
   activeShare: number;
-  reservedForYou: boolean;
   yours: boolean;
-}
-
-export interface SleeperDto {
-  id: number;
-  name: string;
-  color: string;
-  level: number;
-  since: string;
-}
-
-/** The Franchise (GDD §8.7) */
-export interface FranchiseDto {
-  shares: number;
-  franchises: number;
-  sharesNow: number;
-  blocker: string | null;
-  at: string | null;
-  legacyLevel: number;
 }
 
 export interface SeasonInfoDto {
@@ -334,8 +269,6 @@ export interface ResearchStateDto {
   state: "done" | "researching" | "available" | "locked";
   cost: number;
   reason: string | null;
-  /** Share of the other active companies that have it (0..1) */
-  diffusion: number;
 }
 
 export interface HelloDto {
@@ -362,7 +295,6 @@ export interface ReturnCardDto {
   level: number;
   fine: string[];
   lines: ReturnLineDto[];
-  landing: LandingCardDto[];
   hint: string | null;
   /** What folds under "more" (after run 3, row 11: the card leads with what matters) */
   folded: ReturnLineDto[] | null;
@@ -395,16 +327,6 @@ export interface ReturnLineDto {
   resource: string | null;
   /** thank, tend: what they are called */
   partnerName: string | null;
-}
-
-/** A place to land: your seat, next to your crew, a lively station, the Frontier */
-export interface LandingCardDto {
-  kind: "yours" | "crew" | "lively" | "frontier";
-  seat: SeatRefDto;
-  station: string;
-  crates: number;
-  here: boolean;
-  neighbours: number;
 }
 
 export interface BuildingDto {
@@ -509,15 +431,10 @@ export interface EstateDto {
   unlockedParcels: number;
   primary: string;
   secondary: string | null;
-  corporationTag: string | null;
   /** The owner's activity stage (players only) */
   activity: ActivityStage | null;
-  /** A corporation block: the tag of the corporation it is kept for */
-  reservedFor: string | null;
   /** The land goods dealt to it (step 5; empty on old land) */
   goods: string[] | null;
-  /** A House lives there */
-  house: boolean;
 }
 
 /** A hub structure; corporation HQs have the corporation's tag, colour and HQ level */
@@ -529,12 +446,9 @@ export interface HubStructureDto {
   label: string | null;
   color: string | null;
   level: number;
-  corporation: number | null;
   /** Wonders: the Wonder's id and how many stages it has (level = stages built) */
   variant: string | null;
   stages: number;
-  /** A station Landmark's storeys: its tower rises one band a storey (after run 4) */
-  storeys: number;
 }
 
 export interface DistrictDto {
@@ -645,13 +559,10 @@ export interface BuildingTradeDto {
   takers: TradeEndDto[];
   suppliers: TradeEndDto[];
   bids: BidDto[];
-  project: ProjectWantDto[];
   reachesGate: boolean;
   gatePipe: BuildingFixDto | null;
   /** "runs on Ben's sand 💛" */
   runsOn: string | null;
-  sends: number;
-  maxSends: number;
 }
 
 /** One end of a Yard trade; sent: a Send, canThank: Thanks today, house: an NPC partner */
@@ -663,9 +574,6 @@ export interface TradeEndDto {
   partnerBuildingId: number | null;
   perMinute: number;
   price: number;
-  sent: boolean;
-  house: boolean;
-  canThank: boolean;
 }
 
 /** "Ana's Glassworks could use 15/min · it buys from Bertha ⚙ now · Send to Ana ▸" */
@@ -676,18 +584,6 @@ export interface BidDto {
   building: string | null;
   buildingId: number | null;
   perMinute: number;
-  house: string | null;
-}
-
-/** "🏗 The Water Tower wants 5,400 · you make it · Send ▸" */
-export interface ProjectWantDto {
-  resource: string;
-  stage: string;
-  wants: number;
-  perMinute: number;
-  sent: boolean;
-  /** Why none of it reaches the Yard gate ("it doesn't run (idle: no energy here)"); null when some does */
-  nothingMoves: string | null;
 }
 
 export interface BuildingStatusDto {
@@ -709,7 +605,7 @@ export interface GoldUsesDto {
 /** One line: "wonder" orders resource for cost (a day of your income) or allCost; "want" orders the rest of target */
 export interface GoldLineDto {
   text: string;
-  action: "storey" | "wonder" | "want";
+  action: "wonder" | "want";
   cost: number | null;
   resource: string | null;
   target: number | null;
@@ -1028,9 +924,6 @@ export interface NetworkDetailsDto {
     neighbourSales: number;
     neighbourPurchases: number;
     hubPurchases: number;
-    /** What the station's project pays for goods through the gate, and its stage's name */
-    projectSales: number;
-    project: string | null;
   }>;
   resources: NetworkResourceDto[];
   bottlenecks: Array<{ a: number; b: number; capacity: number; used: number; path: number[] }>;
@@ -1049,7 +942,6 @@ export interface NeighbourDto {
   color: string;
   level: number;
   contractStars: number;
-  isNpc: boolean;
   slot: number;
   estateX: number;
   estateY: number;
@@ -1139,78 +1031,8 @@ export interface ExchangeDto {
 
 // ---------------------------------------------------------------- Society
 
-export type CorporationRole = "member" | "officer" | "leader";
-
-export interface CorporationSummaryDto {
-  id: number;
-  name: string;
-  tag: string;
-  color: string;
-  description: string;
-  members: number;
-  hqLevel: number;
-  weeklyEarnings: number;
-  applied: boolean;
-  invited: boolean;
-}
-
-export interface CorporationMemberDto {
-  id: number;
-  name: string;
-  color: string;
-  level: number;
-  role: CorporationRole;
-  weeklyEarnings: number;
-  contribution: number;
-  online: boolean;
-}
-
-export interface CorporationGoalDto {
-  resource: string;
-  amount: number;
-  delivered: number;
-  rewardGold: number;
-  endsAt: string;
-  yourContribution: number;
-  yourStock: number;
-  rewarded: boolean;
-}
-
-export interface CorporationPerkDto {
-  level: number;
-  text: string;
-  active: boolean;
-}
-
-export interface CorporationDto {
-  id: number;
-  name: string;
-  tag: string;
-  color: string;
-  description: string;
-  treasury: number;
-  tax: number;
-  hqLevel: number;
-  nextHqCost: number | null;
-  perkResource: string | null;
-  yourRole: CorporationRole;
-  members: CorporationMemberDto[];
-  applications: CorporationMemberDto[];
-  goal: CorporationGoalDto | null;
-  perks: CorporationPerkDto[];
-}
-
-export interface CorporationsDto {
-  mine: CorporationDto | null;
-  district: CorporationSummaryDto[];
-  foundLevel: number;
-  foundCost: number;
-  maxMembers: number;
-  canJoinAt: string | null;
-}
-
 export type LeaderboardKind =
-  "netWorth" | "income" | "weeklyEarnings" | "level" | "partners" | "likes" | "efficiency" | "league";
+  "netWorth" | "income" | "weeklyEarnings" | "level" | "partners" | "likes" | "efficiency";
 
 export interface LeaderboardEntryDto {
   company: number;
@@ -1242,12 +1064,11 @@ export interface EstateVisitDto {
   name: string;
   color: string;
   level: number;
-  isNpc: boolean;
   isYou: boolean;
   likes: number;
   likedToday: boolean;
-  corporationTag: string | null;
-  corporationName: string | null;
+  /** The Yard they live at */
+  yard: string | null;
   netWorth: number;
   buildings: number;
   partners: number;
@@ -1258,8 +1079,6 @@ export interface EstateVisitDto {
   isYourMentor: boolean;
   mentees: number;
   guestbook: GuestbookNoteDto[];
-  swapFromThem: boolean;
-  swapFromYou: boolean;
   /** What their scaffolds and pipes wait for, and what ordering it for them costs you (after run 4) */
   wants?: WantNearDto[] | null;
 }
@@ -1474,19 +1293,6 @@ export interface DeepDto {
   offset: number;
 }
 
-/** A branch estate (GDD §8.7): its index for BuyParcel is its place in CompanyDto.branches plus one */
-export interface BranchDto {
-  districtX: number;
-  districtY: number;
-  districtName: string;
-  slot: number;
-  x: number;
-  y: number;
-  unlockedParcels: number;
-  nextParcelCost: number;
-  nextParcelLevel: number;
-}
-
 /** A step of Loady's guide; the hint says what "Show me" does (tool, building, overlay, select, panel) */
 export interface TutorialDto {
   step: number;
@@ -1583,31 +1389,15 @@ export interface YardResidentDto {
   name: string;
   color: string;
   level: number;
-  isNpc: boolean;
   slot: number;
   connected: boolean;
   activity: ActivityStage | null;
   spare: ResourceRateDto[];
   lacks: ResourceRateDto[];
   blocked: boolean;
-  /** A House's kind (v1.2 §9) */
-  house: "reliable" | "collector" | "grower" | "neighbourInNeed" | null;
-  /** The House standing in for an asleep player */
-  standIn: string | null;
   /** The Plan board's pins: what it makes and needs (v1.2 §12) */
   makes: string[];
   needs: string[];
-  asks: AskDto[];
-}
-
-/** An Ask: a good asked of the station, how much came, until when */
-export interface AskDto {
-  resource: string;
-  amount: number;
-  got: number;
-  until: string;
-  renew: boolean;
-  perMinute: number;
 }
 
 /** One of your trades through the Yard: with whom, what, how much per minute, which way, at what price */
@@ -1618,40 +1408,11 @@ export interface YardTradeDto {
   perMinute: number;
   selling: boolean;
   price: number;
-  /** A Send: yours (selling) or theirs to you (buying) */
-  sent: boolean;
-  canThank: boolean;
-  house: boolean;
-}
-
-/** A Send of yours (step 4): the good, who it goes to (null: the project), the building it's for, what it brings now */
-export interface SendDto {
-  resource: string;
-  to: number | null;
-  toName: string;
-  building: string | null;
-  perMinute: number;
-  /** What it moved this week (since it began) */
-  week: number;
-  /** Why it moves nothing now ("their Quarry gets all it needs now"), if it doesn't */
-  idle: string | null;
-}
-
-/** What you and a neighbour gave each other this week, in units each way */
-export interface GiftDto {
-  partner: number;
-  name: string;
-  resource: string;
-  given: number;
-  received: number;
-  youSend: boolean;
-  theySend: boolean;
 }
 
 /** Your station and its Yard */
 export interface YardDto {
   station: string;
-  small: boolean;
   x0: number;
   y0: number;
   x1: number;
@@ -1666,19 +1427,18 @@ export interface YardDto {
   totals: ResourceRateDto[];
   line: string;
   discoveries: DiscoveryDto[];
-  sends: SendDto[];
-  sendCount: number;
-  maxSends: number;
   /** Who could use your goods */
   bids: BidDto[];
-  gifts: GiftDto[];
+  /** What you and each neighbour sold each other this week */
+  trades: WeekTradeDto[];
   /** What the Yard pays you of your income, and whom for it (null: nothing yet) */
   incomeLine: string | null;
 }
 
-// ---------------------------------------------------------------- Crews and seats (v1.2 §4–6)
+// ---------------------------------------------------------------- Yards and plots (1.4 §6–7)
 
-export type SeatState = "free" | "house" | "held" | "taken" | "you";
+/** A plot on the map: free, closed (free, but its Yard is closed: you ask first), taken, yours */
+export type SeatState = "free" | "closed" | "taken" | "you";
 
 /** A seat of a station as the picker shows it */
 export interface SeatDto {
@@ -1694,8 +1454,6 @@ export interface SeatDto {
   ownerLevel: number;
   /** For strangers: lively, some days or resting */
   activity: string | null;
-  crewName: string | null;
-  heldForYou: boolean;
   /** Dealt land: the goods the seat holds (beside the HQ, then in the first parcels) */
   goods: string[] | null;
 }
@@ -1704,20 +1462,21 @@ export interface StationDto {
   districtX: number;
   districtY: number;
   index: number;
+  /** Its crew's name, or the name the game gave it while nobody lives there */
   name: string;
-  small: boolean;
-  /** Strangers may settle (a station where one crew lives in or holds 3+ seats is closed) */
+  /** Its crew's banner (null: nobody lives there) */
+  emblem: string | null;
+  color: string | null;
+  color2: string | null;
+  /** Anyone may settle on its free plots (closed: newcomers ask first) */
   open: boolean;
   free: number;
   lively: number;
   seats: SeatDto[];
-  crewName: string | null;
   x0: number;
   y0: number;
   x1: number;
   y1: number;
-  /** The project's stage and progress ("Water Tower · 40%") */
-  project: string | null;
   /** The Plan board: what its players pinned they make and need */
   makes: string[] | null;
   needs: string[] | null;
@@ -1735,9 +1494,8 @@ export interface StationsDto {
   district: string;
   stations: StationDto[];
   /** The seats the game suggests for each way of starting */
-  neighbours: SeatRefDto;
-  ownStation: SeatRefDto;
-  friends: SeatRefDto;
+  /** The plot Pick for me chooses */
+  pickForMe: SeatRefDto;
   /** The open districts, nearest the Capital first */
   districts: DistrictRefDto[];
 }
@@ -1748,48 +1506,14 @@ export interface DistrictRefDto {
   name: string;
 }
 
-/** What a seat code or crew link opens */
-export interface InviteDto {
-  valid: boolean;
-  crewName: string | null;
-  emblem: string | null;
-  color: string | null;
-  color2: string | null;
-  from: string | null;
-  station: StationDto | null;
-  /** The seat a seat code keeps */
-  slot: number | null;
-  seatCode: boolean;
-  /** An old crew link: a member lets you in */
-  needsApproval: boolean;
-  /** A company name nobody uses yet */
-  name: string | null;
-  /** Who the seat was kept for ("Ben") */
-  friendName: string | null;
-}
-
 export interface CrewMemberDto {
   id: number;
   name: string;
   color: string;
   level: number;
   activity: string | null;
-  station: string;
   slot: number;
   you: boolean;
-  /** You may tend their estate today (v1.2 §12): only when it repairs their storm damage (F9) */
-  canTend: boolean;
-  tended: boolean;
-  asleep: boolean;
-  /** "💛 Tend: repair Ben's storm-damaged Wind Moily" */
-  tendLabel: string | null;
-}
-
-/** An asleep crew mate's seat whose hold ends soon: keep it 60 more days? */
-export interface KeepCardDto {
-  id: number;
-  name: string;
-  ends: string;
 }
 
 /** A scaffold's wants (after run 3, step 2): each material, what is in, what comes now and from whom, and what Cancel gives back */
@@ -1839,67 +1563,29 @@ export interface WantNearDto {
   orderCost: number | null;
 }
 
-/** A friend's kept seat: its code, who keeps it, their crew, where it is and where you live */
-export interface KeptSeatDto {
-  code: string;
-  from: string;
-  crew: string;
-  station: string;
-  yourStation: string | null;
-}
-
-export interface HeldSeatDto {
-  code: string;
-  districtX: number;
-  districtY: number;
-  slot: number;
-  primary: string;
-  secondary: string | null;
-  until: string;
-  /** A seat kept for a member (a crew move, an asleep friend's seat) */
-  for: number | null;
-  forName: string | null;
-  station: string | null;
-  /** Who the seat is for, as the crew calls them ("Ben") */
-  friendName: string | null;
-  /** Who opened its link while living elsewhere, and where they live (run 3: Ben) */
-  openedBy: string | null;
-  openedByStation: string | null;
-  /** They said "Not with them" */
-  declined: boolean;
-  openedById: number | null;
-}
-
 export interface CrewDto {
   id: number;
   name: string;
   emblem: string;
   color: string;
   color2: string;
+  /** A resident named the Yard (until then it carries the name the game gave it) */
+  named: boolean;
+  /** Open: anyone may settle on its free plots; closed: newcomers ask first */
+  open: boolean;
   members: CrewMemberDto[];
-  holds: HeldSeatDto[];
-  inviteCode: string;
-  inviteOpenUntil: string;
-  requests: CrewMemberDto[];
-  stationOpen: boolean;
-  stationClosed: boolean;
-  maxSize: number;
-  keepCards: KeepCardDto[];
-  consolidationCard: boolean;
-  /** Where the crew could move together */
-  moveTo: string | null;
+  /** Who asked to settle while it's closed, on which plot, and until when the request waits */
+  requests: CrewRequestDto[];
+  /** Your "Play next to me" link and until when it works (null: none yet, or its first user came) */
+  link: string | null;
+  linkUntil: string | null;
+  /** You'd be the last one out: moving away takes the Yard's own things with it */
+  lastOut: boolean;
 }
 
 export interface CrewViewDto {
   crew: CrewDto | null;
   emblems: string[];
-}
-
-export interface FoundCrewResultDto {
-  success: boolean;
-  error: string | null;
-  holds: HeldSeatDto[];
-  code?: string | null;
 }
 
 /** A company's crew as the top bar and the map show it */
@@ -1975,44 +1661,6 @@ export interface LinksDto {
   suggestions: LinkSuggestionDto[];
   max: number;
   partners: LinkPartnerDto[];
-  trunks: TrunksDto;
-}
-
-/** Beyond your own hub (v1.2 §13): far sales, your crew's trunks, where a new one could go */
-export interface TrunksDto {
-  sales: RemoteSaleDto[];
-  crew: TrunkDto[];
-  targets: TrunkTargetDto[];
-  segmentGold: number;
-  segmentMaterials: ResourceRateDto[];
-  canBuild: boolean;
-  blocker: string | null;
-}
-
-export interface RemoteSaleDto {
-  resource: string;
-  market: string;
-  perMinute: number;
-  price: number;
-  public: boolean;
-}
-
-export interface TrunkDto {
-  id: number;
-  target: string;
-  length: number;
-  segments: number;
-  needed: number;
-  colors: string[];
-  built: boolean;
-  efficiency: number;
-}
-
-export interface TrunkTargetDto {
-  districtX: number | null;
-  districtY: number | null;
-  port: boolean;
-  name: string;
 }
 
 export interface LinkPlanDto {
@@ -2041,66 +1689,6 @@ export interface MapLinkDto {
 }
 
 /**
- * A station's project (v1.2 §12): the stage, its basket (with the keystone nobody here makes), who helped (shares, as a
- * ring of colours), what the finished stages give every seat, and your own part
- */
-/** The Landmark's storeys: how many stand, the open one's purse and givers, the pipe perk, the next, the last plaque */
-export interface StoreyDto {
-  storeys: number;
-  open: boolean;
-  purse: number;
-  given: number;
-  givers: string[];
-  pipeBonus: number;
-  nextAt: string | null;
-  plaque: string[];
-  yourHour: number;
-}
-
-export interface ProjectDto {
-  station: string;
-  stage: string;
-  stageIndex: number;
-  stages: string[];
-  basket: ProjectGoodDto[];
-  helpers: ProjectHelperDto[];
-  bonus: number;
-  foundryChains: string[];
-  opensAt: string | null;
-  yourCredit: number;
-  yourAllowance: number;
-  projectFirst: string[];
-  line: string;
-  /** How much of the stage is in, by worth */
-  share: number;
-  /** At this pace (null: a good nobody brings now) */
-  minutesLeft: number | null;
-  /** Your goods that go in now */
-  goingIn: string[];
-  /** Your spare is more than your daily share takes */
-  shareCapped: boolean;
-  sharePerDay: number;
-  /** What the stage gives every seat when it stands, and that in gold a minute for you and for the station */
-  stageBonus: number;
-  yourGain: number;
-  stationGain: number;
-  /** The Landmark's storeys, once it stands (after run 4) */
-  storey: StoreyDto | null;
-}
-
-/** A good of a project's basket: what it pays, and for one nobody makes yet who could and with what building */
-export interface ProjectGoodDto {
-  resource: string;
-  target: number;
-  delivered: number;
-  keystone: boolean;
-  madeHere: boolean;
-  price: number;
-  makers: string[];
-  makerBuilding: string | null;
-}
-
-/**
  * The station's project in one line (This week, the return card, the Project tab): "🏗 Workshop 96% · 9 days on water ·
  * you can: a Water Pump beside the water · passed over Fri 20:30 unless one of you brings some"
  */
@@ -2109,12 +1697,6 @@ export interface ProjectWeekDto {
   share: number;
   /** What its Show me does: your idle maker, or the build tool with a building on a tile where it stands */
   step: NextStepDto | null;
-}
-
-export interface ProjectHelperDto {
-  color: string;
-  share: number;
-  you: boolean;
 }
 
 /** A Discovery: where, until when its markers are given, which stations got one, the three who brought most */
@@ -2127,4 +1709,33 @@ export interface DiscoveryDto {
   stations: string[];
   top: string[];
   yourStation: boolean;
+}
+
+/** What you and a neighbour sold each other of a good this week (units each way) */
+export interface WeekTradeDto {
+  partner: number;
+  name: string;
+  resource: string;
+  given: number;
+  received: number;
+}
+
+/** What a "Play next to me" link opens (1.4 §6): who sent it, their Yard, whether it lets you into a closed Yard, a free company name */
+export interface NextToMeDto {
+  valid: boolean;
+  from: string | null;
+  fromColor: string | null;
+  yard: StationDto | null;
+  opens: boolean;
+  name: string | null;
+}
+
+/** Someone who asked to settle in your closed Yard, on which plot, and until when the request waits */
+export interface CrewRequestDto {
+  id: number;
+  name: string;
+  color: string;
+  level: number;
+  slot: number;
+  until: string;
 }

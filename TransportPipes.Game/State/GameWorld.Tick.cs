@@ -65,10 +65,6 @@ public sealed partial class GameWorld
         {
             events.Add((at, long.MinValue + 12, run));
         }
-        foreach (var (at, run) in AskMoments(LastTick, now).ToList())
-        {
-            events.Add((at, long.MinValue + 13, run));
-        }
         foreach (var company in _companies.Values.Where(t => t.PendingBlocks.Count != 0))
         {
             foreach (var (other, at) in company.PendingBlocks.Where(t => t.Value <= now).ToList())
@@ -86,7 +82,7 @@ public sealed partial class GameWorld
         }
         // Banked points start research while the player is away, even with idle Labs (run 2: Ana's 64k points sat
         // unspent in a Lab with no pipes)
-        foreach (var company in _companies.Values.Where(t => t.CurrentResearch == null && t.KeepResearching && t.ResearchQueue.Count == 0 && t.ResearchPoints > 0 && !t.IsNpc))
+        foreach (var company in _companies.Values.Where(t => t.CurrentResearch == null && t.KeepResearching && t.ResearchQueue.Count == 0 && t.ResearchPoints > 0))
         {
             StartQueuedResearch(company);
         }
@@ -95,12 +91,7 @@ public sealed partial class GameWorld
             events.Add((at, long.MinValue, () =>
             {
                 UpdateMarkets();
-                UpdateTailwinds();
                 RunManagers();
-                if (ProjectsEnabled)
-                {
-                    CheckKeystones();
-                }
                 CheckRestingLabs();
                 CheckTradeFalls();
             }));
@@ -200,11 +191,8 @@ public sealed partial class GameWorld
         SolveNetworks();
         ExpectContracts(minutes);
         CountLinkDeliveries(minutes);
-        SettleStandIns(minutes);
-        SettleProjects(minutes);
         SettleEraWonder(minutes);
         SettleAsks(minutes);
-        SettleTrunks(minutes);
         foreach (var network in _networks.Values.OrderBy(t => t.Id).ToList())
         {
             AdvanceNetwork(network, minutes);
@@ -226,7 +214,7 @@ public sealed partial class GameWorld
     /// <summary>Every company's measured income moves towards what it earned this step (a 24-hour average)</summary>
     private void MeasureIncome(double minutes)
     {
-        foreach (var company in _companies.Values.Where(t => !t.IsNpc))
+        foreach (var company in _companies.Values)
         {
             var earned = ProductionEarned(company);
             if (company.MeasuredEarned <= 0)
@@ -369,7 +357,7 @@ public sealed partial class GameWorld
                     if (flow.Kind == FlowKind.Sale && Company(from.Owner) is { } seller)
                     {
                         // Today's hub orders buy at their own price as the goods pass (after run 3, step 7)
-                        if (seller.DailyOrders.Count > 0 && !seller.IsNpc)
+                        if (seller.DailyOrders.Count > 0)
                         {
                             earnings[from.Owner] += FillOrders(seller, flow.Resource, flow.Delivered * minutes, flow.PricePerUnit);
                         }
@@ -403,9 +391,6 @@ public sealed partial class GameWorld
         {
             if (Company(companyId) is { } company)
             {
-                // The Caretaker of a dormant company takes no fee: no sink is upkeep on a resting estate (the designers'
-                // rule after run 3)
-                TaxEarnings(company, earned);
                 company.LifetimeEarnings += earned;
                 company.Report.GoldEarned += earned;
                 GainXpFromEarnings(company, earned);
@@ -449,7 +434,7 @@ public sealed partial class GameWorld
                     storage.Contents[resource] *= capacity / total;
                 }
             }
-            if (!wasFull && storage.StoredTotal >= capacity * StorageFullShare && Company(storage.Owner) is { IsNpc: false } owner
+            if (!wasFull && storage.StoredTotal >= capacity * StorageFullShare && Company(storage.Owner) is { } owner
                 && (!_storageFullNoticeAt.TryGetValue(storageId, out var noticed) || LastTick - noticed >= StorageFullNoticeEvery))
             {
                 _storageFullNoticeAt[storageId] = LastTick;

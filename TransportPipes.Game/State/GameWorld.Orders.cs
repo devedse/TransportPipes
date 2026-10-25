@@ -28,22 +28,10 @@ public sealed partial class GameWorld
     private void NewDay()
     {
         _likesToday.Clear();
-        _fitsOnEstate.Clear();
         SizeWonderStages();
-        OpenStoreys();
         PlanEvents();
-        CheckActivity();
-        CheckHolds();
-        CheckTogether();
-        if (TenantsEnabled)
-        {
-            UpdateHouses();
-        }
+        CheckRequests();
         ForgetOldUsualTrades();
-        if (ProjectsEnabled)
-        {
-            UpdateBaskets();
-        }
         // Offered only to players who play (after run 3, step 7); a player who comes back gets today's at Hello
         foreach (var company in _companies.Values.Where(IsActive))
         {
@@ -148,7 +136,7 @@ public sealed partial class GameWorld
                 Id = day * 10 + i,
                 Resource = resource,
                 Amount = amount,
-                RewardGold = Math.Round(amount * price * 2 * (1 + WonderOrderBonus(company) + Refined(company, "hubOrders"))),
+                RewardGold = Math.Round(amount * price * 2 * (1 + WonderOrderBonus(company))),
                 RewardXp = 30 + 8.0 * company.Level,
                 RewardReputation = 40,
                 ExpiresAt = expires,

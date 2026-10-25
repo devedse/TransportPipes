@@ -119,28 +119,6 @@ public class WidenFacts
     }
 
     [TestMethod]
-    public void AFullPipeShowsWhileTheYardTakesSomeToo()
-    {
-        // The e2e again: the station's Foundation bought a little of the Moily's energy at its gate, and the full pipe
-        // to the post went unsaid
-        var game = new TestGame(content: TestGame.PlainContent);
-        game.World.ProjectsEnabled = true;
-        var company = game.NewCompany(gold: 100_000_000, level: 40);
-        company.Researched.Add("copperPipes");
-        var map = game.Map(company, game.Local(company, 1, 1), "W+T", pipeTier: 1);
-        game.ConnectToGate(company, map[(0, 0)]);
-        game.World.UpgradeMany(company.Id, [map[(0, 0)].Id], 14);
-        for (var i = 0; i < 5; i++)
-        {
-            game.Pass(1);
-        }
-        var network = game.World.NetworkOf(map[(0, 0)].Id)!;
-        Assert.IsTrue(network.GateFlows.Any(t => !t.Import && t.Building == map[(0, 0)].Id && t.Sent > 1e-9), "the Yard takes some");
-
-        Assert.AreEqual(IdleCause.PipeFull, game.World.IdleReasonOf(map[(0, 0)]).Cause);
-    }
-
-    [TestMethod]
     public void GreyPipesDontWiden()
     {
         var (game, company, moily, _) = FullPipe(1, 14);

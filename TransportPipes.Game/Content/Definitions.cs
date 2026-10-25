@@ -67,8 +67,7 @@ public sealed record RelicDefinition(string Id, string Name, string Lore);
 /// A step of Loady's guide (GDD §10.2), done when the stat reaches the amount; chapter 1 is the first session, chapter 2
 /// the middle game (docs/v1.1-design.html §5)
 /// </summary>
-/// <param name="DealtText">The text on dealt land (step 5), where a chain's two inputs never lie on one seat</param>
-public sealed record TutorialStep(string Id, string Text, string Stat, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint, int Chapter = 1, string? PhoneText = null, string? DealtText = null)
+public sealed record TutorialStep(string Id, string Text, string Stat, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint, int Chapter = 1, string? PhoneText = null)
 {
     /// <summary>The buildings of the step's hint, in the order to build them ("copperMine,coalPit,smelter")</summary>
     public IReadOnlyList<string> HintBuildings => Hint.TryGetValue("building", out var list) ? list.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) : [];
@@ -215,39 +214,15 @@ public sealed class TogetherSettings
     /// <summary>The one price between players: the Yard, links, contracts and the Exchange</summary>
     public double PlayerPrice { get; init; } = 1.75;
 
-    /// <summary>Houses (NPC companies) buy at this many times what the hub pays you, never above it times the base</summary>
-    public double HouseBuy { get; init; } = 1.25;
-
-    public double HouseSell { get; init; } = 2.0;
-
-    /// <summary>Dealt land (step 5): what a House sells a land good at (copper ore, coal, sand, wood, stone)</summary>
-    public double HouseSellLand { get; init; } = 1.4;
-
-    /// <summary>All NPCs together buy at most this share of a company's output of a good (and sell this share of its need)</summary>
-    public double NpcCap { get; init; } = 0.25;
-
     /// <summary>The hub pays at most this many times the base price (within your Hub Order), at least the floor</summary>
     public double HubMaxMultiplier { get; init; } = 1.0;
     public double HubMinMultiplier { get; init; } = 0.25;
-
-    /// <summary>Quiet grace: the Hub Order grows on a quiet server (fewer active companies than the threshold)</summary>
-    public IReadOnlyList<QuietGrace> QuietGrace { get; init; } = [new(10, 4), new(50, 2)];
 
     /// <summary>Moving to another seat: how long you wait between moves, how long the estate is in the air, what it costs</summary>
     public double MoveCooldownMinutes { get; init; } = 5;
     public double MoveFlightMinutes { get; init; } = 1;
     public double MoveCostPerLevel { get; init; }
-
-    /// <summary>T(L): the typical income per minute at a Company Level (anchors, linear between them) for baskets and allowances</summary>
-    public IReadOnlyDictionary<int, double> TypicalIncome { get; init; } = new Dictionary<int, double>();
-
-    /// <summary>The Hub Order is grace × this for every company: the multiplier above the quietest threshold that fits</summary>
-    public double GraceFor(int activeCompanies) =>
-        QuietGrace.OrderBy(t => t.Below).FirstOrDefault(t => activeCompanies < t.Below)?.Factor ?? 1;
 }
-
-/// <summary>Below this many active companies the Hub Order is this many times bigger</summary>
-public sealed record QuietGrace(int Below, double Factor);
 
 public sealed class ProgressionSettings
 {

@@ -22,19 +22,11 @@ public class TransportPipesOptions
     /// </summary>
     public int WorldSeed { get; set; } = 20261018;
 
-    /// <summary>
-    /// NPC tenants on the estates nobody has taken yet (GDD §4.7)
-    /// </summary>
-    public bool Tenants { get; set; } = true;
-
     /// <summary>Weather and hub events (GDD §15)</summary>
     public bool Events { get; set; } = true;
 
     /// <summary>Loady's guide for new players (GDD §10.2)</summary>
     public bool Tutorial { get; set; } = true;
-
-    /// <summary>The starter kit: surveyors add copper, coal, stone and a pond where an estate lacks them (v1.1)</summary>
-    public bool Surveys { get; set; } = true;
 
     /// <summary>Days between the end of a chapter (its ceremony) and the next one (GDD §8.8)</summary>
     public double SeasonBreakDays { get; set; } = 1;

@@ -324,15 +324,11 @@ public sealed partial class GameWorld
         {
             return Fail($"Research {pipe.Name} first.");
         }
-        if (partner.IsNpc)
-        {
-            return Fail("Houses trade through their Yard.");
-        }
         if (EstateOf(company) is not { } mine || EstateOf(partner) is not { } theirs)
         {
             return Fail("One of you is on the way: link when you've landed.");
         }
-        if (BigStation(mine.Station)[0] == BigStation(theirs.Station)[0])
+        if (mine.Station == theirs.Station)
         {
             return Fail($"{partner.Name} lives in your station: you trade through the Yard already.");
         }
@@ -773,7 +769,7 @@ public sealed partial class GameWorld
         var stations = new Dictionary<StationRef, List<YardMember>>();
         YardMember? Member(Estate estate)
         {
-            var corner = BigStation(estate.Station)[0];
+            var corner = estate.Station;
             if (!stations.TryGetValue(corner, out var members))
             {
                 stations[corner] = members = YardMembers(corner);
@@ -791,11 +787,11 @@ public sealed partial class GameWorld
         {
             return [];
         }
-        var home = BigStation(mine.Station)[0];
+        var home = mine.Station;
         var suggestions = new List<LinkSuggestion>();
-        foreach (var other in _companies.Values.Where(t => !t.IsNpc && t.Id != company.Id && !t.Asleep && t.Packed == null && IsActive(t)))
+        foreach (var other in _companies.Values.Where(t => t.Id != company.Id && t.Packed == null && IsActive(t)))
         {
-            if (EstateOf(other) is not { } theirs || BigStation(theirs.Station)[0] == home || GateNetwork(theirs) is not { } theirNetwork
+            if (EstateOf(other) is not { } theirs || theirs.Station == home || GateNetwork(theirs) is not { } theirNetwork
                 || !TradesWith(company, other) || !TradesWith(other, company))
             {
                 continue;

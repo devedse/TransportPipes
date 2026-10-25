@@ -76,9 +76,6 @@ public enum AdvisorAction
 
     /// <summary>Opens Hub › Wonders (the Era Wonder's goods to order)</summary>
     Wonder,
-
-    /// <summary>Opens the station's project, its storey's Give (after run 4)</summary>
-    Storey,
 }
 
 /// <summary>
@@ -503,13 +500,6 @@ public sealed partial class GameWorld
             return;
         }
         var hour = 60 * Math.Max(MinMeasuredIncome, income);
-        // The station's storey first: the shared goal after the Landmark
-        if (EstateOf(company) is { } home && ExistingProject(home.Station) is { Stage: ProjectStage.Storey } storey && PurseLeft(storey) >= 1)
-        {
-            add(new AdvisorStep(AdvisorKind.Shared, $"Give to your Landmark's storey {storey.Storeys + 1}: its purse wants {Gold(PurseLeft(storey))} more",
-                $"An hour of your income is {Gold(hour)}, a day {Gold(24 * hour)}; anyone gives as often as they like, named in hours of their own income. Each storey makes the station's pipes carry 10% more.",
-                AdvisorAction.Storey, Math.Min(hour, PurseLeft(storey)), 0), 1.3);
-        }
         if (company.District != Capital || EraWonder is not { Finished: false } wonder || Unsized(wonder))
         {
             return;
@@ -1131,34 +1121,19 @@ public sealed partial class GameWorld
         }
         var made = BuildingsOf(company.Id).Where(t => !t.UnderConstruction).SelectMany(t => Content.Building(t.Type).Out.Keys).ToHashSet();
         var spare = new Dictionary<string, (double Amount, Company Who)>();
-        foreach (var resident in YardResidents(estate.Station).Where(t => t.Connected && !t.Company.IsNpc && t.Company.Id != company.Id && TradesWith(company, t.Company) && TradesWith(t.Company, company)))
+        foreach (var resident in YardResidents(estate.Station).Where(t => t.Connected && t.Company.Id != company.Id && TradesWith(company, t.Company) && TradesWith(t.Company, company)))
         {
             foreach (var (resource, amount) in resident.Spare.Where(t => t.Value > spare.GetValueOrDefault(t.Key).Amount))
             {
                 spare[resource] = (amount, resident.Company);
             }
         }
-        // Dealt land: a land good a House of the station holds, it sells from its stock (one building fully, at its land price)
-        var houses = new Dictionary<string, Company>();
-        if (Generator.DealtLand)
-        {
-            foreach (var seat in BigStation(estate.Station).SelectMany(StationSeats))
-            {
-                if (Estate(seat.District, seat.Slot)?.OwnerId is { } id && Company(id) is { IsNpc: true } house)
-                {
-                    foreach (var good in Generator.LandOf(seat.District, seat.Slot))
-                    {
-                        houses[good] = house;
-                    }
-                }
-            }
-        }
-        if (spare.Count == 0 && houses.Count == 0)
+        if (spare.Count == 0)
         {
             return;
         }
-        bool Comes(string good) => spare.ContainsKey(good) || houses.ContainsKey(good);
-        double Price(string good) => spare.ContainsKey(good) ? PlayerPrice(good) : HouseSellPrice(good);
+        bool Comes(string good) => spare.ContainsKey(good);
+        double Price(string good) => PlayerPrice(good);
         (BuildingDefinition Definition, double Gain, string Good)? best = null;
         foreach (var definition in Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.Count > 0 && t.In.Keys.Any(k => k != "energy") && IsUnlocked(company, t, out _)))
         {
@@ -1182,9 +1157,8 @@ public sealed partial class GameWorld
         {
             return;
         }
-        var title = spare.TryGetValue(chosen.Good, out var from)
-            ? $"{NameFor(from.Who, company)} has {Amount(from.Amount)} {ResourceWord(chosen.Good)} spare a minute: build {Article(chosen.Definition.Name)} by your Yard gate"
-            : $"{houses[chosen.Good].Name} ⚙ sells {ResourceWord(chosen.Good)}: build {Article(chosen.Definition.Name)} by your Yard gate";
+        var from = spare[chosen.Good];
+        var title = $"{NameFor(from.Who, company)} has {Amount(from.Amount)} {ResourceWord(chosen.Good)} spare a minute: build {Article(chosen.Definition.Name)} by your Yard gate";
         add(new AdvisorStep(AdvisorKind.Chain, title,
             $"Piped to your gate it gets them by itself: about +{Gold(chosen.Gain)}/min.",
             AdvisorAction.Build, BuildCost(company, chosen.Definition), chosen.Gain, BuildingType: chosen.Definition.Id, At: FindSpot(company, chosen.Definition, estate.YardGate)), 1);

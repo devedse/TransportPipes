@@ -87,25 +87,26 @@ public class GameServerFacts
     }
 
     [TestMethod]
-    public async Task AFriendOpensASeatLinkPlaysAsAGuestAndKeepsTheEstate()
+    public async Task AFriendsLinkSettlesAGuestInTheirClosedYardWhoKeepsTheCompany()
     {
         using var server = new GameServer();
         await using var ana = await server.ConnectAsync(await server.RegisterAsync("Ana"));
-        var stations = await ana.Invoke<StationsDto>("GetStations", null, null);
-        var started = await ana.Invoke<FoundCrewResultDto>("StartWithFriends", "Ana Pipes", "#3399ff", "Kettle & Co.", "kettle", "#236b69", "#c9963a",
-            stations.Friends.DistrictX, stations.Friends.DistrictY, stations.Friends.Slot, 3);
-        Assert.IsTrue(started.Success, started.Error);
-        Assert.HasCount(3, started.Holds);
-        var code = started.Holds[0].Code;
+        await ana.Command("CreateCompany", "Ana Pipes", "#3399ff", null, null, null, null);
+        await ana.Command("SetYard", "Kettle & Co.", "kettle", "#236b69", "#c9963a");
+        await ana.Command("SetYardOpen", false);
+        var code = await ana.Invoke<string>("GetNextToMeLink");
 
-        // The link shows the crew and the seat before the friend has an account
+        // The link shows Ana's Yard before the friend has an account, and that it lets them in although it's closed
         var http = server.CreateClient();
-        var invite = await http.GetFromJsonAsync<InviteDto>($"/api/invite/{code}", GameServer.Json);
+        var invite = await http.GetFromJsonAsync<NextToMeDto>($"/api/invite/{code}", GameServer.Json);
         Assert.IsTrue(invite!.Valid);
-        Assert.AreEqual("Kettle & Co.", invite.CrewName);
-        Assert.AreEqual(started.Holds[0].Slot, invite.Slot);
+        Assert.AreEqual("Ana Pipes", invite.From);
+        Assert.AreEqual("Kettle & Co.", invite.Yard!.Name);
+        Assert.IsFalse(invite.Yard.Open);
+        Assert.IsTrue(invite.Opens);
+        var plot = invite.Yard.Seats.First(t => t.State == "free");
 
-        // "Move in": a guest, then the company on the kept seat
+        // "Play": a guest, then the company on a free plot of Ana's Yard
         var guest = await http.PostAsync("/api/auth/guest", null);
         var result = await guest.Content.ReadFromJsonAsync<GuestResult>(GameServer.Json);
         Assert.IsTrue(result!.Success, result.Error);
@@ -113,11 +114,13 @@ public class GameServerFacts
         await using (var ben = await server.ConnectAsync(cookie))
         {
             Assert.IsTrue((await ben.Invoke<HelloDto>("Hello")).User.IsGuest);
-            await ben.Command("CreateCompany", invite.Name!, "#236b69", null, null, null, code);
+            await ben.Command("CreateCompany", invite.Name!, "#236b69", invite.Yard.DistrictX, invite.Yard.DistrictY, plot.Slot, code);
             var hello = await ben.Invoke<HelloDto>("Hello");
-            Assert.AreEqual(started.Holds[0].Slot, hello.Company!.Slot);
+            Assert.AreEqual(plot.Slot, hello.Company!.Slot);
             Assert.AreEqual("Kettle & Co.", hello.Company.Crew!.Name);
         }
+        // Only the first who uses the link: it lets nobody else into the closed Yard
+        Assert.IsFalse((await http.GetFromJsonAsync<NextToMeDto>($"/api/invite/{code}", GameServer.Json))!.Opens);
 
         // Keeping the estate: a name and a password of its own, and the guest is a player like any other
         var keep = new HttpRequestMessage(HttpMethod.Post, "/api/auth/keep") { Content = JsonContent.Create(new KeepRequest("Ben", "secret123", null), options: GameServer.Json) };
@@ -129,7 +132,7 @@ public class GameServerFacts
         await using var back = await server.ConnectAsync(again);
         var home = await back.Invoke<HelloDto>("Hello");
         Assert.IsFalse(home.User.IsGuest);
-        Assert.AreEqual(started.Holds[0].Slot, home.Company!.Slot);
+        Assert.AreEqual(plot.Slot, home.Company!.Slot);
     }
 
     [TestMethod]
@@ -139,7 +142,7 @@ public class GameServerFacts
         await using var ana = await server.ConnectAsync(await server.RegisterAsync("Ana"));
         await using var ben = await server.ConnectAsync(await server.RegisterAsync("Ben"));
         // The start screen's picker opens the first district
-        await ana.Invoke<StationsDto>("GetStations", null, null);
+        await ana.Invoke<StationsDto>("GetStations", null, null, null);
         await ana.Command("CreateCompany", "Ana Pipes", "#3399ff", 0, 0, 0, null);
         await ben.Command("CreateCompany", "Ben Works", "#ff9933", 0, 0, 3, null);
         var benId = (await ben.Invoke<HelloDto>("Hello")).Company!.Id;

@@ -13,13 +13,9 @@ public sealed partial class GameWorld
     public TutorialStep? CurrentTutorialStep(Company company) =>
         company.TutorialStep < Content.Tutorial.Count ? Content.Tutorial[company.TutorialStep] : null;
 
-    /// <summary>The steps the starter kit doesn't count for: the player's own first building and first pipe (F3)</summary>
-    private const int KitFreeSteps = 2;
-
     /// <summary>
-    /// How far a company is with a step's goal. built:solarPanel|windMoily counts any of them that the player built (its
-    /// starter kit only from step three: the first two are the player's own building and pipe), piped:… those of them
-    /// that sell: in a network with its trading post or its Yard gate.
+    /// How far a company is with a step's goal. built:solarPanel|windMoily counts any of them that the player built,
+    /// piped:… those of them that sell: in a network with its trading post or its Yard gate.
     /// </summary>
     public double TutorialProgress(Company company, TutorialStep step)
     {
@@ -27,8 +23,7 @@ public sealed partial class GameWorld
         {
             return StatValue(company, step.Stat);
         }
-        var kitCounts = Content.Tutorial.ToList().IndexOf(step) >= KitFreeSteps;
-        var own = BuildingsOf(company.Id).Where(t => types.Split('|').Contains(t.Type) && (kitCounts || !company.KitBuildings.Contains(t.Id)));
+        var own = BuildingsOf(company.Id).Where(t => types.Split('|').Contains(t.Type));
         return kind == "built" ? own.Count() : own.Count(t => NetworkOf(t.Id) is { } network
             && (network.Gates.Any(t => EstateOfGate(t) != null) || network.Buildings.Any(id => Building(id) is { } b && Content.Building(b.Type).Kind == BuildingKind.TradingPost)));
     }
@@ -37,23 +32,11 @@ public sealed partial class GameWorld
     /// The Company Level a step waits for (its building, or the next parcel, needs it), or null when it can be done
     /// now: Loady then says to come back later instead of pointing at something locked
     /// </summary>
-    /// <summary>
-    /// A step's buildings for this company: on dealt land without the mines of land goods its seat doesn't hold (a
-    /// neighbour or a House brings those to its Yard gate)
-    /// </summary>
-    public IReadOnlyList<string> TutorialBuildings(Company company, TutorialStep step)
-    {
-        if (!Generator.DealtLand || EstateOf(company) is not { } estate)
-        {
-            return step.HintBuildings;
-        }
-        var land = Generator.LandOf(estate.District, estate.Slot);
-        return step.HintBuildings.Where(t => Content.Buildings.TryGetValue(t, out var d)
-            && !(d.In.Keys.All(k => k == "energy") && d.Out.Keys.Any(o => IsLandGood(o) && !land.Contains(o)))).ToList();
-    }
+    /// <summary>A step's buildings for this company</summary>
+    public IReadOnlyList<string> TutorialBuildings(Company company, TutorialStep step) => step.HintBuildings;
 
-    /// <summary>What Loady says: on dealt land the step's dealt text where it has one</summary>
-    public string TutorialText(TutorialStep step) => Generator.DealtLand && step.DealtText != null ? step.DealtText : step.Text;
+    /// <summary>What Loady says</summary>
+    public string TutorialText(TutorialStep step) => step.Text;
 
     /// <summary>The step's hint for this company: its building list without the mines its land can't hold</summary>
     public IReadOnlyDictionary<string, string> TutorialHint(Company company, TutorialStep step)
@@ -119,7 +102,6 @@ public sealed partial class GameWorld
         var level = step.Stat switch
         {
             "parcels" => NextParcel(company).Level,
-            "corporation" => CorporationFoundLevel,
             // Copper Pipes come with Company Level 8 (after run 4)
             "pipeTiers" => Content.Research.GetValueOrDefault("copperPipes")?.Grant ?? 0,
             // The first building of the hint the company doesn't have yet
@@ -232,7 +214,7 @@ public sealed partial class GameWorld
         }
         if (step.Stat.Split(':') is ["piped", var types] && TutorialProgress(company, step) < step.Amount)
         {
-            var unpiped = BuildingsOf(company.Id).FirstOrDefault(t => types.Split('|').Contains(t.Type) && !t.UnderConstruction && !company.KitBuildings.Contains(t.Id)
+            var unpiped = BuildingsOf(company.Id).FirstOrDefault(t => types.Split('|').Contains(t.Type) && !t.UnderConstruction
                 && !(NetworkOf(t.Id) is { } network && network.Buildings.Any(id => Building(id) is { } b && Content.Building(b.Type).Kind == BuildingKind.TradingPost)));
             return unpiped == null ? null : PlanFixPipe(unpiped);
         }
@@ -249,7 +231,7 @@ public sealed partial class GameWorld
             return;
         }
         Dictionary<long, int>? partners = null;
-        foreach (var company in _companies.Values.Where(t => !t.IsNpc && t.TutorialStep < Content.Tutorial.Count))
+        foreach (var company in _companies.Values.Where(t => t.TutorialStep < Content.Tutorial.Count))
         {
             company.TutorialStepSince ??= LastTick;
             // Chapter 1 retires at Level 10 for everyone: the Next steps take it from there (F3)
@@ -263,7 +245,7 @@ public sealed partial class GameWorld
                 Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Achievement, "Loady: You're past my first chapter. Your Next steps take it from here."));
                 continue;
             }
-            // Several steps can be done at once (a returning player, or the starter kit): one thank-you for all of them
+            // Several steps can be done at once (a returning player): one thank-you for all of them
             var done = new List<TutorialStep>();
             while (CurrentTutorialStep(company) is { } step)
             {
@@ -287,8 +269,7 @@ public sealed partial class GameWorld
             else if (done.Count > 1)
             {
                 var (first, last) = (TutorialChapter(done[0]).Index, TutorialChapter(done[^1]).Index);
-                var who = company.KitBuildings.Count > 0 && TutorialChapter(done[0]).Index > KitFreeSteps ? "your starter kit already did" : "you've done";
-                Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Achievement, $"Loady: {who} steps {first}–{last} · +{done.Sum(t => t.Gold):N0} gold"));
+                Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Achievement, $"Loady: you've done steps {first}–{last} · +{done.Sum(t => t.Gold):N0} gold"));
             }
         }
     }

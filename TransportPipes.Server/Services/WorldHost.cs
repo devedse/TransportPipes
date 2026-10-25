@@ -113,8 +113,6 @@ public sealed class WorldHost : BackgroundService
             var world = await LoadWorldAsync(stoppingToken);
             var away = Now - world.LastTick;
             world.Tick();
-            // Estates from before the starter kit get it now (once), and their players a note
-            var surveyed = _options.Surveys ? world.SurveyEstates() : [];
             world.TakeChanges();
             _world = world;
             _lastSave = Now;
@@ -122,11 +120,6 @@ public sealed class WorldHost : BackgroundService
                 world.Generator.Seed, world.Companies.Count(), world.Buildings.Count(), away, stopwatch.ElapsedMilliseconds);
             await SaveAsync(force: true);
             _ready.SetResult();
-            if (surveyed.Count > 0)
-            {
-                _logger.LogInformation("Surveyed {Estates} estates for their starter kit", surveyed.Count);
-                await NotifyAsync(surveyed.Select(t => (t.Company, "survey", t.Text + " Look for the new deposits near your HQ.")).ToList());
-            }
         }
         catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
         {
@@ -168,17 +161,9 @@ public sealed class WorldHost : BackgroundService
         {
             _logger.LogWarning("The saved world was made with older rules: it was thrown away and a new world starts (accounts stay)");
         }
-        world.TenantsEnabled = _options.Tenants;
-        world.QuietGraceEnabled = true;
-        world.ProjectsEnabled = true;
-        world.TrunksEnabled = true;
+        world.WonderBuysEnabled = true;
         world.EventsEnabled = _options.Events;
         world.TutorialEnabled = _options.Tutorial;
-        world.SurveysEnabled = _options.Surveys;
-        if (_options.Tenants)
-        {
-            world.EnsureTenants();
-        }
         return world;
     }
 
@@ -403,7 +388,7 @@ public sealed class WorldHost : BackgroundService
         var notifications = new List<(long Company, string Kind, string Text)>();
         foreach (var worldEvent in changes.Events)
         {
-            if (world.Company(worldEvent.Company) is not { IsNpc: false } company)
+            if (world.Company(worldEvent.Company) is not { } company)
             {
                 continue;
             }
@@ -423,24 +408,9 @@ public sealed class WorldHost : BackgroundService
             pushes.Add(() => NotifyAsync(notifications, users, online));
         }
 
-        var corporationUsers = changes.Corporations
-            .Select(world.Corporation).OfType<Corporation>()
-            .SelectMany(world.Members)
-            .Concat(changes.Corporations.SelectMany(id => world.Corporation(id) is { } corporation
-                ? corporation.Applications.Concat(corporation.Invites).Select(world.Company).OfType<Company>()
-                : []))
-            .Select(t => t.UserId)
-            .Where(online.Contains)
-            .Distinct()
-            .ToList();
-        foreach (var userId in corporationUsers)
-        {
-            pushes.Add(() => _hub.Clients.Group(GameHub.UserGroup(userId)).CorporationChanged());
-        }
-
-        // Crews: their members, and who asked to join
+        // Crews: their residents, and who asked to settle
         var crewUsers = changes.Crews
-            .SelectMany(id => world.Crew(id) is { } crew ? world.CrewMembers(crew).Concat(crew.JoinRequests.Select(world.Company).OfType<Company>()) : [])
+            .SelectMany(id => world.Crew(id) is { } crew ? world.CrewMembers(crew).Concat(crew.Requests.Select(t => world.Company(t.Company)).OfType<Company>()) : [])
             .Select(t => t.UserId)
             .Where(online.Contains)
             .Distinct()

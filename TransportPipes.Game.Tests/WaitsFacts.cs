@@ -10,17 +10,13 @@ namespace TransportPipes.Game.Tests;
 [TestClass]
 public class WaitsFacts
 {
-    /// <summary>Ana in the Capital; Dev, her crew mate, in another station of it</summary>
+    /// <summary>Ana in the Capital; Dev, her crew mate in her Yard</summary>
     private static (TestGame Game, Company Ana, Company Dev) Crew()
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var ana = game.NewCompany("Ana", gold: 1_000_000, level: 20);
-        var stations = WorldLayout.Stations(GameWorld.Capital).ToList();
-        var home = game.World.EstateOf(ana)!.Station;
-        var elsewhere = stations.First(t => t.Index != home.Index && WorldLayout.StationSlots(t.Index).Count > 0);
-        var dev = game.NewCompany("Dev", gold: 12_000_000, level: 20, slot: WorldLayout.StationSlots(elsewhere.Index)[0]);
-        var (_, crew) = game.World.FoundCrew(ana.Id, "The Pipe Dreamers", "kettle", "#236b69", "#c9963a");
-        Assert.IsTrue(game.World.JoinCrew(dev.Id, crew!.InviteCode).Success);
+        var dev = game.NewCompany("Dev", gold: 12_000_000, level: 20);
+        Assert.AreEqual(ana.CrewId, dev.CrewId, "Pick for me settles Dev in Ana's Yard");
         game.Pass(1);
         return (game, ana, dev);
     }
@@ -42,7 +38,7 @@ public class WaitsFacts
     }
 
     [TestMethod]
-    public void ACrewMateElsewhereWhoMakesNoneOfItCanOrderIt()
+    public void ACrewMateWhoMakesNoneOfItCanOrderIt()
     {
         var (game, ana, dev) = Crew();
         game.World.TakeChanges();
@@ -62,6 +58,8 @@ public class WaitsFacts
     public void TheFriendWithGoldIsOfferedTheBuildingThatMakesWhatAFriendWaitsFor()
     {
         var (game, ana, dev) = Crew();
+        // The Era Wonder waits for goods nobody makes too: here only the friend's building does
+        game.World.EraWonder!.FinishedAt = game.Time;
         game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
 
         var step = game.World.NextSteps(dev, 8).FirstOrDefault(t => t.Title.StartsWith("Make the bricks"));

@@ -737,16 +737,12 @@ public sealed partial class GameWorld
     public const int PipeMaterialReserve = 100;
 
     /// <summary>
-    /// What a company needs of a resource in its storages: what its corporation's weekly goal still need, enough to build the building it can build that needs the most of it, and the materials for a stretch of
+    /// What a company needs of a resource in its storages: enough to build the building it can build that needs the most of it, and the materials for a stretch of
     /// the pipes it can lay (copper ingots for Copper Pipes)
     /// </summary>
     public double StorageNeed(Company company, string resource)
     {
         var need = 0.0;
-        if (CorporationOf(company)?.Goal is { Rewarded: false } goal && goal.Resource == resource)
-        {
-            need += Math.Max(0, goal.Amount - goal.Delivered);
-        }
         var materials = Content.BuildingList
             .Where(t => t.Buildable && t.Cost.Materials.ContainsKey(resource) && IsUnlocked(company, t, out _))
             .Select(t => t.Cost.Materials[resource])
@@ -761,7 +757,7 @@ public sealed partial class GameWorld
     }
 
     public double TradingPostThroughput(Building building, BuildingDefinition definition) =>
-        definition.Throughput * Content.Progression.OutputMultiplier(building.Level) * (1 + Refined(Company(building.Owner), "trading"));
+        definition.Throughput * Content.Progression.OutputMultiplier(building.Level);
 
     /// <summary>
     /// What holds a company back right now, for the goal tracker: networks short of pump stations, full trading posts,
@@ -840,26 +836,23 @@ public sealed partial class GameWorld
                 };
             case BuildingKind.TradingPost:
                 var company = Company(building.Owner);
-                // A tenant's works buy from the hub what no neighbour brings, so they always run: any one of their
-                // inputs sells to them (a works short of ore would otherwise buy no one's energy either)
-                var tenant = company is { IsNpc: true };
                 return new FlowNode
                 {
                     Id = building.Id,
                     Owner = building.Owner,
                     Kind = FlowNodeKind.TradingPost,
-                    Throughput = tenant ? TenantThroughput : definition.Throughput * level * (1 + Refined(company, "trading")),
+                    Throughput = definition.Throughput * level,
                     // Hub reputation: +1% per level above 1
                     PriceBonus = definition.PriceBonus + (company == null ? 0 : (ReputationLevel(company) - 1) * 0.01) + ManagerPriceBonus(company),
                     // Imports cost gold: a company without gold can't import
-                    Imports = tenant ? TenantInputs(company!) : company is { Gold: > 0 } ? building.Imports : new HashSet<string>(),
+                    Imports = company is { Gold: > 0 } ? building.Imports : new HashSet<string>(),
                 };
         }
         if ((definition.In.Count == 0 && definition.Out.Count == 0 && definition.ResearchPerMinute <= 0) || LabResting(building))
         {
             return null;
         }
-        var location = LocationMultiplier(building, definition) * EventOutputFactor(building, definition) * WonderOutputFactor(building) * ProjectOutputFactor(building, definition);
+        var location = LocationMultiplier(building, definition) * EventOutputFactor(building, definition) * WonderOutputFactor(building);
         // A complex works like five (twelve) buildings
         var complex = ComplexFactor(ComplexMembers(building));
         var owner = Company(building.Owner);
@@ -887,7 +880,7 @@ public sealed partial class GameWorld
         {
             HubBuyPrice = resource => HubBuyPrice(owner, network.District, resource),
             HubSellPrice = resource => HubSellPrice(network.District, resource),
-            SellerPrice = (seller, resource) => seller < 0 ? GateSellerPrice(seller, resource) : PlayerPrice(resource),
+            SellerPrice = (_, resource) => PlayerPrice(resource),
             BuyerMaxPrice = (_, _) => double.MaxValue,
             TradeAllowed = (seller, buyer, resource) =>
                 seller < 0 || buyer < 0
@@ -898,16 +891,6 @@ public sealed partial class GameWorld
 
     private void Solve(Network network)
     {
-        // An asleep estate makes and earns nothing (v1.2 §10): its stand-in keeps its trades
-        if (Company(network.Owner) is { Asleep: true })
-        {
-            network.Nodes = [];
-            network.GateFlows = [];
-            network.Solution = FlowSolution.Empty;
-            network.NeedsSolve = false;
-            Changes.Networks.Add(network.Id);
-            return;
-        }
         var nodes = network.Buildings.Select(t => ToFlowNode(_buildings[t])).OfType<FlowNode>().ToList();
 
         // Every 50 buildings need a pump station; without enough of them everything runs slower
@@ -915,7 +898,7 @@ public sealed partial class GameWorld
         var pumpDefinition = Content.Buildings.GetValueOrDefault("pumpStation");
         var needsPumps = new Dictionary<long, bool>();
         bool NeedsPumps(long owner) => needsPumps.TryGetValue(owner, out var v) ? v
-            : needsPumps[owner] = Company(owner) is { IsNpc: false } company && pumpDefinition != null && IsUnlocked(company, pumpDefinition, out _);
+            : needsPumps[owner] = Company(owner) is { } company && pumpDefinition != null && IsUnlocked(company, pumpDefinition, out _);
         // Per company: its own buildings against its own pump stations (a neighbour's buildings never slow it down)
         network.PumpFactors = nodes
             .Where(t => t.Kind == FlowNodeKind.Building && NeedsPumps(t.Owner))

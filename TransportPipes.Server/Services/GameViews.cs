@@ -48,9 +48,6 @@ public static partial class GameViews
             world.ReputationLevel(company) < GameWorld.ReputationLevels.Length ? GameWorld.ReputationLevels[world.ReputationLevel(company)] : null,
             Orders(world, company),
             company.NoTrade.OrderBy(t => t).ToList(),
-            company.CorporationId,
-            world.CorporationOf(company)?.Tag,
-            company.CorporationId != null ? Camel(company.Role) : null,
             company.MentorId,
             company.Likes,
             world.Calendar(company).Select(t => Event(world, t)).ToList(),
@@ -60,17 +57,15 @@ public static partial class GameViews
             company.Titles.OrderBy(t => t).ToList(),
             company.Achievements.Where(t => t.StartsWith("collection:")).Select(t => t["collection:".Length..]).ToList(),
             world.OutpostsOf(company.Id).Select(t => Outpost(world, t, company.Id)).ToList(),
-            new FranchiseDto(company.Shares, company.Franchises, world.FranchiseShares(company), world.FranchiseBlocker(company), company.FranchiseAt, company.LegacyLevel),
+            company.LegacyLevel,
             SeasonInfo(world),
             new MovingDto(
                 Camel(world.ActivityOf(company)),
-                company.Asleep,
                 company.ArrivesAt,
                 company.Crates.Select((t, i) => new CrateDto(i, t.Type, t.Level)).ToList(),
                 company.FreeMoves,
                 world.MoveCost(company),
-                company.LastMovedAt is { } moved && moved + world.MoveEvery > world.Now && company.FreeMoves == 0 ? moved + world.MoveEvery : null,
-                company.SwapWith),
+                company.LastMovedAt is { } moved && moved + world.MoveEvery > world.Now && company.FreeMoves == 0 ? moved + world.MoveEvery : null),
             new DeepDto(
                 world.HasDeepLevel(company),
                 company.DeepParcels,
@@ -80,11 +75,6 @@ public static partial class GameViews
                 GameWorld.DigCost(GameWorld.DugCount(company)),
                 GameWorld.DigTime(GameWorld.DugCount(company)).TotalHours,
                 WorldLayout.DeepOffset),
-            world.EstatesOf(company).Skip(1).Select(t =>
-            {
-                var (cost, level) = world.NextParcel(company, t);
-                return new BranchDto(t.District.X, t.District.Y, WorldNames.District(t.District), t.Slot, t.Origin.X, t.Origin.Y, t.UnlockedParcels, cost, level);
-            }).ToList(),
             world.CurrentTutorialStep(company) is { } step
                 ? Tutorial(world, company, step)
                 : null,
@@ -104,15 +94,10 @@ public static partial class GameViews
             world.CrewOf(company) is { } crew
                 ? new CrewBadgeDto(crew.Id, crew.NameHidden ? $"Crew {crew.Id}" : crew.Name, crew.Emblem, crew.Color, crew.Color2, world.CrewMembers(crew).Count())
                 : null,
-            company.Tailwind,
-            company.LoneCard,
-            company.League,
-            Week(world, company),
             Land(world, company),
             company.ResearchQueue.ToList(),
             company.KeepResearching,
             world.ResearchOpen(company),
-            KeptSeat(world, company),
             world.WantsNear(company).Select(t => new WantNearDto(t.Target, world.NameFor(t.Owner, company), t.Name, t.Want.Resource,
                 Math.Round(t.Want.Left), Math.Floor(t.Holds), t.Makes, t.Want.Order == null ? Math.Ceiling(t.Want.Left * world.BasePrice(t.Want.Resource) * GameWorld.OrderPrice) : null)).ToList(),
             world.OpenWants(company).Select(t => new OwnWantDto(t.Target, t.Name, t.Want.Resource, t.Want.Amount, Math.Round(t.Want.Got, 1),
@@ -120,7 +105,6 @@ public static partial class GameViews
                 t.Want.Order != null ? $"Ordered: the hub brings the rest {world.OrderStartText(company, t.Want, company)}" : null,
                 t.Want.Order == null ? Math.Ceiling(t.Want.Left * world.BasePrice(t.Want.Resource) * GameWorld.OrderPrice) : null)).ToList(),
             EraWonderLine(world, company),
-            Refine(world, company),
             PipesLine(world, company));
     }
 
@@ -132,13 +116,7 @@ public static partial class GameViews
     {
         var hour = Math.Round(60 * Math.Max(GameWorld.MinMeasuredIncome, world.MeasuredIncome(me)));
         GoldLineDto? shared = null;
-        // The station's storey first: the shared goal after the Landmark (after run 4)
-        if (world.EstateOf(me) is { } home && world.ExistingProject(home.Station) is { Stage: ProjectStage.Storey } storey && GameWorld.PurseLeft(storey) >= 1)
-        {
-            shared = new GoldLineDto($"{WorldNames.Station(world.StationOf(storey))}'s Landmark, storey {storey.Storeys + 1}: its purse wants {Amount(GameWorld.PurseLeft(storey))} g more · each storey, its pipes carry 10% more",
-                "storey", Math.Min(hour, Math.Ceiling(GameWorld.PurseLeft(storey))), AllCost: Math.Ceiling(GameWorld.PurseLeft(storey)));
-        }
-        else if (me.District == GameWorld.Capital && world.EraWonder is { Finished: false } wonder && !GameWorld.Unsized(wonder))
+        if (me.District == GameWorld.Capital && world.EraWonder is { Finished: false } wonder && !GameWorld.Unsized(wonder))
         {
             var name = world.WonderDefinition(wonder).Name;
             var best = wonder.Required.Keys
@@ -210,7 +188,7 @@ public static partial class GameViews
     private static ProjectWeekDto? EraWonderLine(GameWorld world, Company me)
     {
         // It is the Capital's want: elsewhere the District Wonder is the shared goal
-        if (!world.ProjectsEnabled || me.District != GameWorld.Capital || world.EraWonder is not { Finished: false } wonder)
+        if (!world.WonderBuysEnabled || me.District != GameWorld.Capital || world.EraWonder is not { Finished: false } wonder)
         {
             return null;
         }
@@ -238,60 +216,6 @@ public static partial class GameViews
         return new ProjectWeekDto($"{head} · wants {And(wants)}{tail}", share);
     }
 
-    /// <summary>Refinements (after run 3, step 6): the walls and the goods this company makes, and any line its station refined</summary>
-    private static RefineDto Refine(GameWorld world, Company me)
-    {
-        var open = world.RefineLines(me);
-        var ids = new[] { "pipes", "trading", "hubOrders" }.Concat(world.MadeGoods(me))
-            .Concat(world.Content.Resources.Keys.Where(t => world.Refined(me, t) > 0).Order(StringComparer.Ordinal))
-            .Distinct().ToList();
-        var lines = ids.Select(id =>
-        {
-            var line = world.RefineLineOf(id);
-            var by = world.RefinedBy(me, id).Where(t => t.Company.Id != me.Id).Select(t => $"{world.NameFor(t.Company, me)} {t.Steps}").ToList();
-            var now = world.Refined(me, id);
-            return new RefineLineDto(id, line.Name, line.Wall, Math.Round(now, 3), line.Step, me.Refinements.GetValueOrDefault(id), by.Count > 0 ? string.Join(", ", by) : null,
-                now >= GameWorld.RefineCap - 1e-9);
-        }).ToList();
-        return new RefineDto(open.Count > 0, GameWorld.RefineCost(me), GameWorld.RefineTime.TotalMinutes, GameWorld.Refining(me), world.NextRefineLine(me), me.RefineChoice,
-            world.LabsRest(me), lines);
-    }
-
-    /// <summary>The station's Refinements a building gets, named by whose research they were ("Bricks +6% · Cleo's research 💛")</summary>
-    private static IReadOnlyList<string>? Refined(GameWorld world, Building building, Company? owner, Company? viewer)
-    {
-        if (owner == null || owner.IsNpc || viewer == null)
-        {
-            return null;
-        }
-        var definition = world.Content.Building(building.Type);
-        var lines = definition.Kind == BuildingKind.TradingPost ? ["trading"] : definition.Out.Keys.Where(t => t != GameContent.ResearchPoints).ToList();
-        var result = new List<string>();
-        foreach (var id in lines)
-        {
-            if (world.Refined(owner, id) is var now && now <= 0)
-            {
-                continue;
-            }
-            var who = world.RefinedBy(owner, id).Select(t => t.Company.Id == viewer.Id ? "your" : $"{world.NameFor(t.Company, viewer)}'s").ToList();
-            var heart = world.RefinedBy(owner, id).Any(t => t.Company.Id != owner.Id) ? " 💛" : "";
-            result.Add($"{world.RefineLineOf(id).Name} +{now * 100:0}% · {And(who)} research{heart}");
-        }
-        return result.Count > 0 ? result : null;
-    }
-
-    /// <summary>A seat a friend keeps for a company that opened its link and lives elsewhere (run 3: Ben)</summary>
-    private static KeptSeatDto? KeptSeat(GameWorld world, Company me)
-    {
-        if (world.KeptSeatFor(me) is not { } kept)
-        {
-            return null;
-        }
-        var from = world.Company(kept.Crew.Founder) is { } founder ? founder.Name : kept.Crew.Name;
-        return new KeptSeatDto(kept.Hold.Code, from, kept.Crew.Name, WorldNames.Station(WorldLayout.StationOf(kept.Hold.Seat.District, kept.Hold.Seat.Slot)),
-            world.EstateOf(me) is { } home ? WorldNames.Station(home.Station) : null);
-    }
-
     /// <summary>Dealt land (step 5): the goods your seat holds, and who in your station holds the others (null on old land)</summary>
     private static LandDto? Land(GameWorld world, Company me)
     {
@@ -299,14 +223,14 @@ public static partial class GameViews
         {
             return null;
         }
-        var seats = world.BigStation(home.Station).SelectMany(GameWorld.StationSeats).Select(seat =>
+        var seats = GameWorld.StationSeats(home.Station).Select(seat =>
         {
             var owner = world.Estate(seat.District, seat.Slot)?.OwnerId is { } id ? world.Company(id) : null;
             var goods = world.Generator.LandOf(seat.District, seat.Slot);
             // "Makes" only when someone does (run 2: Mia was told Jo makes coal; Jo never built a Coal Pit)
             var makes = owner == null ? [] : world.BuildingsOf(owner.Id).Where(t => !t.UnderConstruction)
                 .SelectMany(t => world.Content.Building(t.Type).Out.Keys).Where(goods.Contains).Distinct().ToList();
-            return new LandSeatDto(seat.Slot, owner == null ? null : world.NameFor(owner, me), owner?.IsNpc ?? false, owner?.Id == me.Id, goods, makes);
+            return new LandSeatDto(seat.Slot, owner == null ? null : world.NameFor(owner, me), owner?.Id == me.Id, goods, makes);
         }).ToList();
         return new LandDto(world.Generator.LandOf(home.District, home.Slot), seats);
     }
@@ -319,166 +243,6 @@ public static partial class GameViews
             Math.Round(selling.GetValueOrDefault(t.Resource), 2), Math.Round(t.Premium))).ToList();
     }
 
-    /// <summary>
-    /// The "This week" row while the station builds its project (F4): its stage and share, and the one thing to know
-    /// (the stage that just stood, when the next opens, the keystone and who can make it, your goods going in, what it
-    /// wants). Only active residents are named, and nothing scolds.
-    /// </summary>
-    public static ProjectWeekDto? Week(GameWorld world, Company me)
-    {
-        if (!world.ProjectsEnabled || world.EstateOf(me) is not { } estate || world.ExistingProject(estate.Station) is not { } project)
-        {
-            return null;
-        }
-        string Name(string resource) => world.Content.Resources.TryGetValue(resource, out var r) ? r.Name.ToLowerInvariant() : resource;
-        // Every project named by its station (after run 3, row 12: four Water Towers in one chat)
-        var station = WorldNames.Station(world.BigStation(estate.Station)[0]);
-        var of = station.EndsWith('s') ? $"{station}'" : $"{station}'s";
-        // The last stage that stood (the later one when two stood in one round)
-        if (project.Finished.Count > 0 && project.Finished.MaxBy(t => (t.Value, (int)t.Key)) is var (done, at) && world.Now - at < TimeSpan.FromHours(2))
-        {
-            return new ProjectWeekDto(done switch
-            {
-                ProjectStage.Landmark => $"🏗 {of} Landmark is finished",
-                ProjectStage.Storey => $"🏗 {of} Landmark rose to storey {project.Storeys}: its pipes carry +{Math.Min(GameWorld.MaxStoreyPipeBonus, GameWorld.StoreyPipeBonus * project.Storeys) * 100:0}%",
-                ProjectStage.FoundryHall => $"🏗 {of} Foundry Hall stands: +10% on {string.Join(" and ", project.FoundryChains.Select(Name))}",
-                _ => $"🏗 {of} {GameWorld.StageName(done)} stands: +{world.ProjectBonus(project) * 100:0}% for every seat",
-            }, 1);
-        }
-        if (project.Stage == ProjectStage.Done)
-        {
-            return project.NextStoreyAt != null ? new ProjectWeekDto($"🏗 {of} Landmark, storey {project.Storeys}: storey {project.Storeys + 1} opens at midnight", 1) : null;
-        }
-        if (project.Stage == ProjectStage.Storey)
-        {
-            // The shared goal after the Landmark (after run 4): its goods and its purse, and Give
-            var left = GameWorld.PurseLeft(project);
-            return new ProjectWeekDto($"🏗 {of} Landmark, storey {project.Storeys + 1} · {100 * StoreyShare(world, project):0}%{(left >= 1 ? $" · its purse wants {Amount(left)} g: Give ›" : " · its goods come by the Yard")}",
-                StoreyShare(world, project));
-        }
-        var stage = GameWorld.StageName(project.Stage);
-        if (project.Stage == ProjectStage.FoundryHall && project.StartedAt + TimeSpan.FromDays(14) is var opens && opens > world.Now)
-        {
-            return new ProjectWeekDto($"🏗 {of} {stage} opens in {Span(opens - world.Now)}", 0);
-        }
-        var card = world.ProjectCardFor(project, me);
-        var (parts, step) = ProjectSentence(world, me, project);
-        return new ProjectWeekDto(string.Join(" · ", parts.Prepend($"🏗 {of} {stage} {Math.Floor(card.Share * 100):0}%")), card.Share, step);
-    }
-
-    /// <summary>
-    /// The project's sentence after its stage and share, the same on the This week line, the return card and the Project
-    /// tab (run 3: "Workshop 96% · wants water (nobody here yet)" for 27 days, though every estate had a pond and the
-    /// Project tab said "You can make it"): a keystone just passed over; your own maker of what it waits for that isn't
-    /// running; what it waits on and for how long; who can make it and how; when it will be passed over. And the step its
-    /// Show me takes: your idle maker, or the build tool with the building on a tile where it stands.
-    /// </summary>
-    private static (List<string> Parts, NextStepDto? Step) ProjectSentence(GameWorld world, Company me, StationProject project)
-    {
-        string Name(string resource) => world.Content.Resources.TryGetValue(resource, out var r) ? r.Name.ToLowerInvariant() : resource;
-        var parts = new List<string>();
-        NextStepDto? step = null;
-        var card = world.ProjectCardFor(project, me);
-        if (project.LastPassed is { } passed && project.LastPassedAt is { } passedAt && world.Now - passedAt < TimeSpan.FromDays(1))
-        {
-            parts.Add($"no longer waits on {Name(passed)}");
-        }
-        var lacking = project.Basket.Keys.Where(t => project.Delivered.GetValueOrDefault(t) < project.Basket[t] * 0.995).ToList();
-        if (lacking.Count == 0)
-        {
-            return (parts, null);
-        }
-        var keystone = project.Keystone is { } k && lacking.Contains(k) ? k : null;
-
-        // Your own building that makes what it waits for and isn't running leads (run 3: Mia's pump sat without energy for
-        // four weeks after the game's own fix pipe, and her cards said nothing)
-        foreach (var good in lacking.OrderBy(t => t == keystone ? 0 : 1))
-        {
-            if (world.BuildingsOf(me.Id).FirstOrDefault(b => !b.UnderConstruction && world.Content.Building(b.Type).Out.ContainsKey(good)
-                    && world.IdleReasonOf(b).Cause != IdleCause.None) is { } idle && world.IdleLine(idle) is { } line)
-            {
-                var building = world.Content.Building(idle.Type).Name;
-                parts.Add(line.StartsWith("Idle: ", StringComparison.Ordinal) ? $"your {building} is idle ({line[6..]})"
-                    : line.StartsWith("Stuck: ", StringComparison.Ordinal) ? $"your {building} is stuck ({line[7..]})"
-                    : $"your {building}: {char.ToLowerInvariant(line[0])}{line[1..]}");
-                step = NextStep(new AdvisorStep(AdvisorKind.Shortage, $"Your {building}", line, AdvisorAction.Select, 0, 0, Building: idle.Id));
-                break;
-            }
-        }
-
-        if (keystone != null)
-        {
-            var wait = world.Now - GameWorld.KeystoneWantedSince(project);
-            parts.Add(wait >= TimeSpan.FromDays(1) ? $"{Span(wait)} on {Name(keystone)}" : $"wants {Name(keystone)}");
-            // A two-friend keystone names its pair (after run 3, step 8)
-            if (world.KeystonePairInputs(project) is [var (a, aInput), var (b, bInput)])
-            {
-                string Whose(Company c) => c.Id == me.Id ? "your" : world.PossessiveFor(c, me);
-                parts.Add($"from {Whose(a)} {Name(aInput)} and {Whose(b)} {Name(bInput)}");
-            }
-            if (step == null)
-            {
-                var (who, how) = WhoBrings(world, me, project, keystone, card);
-                parts.Add(who);
-                step = how;
-            }
-            if (world.KeystonePassesAt(project) is { } at)
-            {
-                parts.Add($"passed over {at:ddd HH:mm} unless one of you brings some");
-            }
-            return (parts, step);
-        }
-        // What it still wants, each with who brings it or can ("wants iron ingot (Ana) and stone (you can)")
-        if (card.GoingIn.Count > 0)
-        {
-            parts.Add($"your {And(card.GoingIn.Select(Name).ToList())} {(card.GoingIn.Count == 1 ? "goes" : "go")} in");
-        }
-        string Who(string good)
-        {
-            var now = MakerNames(world.MakersNow(project, good), me);
-            if (now.Count > 0)
-            {
-                return now.Count > 2 ? $"{now[0]}, {now[1]} +{now.Count - 2}" : And(now);
-            }
-            var can = MakerNames(world.MakersOf(project, good).Select(t => t.Maker), me);
-            return can.Count == 0 ? "nobody here can" : $"{(can.Count > 2 ? $"{can[0]}, {can[1]} +{can.Count - 2}" : And(can))} can";
-        }
-        parts.Add($"wants {And(lacking.Select(t => $"{Name(t)} ({Who(t)})").ToList())}");
-        return (parts, step);
-    }
-
-    /// <summary>Who brings a good the project waits on, or can, and how ("you can: a Water Pump beside the water"), with its Show me</summary>
-    private static (string Who, NextStepDto? Step) WhoBrings(GameWorld world, Company me, StationProject project, string good, GameWorld.ProjectCard card)
-    {
-        string Name(string resource) => world.Content.Resources.TryGetValue(resource, out var r) ? r.Name.ToLowerInvariant() : resource;
-        if (card.GoingIn.Contains(good))
-        {
-            return ($"your {Name(good)} goes in", null);
-        }
-        var bringing = project.Incoming.Where(t => t.Key != me.Id && t.Value.GetValueOrDefault(good) > 1e-9).Select(t => world.Company(t.Key)).OfType<Company>().ToList();
-        if (bringing.Count > 0)
-        {
-            return ($"{And(MakerNames(bringing, me))} {(bringing.Count == 1 ? "brings" : "bring")} it", null);
-        }
-        var makers = world.MakersOf(project, good);
-        if (makers.FirstOrDefault(t => t.Maker.Id == me.Id) is { Maker: not null } mine)
-        {
-            var near = world.BuildingsOf(me.Id).FirstOrDefault(t => world.Content.Building(t.Type).Kind == BuildingKind.TradingPost) is { } post ? post.Position : default;
-            var spot = world.EstateOf(me) is null ? null : world.FindSpot(me, mine.Producer, near);
-            var how = $"you can: {GameWorld.Article(mine.Producer.Name)} {WhereItStands(world, mine.Producer)}".TrimEnd();
-            return (how, spot is { } at
-                ? NextStep(new AdvisorStep(AdvisorKind.Chain, $"Build {GameWorld.Article(mine.Producer.Name)}", $"The {GameWorld.StageName(project.Stage)} waits on {Name(good)}", AdvisorAction.Build,
-                    world.BuildCost(me, mine.Producer), 0, BuildingType: mine.Producer.Id, At: at), world, me)
-                : null);
-        }
-        if (makers.Count > 0)
-        {
-            var names = MakerNames(makers.Select(t => t.Maker).DistinctBy(t => t.Id), me);
-            return ($"{(names.Count > 2 ? $"{names[0]}, {names[1]} +{names.Count - 2}" : And(names))} can: {GameWorld.Article(makers[0].Producer.Name)} {WhereItStands(world, makers[0].Producer)}".TrimEnd(), null);
-        }
-        return ("nobody here can make it", null);
-    }
-
     /// <summary>Who can make a good, as a line says it: the others first, then "you"</summary>
     private static List<string> MakerNames(IEnumerable<Company> makers, Company me) =>
         makers.OrderBy(t => t.Id == me.Id ? 1 : 0).Select(t => t.Id == me.Id ? "you" : t.Name).ToList();
@@ -488,35 +252,6 @@ public static partial class GameViews
         items.Count <= 1 ? items.FirstOrDefault() ?? "" : $"{string.Join(", ", items.Take(items.Count - 1))} and {items[^1]}";
 
     private static string Capital(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
-
-    /// <summary>Where a building stands, as the keystone's card says it: "on a beach", "on a copper deposit", "by the water"</summary>
-    private static string WhereItStands(GameWorld world, BuildingDefinition definition)
-    {
-        var placement = definition.Placement;
-        if (placement.Deposit is { } deposit)
-        {
-            return deposit == "anyMetal" ? "on a metal deposit"
-                : $"on a {(world.Content.Resources.TryGetValue(deposit, out var r) ? r.Name.ToLowerInvariant() : deposit)} deposit";
-        }
-        if (placement.Forest)
-        {
-            return "in a forest";
-        }
-        if (placement.Shore)
-        {
-            return "beside the water";
-        }
-        return placement.Terrain.Count != 1 ? "" : placement.Terrain[0] switch
-        {
-            TerrainType.Beach => "on a beach",
-            TerrainType.Desert => "in the desert",
-            TerrainType.Hills => "on hills",
-            TerrainType.Water => "on the water",
-            TerrainType.Mountain => "on a mountain",
-            TerrainType.Forest => "in a forest",
-            _ => "",
-        };
-    }
 
     private static ExperienceDto Experience(GameWorld world, Company company, double goldPerMinute)
     {
@@ -532,7 +267,6 @@ public static partial class GameViews
             new("orders", $"{30 + 8 * company.Level:N0} XP per daily order (it grows with your level)"),
             new("contracts", $"{p.XpReward("contract"):N0} XP per finished contract"),
             new("achievements", "XP for every achievement"),
-            new("corporation", "XP when your corporation reaches its weekly goal"),
             new("likes", "10 XP per like of your estate"),
         };
         return new ExperienceDto(
@@ -580,7 +314,7 @@ public static partial class GameViews
                 : company.CurrentResearch == tech.Id ? "researching"
                 : world.ResearchBlocker(company, tech) is null ? "available"
                 : "locked";
-            return new ResearchStateDto(tech.Id, state, world.ResearchCost(company, tech), state == "locked" ? world.ResearchBlocker(company, tech) : null, world.ResearchDiffusion(company, tech.Id));
+            return new ResearchStateDto(tech.Id, state, world.ResearchCost(company, tech), state == "locked" ? world.ResearchBlocker(company, tech) : null);
         }).ToList();
 
     public static BuildingDto Building(GameWorld world, Building building) => new(
@@ -631,8 +365,8 @@ public static partial class GameViews
     }
 
     /// <summary>
-    /// "nobody near makes bricks yet: a Brickworks (1,400 g) makes them from coal and stone: the Houses sell coal and
-    /// stone through the Yard; …", and the building's type when the viewer may build it (for Show me)
+    /// "nobody near makes bricks yet: a Brickworks (1,400 g) makes them from coal and stone: …", and the building's type
+    /// when the viewer may build it (for Show me)
     /// </summary>
     private static (string Text, string? Building) SiteChain(GameWorld world, string good, Company viewer) =>
         world.ChainFor(viewer, good) is { } chain
@@ -802,11 +536,8 @@ public static partial class GameViews
                 estate?.UnlockedParcels ?? 0,
                 Camel(profile.Primary),
                 profile.Secondary is { } secondary ? Camel(secondary) : null,
-                owner != null ? world.CorporationOf(owner)?.Tag : null,
-                owner is { IsNpc: false } ? Camel(world.ActivityOf(owner)) : null,
-                estate?.ReservedFor is { } corporationId && estate.ReservedUntil > world.Now ? world.Corporation(corporationId)?.Tag : null,
-                profile.Goods,
-                owner?.IsNpc ?? false));
+                owner is { } ? Camel(world.ActivityOf(owner)) : null,
+                profile.Goods));
         }
         var hub = WorldLayout.HubOrigin(district);
         return new DistrictDto(
@@ -821,9 +552,6 @@ public static partial class GameViews
 
     /// <summary>The two billboards of a hub: the richest companies of the district with the Brand tech</summary>
     private static readonly (int X, int Y)[] Billboards = [(9, 9), (20, 17)];
-
-    /// <summary>The 4 lots of the corporation quarter, by HQ level</summary>
-    private static readonly (int X, int Y)[] HqLots = [(0, 0), (4, 0), (0, 4), (4, 4)];
 
     private static List<HubStructureDto> HubStructures(GameWorld world, DistrictCoord district)
     {
@@ -846,7 +574,7 @@ public static partial class GameViews
             if (structure.Type == "marketHall")
             {
                 var brands = world.Companies
-                    .Where(t => t.District == district && !t.IsNpc && world.HasResearch(t, "brand"))
+                    .Where(t => t.District == district && world.HasResearch(t, "brand"))
                     .OrderByDescending(world.NetWorth)
                     .Take(Billboards.Length)
                     .ToList();
@@ -855,132 +583,11 @@ public static partial class GameViews
                     structures.Add(new HubStructureDto("billboard", Billboards[i].X, Billboards[i].Y, 2, brands[i].Name, brands[i].Color));
                 }
             }
-            if (structure.Type != "corporationQuarter")
-            {
-                continue;
-            }
-            var corporations = world.Corporations
-                .Where(t => t.District == district)
-                .OrderByDescending(t => t.HqLevel).ThenByDescending(t => world.Members(t).Count()).ThenBy(t => t.Id)
-                .Take(HqLots.Length)
-                .ToList();
-            for (var i = 0; i < corporations.Count; i++)
-            {
-                var corporation = corporations[i];
-                structures.Add(new HubStructureDto("corporationHq", structure.X + HqLots[i].X, structure.Y + HqLots[i].Y, 3, corporation.Tag, corporation.Color, corporation.HqLevel, corporation.Id));
-            }
-        }
-        // The stations' projects (v1.2 §12): in the top corner of each Yard, the current stage rising with its basket
-        var hub = WorldLayout.HubOrigin(district);
-        foreach (var station in WorldLayout.Stations(district))
-        {
-            if (world.ExistingProject(station) is not { } project || world.BigStation(station)[0] != station)
-            {
-                continue;
-            }
-            var yard = WorldLayout.Yard(station);
-            // What stands is the last finished stage; before the Foundation is built, its plan rises with the basket
-            var built = project.Finished.Keys.Where(t => t is not (ProjectStage.Done or ProjectStage.Storey)).DefaultIfEmpty(ProjectStage.Done).Max();
-            var stage = built == ProjectStage.Done ? ProjectStage.Foundation : built;
-            var target = project.Basket.Sum(t => t.Value * world.BasePrice(t.Key));
-            var done = built != ProjectStage.Done || target <= 0 ? 100
-                : (int)Math.Floor(100 * project.Basket.Sum(t => Math.Min(t.Value, project.Delivered.GetValueOrDefault(t.Key)) * world.BasePrice(t.Key)) / target);
-            structures.Add(new HubStructureDto($"project-{Camel(stage)}", yard.X0 - hub.X, yard.Y0 - hub.Y, 4,
-                $"{GameWorld.StageName(stage)}{(project.Storeys > 0 ? $", storey {project.Storeys}" : "")} · {WorldNames.Station(station)}", Level: Math.Min(100, done), Stages: 100,
-                Storeys: project.Storeys));
         }
         return structures;
     }
 
     // ---------------------------------------------------------------- Society
-
-    private static readonly string[] PerkTexts =
-    [
-        "Corporation chat; members trade freely (no maximum price)",
-        "+5% production of the chosen resource",
-        "No tolls between members",
-        "+1 manager slot for every member",
-        "Research 20% cheaper for members",
-        "Production perk +6%",
-        "Production perk +7%",
-        "Production perk +8%",
-        "Production perk +9%",
-        "Production perk +10%",
-    ];
-
-    private static double WeeklyEarnings(Company company) => company.LifetimeEarnings - company.WeekStartEarnings;
-
-    private static CorporationMemberDto Member(GameWorld world, Company company, CorporationGoal? goal, IReadOnlySet<long> online) => new(
-        company.Id,
-        company.Name,
-        company.Color,
-        company.Level,
-        Camel(company.Role),
-        WeeklyEarnings(company),
-        goal?.Contributions.GetValueOrDefault(company.Id) ?? 0,
-        online.Contains(company.UserId));
-
-    public static CorporationsDto Corporations(GameWorld world, Company company, IReadOnlySet<long> online)
-    {
-        var mine = world.CorporationOf(company) is { } corporation ? Corporation(world, corporation, company, online) : null;
-        var district = world.Corporations
-            .Where(t => t.District == company.District)
-            .Select(t => new CorporationSummaryDto(
-                t.Id,
-                t.Name,
-                t.Tag,
-                t.Color,
-                t.Description,
-                world.Members(t).Count(),
-                t.HqLevel,
-                world.Members(t).Sum(WeeklyEarnings),
-                t.Applications.Contains(company.Id),
-                t.Invites.Contains(company.Id)))
-            .OrderByDescending(t => t.Invited).ThenByDescending(t => t.HqLevel).ThenByDescending(t => t.Members)
-            .ToList();
-        DateTime? canJoinAt = company.LeftCorporationAt is { } left && left + GameWorld.RejoinWait > world.Now ? left + GameWorld.RejoinWait : null;
-        return new CorporationsDto(mine, district, GameWorld.CorporationFoundLevel, GameWorld.CorporationFoundCost, GameWorld.MaxCorporationMembers, canJoinAt);
-    }
-
-    private static CorporationDto Corporation(GameWorld world, Corporation corporation, Company viewer, IReadOnlySet<long> online)
-    {
-        var goal = corporation.Goal;
-        var members = world.Members(corporation)
-            .OrderByDescending(t => t.Role).ThenByDescending(t => WeeklyEarnings(t))
-            .Select(t => Member(world, t, goal, online))
-            .ToList();
-        var officer = viewer.Role is CorporationRole.Leader or CorporationRole.Officer;
-        var applications = officer
-            ? corporation.Applications.Select(world.Company).OfType<Company>().Select(t => Member(world, t, null, online)).ToList()
-            : [];
-        CorporationGoalDto? goalDto = goal == null
-            ? null
-            : new CorporationGoalDto(
-                goal.Resource,
-                goal.Amount,
-                goal.Delivered,
-                goal.RewardGold,
-                goal.EndsAt,
-                goal.Contributions.GetValueOrDefault(viewer.Id),
-                world.Materials(viewer.Id).GetValueOrDefault(goal.Resource),
-                goal.Rewarded);
-        return new CorporationDto(
-            corporation.Id,
-            corporation.Name,
-            corporation.Tag,
-            corporation.Color,
-            corporation.Description,
-            corporation.Treasury,
-            corporation.Tax,
-            corporation.HqLevel,
-            corporation.HqLevel < GameWorld.MaxHqLevel ? GameWorld.HqUpgradeCost(corporation.HqLevel) : null,
-            corporation.PerkResource,
-            Camel(viewer.Role),
-            members,
-            applications,
-            goalDto,
-            PerkTexts.Select((text, i) => new CorporationPerkDto(i + 1, text, corporation.HqLevel >= i + 1)).ToList());
-    }
 
     public static CompanyDetailsDto CompanyDetails(GameWorld world, Company company)
     {
@@ -1026,7 +633,7 @@ public static partial class GameViews
     {
         // The Capital builds the Era Wonder: its District Wonder would be a second, greyed goal beside it (run 4: Ben took
         // the Observatory's "Deliver from storage" for the Cathedral's missing Order button)
-        var district = company.District == GameWorld.Capital && world.ProjectsEnabled ? null : world.DistrictWonder(company.District);
+        var district = company.District == GameWorld.Capital && world.WonderBuysEnabled ? null : world.DistrictWonder(company.District);
         return new WondersDto(
             world.Era,
             world.EraStartedAt,
@@ -1091,7 +698,7 @@ public static partial class GameViews
 
     public static LeaderboardDto Leaderboard(GameWorld world, Company viewer, LeaderboardKind kind, bool district)
     {
-        var all = world.Leaderboard(kind, district ? viewer.District : null, int.MaxValue, viewer.League);
+        var all = world.Leaderboard(kind, district ? viewer.District : null, int.MaxValue);
         LeaderboardEntryDto View(LeaderboardEntry entry) => new(entry.Company, entry.Name, entry.Color, entry.Value, entry.Rank, entry.Company == viewer.Id);
         var you = all.FirstOrDefault(t => t.Company == viewer.Id);
         return new LeaderboardDto(Camel(kind), district, all.Take(50).Select(View).ToList(), you != null ? View(you) : null);
@@ -1100,20 +707,17 @@ public static partial class GameViews
     public static EstateVisitDto Visit(GameWorld world, Company owner, Company viewer, IReadOnlyList<GuestbookNoteDto> guestbook)
     {
         var estate = world.EstateOf(owner);
-        var corporation = world.CorporationOf(owner);
-        var canMentor = !owner.IsNpc && owner.Id != viewer.Id && viewer.MentorId == null && viewer.Level < GameWorld.MenteeMaxLevel
+        var canMentor = owner.Id != viewer.Id && viewer.MentorId == null && viewer.Level < GameWorld.MenteeMaxLevel
             && owner.Level >= GameWorld.MentorLevel && world.Mentees(owner.Id) < GameWorld.MaxMentees;
         return new EstateVisitDto(
             owner.Id,
             owner.Name,
             owner.Color,
             owner.Level,
-            owner.IsNpc,
             owner.Id == viewer.Id,
             owner.Likes,
             world.LikedToday(viewer.Id, owner.Id),
-            corporation?.Tag,
-            corporation?.Name,
+            world.CrewOf(owner) is { } crew ? (crew.NameHidden ? $"Crew {crew.Id}" : crew.Name) : null,
             world.NetWorth(owner),
             world.BuildingsOf(owner.Id).Count(),
             world.PartnerCounts().GetValueOrDefault(owner.Id),
@@ -1124,8 +728,6 @@ public static partial class GameViews
             viewer.MentorId == owner.Id,
             world.Mentees(owner.Id),
             guestbook,
-            owner.SwapWith == viewer.Id,
-            viewer.SwapWith == owner.Id,
             owner.Id == viewer.Id ? null
                 : world.WantsNear(viewer).Where(t => t.Owner.Id == owner.Id)
                     .Select(t => new WantNearDto(t.Target, world.NameFor(t.Owner, viewer), t.Name, t.Want.Resource, Math.Round(t.Want.Left), Math.Floor(t.Holds), t.Makes,
@@ -1250,7 +852,6 @@ public static partial class GameViews
             owner != null && viewer?.Id == owner.Id && world.Undoable(owner, building) is { } undo ? undo.Refund : null,
             owner != null && viewer?.Id == owner.Id && world.Undoable(owner, building) is { } until ? until.Purchase.At + GameWorld.UndoFor : null,
             Site(world, building, viewer),
-            Refined(world, building, owner, viewer),
             owner != null && viewer?.Id == owner.Id && world.PipeDoorFor(owner, building) is { } door ? Door(world, door) : null);
     }
 
@@ -1269,11 +870,8 @@ public static partial class GameViews
 
     private static string? NullIfEmpty(string text) => text.Length == 0 ? null : text;
 
-    /// <summary>
-    /// Why a building's good reaches nobody at its Yard gate (a Send that moves nothing says so: run 3, Mia's water Send
-    /// moved nothing for 27 days because her pump had no energy); null when some of it reaches the gate
-    /// </summary>
-    private static string? NothingMoves(GameWorld world, Building building, string good, StationProject? project = null)
+    /// <summary>Why a building's good reaches nobody at its Yard gate; null when some of it reaches the gate</summary>
+    private static string? NothingMoves(GameWorld world, Building building, string good)
     {
         if (world.IdleReasonOf(building) is { Cause: not IdleCause.None } idle && (world.NetworkOf(building.Id)?.Solution.Rate(building.Id) ?? 0) < 0.005)
         {
@@ -1287,11 +885,6 @@ public static partial class GameViews
         {
             return null;
         }
-        // Run 4: Dev's wood "used by your own buildings" while it sold at his post; the Foundry Hall opened only on day 14
-        if (project is { Stage: ProjectStage.FoundryHall } && project.StartedAt + TimeSpan.FromDays(14) is var opens && opens > world.Now)
-        {
-            return $"the Foundry Hall opens in {Span(opens - world.Now)}: it takes nothing until then, and then your spare goes in through the Yard by itself";
-        }
         return network.Solution.Flows.Any(t => t.From == building.Id && t.Resource == good && t.Kind == FlowKind.Sale && t.Sent > 1e-9)
             ? "the Yard takes none of it now: it sells at your trading post"
             : "your own buildings use all of it";
@@ -1299,42 +892,29 @@ public static partial class GameViews
 
     /// <summary>
     /// A building's trade with its neighbours, for its owner only (step 4): who takes its goods and who sends it its
-    /// inputs (both ends named), who could use its goods (Send ▸), what the project wants of them, and the pipe to the
-    /// gate a Send lays first when its pipes don't reach it
+    /// inputs (both ends named), who could use its goods, and the pipe to the gate when its pipes don't reach it
     /// </summary>
     private static BuildingTradeDto? Trade(GameWorld world, Building building, Company me)
     {
         var trade = world.TradeOf(building);
         var definition = world.Content.Building(building.Type);
         string Name(Building? b) => b == null ? "" : world.Content.Building(b.Type).Name;
-        TradeEndDto End(TradeEnd t, bool supplier) => new(t.Resource, t.Partner.Id, world.NameFor(t.Partner, me), t.PartnerBuilding == null ? null : Name(t.PartnerBuilding),
-            t.PartnerBuilding?.Id, Math.Round(t.PerMinute, 3), Math.Round(t.Price, 3), t.Sent, t.Partner.IsNpc, supplier && !t.Partner.IsNpc && !world.ThankedToday(me, t.Partner.Id));
-        var project = world.ProjectsEnabled && world.EstateOf(me) is { } estate ? world.ExistingProject(estate.Station) : null;
-        var wants = project == null || project.Stage == ProjectStage.Done ? []
-            : definition.Out.Keys
-                // Only what the stage still wants (run 2: "The Landmark wants 0 energy · yours goes there first")
-                .Where(t => project.Basket.ContainsKey(t) && project.Basket[t] - project.Delivered.GetValueOrDefault(t) > 0.5
-                    && (project.Delivered.GetValueOrDefault(t) < project.Basket[t] * 0.995 || me.ProjectFirst.Contains(t)))
-                .Select(t => new ProjectWantDto(t, GameWorld.StageName(project.Stage), Math.Max(0, project.Basket[t] - project.Delivered.GetValueOrDefault(t)),
-                    Math.Round(trade.ToProject.GetValueOrDefault(t), 3), me.ProjectFirst.Contains(t), NothingMoves(world, building, t, project)))
-                .ToList();
-        if (trade.Takers.Count == 0 && trade.Suppliers.Count == 0 && trade.Bids.Count == 0 && wants.Count == 0)
+        TradeEndDto End(TradeEnd t) => new(t.Resource, t.Partner.Id, world.NameFor(t.Partner, me), t.PartnerBuilding == null ? null : Name(t.PartnerBuilding),
+            t.PartnerBuilding?.Id, Math.Round(t.PerMinute, 3), Math.Round(t.Price, 3));
+        if (trade.Takers.Count == 0 && trade.Suppliers.Count == 0 && trade.Bids.Count == 0)
         {
             return null;
         }
         var pipe = trade.ReachesGate ? null : world.PlanGatePipe(building);
-        var runsOn = trade.Suppliers.Where(t => !t.Partner.IsNpc).OrderByDescending(t => t.PerMinute).FirstOrDefault();
+        var runsOn = trade.Suppliers.OrderByDescending(t => t.PerMinute).FirstOrDefault();
         return new BuildingTradeDto(
-            trade.Takers.Select(t => End(t, false)).ToList(),
-            trade.Suppliers.Select(t => End(t, true)).ToList(),
-            trade.Bids.Take(3).Select(t => new BidDto(t.Resource, t.Buyer.Id, world.NameFor(t.Buyer, me), t.Building == null ? null : Name(t.Building), t.Building?.Id, Math.Round(t.PerMinute, 2), t.House?.Name)).ToList(),
-            wants,
+            trade.Takers.Select(End).ToList(),
+            trade.Suppliers.Select(End).ToList(),
+            trade.Bids.Take(3).Select(t => new BidDto(t.Resource, t.Buyer.Id, world.NameFor(t.Buyer, me), t.Building == null ? null : Name(t.Building), t.Building?.Id, Math.Round(t.PerMinute, 2))).ToList(),
             trade.ReachesGate,
             pipe == null ? null : new BuildingFixDto("layPipe", $"Lay the pipe to your gate · {(pipe.NewTiles == 1 ? "1 tile" : $"{pipe.NewTiles} tiles")} · {pipe.Cost:0} g",
                 pipe.Tiles.SelectMany(t => new[] { t.X, t.Y }).ToArray(), pipe.NewTiles, Math.Round(pipe.Cost, 2), building.Id, null, "your gate"),
-            runsOn == null ? null : $"runs on {world.PossessiveFor(runsOn.Partner, me)} {world.GoodsWord(runsOn.Resource)}{(runsOn.Sent ? " 💛" : "")}",
-            world.SendCount(me),
-            GameWorld.MaxSends);
+            runsOn == null ? null : $"runs on {world.PossessiveFor(runsOn.Partner, me)} {world.GoodsWord(runsOn.Resource)}");
     }
 
     /// <summary>Loady's step as the player sees it, with the pipe its Show me lays (F2, F3)</summary>
@@ -1521,13 +1101,13 @@ public static partial class GameViews
                 row[7] += gate.Sent - gate.Delivered;
             }
         }
-        var yardGold = new Dictionary<long, (double Neighbours, double Project, double Other)>();
+        var yardGold = new Dictionary<long, double>();
         foreach (var owner in network.Owners(world).Select(world.Company).OfType<Company>())
         {
             if (world.EstateOf(owner) is { } estate && world.GateNetwork(estate) == network)
             {
                 yardGold[owner.Id] = world.TradeIncomeOf(owner.Id);
-                Money(owner.Id)[1] += yardGold[owner.Id].Neighbours + yardGold[owner.Id].Other;
+                Money(owner.Id)[1] += yardGold[owner.Id];
             }
         }
 
@@ -1556,13 +1136,12 @@ public static partial class GameViews
             .Select(world.Company)
             .OfType<Company>()
             .Select(t => new NetworkOwnerDto(t.Id, t.Name, t.Color,
-                (solution.GoldPerMinute.TryGetValue(t.Id, out var g) ? g : 0) + (yardGold.TryGetValue(t.Id, out var y) ? y.Neighbours + y.Project + y.Other : 0),
+                (solution.GoldPerMinute.TryGetValue(t.Id, out var g) ? g : 0) + yardGold.GetValueOrDefault(t.Id),
                 perOwner.Where(p => p.Key.Item1 == t.Id && p.Value.Any(v => v > 0.005))
                     .OrderBy(p => world.Content.Resources.TryGetValue(p.Key.Item2, out var r) ? r.Tier : 99).ThenBy(p => p.Key.Item2)
                     .Select(p => new OwnerResourceDto(p.Key.Item2, p.Value[0], p.Value[1], p.Value[2]))
                     .ToList(),
-                Money(t.Id)[0], Money(t.Id)[1], Money(t.Id)[2], Money(t.Id)[3], yardGold.TryGetValue(t.Id, out var p) ? p.Project : 0,
-                world.EstateOf(t) is { } home && world.ExistingProject(home.Station) is { Stage: not ProjectStage.Done } project ? GameWorld.StageName(project.Stage) : null))
+                Money(t.Id)[0], Money(t.Id)[1], Money(t.Id)[2], Money(t.Id)[3]))
             .ToList();
         var pumps = network.Buildings.Count(t => world.Building(t) is { } b && (viewer == null || b.Owner == viewer) && world.Content.Building(b.Type).Kind == BuildingKind.Pump);
 
@@ -1611,7 +1190,6 @@ public static partial class GameViews
                     t.Color,
                     t.Level,
                     GameWorld.ContractStars(t),
-                    t.IsNpc,
                     t.Slot,
                     estate.Origin.X,
                     estate.Origin.Y,
@@ -1635,18 +1213,20 @@ public static partial class GameViews
     private static string ActivityBucket(GameWorld world, Company company) =>
         world.Now - company.LastSeenAt < TimeSpan.FromDays(1) ? "lively" : world.Now - company.LastSeenAt < TimeSpan.FromDays(7) ? "some days" : "resting";
 
-    public static SeatDto Seat(GameWorld world, EstateKey seat, Company? me)
+    /// <summary>
+    /// A plot as the map's card shows it (1.4 §6): its land, and who lives there; free, closed (free, but its Yard is
+    /// closed: you ask first), taken or yours
+    /// </summary>
+    public static SeatDto Seat(GameWorld world, EstateKey seat, Company? me, string? code = null)
     {
         var estate = world.Estate(seat.District, seat.Slot);
         var origin = WorldLayout.EstateOrigin(seat.District, seat.Slot);
         var profile = world.Generator.Estate(seat.District, seat.Slot);
         var owner = estate?.OwnerId is { } id ? world.Company(id) : null;
-        var hold = world.HoldOn(seat);
         var state = owner != null && owner.Id == me?.Id ? "you"
-            : owner is { IsNpc: false } ? "taken"
-            : hold != null ? "held"
-            : owner is { IsNpc: true } ? "house"
-            : "free";
+            : owner is { } ? "taken"
+            : world.SeatFree(seat, me, code) ? "free"
+            : "closed";
         return new SeatDto(
             seat.Slot,
             origin.X,
@@ -1658,98 +1238,67 @@ public static partial class GameViews
             owner?.Name,
             owner?.Color,
             owner?.Level ?? 0,
-            owner is { IsNpc: false } && owner.Id != me?.Id ? ActivityBucket(world, owner) : null,
-            hold?.Crew.Name ?? (owner?.CrewId is { } crew ? world.Crew(crew)?.Name : null),
-            hold != null && me?.CrewId == hold.Value.Crew.Id,
+            owner is { } && owner.Id != me?.Id ? ActivityBucket(world, owner) : null,
             profile.Goods);
     }
 
-    public static StationDto Station(GameWorld world, StationRef station, Company? me)
+    /// <summary>A Yard on the map: its crew's name and banner, whether it's open, its plots and its Plan board</summary>
+    public static StationDto Station(GameWorld world, StationRef station, Company? me, string? code = null)
     {
         var yard = WorldLayout.Yard(station);
-        var seats = GameWorld.StationSeats(station).Select(t => Seat(world, t, me)).ToList();
-        var crews = seats.Where(t => t.CrewName != null).GroupBy(t => t.CrewName).OrderByDescending(t => t.Count()).FirstOrDefault();
+        var seats = GameWorld.StationSeats(station).Select(t => Seat(world, t, me, code)).ToList();
+        var crew = world.CrewAt(station);
         return new StationDto(
             station.District.X,
             station.District.Y,
             station.Index,
-            WorldNames.Station(station),
-            station.IsSmall,
-            world.StationOpenToStrangers(station, me),
-            GameWorld.StationSeats(station).Count(t => world.SeatFree(t, me)),
+            crew is { NameHidden: false } ? crew.Name : WorldNames.Station(station),
+            crew?.Emblem,
+            crew?.Color,
+            crew?.Color2,
+            world.YardOpen(station),
+            seats.Count(t => t.State == "free"),
             seats.Count(t => t.Activity == "lively"),
             seats,
-            crews?.Count() >= 2 ? crews.Key : null,
             yard.X0,
             yard.Y0,
             yard.X1,
             yard.Y1,
-            ProjectLine(world, station),
             world.PlanBoard(station).Makes.Order().ToList(),
             world.PlanBoard(station).Needs.Order().ToList());
     }
 
     private static SeatRefDto Ref(EstateKey seat) => new(seat.District.X, seat.District.Y, seat.Slot);
 
-    /// <summary>The stations of a district for the picker (the suggested one's district when none is given)</summary>
-    public static StationsDto Stations(GameWorld world, Company? me, DistrictCoord? district, int level = 1)
+    /// <summary>A town's Yards for the map's start (the one Pick for me chooses when none is given)</summary>
+    public static StationsDto Stations(GameWorld world, Company? me, DistrictCoord? district, string? code = null)
     {
-        var neighbours = world.SuggestSeat(Placement.Neighbours, me?.Level ?? level, 1, me);
-        var own = world.SuggestSeat(Placement.OwnStation, me?.Level ?? level, 1, me);
-        var friends = world.SuggestSeat(Placement.Friends, me?.Level ?? level, 4, me);
-        var shown = district ?? neighbours.District;
+        var pick = world.PickForMe(me);
+        var shown = district ?? pick.District;
         return new StationsDto(
             shown.X,
             shown.Y,
             WorldNames.District(shown),
-            WorldLayout.Stations(shown).Select(t => Station(world, t, me)).ToList(),
-            Ref(neighbours),
-            Ref(own),
-            Ref(friends),
+            WorldLayout.Stations(shown).Select(t => Station(world, t, me, code)).ToList(),
+            Ref(pick),
             world.OpenDistricts.OrderBy(t => Math.Abs(t.X) + Math.Abs(t.Y)).Select(t => new DistrictRefDto(t.X, t.Y, WorldNames.District(t))).ToList());
     }
 
-    /// <summary>What a code opens (the invite screen of someone who isn't playing yet)</summary>
-    public static InviteDto Invite(GameWorld world, string code)
+    /// <summary>
+    /// What a "Play next to me" link opens (1.4 §6): who sent it and their Yard; whether it lets you in although the Yard
+    /// is closed; a free name for a newcomer's company. A link that ran out opens nothing.
+    /// </summary>
+    public static NextToMeDto NextToMe(GameWorld world, string code)
     {
-        if (world.HoldByCode(code) is { } held)
+        if (world.NextToMeOf(code) is not { } friend || world.EstateOf(friend) is not { } estate)
         {
-            var from = world.CrewMembers(held.Crew).FirstOrDefault(t => t.Id == held.Crew.Founder) ?? world.CrewMembers(held.Crew).FirstOrDefault();
-            var station = WorldLayout.StationOf(held.Hold.Seat.District, held.Hold.Seat.Slot);
-            return new InviteDto(true, held.Crew.Name, held.Crew.Emblem, held.Crew.Color, held.Crew.Color2, from?.Name, Station(world, station, null), held.Hold.Slot, true, false, world.FreeCompanyName(held.Hold.Seat), held.Hold.FriendName);
+            return new NextToMeDto(false, null, null, null, false, null);
         }
-        if (world.CrewByInvite(code) is { } crew)
-        {
-            var from = world.CrewMembers(crew).FirstOrDefault();
-            var home = from != null && world.EstateOf(from) is { } estate ? estate.Station : (StationRef?)null;
-            return new InviteDto(true, crew.Name, crew.Emblem, crew.Color, crew.Color2, from?.Name, home is { } h ? Station(world, h, null) : null, null, false,
-                world.Now - crew.InviteCodeAt > GameWorld.InviteOpenFor, world.FreeCompanyName());
-        }
-        return new InviteDto(false, null, null, null, null, null, null, null, false, false, null);
+        var opens = !friend.NextToMeUsed && !world.YardOpen(estate.Station);
+        return new NextToMeDto(true, friend.Name, friend.Color, Station(world, estate.Station, null, code), opens, world.FreeCompanyName());
     }
 
-    public static HeldSeatDto Held(GameWorld world, SeatHold hold)
-    {
-        var profile = world.Generator.Estate(hold.Seat.District, hold.Seat.Slot);
-        return new HeldSeatDto(GameWorld.ShowCode(hold.Code), hold.DistrictX, hold.DistrictY, hold.Slot, Camel(profile.Primary), profile.Secondary is { } secondary ? Camel(secondary) : null, hold.Until,
-            hold.For, hold.For is { } member ? world.Company(member)?.Name : null, WorldNames.Station(WorldLayout.StationOf(hold.Seat.District, hold.Seat.Slot)), hold.FriendName,
-            hold.OpenedBy is { } opener ? world.Company(opener)?.Name : null,
-            hold.OpenedBy is { } who && world.Company(who) is { } friend && world.EstateOf(friend) is { } theirs ? WorldNames.Station(theirs.Station) : null,
-            hold.Declined,
-            hold.OpenedBy);
-    }
-
-    /// <summary>"💛 Tend: repair Ben's 2 storm-damaged Wind Moilies" (F9: a tend that does a chore)</summary>
-    private static string TendLabel(GameWorld world, Company friend, Company me)
-    {
-        var repairs = world.TendRepairs(friend);
-        var kinds = repairs.GroupBy(t => world.Content.Building(t.Type).Name).ToList();
-        var what = kinds.Count == 1
-            ? repairs.Count == 1 ? kinds[0].Key : $"{repairs.Count} {kinds[0].Key}s"
-            : $"{repairs.Count} buildings";
-        return $"💛 Tend: repair {world.PossessiveFor(friend, me)} storm-damaged {what}";
-    }
-
+    /// <summary>The Yard's crew as its residents see it (1.4 §7): its name and banner, its residents, the requests, your link</summary>
     public static CrewViewDto Crew(GameWorld world, Company me)
     {
         if (world.CrewOf(me) is not { } crew)
@@ -1757,29 +1306,24 @@ public static partial class GameViews
             return new CrewViewDto(null, GameWorld.CrewEmblems);
         }
         CrewMemberDto Member(Company t) =>
-            new(t.Id, world.NameFor(t, me), t.Color, t.Level, t.Id == me.Id ? null : t.Asleep ? "asleep" : ActivityBucket(world, t),
-                world.EstateOf(t) is { } estate ? WorldNames.Station(estate.Station) : t.Asleep ? "the Quiet Isles" : "on the way", t.Slot, t.Id == me.Id,
-                world.CanTend(me, t), world.Tended(t), t.Asleep,
-                world.CanTend(me, t) ? TendLabel(world, t, me) : null);
-        var home = world.EstateOf(me)?.Station;
-        var closed = home is { } station && !world.StationOpenToStrangers(station);
+            new(t.Id, t.Name, t.Color, t.Level, t.Id == me.Id ? null : ActivityBucket(world, t), t.Slot, t.Id == me.Id);
+        var requests = crew.Requests
+            .Select(r => world.Company(r.Company) is { } c ? new CrewRequestDto(c.Id, c.Name, c.Color, c.Level, r.Slot, r.At + GameWorld.RequestWaits) : null)
+            .OfType<CrewRequestDto>()
+            .ToList();
         return new CrewViewDto(new CrewDto(
             crew.Id,
             crew.NameHidden ? $"Crew {crew.Id}" : crew.Name,
             crew.Emblem,
             crew.Color,
             crew.Color2,
+            crew.Named,
+            crew.Open,
             world.CrewMembers(crew).Select(Member).ToList(),
-            crew.Holds.Select(t => Held(world, t)).ToList(),
-            GameWorld.ShowCode(crew.InviteCode),
-            crew.InviteCodeAt + GameWorld.InviteOpenFor,
-            crew.JoinRequests.Select(world.Company).OfType<Company>().Select(Member).ToList(),
-            home is { } h && crew.OpenStations.Contains($"{h.District.X},{h.District.Y},{h.Index}"),
-            closed,
-            GameWorld.MaxCrewSize,
-            crew.KeepCards.Select(world.Company).OfType<Company>().Select(t => new KeepCardDto(t.Id, world.NameFor(t, me), world.HoldEnds(t))).ToList(),
-            crew.ConsolidationOpen,
-            world.CrewMembers(crew).Count() > 1 ? WorldNames.Station(WorldLayout.StationOf(world.CrewMoveSeat(me).District, world.CrewMoveSeat(me).Slot)) : null), GameWorld.CrewEmblems);
+            requests,
+            me.NextToMeCode is { } link && me.NextToMeUntil > world.Now && !me.NextToMeUsed ? GameWorld.ShowCode(link) : null,
+            me.NextToMeUntil,
+            world.LastInYard(me)), GameWorld.CrewEmblems);
     }
 
     /// <summary>A duration as a state line says it: "45 min", "1 h 40 min", "2 days"</summary>
@@ -1820,11 +1364,7 @@ public static partial class GameViews
         var notice = link.NoticeAt is { } at
             ? $" · {(link.NoticeEnds ? "ends" : "pauses")} in {Span(at - world.Now)} ({(link.NoticeBy == me.Id ? "your notice" : $"{name}'s notice")})"
             : "";
-        var resting = partner?.StandIn is { } standIn
-            ? selling
-                ? $" {standIn.Name} ⚙ stands in for {name}: it keeps buying, its terms gliding to a House's from {standIn.Since.AddDays(standIn.OldPriceWeek ? 7 : 0):d MMM}."
-                : $" {standIn.Name} ⚙ stands in for {name}: it keeps this link going."
-            : partner != null && world.ActivityOf(partner) != Activity.Active ? $" {name} is resting; this link keeps delivering." : "";
+        var resting = partner != null && world.ActivityOf(partner) != Activity.Active ? $" {name} is resting; this link keeps delivering." : "";
         var (tone, line) = link.Flow switch
         {
             LinkFlow.Live => ("good", selling
@@ -1886,9 +1426,9 @@ public static partial class GameViews
     /// <summary>Your links, who a link would suit, and whom you could link with</summary>
     public static LinksDto Links(GameWorld world, Company me)
     {
-        var home = world.EstateOf(me) is { } estate ? world.BigStation(estate.Station)[0] : (StationRef?)null;
+        var home = world.EstateOf(me) is { } estate ? estate.Station : (StationRef?)null;
         var partners = world.Companies
-            .Where(t => !t.IsNpc && t.Id != me.Id && !t.Asleep && world.EstateOf(t) is { } e && world.BigStation(e.Station)[0] != home)
+            .Where(t => t.Id != me.Id && world.EstateOf(t) is { } e && e.Station != home)
             // Your crew first, and said so (after run 3, row 12: Ben was offered as a link with no word he was Ana's friend)
             .OrderBy(t => me.CrewId != null && t.CrewId == me.CrewId ? 0 : 1).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
             .Select(t => new LinkPartnerDto(t.Id, t.Name, t.Color, t.Level, WorldNames.Station(world.EstateOf(t)!.Station), me.CrewId != null && t.CrewId == me.CrewId))
@@ -1898,37 +1438,7 @@ public static partial class GameViews
             world.LinkSuggestions(me).Select(t => new LinkSuggestionDto(t.Partner.Id, t.Partner.Name, t.Partner.Color,
                 WorldNames.Station(world.EstateOf(t.Partner)!.Station), t.Resource, t.Selling, t.PerMinute, t.Length, world.LinkEfficiency(1, t.Length))).ToList(),
             GameWorld.MaxLinksPerEstate,
-            partners,
-            Trunks(world, me));
-    }
-
-    private static string MarketName(RemoteMarket market) => market.Port ? "the Port" : $"{WorldNames.District(market.Hub!.Value)}'s hub";
-
-    public static TrunksDto Trunks(GameWorld world, Company me)
-    {
-        var sales = world.RemoteSales(me)
-            .Select(t => new RemoteSaleDto(t.Resource, MarketName(t.Market), t.PerMinute, t.Price, t.Market.Trunk == null || t.Market.Fee > 0))
-            .ToList();
-        var crew = world.CrewOf(me);
-        var trunks = crew == null ? [] : world.TrunksOf(crew).Select(t => new TrunkDto(
-            t.Id,
-            t.Port ? "the Port" : $"{WorldNames.District(t.Hub!.Value)}'s hub",
-            t.Length,
-            t.Segments.Count,
-            t.SegmentsNeeded,
-            t.Segments.Select(c => world.Company(c)?.Color ?? "#888888").ToList(),
-            t.Built,
-            Math.Pow(1 - world.Content.PipeTier(3).LossPerTile, t.Length))).ToList();
-        var targets = world.OpenDistricts.Where(t => t != me.District)
-            .OrderBy(t => Math.Abs(t.X - me.District.X) + Math.Abs(t.Y - me.District.Y))
-            .Select(t => new TrunkTargetDto(t.X, t.Y, false, $"{WorldNames.District(t)}'s hub"))
-            .Append(new TrunkTargetDto(null, null, true, "the Port"))
-            .ToList();
-        var blocker = crew == null ? "Trunks are for crews: found one with your friends first."
-            : world.Content.Resources.TryGetValue("steel", out var steel) && steel.Era > world.Era ? "Trunks are steel: they come with Era 2."
-            : null;
-        return new TrunksDto(sales, trunks, targets, world.TrunkSegmentGold(me),
-            GameWorld.TrunkSegmentCost.Select(t => new ResourceRateDto(t.Key, t.Value)).ToList(), blocker == null, blocker);
+            partners);
     }
 
     public static LinkPlanDto LinkPlan(GameWorld world, GameWorld.LinkPlan plan) =>
@@ -1938,136 +1448,7 @@ public static partial class GameViews
     public static IReadOnlyList<MapLinkDto> MapLinks(GameWorld world) =>
         world.Links.Where(t => t.State != LinkState.Offered)
             .Select(t => new MapLinkDto(t.Id, t.Resource, t.Tier, t.Rate > 0, t.Seller, t.Buyer, Flat(t.Route)))
-            // The crews' trunks: steel, their segments in their payers' colours
-            .Concat(world.Trunks.Select(t => new MapLinkDto(-t.Id, "steel", 3, t.Built, world.Crew(t.Crew) is { } c ? world.CrewMembers(c).FirstOrDefault()?.Id ?? 0 : 0, 0,
-                Flat(t.Route), "trunk", t.Segments.Select(s => world.Company(s)?.Color ?? "#888888").ToList(), t.SegmentsNeeded)))
             .ToList();
-
-    /// <summary>The lone-human card's stations (and the Move tab's "livelier stations"): where active players live and a seat is free</summary>
-    public static IReadOnlyList<LandingCardDto> Livelier(GameWorld world, Company company) =>
-        world.LivelierStations(company).Select(t => new LandingCardDto("lively", Ref(t.Seat), WorldNames.Station(t.Station),
-            world.Estate(t.Seat.District, t.Seat.Slot) is { } target ? world.CratesIfMovedTo(company, target) : 0, false, t.Active)).ToList();
-
-    public static IReadOnlyList<LandingCardDto> Landing(GameWorld world, Company company) =>
-        world.LandingCards(company).Select(t =>
-        {
-            var station = WorldLayout.StationOf(t.Seat.District, t.Seat.Slot);
-            var neighbours = world.BigStation(station).SelectMany(GameWorld.StationSeats)
-                .Count(s => s != t.Seat && world.Estate(s.District, s.Slot)?.OwnerId is { } o && world.Company(o) is { IsNpc: false } c && c.Id != company.Id && !c.Asleep);
-            return new LandingCardDto(t.Kind, Ref(t.Seat), WorldNames.Station(station), t.Crates, t.Here, neighbours);
-        }).ToList();
-
-    public static AskDto Ask(CompanyAsk ask) =>
-        new(ask.Resource, ask.Amount, ask.Got, ask.Until, ask.Renew, ask.Incoming.Values.Sum());
-
-    /// <summary>The station's project as its residents see it</summary>
-    public static ProjectDto? Project(GameWorld world, Company me)
-    {
-        if (world.EstateOf(me) is not { } estate)
-        {
-            return null;
-        }
-        var project = world.ProjectOf(estate.Station);
-        var made = world.StationMakes(estate.Station);
-        var total = project.Credit.Values.Sum();
-        var helpers = project.Credit.Where(t => t.Value > 0 && world.Company(t.Key) != null)
-            .OrderByDescending(t => t.Value)
-            .Select(t => new ProjectHelperDto(world.Company(t.Key)!.Color, total <= 0 ? 0 : t.Value / total, t.Key == me.Id))
-            .ToList();
-        var opens = project.Stage == ProjectStage.FoundryHall ? project.StartedAt + TimeSpan.FromDays(14) : (DateTime?)null;
-        var keystone = project.Keystone;
-        var line = project.Stage == ProjectStage.Done
-            ? project.NextStoreyAt is { } next
-                ? $"The Landmark rose to storey {project.Storeys}: storey {project.Storeys + 1} opens {(next - world.Now < TimeSpan.FromDays(1) ? "at midnight" : $"in {Span(next - world.Now)}")}."
-                : "Every stage stands: the station's Landmark is finished."
-            : project.Stage == ProjectStage.Storey
-                ? $"Storey {project.Storeys + 1} of the Landmark: its goods come by the Yard, and its purse from anyone who gives. Each storey makes the station's pipes carry 10% more."
-            : opens is { } at && at > world.Now
-                ? $"The Foundry Hall opens in {Span(at - world.Now)}: until then the station grows. When it opens, what everyone here has spare goes in through the Yard by itself: no Exchange, no Storage needed."
-                : ProjectSentence(world, me, project) is { Parts.Count: > 0 } sentence
-                    ? $"The {GameWorld.StageName(project.Stage)}: {string.Join(" · ", sentence.Parts)}."
-                    : $"The {GameWorld.StageName(project.Stage)} takes your spare at the one player price: pipe it to your Yard gate.";
-        var card = world.ProjectCardFor(project, me);
-        ProjectGoodDto Good(string good, double target)
-        {
-            // Who could make what nobody here makes yet (the keystone always): the others first, and the building it takes
-            var makers = good == keystone || !made.Contains(good) ? world.MakersOf(project, good) : [];
-            var producer = makers.Where(t => t.Maker.Id == me.Id).Concat(makers).Select(t => t.Producer).FirstOrDefault();
-            return new ProjectGoodDto(good, target, Math.Min(target, project.Delivered.GetValueOrDefault(good)), good == keystone, made.Contains(good), world.PlayerPrice(good),
-                MakerNames(makers.Select(t => t.Maker), me),
-                producer == null ? null : $"a {producer.Name} (Level {producer.Unlock.Level}) {WhereItStands(world, producer)}".TrimEnd());
-        }
-        return new ProjectDto(
-            WorldNames.Station(estate.Station),
-            GameWorld.StageName(project.Stage),
-            (int)project.Stage,
-            Enum.GetValues<ProjectStage>().Where(t => t is not (ProjectStage.Done or ProjectStage.Storey)).Select(GameWorld.StageName).ToList(),
-            project.Basket.OrderBy(t => t.Key == keystone ? 1 : 0).ThenBy(t => t.Key).Select(t => Good(t.Key, t.Value)).ToList(),
-            helpers,
-            world.ProjectBonus(project),
-            project.FoundryChains,
-            opens,
-            project.Credit.GetValueOrDefault(me.Id),
-            project.Allowance.GetValueOrDefault(me.Id),
-            me.ProjectFirst.Order().ToList(),
-            line,
-            card.Share,
-            card.MinutesLeft,
-            card.GoingIn,
-            card.ShareCapped,
-            card.SharePerDay,
-            card.Bonus,
-            card.YourGain,
-            card.StationGain,
-            Storey(world, project, me));
-    }
-
-    /// <summary>The Landmark's storeys, once it stands (after run 4)</summary>
-    private static StoreyDto? Storey(GameWorld world, StationProject project, Company me)
-    {
-        if (project.Stage is not (ProjectStage.Storey or ProjectStage.Done) || !project.Finished.ContainsKey(ProjectStage.Landmark))
-        {
-            return null;
-        }
-        string Named(long id, double hours) => world.Company(id) is { } c ? $"{(c.Id == me.Id ? "you" : world.NameFor(c, me))} {GameWorld.HoursWords(hours)}" : "";
-        double Hours(long id, double gold) => gold / (60 * Math.Max(GameWorld.MinMeasuredIncome, world.Company(id) is { } c ? world.MeasuredIncome(c) : GameWorld.MinMeasuredIncome));
-        var givers = project.GivenBy.OrderByDescending(t => t.Value).Select(t => Named(t.Key, Hours(t.Key, t.Value))).Where(t => t.Length > 0).ToList();
-        var plaque = project.Plaques.LastOrDefault() is { } last
-            ? last.Hours.OrderByDescending(t => t.Value).Take(6).Select(t => Named(t.Key, t.Value)).Where(t => t.Length > 0).ToList()
-            : [];
-        return new StoreyDto(project.Storeys, project.Stage == ProjectStage.Storey, Math.Round(project.Purse), Math.Round(project.GivenBy.Values.Sum()), givers,
-            Math.Min(GameWorld.MaxStoreyPipeBonus, GameWorld.StoreyPipeBonus * project.Storeys), project.NextStoreyAt, plaque,
-            Math.Round(60 * Math.Max(GameWorld.MinMeasuredIncome, world.MeasuredIncome(me))));
-    }
-
-    /// <summary>A storey's progress: its goods and its purse, half each</summary>
-    private static double StoreyShare(GameWorld world, StationProject project)
-    {
-        var target = project.Basket.Sum(t => t.Value * world.BasePrice(t.Key));
-        var goods = target <= 0 ? 1 : project.Basket.Sum(t => Math.Min(t.Value, project.Delivered.GetValueOrDefault(t.Key)) * world.BasePrice(t.Key)) / target;
-        var purse = project.Purse <= 0 ? 1 : Math.Min(1, project.GivenBy.Values.Sum() / project.Purse);
-        return (goods + purse) / 2;
-    }
-
-    /// <summary>The project's stage and progress for a station card in the picker</summary>
-    private static string? ProjectLine(GameWorld world, StationRef station)
-    {
-        if (world.ExistingProject(station) is not { } project)
-        {
-            return null;
-        }
-        if (project.Stage == ProjectStage.Done)
-        {
-            return project.Storeys > 0 ? $"Landmark, storey {project.Storeys}" : "Landmark finished";
-        }
-        if (project.Stage == ProjectStage.Storey)
-        {
-            return $"Landmark, storey {project.Storeys + 1} rising · {100 * StoreyShare(world, project):0}%";
-        }
-        var target = project.Basket.Sum(t => t.Value * world.BasePrice(t.Key));
-        var done = project.Basket.Sum(t => Math.Min(t.Value, project.Delivered.GetValueOrDefault(t.Key)) * world.BasePrice(t.Key));
-        return $"{GameWorld.StageName(project.Stage)} · {(target <= 0 ? 0 : 100 * done / target):0}%";
-    }
 
     /// <summary>Whether a company sells a good to the hub (some of its buildings reach a Trading Post)</summary>
     private static bool HubTakes(GameWorld world, Company me, string resource) =>
@@ -2087,10 +1468,7 @@ public static partial class GameViews
             rates.Where(t => t.Value > 0.01).OrderByDescending(t => t.Value * world.BasePrice(t.Key)).Select(t => new ResourceRateDto(t.Key, t.Value)).ToList();
         var yours = world.YardTrades(estate)
             .Where(t => t.PerMinute > 1e-6 && world.Company(t.Partner) != null)
-            .Select(t => new YardTradeDto(t.Partner, world.NameFor(world.Company(t.Partner)!, me), t.Resource, t.PerMinute, t.Selling, world.YardPrice(me, world.Company(t.Partner)!, t.Resource, t.Selling),
-                t.Selling ? world.SendsTo(me, t.Partner, t.Resource) : world.SendsTo(world.Company(t.Partner)!, me.Id, t.Resource),
-                !t.Selling && !world.Company(t.Partner)!.IsNpc && !world.ThankedToday(me, t.Partner),
-                world.Company(t.Partner)!.IsNpc))
+            .Select(t => new YardTradeDto(t.Partner, world.NameFor(world.Company(t.Partner)!, me), t.Resource, t.PerMinute, t.Selling, world.YardPrice(me, world.Company(t.Partner)!, t.Resource, t.Selling)))
             .OrderByDescending(t => t.PerMinute * t.Price)
             .ToList();
         var connected = residents.FirstOrDefault(t => t.Company.Id == me.Id)?.Connected ?? false;
@@ -2109,15 +1487,12 @@ public static partial class GameViews
                             // energy yet" above a Brickworks that lacked 31 energy)
                             ? residents.FirstOrDefault(t => t.Company.Id != me.Id && t.Connected && t.Lacks.GetValueOrDefault(spare) > 0.01) is { } needs
                                 ? $"{world.NameFor(needs.Company, me)} lacks {Name(spare)} you have spare: the Yard's next round brings it to them, in a few minutes."
-                            : world.ExistingProject(station) is { } project && project.Basket.GetValueOrDefault(spare) > project.Delivered.GetValueOrDefault(spare)
-                                ? $"Nobody here needs {Name(spare)} yet: the {GameWorld.StageName(project.Stage)} and the hub take it."
-                                : HubTakes(world, me, spare)
+                            : HubTakes(world, me, spare)
                                     ? $"Nobody here needs {Name(spare)} yet: the hub takes it."
                                     : $"Nobody here needs {Name(spare)} yet: pipe it to your Trading Post and the hub buys it."
                             : "Nothing to trade yet: what you make your own buildings use.";
         return new YardDto(
-            WorldNames.Station(station),
-            station.IsSmall,
+            world.CrewAt(station) is { NameHidden: false } crew ? crew.Name : WorldNames.Station(station),
             yard.X0,
             yard.Y0,
             yard.X1,
@@ -2125,63 +1500,44 @@ public static partial class GameViews
             estate.YardGate.X,
             estate.YardGate.Y,
             connected,
-            residents.Select(t => new YardResidentDto(t.Company.Id, world.NameFor(t.Company, me), t.Company.Color, t.Company.Level, t.Company.IsNpc, t.Slot, t.Connected,
-                t.Company.IsNpc ? null : Camel(world.ActivityOf(t.Company)), Rates(t.Spare), Rates(t.Lacks), me.TradeBlocked.Contains(t.Company.Id),
-                t.Company.House is { } kind ? Camel(kind) : null, t.Company.StandIn?.Name,
-                t.Company.PinMakes.Order().ToList(), t.Company.PinNeeds.Order().ToList(),
-                t.Company.Asks.Select(Ask).ToList())).ToList(),
+            residents.Select(t => new YardResidentDto(t.Company.Id, world.NameFor(t.Company, me), t.Company.Color, t.Company.Level, t.Slot, t.Connected,
+                Camel(world.ActivityOf(t.Company)), Rates(t.Spare), Rates(t.Lacks), me.TradeBlocked.Contains(t.Company.Id),
+                t.Company.PinMakes.Order().ToList(), t.Company.PinNeeds.Order().ToList())).ToList(),
             yours,
             world.YardTotals(station).Select(t => new ResourceRateDto(t.Key, t.Value)).OrderByDescending(t => t.PerMinute).ToList(),
             line,
             Discoveries(world, station),
-            me.Sends.Select(t => new SendDto(t.Resource, t.To, world.Company(t.To) is { } to ? world.NameFor(to, me) : "?",
-                t.Building is { } b && world.Building(b) is { } building ? world.Content.Building(building.Type).Name : null,
-                Math.Round(yours.Where(y => y.Selling && y.Partner == t.To && y.Resource == t.Resource).Sum(y => y.PerMinute), 3),
-                Math.Round(world.TakenSince(me, t.Since > world.Now.AddDays(-7) ? t.Since : world.Now.AddDays(-7)).GetValueOrDefault((t.To, t.Resource))),
-                world.SendIdleReason(me, t)))
-                .Concat(me.ProjectFirst.Order().Select(t => new SendDto(t, null, world.ExistingProject(station) is { } p ? $"the {GameWorld.StageName(p.Stage)}" : "the project", null, 0)))
-                .ToList(),
-            world.SendCount(me),
-            GameWorld.MaxSends,
             world.BuildingsOf(me.Id).Where(t => !t.UnderConstruction).SelectMany(t => world.Content.Building(t.Type).Out.Keys).Distinct()
                 .Where(t => t != GameContent.ResearchPoints)
                 .SelectMany(t => world.Bids(me, t, residents))
                 .OrderByDescending(t => t.PerMinute * world.BasePrice(t.Resource))
                 .Take(4)
-                .Select(t => new BidDto(t.Resource, t.Buyer.Id, world.NameFor(t.Buyer, me), t.Building == null ? null : world.Content.Building(t.Building.Type).Name, t.Building?.Id, Math.Round(t.PerMinute, 2), t.House?.Name))
+                .Select(t => new BidDto(t.Resource, t.Buyer.Id, world.NameFor(t.Buyer, me), t.Building == null ? null : world.Content.Building(t.Building.Type).Name, t.Building?.Id, Math.Round(t.PerMinute, 2)))
                 .ToList(),
-            world.GiftsThisWeek(me).Take(8)
-                .Select(t => new GiftDto(t.Partner.Id, world.NameFor(t.Partner, me), t.Resource, Math.Round(t.Given), Math.Round(t.Received),
-                    world.SendsTo(me, t.Partner.Id, t.Resource), world.SendsTo(t.Partner, me.Id, t.Resource)))
+            world.TradesThisWeek(me).Take(8)
+                .Select(t => new WeekTradeDto(t.Partner.Id, world.NameFor(t.Partner, me), t.Resource, Math.Round(t.Given), Math.Round(t.Received)))
                 .ToList(),
-            YardIncomeLine(world, me, station, yours));
+            YardIncomeLine(world, me, yours));
     }
 
     /// <summary>
-    /// "Here the Yard pays you 40 g/min for what you send and the Foundation 62 g/min, of your +105/min: the hub pays the
-    /// rest" (the Yard pays for what neighbours and Houses take, and the hub's price for what nobody took)
-    /// (after run 4: the trades alone, against the top bar, left Cleo asking where the rest came from)
+    /// "Here the Yard pays you 40 g/min for what you send, of your +105/min: the hub pays the rest" (the Yard pays for
+    /// what neighbours take, and the hub's price for what nobody took) (after run 4: the trades alone, against the top
+    /// bar, left Cleo asking where the rest came from)
     /// </summary>
-    private static string? YardIncomeLine(GameWorld world, Company me, StationRef station, IReadOnlyList<YardTradeDto> yours)
+    private static string? YardIncomeLine(GameWorld world, Company me, IReadOnlyList<YardTradeDto> yours)
     {
         // What the Yard pays you, as the top bar counts it, less what you pay neighbours (that is in your networks' gold)
-        var (paid, project, _) = world.TradeIncomeOf(me.Id);
+        var paid = world.TradeIncomeOf(me.Id);
         var neighbours = paid - yours.Where(t => !t.Selling).Sum(t => t.PerMinute * t.Price);
-        if (Math.Abs(neighbours) < 0.5 && project < 0.5)
+        if (Math.Abs(neighbours) < 0.5)
         {
             return null;
         }
         var income = world.GoldPerMinute().GetValueOrDefault(me.Id);
         var parts = new List<string>();
-        if (Math.Abs(neighbours) >= 0.5)
-        {
-            parts.Add(neighbours >= 0 ? $"the Yard pays you {Amount(neighbours)} g/min for what you send" : $"you pay neighbours {Amount(-neighbours)} g/min");
-        }
-        if (project >= 0.5 && world.ExistingProject(station) is { } stage)
-        {
-            parts.Add($"{(parts.Count == 0 ? "" : "and ")}the {GameWorld.StageName(stage.Stage)} {(parts.Count == 0 ? "pays you " : "")}{Amount(project)} g/min");
-        }
-        var rest = income - neighbours - project;
+        parts.Add(neighbours >= 0 ? $"the Yard pays you {Amount(neighbours)} g/min for what you send" : $"you pay neighbours {Amount(-neighbours)} g/min");
+        var rest = income - neighbours;
         var line = $"Here {string.Join(" ", parts)}, of your {(income >= 0 ? "+" : "−")}{Amount(Math.Abs(income))}/min";
         return rest >= 0.5 ? $"{line}: the hub pays the rest, for what nobody here takes." : $"{line}.";
     }
@@ -2189,7 +1545,7 @@ public static partial class GameViews
     /// <summary>The Discoveries of the last week: where they are, their markers</summary>
     private static IReadOnlyList<DiscoveryDto> Discoveries(GameWorld world, StationRef station)
     {
-        var home = world.BigStation(station)[0];
+        var home = station;
         return world.Discoveries.Where(t => world.Now - t.FoundAt < TimeSpan.FromDays(7)).OrderByDescending(t => t.FoundAt).Select(t =>
         {
             var (stations, top) = world.DiscoveryMarks(t);

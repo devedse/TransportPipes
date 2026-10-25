@@ -336,21 +336,6 @@ public class YardFacts
     }
 
     [TestMethod]
-    public void TheFloorNeverPaysTheProjectTwice()
-    {
-        var game = new TestGame(content: TestGame.PlainContent);
-        game.World.ProjectsEnabled = true;
-        var a = game.NewCompany("A");
-        var moily = game.Build(a, "windMoily");
-        game.ConnectToGate(a, moily);
-        game.Connect(a, moily, game.TradingPost(a));
-        game.Pass(30);
-
-        Assert.IsTrue(game.World.StatValue(a, "projectGold") > 0, "the Foundation takes A's energy and pays for it");
-        Assert.AreEqual(0, game.World.StatValue(a, "yardFloor"), "what the project took is paid by the project only");
-    }
-
-    [TestMethod]
     public void WhenTwoYardPipesMeetBothSeeTheHandshake()
     {
         var (game, a, b, _, _) = Neighbours();
@@ -427,9 +412,7 @@ public class YardFacts
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var a = game.NewCompany("A");
-        // Slot 2 is in the small station north of the hub
-        var others = Enumerable.Range(0, 2).Select(i => game.NewCompany($"B{i}")).ToList();
-        var b = others.Last();
+        var b = game.NewCompany("B", slot: WorldLayout.StationSlots(3)[0]);
         Assert.AreNotEqual(WorldLayout.StationOf(a.District, a.Slot), WorldLayout.StationOf(b.District, b.Slot));
         var moily = game.Build(a, "windMoily");
         game.ConnectToGate(a, moily);

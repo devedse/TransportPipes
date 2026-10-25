@@ -49,11 +49,11 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>The blueprints a company may use: its own, its corporation's shared ones and the board's</summary>
+    /// <summary>The blueprints a company may use: its own, its crew's shared ones and the board's</summary>
     public IEnumerable<Blueprint> BlueprintsFor(Company company) => _blueprints.Values.Where(t =>
         t.Owner == company.Id
         || t.Sharing == BlueprintSharing.Board
-        || (t.Sharing == BlueprintSharing.Corporation && company.CorporationId != null && Company(t.Owner)?.CorporationId == company.CorporationId));
+        || (t.Sharing == BlueprintSharing.Corporation && company.CrewId != null && Company(t.Owner)?.CrewId == company.CrewId));
 
     /// <summary>Saves the buildings and pipes of a rectangle of the estate</summary>
     public CommandResult SaveBlueprint(long companyId, string name, TilePos from, int width, int height)

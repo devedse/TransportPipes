@@ -115,28 +115,20 @@ public class ContractFacts
     }
 
     [TestMethod]
-    public void AContractNobodyCanMeetCreatesNoGold()
+    public void NobodyPromisesMoreThanTheyMake()
     {
-        // Found by reading the code: a buying contract for a million ingots a minute, accepted by a tenant that makes a
+        // Found by reading the code: a buying contract for a million ingots a minute, accepted by a seller that makes a
         // few, paid its buyer a shortfall penalty of about a billion gold a day
         var game = new TestGame();
-        game.World.TenantsEnabled = true;
         var player = game.NewCompany(gold: 10_000, level: 10);
-        // Without its starter kit: what it sells would hide a penalty
-        foreach (var building in game.World.BuildingsOf(player.Id).Where(t => t.Type is not ("hq" or "tradingPost")).ToList())
-        {
-            game.World.Demolish(player.Id, building.Id);
-        }
-        var tenant = game.World.Companies.First(t => t.IsNpc && game.World.CanDeliver(player, t) && game.World.BuildingsOf(t.Id).Any(b => game.World.Content.Building(b.Type).Out.Count > 0));
-        var resource = game.World.BuildingsOf(tenant.Id).SelectMany(b => game.World.Content.Building(b.Type).Out.Keys).First();
-        var price = game.World.PlayerPrice(resource);
-        var before = player.Gold;
+        var seller = game.NewCompany("Seller", gold: 1_000, level: 10);
+        game.ConnectToGate(seller, game.Build(seller, "windMoily"));
+        var price = game.World.PlayerPrice("energy");
 
-        game.World.ProposeContract(player.Id, tenant.Id, selling: false, resource, rate: 1_000_000, price: price, days: 1);
-        game.Pass(24 * 60 + 30);
+        Assert.IsTrue(game.World.ProposeContract(player.Id, seller.Id, selling: false, "energy", rate: 1_000_000, price: price, days: 1).Success);
+        var accepted = game.World.AcceptContract(seller.Id, game.World.Contracts.Single().Id);
 
-        Assert.IsLessThan(before + 10_000, player.Gold, $"no penalty gold from a contract nobody could meet ({player.Gold - before:N0} gold more)");
-        Assert.IsGreaterThanOrEqualTo(0, tenant.Gold, "a penalty never makes anyone's gold negative");
+        Assert.IsFalse(accepted.Success, "a contract nobody could meet would only pay penalties");
     }
 
     [TestMethod]

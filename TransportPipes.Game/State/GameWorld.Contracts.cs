@@ -33,7 +33,7 @@ public sealed partial class GameWorld
 
     /// <summary>Whether two companies' goods can reach each other: they live in the same (big) station</summary>
     public bool CanDeliver(Company a, Company b) =>
-        EstatesOf(a).Select(t => BigStation(t.Station)[0]).Intersect(EstatesOf(b).Select(t => BigStation(t.Station)[0])).Any();
+        EstatesOf(a).Select(t => t.Station).Intersect(EstatesOf(b).Select(t => t.Station)).Any();
 
     /// <summary>
     /// Proposes a contract: selling (you deliver) or buying (you receive), to one company or, without a partner, to
@@ -103,10 +103,6 @@ public sealed partial class GameWorld
         };
         _contracts[contract.Id] = contract;
         ContractChanged(contract);
-        if (partner is { IsNpc: true })
-        {
-            TenantAnswers(partner, contract);
-        }
         return CommandResult.Ok;
     }
 

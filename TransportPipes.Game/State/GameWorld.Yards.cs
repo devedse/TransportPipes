@@ -11,8 +11,8 @@ public readonly record struct EstateKey(DistrictCoord District, int Slot)
 }
 
 /// <summary>
-/// A flow through an estate's Yard gate (v1.2 §7): what a building sends to the gate for the station's buyers, or gets
-/// from it. Price class 0: from players at the one player price, 1: from Houses at the House price.
+/// A flow through an estate's Yard gate (v1.2 §7): what a building sends to the gate for the Yard's buyers, or gets
+/// from it, and at what price class
 /// </summary>
 public sealed record GateFlow(long Building, EstateKey Estate, string Resource, double Sent, double Delivered, bool Import, int PriceClass, double Price);
 
@@ -29,7 +29,6 @@ public sealed partial class GameWorld
     /// <summary>The owner of the gate nodes as the solver sees them (never a company)</summary>
     private const long GateBuyer = -1;
     private const long PlayerSeller = -2;
-    private const long HouseSeller = -3;
 
     /// <summary>The gate nodes have ids below this (buildings and companies are positive)</summary>
     private const long GateNodeIds = -1_000_000;
@@ -109,7 +108,7 @@ public sealed partial class GameWorld
                 var total = sources.Values.Sum();
                 if (total > 1e-9)
                 {
-                    Add(new FlowNode { Id = nextId--, Owner = priceClass == 0 ? PlayerSeller : HouseSeller, Kind = FlowNodeKind.Building, Out = new Dictionary<string, double> { [resource] = total } }, resource, true, priceClass);
+                    Add(new FlowNode { Id = nextId--, Owner = PlayerSeller, Kind = FlowNodeKind.Building, Out = new Dictionary<string, double> { [resource] = total } }, resource, true, priceClass);
                 }
             }
         }
@@ -168,33 +167,12 @@ public sealed partial class GameWorld
         };
     }
 
-    /// <summary>What a buyer of this class pays per unit at the gate (the one player price, or the Houses' price)</summary>
-    private double GateSellerPrice(long owner, string resource) =>
-        owner == HouseSeller ? HouseSellPrice(resource) : PlayerPrice(resource);
-
-    /// <summary>What Houses charge players (dealt land: less for the land goods, so a chain on a neighbour's good pays)</summary>
-    public double HouseSellPrice(string resource) =>
-        Math.Round(BasePrice(resource) * (IsLandGood(resource) ? Content.Progression.Together.HouseSellLand : Content.Progression.Together.HouseSell), 4);
-
-    /// <summary>Dealt land: a good the stations deal (copper ore, coal, sand, wood, stone)</summary>
-    public bool IsLandGood(string resource) => Generator.DealtLand && WorldGenerator.LandGoods.Contains(resource);
-
-    /// <summary>What Houses pay a company for a good: a little more than its hub, never more than the House price times the base</summary>
-    public double HouseBuyPrice(Company seller, string resource)
-    {
-        var together = Content.Progression.Together;
-        return Math.Round(Math.Min(HubBuyPrice(seller, resource) * together.HouseBuy, BasePrice(resource) * together.HouseBuy), 4);
-    }
-
     /// <summary>
-    /// The gold per unit a seller gets for what a buyer took at the gate: a House's price, or the one player price; two
-    /// players on one device trade at the seller's hub price (no premium moves between an account and its alt)
+    /// The gold per unit a seller gets for what a buyer took at the gate: the one player price; two players on one
+    /// device trade at the seller's hub price (no premium moves between an account and its alt)
     /// </summary>
     private double SettlementPrice(Company seller, Company buyer, string resource) =>
-        seller.IsNpc ? HouseSellPrice(resource)
-        : buyer.IsNpc ? HouseBuyPrice(seller, resource)
-        : SameDevice(seller, buyer) ? HubBuyPrice(seller, resource)
-        : PlayerPrice(resource);
+        SameDevice(seller, buyer) ? HubBuyPrice(seller, resource) : PlayerPrice(resource);
 
     /// <summary>
     /// The sellers of what a network's gates delivered get their pay (what the buyer paid, in proportion to what each of
@@ -225,20 +203,16 @@ public sealed partial class GameWorld
             }
             seller.Gold += gold;
             earnings[seller.Id] = earnings.GetValueOrDefault(seller.Id) + gold;
-            // Measures (the playtest's): gold the Yard paid a player, and gold that came from a House
-            AddStat(seller, buyer.IsNpc ? "npcGold" : seller.IsNpc ? "houseSold" : "yardPaid", gold);
+            // Measures (the playtest's): gold the Yard paid a player
+            AddStat(seller, "yardPaid", gold);
             Add(seller.Report.Sold, payment.Resource, units);
             ContractDelivered(seller.Id, buyer.Id, payment.Resource, units);
             AddStat(seller, "soldToPlayers", units);
             AddStat(buyer, "boughtFromPlayers", units);
             CountUsualTrade(seller, buyer, payment.Resource, units, minutes);
-            if (!seller.IsNpc && !buyer.IsNpc)
-            {
-                Add(seller.Report.SoldToUnits, $"{buyer.Id}:{payment.Resource}", units);
-                Add(seller.Report.SoldToGold, $"{buyer.Id}:{payment.Resource}", gold);
-                Add(buyer.Report.BoughtFromUnits, $"{seller.Id}:{payment.Resource}", units);
-            }
-            AnnounceGift(seller, buyer, payment.Resource, payment.Units);
+            Add(seller.Report.SoldToUnits, $"{buyer.Id}:{payment.Resource}", units);
+            Add(seller.Report.SoldToGold, $"{buyer.Id}:{payment.Resource}", gold);
+            Add(buyer.Report.BoughtFromUnits, $"{seller.Id}:{payment.Resource}", units);
             seller.Touch();
             Changes.Companies.Add(seller.Id);
         }
@@ -252,9 +226,9 @@ public sealed partial class GameWorld
     private sealed record GatePayment(Company Seller, Company Buyer, string Resource, double Units, double Gold, bool Floor);
 
     /// <summary>
-    /// The payments for what the Yard brings to this network's gates, per minute. What a stand-in sells is NPC gold: it
-    /// leaves the game, it is never the sleeper's. What isn't taken and wouldn't have gone to the seller's hub (what a
-    /// Storage kept, or a building made only for the Yard) is lost on the way, and the next round sends less.
+    /// The payments for what the Yard brings to this network's gates, per minute. What isn't taken and wouldn't have gone
+    /// to the seller's hub (what a Storage kept, or a building made only for the Yard) is lost on the way, and the next
+    /// round sends less.
     /// </summary>
     private IEnumerable<GatePayment> GatePayments(Network network)
     {
@@ -277,7 +251,7 @@ public sealed partial class GameWorld
                 var hubBound = terms.HubBound.GetValueOrDefault((resource, priceClass));
                 foreach (var (sellerId, amount) in sources)
                 {
-                    if (Company(sellerId) is not { } seller || seller.Asleep)
+                    if (Company(sellerId) is not { } seller)
                     {
                         continue;
                     }
@@ -286,7 +260,7 @@ public sealed partial class GameWorld
                     {
                         yield return new GatePayment(seller, buyer, resource, units, units * SettlementPrice(seller, buyer, resource), false);
                     }
-                    var floor = seller.IsNpc ? 0 : untaken * Math.Min(amount, hubBound?.GetValueOrDefault(sellerId) ?? 0) / total;
+                    var floor = untaken * Math.Min(amount, hubBound?.GetValueOrDefault(sellerId) ?? 0) / total;
                     if (floor > 1e-12)
                     {
                         yield return new GatePayment(seller, buyer, resource, floor, floor * HubBuyPrice(seller, resource), true);
@@ -317,7 +291,7 @@ public sealed partial class GameWorld
                 var untaken = Math.Max(0, total - taken);
                 foreach (var (sellerId, amount) in sources)
                 {
-                    if (Company(sellerId) is { IsNpc: false } seller)
+                    if (Company(sellerId) is { } seller)
                     {
                         AddStat(seller, "yardSent", amount * minutes);
                         AddStat(seller, "yardUntaken", untaken * minutes * amount / total);
@@ -329,46 +303,33 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// Gold a minute that companies get, or pay, besides their networks' own flows (F1.6: the screens show what is
-    /// paid): Yard sales (and the floor), deliveries to the project, Asks, and what stand-ins buy
+    /// paid): Yard sales (and the floor)
     /// </summary>
     private void AddTradeIncome(Dictionary<long, double> total) =>
-        ForEachTradeIncome((company, gold, _) => total[company] = total.GetValueOrDefault(company) + gold);
+        ForEachTradeIncome((company, gold) => total[company] = total.GetValueOrDefault(company) + gold);
 
     /// <summary>
-    /// What the Yard pays a company a minute beside its networks' own gold: its neighbours and Houses, its station's
-    /// project, and the rest (Asks, stand-ins). The top bar, the Yard's line and the network panel all read this
-    /// (after run 4: three panels showed three incomes, and Cleo couldn't tell where her money came from)
+    /// What the Yard pays a company a minute beside its networks' own gold: its neighbours. The top bar, the Yard's line
+    /// and the network panel all read this (after run 4: three panels showed three incomes, and Cleo couldn't tell where
+    /// her money came from)
     /// </summary>
-    public (double Neighbours, double Project, double Other) TradeIncomeOf(long companyId)
+    public double TradeIncomeOf(long companyId)
     {
         SolveNetworks();
-        var (neighbours, project, other) = (0.0, 0.0, 0.0);
-        ForEachTradeIncome((company, gold, kind) =>
+        var neighbours = 0.0;
+        ForEachTradeIncome((company, gold) =>
         {
-            if (company != companyId)
+            if (company == companyId)
             {
-                return;
-            }
-            switch (kind)
-            {
-                case TradeIncomeKind.Neighbours: neighbours += gold; break;
-                case TradeIncomeKind.Project: project += gold; break;
-                default: other += gold; break;
+                neighbours += gold;
             }
         });
-        return (neighbours, project, other);
+        return neighbours;
     }
 
-    private enum TradeIncomeKind
+    private void ForEachTradeIncome(Action<long, double> add)
     {
-        Neighbours,
-        Project,
-        Other,
-    }
-
-    private void ForEachTradeIncome(Action<long, double, TradeIncomeKind> add)
-    {
-        void Add(long company, double gold) => add(company, gold, TradeIncomeKind.Neighbours);
+        void Add(long company, double gold) => add(company, gold);
         foreach (var network in _networks.Values)
         {
             foreach (var payment in GatePayments(network))
@@ -381,7 +342,7 @@ public sealed partial class GameWorld
         // 233 → 128 → 298 g/min)
         foreach (var (sellerKey, terms) in _gateTerms)
         {
-            if (Estate(sellerKey.District, sellerKey.Slot)?.OwnerId is not { } sellerId || Company(sellerId) is not { Asleep: false } seller)
+            if (Estate(sellerKey.District, sellerKey.Slot)?.OwnerId is not { } sellerId || Company(sellerId) is not { } seller)
             {
                 continue;
             }
@@ -391,49 +352,10 @@ public sealed partial class GameWorld
                 {
                     continue;
                 }
-                var arriving = _gateTerms.GetValueOrDefault(buyerKey)?.Import.GetValueOrDefault((resource, seller.IsNpc ? 1 : 0))?.GetValueOrDefault(sellerId) ?? 0;
+                var arriving = _gateTerms.GetValueOrDefault(buyerKey)?.Import.GetValueOrDefault((resource, 0))?.GetValueOrDefault(sellerId) ?? 0;
                 if (matched - arriving > 1e-9)
                 {
                     Add(sellerId, (matched - arriving) * SettlementPrice(seller, buyer, resource));
-                }
-            }
-        }
-        foreach (var project in _projects.Values.Where(t => t.Incoming.Count > 0))
-        {
-            foreach (var (sellerId, goods) in project.Incoming)
-            {
-                foreach (var (good, perMinute) in goods.Where(t => ProjectLacks(project, t.Key) > 1e-9))
-                {
-                    add(sellerId, perMinute * BasePrice(good), TradeIncomeKind.Project);
-                }
-            }
-        }
-        foreach (var asker in _companies.Values.Where(t => t.Asks.Count > 0))
-        {
-            var room = StorageRoom(asker.Id) > 1e-9;
-            foreach (var ask in asker.Asks.Where(t => room && t.Left > 1e-9))
-            {
-                foreach (var (sellerId, perMinute) in ask.Incoming)
-                {
-                    if (Company(sellerId) is { } seller)
-                    {
-                        add(sellerId, perMinute * HubBuyPrice(seller, ask.Resource), TradeIncomeKind.Other);
-                        add(asker.Id, -perMinute * HubBuyPrice(seller, ask.Resource), TradeIncomeKind.Other);
-                    }
-                }
-            }
-        }
-        foreach (var sleeper in _companies.Values.Where(t => t.Asleep && t.StandIn != null && t.Packed == null))
-        {
-            if (EstateOf(sleeper) is not { } estate || !_gateTerms.TryGetValue(KeyOf(estate), out var terms))
-            {
-                continue;
-            }
-            foreach (var ((resource, _), sources) in terms.Import)
-            {
-                foreach (var (sellerId, perMinute) in sources.Where(t => Company(t.Key) is { Asleep: false }))
-                {
-                    add(sellerId, perMinute * StandInBuyPrice(sleeper, Company(sellerId)!, resource), TradeIncomeKind.Other);
                 }
             }
         }
@@ -470,8 +392,8 @@ public sealed partial class GameWorld
         public required EstateKey Key { get; init; }
         public required Company Company { get; init; }
 
-        /// <summary>The network at its gate (null for a stand-in: an asleep estate makes nothing)</summary>
-        public required Network? Network { get; init; }
+        /// <summary>The network at its gate</summary>
+        public required Network Network { get; init; }
 
         /// <summary>Per minute: what it has spare (it would go to the hub), what it lacks, what it makes, what its buildings use</summary>
         public Dictionary<string, double> Spare { get; } = new();
@@ -499,19 +421,10 @@ public sealed partial class GameWorld
     private List<YardMember> YardMembers(StationRef station)
     {
         var members = new List<YardMember>();
-        foreach (var seat in BigStation(station).SelectMany(StationSeats))
+        foreach (var seat in StationSeats(station))
         {
             if (Estate(seat.District, seat.Slot) is not { OwnerId: { } ownerId } estate || Company(ownerId) is not { } company || company.Packed != null)
             {
-                continue;
-            }
-            if (company.Asleep)
-            {
-                // Its stand-in keeps its trades going
-                if (company.StandIn is { } standIn)
-                {
-                    members.Add(StandInMember(estate, company, standIn));
-                }
                 continue;
             }
             if (GateNetwork(estate) is not { } network)
@@ -520,14 +433,6 @@ public sealed partial class GameWorld
             }
             var member = new YardMember { Key = KeyOf(estate), Company = company, Network = network };
             MeasureSpare(member);
-            // Dealt land: a House sells land goods from its stock, beyond what its buildings make: it always sends what it was matched
-            if (company.IsNpc && Generator.DealtLand && _gateTerms.TryGetValue(member.Key, out var houseTerms))
-            {
-                foreach (var (resource, amount) in houseTerms.Export.Where(t => IsLandGood(t.Key)))
-                {
-                    member.Sent[resource] = Math.Max(member.Sent.GetValueOrDefault(resource), amount);
-                }
-            }
             foreach (var (resource, amount) in member.Spare)
             {
                 member.SpareMeasured[resource] = amount;
@@ -542,7 +447,7 @@ public sealed partial class GameWorld
                 Add(stationSpare, resource, amount);
             }
         }
-        foreach (var member in members.Where(t => t.Network != null))
+        foreach (var member in members)
         {
             MeasureLacks(member, stationSpare);
         }
@@ -576,7 +481,7 @@ public sealed partial class GameWorld
     /// </summary>
     private void MeasureSpare(YardMember member)
     {
-        var network = member.Network!;
+        var network = member.Network;
         var solution = network.Solution;
         var reach = new GateReach(network, Estate(member.Key.District, member.Key.Slot)!.YardGate);
         var nodes = network.Nodes.ToDictionary(t => t.Id);
@@ -640,8 +545,7 @@ public sealed partial class GameWorld
             var could = least >= 0.999 ? 1 : Math.Max(least, LevelReach(network, node).InputShare());
             if (could * node.MaxRate - rate > 1e-9)
             {
-                // Nobody takes all it could make: spare for the station (and what it makes is what it could make, else
-                // the Houses' cap would shrink with every round nobody takes it all)
+                // Nobody takes all it could make: spare for the Yard
                 foreach (var (resource, amount) in node.Out)
                 {
                     Add(member.Makes, resource, amount * (could * node.MaxRate - rate));
@@ -664,7 +568,7 @@ public sealed partial class GameWorld
     /// </summary>
     private void MeasureLacks(YardMember member, IReadOnlyDictionary<string, double> stationSpare)
     {
-        var network = member.Network!;
+        var network = member.Network;
         var solution = network.Solution;
         var reach = new GateReach(network, Estate(member.Key.District, member.Key.Slot)!.YardGate);
         var nodes = network.Nodes.ToDictionary(t => t.Id);
@@ -814,9 +718,7 @@ public sealed partial class GameWorld
     /// <summary>Whether a seller's goods may go to a buyer: their trade settings, Blocks, and the buyer's gold</summary>
     private bool YardTradeAllowed(Company seller, Company buyer, string resource) =>
         seller.Id != buyer.Id && !seller.NoTrade.Contains(resource) && !buyer.NoBuy.Contains(resource)
-        && (buyer.IsNpc || buyer.Asleep || buyer.Gold > 0) && TradesWith(seller, buyer) && TradesWith(buyer, seller)
-        // A stand-in keeps a sleeper's trades with players, never with Houses or another stand-in
-        && !(seller.Asleep && (buyer.IsNpc || buyer.Asleep)) && !(buyer.Asleep && seller.IsNpc);
+        && buyer.Gold > 0 && TradesWith(seller, buyer) && TradesWith(buyer, seller);
 
     /// <summary>
     /// Shares what sellers have among buyers that lack it, in proportion (every buyer the same share of its need, every
@@ -883,97 +785,13 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// Dealt land (step 5): what Houses sell of a land good. A House whose seat holds the good sells it from its stock:
-    /// it fully feeds one building of every player that uses it (the floor), and v1.2's cap beyond that. When no seat of
-    /// the station will sell a player the good (the seats that hold it are free, held, away 3+ days, or don't trade
-    /// with them), any House of the station sells them what they still lack, with no cap (the backstop).
-    /// </summary>
-    private void LandGoodHouses(List<YardMember> members, string resource, double[] spare, double[] maySell)
-    {
-        if (members.Count == 0)
-        {
-            return;
-        }
-        var seats = BigStation(WorldLayout.StationOf(members[0].Key.District, members[0].Key.Slot)).SelectMany(StationSeats)
-            .Where(t => Generator.LandOf(t.District, t.Slot).Contains(resource))
-            .ToList();
-        var holders = seats.Select(t => Estate(t.District, t.Slot)?.OwnerId is { } id ? Company(id) : null).ToList();
-        for (var s = 0; s < members.Count; s++)
-        {
-            if (members[s].Company.IsNpc && holders.Any(t => t?.Id == members[s].Company.Id))
-            {
-                spare[s] = Math.Max(spare[s], 1e6);
-            }
-        }
-        for (var b = 0; b < members.Count; b++)
-        {
-            var buyer = members[b].Company;
-            if (buyer.IsNpc)
-            {
-                continue;
-            }
-            var covered = holders.Any(t => t != null && (t.IsNpc || (ActivityOf(t) == Activity.Active && TradesWith(t, buyer) && TradesWith(buyer, t))));
-            if (!covered)
-            {
-                // The backstop: any House of the station sells what nobody here will
-                maySell[b] = double.MaxValue;
-                for (var s = 0; s < members.Count; s++)
-                {
-                    if (members[s].Company.IsNpc)
-                    {
-                        spare[s] = Math.Max(spare[s], 1e6);
-                    }
-                }
-                continue;
-            }
-            maySell[b] = Math.Max(maySell[b], OneBuildingNeed(members[b], resource));
-        }
-    }
-
-    /// <summary>
-    /// Whether a member's buildings that use a good still make more than they cost when it comes from a House: what they
-    /// make at the base price against that good at the House's price and their other inputs at the base
-    /// </summary>
-    private bool PaysAtHousePrice(YardMember member, string resource)
-    {
-        if (member.Network is not { } network)
-        {
-            return true;
-        }
-        var users = network.Nodes.Where(t => t.Kind == FlowNodeKind.Building && t.Owner == member.Company.Id && t.In.ContainsKey(resource)).ToList();
-        // A Lab (research points have no price) always pays
-        return users.Count == 0 || users.Any(t => t.Out.Keys.Any(o => !Content.Resources.ContainsKey(o))
-            || t.Out.Sum(o => o.Value * BasePrice(o.Key)) > t.In.Sum(i => i.Value * (i.Key == resource ? HouseSellPrice(i.Key) : BasePrice(i.Key))));
-    }
-
-    /// <summary>
-    /// What one building of a member uses of a good at full speed, measured at the gate (with what its own pipe loses on
-    /// the way): the hungriest one, which a House feeds fully
-    /// </summary>
-    private static double OneBuildingNeed(YardMember member, string resource)
-    {
-        if (member.Network is not { } network)
-        {
-            return 0;
-        }
-        return network.Nodes.Where(t => t.Kind == FlowNodeKind.Building && t.Owner == member.Company.Id && t.In.ContainsKey(resource))
-            .Select(t => t.In[resource] * t.MaxRate / Math.Max(0.5, network.GateLinks.Where(l => l.Building == t.Id && (l.Resources == null || l.Resources.Contains(resource)))
-                .Select(l => l.Efficiency).DefaultIfEmpty(1).Max()))
-            .DefaultIfEmpty(0).Max();
-    }
-
-    /// <summary>
-    /// The matching of one station for this round: players first (between them), then what is left between players and
-    /// Houses, within the one NPC cap (Houses buy at most a quarter of what a player makes of a good, and sell at most a
-    /// quarter of what it uses)
+    /// The matching of one Yard for this round: the running trades first (kept), then the rest, pro rata
     /// </summary>
     private Dictionary<(EstateKey Seller, EstateKey Buyer, string Resource), double> MatchYard(List<YardMember> members, bool kept)
     {
         var result = new Dictionary<(EstateKey, EstateKey, string), double>();
-        // Dealt land: a land good somebody lacks is matched even when nobody has it spare (the Houses sell it from stock)
-        var resources = members.SelectMany(t => t.Spare.Keys).Concat(!kept && Generator.DealtLand ? WorldGenerator.LandGoods : [])
+        var resources = members.SelectMany(t => t.Spare.Keys)
             .Intersect(members.SelectMany(t => t.Lacks.Keys)).Order(StringComparer.Ordinal).ToList();
-        var cap = Content.Progression.Together.NpcCap;
         var index = members.Select((t, i) => (t.Company.Id, i)).GroupBy(t => t.Id).ToDictionary(t => t.Key, t => t.First().i);
         foreach (var resource in resources)
         {
@@ -991,25 +809,7 @@ public sealed partial class GameWorld
 
             if (!kept)
             {
-                // Players with players
-                Record(Share(spare, lacks, (s, b) => !members[s].Company.IsNpc && !members[b].Company.IsNpc && Allowed(s, b)));
-                // Houses buy what players have left, and sell what players still lack, within one cap per player
-                var mayBuy = members.Select(t => t.Company.IsNpc ? 0 : cap * t.Makes.GetValueOrDefault(resource)).ToArray();
-                Record(Share(spare, lacks, (s, b) => !members[s].Company.IsNpc && members[b].Company.IsNpc && Allowed(s, b), sellerCap: mayBuy));
-                var maySell = members.Select(t => t.Company.IsNpc ? 0 : cap * t.Uses.GetValueOrDefault(resource)).ToArray();
-                if (IsLandGood(resource))
-                {
-                    LandGoodHouses(members, resource, spare, maySell);
-                }
-                // A House sells a good only where it pays the buyer: none of its buildings would run at a loss on it
-                for (var b = 0; b < members.Count; b++)
-                {
-                    if (!members[b].Company.IsNpc && maySell[b] > 0 && !PaysAtHousePrice(members[b], resource))
-                    {
-                        maySell[b] = 0;
-                    }
-                }
-                Record(Share(spare, lacks, (s, b) => members[s].Company.IsNpc && !members[b].Company.IsNpc && Allowed(s, b), buyerCap: maySell));
+                Record(Share(spare, lacks, Allowed));
                 continue;
             }
 
@@ -1034,14 +834,14 @@ public sealed partial class GameWorld
             for (var s = 0; s < members.Count; s++)
             {
                 var seller = members[s].Company;
-                if (seller.IsNpc || seller.UsualTrades.Count == 0)
+                if (seller.UsualTrades.Count == 0)
                 {
                     continue;
                 }
                 for (var b = 0; b < members.Count; b++)
                 {
                     var buyer = members[b].Company;
-                    if (buyer.IsNpc || b == s || spare[s] <= 1e-9 || lacks[b] <= 1e-9 || !Allowed(s, b))
+                    if (b == s || spare[s] <= 1e-9 || lacks[b] <= 1e-9 || !Allowed(s, b))
                     {
                         continue;
                     }
@@ -1051,24 +851,6 @@ public sealed partial class GameWorld
                         continue;
                     }
                     var amount = Math.Min(usual, Math.Min(spare[s], lacks[b]));
-                    spare[s] -= amount;
-                    lacks[b] -= amount;
-                    var key = (members[s].Key, members[b].Key, resource);
-                    result[key] = result.GetValueOrDefault(key) + amount;
-                }
-            }
-
-            // Sends next (step 4): a giver's spare goes to the neighbour it names, up to their honest lack, in the order
-            // they were made; a Send to a sleeper goes to its stand-in
-            for (var s = 0; s < members.Count; s++)
-            {
-                foreach (var send in members[s].Company.Sends.Where(t => t.Resource == resource).OrderBy(t => t.Since))
-                {
-                    if (spare[s] <= 1e-9 || !index.TryGetValue(send.To, out var b) || b == s || lacks[b] <= 1e-9 || !Allowed(s, b))
-                    {
-                        continue;
-                    }
-                    var amount = Math.Min(spare[s], lacks[b]);
                     spare[s] -= amount;
                     lacks[b] -= amount;
                     var key = (members[s].Key, members[b].Key, resource);
@@ -1092,7 +874,7 @@ public sealed partial class GameWorld
         // A big station matches once, from its corner station
         var stations = _estates.Values
             .Where(t => t.OwnerId != null)
-            .Select(t => BigStation(t.Station)[0])
+            .Select(t => t.Station)
             .Distinct()
             .OrderBy(t => t.District.X).ThenBy(t => t.District.Y).ThenBy(t => t.Index);
         var byStation = stations.Select(t => (Station: t, Members: YardMembers(t))).ToList();
@@ -1109,37 +891,6 @@ public sealed partial class GameWorld
         {
             var byKey = members.ToDictionary(t => t.Key);
             DeliverEraWonder(station, members);
-            // What was matched for far markets leaves the gates now
-            if (TrunksEnabled)
-            {
-                DeliverTrunks(members);
-            }
-            // What was sent to the station's project arrives now, in the shares it was matched
-            if (ProjectsEnabled && members.Any(t => !t.Company.IsNpc))
-            {
-                var project = ProjectOf(station);
-                project.Incoming = new Dictionary<long, Dictionary<string, double>>();
-                foreach (var seller in members)
-                {
-                    if (!project.Matched.TryGetValue(seller.Company.Id, out var goods) || !_gateTerms.TryGetValue(seller.Key, out var sent))
-                    {
-                        continue;
-                    }
-                    foreach (var (good, amount) in goods)
-                    {
-                        var exported = sent.Export.GetValueOrDefault(good);
-                        var ratio = exported <= 1e-12 ? 0 : Math.Min(1, seller.Sent.GetValueOrDefault(good) / exported);
-                        if (amount * ratio > 1e-9)
-                        {
-                            if (!project.Incoming.TryGetValue(seller.Company.Id, out var incoming))
-                            {
-                                project.Incoming[seller.Company.Id] = incoming = new Dictionary<string, double>();
-                            }
-                            incoming[good] = amount * ratio;
-                        }
-                    }
-                }
-            }
             // What sellers sent last round arrives now, in the shares they were matched (less when they sent less)
             foreach (var seller in members)
             {
@@ -1155,14 +906,14 @@ public sealed partial class GameWorld
                     {
                         continue;
                     }
-                    var priceClass = seller.Company.IsNpc ? 1 : 0;
+                    const int priceClass = 0;
                     var import = TermsOf(buyerKey).Import;
                     if (!import.TryGetValue((resource, priceClass), out var sources))
                     {
                         import[(resource, priceClass)] = sources = new Dictionary<long, double>();
                     }
                     sources[seller.Company.Id] = sources.GetValueOrDefault(seller.Company.Id) + matched * ratio;
-                    if (!seller.Company.IsNpc && old.HubShare.GetValueOrDefault(resource) is > 0 and var hubShare)
+                    if (old.HubShare.GetValueOrDefault(resource) is > 0 and var hubShare)
                     {
                         var bound = TermsOf(buyerKey).HubBound;
                         if (!bound.TryGetValue((resource, priceClass), out var bySeller))
@@ -1175,7 +926,7 @@ public sealed partial class GameWorld
             }
         }
 
-        // Asks: what was brought last round arrives, and the residents' spare goes to their neighbours' Asks first
+        // Wants: what was brought last round arrives, and the residents' spare goes to their neighbours' wants first
         foreach (var (station, members) in byStation)
         {
             DeliverAsks(station, members);
@@ -1193,15 +944,6 @@ public sealed partial class GameWorld
         }
         foreach (var (station, members) in byStation)
         {
-            var project = ProjectsEnabled && members.Any(t => !t.Company.IsNpc) ? ProjectOf(station) : null;
-            var toProject = new Dictionary<(EstateKey Seller, string Resource), double>();
-            void Send(Dictionary<(EstateKey Seller, string Resource), double> sent)
-            {
-                foreach (var (key, amount) in sent)
-                {
-                    toProject[key] = toProject.GetValueOrDefault(key) + amount;
-                }
-            }
             void Trade(Dictionary<(EstateKey Seller, EstateKey Buyer, string Resource), double> matched)
             {
                 var byKey = members.ToDictionary(t => t.Key);
@@ -1215,49 +957,21 @@ public sealed partial class GameWorld
                     byKey[buyerKey].Lacks[resource] = Math.Max(0, byKey[buyerKey].Lacks.GetValueOrDefault(resource) - amount);
                 }
             }
-            // Contracts, the usual partners' running trade and Sends first: nobody's trade is cut by another's Send
+            // Contracts and the usual partners' running trade first: nobody's trade is cut by somebody new
             if (members.Count >= 2)
             {
                 Trade(MatchYard(members, kept: true));
-            }
-            // A seller's Sends to the project ("project first") next
-            if (project != null)
-            {
-                Send(MatchProject(project, members, first: true));
             }
             // Then everyone else, pro rata
             if (members.Count >= 2)
             {
                 Trade(MatchYard(members, kept: false));
             }
-            // Then the project takes what the residents left
-            if (project != null)
-            {
-                Send(MatchProject(project, members, first: false));
-                project.Matched = new Dictionary<long, Dictionary<string, double>>();
-                var byKey = members.ToDictionary(t => t.Key);
-                foreach (var ((sellerKey, resource), amount) in toProject)
-                {
-                    var terms = TermsOf(sellerKey);
-                    terms.Export[resource] = terms.Export.GetValueOrDefault(resource) + amount;
-                    var seller = byKey[sellerKey].Company.Id;
-                    if (!project.Matched.TryGetValue(seller, out var goods))
-                    {
-                        project.Matched[seller] = goods = new Dictionary<string, double>();
-                    }
-                    goods[resource] = goods.GetValueOrDefault(resource) + amount;
-                }
-            }
             // Then the Capital's Era Wonder (after run 3, step 5)
             foreach (var ((sellerKey, resource), amount) in MatchEraWonder(station, members, ref limit))
             {
                 var terms = TermsOf(sellerKey);
                 terms.Export[resource] = terms.Export.GetValueOrDefault(resource) + amount;
-            }
-            // What is still spare can go beyond the own hub (public trunks, the Port, the crew's trunks)
-            if (TrunksEnabled)
-            {
-                MatchTrunks(members, TermsOf);
             }
         }
 
@@ -1315,7 +1029,7 @@ public sealed partial class GameWorld
     /// </summary>
     private void Handshakes(List<YardMember> members)
     {
-        var players = members.Where(t => t.Network != null && !t.Company.IsNpc).ToList();
+        var players = members;
         foreach (var member in players.Where(t => !t.Company.Stats.ContainsKey("yard")))
         {
             foreach (var other in players.Where(t => t != member && t.Company.Stats.ContainsKey("yard")))
@@ -1406,13 +1120,13 @@ public sealed partial class GameWorld
     /// <summary>A resident of a station as the Yard panel shows it: whether its pipes reach its gate, what it has spare and lacks</summary>
     public sealed record YardResident(Company Company, int Slot, bool Connected, IReadOnlyDictionary<string, double> Spare, IReadOnlyDictionary<string, double> Lacks);
 
-    /// <summary>The residents of a station (players and Houses), the connected ones with what they have spare and lack</summary>
+    /// <summary>The residents of a station, the connected ones with what they have spare and lack</summary>
     public List<YardResident> YardResidents(StationRef station)
     {
         SolveNetworks();
         var members = YardMembers(station).ToDictionary(t => t.Key.Slot);
         var residents = new List<YardResident>();
-        foreach (var slot in BigStation(station).SelectMany(StationSeats).Select(t => t.Slot))
+        foreach (var slot in StationSeats(station).Select(t => t.Slot))
         {
             if (Estate(station.District, slot)?.OwnerId is not { } owner || Company(owner) is not { } company)
             {
@@ -1424,9 +1138,7 @@ public sealed partial class GameWorld
                 continue;
             }
             // What is still spare (it goes to the hub) and still missing, after what the Yard passes already
-            var gets = member.Network == null
-                ? _gateTerms.TryGetValue(member.Key, out var standInTerms) ? standInTerms.Import.GroupBy(t => t.Key.Resource).ToDictionary(t => t.Key, t => t.Sum(f => f.Value.Values.Sum())) : new Dictionary<string, double>()
-                : member.Network.GateFlows.Where(t => t.Import && t.Estate == member.Key).GroupBy(t => t.Resource).ToDictionary(t => t.Key, t => t.Sum(f => f.Sent));
+            var gets = member.Network.GateFlows.Where(t => t.Import && t.Estate == member.Key).GroupBy(t => t.Resource).ToDictionary(t => t.Key, t => t.Sum(f => f.Sent));
             residents.Add(new YardResident(company, slot, true,
                 member.Spare.ToDictionary(t => t.Key, t => Math.Max(0, t.Value - member.Sent.GetValueOrDefault(t.Key))),
                 member.Lacks.ToDictionary(t => t.Key, t => Math.Max(0, t.Value - gets.GetValueOrDefault(t.Key)))));
@@ -1442,8 +1154,8 @@ public sealed partial class GameWorld
     public Dictionary<string, double> YardTotals(StationRef station)
     {
         var totals = new Dictionary<string, double>();
-        var home = BigStation(station)[0];
-        foreach (var slot in BigStation(station).SelectMany(StationSeats).Select(t => t.Slot))
+        var home = station;
+        foreach (var slot in StationSeats(station).Select(t => t.Slot))
         {
             if (_gateTerms.TryGetValue(new EstateKey(station.District, slot), out var terms))
             {
@@ -1458,7 +1170,7 @@ public sealed partial class GameWorld
 
     /// <summary>Whether a company lives in a (big) station</summary>
     private bool LivesIn(long companyId, StationRef home) =>
-        Company(companyId) is { } company && EstateOf(company) is { } estate && BigStation(estate.Station)[0] == home;
+        Company(companyId) is { } company && EstateOf(company) is { } estate && estate.Station == home;
 
     /// <summary>What links from residents of the same station bring an estate (counted as links, not as the Yard)</summary>
     private double LinkImports(EstateKey buyer, string resource, StationRef home) =>
@@ -1474,7 +1186,7 @@ public sealed partial class GameWorld
     {
         var trades = new List<(long, string, double, bool)>();
         var key = KeyOf(estate);
-        var home = BigStation(estate.Station)[0];
+        var home = estate.Station;
         double OverLink(long seller, long buyer, string resource) => LinkBetween(seller, buyer, resource)?.Rate ?? 0;
         if (_gateTerms.TryGetValue(key, out var terms) && estate.OwnerId is { } me)
         {
@@ -1508,7 +1220,7 @@ public sealed partial class GameWorld
         return trades;
     }
 
-    /// <summary>The share of what the Yard brings an estate's gate that its buildings take (a stand-in takes it all)</summary>
+    /// <summary>The share of what the Yard brings an estate's gate that its buildings take</summary>
     private double TakenShare(EstateKey key, string resource, int priceClass)
     {
         if (!_gateTerms.TryGetValue(key, out var terms) || !terms.Import.TryGetValue((resource, priceClass), out var sources))
@@ -1520,11 +1232,7 @@ public sealed partial class GameWorld
         {
             return 0;
         }
-        if (Estate(key.District, key.Slot) is not { } estate || (estate.OwnerId is { } owner && Company(owner) is { Asleep: true }))
-        {
-            return 1;
-        }
-        if (NetworkAt(estate.YardGate) is not { } network)
+        if (Estate(key.District, key.Slot) is not { } estate || NetworkAt(estate.YardGate) is not { } network)
         {
             return 0;
         }

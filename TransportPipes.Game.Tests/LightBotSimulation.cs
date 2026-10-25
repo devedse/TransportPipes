@@ -66,10 +66,9 @@ public class LightBotSimulation
         }
         var days = int.TryParse(Environment.GetEnvironmentVariable("TP_BALANCE_DAYS"), out var d) ? d : 36;
         var lever = Environment.GetEnvironmentVariable("TP_BALANCE_LEVER") is { Length: > 0 } l ? l : null;
-        var game = new TestGame(seed: 4242, content: Lever(lever), tutorial: true, surveys: true, dealtLand: true);
+        var game = new TestGame(seed: 4242, content: Lever(lever), tutorial: true);
         var world = game.World;
-        world.TenantsEnabled = true;
-        world.ProjectsEnabled = true;
+        world.WonderBuysEnabled = true;
         world.PlayerPriceFactor = price;
         world.OpenNextDistrict();
 
@@ -188,10 +187,7 @@ public class LightBotSimulation
         {
             var c = player.Company!;
             var plan = world.PlanGrowth(c);
-            var storey = world.EstateOf(c) is { } home && world.ExistingProject(home.Station) is { } project
-                ? $"project {project.Stage}{(project.Stage == ProjectStage.Storey ? $" (storey {project.Storeys + 1}, purse wants {GameWorld.PurseLeft(project):N0})" : "")}"
-                : "no project";
-            report.AppendLine($"- {player.Name} on day {days}: {c.Gold:N0} g; grow {plan.Parts.Count} parts for {plan.Cost:N0} (+{plan.Gain:0}/min); {storey}; steps: "
+            report.AppendLine($"- {player.Name} on day {days}: {c.Gold:N0} g; grow {plan.Parts.Count} parts for {plan.Cost:N0} (+{plan.Gain:0}/min); steps: "
                 + string.Join("; ", world.NextSteps(c).Select(t => $"{t.Action} «{t.Title}» {t.Cost:N0} g +{t.GainPerMinute:0}/min")));
         }
         TestContext.WriteLine(report.ToString());

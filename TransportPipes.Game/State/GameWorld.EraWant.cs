@@ -16,8 +16,11 @@ public sealed partial class GameWorld
     private const double WonderOrderShare = 0.5;
     private const double WonderOrderCredit = 0.25;
 
+    /// <summary>The Era Wonder buys in the Yards (on in the server; off in tests unless a test sets it)</summary>
+    public bool WonderBuysEnabled { get; set; }
+
     /// <summary>Whether the Era Wonder buys in the Yards now</summary>
-    private bool EraWonderBuying => ProjectsEnabled && EraWonder is { Finished: false } && Content.EraWonders.Count > 0;
+    private bool EraWonderBuying => WonderBuysEnabled && EraWonder is { Finished: false } && Content.EraWonders.Count > 0;
 
     /// <summary>What the Era Wonder still lacks of a good (ordered goods count: they are on their way)</summary>
     private double WonderLacks(Wonder wonder, string good) =>
@@ -69,16 +72,13 @@ public sealed partial class GameWorld
             // What arrives this minute is on its way already
             var open = WonderLacks(wonder, good) - wonder.Incoming.Values.Sum(t => t.GetValueOrDefault(good));
             var lacks = open - wonder.Matched.Values.Sum(t => t.GetValueOrDefault(good));
-            foreach (var member in members.Where(t => t.Spare.GetValueOrDefault(good) > 1e-9 && !t.Company.Asleep).OrderBy(t => t.Company.IsNpc ? 1 : 0).ThenBy(t => t.Company.Id))
+            foreach (var member in members.Where(t => t.Spare.GetValueOrDefault(good) > 1e-9).OrderBy(t => t.Company.Id))
             {
                 if (lacks <= 1e-9)
                 {
                     break;
                 }
-                var allowance = member.Company.IsNpc
-                    ? Math.Max(0, WonderHouseShare * wonder.Required[good] - wonder.FromHouses.GetValueOrDefault(good)) / 60
-                    : double.MaxValue;
-                var amount = Math.Min(Math.Min(member.Spare[good], allowance), lacks);
+                var amount = Math.Min(member.Spare[good], lacks);
                 if (amount <= 1e-9)
                 {
                     continue;
@@ -130,11 +130,7 @@ public sealed partial class GameWorld
                 seller.Report.GoldEarned += worth;
                 Add(seller.Report.Sold, good, units);
                 AddStat(seller, "wonderGold", worth);
-                if (seller.IsNpc)
-                {
-                    wonder.FromHouses[good] = wonder.FromHouses.GetValueOrDefault(good) + counted;
-                }
-                else if (counted > 1e-9)
+                if (counted > 1e-9)
                 {
                     wonder.Contributions[seller.Id] = wonder.Contributions.GetValueOrDefault(seller.Id) + counted * BasePrice(good);
                     AddStat(seller, "wonder", counted * BasePrice(good));
@@ -196,7 +192,7 @@ public sealed partial class GameWorld
     {
         var since = LastTick - ActivePeriod;
         return _companies.Values
-            .Where(t => !t.IsNpc && !t.Asleep && t.District == Capital && t.LastSeenAt >= since
+            .Where(t => t.District == Capital && t.LastSeenAt >= since
                 && BuildingsOf(t.Id).Any(b => !b.UnderConstruction && Content.Building(b.Type).Out.ContainsKey(good)))
             .OrderBy(t => t.Id)
             .ToList();
@@ -265,7 +261,7 @@ public sealed partial class GameWorld
     /// <summary>The Capital's pipes carry a different amount: their links are built again</summary>
     private void CapitalPipesChanged()
     {
-        var capital = _companies.Values.Where(t => t.District == Capital && !t.IsNpc).Select(t => t.Id).ToHashSet();
+        var capital = _companies.Values.Where(t => t.District == Capital).Select(t => t.Id).ToHashSet();
         foreach (var conductor in _conductors.Values.Where(t => capital.Contains(t.Owner)))
         {
             MarkDirty(conductor.Pos);

@@ -7,7 +7,6 @@ import type {
   ChatMessageDto,
   CommandResult,
   CompanyDto,
-  CorporationRole,
   LeaderboardKind,
   NextStepDto,
   ReturnLineDto,
@@ -39,7 +38,7 @@ import {
   upgradablePipeTiles,
 } from "../game/rules";
 import { WorldModel } from "../game/world";
-import { formatAmount, possessive } from "./format";
+import { formatAmount } from "./format";
 import { notify } from "./notifications";
 import { sounds } from "./sound";
 import { appStore, dismissToast, initialState, MODALS, setState, toast, type HubTab } from "../state/store";
@@ -59,8 +58,9 @@ function readGuest(): { userName: string; password: string } | null {
 }
 
 /** The address a friend opens to move into a seat (or join the crew) */
-export function inviteLink(code: string, seat: boolean): string {
-  return `${location.origin}/?${seat ? "seat" : "crew"}=${encodeURIComponent(code)}`;
+/** A "Play next to me" link (1.4 §6): it opens the map at your Yard */
+export function inviteLink(code: string): string {
+  return `${location.origin}/?near=${encodeURIComponent(code)}`;
 }
 
 /** Connects the server, the world model, the map engine and the UI state */
@@ -101,10 +101,10 @@ export class GameClient {
     await this.connect();
   }
 
-  /** A seat code (?seat=) or crew link (?crew=) in the address: what it opens */
+  /** A friend's "Play next to me" link (?near=) in the address: what it opens */
   private async readInvite() {
     const params = new URLSearchParams(location.search);
-    const code = params.get("seat") ?? params.get("crew") ?? sessionStorage.getItem(INVITE_KEY);
+    const code = params.get("near") ?? sessionStorage.getItem(INVITE_KEY);
     if (code === null || code.trim() === "") {
       return;
     }
@@ -126,7 +126,7 @@ export class GameClient {
     let code = trimmed;
     try {
       const params = new URL(trimmed).searchParams;
-      code = params.get("seat") ?? params.get("crew") ?? trimmed;
+      code = params.get("near") ?? trimmed;
     } catch {
       // Not a link: the code itself
     }
@@ -135,7 +135,7 @@ export class GameClient {
     }
     const dto = await fetchInvite(code).catch(() => null);
     if (dto?.valid !== true) {
-      return "That link or code doesn't open any seat or crew (it may have lapsed): ask your friend for a new one.";
+      return "That link or code doesn't open anyone's Yard (it works for seven days): ask your friend for a new one.";
     }
     sessionStorage.setItem(INVITE_KEY, code);
     setState({ invite: { code, dto } });
@@ -281,14 +281,6 @@ export class GameClient {
       }
     });
     c.on("mapLinksChanged", () => void this.loadMapLinks());
-    c.on("corporationChanged", () => {
-      if (appStore.getState().corporationOpen) {
-        void this.refreshCorporations();
-      }
-      if (appStore.getState().chat !== null) {
-        void this.refreshChat();
-      }
-    });
     c.on("toast", (t: ToastDto) => {
       notify(t);
       if (t.kind === "constructionFinished" && t.building !== null) {
@@ -720,13 +712,6 @@ export class GameClient {
     }
   }
 
-  /** The line the Labs refine next (null: the walls first, then your best-earning good) */
-  async chooseRefinement(line: string | null) {
-    if (await this.command(this.connection.chooseRefinement(line))) {
-      void this.refreshCompany();
-    }
-  }
-
   /** Orders part of the Era Wonder from the hub: it ships over six hours and counts a quarter for your tier */
   /** What your gold can do: the shared goal, a want, and "Grow everything that pays" (after run 4) */
   async loadGoldUses() {
@@ -739,17 +724,6 @@ export class GameClient {
       void this.refreshCompany();
       void this.loadGoldUses();
       window.setTimeout(() => void this.refreshNetwork(), 1200);
-    }
-  }
-
-  /** Gives hours of your income (1, 6 or 24) to your station's Landmark storey (after run 4) */
-  async giveToStorey(hours: number) {
-    if (await this.command(this.connection.giveToStorey(hours))) {
-      void this.refreshCompany();
-      void this.refreshProject();
-      if (appStore.getState().goldUses !== null) {
-        void this.loadGoldUses();
-      }
     }
   }
 
@@ -866,36 +840,7 @@ export class GameClient {
       this.forgetInvite();
     }
     await this.hello();
-    toast(`Welcome, ${name}! Your estate is ready.`, "success", 7000);
-    return null;
-  }
-
-  /** Start with friends: your company and a crew, with the station's other seats held for them */
-  async startWithFriends(
-    name: string,
-    color: string,
-    crewName: string,
-    emblem: string,
-    crewColor: string,
-    crewColor2: string,
-    seat: SeatRefDto,
-    holdSeats: number,
-  ): Promise<{ error: string; code: string | null } | null> {
-    const result = await this.connection.startWithFriends(
-      name,
-      color,
-      crewName,
-      emblem,
-      crewColor,
-      crewColor2,
-      seat,
-      holdSeats,
-    );
-    if (!result.success) {
-      return { error: result.error ?? "That didn't work.", code: result.code ?? null };
-    }
-    setState({ shareCodes: result.holds });
-    await this.hello();
+    toast(`Welcome, ${name}! This plot is yours.`, "success", 7000);
     return null;
   }
 
@@ -918,21 +863,18 @@ export class GameClient {
     return ok;
   }
 
-  async foundCrew(name: string, emblem: string, color: string, color2: string, holdSeats: number) {
-    const result = await this.connection.foundCrew(name, emblem, color, color2, holdSeats);
-    if (!result.success) {
-      toast(result.error ?? "That didn't work.", "error");
-      return;
-    }
-    setState({ shareCodes: result.holds.length > 0 ? result.holds : null });
-    await this.refreshCrew();
-  }
-
-  /** Moves to another seat (a free one, or one your crew holds for you) */
-  async relocateTo(seat: SeatRefDto) {
-    if (await this.command(this.connection.relocateTo(seat), "Up, up and away: your estate is on its way")) {
+  /** Moves your plot to a free one (into a friend's closed Yard with their "Play next to me" code) */
+  async relocateTo(seat: SeatRefDto, code: string | null = null) {
+    if (await this.command(this.connection.relocateTo(seat, code), "Up, up and away: your plot is on its way")) {
       setState({ companyOpen: false });
     }
+  }
+
+  /** Your "Play next to me" link (it shows in the Yard panel's crew part) */
+  async nextToMeLink(): Promise<string | null> {
+    const code = await this.connection.getNextToMeLink().catch(() => null);
+    await this.refreshCrew();
+    return code === null ? null : inviteLink(code);
   }
 
   // ---------------------------------------------------------------- Engine
@@ -1425,7 +1367,6 @@ export class GameClient {
       state.researchOpen ||
       state.hubOpen ||
       state.neighboursOpen ||
-      state.corporationOpen ||
       state.leaderboardOpen ||
       state.companyOpen ||
       state.blueprintsOpen ||
@@ -1563,23 +1504,11 @@ export class GameClient {
     await this.visitEstate(owner, true);
   }
 
-  /** The Yard panel on its Project tab: the station's project, its basket and who helped */
-  async openProject() {
-    this.selectNetwork(null);
-    setState({ yardOpen: true, yardTab: "project" });
-    await this.refreshProject();
-  }
-
   /** A Yard command (pins, Asks); the panel follows */
   async yardCommand(promise: Promise<CommandResult>, success?: string): Promise<boolean> {
     const ok = await this.command(promise, success);
     await this.refreshYard();
     return ok;
-  }
-
-  async refreshProject() {
-    const project = await this.connection.getProject().catch(() => null);
-    setState({ project });
   }
 
   async refreshLinks() {
@@ -1743,9 +1672,6 @@ export class GameClient {
       case "wonder":
         await this.openHub("wonders");
         break;
-      case "storey":
-        await this.openProject();
-        break;
       case "climb":
         // Its panel shows the door with its preview
         if (step.building !== null) {
@@ -1811,10 +1737,6 @@ export class GameClient {
       setState({ overlay: hint.overlay as Overlay });
       this.hintOverlay = { step: step.id, overlay: hint.overlay as Overlay };
     }
-    if (hint.panel === "project") {
-      void this.openProject();
-      return;
-    }
     if (hint.panel === "yard") {
       void this.openYard();
       return;
@@ -1829,10 +1751,6 @@ export class GameClient {
     }
     if (hint.panel === "research") {
       void this.openResearch();
-      return;
-    }
-    if (hint.panel === "corporation") {
-      void this.openCorporation();
       return;
     }
     if (hint.panel === "parcel") {
@@ -2170,67 +2088,6 @@ export class GameClient {
     }
   }
 
-  async openFranchise() {
-    if (await this.command(this.connection.openFranchise(null, null))) {
-      // Off to the new estate
-      const company = appStore.getState().company;
-      await this.refreshCompany();
-      const after = appStore.getState().company;
-      if (after !== null && company !== null && after.branches.length > company.branches.length) {
-        this.goToEstate(after.branches.length);
-      }
-    }
-  }
-
-  /**
-   * Send ▸ (step 4): a good's spare goes to a neighbour (to: null, the station's project) first, from now on. When the
-   * building's pipes don't reach the gate, the same tap lays the pipe to it (gatePipe: x, y pairs).
-   */
-  async sendGood(
-    resource: string,
-    to: number | null,
-    toName: string,
-    building: number | null = null,
-    gatePipe: number[] | null = null,
-  ) {
-    const state = appStore.getState();
-    if (gatePipe !== null && gatePipe.length > 0 && this.world !== null && state.company !== null) {
-      const route: TilePosition[] = [];
-      for (let i = 0; i + 1 < gatePipe.length; i += 2) {
-        route.push({ x: gatePipe[i]!, y: gatePipe[i + 1]! });
-      }
-      const tiles = newPipeTiles(this.world, state.company, route, state.content ?? undefined);
-      if (
-        tiles.length > 0 &&
-        !(await this.command(
-          this.connection.placePipes(
-            tiles.flatMap((t) => [t.x, t.y]),
-            1,
-          ),
-        ))
-      ) {
-        return false;
-      }
-    }
-    const good = state.content?.resourceName(resource).toLowerCase() ?? resource;
-    const ok = await this.command(
-      this.connection.sendGood(resource, to, building),
-      `💛 Your ${good} goes to ${toName} first`,
-    );
-    if (ok) {
-      void this.refreshDetails();
-      void this.refreshYard();
-    }
-    return ok;
-  }
-
-  async stopSend(resource: string, to: number | null) {
-    if (await this.command(this.connection.stopSend(resource, to))) {
-      void this.refreshDetails();
-      void this.refreshYard();
-    }
-  }
-
   /** The research queue (F11): a tech in or out; it starts by itself when the Labs are free and the points are there */
   async queueResearch(tech: string, queued: boolean, name: string) {
     await this.command(
@@ -2246,14 +2103,6 @@ export class GameClient {
     }
   }
 
-  /** 💛 Thanks: once a day per neighbour, no gold, no XP; they hear it */
-  async thank(giver: number, resource: string, name: string) {
-    if (await this.command(this.connection.thank(giver, resource), `💛 ${name} hears your thanks`)) {
-      void this.refreshDetails();
-      void this.refreshYard();
-    }
-  }
-
   /** Repairs every storm-damaged building (the goal tracker's alert keeps it while damage lasts) */
   async repairAll() {
     if (await this.command(this.connection.repairAll(), "Repaired: full speed again")) {
@@ -2261,26 +2110,9 @@ export class GameClient {
     }
   }
 
-  /** The return card's buttons: each closes the card on what it shows, Repair all, Send, Thanks and Tend keep it open */
+  /** The return card's buttons: each closes the card on what it shows, Repair all keeps it open */
   async returnAction(line: ReturnLineDto): Promise<boolean> {
     switch (line.action) {
-      case "send":
-        return line.resource !== null && line.partner !== null
-          ? await this.sendGood(line.resource, line.partner, "them")
-          : false;
-      case "thank":
-        if (line.partner === null || line.resource === null) {
-          return false;
-        }
-        await this.thank(line.partner, line.resource, line.partnerName ?? "They");
-        return true;
-      case "tend":
-        return line.partner !== null
-          ? await this.command(
-              this.connection.tend(line.partner),
-              `💛 You repaired ${line.partnerName === null ? "their" : line.partnerName + possessive(line.partnerName)} storm damage`,
-            )
-          : false;
       case "repairAll":
         return await this.command(this.connection.repairAll(), "Repaired: full speed again");
       case "show":
@@ -2290,23 +2122,10 @@ export class GameClient {
           this.showBuilding(line.building);
         }
         return true;
-      case "project":
-        setState({ returnCard: null });
-        await this.openProject();
-        return true;
       case "links":
         setState({ returnCard: null });
         await this.openLinks();
         return true;
-      case "seat": {
-        // A friend's kept seat: the invite dialog again, to move in or say "Not with them"
-        const code = appStore.getState().company?.keptSeat?.code;
-        setState({ returnCard: null });
-        if (code != null) {
-          await this.openInviteCode(code);
-        }
-        return true;
-      }
       case "crew":
         setState({ returnCard: null });
         await this.openCrew();
@@ -2334,17 +2153,7 @@ export class GameClient {
     this.setTool({ kind: "build", type, crate });
   }
 
-  async proposeSwap(other: number) {
-    if (await this.command(this.connection.proposeSwap(other), "Swap proposed")) {
-      await this.refreshVisit();
-    }
-  }
-
-  async reserveBlock(x: number, y: number) {
-    await this.command(this.connection.reserveBlock(x, y), "Block reserved for 72 hours");
-  }
-
-  // ---------------------------------------------------------------- Franchise and season
+  // ---------------------------------------------------------------- The season
 
   async openSeason() {
     const season = await this.connection.getSeason().catch(() => null);
@@ -2488,46 +2297,6 @@ export class GameClient {
     }
   }
 
-  // ---------------------------------------------------------------- Corporations
-
-  async openCorporation() {
-    setState({ ...MODALS, corporationOpen: true });
-    await this.refreshCorporations();
-  }
-
-  async refreshCorporations() {
-    const corporations = await this.connection.getCorporations().catch(() => null);
-    if (corporations !== null) {
-      setState({ corporations });
-    }
-  }
-
-  /** Runs a corporation command and shows the result */
-  async corporation(run: (c: GameConnection) => Promise<CommandResult>, success?: string) {
-    const ok = await this.command(run(this.connection), success);
-    if (ok) {
-      await this.refreshCorporations();
-    }
-    return ok;
-  }
-
-  foundCorporation = (name: string, tag: string, color: string) =>
-    this.corporation((c) => c.foundCorporation(name, tag, color), `${name} is founded!`);
-  applyToCorporation = (id: number) => this.corporation((c) => c.applyToCorporation(id), "Application sent");
-  inviteToCorporation = (company: number) => this.corporation((c) => c.inviteToCorporation(company));
-  declineCorporation = (id: number) => this.corporation((c) => c.declineCorporation(id));
-  declineApplication = (company: number) => this.corporation((c) => c.declineApplication(company));
-  leaveCorporation = () => this.corporation((c) => c.leaveCorporation(), "You left the corporation");
-  kickFromCorporation = (member: number) => this.corporation((c) => c.kickFromCorporation(member));
-  setCorporationRole = (member: number, role: CorporationRole) =>
-    this.corporation((c) => c.setCorporationRole(member, role));
-  donateToCorporation = (gold: number) =>
-    this.corporation((c) => c.donateToCorporation(gold), "Thanks for the donation");
-  setCorporationSettings = (tax: number, perkResource: string | null, description: string) =>
-    this.corporation((c) => c.setCorporationSettings(tax, perkResource, description), "Saved");
-  upgradeCorporationHq = () => this.corporation((c) => c.upgradeCorporationHq(), "The HQ grows!");
-  deliverToCorporationGoal = () => this.corporation((c) => c.deliverToCorporationGoal(), "Delivered");
-
   // ---------------------------------------------------------------- Leaderboards and visits
 
   async openLeaderboard() {
@@ -2629,18 +2398,6 @@ export class GameClient {
     const channel = state.chatChannel ?? state.chat?.channels[0]?.id ?? null;
     if (channel !== null) {
       await this.openChannel(channel);
-    }
-  }
-
-  async openCorporationChat() {
-    setState({ corporationOpen: false });
-    if (!appStore.getState().chatOpen) {
-      setState({ chatOpen: true });
-    }
-    await this.refreshChat();
-    const channel = appStore.getState().chat?.channels.find((t) => t.kind === "corporation");
-    if (channel !== undefined) {
-      await this.openChannel(channel.id);
     }
   }
 

@@ -1,8 +1,7 @@
 import { HubConnectionBuilder, LogLevel, type HubConnection } from "@microsoft/signalr";
 import type {
+  NextToMeDto,
   GoldUsesDto,
-  LandingCardDto,
-  ProjectDto,
   LinkPlanDto,
   LinksDto,
   MapLinkDto,
@@ -19,13 +18,10 @@ import type {
   CompanyDetailsDto,
   OutpostCheckDto,
   DistrictChoiceDto,
-  SleeperDto,
   ReportedMessageDto,
   SeasonDto,
   CompanyDto,
   ContractsDto,
-  CorporationRole,
-  CorporationsDto,
   EstateVisitDto,
   InboxDto,
   LeaderboardDto,
@@ -44,9 +40,7 @@ import type {
   UserInfo,
   YardDto,
   CrewViewDto,
-  FoundCrewResultDto,
   GuestResult,
-  InviteDto,
   SeatRefDto,
   StationsDto,
 } from "./contracts";
@@ -113,13 +107,13 @@ export const auth = {
   },
 };
 
-/** What a seat code or crew link opens (no login needed) */
-export async function fetchInvite(code: string): Promise<InviteDto> {
+/** What a "Play next to me" link opens (no login needed) */
+export async function fetchInvite(code: string): Promise<NextToMeDto> {
   const response = await fetch(`/api/invite/${encodeURIComponent(code)}`, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`GET /api/invite failed with ${response.status}`);
   }
-  return (await response.json()) as InviteDto;
+  return (await response.json()) as NextToMeDto;
 }
 
 export async function fetchContent(): Promise<GameContentDto> {
@@ -141,7 +135,6 @@ export interface ServerEvents {
   exchangeChanged(): void;
   chatMessage(message: ChatMessageDto): void;
   inboxChanged(unread: number): void;
-  corporationChanged(): void;
   wondersChanged(): void;
   seasonChanged(): void;
   crewChanged(): void;
@@ -159,7 +152,6 @@ const EVENT_NAMES: Record<keyof ServerEvents, string> = {
   exchangeChanged: "ExchangeChanged",
   chatMessage: "ChatMessage",
   inboxChanged: "InboxChanged",
-  corporationChanged: "CorporationChanged",
   wondersChanged: "WondersChanged",
   seasonChanged: "SeasonChanged",
   crewChanged: "CrewChanged",
@@ -269,41 +261,20 @@ export class GameConnection {
       seat?.slot ?? null,
       code,
     );
-  startWithFriends = (
-    name: string,
-    color: string,
-    crewName: string,
-    emblem: string,
-    crewColor: string,
-    crewColor2: string,
-    seat: SeatRefDto,
-    holdSeats: number,
-  ) =>
-    this.invoke<FoundCrewResultDto>(
-      "StartWithFriends",
-      name,
-      color,
-      crewName,
-      emblem,
-      crewColor,
-      crewColor2,
-      seat.districtX,
-      seat.districtY,
-      seat.slot,
-      holdSeats,
-    );
-  getStations = (districtX: number | null, districtY: number | null) =>
-    this.invoke<StationsDto>("GetStations", districtX, districtY);
+  getStations = (districtX: number | null, districtY: number | null, code: string | null = null) =>
+    this.invoke<StationsDto>("GetStations", districtX, districtY, code);
   getCrew = () => this.invoke<CrewViewDto | null>("GetCrew");
-  foundCrew = (name: string, emblem: string, color: string, color2: string, holdSeats: number) =>
-    this.invoke<FoundCrewResultDto>("FoundCrew", name, emblem, color, color2, holdSeats);
-  joinCrew = (code: string) => this.invoke<CommandResult>("JoinCrew", code);
-  leaveCrew = () => this.invoke<CommandResult>("LeaveCrew");
-  acceptJoinRequest = (applicant: number) => this.invoke<CommandResult>("AcceptJoinRequest", applicant);
-  renewInvite = () => this.invoke<CommandResult>("RenewInvite");
-  holdSeats = (count: number) => this.invoke<CommandResult>("HoldSeats", count);
-  releaseHold = (code: string) => this.invoke<CommandResult>("ReleaseHold", code);
-  nameHold = (code: string, name: string | null) => this.invoke<CommandResult>("NameHold", code, name);
+  /** Any resident names the Yard and picks its banner */
+  setYard = (name: string, emblem: string, color: string, color2: string) =>
+    this.invoke<CommandResult>("SetYard", name, emblem, color, color2);
+  /** Any resident opens or closes the Yard */
+  setYardOpen = (open: boolean) => this.invoke<CommandResult>("SetYardOpen", open);
+  /** Asks to settle on a free plot of a closed Yard (the request waits three days) */
+  requestPlot = (seat: SeatRefDto) => this.invoke<CommandResult>("RequestPlot", seat.districtX, seat.districtY, seat.slot);
+  /** A resident says yes (the newcomer moves in for free) or no to a request */
+  answerRequest = (requester: number, yes: boolean) => this.invoke<CommandResult>("AnswerRequest", requester, yes);
+  /** Your "Play next to me" link's code (valid for seven days) */
+  getNextToMeLink = () => this.invoke<string | null>("GetNextToMeLink");
   /** A friend's tap: what your Storages hold of what a neighbour's scaffold wants goes into it */
   sendToSite = (site: number) => this.invoke<CommandResult>("SendToSite", site);
   /** Orders the rest of a want, one's own or a neighbour's: 2 × base, after the friends' window, over 6 hours */
@@ -312,11 +283,9 @@ export class GameConnection {
   cancelSite = (site: number) => this.invoke<CommandResult>("CancelSite", site);
   /** Takes a building's last purchase back within the hour */
   undo = (building: number) => this.invoke<CommandResult>("Undo", building);
-  /** A friend's seat link opened while playing elsewhere (decline: "Not with them") */
-  sawSeatCode = (code: string, decline: boolean) => this.invoke<CommandResult>("SawSeatCode", code, decline);
-  setStationOpen = (open: boolean) => this.invoke<CommandResult>("SetStationOpen", open);
-  relocateTo = (seat: SeatRefDto) =>
-    this.invoke<CommandResult>("RelocateTo", seat.districtX, seat.districtY, seat.slot);
+  /** Moves your plot to a free one (into a closed Yard with a friend's "Play next to me" code) */
+  relocateTo = (seat: SeatRefDto, code: string | null = null) =>
+    this.invoke<CommandResult>("RelocateTo", seat.districtX, seat.districtY, seat.slot, code);
   getChunks = (pairs: number[]) => this.invoke<ChunkDto[]>("GetChunks", pairs);
   unwatch = (pairs: number[]) => this.invoke<void>("Unwatch", pairs);
   getDistrict = (x: number, y: number) => this.invoke<DistrictDto>("GetDistrict", x, y);
@@ -328,22 +297,8 @@ export class GameConnection {
   getMarket = () => this.invoke<MarketDto | null>("GetMarket");
   getNeighbourhood = () => this.invoke<NeighbourDto[]>("GetNeighbourhood");
   getYard = () => this.invoke<YardDto | null>("GetYard");
-  tend = (friendId: number) => this.invoke<CommandResult>("Tend", friendId);
-  getProject = () => this.invoke<ProjectDto | null>("GetProject");
   setPin = (resource: string, need: boolean, on: boolean) =>
     this.invoke<CommandResult>("SetPin", resource, need, on);
-  ask = (resource: string, amount: number, hours: number, renew: boolean) =>
-    this.invoke<CommandResult>("Ask", resource, amount, hours, renew);
-  cancelAsk = (resource: string) => this.invoke<CommandResult>("CancelAsk", resource);
-  setProjectFirst = (resource: string, first: boolean) =>
-    this.invoke<CommandResult>("SetProjectFirst", resource, first);
-  getLivelierStations = () => this.invoke<LandingCardDto[]>("GetLivelierStations");
-  dismissLoneCard = () => this.invoke<CommandResult>("DismissLoneCard");
-  crewMove = () => this.invoke<CommandResult>("CrewMove");
-  consolidate = () => this.invoke<CommandResult>("Consolidate");
-  dismissConsolidation = () => this.invoke<CommandResult>("DismissConsolidation");
-  keepSeat = (sleeperId: number, keep: boolean) => this.invoke<CommandResult>("KeepSeat", sleeperId, keep);
-  getLandingCards = () => this.invoke<LandingCardDto[]>("GetLandingCards");
   getLinks = () => this.invoke<LinksDto | null>("GetLinks");
   planLink = (partnerId: number, resource: string, selling: boolean, tier: number) =>
     this.invoke<LinkPlanDto | null>("PlanLink", partnerId, resource, selling, tier);
@@ -355,9 +310,6 @@ export class GameConnection {
   resumeLink = (id: number) => this.invoke<CommandResult>("ResumeLink", id);
   upgradeLink = (id: number, tier: number) => this.invoke<CommandResult>("UpgradeLink", id, tier);
   getMapLinks = () => this.invoke<MapLinkDto[]>("GetMapLinks");
-  startTrunk = (districtX: number | null, districtY: number | null, port: boolean) =>
-    this.invoke<CommandResult>("StartTrunk", districtX, districtY, port);
-  buildTrunkSegment = (id: number) => this.invoke<CommandResult>("BuildTrunkSegment", id);
   getExchange = () => this.invoke<ExchangeDto | null>("GetExchange");
   placeExchangeOrder = (resource: string, selling: boolean, amount: number, price: number) =>
     this.invoke<CommandResult>("PlaceExchangeOrder", resource, selling, amount, price);
@@ -393,7 +345,6 @@ export class GameConnection {
     this.invoke<CommandResult>("ClimbPipe", buildingId, order);
   getGoldUses = () => this.invoke<GoldUsesDto | null>("GetGoldUses");
   growEverything = () => this.invoke<CommandResult>("GrowEverything");
-  giveToStorey = (hours: number) => this.invoke<CommandResult>("GiveToStorey", hours);
   undoGrowth = () => this.invoke<CommandResult>("UndoGrowth");
   upgrade = (building: number, levels: number) => this.invoke<CommandResult>("Upgrade", building, levels);
   upgradeMany = (buildings: number[], levelsEach: number, budget: number | null) =>
@@ -417,10 +368,7 @@ export class GameConnection {
   demolish = (building: number) => this.invoke<CommandResult>("Demolish", building);
   repair = (building: number) => this.invoke<CommandResult>("Repair", building);
   repairAll = () => this.invoke<CommandResult>("RepairAll");
-  sendGood = (resource: string, to: number | null, building: number | null) =>
-    this.invoke<CommandResult>("SendGood", resource, to, building);
-  stopSend = (resource: string, to: number | null) => this.invoke<CommandResult>("StopSend", resource, to);
-  thank = (giver: number, resource: string) => this.invoke<CommandResult>("Thank", giver, resource);
+
   dig = (parcel: number) => this.invoke<CommandResult>("Dig", parcel);
   evolve = (building: number) => this.invoke<CommandResult>("Evolve", building);
   skipTutorial = () => this.invoke<CommandResult>("SkipTutorial");
@@ -443,22 +391,6 @@ export class GameConnection {
   cheat = (what: string) => this.invoke<CommandResult>("Cheat", what);
 
   // Society
-  getCorporations = () => this.invoke<CorporationsDto | null>("GetCorporations");
-  foundCorporation = (name: string, tag: string, color: string) =>
-    this.invoke<CommandResult>("FoundCorporation", name, tag, color);
-  applyToCorporation = (corporation: number) => this.invoke<CommandResult>("ApplyToCorporation", corporation);
-  inviteToCorporation = (company: number) => this.invoke<CommandResult>("InviteToCorporation", company);
-  declineCorporation = (corporation: number) => this.invoke<CommandResult>("DeclineCorporation", corporation);
-  declineApplication = (applicant: number) => this.invoke<CommandResult>("DeclineApplication", applicant);
-  leaveCorporation = () => this.invoke<CommandResult>("LeaveCorporation");
-  kickFromCorporation = (member: number) => this.invoke<CommandResult>("KickFromCorporation", member);
-  setCorporationRole = (member: number, role: CorporationRole) =>
-    this.invoke<CommandResult>("SetCorporationRole", member, role);
-  donateToCorporation = (gold: number) => this.invoke<CommandResult>("DonateToCorporation", gold);
-  setCorporationSettings = (tax: number, perkResource: string | null, description: string) =>
-    this.invoke<CommandResult>("SetCorporationSettings", tax, perkResource, description);
-  upgradeCorporationHq = () => this.invoke<CommandResult>("UpgradeCorporationHq");
-  deliverToCorporationGoal = () => this.invoke<CommandResult>("DeliverToCorporationGoal");
   getLeaderboard = (kind: LeaderboardKind, district: boolean) =>
     this.invoke<LeaderboardDto | null>("GetLeaderboard", kind, district);
   visitEstate = (owner: number) => this.invoke<EstateVisitDto | null>("VisitEstate", owner);
@@ -480,16 +412,11 @@ export class GameConnection {
   getDistricts = () => this.invoke<DistrictChoiceDto[]>("GetDistricts");
   placeCrate = (crate: number, x: number, y: number) => this.invoke<CommandResult>("PlaceCrate", crate, x, y);
   scrapCrate = (crate: number) => this.invoke<CommandResult>("ScrapCrate", crate);
-  proposeSwap = (other: number) => this.invoke<CommandResult>("ProposeSwap", other);
-  reserveBlock = (x: number, y: number) => this.invoke<CommandResult>("ReserveBlock", x, y);
-  getQuietIsles = () => this.invoke<SleeperDto[]>("GetQuietIsles");
   getReports = () => this.invoke<ReportedMessageDto[]>("GetReports");
   moderateMessage = (message: number, action: "dismiss" | "delete" | "mute" | "ban") =>
     this.invoke<CommandResult>("ModerateMessage", message, action);
   renameCompany = (company: number, name: string) =>
     this.invoke<CommandResult>("RenameCompany", company, name);
-  openFranchise = (districtX: number | null, districtY: number | null) =>
-    this.invoke<CommandResult>("OpenFranchise", districtX, districtY);
   getSeason = () => this.invoke<SeasonDto>("GetSeason");
   checkOutpost = (x: number, y: number) => this.invoke<OutpostCheckDto | null>("CheckOutpost", x, y);
   claimOutpost = (x: number, y: number) => this.invoke<CommandResult>("ClaimOutpost", x, y);
@@ -499,7 +426,6 @@ export class GameConnection {
   deliverToWonder = (eraWonder: boolean) => this.invoke<CommandResult>("DeliverToWonder", eraWonder);
   orderForWonder = (resource: string, gold: number | null) =>
     this.invoke<CommandResult>("OrderForWonder", resource, gold);
-  chooseRefinement = (line: string | null) => this.invoke<CommandResult>("ChooseRefinement", line);
   getBlueprints = () => this.invoke<BlueprintsDto | null>("GetBlueprints");
   saveBlueprint = (name: string, x: number, y: number, width: number, height: number) =>
     this.invoke<CommandResult>("SaveBlueprint", name, x, y, width, height);

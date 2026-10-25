@@ -168,7 +168,7 @@ public class OutpostFacts
 
         var discovery = game.World.Discoveries.Single();
         var (stations, top) = game.World.DiscoveryMarks(discovery);
-        Assert.AreEqual(game.World.BigStation(game.EstateOf(company).Station)[0], stations.Single(), "its marker");
+        Assert.AreEqual(game.EstateOf(company).Station, stations.Single(), "its marker");
         Assert.AreEqual(company.Id, top.Single().Id, "named among the three who brought most");
         var marked = discovery.Marks.Values.Single();
         game.Pass(72 * 60);

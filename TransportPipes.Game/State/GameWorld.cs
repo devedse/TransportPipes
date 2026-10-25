@@ -152,6 +152,13 @@ public sealed partial class GameWorld
     /// <summary>The company's estate; null while it is packed (asleep on the Quiet Isles, or moving)</summary>
     public Estate? EstateOf(Company company) => Estate(company.District, company.Slot) is { } estate && estate.OwnerId == company.Id ? estate : null;
 
+    /// <summary>A company's plots: its one plot (none while it moves)</summary>
+    public IEnumerable<Estate> EstatesOf(Company company) => EstateOf(company) is { } estate ? [estate] : [];
+
+    /// <summary>The company's plot a tile belongs to (the Deep Level under it counts), or null</summary>
+    public Estate? OwnEstateAt(Company company, TilePos pos) =>
+        EstateOf(company) is { } estate && estate.Contains(WorldLayout.Surface(pos)) ? estate : null;
+
     public Estate? EstateAt(TilePos pos)
     {
         var zone = WorldLayout.ZoneAt(pos.X, pos.Y);
@@ -254,60 +261,6 @@ public sealed partial class GameWorld
         {
             _estates[(district, slot)] = new Estate { District = district, Slot = slot, Origin = WorldLayout.EstateOrigin(district, slot) };
         }
-        if (TenantsEnabled)
-        {
-            CreateTenants(district);
-        }
-    }
-
-    /// <summary>NPC tenants on free estates (off in most tests)</summary>
-    public bool TenantsEnabled { get; set; }
-
-    /// <summary>
-    /// The estate a new company gets: the first free estate in the oldest district with room; when only tenants are left
-    /// there, a tenant moves out
-    /// </summary>
-    private Estate FindFreeEstate(bool kit = false)
-    {
-        foreach (var district in WorldLayout.DistrictOrder())
-        {
-            OpenDistrict(district);
-            for (var slot = 0; slot < WorldLayout.EstatesPerDistrict; slot++)
-            {
-                var estate = _estates[(district, slot)];
-                // Corporation blocks are kept for their members, held seats for their crew's friends
-                if (estate.OwnerId == null && (estate.ReservedFor == null || estate.ReservedUntil <= LastTick) && SeatFree(KeyOf(estate)))
-                {
-                    return estate;
-                }
-            }
-            for (var slot = 0; slot < WorldLayout.EstatesPerDistrict; slot++)
-            {
-                var estate = _estates[(district, slot)];
-                if (estate.OwnerId is { } owner && Company(owner) is { IsNpc: true } && SeatFree(KeyOf(estate)))
-                {
-                    EvictTenant(estate, kit);
-                    return estate;
-                }
-            }
-        }
-        throw new InvalidOperationException("The world is infinite, this can't happen.");
-    }
-
-    /// <summary>A seat for a newcomer: free, or kept warm by a tenant who moves out (null when it isn't free for them)</summary>
-    private Estate? TakeSeat(EstateKey seat, string? code = null)
-    {
-        OpenDistrict(seat.District);
-        if (Estate(seat.District, seat.Slot) is not { } estate || !SeatFree(seat, null, code))
-        {
-            return null;
-        }
-        if (estate.OwnerId is { } owner && Company(owner) is { IsNpc: true })
-        {
-            // The House leaves the newcomer a starter kit
-            EvictTenant(estate, kit: true);
-        }
-        return estate.OwnerId == null ? estate : null;
     }
 
     public const int MinCompanyNameLength = 3;
@@ -362,24 +315,19 @@ public sealed partial class GameWorld
     public static readonly (int X, int Y) TradingPostLocal = (18, 15);
 
     /// <summary>
-    /// A new company, on a seat it chose (when that is free, or a House keeps it warm) or the first free one; Legacy from
-    /// earlier seasons brings starting gold, titles and a manager slot
+    /// A new company (1.4 §6), on the plot it chose when that is free for it (an open Yard, or a closed one with a
+    /// resident's "Play next to me" link), else where Pick for me puts it; a plot it chose in a closed Yard becomes a
+    /// request. It starts from nothing: its HQ, its trading post next to the Yard gate and its starting gold. Legacy from
+    /// earlier seasons brings starting gold, titles and a manager slot.
     /// </summary>
     public Company CreateCompany(long userId, string name, string color, int legacyLevel = 0, IEnumerable<string>? titles = null, EstateKey? seat = null, string? code = null)
     {
-        // A seat code brings the newcomer to the seat its crew holds for it, a crew link next to the crew
-        var held = code != null ? HoldByCode(code) : null;
-        var linked = held == null && code != null ? CrewByInvite(code) : null;
-        if (held is { } invite)
+        if (seat is { } wanted)
         {
-            seat = invite.Hold.Seat;
+            OpenDistrict(wanted.District);
         }
-        else if (linked != null)
-        {
-            seat = SeatNearCrew(linked, code!);
-        }
-        _kit = null;
-        var estate = seat is { } chosen && TakeSeat(chosen, code) is { } free ? free : FindFreeEstate(kit: true);
+        var chosen = seat is { } s && SeatFree(s, null, code) ? s : PickForMe();
+        var estate = Estate(chosen.District, chosen.Slot)!;
         var now = Now;
         var company = new Company
         {
@@ -404,62 +352,27 @@ public sealed partial class GameWorld
         Changes.Estates.Add((estate.District, estate.Slot));
 
         AddYardGate(company, estate);
-
-        // The stranger next door (step 6): alone, in the small station beside a crew's, it shares their Yard and project
-        if (code == null && SmallMode && estate.Station.IsSmall && CrewCornerNextTo(estate.Station) != null)
+        if (code != null && LinkOpens(code, estate.Station) && !YardOpen(estate.Station))
         {
-            company.SeatedNextDoor = true;
+            NextToMeOf(code)!.NextToMeUsed = true;
         }
-        // The first-comer: alone on an empty server, it reads once who comes next
-        if (!_companies.Values.Any(t => !t.IsNpc && t.Id != company.Id && IsActive(t)))
-        {
-            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Neighbour,
-                $"You're the first in {WorldNames.District(estate.District)}. The next player who comes alone will live next to you."));
-        }
+        SettleInYard(company, estate);
 
-        // Newcomers named where they live: "next door" only in the same station (run 3: Ana read "Ben Co moved into my
-        // district" and looked for him beside her; he lived in Capital SW)
-        var home = BigStation(estate.Station);
-        foreach (var neighbour in _companies.Values.Where(t => t.District == company.District && t.Id != company.Id && !t.IsNpc))
+        // The town hears who moved in (the Yard's crew that it's next door, from SettleInYard)
+        foreach (var neighbour in _companies.Values.Where(t => t.District == company.District && t.Id != company.Id && t.CrewId != company.CrewId))
         {
-            var nextDoor = EstateOf(neighbour) is { } theirs && home.Contains(theirs.Station);
-            if (nextDoor)
-            {
-                neighbour.Report.NewNeighbours.Add(company.Name);
-            }
             neighbour.Touch();
-            Changes.Events.Add(new WorldEvent(neighbour.Id, WorldEventKind.Neighbour, nextDoor
-                ? $"{company.Name} moved in next door"
-                : $"{company.Name} moved into {WorldNames.Station(estate.Station)}, another station of your district"));
+            Changes.Events.Add(new WorldEvent(neighbour.Id, WorldEventKind.Neighbour, $"{company.Name} moved into {WorldNames.Station(estate.Station)}, another Yard of your town"));
         }
 
         AddBuilding(company, "hq", estate.Origin.Offset(HqLocal.X, HqLocal.Y), finished: true);
         AddBuilding(company, "tradingPost", estate.Origin.Offset(TradingPostLocal.X, TradingPostLocal.Y), finished: true);
-        if (Generator.DealtLand)
-        {
-            GiveLandKit(company);
-        }
-        else
-        {
-            HandOverKit(company);
-        }
         company.BuiltTypes.Clear();
-        if (held is { } joined && HoldOn(joined.Hold.Seat) is not null && KeyOf(estate) == joined.Hold.Seat && CrewMembers(joined.Crew).Count() < MaxCrewSize)
+        // A plot it chose in a closed Yard: it plays here and asks there
+        if (seat is { } asked && asked != chosen && Estate(asked.District, asked.Slot) is { OwnerId: null } && !YardOpen(WorldLayout.StationOf(asked.District, asked.Slot)))
         {
-            company.CrewId = joined.Crew.Id;
-            company.KnownAs = joined.Hold.FriendName;
-            RemoveHold(joined.Crew, joined.Hold);
-            AnnounceArrival(joined.Crew, company);
+            RequestPlot(company.Id, asked);
         }
-        else if (linked != null)
-        {
-            JoinCrew(company.Id, code!);
-        }
-        if (SurveysEnabled)
-        {
-            Survey(estate);
-        }
-        StartProbation(company);
         // Steel Pipes come with Era 2 to everyone, a newcomer too
         GrantResearch(company);
         Changes.Companies.Add(company.Id);
@@ -1452,17 +1365,6 @@ public sealed partial class GameWorld
             company.XpLog[source] = items = new Dictionary<string, double>();
         }
         items[item] = items.GetValueOrDefault(item) + xp;
-        if (company.Tailwind > 1)
-        {
-            // Far behind the people you live with: the Tailwind's share is booked on its own
-            var tailwind = xp * (company.Tailwind - 1);
-            if (!company.XpLog.TryGetValue("tailwind", out var boost))
-            {
-                company.XpLog["tailwind"] = boost = new Dictionary<string, double>();
-            }
-            boost["Tailwind"] = boost.GetValueOrDefault("Tailwind") + tailwind;
-            xp += tailwind;
-        }
         company.Xp += xp;
         var level = Content.Progression.LevelForXp(company.Xp);
         if (level > company.Level)

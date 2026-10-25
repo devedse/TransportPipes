@@ -335,11 +335,11 @@ public sealed partial class GameWorld
             {
                 continue;
             }
-            if (Company(building.Owner) is not { IsNpc: false } owner || EstateOf(owner) is not { } estate)
+            if (Company(building.Owner) is not { } owner || EstateOf(owner) is not { } estate)
             {
                 continue;
             }
-            var station = ProjectKey(BigStation(estate.Station)[0]);
+            var station = $"{estate.Station.District.X},{estate.Station.District.Y},{estate.Station.Index}";
             discovery.Marks[station] = discovery.Marks.GetValueOrDefault(station) + units;
             discovery.ByCompany[owner.Id] = discovery.ByCompany.GetValueOrDefault(owner.Id) + units;
             Changes.Outposts = true;
@@ -348,7 +348,7 @@ public sealed partial class GameWorld
 
     /// <summary>A Discovery's markers: the stations that brought something out of it, and the three companies that brought most</summary>
     public (List<StationRef> Stations, List<Company> Top) DiscoveryMarks(Discovery discovery) =>
-        (discovery.Marks.Where(t => t.Value > 0).OrderByDescending(t => t.Value).Select(t => StationOfKey(t.Key)).ToList(),
+        (discovery.Marks.Where(t => t.Value > 0).OrderByDescending(t => t.Value).Select(t => t.Key.Split(',') is [var x, var y, var i] ? new StationRef(new DistrictCoord(int.Parse(x), int.Parse(y)), int.Parse(i)) : default).ToList(),
          discovery.ByCompany.OrderByDescending(t => t.Value).Select(t => Company(t.Key)).OfType<Company>().Take(3).ToList());
 
     /// <summary>A Discovery right now (for testing)</summary>

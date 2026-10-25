@@ -66,19 +66,18 @@ public class MarketFacts
     }
 
     [TestMethod]
-    public void OnAQuietServerTheOrderIsBigger()
+    public void TheOrderIsTheSameHoweverManyPlay()
     {
+        // 1.4 rule 2: no number depends on how many people play (v1.2's quiet grace made it four times as big alone)
         var (game, company, _) = SolarSeller(50, 'W');
         Assert.AreEqual(1000, game.World.HubDemand(company.District, "energy"), 1e-6);
 
-        game.World.QuietGraceEnabled = true;
-
-        Assert.AreEqual(4000, game.World.HubDemand(company.District, "energy"), 1e-6, "below 10 active players: four times");
         for (var i = 0; i < 12; i++)
         {
             game.NewCompany($"P{i}");
         }
-        Assert.AreEqual(2000, game.World.HubDemand(company.District, "energy"), 1e-6, "below 50: twice");
+
+        Assert.AreEqual(1000, game.World.HubDemand(company.District, "energy"), 1e-6);
     }
 
     [TestMethod]

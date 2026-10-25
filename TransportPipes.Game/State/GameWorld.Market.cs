@@ -82,7 +82,7 @@ public sealed partial class GameWorld
     public bool TradesWith(Company company, Company other) =>
         !company.TradeBlocked.Contains(other.Id) && company.TradeWith switch
         {
-            TradeWith.Corporation => SameCorporation(company.Id, other.Id),
+            TradeWith.Corporation => company.CrewId != null && company.CrewId == other.CrewId,
             TradeWith.Contracts => false,
             _ => true,
         };
@@ -126,7 +126,7 @@ public sealed partial class GameWorld
         company.Touch();
         MarkTradeDirty(company.Id);
         Changes.Companies.Add(company.Id);
-        if (Company(otherId) is { IsNpc: false } other)
+        if (Company(otherId) is { } other)
         {
             Changes.Events.Add(new WorldEvent(other.Id, WorldEventKind.Neighbour, $"{company.Name} now trades its spare with others"));
         }
@@ -138,10 +138,6 @@ public sealed partial class GameWorld
         if (Company(companyId) is not { } company)
         {
             return CommandResult.Fail("Unknown company.");
-        }
-        if (tradeWith == TradeWith.Corporation && company.CorporationId == null)
-        {
-            return CommandResult.Fail("Join or found a corporation first (from Company Level 8, in the Corp panel).");
         }
         company.TradeWith = tradeWith;
         company.Touch();
@@ -195,26 +191,21 @@ public sealed partial class GameWorld
     public int ActiveCompanies(DistrictCoord district)
     {
         var since = LastTick - ActivePeriod;
-        return _companies.Values.Count(t => t.District == district && !t.IsNpc && t.LastSeenAt >= since);
+        return _companies.Values.Count(t => t.District == district && t.LastSeenAt >= since);
     }
 
     /// <summary>Players who opened the game in the last 3 days (a lit seat, v1.2 §3)</summary>
     public static readonly TimeSpan LitPeriod = TimeSpan.FromDays(3);
 
-    public bool IsActive(Company company) => !company.IsNpc && !company.Asleep && LastTick - company.LastSeenAt < LitPeriod;
+    public bool IsActive(Company company) => LastTick - company.LastSeenAt < LitPeriod;
 
     /// <summary>Active players on the whole server</summary>
     public int ActivePlayers() => _companies.Values.Count(IsActive);
 
-    /// <summary>Quiet grace (v1.2 §8): on a quiet server every Hub Order is bigger (on in the server; off in tests and the balance runs, which play a busy server)</summary>
-    public bool QuietGraceEnabled { get; set; }
-
-    public double QuietGrace() => QuietGraceEnabled ? Content.Progression.Together.GraceFor(ActivePlayers()) : 1;
-
     /// <summary>A company's Hub Order at a hub: what the hub takes of a resource per minute at the full price</summary>
     public double HubDemand(DistrictCoord district, string resource) =>
         (Content.Resources.TryGetValue(resource, out var definition) ? definition.Demand : 0) * Math.Pow(1.5, Era - 1)
-        * EventDemandFactor(district, resource) * WonderDemandFactor(district) * QuietGrace();
+        * EventDemandFactor(district, resource) * WonderDemandFactor(district);
 
     private void UpdateMarkets()
     {
