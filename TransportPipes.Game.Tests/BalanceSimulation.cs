@@ -309,12 +309,29 @@ public class BalanceSimulation
         /// steps the one that pays back soonest within five days (an upgrade is a Max, a building is placed and piped);
         /// false when it waits
         /// </summary>
-        public bool ModelStep()
+        /// <summary>
+        /// Up to this many things, as the model's player does them in a minute; the advisor is asked again after every
+        /// few (a big plot's network is solved again after every change, which made a bot's day take minutes)
+        /// </summary>
+        public int ModelSteps(int count)
+        {
+            var done = 0;
+            while (done < count && ModelStep(Math.Min(3, count - done)) is > 0 and var n)
+            {
+                done += n;
+            }
+            return done;
+        }
+
+        public bool ModelStep() => ModelStep(1) > 0;
+
+        /// <summary>One thing, or up to a batch of the advisor's steps from one list (the best payback first); how many it did</summary>
+        private int ModelStep(int batch)
         {
             company.LastSeenAt = game.Time;
             if (TryResearch())
             {
-                return true;
+                return 1;
             }
             var (cost, level) = World.NextParcel(company);
             if (level <= company.Level && World.BestParcel(company) is { } parcel)
@@ -322,11 +339,11 @@ public class BalanceSimulation
                 if (cost <= company.Gold && World.BuyParcel(company.Id, parcel.Parcel).Success)
                 {
                     _notes.Add("bought a parcel");
-                    return true;
+                    return 1;
                 }
                 if (Income > 0 && (cost - company.Gold) / Income <= GameWorld.SaveForParcelMinutes)
                 {
-                    return false;
+                    return 0;
                 }
             }
             // Then the outskirts from Era 2, in the same way (1.4 §5)
@@ -337,11 +354,11 @@ public class BalanceSimulation
                 if (price <= company.Gold && World.BuyOutskirts(company.Id, free).Success)
                 {
                     _notes.Add("bought outskirts");
-                    return true;
+                    return 1;
                 }
                 if (Income > 0 && (price - company.Gold) / Income <= GameWorld.SaveForParcelMinutes)
                 {
-                    return false;
+                    return 0;
                 }
             }
             var steps = World.NextSteps(company, 12);
@@ -349,7 +366,7 @@ public class BalanceSimulation
             if (steps.Any(t => t.Action == AdvisorAction.Connect) && ConnectAll())
             {
                 _notes.Add("piped what wasn't");
-                return true;
+                return 1;
             }
             var choices = steps
                 .Where(t => t.Action is AdvisorAction.Build or AdvisorAction.Upgrade or AdvisorAction.Climb && t.GainPerMinute > 0 && t.Cost <= company.Gold)
@@ -364,10 +381,17 @@ public class BalanceSimulation
             {
                 // Nothing pays back within five days: the gold beyond two hours of income goes half to the Yard's Monument,
                 // half to the town's Wonder (1.4 §17)
-                return GiveLateGold();
+                return GiveLateGold() ? 1 : 0;
             }
-            foreach (var best in choices.Take(5))
+            var acted = 0;
+            var touched = new HashSet<long>();
+            foreach (var best in choices.Take(5 + batch))
             {
+                // A batch never touches one building twice (its next step's price and gain changed), nor buys past the gold
+                if (acted >= batch || (best.Building is { } b && !touched.Add(b)) || best.Cost > company.Gold)
+                {
+                    continue;
+                }
                 var done = best.Action switch
                 {
                     AdvisorAction.Upgrade when World.Building(best.Building!.Value) is { } building =>
@@ -379,11 +403,12 @@ public class BalanceSimulation
                 if (done)
                 {
                     _notes.Add(best.Title);
-                    return true;
+                    acted++;
+                    continue;
                 }
                 _failed[best.Title] = game.Time.AddHours(1);
             }
-            return GiveLateGold();
+            return acted > 0 ? acted : GiveLateGold() ? 1 : 0;
         }
 
         /// <summary>Steps that didn't work, and until when they aren't tried again</summary>

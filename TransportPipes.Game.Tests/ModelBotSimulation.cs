@@ -51,9 +51,7 @@ public class ModelBotSimulation
         {
             if (Playing(minute, out var perMinute))
             {
-                for (var action = 0; action < perMinute && bot.ModelStep(); action++)
-                {
-                }
+                bot.ModelSteps(perMinute);
                 game.Pass(1);
             }
             else
@@ -141,9 +139,7 @@ public class ModelBotSimulation
             {
                 foreach (var bot in bots)
                 {
-                    for (var action = 0; action < (minute < 120 ? 2 : 6) && bot.ModelStep(); action++)
-                    {
-                    }
+                    bot.ModelSteps(minute < 120 ? 2 : 6);
                 }
                 game.Pass(1);
             }
