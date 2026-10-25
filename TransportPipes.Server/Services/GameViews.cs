@@ -358,7 +358,11 @@ public static partial class GameViews
         // Next steps, so the panel never says less than they did
         var near = world.NearPlayers(owner).SelectMany(c => world.BuildingsOf(c.Id).Where(b => !b.UnderConstruction))
             .SelectMany(b => world.Content.Building(b.Type).Out.Keys).ToHashSet();
-        return wants.Select(t => new SiteWantDto(t.Resource, t.Amount, Math.Round(t.Got, 1), Math.Round(t.Incoming.Values.Sum(), 2),
+        // Levels bought together wait for a step's goods each: one line per good for all of them
+        var merged = wants.GroupBy(t => t.Resource).Select(g => (Resource: g.Key, Amount: g.Sum(t => t.Amount), Got: g.Sum(t => t.Got),
+            Incoming: g.Sum(t => t.Incoming.Values.Sum()), Left: g.Sum(t => t.Left),
+            From: g.SelectMany(t => t.From).GroupBy(f => f.Key).ToDictionary(f => f.Key, f => f.Sum(v => v.Value))));
+        return merged.Select(t => new SiteWantDto(t.Resource, t.Amount, Math.Round(t.Got, 1), Math.Round(t.Incoming, 2),
             t.From.Where(f => f.Value >= 0.5).OrderByDescending(f => f.Value)
                 .Select(f => f.Key == owner.Id ? $"you: {f.Value:N0}"
                     : f.Key == GameWorld.HubSource ? $"bought: {f.Value:N0}"

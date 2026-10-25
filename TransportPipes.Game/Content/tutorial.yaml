@@ -8,7 +8,7 @@
     text: "Now pipe it: pick the Pipe tool (P), then drag from your panel to the pipe next to it. Pipes carry what it makes to your Trading Post.",
     phoneText: "Now pipe it to your Trading Post: Show me plans the pipe, and one tap lays it. Pipes carry what it makes to be sold." }
 - { id: firstUpgrade, stat: levelsBought, amount: 1, gold: 150, hint: { select: paying },
-    text: "Coins! Upgrade a building: every level makes 10% more, and every fifth level doubles it. Show me opens the one where a level pays back soonest." }
+    text: "Coins! Upgrade a building: every level makes 10% more, up to level 25, and every fifth level earns it a star. Show me opens the one where a level pays back soonest." }
 - { id: firstMoily, stat: "built:solarPanel|windMoily", amount: 2, gold: 200, hint: { tool: build, building: windMoily, overlay: wind },
     text: "More energy, more gold. Find a windy spot (the Wind overlay shows it) and build a Wind Moily: six times a panel." }
 - { id: firstYard, stat: yard, amount: 1, gold: 500, hint: { panel: yard },
@@ -32,7 +32,7 @@
 - { id: copperIngots, chapter: 2, stat: "produced:copperIngot", amount: 1, gold: 3000, hint: { tool: build, building: "copperMine,coalPit,smelter", overlay: deposits },
     text: "Chapter 2: copper ingots, worth much more than the ore. A Smelter needs copper ore and coal: mine what your land holds (the Deposits overlay shows it), and pipe the Smelter to your Yard gate: a neighbour's or the market's brings the rest." }
 - { id: firstMilestone, chapter: 2, stat: maxLevel, amount: 10, gold: 2500, hint: { select: highest },
-    text: "Level 10 doubles what a building makes, and its badge turns green. Upgrade one of your buildings to level 10." }
+    text: "At level 10 a building makes 2.4 times what it made at level 1, and its badge turns blue: Superior. Upgrade one of your buildings to level 10." }
 - { id: copperPipe, chapter: 2, stat: pipeTiers, amount: 1, gold: 3000, hint: { select: pipeFull },
     text: "A pipe carries only so much between two buildings: a grey one 100 a minute. When a building's pipe is full, its panel shows the way up: a Copper Pipe carries fifty times as much, and the levels after it pay again. Lay your first Copper Pipe." }
 - { id: threeResearches, chapter: 2, stat: researched, amount: 3, gold: 3000, hint: { panel: research },

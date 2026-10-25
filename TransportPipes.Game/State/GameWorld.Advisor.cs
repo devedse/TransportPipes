@@ -860,7 +860,10 @@ public sealed partial class GameWorld
             if (post != null && lab != null && BuildingsOf(company.Id).All(t => Content.Building(t.Type).Kind != BuildingKind.Lab)
                 && FindSpot(company, lab, post.Position) is { } spot)
             {
-                var fullPipes = networks.Any(t => FullLinks(t).Count > 0);
+                // Full pipes need research only when they are the best pipe you may lay (a grey one waits for copper,
+                // which Level 8 gives: its pipe door is the way, not a Lab)
+                var bestPipe = Content.PipeTiers.Where(t => t.Era <= YourEra(company) && (t.Research == null || HasResearch(company, t.Research))).Max(t => t.Throughput);
+                var fullPipes = networks.Any(t => FullLinks(t).Any(link => link.Capacity >= bestPipe * 0.999));
                 add(new AdvisorStep(AdvisorKind.Research, fullPipes ? $"Build {Article(lab.Name)}: your pipes are full, better ones need research" : $"Build {Article(lab.Name)}: research makes your chains better",
                     $"{Article(lab.Name)} has two lines: a track makes one chain faster and leaner tier by tier, the Era tree opens better pipes.",
                     AdvisorAction.Build, BuildCost(company, lab), Math.Max(1, income * 0.05), BuildingType: lab.Id, At: spot), fullPipes ? 2 : 1);

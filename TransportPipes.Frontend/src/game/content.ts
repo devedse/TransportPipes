@@ -61,11 +61,10 @@ export class Content {
     return this.resourceById.get(id)?.color ?? SPECIAL_DEPOSITS[id]?.color ?? "#ffffff";
   }
 
-  /** Output multiplier at a building level: +10% per level, milestones double */
+  /** Output multiplier at a building level: +10% per level up to the last (1.4 §9: 9.85× at level 25) */
   outputMultiplier(level: number): number {
     const p = this.progression;
-    const milestones = p.milestones.filter((t) => level >= t).length;
-    return Math.pow(p.outputPerLevel, level - 1) * Math.pow(2, milestones);
+    return Math.pow(p.outputPerLevel, Math.min(level, p.maxBuildingLevel) - 1);
   }
 
   /** Gold to upgrade from this level to the next (1.4 §9: from what the copy cost, its build price when unknown) */

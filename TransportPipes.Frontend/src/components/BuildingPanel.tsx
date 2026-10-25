@@ -362,7 +362,6 @@ export function BuildingPanel() {
     : 0;
   // The levels bought whose goods are still coming count: the next one to buy comes after them (1.4 §9)
   const bought = details.levelWait?.boughtLevel ?? building.level;
-  const nextMilestone = content.nextMilestone(bought);
   const isProducer = details.inputs.length + details.outputs.length > 0;
   const thumbnail = gameClient.textures?.thumbnail(definition.id, definition.size);
 
@@ -475,8 +474,7 @@ export function BuildingPanel() {
       {mine && details.upgradeCost !== null && !underConstruction && (
         <section className="upgrade">
           <h4>
-            Upgrade · output +10% per level
-            {nextMilestone !== null && <span className="muted"> · level {nextMilestone} doubles it</span>}
+            Upgrade · output +10% per level, up to level {content.progression.maxBuildingLevel}
             {nextTier(building.level) !== null && (
               <span className="muted">
                 {" "}

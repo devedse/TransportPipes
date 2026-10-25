@@ -6107,6 +6107,11 @@ button.link.danger {
   justify-self: start;
 }
 
+/* The tracker's bar stands in its second column: here it is a line of its own (1.4's level wait read word by word) */
+.site-wants .site-list .goal-bar {
+  grid-column: 1;
+}
+
 /* The pipe door (after run 4): the way up a full pipe, where a player looks to spend */
 .pipe-door {
   margin-top: 8px;
