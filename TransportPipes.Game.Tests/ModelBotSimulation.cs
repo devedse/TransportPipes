@@ -35,6 +35,7 @@ public class ModelBotSimulation
         var start = company.Gold;
         var bot = new BalanceSimulation.Bot(game, company);
         var report = new StringBuilder();
+        var types = new StringBuilder();
         report.AppendLine("| Day | Income a minute | Level | Buildings | Avg level | Parcels | Research | Spent of earned | Bank |");
         report.AppendLine("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");
         bool Playing(int minute, out int perMinute)
@@ -68,8 +69,11 @@ public class ModelBotSimulation
                 var earned = company.LifetimeEarnings;
                 var spent = start + earned - company.Gold;
                 report.AppendLine($"| {(minute + 19 * 60 + 30) / (24 * 60) + 1} | {income:N0} | {company.Level} | {buildings.Count} | {(buildings.Count == 0 ? 0 : buildings.Average(t => t.Level)):N1} | {game.EstateOf(company).UnlockedCount} | {company.Researched.Count} | {(earned <= 0 ? 0 : spent / (start + earned)):P0} | {(income <= 0 ? 0 : company.Gold / income / 60):N1} h |");
+                // What it owns, type by type (count × average level), and how many levels it bought, against §17's plots
+                types.AppendLine($"- day {(minute + 19 * 60 + 30) / (24 * 60) + 1}: {string.Join(", ", buildings.GroupBy(t => t.Type).OrderByDescending(t => t.Count()).Select(t => $"{t.Key} {t.Count()}×{t.Average(b => b.Level):N1}"))}; levels bought {game.World.StatValue(company, "levelsBought"):N0}, waiting for goods {buildings.Count(game.World.WaitsForLevel)}");
             }
         }
+        report.Append(types);
         foreach (var step in game.World.NextSteps(company, 12))
         {
             report.AppendLine($"- {step.Action} {step.Title}: {step.Cost:N0} g for +{step.GainPerMinute:N1}/min (wait {step.WaitMinutes:N0})");
