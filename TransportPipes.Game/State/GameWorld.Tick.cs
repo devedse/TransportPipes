@@ -40,10 +40,6 @@ public sealed partial class GameWorld
         {
             events.Add((at > LastTick ? at : LastTick, long.MinValue + 5, CheckStagesBuilt));
         }
-        foreach (var (at, run) in LeaseMoments(LastTick, now).ToList())
-        {
-            events.Add((at, long.MinValue + 6, run));
-        }
         foreach (var (at, run) in ArrivalMoments(LastTick, now).ToList())
         {
             events.Add((at, long.MinValue + 9, run));
@@ -92,6 +88,8 @@ public sealed partial class GameWorld
         {
             events.Add((at, long.MinValue, () =>
             {
+                // What went over trunk lines to other towns' markets since the last update pays its carriers
+                PayExportFees(MarketInterval.TotalMinutes);
                 UpdateMarkets();
                 RunManagers();
                 // A free line whose player went away starts what the gold covers (KeepResearching)

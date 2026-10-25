@@ -31,6 +31,9 @@ public sealed class GameContent
     /// <summary>The Monuments a Yard can build (1.4 §13)</summary>
     public MonumentRules Monuments { get; }
 
+    /// <summary>The missions after a town's Launch (1.4 §13)</summary>
+    public MissionRules Missions { get; }
+
     public IReadOnlyList<ManagerDefinition> Managers { get; }
     public IReadOnlyList<AchievementDefinition> Achievements { get; }
     public IReadOnlyList<CollectionDefinition> Collections { get; }
@@ -51,9 +54,11 @@ public sealed class GameContent
         IReadOnlyList<RelicDefinition>? relics = null,
         IReadOnlyList<TrackDefinition>? tracks = null,
         TrackRules? trackRules = null,
-        MonumentRules? monuments = null)
+        MonumentRules? monuments = null,
+        MissionRules? missions = null)
     {
         Monuments = monuments ?? new MonumentRules();
+        Missions = missions ?? new MissionRules();
         TrackList = tracks ?? [];
         Tracks = TrackList.ToDictionary(t => t.Id);
         TrackRules = trackRules ?? new TrackRules();
@@ -84,7 +89,7 @@ public sealed class GameContent
         TrackRules? trackRules = null,
         IReadOnlyList<WonderDefinition>? wonders = null) =>
         new(resources ?? ResourceList, buildings ?? BuildingList, pipeTiers ?? PipeTiers, progression ?? Progression, ResearchList, wonders ?? EraWonders, Managers,
-            Achievements, Collections, tutorial ?? Tutorial, Relics, TrackList, trackRules ?? TrackRules, Monuments);
+            Achievements, Collections, tutorial ?? Tutorial, Relics, TrackList, trackRules ?? TrackRules, Monuments, Missions);
 
     public BuildingDefinition Building(string id) =>
         Buildings.TryGetValue(id, out var definition) ? definition : throw new KeyNotFoundException($"Unknown building '{id}'.");
@@ -120,7 +125,7 @@ public sealed class GameContent
         var wonders = Read<WondersDto>("wonders.yaml");
         var managers = Read<List<ManagerDto>>("managers.yaml").Select(t => new ManagerDefinition(t.Id, t.Name, t.Cost, t.Color, t.Automation, t.Bonus)).ToList();
         var achievements = Read<AchievementsDto>("achievements.yaml");
-        var tutorial = Read<List<TutorialDto>>("tutorial.yaml").Select(t => new TutorialStep(t.Id, t.Text, t.Stat, t.Amount, t.Gold, t.Hint, t.Chapter, t.PhoneText)).ToList();
+        var tutorial = Read<List<TutorialDto>>("tutorial.yaml").Select(t => new TutorialStep(t.Id, t.Text, t.Stat, t.Amount, t.Gold, t.Hint, t.Chapter, t.PhoneText, t.Era)).ToList();
         var relics = Read<List<RelicDto>>("relics.yaml").Select(t => new RelicDefinition(t.Id, t.Name, t.Lore)).ToList();
         return new GameContent(
             resources,
@@ -136,7 +141,8 @@ public sealed class GameContent
             relics,
             research.Tracks.Select(t => t.ToDefinition()).ToList(),
             research.ToRules(),
-            wonders.Monuments.ToRules());
+            wonders.Monuments.ToRules(),
+            wonders.Missions.ToRules());
     }
 
     private void Validate()
@@ -401,6 +407,7 @@ public sealed class GameContent
         public Dictionary<string, string> Hint { get; set; } = new();
         public int Chapter { get; set; } = 1;
         public string? PhoneText { get; set; }
+        public int Era { get; set; } = 1;
     }
 
     private sealed class AchievementsDto
@@ -446,6 +453,19 @@ public sealed class GameContent
     {
         public List<WonderDto> Era { get; set; } = new();
         public MonumentsDto Monuments { get; set; } = new();
+        public MissionsDto Missions { get; set; } = new();
+    }
+
+    private sealed class MissionsDto
+    {
+        public string Name { get; set; } = "Mission";
+        public string Description { get; set; } = "";
+        public double Worth { get; set; } = 100_000_000_000_000;
+        public double Growth { get; set; } = 1.1;
+        public double Perk { get; set; } = 0.01;
+        public List<string> Goods { get; set; } = new();
+
+        public MissionRules ToRules() => new() { Name = Name, Description = Description, Worth = Worth, Growth = Growth, Perk = Perk, Goods = Goods };
     }
 
     private sealed class WonderDto

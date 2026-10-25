@@ -96,7 +96,12 @@ export function GoalTracker() {
             </div>
             <p>{text}</p>
             {step.tip != null && <p className="loady-wait small">{step.tip}</p>}
-            {step.waitLevel != null ? (
+            {step.waitEra != null ? (
+              <p className="loady-wait small">
+                <strong>When your town reaches Era {step.waitEra}.</strong> Its Wonder brings it: give to it
+                in Hub › Town &amp; Wonder.
+              </p>
+            ) : step.waitLevel != null ? (
               <p className="loady-wait small">
                 <strong>At Company Level {step.waitLevel}.</strong>{" "}
                 {nextSteps.length > 0
@@ -109,7 +114,7 @@ export function GoalTracker() {
               </span>
             )}
             <div className="loady-actions">
-              {step.waitLevel == null && (
+              {step.waitLevel == null && step.waitEra == null && (
                 <button className="small" onClick={() => gameClient.showTutorialHint()}>
                   Show me
                 </button>

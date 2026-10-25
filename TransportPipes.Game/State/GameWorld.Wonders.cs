@@ -20,6 +20,9 @@ public sealed class Town
     /// <summary>When its Space Elevator launched (null: not yet)</summary>
     public DateTime? LaunchedAt { get; set; }
 
+    /// <summary>The missions it finished since (each a star on the world map, +1% production for good)</summary>
+    public int Missions { get; set; }
+
     public DistrictCoord Coord => new(X, Y);
 }
 
@@ -130,7 +133,23 @@ public sealed partial class GameWorld
     /// <summary>A building from a later Era than its town's sleeps (1.4 §9): it makes and uses nothing until the town gets there</summary>
     public bool Sleeps(Building building) => Content.Building(building.Type).Unlock.Era > EraAt(building);
 
-    public WonderDefinition WonderDefinition(TownWonder wonder) => Content.EraWonders.First(t => t.Id == wonder.Type);
+    public WonderDefinition WonderDefinition(TownWonder wonder) =>
+        wonder.Type.StartsWith(MissionPrefix, StringComparison.Ordinal)
+            ? Content.Missions.Mission(int.Parse(wonder.Type[MissionPrefix.Length..]))
+            : Content.EraWonders.First(t => t.Id == wonder.Type);
+
+    /// <summary>A mission's type: this and its number (0: the first)</summary>
+    private const string MissionPrefix = "mission-";
+
+    /// <summary>Whether a town builds a mission now (after its Launch) rather than an Era Wonder</summary>
+    public static bool IsMission(TownWonder wonder) => wonder.Type.StartsWith(MissionPrefix, StringComparison.Ordinal);
+
+    /// <summary>The town's next mission (1.4 §13)</summary>
+    private TownWonder NewMission(Town town)
+    {
+        var definition = Content.Missions.Mission(town.Missions);
+        return new TownWonder { Type = definition.Id, Required = StageRequirements(definition, 0) };
+    }
 
     /// <summary>The town's Wonder, or null after the Launch</summary>
     public TownWonder? WonderOf(DistrictCoord town) => TownAt(town).Wonder;
@@ -147,7 +166,8 @@ public sealed partial class GameWorld
     }
 
     /// <summary>The trail: every town that finished a Wonder before makes it 10% smaller, down to half</summary>
-    public double TrailFactor(WonderDefinition definition) => Math.Max(0.5, 1 - 0.1 * WondersFinished.GetValueOrDefault(definition.Id));
+    public double TrailFactor(WonderDefinition definition) =>
+        definition.Id.StartsWith(MissionPrefix, StringComparison.Ordinal) ? 1 : Math.Max(0.5, 1 - 0.1 * WondersFinished.GetValueOrDefault(definition.Id));
 
     /// <summary>A stage's goods: its share of the Wonder's worth (with the trail), split evenly over its goods at base prices</summary>
     private Dictionary<string, double> StageRequirements(WonderDefinition definition, int stage)
@@ -176,10 +196,13 @@ public sealed partial class GameWorld
         var total = 0.0;
         foreach (var definition in Content.EraWonders.Where(t => t.Era <= town.Era))
         {
-            var built = definition.Era < town.Era ? definition.Stages.Count : town.Wonder?.Type == definition.Id ? town.Wonder.Stage : 0;
+            // The last Era's Wonder stands whole once the town launched it
+            var built = definition.Era < town.Era || (town.LaunchedAt != null && definition.Era == town.Era) ? definition.Stages.Count
+                : town.Wonder?.Type == definition.Id ? town.Wonder.Stage : 0;
             total += definition.Stages.Take(built).Where(t => t.Perk == perk).Sum(t => t.PerkAmount);
         }
-        return total;
+        // Every mission finished after the Launch: more production for good
+        return total + (perk == WonderPerk.Everything ? town.Missions * Content.Missions.Perk : 0);
     }
 
     /// <summary>What a building makes more from its town's Wonders and launch party</summary>
@@ -412,17 +435,24 @@ public sealed partial class GameWorld
             MarkWonderTiles(town);
             return;
         }
+        if (IsMission(wonder))
+        {
+            // A mission launched: a star for the town, a little more for everyone in it, and the next one
+            town.Missions++;
+            town.Wonder = NewMission(town);
+            foreach (var company in CompaniesInTown(town.Coord))
+            {
+                Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder,
+                    $"{definition.Name} launched: +{Content.Missions.Perk:P0} production for good for everyone in your town, and its star number {town.Missions}"));
+            }
+            MarkTownDirty(town.Coord);
+            MarkWonderTiles(town);
+            return;
+        }
         WondersFinished[definition.Id] = WondersFinished.GetValueOrDefault(definition.Id) + 1;
         if (town.Era >= LastEra)
         {
-            town.Wonder = null;
-            town.LaunchedAt = LastTick;
-            foreach (var company in CompaniesInTown(town.Coord))
-            {
-                company.Titles.Add("Launched the Space Elevator");
-                Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder, $"{definition.Name} launches! Your town reached the stars"));
-            }
-            MarkWonderTiles(town);
+            Launch(town, wonder, definition);
             return;
         }
         AdvanceEra(town);
@@ -647,7 +677,33 @@ public sealed partial class GameWorld
             .ToList();
     }
 
-    // ---------------------------------------------------------------- Legacy
+    // ---------------------------------------------------------------- The Launch and Legacy
+
+    /// <summary>Legacy every player in a town gets at its Launch, and on top for those who gave to its Space Elevator</summary>
+    public const int LaunchLegacy = 40;
+    public const int LaunchGiverLegacy = 40;
+
+    /// <summary>
+    /// The town's Space Elevator launches (1.4 §13): titles for everyone in the town, Legacy for their accounts (a giver
+    /// gets more), and the missions begin
+    /// </summary>
+    private void Launch(Town town, TownWonder wonder, WonderDefinition definition)
+    {
+        town.LaunchedAt = LastTick;
+        town.Wonder = NewMission(town);
+        foreach (var company in CompaniesInTown(town.Coord))
+        {
+            company.Titles.Add("Launched the Space Elevator");
+            company.Touch();
+            var gave = wonder.Given.GetValueOrDefault(company.Id) > 0;
+            Changes.Legacy.Add((company.UserId, LaunchLegacy + (gave ? LaunchGiverLegacy : 0), "Launched the Space Elevator"));
+            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder,
+                $"{definition.Name} launches! Your town reached the stars: Legacy for your account, and the missions begin"));
+            Changes.Companies.Add(company.Id);
+        }
+        MarkTownDirty(town.Coord);
+        MarkWonderTiles(town);
+    }
 
     /// <summary>Legacy (1.4 §13, after the Launch): from level 5 a free manager slot for any future company</summary>
     public const int LegacyManagerLevel = 5;

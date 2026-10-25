@@ -73,3 +73,14 @@ monuments:
     - { id: observatory, name: Observatory, perk: research, amount: 0.03, cap: 10, description: "Every stage: research 3% faster for every resident (up to 30%)." }
     - { id: workshop, name: Workshop, perk: cheaper, amount: 0.03, cap: 10, description: "Every stage: buildings, levels and parcels 3% cheaper for every resident (up to 30%)." }
     - { id: lighthouse, name: Lighthouse, perk: yardSales, amount: 0.03, cap: 10, description: "Every stage: what residents sell in the Yard and on links pays 3% on top, paid by the market (up to 30%)." }
+
+# After a town's Launch (1.4 §13): missions without end, each a launch from the Space Elevator that asks for Era-5 goods
+# worth growth times the last (the first about a sixth of the Space Elevator, provisional until the model plays Era 5),
+# and gives everyone in the town +1% production for good and the town a star on the world map
+missions:
+  name: Mission
+  description: "A launch from your town's Space Elevator. Each one finished gives everyone in the town +1% production for good, and the town a star."
+  worth: 100000000000000
+  growth: 1.1
+  perk: 0.01
+  goods: [spaceframes, robots, superconductors, titanium]

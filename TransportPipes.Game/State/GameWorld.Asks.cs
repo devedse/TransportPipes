@@ -195,6 +195,8 @@ public sealed partial class GameWorld
     {
         foreach (var asker in _companies.Values.Where(t => t.Asks.Count > 0))
         {
+            // Its own Storages first (1.4 §9), once for all its wants
+            FillWantsFromStorages(asker);
             foreach (var ask in asker.Asks.ToList())
             {
                 SettleWant(asker, ask, minutes);

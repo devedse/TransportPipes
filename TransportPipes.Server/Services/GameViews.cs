@@ -98,7 +98,8 @@ public static partial class GameViews
             company.Give.ToDictionary(t => t.Key, t => Camel(t.Value)),
             company.WantsFromMarket,
             estate == null ? null : new OutskirtsDto(estate.OutskirtsParcels, world.NextOutskirtsCost(company), world.OutskirtsBlocker(company)),
-            Workshops(world, company));
+            Workshops(world, company),
+            company.Explored.ToList());
     }
 
     /// <summary>Building in the Yard (1.4 §7): your workshop tiles, and the crew's Depot</summary>
@@ -433,7 +434,7 @@ public static partial class GameViews
     {
         var owner = world.Company(outpost.Owner);
         var mine = viewer == outpost.Owner;
-        return new OutpostDto(outpost.Id, outpost.Owner, owner?.Name ?? "", owner?.Color ?? "#888888", outpost.X, outpost.Y, GameWorld.OutpostSize, mine ? outpost.Lease : null, mine ? outpost.PaidUntil : null);
+        return new OutpostDto(outpost.Id, outpost.Owner, owner?.Name ?? "", owner?.Color ?? "#888888", outpost.X, outpost.Y, GameWorld.OutpostSize, mine ? outpost.Price : null);
     }
 
     /// <summary>The best claim covering a tile</summary>
@@ -469,7 +470,7 @@ public static partial class GameViews
             .Where(t => t.Deposit != null && t.Richness >= 3)
             .ToList();
         var deposit = tiles.GroupBy(t => t.Deposit).OrderByDescending(t => t.Count()).Select(t => t.Key).FirstOrDefault();
-        return new OutpostCheckDto(error, origin.X, origin.Y, world.OutpostLease(company), GameWorld.OutpostSize, deposit, tiles.Count);
+        return new OutpostCheckDto(error, origin.X, origin.Y, world.OutpostPrice(company), GameWorld.OutpostSize, deposit, tiles.Count);
     }
 
     public static ChunkDto Chunk(GameWorld world, int cx, int cy)
@@ -545,7 +546,33 @@ public static partial class GameViews
                 ? new DistrictYardDto(t.Index, crew.NameHidden ? WorldNames.Station(t) : crew.Name, crew.Emblem, crew.Color, crew.Color2, crew.Open,
                     world.Stalls(t).Select(s => new StallDto(s.Slot, s.Sells, s.CrewPrice, s.Wants)).ToList(),
                     world.MonumentsOf(crew).Where(m => m.Kind != null && m.Stages > 0).Select(m => new YardMonumentDto(m.Era, m.Kind!, m.Stages)).ToList())
-                : new DistrictYardDto(t.Index, WorldNames.Station(t), null, null, null, true, [])).ToList());
+                : new DistrictYardDto(t.Index, WorldNames.Station(t), null, null, null, true, [])).ToList(),
+            world.TownEra(district),
+            world.TownAt(district).LaunchedAt != null,
+            world.TownAt(district).Missions,
+            world.TrunkLines.Where(t => t.From == district)
+                .Select(t => new MapLineDto(t.Id, t.Route.SelectMany(p => new[] { p.X, p.Y }).ToList(), t.Tier, world.Company(t.Owner)?.Color ?? "#888888")).ToList());
+    }
+
+    /// <summary>Your town's trunk lines (1.4 §20), where one could run, the tiers you may build in, your exports</summary>
+    public static LinesDto Lines(GameWorld world, Company company)
+    {
+        var tiers = world.LineTiers(company).ToList();
+        var best = tiers.DefaultIfEmpty(4).Max();
+        var lines = world.TrunkLines.Where(t => t.From == company.District || t.To == company.District).Select(t =>
+        {
+            var carrier = world.Company(t.Owner);
+            var other = t.From == company.District ? t.To : t.From;
+            return new TrunkLineDto(t.Id, carrier?.Name ?? "", carrier?.Color ?? "#888888", t.Owner == company.Id, WorldNames.District(company.District), WorldNames.District(other),
+                other.X, other.Y, t.Tier, t.Length, world.LineEfficiency(t), world.LineThroughput(t), Math.Round(t.Carried), t.PublicFee, t.CrewFee,
+                world.LineFee(t, company), t.Owner == company.Id ? Math.Round(t.Earned) : 0, t.Route.SelectMany(p => new[] { p.X, p.Y }).ToList());
+        }).ToList();
+        var options = world.LineNeighbours(company.District).Where(t => world.LineBetween(company.District, t) == null).Select(t =>
+        {
+            var plan = world.PlanLine(company.Id, t, best);
+            return new LineOptionDto(t.X, t.Y, WorldNames.District(t), world.TownEra(t), best, plan.Length, plan.Gold, plan.Error);
+        }).ToList();
+        return new LinesDto(lines, options, tiers, company.Exports);
     }
 
     private static List<HubStructureDto> HubStructures(GameWorld world, DistrictCoord district)
@@ -556,6 +583,14 @@ public static partial class GameViews
             // The town's Era Wonder at its site (1.4 §13)
             if (structure.Type == "eraWonderSite" && world.WonderOf(district) is { } wonder)
             {
+                if (GameWorld.IsMission(wonder) && world.Content.EraWonders.LastOrDefault() is { } elevator)
+                {
+                    // After the Launch the Space Elevator stands finished, with the town's stars
+                    var stars = world.TownAt(district).Missions;
+                    structures.Add(new HubStructureDto(structure.Type, structure.X, structure.Y, structure.Size, stars > 0 ? $"{elevator.Name} · {stars} ★" : elevator.Name,
+                        Level: elevator.Stages.Count, Variant: elevator.Id, Stages: elevator.Stages.Count));
+                    continue;
+                }
                 var definition = world.WonderDefinition(wonder);
                 structures.Add(new HubStructureDto(structure.Type, structure.X, structure.Y, structure.Size, definition.Name, Level: wonder.Stage, Variant: wonder.Type, Stages: definition.Stages.Count));
                 continue;
@@ -626,7 +661,8 @@ public static partial class GameViews
             world.Content.Monuments.Kinds.Select(t => new MonumentKindDto(t.Id, t.Name, t.Description, sites.Any(s => s.Kind == t.Id))).ToList(),
             world.Content.Monuments.Level,
             Math.Round(60 * world.MeasuredIncome(company)),
-            town.LaunchedAt);
+            town.LaunchedAt,
+            town.Missions);
     }
 
     private static TownWonderDto TownWonder(GameWorld world, TownWonder wonder, Company company)
@@ -917,7 +953,7 @@ public static partial class GameViews
         return new TutorialDto(company.TutorialStep, world.Content.Tutorial.Count, step.Id, world.TutorialText(step), world.TutorialProgress(company, step), step.Amount, step.Gold, world.TutorialHint(company, step),
             world.TutorialWaitLevel(company, step), world.TutorialTip(company, step), step.Chapter, world.TutorialChapter(step).Index, world.TutorialChapter(step).Count,
             step.PhoneText, pipe?.Tiles.SelectMany(t => new[] { t.X, t.Y }).ToArray(), Math.Round(pipe?.Cost ?? 0, 2),
-            pipe?.Target is { } target ? world.Content.Building(target.Type).Name : null, company.TutorialStepSince);
+            pipe?.Target is { } target ? world.Content.Building(target.Type).Name : null, company.TutorialStepSince, world.TutorialWaitEra(company, step));
     }
 
     /// <summary>The panel head (F2): the cause, the pill, the reach line and the one fix, for the owner's eyes (others see the pill)</summary>
@@ -1292,7 +1328,9 @@ public static partial class GameViews
             WorldNames.District(shown),
             WorldLayout.Stations(shown).Select(t => Station(world, t, me, code)).ToList(),
             Ref(pick),
-            world.OpenDistricts.OrderBy(t => Math.Abs(t.X) + Math.Abs(t.Y)).Select(t => new DistrictRefDto(t.X, t.Y, WorldNames.District(t))).ToList());
+            world.OpenDistricts.OrderBy(t => Math.Abs(t.X) + Math.Abs(t.Y))
+                .Select(t => world.TownAt(t) is var town ? new DistrictRefDto(t.X, t.Y, WorldNames.District(t), town.Era, town.LaunchedAt != null, town.Missions) : null)
+                .OfType<DistrictRefDto>().ToList());
     }
 
     /// <summary>

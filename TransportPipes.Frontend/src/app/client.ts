@@ -401,7 +401,8 @@ export class GameClient {
     }
     if (
       previous !== null &&
-      (previous.unlockedParcels !== company.unlockedParcels ||
+      ((previous.explored ?? []).length !== (company.explored ?? []).length ||
+        previous.unlockedParcels !== company.unlockedParcels ||
         previous.level !== company.level ||
         previous.era !== company.era ||
         previous.deep.open !== company.deep.open ||
@@ -1610,8 +1611,38 @@ export class GameClient {
   }
 
   async refreshLinks() {
-    const links = await this.connection.getLinks().catch(() => null);
-    setState({ links });
+    const [links, lines] = await Promise.all([
+      this.connection.getLinks().catch(() => null),
+      this.connection.getLines().catch(() => null),
+    ]);
+    setState({ links, lines });
+  }
+
+  /** Builds a trunk line to a neighbouring town (1.4 §20): you are its carrier */
+  async buildLine(toX: number, toY: number, tier: number) {
+    if (
+      await this.command(
+        this.connection.buildLine(toX, toY, tier),
+        "Your trunk line stands: you are its carrier",
+      )
+    ) {
+      await this.refreshLinks();
+      void this.refreshCompany();
+    }
+  }
+
+  /** A carrier's fee: "public", "crew" or a player's id (null: their special fee goes) */
+  async setLineFee(line: number, who: string, fee: number | null) {
+    if (await this.command(this.connection.setLineFee(line, who, fee))) {
+      await this.refreshLinks();
+    }
+  }
+
+  /** Sends a good over a line to the other town's market (null: stops) */
+  async setExport(resource: string, line: number | null) {
+    if (await this.command(this.connection.setExport(resource, line))) {
+      await this.refreshLinks();
+    }
   }
 
   /** A link command; the panel and the map follow */

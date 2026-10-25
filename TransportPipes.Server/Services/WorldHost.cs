@@ -305,6 +305,13 @@ public sealed class WorldHost : BackgroundService
             }
         }
 
+        // A town's Launch: Legacy for every player's account (1.4 §13)
+        if (changes.Legacy.Count > 0)
+        {
+            var legacy = changes.Legacy.ToList();
+            pushes.Add(() => _accounts.AddLegacyAsync(legacy));
+        }
+
         var notifications = new List<(long Company, string Kind, string Text)>();
         foreach (var worldEvent in changes.Events)
         {

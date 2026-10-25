@@ -58,6 +58,7 @@ import {
   MONUMENT_SITES,
 } from "./layout";
 import { BuildingEffects, pelletTexture } from "./render/effects";
+import { PIPE_COLORS } from "./art/pipes";
 import { Juice } from "./render/juice";
 import { levelTier, LEVEL_TIERS, tierIndex } from "./levels";
 import { emblemIcon } from "../app/crews";
@@ -436,6 +437,8 @@ class ChunkView {
   overlay: Container | null = null;
   /** The Deposits overlay's seat labels, over the buildings */
   overlayLabels: Container | null = null;
+  /** The fog over wilderness the player hasn't mapped (1.4 §20) */
+  fog: Graphics | null = null;
   mini: Sprite | null = null;
   objects: ObjectView[] = [];
   loaded = false;
@@ -462,6 +465,8 @@ export class Engine {
   private readonly deepLabels = new Container();
   private deep = false;
   private readonly overlayLayer = new Container();
+  /** The fog over the wilderness nobody of yours mapped yet, over its trees and deposits */
+  private readonly fogLayer = new Container();
   private overlay: Overlay = "none";
   private readonly highlightLayer = new Graphics();
   /** Picking a plot: the free plots glow (pulsing), the closed ones are amber, the chosen one has a gold border */
@@ -573,6 +578,7 @@ export class Engine {
       this.linkPulse,
       this.highlightLayer,
       this.objectLayer,
+      this.fogLayer,
       this.pickGlow,
       this.pickMarks,
       this.flowLayer,
@@ -1391,6 +1397,8 @@ export class Engine {
     chunk.overlay = null;
     chunk.overlayLabels?.destroy({ children: true });
     chunk.overlayLabels = null;
+    chunk.fog?.destroy();
+    chunk.fog = null;
     if (chunk.mini !== null) {
       chunk.mini.texture.destroy(true);
       chunk.mini.destroy();
@@ -1420,6 +1428,7 @@ export class Engine {
     this.drawMini(chunk);
     this.drawOverlay(chunk);
     this.drawObjects(chunk);
+    this.drawFog(chunk);
     if (firstTime) {
       // Pipes on the edge of the neighbours connect to this chunk's objects
       for (const [dx, dy] of [
@@ -1435,6 +1444,57 @@ export class Engine {
         }
       }
     }
+  }
+
+  /**
+   * Fog over the wilderness of a chunk the player's expeditions haven't mapped (1.4 §20): its runs of wilderness tiles
+   * row by row, the same runs merged into rectangles
+   */
+  private drawFog(chunk: ChunkView) {
+    chunk.fog?.destroy();
+    chunk.fog = null;
+    const company = this.callbacks.getState().company;
+    const x0 = chunk.cx * CHUNK_SIZE;
+    const y0 = chunk.cy * CHUNK_SIZE;
+    if (company === null || isDeep(y0) || (company.explored ?? []).includes(`${chunk.cx},${chunk.cy}`)) {
+      return;
+    }
+    const rects: Array<{ x: number; y: number; w: number; h: number }> = [];
+    let open: Array<{ x: number; y: number; w: number; h: number }> = [];
+    let previous = "";
+    for (let y = y0; y < y0 + CHUNK_SIZE; y++) {
+      const runs: Array<[number, number]> = [];
+      for (let x = x0; x < x0 + CHUNK_SIZE; x++) {
+        if (zoneAt(x, y).kind !== "wilderness") {
+          continue;
+        }
+        const last = runs[runs.length - 1];
+        if (last !== undefined && last[1] === x) {
+          last[1] = x + 1;
+        } else {
+          runs.push([x, x + 1]);
+        }
+      }
+      const key = runs.map((t) => t.join("-")).join(",");
+      if (key === previous) {
+        open.forEach((t) => t.h++);
+        continue;
+      }
+      rects.push(...open);
+      open = runs.map(([a, b]) => ({ x: a, y, w: b - a, h: 1 }));
+      previous = key;
+    }
+    rects.push(...open);
+    if (rects.length === 0) {
+      return;
+    }
+    const g = new Graphics();
+    for (const rect of rects) {
+      traceFootprint(g, rect.x, rect.y, rect.w, rect.h);
+      g.fill({ color: 0xdfe4e2, alpha: 0.82 });
+    }
+    this.fogLayer.addChild(g);
+    chunk.fog = g;
   }
 
   private drawGround(chunk: ChunkView) {
@@ -2971,10 +3031,12 @@ export class Engine {
       }
     }
     if (far) {
+      // The race between towns (1.4 §13): its Era, its Launch, its stars
       const name = new Text({
-        text: district.name,
+        text: `${district.name}\nEra ${district.era ?? 1}${district.launched ? ` · 🚀${district.stars > 0 ? ` ${district.stars} ★` : ""}` : ""}`,
         style: {
           fontFamily: "Georgia, serif",
+          align: "center",
           fontSize: 44,
           fontWeight: "700",
           fill: "#f6c744",
@@ -3142,6 +3204,23 @@ export class Engine {
           });
         }
       }
+    }
+    // The trunk lines that leave the town (1.4 §20): a big pipe through the wilderness in its tier's colour, its
+    // carrier's colour down the middle
+    for (const line of district.lines ?? []) {
+      const points: Array<{ x: number; y: number }> = [];
+      for (let i = 0; i + 1 < line.route.length; i += 2) {
+        points.push(tileCenter(line.route[i]!, line.route[i + 1]!));
+      }
+      if (points.length < 2) {
+        continue;
+      }
+      g.moveTo(points[0]!.x, points[0]!.y);
+      points.slice(1).forEach((p) => g.lineTo(p.x, p.y));
+      g.stroke({ color: PIPE_COLORS[line.tier] ?? "#8f969e", width: far ? 30 : 18, alpha: 0.95 });
+      g.moveTo(points[0]!.x, points[0]!.y);
+      points.slice(1).forEach((p) => g.lineTo(p.x, p.y));
+      g.stroke({ color: line.color, width: far ? 8 : 4, alpha: 0.9 });
     }
     const tower = this.textures.generated("hub-gateTower", 2);
     for (const gate of TOWN_GATES_LOCAL) {

@@ -112,7 +112,9 @@ public record CompanyDto(
     /// <summary>Whether the market brings what your levels and buildings lack, at 2.5× (1.4 §9)</summary>
     bool WantsFromMarket = true,
     OutskirtsDto? Outskirts = null,
-    WorkshopsDto? Workshops = null);
+    WorkshopsDto? Workshops = null,
+    /// <summary>The wilderness chunks your expeditions mapped ("x,y"): the rest of it is fog on your map (1.4 §20)</summary>
+    IReadOnlyList<string>? Explored = null);
 
 /// <summary>Your plot's outskirts (1.4 §5): the parcels you bought (bits 0..8), what the next costs, and why you can't buy one yet</summary>
 public record OutskirtsDto(int Parcels, double NextCost, string? Blocker);
@@ -201,7 +203,7 @@ public record ExpeditionDto(int? Hours, DateTime? EndsAt, IReadOnlyDictionary<in
 /// <param name="Pipe">The pipe Show me lays (tiles as x, y pairs; empty: Show me does what the hint says), with its price</param>
 /// <param name="Since">When the step began (open two days: it shrinks to one line)</param>
 public record TutorialDto(int Step, int Steps, string Id, string Text, double Progress, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint, int? WaitLevel, string? Tip, int Chapter, int ChapterStep, int ChapterSteps,
-    string? PhoneText = null, int[]? Pipe = null, double PipeCost = 0, string? PipeTarget = null, DateTime? Since = null);
+    string? PhoneText = null, int[]? Pipe = null, double PipeCost = 0, string? PipeTarget = null, DateTime? Since = null, int? WaitEra = null);
 
 /// <summary>
 /// The Deep Level (GDD §11.2): whether there is a lift, the dug out parcels, the parcel being dug and what the next one
@@ -276,12 +278,13 @@ public record ChunkObjectsDto(
     IReadOnlyList<DepositOverrideDto> Deposits);
 
 /// <summary>An outpost claim (lease details only for its owner)</summary>
-public record OutpostDto(long Id, long Owner, string OwnerName, string OwnerColor, int X, int Y, int Size, double? Lease, DateTime? PaidUntil);
+/// <param name="Price">What its owner bought it for (only for its owner): an outpost is bought once (1.4 §20)</param>
+public record OutpostDto(long Id, long Owner, string OwnerName, string OwnerColor, int X, int Y, int Size, double? Price);
 
 /// <summary>A deposit that differs from the generated terrain (a Discovery)</summary>
 public record DepositOverrideDto(int X, int Y, string Deposit, int Richness);
 
-public record OutpostCheckDto(string? Error, int X, int Y, double Lease, int Size, string? Deposit, int RichTiles);
+public record OutpostCheckDto(string? Error, int X, int Y, double Price, int Size, string? Deposit, int RichTiles);
 
 public record TerrainOverrideDto(int X, int Y, string Terrain);
 
@@ -293,7 +296,25 @@ public record EstateDto(int Slot, int X, int Y, long? OwnerId, string? OwnerName
 /// <summary>A hub structure; a Wonder site has its Wonder's name, stage and variant</summary>
 public record HubStructureDto(string Type, int X, int Y, int Size, string? Label = null, string? Color = null, int Level = 0, string? Variant = null, int Stages = 0);
 
-public record DistrictDto(int X, int Y, int OriginX, int OriginY, string Name, IReadOnlyList<EstateDto> Estates, IReadOnlyList<HubStructureDto> Hub, IReadOnlyList<DistrictYardDto> Yards);
+/// <param name="Era">The town's Era, whether its Space Elevator launched, and its stars (missions done): the world map's race</param>
+public record DistrictDto(int X, int Y, int OriginX, int OriginY, string Name, IReadOnlyList<EstateDto> Estates, IReadOnlyList<HubStructureDto> Hub, IReadOnlyList<DistrictYardDto> Yards,
+    int Era = 1, bool Launched = false, int Stars = 0, IReadOnlyList<MapLineDto>? Lines = null);
+
+/// <summary>
+/// A trunk line (1.4 §20) as a player sees it: its carrier, the two towns, its tier, how much of what's sent arrives and
+/// how much it carries, its fees (and yours), what it earned its carrier, its route
+/// </summary>
+public record TrunkLineDto(long Id, string Carrier, string CarrierColor, bool Yours, string From, string To, int ToX, int ToY, int Tier, int Length,
+    double Efficiency, double Throughput, double Carried, double PublicFee, double CrewFee, double YourFee, double Earned, IReadOnlyList<int> Route);
+
+/// <summary>A neighbouring town a line could run to from yours: its name and Era, what the line would cost, and why it can't be (or null)</summary>
+public record LineOptionDto(int X, int Y, string Name, int Era, int Tier, int Length, double Gold, string? Error);
+
+/// <summary>Your town's trunk lines, where one could run, the tiers you may build, and the goods you send over them to other markets</summary>
+public record LinesDto(IReadOnlyList<TrunkLineDto> Lines, IReadOnlyList<LineOptionDto> Options, IReadOnlyList<int> Tiers, IReadOnlyDictionary<string, long> Exports);
+
+/// <summary>A trunk line on the map: its route's corners (x, y pairs), its tier and its carrier's colour</summary>
+public record MapLineDto(long Id, IReadOnlyList<int> Route, int Tier, string Color);
 
 /// <summary>A town's Yard on the map: its crew's name and banner (none while nobody lives there), open or closed, its stalls</summary>
 public record DistrictYardDto(int Index, string Name, string? Emblem, string? Color, string? Color2, bool Open, IReadOnlyList<StallDto> Stalls,
@@ -626,7 +647,7 @@ public record MonumentKindDto(string Id, string Name, string Description, bool B
 
 /// <summary>Your town and Yard (1.4 §11, §13): its Era, its launch party, its Wonder, your Yard's Monuments</summary>
 public record TownDto(string Name, int Era, int YourEra, DateTime EraStartedAt, DateTime? PartyUntil, TownWonderDto? Wonder, IReadOnlyList<MonumentDto> Monuments,
-    IReadOnlyList<MonumentKindDto> Kinds, int MonumentLevel, double YourHour, DateTime? LaunchedAt);
+    IReadOnlyList<MonumentKindDto> Kinds, int MonumentLevel, double YourHour, DateTime? LaunchedAt, int Stars = 0);
 
 // ---------------------------------------------------------------- Company: managers, achievements, statistics (M5)
 
@@ -755,7 +776,8 @@ public record FoundPlayerDto(long Id, string Name, string Color, int Level, int 
 /// <summary>A town's Yards for the start on the map, the plot Pick for me chooses, and the open towns</summary>
 public record StationsDto(int DistrictX, int DistrictY, string District, IReadOnlyList<StationDto> Stations, SeatRefDto PickForMe, IReadOnlyList<DistrictRefDto> Districts);
 
-public record DistrictRefDto(int DistrictX, int DistrictY, string Name);
+/// <summary>A town in the picker's list, with where it stands in the race: its Era, its Launch and its stars</summary>
+public record DistrictRefDto(int DistrictX, int DistrictY, string Name, int Era = 1, bool Launched = false, int Stars = 0);
 
 /// <summary>What a "Play next to me" link opens (1.4 §6): who sent it, their Yard, whether it lets you into a closed Yard, a free company name</summary>
 public record NextToMeDto(bool Valid, string? From, string? FromColor, StationDto? Yard, bool Opens, string? Name);

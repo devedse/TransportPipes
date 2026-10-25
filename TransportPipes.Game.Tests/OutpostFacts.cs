@@ -25,19 +25,32 @@ public class OutpostFacts
         throw new AssertFailedException("No place for an outpost");
     }
 
+    /// <summary>A company that may claim outposts (1.4 §20): the Outposts research, the wilderness around its town mapped, gold</summary>
+    private static Company Ready(TestGame game, Company company)
+    {
+        company.Researched.Add("outposts");
+        game.World.Explore(company, 400);
+        company.Gold = 1e12;
+        return company;
+    }
+
     [TestMethod]
-    public void AnOutpostIsClaimedOnARichWildernessDeposit()
+    public void AnOutpostIsClaimedOnARichWildernessDepositYouMapped()
     {
         var game = new TestGame();
-        var company = game.NewCompany(level: 14);
+        var company = game.NewCompany(level: 15, gold: 1e12);
         var estate = game.EstateOf(company).Origin;
-        StringAssert.Contains(game.World.ClaimOutpost(company.Id, estate).Error, "Level 15");
+        StringAssert.Contains(game.World.ClaimOutpost(company.Id, estate).Error, "Research Outposts");
 
-        company.Level = 15;
+        company.Researched.Add("outposts");
         StringAssert.Contains(game.World.ClaimOutpost(company.Id, estate).Error, "wilderness");
+        Ready(game, company);
         var spot = Claimable(game, company);
+        var price = game.World.OutpostPrice(company);
+        Assert.AreEqual(GameWorld.OutpostFirstPrice, price);
         Assert.IsTrue(game.World.ClaimOutpost(company.Id, spot).Success);
-        Assert.AreEqual(1_000_000 - game.World.OutpostLease(company), company.Gold);
+        Assert.AreEqual(1e12 - price, company.Gold);
+        Assert.AreEqual(price * 2, game.World.OutpostPrice(company), "the next one twice the last");
         StringAssert.Contains(game.World.ClaimOutpost(company.Id, spot).Error, "claimed already");
 
         // Buildings go up in the outpost, not next to it
@@ -52,29 +65,44 @@ public class OutpostFacts
     }
 
     [TestMethod]
-    public void TheLeaseIsPaidEveryWeekOrTheLandGoesBack()
+    public void AnOutpostIsBoughtOnceAndKeptForGood()
     {
         var game = new TestGame();
-        var company = game.NewCompany(level: 15);
+        var company = Ready(game, game.NewCompany(level: 15));
         var spot = Claimable(game, company);
         game.World.ClaimOutpost(company.Id, spot);
-        var lease = game.World.OutpostLease(company);
-        var gold = company.Gold;
-
-        game.Pass(7 * 24 * 60 + 1);
-        Assert.AreEqual(gold - lease, company.Gold, 1e-6);
-        Assert.HasCount(1, game.World.OutpostsOf(company.Id));
-
         company.Gold = 0;
-        game.Pass(7 * 24 * 60 + 1);
-        Assert.IsEmpty(game.World.OutpostsOf(company.Id));
+
+        game.Pass(30 * 24 * 60);
+
+        Assert.HasCount(1, game.World.OutpostsOf(company.Id), "no rent: nothing runs out while you're away (rule 7)");
+        Assert.AreEqual(0, company.Gold, 1e-6);
+    }
+
+    [TestMethod]
+    public void TheWildernessIsFogUntilAnExpeditionMapsIt()
+    {
+        var game = new TestGame();
+        var company = game.NewCompany(level: 20, gold: 1e9);
+        var x0 = WorldLayout.DistrictOriginX(company.District.X);
+        var y0 = WorldLayout.DistrictOriginY(company.District.Y);
+        var wild = new TilePos(x0 + 40, y0 - 10);
+        Assert.IsFalse(game.World.IsExplored(company, wild));
+        Assert.IsTrue(game.World.IsExplored(company, game.EstateOf(company).Origin), "towns are never fog");
+
+        game.Build(company, "expeditionOffice");
+        Assert.IsTrue(game.World.StartExpedition(company.Id, 4).Success);
+        game.Pass(4 * 60 + 1);
+
+        Assert.HasCount(GameWorld.ExpeditionMaps(4), company.Explored, "a 4 h expedition maps three pieces");
+        StringAssert.Contains(company.ExpeditionLog[0], "a map of 3 pieces of the wilderness");
     }
 
     [TestMethod]
     public void CargoDepotsBringTheGoodsHomeWithoutLosses()
     {
         var game = new TestGame(content: TestGame.PlainContent);
-        var company = game.NewCompany(level: 15);
+        var company = Ready(game, game.NewCompany(level: 15));
         var spot = Claimable(game, company);
         Assert.IsTrue(game.World.ClaimOutpost(company.Id, spot).Success);
         var outpost = game.Map(company, spot.Offset(1, 1), "WC");
@@ -92,7 +120,7 @@ public class OutpostFacts
     public void AnOutpostFeedsTheYardThroughTheCargoDepots()
     {
         var game = new TestGame(content: TestGame.PlainContent);
-        var company = game.NewCompany(level: 15);
+        var company = Ready(game, game.NewCompany(level: 15));
         var neighbour = game.NewCompany("Neighbour", level: 2);
         var mine = game.Build(neighbour, "ironMine", game.Spot(neighbour, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
         game.ConnectToGate(neighbour, mine);
@@ -114,7 +142,7 @@ public class OutpostFacts
     public void PipesCrossTheWildernessButNotSomeoneElsesOutpost()
     {
         var game = new TestGame();
-        var company = game.NewCompany(level: 15);
+        var company = Ready(game, game.NewCompany(level: 15));
         var spot = Claimable(game, company);
         game.World.ClaimOutpost(company.Id, spot);
         var other = game.NewCompany("Other", level: 15);
@@ -147,7 +175,7 @@ public class OutpostFacts
     public void EveryStationThatBringsSomethingOutOfADiscoveryInItsFirst72HoursGetsItsMarker()
     {
         var game = new TestGame();
-        var company = game.NewCompany(level: 15);
+        var company = Ready(game, game.NewCompany(level: 15));
         var x0 = WorldLayout.DistrictOriginX(company.District.X);
         var y0 = WorldLayout.DistrictOriginY(company.District.Y);
         var pos = Enumerable.Range(6, 16).Select(d => new TilePos(x0 + 40, y0 - d))

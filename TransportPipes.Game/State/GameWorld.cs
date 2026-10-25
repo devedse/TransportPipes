@@ -55,6 +55,9 @@ public sealed class WorldChanges
     public HashSet<(DistrictCoord District, int Slot)> Estates { get; } = new();
     public HashSet<DistrictCoord> Markets { get; } = new();
     public HashSet<long> Crews { get; } = new();
+
+    /// <summary>Legacy for accounts (a town's Launch): the user, the points and a title</summary>
+    public List<(long UserId, int Legacy, string? Title)> Legacy { get; } = new();
     /// <summary>Companies whose links were offered, changed or ended</summary>
     public HashSet<long> Links { get; } = new();
 
@@ -67,7 +70,7 @@ public sealed class WorldChanges
     public bool Blueprints { get; set; }
     public List<WorldEvent> Events { get; } = new();
 
-    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Crews.Count == 0 && Links.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && !Outposts && !Blueprints && Events.Count == 0;
+    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Crews.Count == 0 && Legacy.Count == 0 && Links.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && !Outposts && !Blueprints && Events.Count == 0;
 }
 
 /// <summary>

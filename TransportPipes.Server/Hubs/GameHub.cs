@@ -566,6 +566,23 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> PayMonument(int era, double gold) =>
         Command((world, company) => world.PayMonument(company, era, gold));
 
+    // ---------------------------------------------------------------- Trunk lines (1.4 §20)
+
+    public Task<LinesDto?> GetLines() =>
+        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Lines(world, company) : null, changesWorld: false);
+
+    /// <summary>Builds a trunk line to a neighbouring town in a tier: you are its carrier</summary>
+    public Task<CommandResultDto> BuildLine(int toX, int toY, int tier) =>
+        Command((world, company) => world.BuildLine(company, new DistrictCoord(toX, toY), tier));
+
+    /// <summary>A carrier's fee (of the goods' base value) for "public", "crew" or a player's id (null: their special fee goes)</summary>
+    public Task<CommandResultDto> SetLineFee(long line, string who, double? fee) =>
+        Command((world, company) => world.SetLineFee(company, line, who, fee));
+
+    /// <summary>Sends a good over a line to the other town's market (null: stops)</summary>
+    public Task<CommandResultDto> SetExport(string resource, long? line) =>
+        Command((world, company) => world.SetExport(company, resource, line));
+
     // ---------------------------------------------------------------- The Yard's Depot and the outskirts (1.4 §5, §7)
 
     /// <summary>Puts goods from your Storages into your Yard's Depot, for the crew</summary>

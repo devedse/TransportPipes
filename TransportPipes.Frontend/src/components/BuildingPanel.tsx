@@ -1091,8 +1091,9 @@ function ExpeditionSection() {
         </div>
       )}
       <p className="muted small">
-        Longer trips bring more luck: rich deposits in the wilderness, decorations, relics (
-        {expedition.relics.length} found).
+        Each trip maps the wilderness around your town (1, 3 or 8 pieces: the rest is fog on your map, and
+        outposts are claimed only where you mapped). Longer trips bring more luck: rich deposits, decorations,
+        relics ({expedition.relics.length} found). You have mapped {company.explored?.length ?? 0} pieces.
       </p>
       {expedition.log.length > 0 && (
         <ul className="facts">

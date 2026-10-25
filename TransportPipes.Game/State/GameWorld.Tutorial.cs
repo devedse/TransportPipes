@@ -110,6 +110,9 @@ public sealed partial class GameWorld
         return level > company.Level ? level : null;
     }
 
+    /// <summary>The Era a step waits for (its chapter opens when the player's town gets there), or null when it can be done now</summary>
+    public int? TutorialWaitEra(Company company, TutorialStep step) => step.Era > YourEra(company) ? step.Era : null;
+
     /// <summary>The steps of a chapter, and where a step is in its chapter (1-based)</summary>
     public (int Chapter, int Index, int Count) TutorialChapter(TutorialStep step)
     {
@@ -249,6 +252,11 @@ public sealed partial class GameWorld
             var done = new List<TutorialStep>();
             while (CurrentTutorialStep(company) is { } step)
             {
+                // An Era's chapter opens when the player's town gets there
+                if (TutorialWaitEra(company, step) != null)
+                {
+                    break;
+                }
                 var progress = step.Stat == "partners" ? (partners ??= PartnerCounts()).GetValueOrDefault(company.Id) : TutorialProgress(company, step);
                 if (progress < step.Amount)
                 {

@@ -144,6 +144,8 @@ public sealed class WorldStore
                 Expedition = settings.Expedition,
                 ExpeditionLog = settings.ExpeditionLog,
                 Relics = settings.Relics,
+                Explored = settings.Explored,
+                Exports = settings.Exports,
                 DigParcel = settings.DigParcel,
                 DigStartedAt = settings.DigStartedAt,
                 DigEndsAt = settings.DigEndsAt,
@@ -237,6 +239,7 @@ public sealed class WorldStore
         {
             world.LoadOutposts(outposts.Outposts ?? [], outposts.Discoveries ?? []);
             world.LoadSeeds((outposts.Seeds ?? []).Select(t => (new TilePos(t.X, t.Y), t.Deposit, t.Richness)));
+            world.LoadTrunkLines(outposts.Lines ?? []);
         }
 
         world.LoadBlueprints(JsonSerializer.Deserialize<List<Blueprint>>(dbWorld.Blueprints, Json) ?? []);
@@ -286,7 +289,7 @@ public sealed class WorldStore
                 Events = JsonSerializer.Serialize(new EventsState(world.Events.ToList(), world.PlannedDays.ToList()), Json),
                 Wonders = JsonSerializer.Serialize(new TownsState(world.Towns.ToList(), world.WondersFinished), Json),
                 Outposts = JsonSerializer.Serialize(new OutpostsState(world.Outposts.ToList(), world.Discoveries.ToList(),
-                    world.Seeds.Select(t => new SeedRow(t.Key.X, t.Key.Y, t.Value.Deposit, t.Value.Richness)).ToList(), []), Json),
+                    world.Seeds.Select(t => new SeedRow(t.Key.X, t.Key.Y, t.Value.Deposit, t.Value.Richness)).ToList(), [], world.TrunkLines.ToList()), Json),
                 Blueprints = JsonSerializer.Serialize(world.Blueprints.ToList(), Json),
                 Crews = JsonSerializer.Serialize(world.Crews.ToList(), Json),
                 Links = JsonSerializer.Serialize(world.Links.ToList(), Json),
@@ -369,6 +372,8 @@ public sealed class WorldStore
                     Expedition = company.Expedition,
                     ExpeditionLog = company.ExpeditionLog,
                     Relics = company.Relics,
+                    Explored = company.Explored,
+                    Exports = company.Exports,
                     DigParcel = company.DigParcel,
                     DigStartedAt = company.DigStartedAt,
                     DigEndsAt = company.DigEndsAt,
@@ -643,6 +648,8 @@ public sealed class WorldStore
         public Expedition? Expedition { get; init; }
         public List<string> ExpeditionLog { get; init; } = new();
         public HashSet<string> Relics { get; init; } = new();
+        public HashSet<string> Explored { get; init; } = new();
+        public Dictionary<string, long> Exports { get; init; } = new();
         public int? DigParcel { get; init; }
         public DateTime? DigStartedAt { get; init; }
         public DateTime? DigEndsAt { get; init; }
@@ -660,7 +667,8 @@ public sealed class WorldStore
 
     private sealed record TownsState(List<Town>? Towns, Dictionary<string, int>? WondersFinished);
 
-    private sealed record OutpostsState(List<Outpost>? Outposts, List<Discovery>? Discoveries, List<SeedRow>? Seeds = null, List<SurveyedRow>? Surveyed = null);
+    /// <summary>The wilderness: outposts, Discoveries, seeds, surveys, and the trunk lines through it (1.4 §20)</summary>
+    private sealed record OutpostsState(List<Outpost>? Outposts, List<Discovery>? Discoveries, List<SeedRow>? Seeds = null, List<SurveyedRow>? Surveyed = null, List<TrunkLine>? Lines = null);
 
     private sealed record SurveyedRow(int X, int Y, int Slot);
 

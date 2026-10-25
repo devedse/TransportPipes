@@ -122,7 +122,25 @@ public class TutorialFacts
         Assert.AreEqual(11, tutorial.Count(t => t.Chapter == 1), "chapter 1, the first hour of 1.4 §6");
         Assert.AreEqual(8, tutorial.Count(t => t.Chapter == 2), "with the first Copper Pipe (after run 4)");
         Assert.AreEqual((2, 1, 8), game.World.TutorialChapter(firstOfTwo));
-        Assert.IsTrue(tutorial.SkipWhile(t => t.Chapter == 1).All(t => t.Chapter == 2), "chapter 2 comes after chapter 1");
+        Assert.IsTrue(tutorial.Zip(tutorial.Skip(1)).All(t => t.Second.Chapter >= t.First.Chapter), "the chapters in order");
+        Assert.IsTrue(tutorial.Where(t => t.Chapter > 2).All(t => t.Era == t.Chapter - 1), "after chapter 2, a chapter for every Era (1.4 §11)");
+    }
+
+    [TestMethod]
+    public void AnErasChapterWaitsUntilYourTownGetsThere()
+    {
+        var game = new TestGame(content: TestGame.PlainContent, tutorial: true);
+        var company = game.NewCompany(level: 15);
+        var tutorial = game.World.Content.Tutorial;
+        company.TutorialStep = tutorial.ToList().FindIndex(t => t.Era == 2);
+        company.Stats["outskirtsGold"] = 1;
+
+        game.Pass(1);
+
+        Assert.AreEqual(2, game.World.TutorialWaitEra(company, game.World.CurrentTutorialStep(company)!));
+        Assert.AreEqual(tutorial.ToList().FindIndex(t => t.Era == 2), company.TutorialStep, "nothing of it counts before Era 2");
+        game.World.AdvanceEra(company.District);
+        Assert.IsNull(game.World.TutorialWaitEra(company, game.World.CurrentTutorialStep(company)!));
     }
 
     [TestMethod]

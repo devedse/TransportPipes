@@ -501,7 +501,8 @@ export function PlotPicker({ mode }: { mode: PickMode }) {
             >
               {stations.districts.map((d) => (
                 <option key={`${d.districtX},${d.districtY}`} value={`${d.districtX},${d.districtY}`}>
-                  {d.name}
+                  {d.name} · Era {d.era}
+                  {d.launched ? ` · launched${d.stars > 0 ? ` · ${d.stars} ★` : ""}` : ""}
                 </option>
               ))}
             </select>

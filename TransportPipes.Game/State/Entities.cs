@@ -204,6 +204,12 @@ public sealed class Company : Entity
     /// <summary>Relics found by expeditions</summary>
     public HashSet<string> Relics { get; init; } = new();
 
+    /// <summary>The wilderness the company's expeditions mapped (1.4 §20): its chunks, as "x,y"; the rest is fog</summary>
+    public HashSet<string> Explored { get; init; } = new();
+
+    /// <summary>The goods it sends over a trunk line to another town's market, and the line (1.4 §20)</summary>
+    public Dictionary<string, long> Exports { get; init; } = new();
+
     /// <summary>How far the company is with Loady's guide (an index into the tutorial steps)</summary>
     public int TutorialStep { get; set; }
 

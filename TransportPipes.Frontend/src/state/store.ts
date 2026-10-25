@@ -16,6 +16,7 @@ import type {
   LeaderboardKind,
   TownDto,
   TrackStateDto,
+  LinesDto,
   GoldUsesDto,
   MarketDto,
   NeighbourDto,
@@ -131,6 +132,8 @@ export interface AppState {
   market: MarketDto | null;
   /** Your town (1.4 §11, §13): its Era, its Wonder, your Yard's Monuments */
   town: TownDto | null;
+  /** Your town's trunk lines (1.4 §20) */
+  lines: LinesDto | null;
   /** What your gold can do (after run 4), loaded when the top bar's gold is opened */
   goldUses: GoldUsesDto | null;
   exchange: ExchangeDto | null;
@@ -248,6 +251,7 @@ export const initialState: AppState = {
   hubTab: "orders",
   market: null,
   town: null,
+  lines: null,
   goldUses: null,
   exchange: null,
   neighboursOpen: false,

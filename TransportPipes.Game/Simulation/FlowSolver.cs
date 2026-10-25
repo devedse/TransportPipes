@@ -422,9 +422,14 @@ public sealed class FlowSolver
         {
             // budget: the most that may be delivered in total (a contract's rate)
             var budgetLeft = budget;
+            // Reused between consumers and rounds: a big network shares among hundreds of producers and consumers (1.4)
+            var requests = new List<(long P, long C, FlowLink Link, double Sent, double Weight)>();
+            var options = new List<(long P, FlowLink Link, double Potential)>();
+            var byProducer = new Dictionary<long, List<int>>();
+            var producerOrder = new List<long>();
             for (var round = 0; round < 25 && budgetLeft > Epsilon; round++)
             {
-                var requests = new List<(long P, long C, FlowLink Link, double Sent, double Weight)>();
+                requests.Clear();
                 foreach (var c in consumers)
                 {
                     var need = demandLeft[(c, resource)];
@@ -434,12 +439,21 @@ public sealed class FlowSolver
                     }
                     var consumer = _nodes[c];
                     var fullNeed = Math.Max(need, consumer.In[resource] * consumer.MaxRate);
-                    var options = Neighbours(c, resource)
-                        .Where(n => (!priorityOnly || n.Link.Priority) && offerLeft.TryGetValue((n.Other, resource), out var left) && left > Epsilon && CanUse(n.Link) && eligible(n.Other, c, n.Link))
-                        .Select(n => (P: n.Other, n.Link, Potential: Math.Min(offerLeft[(n.Other, resource)], CapacityLeft(n.Link)) * n.Link.Efficiency))
-                        .Where(t => t.Potential > Epsilon)
-                        .ToList();
-                    var total = options.Sum(t => t.Potential);
+                    options.Clear();
+                    var total = 0.0;
+                    foreach (var (other, link) in Neighbours(c, resource))
+                    {
+                        if ((priorityOnly && !link.Priority) || !offerLeft.TryGetValue((other, resource), out var left) || left <= Epsilon || !CanUse(link) || !eligible(other, c, link))
+                        {
+                            continue;
+                        }
+                        var potential = Math.Min(left, CapacityLeft(link)) * link.Efficiency;
+                        if (potential > Epsilon)
+                        {
+                            options.Add((other, link, potential));
+                            total += potential;
+                        }
+                    }
                     if (total <= Epsilon)
                     {
                         continue;
@@ -454,18 +468,43 @@ public sealed class FlowSolver
                 {
                     return;
                 }
-                var wanted = requests.Sum(t => t.Sent * t.Link.Efficiency);
+                var wanted = 0.0;
+                foreach (var request in requests)
+                {
+                    wanted += request.Sent * request.Link.Efficiency;
+                }
                 if (wanted > budgetLeft)
                 {
                     var scale = budgetLeft / wanted;
-                    requests = requests.Select(t => (t.P, t.C, t.Link, t.Sent * scale, t.Weight)).ToList();
+                    for (var i = 0; i < requests.Count; i++)
+                    {
+                        requests[i] = (requests[i].P, requests[i].C, requests[i].Link, requests[i].Sent * scale, requests[i].Weight);
+                    }
                 }
 
-                var progress = 0.0;
-                foreach (var producerRequests in requests.GroupBy(t => t.P))
+                // The requests per producer, producers in the order they first asked
+                foreach (var indices in byProducer.Values)
                 {
-                    var list = producerRequests.ToList();
-                    var granted = WaterFill(list.Select(t => t.Sent).ToList(), list.Select(t => t.Weight).ToList(), offerLeft[(producerRequests.Key, resource)]);
+                    indices.Clear();
+                }
+                producerOrder.Clear();
+                for (var i = 0; i < requests.Count; i++)
+                {
+                    if (!byProducer.TryGetValue(requests[i].P, out var indices))
+                    {
+                        byProducer[requests[i].P] = indices = new List<int>();
+                    }
+                    if (indices.Count == 0)
+                    {
+                        producerOrder.Add(requests[i].P);
+                    }
+                    indices.Add(i);
+                }
+                var progress = 0.0;
+                foreach (var producer in producerOrder)
+                {
+                    var list = byProducer[producer].Select(i => requests[i]).ToList();
+                    var granted = WaterFill(list.Select(t => t.Sent).ToList(), list.Select(t => t.Weight).ToList(), offerLeft[(producer, resource)]);
                     for (var i = 0; i < list.Count; i++)
                     {
                         var (p, c, link, _, _) = list[i];

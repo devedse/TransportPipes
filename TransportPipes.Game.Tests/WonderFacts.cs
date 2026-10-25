@@ -137,6 +137,40 @@ public class WonderFacts
     }
 
     [TestMethod]
+    public void TheSpaceElevatorLaunchesThenMissionsComeWithoutEnd()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(gold: 1e18);
+        game.TownToEra(5);
+        var town = game.World.TownAt(company.District);
+        var wonder = town.Wonder!;
+        wonder.Stage = 2;
+        wonder.Required = new Dictionary<string, double> { ["steel"] = 100 };
+        Assert.IsTrue(game.World.BuyAndGive(company.Id).Success);
+        game.World.TakeChanges();
+
+        game.Pass(25 * 60);
+
+        Assert.IsNotNull(town.LaunchedAt, "it launched");
+        Assert.IsTrue(company.Titles.Contains("Launched the Space Elevator"));
+        Assert.IsTrue(GameWorld.IsMission(town.Wonder!), "the missions begin");
+        var first = game.World.WonderDefinition(town.Wonder!);
+        Assert.AreEqual("Mission 1", first.Name);
+        var legacy = game.World.TakeChanges().Legacy.Single();
+        Assert.AreEqual((company.UserId, GameWorld.LaunchLegacy + GameWorld.LaunchGiverLegacy), (legacy.UserId, legacy.Legacy), "Legacy for its account, more for a giver");
+
+        // A mission done: a star, +1% production for good, and the next one 10% bigger
+        town.Wonder!.Required = new Dictionary<string, double> { ["spaceframes"] = 10 };
+        Assert.IsTrue(game.World.BuyAndGive(company.Id).Success);
+        game.Pass(25 * 60);
+
+        Assert.AreEqual(1, town.Missions);
+        Assert.AreEqual(0.05 + 0.05 + 0.01, game.World.TownPerk(company.District, WonderPerk.Everything), 1e-9, "the Space Elevator's two perks and a mission's");
+        Assert.AreEqual("Mission 2", game.World.WonderDefinition(town.Wonder!).Name);
+        Assert.AreEqual(first.Worth * 1.1, game.World.WonderDefinition(town.Wonder!).Worth, first.Worth * 1e-9);
+    }
+
+    [TestMethod]
     public void ANewEraMakesTheOlderGoodsHubOrdersBiggerAndOpensItsGoods()
     {
         var game = new TestGame();

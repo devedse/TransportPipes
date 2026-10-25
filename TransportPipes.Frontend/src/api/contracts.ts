@@ -113,6 +113,8 @@ export interface CompanyDto {
   wantsFromMarket: boolean;
   outskirts: OutskirtsDto | null;
   workshops: WorkshopsDto | null;
+  /** The wilderness chunks your expeditions mapped ("x,y"): the rest of it is fog on your map (1.4 §20) */
+  explored: string[] | null;
 }
 
 export type GiveMode = "off" | "beyondHubOrder" | "all";
@@ -409,7 +411,7 @@ export interface ChunkObjectsDto {
   deposits: DepositOverrideDto[];
 }
 
-/** An outpost claim in the wilderness (lease details only for its owner) */
+/** An outpost claim in the wilderness (1.4 §20: bought once; its price only for its owner) */
 export interface OutpostDto {
   id: number;
   owner: number;
@@ -418,8 +420,7 @@ export interface OutpostDto {
   x: number;
   y: number;
   size: number;
-  lease: number | null;
-  paidUntil: string | null;
+  price: number | null;
 }
 
 export interface DepositOverrideDto {
@@ -434,7 +435,8 @@ export interface OutpostCheckDto {
   /** The best claim covering the tile */
   x: number;
   y: number;
-  lease: number;
+  /** What the claim costs, once */
+  price: number;
   size: number;
   deposit: string | null;
   richTiles: number;
@@ -499,6 +501,65 @@ export interface DistrictDto {
   hub: HubStructureDto[];
   /** The town's four Yards, by their index (0 NW, 1 NE, 2 SW, 3 SE) */
   yards: DistrictYardDto[];
+  /** Where it stands in the race between towns: its Era, its Launch, its stars (missions done) */
+  era: number;
+  launched: boolean;
+  stars: number;
+  /** The trunk lines that leave it (1.4 §20) */
+  lines: MapLineDto[] | null;
+}
+
+/** A trunk line on the map: its route's corners (x, y pairs), its tier and its carrier's colour */
+export interface MapLineDto {
+  id: number;
+  route: number[];
+  tier: number;
+  color: string;
+}
+
+/** A trunk line (1.4 §20) as a player sees it */
+export interface TrunkLineDto {
+  id: number;
+  carrier: string;
+  carrierColor: string;
+  yours: boolean;
+  from: string;
+  to: string;
+  toX: number;
+  toY: number;
+  tier: number;
+  length: number;
+  efficiency: number;
+  throughput: number;
+  /** Units it carried in all */
+  carried: number;
+  publicFee: number;
+  crewFee: number;
+  /** What you pay its carrier (of the goods' base value) */
+  yourFee: number;
+  /** What it earned its carrier (yours only) */
+  earned: number;
+  route: number[];
+}
+
+/** A neighbouring town a line could run to: what it would cost, and why it can't be (or null) */
+export interface LineOptionDto {
+  x: number;
+  y: number;
+  name: string;
+  era: number;
+  tier: number;
+  length: number;
+  gold: number;
+  error: string | null;
+}
+
+export interface LinesDto {
+  lines: TrunkLineDto[];
+  options: LineOptionDto[];
+  tiers: number[];
+  /** The goods you send over a line to another town's market, and the line */
+  exports: Record<string, number>;
 }
 
 /** A town's Yard on the map: its crew's name and banner (none while nobody lives there), open or closed, its stalls */
@@ -1314,6 +1375,8 @@ export interface TownDto {
   /** An hour of your income */
   yourHour: number;
   launchedAt: string | null;
+  /** Missions done since the Launch: a star each */
+  stars: number;
 }
 
 // ---------------------------------------------------------------- Company: managers, achievements, statistics
@@ -1450,6 +1513,8 @@ export interface TutorialDto {
   pipeTarget: string | null;
   /** When the step began: open two days, it shrinks to one line */
   since: string | null;
+  /** The Era its chapter waits for (null: it can be done now) */
+  waitEra: number | null;
 }
 
 /** Expeditions (GDD §11.3) */
@@ -1653,6 +1718,9 @@ export interface DistrictRefDto {
   districtX: number;
   districtY: number;
   name: string;
+  era: number;
+  launched: boolean;
+  stars: number;
 }
 
 export interface CrewMemberDto {

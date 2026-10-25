@@ -85,12 +85,19 @@ public sealed partial class GameWorld
     /// <summary>Its owner's Storages give a want what they hold of it (theirs already: nothing is paid)</summary>
     private void FillWantsFromStorages(Company company)
     {
-        foreach (var ask in company.Asks.Where(t => t.IsWant && t.Left > 1e-6))
+        var wants = company.Asks.Where(t => t.IsWant && t.Left > 1e-6).ToList();
+        if (wants.Count == 0)
         {
-            var have = Materials(company.Id).GetValueOrDefault(ask.Resource);
-            if (have > 1e-6)
+            return;
+        }
+        // What its Storages hold, counted once (a long settle: a want of every waiting level, every tick)
+        var have = Materials(company.Id);
+        foreach (var ask in wants)
+        {
+            if (have.GetValueOrDefault(ask.Resource) > 1e-6)
             {
-                var units = TakeFromStorages(company.Id, ask.Resource, Math.Min(have, ask.Left));
+                var units = TakeFromStorages(company.Id, ask.Resource, Math.Min(have[ask.Resource], ask.Left));
+                have[ask.Resource] -= units;
                 ask.Got += units;
                 ask.From[company.Id] = ask.From.GetValueOrDefault(company.Id) + units;
             }
@@ -143,7 +150,6 @@ public sealed partial class GameWorld
                 PayForWant(owner, seller, ask, units);
             }
         }
-        FillWantsFromStorages(owner);
         ImportForWant(owner, ask, minutes, brought);
         if (ask.Site is { } id && Building(id) is { } site)
         {

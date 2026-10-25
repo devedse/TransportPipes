@@ -6,6 +6,7 @@ import type { LinkDto, LinkPlanDto, LinkSuggestionDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import { setState, useAppStore } from "../state/store";
 import { ResourceIcon } from "./ResourceIcon";
+import { TrunkLines } from "./TrunkLines";
 
 /** How much of what is sent arrives, as players read it */
 function arrives(efficiency: number): string {
@@ -389,6 +390,7 @@ export function LinksTab() {
           <NewLink draft={draft} onChange={setDraft} content={content} />
         )}
       </section>
+      <TrunkLines />
     </>
   );
 }

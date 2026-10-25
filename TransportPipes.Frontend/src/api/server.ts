@@ -27,6 +27,7 @@ import type {
   TownDto,
   TrackStateDto,
   GiveMode,
+  LinesDto,
   ExchangeDto,
   NeighbourDto,
   DistrictDto,
@@ -412,6 +413,13 @@ export class GameConnection {
   takeFromDepot = (resource: string, amount: number) =>
     this.invoke<CommandResult>("TakeFromDepot", resource, amount);
   buyOutskirts = (index: number) => this.invoke<CommandResult>("BuyOutskirts", index);
+  getLines = () => this.invoke<LinesDto | null>("GetLines");
+  buildLine = (toX: number, toY: number, tier: number) =>
+    this.invoke<CommandResult>("BuildLine", toX, toY, tier);
+  setLineFee = (line: number, who: string, fee: number | null) =>
+    this.invoke<CommandResult>("SetLineFee", line, who, fee);
+  setExport = (resource: string, line: number | null) =>
+    this.invoke<CommandResult>("SetExport", resource, line);
   setWantsFromMarket = (on: boolean) => this.invoke<CommandResult>("SetWantsFromMarket", on);
   getCompanyDetails = () => this.invoke<CompanyDetailsDto | null>("GetCompanyDetails");
   getDistricts = () => this.invoke<DistrictChoiceDto[]>("GetDistricts");

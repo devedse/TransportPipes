@@ -159,7 +159,9 @@ public sealed partial class GameWorld
     public double LinkThroughput(Link link) => LinkPipe(link).Throughput;
 
     /// <summary>The share of what the seller sends that reaches the buyer's gate: the pipe's loss per tile over the route</summary>
-    public double LinkEfficiency(Link link) => LinkEfficiency(link.Tier, link.Length);
+    /// <summary>What reaches the buyer: the link's pipe over its length, and between towns the trunk line's loss over its part</summary>
+    public double LinkEfficiency(Link link) =>
+        LineOf(link) is { } line ? LinkEfficiency(link.Tier, Math.Max(0, link.Length - line.Length)) * LineEfficiency(line) : LinkEfficiency(link.Tier, link.Length);
 
     public double LinkEfficiency(int tier, int length) => Math.Pow(1 - Content.PipeTier(tier).LossPerTile, length);
 
@@ -287,10 +289,21 @@ public sealed partial class GameWorld
             return Fail($"{partner.Name} lives at your Yard: you trade through the Yard already.");
         }
         var (seller, buyer) = selling ? (mine, theirs) : (theirs, mine);
+        // To another town only over a trunk line between the two (1.4 §20): the link pays its pipe up to the town gates
+        var line = mine.District == theirs.District ? null : LineBetween(mine.District, theirs.District);
+        if (mine.District != theirs.District && line == null)
+        {
+            return Fail(LineNeighbours(mine.District).Contains(theirs.District)
+                ? $"{partner.Name} lives in {WorldNames.District(theirs.District)}: a link there runs over a trunk line, and nobody built one yet (Era 3, Trunk Lines)."
+                : $"{partner.Name} lives in {WorldNames.District(theirs.District)}, too far: trunk lines join only neighbouring towns.");
+        }
         var route = LinkRoute(seller.YardGate, seller.Station, buyer.YardGate, buyer.Station);
         var length = RouteLength(route);
-        var materials = pipe.Materials.ToDictionary(t => t.Key, t => t.Value * length);
-        return new LinkPlan(route, length, LinkEfficiency(tier, length), pipe.Throughput, pipe.Gold * length, materials, null);
+        var piped = line == null ? length : Math.Max(0, length - line.Length);
+        var materials = pipe.Materials.ToDictionary(t => t.Key, t => t.Value * piped);
+        var efficiency = LinkEfficiency(tier, piped) * (line == null ? 1 : LineEfficiency(line));
+        var throughput = line == null ? pipe.Throughput : Math.Min(pipe.Throughput, LineThroughput(line));
+        return new LinkPlan(route, length, efficiency, throughput, pipe.Gold * piped, materials, null);
     }
 
     /// <summary>
@@ -578,6 +591,7 @@ public sealed partial class GameWorld
     {
         foreach (var link in _links.Values.Where(t => t.State != LinkState.Offered).OrderBy(t => t.Id))
         {
+            var previousRound = link.LastRound;
             // The tank since the last round
             if (link.LastRound is { } last && LastTick > last)
             {
@@ -620,6 +634,11 @@ public sealed partial class GameWorld
             {
                 link.Rate = 0;
                 continue;
+            }
+            // Between towns the trunk line's carrier takes its fee from the seller (1.4 §20)
+            if (LineOf(link) is { } line && previousRound is { } then && LastTick > then)
+            {
+                PayLineFee(line, seller, link.Resource, link.Rate * (LastTick - then).TotalMinutes);
             }
             var import = termsOf(KeyOf(buyerEstate)).Import;
             var priceClass = GateClass(seller, buyer, link.Resource);

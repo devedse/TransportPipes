@@ -45,3 +45,23 @@
     text: "Room for the next chain: buy your second parcel. The parcel panel shows what each one holds." }
 - { id: bricks, chapter: 2, stat: "produced:bricks", amount: 1, gold: 8000, hint: { tool: build, building: "quarry,coalPit,brickworks", overlay: deposits },
     text: "Bricks need stone, coal and energy at once: your first three-input factory. Mine what your land holds, and pipe the Brickworks to your Yard gate: a neighbour's stone or coal comes by itself." }
+
+# The Eras' chapters (1.4 §11: Loady opens each Era's chapter: what's new). A step of an Era waits until the player's
+# town gets there.
+- { id: era2Steel, chapter: 3, era: 2, stat: "produced:steel", amount: 1, gold: 200000, hint: { tool: build, building: steelMill },
+    text: "Chapter 3 · Era 2! Your town finished its Great Dynamo. Steel is the new backbone: a Steel Mill makes it from iron ingots and coal, and every Era-2 good has a fresh Hub Order of its own." }
+- { id: era2Track, chapter: 3, era: 2, stat: researched, amount: 30, gold: 300000, hint: { panel: research },
+    text: "Era 2 brings new tracks (Steel, Wire, Concrete, Aluminium) and new Era tree items. Keep both lines of your Lab busy: thirty researches in all." }
+- { id: era2Outskirts, chapter: 3, era: 2, stat: outskirtsGold, amount: 1, gold: 1000000, hint: { panel: research },
+    text: "Room beyond your plot: research Survey the Outskirts, then tap one of the nine parcels set aside for you around your Yard group and buy it." }
+- { id: era2Cathedral, chapter: 3, era: 2, stat: wonder, amount: 1, gold: 1000000, hint: { panel: hub },
+    text: "The Copper Cathedral brings Era 3. Give it steel, concrete, copper wire or aluminium: turn a give switch on in Hub › Town & Wonder, or buy and give." }
+- { id: era3Oil, chapter: 4, era: 3, stat: "produced:plastic", amount: 1, gold: 20000000, hint: { tool: build, building: "oilDerrick,refinery" },
+    text: "Chapter 4 · Era 3: oil and machines. Pump oil from the new deposits and refine it into plastic: the composite pipe and the Grand Refinery Tower want it." }
+- { id: era3Line, chapter: 4, era: 3, stat: "built:motorWorks", amount: 1, gold: 30000000, hint: { tool: build, building: motorWorks },
+    text: "Motors need copper wire, aluminium and gears: a Motor Works makes them. And research Trunk Lines: a line to the next town is a second market, and links to players there." }
+- { id: era4Chips, chapter: 5, era: 4, stat: "produced:circuits", amount: 1, gold: 500000000, hint: { tool: build, building: "rareEarthExcavator,circuitFab" },
+    text: "Chapter 5 · Era 4: electronics. Dig rare earth and make circuits. Expeditions map the wilderness, and with the Outposts research you claim rich deposits out there." }
+- { id: era5Titanium, chapter: 6, era: 5, stat: "produced:titanium", amount: 1, gold: 10000000000, hint: { tool: build, building: "titaniumMine,titaniumWorks" },
+    text: "Chapter 6 · Era 5: the space age. Titanium, superconductors and spaceframes build your town's Space Elevator: its launch brings Legacy for everyone, then missions without end." }
+

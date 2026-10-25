@@ -3,7 +3,7 @@ using TransportPipes.Game.World;
 
 namespace TransportPipes.Game.State;
 
-/// <summary>An 8×8 claim on a wilderness deposit (GDD §4.6), leased by the week</summary>
+/// <summary>An 8×8 claim on a wilderness deposit (1.4 §20), bought once and kept for good</summary>
 public sealed class Outpost
 {
     public long Id { get; init; }
@@ -11,10 +11,9 @@ public sealed class Outpost
     public int X { get; init; }
     public int Y { get; init; }
     public DateTime ClaimedAt { get; init; }
-    public DateTime PaidUntil { get; set; }
 
-    /// <summary>Gold per week</summary>
-    public double Lease { get; init; }
+    /// <summary>The gold it was bought for</summary>
+    public double Price { get; init; }
 
     public bool Contains(TilePos tile) => tile.X >= X && tile.X < X + GameWorld.OutpostSize && tile.Y >= Y && tile.Y < Y + GameWorld.OutpostSize;
 
@@ -41,18 +40,19 @@ public sealed record Discovery(int X, int Y, string Resource, DateTime FoundAt)
 }
 
 /// <summary>
-/// Outposts and the wilderness (GDD §4.6): claims on rare deposits between the districts, from Company Level 15, at most
-/// three per company, leased by the week. Goods come home by a long pipe through the wilderness or by Cargo Depots,
-/// which connect all the networks of their owner. Discovery events add rich deposits.
+/// Outposts and the wilderness (1.4 §20): from Era 4 and its research, claims of 8×8 on rich deposits in the wilderness
+/// you have mapped, at most three per company, bought once and yours for good (no rent: nothing runs out while you're
+/// away, rule 7). Goods come home by Cargo Depot or Quantum Link. Discovery events add rich deposits.
 /// </summary>
 public sealed partial class GameWorld
 {
     public const int OutpostSize = 8;
     public const int MaxOutposts = 3;
-    public const int OutpostLevel = 15;
     private const int OutpostMinDeposits = 4;
     private const int DiscoveryRadius = 2;
-    public static readonly TimeSpan LeasePeriod = TimeSpan.FromDays(7);
+
+    /// <summary>The first outpost's price; every next one twice the last (provisional until the model plays Era 4)</summary>
+    public const double OutpostFirstPrice = 20_000_000_000;
 
     private readonly Dictionary<long, Outpost> _outposts = new();
     private readonly List<Discovery> _discoveries = new();
@@ -75,8 +75,9 @@ public sealed partial class GameWorld
 
     public IEnumerable<Outpost> OutpostsOf(long companyId) => _outposts.Values.Where(t => t.Owner == companyId);
 
-    /// <summary>The weekly lease of an outpost: grows with the company's Era</summary>
-    public double OutpostLease(Company company) => 3000 * YourEra(company);
+    /// <summary>What a company's next outpost costs (the Workshop Monument counts)</summary>
+    public double OutpostPrice(Company company) =>
+        Math.Round(OutpostFirstPrice * Math.Pow(2, OutpostsOf(company.Id).Count()) * CostFactor(company));
 
     /// <summary>A discovered deposit on a tile (richness 5)</summary>
     private Discovery? DiscoveryAt(TilePos pos)
@@ -94,9 +95,9 @@ public sealed partial class GameWorld
     /// <summary>Why an 8×8 outpost can't be claimed here (null: it can)</summary>
     public string? OutpostBlocker(Company company, TilePos origin)
     {
-        if (company.Level < OutpostLevel)
+        if (!HasResearch(company, "outposts"))
         {
-            return $"Outposts come with Company Level {OutpostLevel}.";
+            return "Research Outposts (Era 4) first.";
         }
         if (OutpostsOf(company.Id).Count() >= MaxOutposts)
         {
@@ -109,6 +110,10 @@ public sealed partial class GameWorld
             if (WorldLayout.ZoneAt(tile.X, tile.Y).Kind != ZoneKind.Wilderness)
             {
                 return "Outposts are claimed in the wilderness between the towns.";
+            }
+            if (!IsExplored(company, tile))
+            {
+                return "Map this part of the wilderness first: an expedition does.";
             }
             if (OutpostAt(tile) != null)
             {
@@ -170,13 +175,14 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail(blocker);
         }
-        var lease = OutpostLease(company);
-        var payment = Pay(company, lease, new Dictionary<string, double>());
+        var price = OutpostPrice(company);
+        var payment = Pay(company, price, new Dictionary<string, double>());
         if (!payment.Success)
         {
             return payment;
         }
-        var outpost = new Outpost { Id = NextOutpostId++, Owner = companyId, X = origin.X, Y = origin.Y, ClaimedAt = Now, PaidUntil = Now + LeasePeriod, Lease = lease };
+        AddStat(company, "outpostGold", price);
+        var outpost = new Outpost { Id = NextOutpostId++, Owner = companyId, X = origin.X, Y = origin.Y, ClaimedAt = Now, Price = price };
         _outposts[outpost.Id] = outpost;
         OutpostChanged(outpost);
         return CommandResult.Ok;
@@ -220,39 +226,6 @@ public sealed partial class GameWorld
             company.Touch();
             Changes.Companies.Add(company.Id);
         }
-    }
-
-    /// <summary>Leases due in a span: paid automatically, or the outpost is given back</summary>
-    private IEnumerable<(DateTime At, Action Run)> LeaseMoments(DateTime from, DateTime to)
-    {
-        foreach (var outpost in _outposts.Values.Where(t => t.PaidUntil <= to).ToList())
-        {
-            yield return (outpost.PaidUntil > from ? outpost.PaidUntil : from, () => RenewLease(outpost));
-        }
-    }
-
-    private void RenewLease(Outpost outpost)
-    {
-        if (!_outposts.ContainsKey(outpost.Id) || outpost.PaidUntil > LastTick)
-        {
-            return;
-        }
-        if (Company(outpost.Owner) is { } company && company.Gold >= outpost.Lease)
-        {
-            company.Gold -= outpost.Lease;
-            company.Report.GoldSpent += outpost.Lease;
-            AddStat(company, "goldSpent", outpost.Lease);
-            outpost.PaidUntil += LeasePeriod;
-            company.Touch();
-            Changes.Companies.Add(company.Id);
-            Changes.Outposts = true;
-            return;
-        }
-        if (Company(outpost.Owner) is { } owner)
-        {
-            Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.Calendar, "You couldn't pay the lease of an outpost: the land went back to the wilderness"));
-        }
-        Release(outpost);
     }
 
     // ---------------------------------------------------------------- Discoveries

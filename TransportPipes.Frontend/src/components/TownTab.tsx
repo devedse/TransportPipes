@@ -303,6 +303,12 @@ export function TownTab({ serverNow }: { serverNow: number }) {
           ` · you reached Era ${town.yourEra} elsewhere: your buildings of a later Era sleep here until the town gets there`}
         . Everyone in town builds its Wonder together; its last stage brings the next Era.
       </p>
+      {town.launchedAt !== null && (
+        <p className="status running">
+          🚀 Your town launched its Space Elevator. Missions now: each one finished gives everyone in town +1%
+          production for good{town.stars > 0 ? `, and so far ${town.stars} ★` : ""}.
+        </p>
+      )}
       {party !== null && party > 0 && (
         <p className="status running">
           🎉 Launch party: +10% for everyone in town for another {formatDuration(party)}

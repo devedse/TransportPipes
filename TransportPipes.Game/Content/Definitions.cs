@@ -66,7 +66,8 @@ public sealed record RelicDefinition(string Id, string Name, string Lore);
 /// A step of Loady's guide (GDD §10.2), done when the stat reaches the amount; chapter 1 is the first session, chapter 2
 /// the middle game (docs/v1.1-design.html §5)
 /// </summary>
-public sealed record TutorialStep(string Id, string Text, string Stat, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint, int Chapter = 1, string? PhoneText = null)
+/// <param name="Era">The Era the step belongs to: it waits until the player's town gets there (1.4 §11: Loady opens each Era's chapter)</param>
+public sealed record TutorialStep(string Id, string Text, string Stat, double Amount, double Gold, IReadOnlyDictionary<string, string> Hint, int Chapter = 1, string? PhoneText = null, int Era = 1)
 {
     /// <summary>The buildings of the step's hint, in the order to build them ("copperMine,coalPit,smelter")</summary>
     public IReadOnlyList<string> HintBuildings => Hint.TryGetValue("building", out var list) ? list.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) : [];
@@ -165,6 +166,31 @@ public sealed class WonderDefinition
     public double Worth { get; init; }
 
     public required IReadOnlyList<WonderStage> Stages { get; init; }
+}
+
+/// <summary>
+/// The missions after a town's Launch (1.4 §13): one after the other, each asks for Era-5 goods worth Growth times the
+/// last, and gives everyone in the town Perk more production for good and the town a star
+/// </summary>
+public sealed class MissionRules
+{
+    public string Name { get; init; } = "Mission";
+    public string Description { get; init; } = "";
+    public double Worth { get; init; } = 100_000_000_000_000;
+    public double Growth { get; init; } = 1.1;
+    public double Perk { get; init; } = 0.01;
+    public IReadOnlyList<string> Goods { get; init; } = [];
+
+    /// <summary>A mission (0: the first) as a one-stage Wonder</summary>
+    public WonderDefinition Mission(int number) => new()
+    {
+        Id = $"mission-{number}",
+        Name = $"{Name} {number + 1}",
+        Era = 5,
+        Description = Description,
+        Worth = Math.Round(Worth * Math.Pow(Growth, number)),
+        Stages = [new WonderStage(1, Goods, WonderPerk.Everything, Perk)],
+    };
 }
 
 /// <summary>What a Monument's stages give every resident of its Yard (1.4 §13)</summary>

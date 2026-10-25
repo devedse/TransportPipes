@@ -162,9 +162,14 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// A company's Hub Order of a good in a town (1.4 §22): units a minute the market buys from it at the full base price.
-    /// None for a good of a later Era than the town's (the market doesn't buy it yet).
+    /// None for a good of a later Era than the town's (the market doesn't buy it yet). At home it also takes what the
+    /// company sends over a trunk line to another town's market (1.4 §20).
     /// </summary>
-    public double HubOrder(Company company, DistrictCoord town, string resource)
+    public double HubOrder(Company company, DistrictCoord town, string resource) =>
+        BaseHubOrder(company, town, resource) + (town == company.District && company.Exports.Count > 0 ? ExportHubOrder(company, resource) : 0);
+
+    /// <summary>A company's Hub Order of a good at a town's own market</summary>
+    public double BaseHubOrder(Company company, DistrictCoord town, string resource)
     {
         if (!Content.Resources.TryGetValue(resource, out var good) || good.Price <= 0)
         {
