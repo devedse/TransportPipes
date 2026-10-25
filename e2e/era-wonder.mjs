@@ -22,7 +22,7 @@ await page.click("text=New player");
 await page.fill("input[autocomplete=username]", `era${Date.now() % 100000}`);
 await page.fill("input[type=password]", "secret123");
 await page.click("button[type=submit]");
-await page.waitForSelector(".found-panel", { timeout: 30000 });
+await page.waitForSelector(".picker-top", { timeout: 30000 });
 // A free seat in the Capital (its Era Wonder is the Capital's want; on a fresh world the first players live there)
 const seat = await page.evaluate(async () => {
   const stations = await tp.gameClient.connection.getStations(0, 0);

@@ -80,6 +80,10 @@ describe("the plot picker (1.4 §6)", () => {
     expect(chooseSeat(stations(), null, 1)?.slot).toBe(5);
   });
 
+  it("offers a closed Yard's free plot as a request", () => {
+    expect(chooseSeat(stations(), null, 0)?.slot).toBe(1);
+  });
+
   it("goes to Pick for me's plot when the friend's Yard is full", () => {
     const dto = stations();
     dto.stations[1]!.seats = dto.stations[1]!.seats.map((t) => ({ ...t, state: "taken" as const }));

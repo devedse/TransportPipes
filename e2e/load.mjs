@@ -30,11 +30,13 @@ await page.fill("input[autocomplete=username]", user);
 await page.fill("input[type=password]", "secret123");
 t0 = Date.now(); bytes = 0; requests = 0;
 await page.click("button[type=submit]");
-await page.waitForSelector(".found-panel", { timeout: 120000 });
-console.log(`  signed up → found a company ${t()}`);
-await page.fill(".found-panel input", `${user} Works`);
+await page.waitForSelector(".picker-top", { timeout: 120000 });
+console.log(`  signed up → the start map ${t()}`);
+await page.click("text=Pick for me");
+await page.waitForSelector(".plot-card .start-form", { timeout: 60000 });
+await page.fill(".start-form input[minlength='3']", `${user} Works`);
 t0 = Date.now();
-await page.click(".found-panel button[type=submit]");
+await page.click(".start-form button[type=submit]");
 // Loady covers the map until it has been drawn
 if (await page.waitForSelector(".map-loading", { timeout: 5000 }).catch(() => null)) {
   await page.screenshot({ path: `shots/load-${profile}-loading.png` });

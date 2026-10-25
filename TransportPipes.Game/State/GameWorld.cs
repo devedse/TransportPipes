@@ -323,6 +323,11 @@ public sealed partial class GameWorld
         {
             OpenDistrict(wanted.District);
         }
+        // A friend's link without a plot: a free one at their Yard, when there is one
+        if (seat == null && code != null && NextToMeOf(code) is { } friend && EstateOf(friend) is { } home)
+        {
+            seat = StationSeats(home.Station).Where(t => SeatFree(t, null, code)).Select(t => (EstateKey?)t).FirstOrDefault();
+        }
         var chosen = seat is { } s && SeatFree(s, null, code) ? s : PickForMe();
         var estate = Estate(chosen.District, chosen.Slot)!;
         var now = Now;

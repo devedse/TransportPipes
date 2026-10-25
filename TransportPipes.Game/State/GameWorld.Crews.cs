@@ -313,7 +313,7 @@ public sealed partial class GameWorld
         CrewChanged(crew);
         foreach (var member in CrewMembers(crew))
         {
-            Changes.Events.Add(new WorldEvent(member.Id, WorldEventKind.Crew, $"{company.Name} asks to settle at {crew.Name}: say yes or no in the Yard panel", Bell: true));
+            Changes.Events.Add(new WorldEvent(member.Id, WorldEventKind.Crew, $"{company.Name} asks to settle at {crew.Name}: say yes or no in the Crew panel (K)", Bell: true));
         }
         return CommandResult.Ok;
     }

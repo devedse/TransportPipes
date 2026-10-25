@@ -22,7 +22,7 @@ async function register(page, user) {
   await page.fill("input[autocomplete=username]", user);
   await page.fill("input[type=password]", "secret123");
   await page.click("button[type=submit]");
-  await page.waitForSelector(".found-panel", { timeout: 30000 });
+  await page.waitForSelector(".picker-top", { timeout: 30000 });
 }
 async function closeDialogs(page) {
   for (let i = 0; i < 3 && (await page.locator("[role=dialog]:visible").count()) > 0; i++) {
@@ -42,11 +42,19 @@ const id = Date.now() % 100000;
 const ana = await start(`${out}/ana`);
 await ana.page.setExtraHTTPHeaders({ "X-Playtest-Ip": `10.8.${id % 250}.1` });
 await register(ana.page, `ana${id}`);
-const seat = await ana.page.evaluate(() => tp.gameClient.connection.getStations(null, null).then((t) => t.friends ?? t.neighbours));
-const crew = await ana.page.evaluate(
-  (s) => tp.gameClient.connection.startWithFriends(`Ana ${Date.now() % 100000} Pipes`, "#e07a3f", `Kiln ${Date.now() % 1000}`, "kettle", "#24575a", "#c9963a", s, 1),
-  seat,
-);
+// Ana settles in an empty Yard and gets her "Play next to me" link (1.4 §6)
+const empty = await ana.page.evaluate(async () => {
+  const c = tp.gameClient.connection;
+  const first = await c.getStations(null, null);
+  for (const d of [{ districtX: first.pickForMe.districtX, districtY: first.pickForMe.districtY }, ...first.districts]) {
+    const dto = await c.getStations(d.districtX, d.districtY);
+    const station = dto.stations.find((t) => t.seats.every((s) => s.state === "free"));
+    if (station !== undefined) return { districtX: station.districtX, districtY: station.districtY, slot: station.seats[0].slot };
+  }
+  return null;
+});
+await ana.page.evaluate((s) => tp.gameClient.connection.createCompany(`Ana ${Date.now() % 100000} Pipes`, "#e07a3f", s, null), empty);
+const link = await ana.page.evaluate(() => tp.gameClient.connection.getNextToMeLink());
 await ana.page.goto(`${base}/`);
 await ana.page.waitForSelector(".toolbar", { timeout: 60000 });
 await ana.page.waitForTimeout(1500);
@@ -55,7 +63,7 @@ await closeDialogs(ana.page);
 const ben = await start(`${out}/ben`, { width: 1280, height: 860 });
 await ben.page.setExtraHTTPHeaders({ "X-Playtest-Ip": `10.8.${id % 250}.2` });
 await register(ben.page, `ben${id}`);
-await ben.page.evaluate((code) => tp.gameClient.foundCompany(`Ben ${Date.now() % 100000} Co`, "#3f8ae0", null, code), crew.holds[0].code);
+await ben.page.evaluate((code) => tp.gameClient.foundCompany(`Ben ${Date.now() % 100000} Co`, "#3f8ae0", null, code), link);
 await ben.page.waitForSelector(".toolbar", { timeout: 60000 });
 await ben.page.waitForTimeout(1500);
 await closeDialogs(ben.page);

@@ -14,15 +14,12 @@ development cheats (`TransportPipes:Cheats`) through `window.tp`.
 
 | Script | What it shows |
 | --- | --- |
+| `start-map.mjs` | The start on the map (1.4 §6): the free plots glowing, the whole town zoomed out, Pick for me and the plot card, Play (`start-map.mjs shots/x phone` on a phone) |
+| `four-friends.mjs` | Phase A's check: Ana names her Yard and sends her "Play next to me" link; Ben opens it on a phone as a guest and lands next to her; Cleo finds Ana by name on the map; Ana closes the Yard, Dev's Pick for me goes elsewhere and his tap on the last plot asks; Ana says yes (four browsers) |
 | `onboarding.mjs` | A new player following Loady's first steps |
-| `yard.mjs` | Two neighbours in one station, each piped to their Yard gate with the Yard panel's button: one's energy goes to the other's mine at the player price (two browsers, moved into a station nobody else lives in; the `yard` cheat runs the Yards' rounds now) |
+| `yard.mjs` | Two neighbours in one Yard, each piped to their Yard gate with the Yard panel's button: one's energy goes to the other's mine at the seller's crew price (two browsers, moved into a Yard nobody else lives at; the `yard` cheat runs the Yards' rounds now) |
 | `links.mjs` | A link between two stations: A's Links tab suggests B (who needs A's energy), A offers it, B accepts, and both see it flow at the player price, drawn along the corridors (two browsers) |
-| `houses.mjs` | Houses and stand-ins (on a fresh dev world): A takes a House's seat and gets its starter kit, B moves in next door, the Yard panel shows the Houses and what they do; B is put to sleep and A's Yard panel names B's stand-in (two browsers) |
-| `return.mjs` | The way back: A is "gone" ten days (dev cheat) and sees the two screens, then is sent to the Quiet Isles ("isles") and sees the landing cards (its own seat preselected) and moves to another one |
-| `project.mjs` | The station's project: A's spare goes to the Foundation, the `project` cheat finishes a stage and the next asks for a keystone; the Plan board and an Ask; the project in the Yard's corner on the map |
-| `trunk.mjs` | A crew trunk: A founds a crew, the world moves to Era 2 (dev cheat), A starts a steel trunk to the next hub and pays its segments (the `stock` cheat brings steel and concrete); the trunk in the Links tab and on the map |
-| `evening.mjs` | The first evening with four browsers: Ana starts with friends, Ben (a phone) and Cleo open their codes as guests and get the Houses' starter kits, the pipes meet (Handshake), the Foundation buys at once, the `project` cheat brings the Water Tower and its keystone, Dev opens the last code later |
-| `crew.mjs` | Start with friends: Ana founds a crew from the start screen and keeps three seats, Ben opens his seat link on a phone and moves in as a guest, Cleo joins with the crew link and lands next door; Ana's crew panel, Ben's keep note and a move to another seat (three browsers) |
+| `return.mjs` | The way back: A is "gone" ten days (dev cheat) and comes back to one card |
 | `right-click.mjs` | A right-click on the map steps back (deselects, puts a tool away); a right-drag still pans |
 | `onetap.mjs` | One tap lays the pipe: a lone Wind Moily is stuck, its panel's fix names where the pipe goes and its price, and a single tap lays it (no preview to confirm) |
 | `chores.mjs` | The middle game's chores explain themselves: the Lab under Processing says what it uses and who makes it, the Hub's orders say they come out of a Storage, with a button to build one |
@@ -58,11 +55,11 @@ seats: a second server on its own database (`--ConnectionStrings:TransportPipes=
 | Script | What it shows |
 | --- | --- |
 | `deadend.mjs`, `onetap.mjs`, `waits.mjs` | A building that can't run says why, with one fix; a scaffold says what it waits for |
-| `seat-race.mjs`, `friend-late.mjs`, `land.mjs` | The seat picker tells the truth; friends find each other late; dealt land and its kit |
+| `land.mjs` | The seat picker tells the truth; friends find each other late; dealt land and its kit |
 | `spending.mjs`, `refusal.mjs`, `wants.mjs` | A panel says what the next level and Max will do; a refusal points at a tile that works; scaffolds want materials |
-| `card-fold.mjs`, `crew-news.mjs` | The return card leads with what matters; the crew's news in one place |
-| `orders.mjs`, `refinements.mjs`, `era-wonder.mjs` | Hub orders as buyers; Refinements after an Era's tree; the Era Wonder as the Capital's want |
-| `pipe-door.mjs`, `gold.mjs`, `storeys.mjs` | After run 4: the pipe ladder's door; "Your gold can" and Grow everything; the Landmark's storeys |
+| `card-fold.mjs` | The return card leads with what matters; the crew's news in one place |
+| `orders.mjs`, `era-wonder.mjs` | Hub orders as buyers; Refinements after an Era's tree; the Era Wonder as the Capital's want |
+| `pipe-door.mjs`, `gold.mjs` | After run 4: the pipe ladder's door; "Your gold can" and Grow everything; the Landmark's storeys |
 | `numbers.mjs`, `loady-upgrade.mjs`, `map-clicks.mjs` | After run 4: one income everywhere; Loady's upgrade lands where a level pays; refusals, ghosts and clicks |
 | `exchange.mjs`, `phone-reading.mjs`, `post-max.mjs` | After run 4: the Exchange's price and expiry; phone panels and reading; a full Trading Post's Max and Grow |
 | `consistency.mjs` | After every kind of change, the playing tab matches a freshly loaded one |

@@ -371,10 +371,16 @@ export function PlotPicker({ mode }: { mode: PickMode }) {
         ? { x: invite.dto.yard.districtX, y: invite.dto.yard.districtY }
         : null,
   );
-  // The Yard to start at once the town is loaded: a friend's, or a player's Find a player found
-  const [focus, setFocus] = useState<{ districtX: number; districtY: number; index: number } | null>(
-    () => invite?.dto.yard ?? null,
-  );
+  // The Yard to start at once its town is loaded: a friend's (full: Pick for me's plot instead), or the one of a player
+  // Find a player found (full: their own plot, to show who lives there); taken once, when the town loads
+  const focus = useRef<{
+    districtX: number;
+    districtY: number;
+    index: number;
+    found: SeatRefDto | null;
+  } | null>(invite?.dto.yard != null ? { ...invite.dto.yard, found: null } : null);
+  // Counts up to load the town again (Find a player in the town already shown)
+  const [load, setLoad] = useState(0);
   const [note, setNote] = useState<string | null>(null);
   const looked = useRef(false);
   const code = invite?.code ?? null;
@@ -393,19 +399,31 @@ export function PlotPicker({ mode }: { mode: PickMode }) {
       setStations(dto);
       const current = appStore.getState().picker;
       const before = current?.chosen ?? null;
+      const wanted = focus.current;
       const yard =
-        focus !== null && focus.districtX === dto.districtX && focus.districtY === dto.districtY
-          ? focus.index
+        wanted !== null && wanted.districtX === dto.districtX && wanted.districtY === dto.districtY
+          ? wanted
           : null;
-      let chosen = chooseSeat(dto, yard !== null ? null : before, yard);
+      let chosen = chooseSeat(dto, yard !== null ? null : before, yard?.index ?? null);
       if (yard !== null && chosen === null) {
-        // Nothing is held: their Yard filled up, so the nearest free plot
-        chosen = dto.pickForMe;
-        setNote("Their Yard is full now: here's the nearest free plot.");
-      } else if (before !== null && findSeat(dto, before) !== null && !sameSeat(before, chosen)) {
+        // Nothing is held: their Yard filled up
+        chosen = yard.found ?? dto.pickForMe;
+        setNote(
+          yard.found !== null
+            ? "Their Yard is full: the free plots glow nearby."
+            : "Their Yard is full now: here's the nearest free plot.",
+        );
+      } else if (
+        yard === null &&
+        before !== null &&
+        findSeat(dto, before) !== null &&
+        !sameSeat(before, chosen)
+      ) {
         setNote("Someone just settled on that plot: here's another free one.");
       }
-      setFocus(null);
+      if (yard !== null) {
+        focus.current = null;
+      }
       setState({ picker: { mode, seats: seatsOf(dto), chosen: chosen ?? before } });
       if (!looked.current) {
         looked.current = true;
@@ -419,9 +437,7 @@ export function PlotPicker({ mode }: { mode: PickMode }) {
     return () => {
       cancelled = true;
     };
-    // The focus is taken once, when its town loads
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [town?.x, town?.y, code, reload, mode]);
+  }, [town?.x, town?.y, code, reload, load, mode]);
 
   // A tap on a plot of another town loads that town
   const chosen = picker?.chosen ?? null;
@@ -490,9 +506,17 @@ export function PlotPicker({ mode }: { mode: PickMode }) {
           )}
           <FindPlayer
             onFound={(t) => {
-              setFocus({ districtX: t.districtX, districtY: t.districtY, index: Math.floor(t.slot / 4) });
+              const found = { districtX: t.districtX, districtY: t.districtY, slot: t.slot };
+              focus.current = {
+                districtX: t.districtX,
+                districtY: t.districtY,
+                index: Math.floor(t.slot / 4),
+                found,
+              };
+              setNote(null);
               setTown({ x: t.districtX, y: t.districtY });
-              choose({ districtX: t.districtX, districtY: t.districtY, slot: t.slot });
+              setLoad(load + 1);
+              gameClient.lookAtPlot(found);
             }}
           />
           {mode === "start" && <FriendLink />}
