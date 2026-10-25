@@ -448,7 +448,16 @@ public sealed partial class GameWorld
         return _spots[(definition.Id, near)] = SearchSpot(company, definition, near);
     }
 
-    private TilePos? SearchSpot(Company company, BuildingDefinition definition, TilePos near)
+    /// <summary>
+    /// The best spot: a building that mines nothing stays off deposits while other land is free (B13's bot: Solar Panels
+    /// and factories took the plot's iron tiles, so it had 13 Iron Mines where the model has 36, and "Show me" did the same)
+    /// </summary>
+    private TilePos? SearchSpot(Company company, BuildingDefinition definition, TilePos near) =>
+        definition.Placement.Deposit == null
+            ? SearchSpot(company, definition, near, offDeposits: true) ?? SearchSpot(company, definition, near, offDeposits: false)
+            : SearchSpot(company, definition, near, offDeposits: false);
+
+    private TilePos? SearchSpot(Company company, BuildingDefinition definition, TilePos near, bool offDeposits)
     {
         if (EstateOf(company) is not { } estate)
         {
@@ -480,7 +489,8 @@ public sealed partial class GameWorld
                      .OrderBy(t => Distance(t, near)).Take(300))
         {
             // Somewhere a pipe can reach it: a free tile beside it that isn't water or mountain
-            if (!CanPlace(company, definition, pos).Success
+            if ((offDeposits && Footprint(pos, definition.Size).Any(t => Tile(t).Deposit != null))
+                || !CanPlace(company, definition, pos).Success
                 || !BorderTiles(pos, definition.Size).Any(t => !IsOccupied(t) && Tile(t).Terrain is not (TerrainType.Mountain or TerrainType.Water)))
             {
                 continue;

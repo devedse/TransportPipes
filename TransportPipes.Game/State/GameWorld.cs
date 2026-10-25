@@ -644,6 +644,18 @@ public sealed partial class GameWorld
     private string DepositName(string deposit) =>
         deposit == "anyMetal" ? "metal" : Content.Resources.TryGetValue(deposit, out var resource) ? resource.Name.ToLowerInvariant() : deposit;
 
+    /// <summary>The tiles a building of a size covers from its corner</summary>
+    public static IEnumerable<TilePos> Footprint(TilePos pos, int size)
+    {
+        for (var dy = 0; dy < size; dy++)
+        {
+            for (var dx = 0; dx < size; dx++)
+            {
+                yield return pos.Offset(dx, dy);
+            }
+        }
+    }
+
     public static IEnumerable<TilePos> BorderTiles(TilePos pos, int size)
     {
         for (var i = 0; i < size; i++)

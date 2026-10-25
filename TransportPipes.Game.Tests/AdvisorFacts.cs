@@ -85,6 +85,24 @@ public class AdvisorFacts
     }
 
     [TestMethod]
+    public void BuildingsThatMineNothingStayOffDeposits()
+    {
+        // B13's bot: Solar Panels and factories took the plot's iron tiles (13 Iron Mines where the model has 36)
+        var game = new TestGame();
+        var company = game.NewCompany(gold: 1e6, level: 12);
+        var ore = game.Spot(company, "ironMine", t => game.World.Tile(t).Deposit == "ironOre");
+
+        foreach (var type in new[] { "smallFactory", "sawmill", "solarPanel", "windMoily" })
+        {
+            var definition = game.World.Content.Building(type);
+            var spot = game.World.FindSpot(company, definition, ore);
+            Assert.IsNotNull(spot, type);
+            Assert.IsTrue(GameWorld.Footprint(spot.Value, definition.Size).All(t => game.World.Tile(t).Deposit == null), $"{type} at {spot}");
+        }
+        Assert.AreEqual("ironOre", game.World.Tile(game.World.FindSpot(company, game.World.Content.Building("ironMine"), ore)!.Value).Deposit, "a mine still goes on its ore");
+    }
+
+    [TestMethod]
     public void AFactoryWhoseIngotsCantLeaveIsNotShortOfEnergy()
     {
         // Ana's day 4: the factory piped to the mine and a windmill, the mine to the trading post and a windmill of its
