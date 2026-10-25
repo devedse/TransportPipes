@@ -165,115 +165,69 @@ public sealed partial class GameWorld
 
     // ---------------------------------------------------------------- The route
 
-    /// <summary>Whether a world x lies on a vertical corridor line (its first tile; corridors are two wide)</summary>
-    private static bool OnXLine(int x)
-    {
-        var district = WorldLayout.DistrictOf(x, 0).X;
-        var local = x - WorldLayout.DistrictOriginX(district);
-        return local is >= 0 and < WorldLayout.DistrictSize && local % WorldLayout.BlockPitch == 0;
-    }
+    /// <summary>The line a link takes along a town's vertical road (world x) and its horizontal one (world y)</summary>
+    private static int RoadLineX(int districtX) => WorldLayout.DistrictOriginX(districtX) + WorldLayout.RoadX + 1;
 
-    private static bool OnYLine(int y)
-    {
-        var district = WorldLayout.DistrictOf(0, y).Y;
-        var local = y - WorldLayout.DistrictOriginY(district);
-        return local is >= 0 and < WorldLayout.DistrictSize && local % WorldLayout.BlockPitch == 0;
-    }
+    private static int RoadLineY(int districtY) => WorldLayout.DistrictOriginY(districtY) + WorldLayout.RoadY + 1;
 
-    /// <summary>The corridor lines (their first tiles) nearest below and above a coordinate, along one axis</summary>
-    private static IEnumerable<int> LinesAround(int v, Func<int, int> origin, Func<int, int> districtOf)
-    {
-        var district = districtOf(v);
-        foreach (var d in new[] { district - 1, district, district + 1 })
-        {
-            for (var k = 0; k <= WorldLayout.BlocksPerSide; k++)
-            {
-                yield return origin(d) + k * WorldLayout.BlockPitch;
-            }
-        }
-    }
-
-    /// <summary>The line to turn on between two coordinates: one between them when there is one (no detour), else the nearest</summary>
-    private static int TurnLine(int a, int b, Func<int, int> origin, Func<int, int> districtOf)
-    {
-        var (low, high) = (Math.Min(a, b), Math.Max(a, b));
-        var lines = LinesAround(low, origin, districtOf).Concat(LinesAround(high, origin, districtOf)).Distinct().ToList();
-        return lines.OrderBy(t => t >= low && t <= high ? 0 : Math.Min(Math.Abs(t - low), Math.Abs(t - high))).ThenBy(t => t).First();
-    }
-
-    /// <summary>Where a station's Yard meets the corridors: the crossing (or the corridor) in its middle</summary>
+    /// <summary>The middle of a Yard, where its links leave it (they run under the plots to the nearer road)</summary>
     public static TilePos YardAnchor(StationRef station)
     {
         var yard = WorldLayout.Yard(station);
-        var cx = (yard.X0 + yard.X1) / 2;
-        var cy = (yard.Y0 + yard.Y1) / 2;
-        // The first tile of the two-wide corridor through the Yard's middle
-        foreach (var x in new[] { cx - 1, cx, cx + 1 })
-        {
-            if (OnXLine(x))
-            {
-                cx = x;
-                break;
-            }
-        }
-        foreach (var y in new[] { cy - 1, cy, cy + 1 })
-        {
-            if (OnYLine(y))
-            {
-                cy = y;
-                break;
-            }
-        }
-        return new TilePos(cx, cy);
+        return new TilePos((yard.X0 + yard.X1) / 2, (yard.Y0 + yard.Y1) / 2);
+    }
+
+    /// <summary>Where a Yard's links meet its town's roads: straight from its middle to the nearer road</summary>
+    private static (TilePos At, bool Horizontal) RoadExit(StationRef station)
+    {
+        var anchor = YardAnchor(station);
+        var x = RoadLineX(station.District.X);
+        var y = RoadLineY(station.District.Y);
+        return Math.Abs(anchor.Y - y) <= Math.Abs(anchor.X - x) ? (new TilePos(anchor.X, y), true) : (new TilePos(x, anchor.Y), false);
     }
 
     /// <summary>
-    /// A link's route (v1.2 §7): from the seller's Yard gate under its Yard to the corridors, along them (turning at most
-    /// twice, through the wilderness between districts where it has to) to the buyer's Yard and its gate
+    /// A link's route (1.4 §8): from the seller's Yard gate into its Yard, under the plots to the nearer road, along the
+    /// roads (across the wilderness between towns, where the roads of a row or a column of towns line up) to the buyer's
+    /// road, and in to its Yard and its gate
     /// </summary>
     public static List<TilePos> LinkRoute(TilePos fromGate, StationRef fromStation, TilePos toGate, StationRef toStation)
     {
         var a = YardAnchor(fromStation);
         var b = YardAnchor(toStation);
-        // From a gate straight into its Yard, then under it to the corridor in its middle
-        TilePos Turn(TilePos gate, TilePos anchor, StationRef station) =>
-            WorldLayout.Yard(station).Contains(new TilePos(gate.X, anchor.Y)) ? new TilePos(gate.X, anchor.Y) : new TilePos(anchor.X, gate.Y);
-        var route = new List<TilePos> { fromGate, Turn(fromGate, a, fromStation), a };
-        bool AH(TilePos p) => OnYLine(p.Y);
-        bool AV(TilePos p) => OnXLine(p.X);
-        int XTurn(int x0, int x1) => TurnLine(x0, x1, WorldLayout.DistrictOriginX, x => WorldLayout.DistrictOf(x, 0).X);
-        int YTurn(int y0, int y1) => TurnLine(y0, y1, WorldLayout.DistrictOriginY, y => WorldLayout.DistrictOf(0, y).Y);
-        if (a == b)
+        var turnA = new TilePos(fromGate.X, a.Y);
+        var route = new List<TilePos> { fromGate, WorldLayout.Yard(fromStation).Contains(turnA) ? turnA : new TilePos(a.X, fromGate.Y), a };
+        if (fromStation != toStation)
         {
-        }
-        else if (AH(a) && AV(b))
-        {
-            route.Add(new TilePos(b.X, a.Y));
-        }
-        else if (AV(a) && AH(b))
-        {
-            route.Add(new TilePos(a.X, b.Y));
-        }
-        else if (AH(a) && AH(b))
-        {
-            if (a.Y != b.Y)
+            var (ea, horizontalA) = RoadExit(fromStation);
+            var (eb, horizontalB) = RoadExit(toStation);
+            route.Add(ea);
+            if (horizontalA && horizontalB && ea.Y != eb.Y)
             {
-                var x = XTurn(a.X, b.X);
-                route.Add(new TilePos(x, a.Y));
-                route.Add(new TilePos(x, b.Y));
+                // Two horizontal roads: along the first to the buyer's town's vertical road, along it to the second
+                var x = RoadLineX(toStation.District.X);
+                route.Add(new TilePos(x, ea.Y));
+                route.Add(new TilePos(x, eb.Y));
             }
-        }
-        else
-        {
-            if (a.X != b.X)
+            else if (!horizontalA && !horizontalB && ea.X != eb.X)
             {
-                var y = YTurn(a.Y, b.Y);
-                route.Add(new TilePos(a.X, y));
-                route.Add(new TilePos(b.X, y));
+                var y = RoadLineY(toStation.District.Y);
+                route.Add(new TilePos(ea.X, y));
+                route.Add(new TilePos(eb.X, y));
             }
+            else if (horizontalA && !horizontalB)
+            {
+                route.Add(new TilePos(eb.X, ea.Y));
+            }
+            else if (!horizontalA && horizontalB)
+            {
+                route.Add(new TilePos(ea.X, eb.Y));
+            }
+            route.Add(eb);
+            route.Add(b);
         }
-        route.Add(b);
-        route.Add(Turn(toGate, b, toStation));
+        var turnB = new TilePos(toGate.X, b.Y);
+        route.Add(WorldLayout.Yard(toStation).Contains(turnB) ? turnB : new TilePos(b.X, toGate.Y));
         route.Add(toGate);
         return route.Where((t, i) => i == 0 || t != route[i - 1]).ToList();
     }

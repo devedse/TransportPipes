@@ -101,7 +101,7 @@ public class DenserFacts
         var company = game.NewCompany(level: 30);
         game.World.Era = 2;
         company.Researched.Add("bigTurbine");
-        var origin = game.Local(company, 10, 10);
+        var origin = game.InStart(company, 2, 2);
         var map = game.Map(company, origin, "W+++\n    ");
         var moily = map[(0, 0)];
         moily.Level = 5;
@@ -111,7 +111,7 @@ public class DenserFacts
         Assert.AreEqual(Math.Max(0, game.World.BuildCost(company, bigTurbine) - game.World.EvolveCredit(moily)), plan.Cost, 1e-6);
         Assert.IsGreaterThan(game.World.Content.Building("windMoily").Cost.Gold, game.World.EvolveCredit(moily), "the upgrades count too");
         // Its materials, in a storage
-        var storage = game.Map(company, game.Local(company, 20, 20), "O")[(0, 0)];
+        var storage = game.Map(company, game.InStart(company, 12, 12), "O")[(0, 0)];
         foreach (var (material, amount) in bigTurbine.Cost.Materials)
         {
             storage.Contents[material] = amount;

@@ -244,8 +244,6 @@ public sealed class ProgressionSettings
     public double CostPerLevel { get; init; }
     public IReadOnlyList<int> Milestones { get; init; } = [];
     public double CostPerCopy { get; init; }
-    public IReadOnlyList<int> StartParcels { get; init; } = [];
-    public IReadOnlyList<int> ParcelOrder { get; init; } = [];
     public IReadOnlyList<int> ParcelLevels { get; init; } = [];
     public double FirstParcelCost { get; init; }
     public double ParcelCostFactor { get; init; }

@@ -35,6 +35,7 @@ public class MovingFacts
         var game = new TestGame();
         var (company, moily) = Settled(game, "Mover");
         var local = (moily.X - game.EstateOf(company).Origin.X, moily.Y - game.EstateOf(company).Origin.Y);
+        var side = WorldLayout.SideOf(game.EstateOf(company).Slot);
         var target = OtherDistrict(game, company);
         var gold = company.Gold;
 
@@ -53,7 +54,8 @@ public class MovingFacts
         var moved = landed.SingleOrDefault(t => t.Type == "windMoily");
         if (moved != null)
         {
-            Assert.AreEqual(local, (moved.X - estate.Origin.X, moved.Y - estate.Origin.Y), "the same layout");
+            // The same layout, turned to face the new plot's Yard
+            Assert.AreEqual(WorldLayout.MoveFootprint(side, WorldLayout.SideOf(estate.Slot), local.Item1, local.Item2, moved.Size), (moved.X - estate.Origin.X, moved.Y - estate.Origin.Y), "the same layout");
         }
         else
         {

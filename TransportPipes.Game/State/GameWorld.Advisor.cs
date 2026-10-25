@@ -1184,7 +1184,10 @@ public sealed partial class GameWorld
             .Where(t => !estate.IsUnlocked(t) && ParcelNeighbours(t).Any(estate.IsUnlocked))
             .Select(t => (Parcel: t, Holds: ParcelHoldings(estate, t)))
             .OrderByDescending(t => t.Holds.Sum(h => (have.Contains(h.What) ? 1 : 3) + h.Richness))
-            .ThenBy(t => Content.Progression.ParcelOrder.ToList().IndexOf(t.Parcel) is var i and >= 0 ? i : 99)
+            // Then the one nearest the Yard gate (any order is fine, as long as it touches your land)
+            .ThenBy(t => WorldLayout.ParcelOrigin(t.Parcel) is var (px, py) && WorldLayout.YardGateLocal(estate.Slot) is var (gx, gy)
+                ? Math.Abs(px + WorldLayout.ParcelSize / 2 - gx) + Math.Abs(py + WorldLayout.ParcelSize / 2 - gy) : 0)
+            .ThenBy(t => t.Parcel)
             .FirstOrDefault();
         if (best.Holds == null)
         {
@@ -1199,13 +1202,12 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// What a parcel holds: its deposits (with their best richness), water, forest. On dealt land only what the seat may
-    /// make counts (run 4: Cleo bought a "forest" parcel for a Lumber Camp her land can't have)
+    /// What a parcel holds: its deposits of this Era and before (with their best richness), water, forest; a later
+    /// Era's deposits sleep and count for nothing yet
     /// </summary>
     public List<(string What, string Label, int Richness)> ParcelHoldings(Estate estate, int parcel)
     {
-        var dealt = Generator.DealtLand ? Generator.LandOf(estate.District, estate.Slot) : null;
-        bool Yours(string good) => dealt == null || !WorldGenerator.LandGoods.Contains(good) || dealt.Contains(good);
+        bool Yours(string good) => good is "water" or "wood" || (Content.Resources.TryGetValue(good, out var resource) && resource.Era <= Era);
         var deposits = new Dictionary<string, int>();
         var water = 0;
         var forest = 0;

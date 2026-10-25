@@ -144,11 +144,14 @@ public record PipesLineDto(string Text, long Building, int Full, string Ladder);
 /// <summary>An own want: its target (a building's id, or minus a pipe want's number), what it wants, what is in and coming; Tiles for a pipe</summary>
 public record OwnWantDto(long Target, string Name, string Resource, double Amount, double Got, double PerMinute, int? Tiles, string? Order = null, double? OrderCost = null);
 
-/// <summary>Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there</summary>
-public record LandDto(IReadOnlyList<string> Goods, IReadOnlyList<LandSeatDto> Station);
+/// <summary>
+/// Your plot's land (1.4 §5): what it has and lacks (one basic, one later resource), its strength (a ★4 deposit), and
+/// every plot of your Yard with its land and who lives there
+/// </summary>
+public record LandDto(IReadOnlyList<string> Goods, IReadOnlyList<string> Lacks, string Strength, IReadOnlyList<LandSeatDto> Station);
 
 /// <param name="Makes">Of its land goods, those its owner makes now (a finished building of theirs makes it)</param>
-public record LandSeatDto(int Slot, string? Owner, bool You, IReadOnlyList<string> Goods, IReadOnlyList<string> Makes);
+public record LandSeatDto(int Slot, string? Owner, bool You, IReadOnlyList<string> Goods, IReadOnlyList<string> Lacks, string Strength, IReadOnlyList<string> Makes);
 
 /// <summary>A company's crew as the top bar and the map show it</summary>
 public record CrewBadgeDto(long Id, string Name, string Emblem, string Color, string Color2, int Members);
@@ -274,7 +277,9 @@ public record OutpostCheckDto(string? Error, int X, int Y, double Lease, int Siz
 public record TerrainOverrideDto(int X, int Y, string Terrain);
 
 /// <summary>An estate on the map; Goods: the land goods dealt to it (step 5), House: a House lives there</summary>
-public record EstateDto(int Slot, int X, int Y, long? OwnerId, string? OwnerName, string? OwnerColor, int OwnerLevel, int UnlockedParcels, string Primary, string? Secondary, string? Activity, IReadOnlyList<string>? Goods = null);
+/// <summary>A plot on the map: who lives there, its parcels, and its land (what it has and lacks, its strength)</summary>
+public record EstateDto(int Slot, int X, int Y, long? OwnerId, string? OwnerName, string? OwnerColor, int OwnerLevel, int UnlockedParcels, string Primary, string? Secondary, string? Activity,
+    IReadOnlyList<string>? Goods = null, IReadOnlyList<string>? Lacks = null, string? Strength = null);
 
 /// <summary>A hub structure; a Wonder site has its Wonder's name, stage and variant</summary>
 public record HubStructureDto(string Type, int X, int Y, int Size, string? Label = null, string? Color = null, int Level = 0, string? Variant = null, int Stages = 0);
@@ -711,8 +716,10 @@ public record SeatDto(
     int OwnerLevel,
     /// <summary>For others: lively, some days or resting (never a count of days)</summary>
     string? Activity,
-    /// <summary>What the plot's land holds</summary>
-    IReadOnlyList<string>? Goods = null);
+    /// <summary>What the plot's land has and lacks, and its strength (a ★4 deposit of something it has)</summary>
+    IReadOnlyList<string>? Goods = null,
+    IReadOnlyList<string>? Lacks = null,
+    string? Strength = null);
 
 /// <summary>A Yard on the map: its crew's name and banner, whether anyone may settle, its plots and its Plan board</summary>
 public record StationDto(int DistrictX, int DistrictY, int Index, string Name, string? Emblem, string? Color, string? Color2, bool Open, int Free, int Lively,

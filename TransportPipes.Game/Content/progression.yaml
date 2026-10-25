@@ -34,11 +34,9 @@ buildingLevels:
   # Every copy of the same building you own makes the next one more expensive
   costPerCopy: 1.07
 
-# Estate parcels: 16 parcels of 8x8 tiles, numbered row by row (0..15).
+# A plot's parcels: 16 parcels of 8x8 tiles, numbered row by row (0..15). The four of the start area lie against the
+# Yard (WorldLayout.StartParcels); the others are bought in any order, each next to land you own, at these Company Levels
 parcels:
-  start: [5, 6, 9, 10]
-  # Order in which the other parcels unlock and the Company Level each one needs
-  order: [1, 2, 4, 8, 7, 11, 13, 14, 0, 3, 12, 15]
   levels: [5, 7, 12, 14, 18, 25, 30, 30, 35, 40, 45, 50]
   firstCost: 5000
   costFactor: 2

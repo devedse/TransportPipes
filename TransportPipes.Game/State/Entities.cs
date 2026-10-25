@@ -494,6 +494,9 @@ public sealed class PackedBuilding
 /// <summary>An estate packed up for a move or for the Quiet Isles: nothing is lost</summary>
 public sealed class PackedEstate
 {
+    /// <summary>The side of its Yard the plot lay on: unpacked on another side, the layout turns to face its new Yard</summary>
+    public PlotSide Side { get; init; }
+
     public int UnlockedParcels { get; init; }
     public List<PackedBuilding> Buildings { get; init; } = new();
     public List<PackedPipe> Pipes { get; init; } = new();

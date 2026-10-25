@@ -72,12 +72,12 @@ public class LightBotSimulation
         world.PlayerPriceFactor = price;
         world.OpenNextDistrict();
 
-        // The crew's corner station, the small station next to it, and another corner station for Jo
+        // The crew's Yard, a Yard for Mia and another for Jo
         var district = new DistrictCoord(0, 0);
         var stations = WorldLayout.Stations(district).ToList();
-        var crewStation = stations.First(t => WorldLayout.StationSlots(t.Index).Count == 4);
-        var small = stations.First(t => WorldLayout.StationSlots(t.Index).Count == 2 && WorldLayout.CornersNextTo(t.Index).Contains(crewStation.Index));
-        var joStation = stations.Last(t => WorldLayout.StationSlots(t.Index).Count == 4 && t != crewStation && !WorldLayout.CornersNextTo(small.Index).Contains(t.Index));
+        var crewStation = stations[0];
+        var small = stations[1];
+        var joStation = stations[3];
         var crewSlots = WorldLayout.StationSlots(crewStation.Index);
         var seats = new Dictionary<string, int>
         {

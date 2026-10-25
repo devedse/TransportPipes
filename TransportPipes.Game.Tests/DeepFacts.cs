@@ -133,6 +133,7 @@ public class DeepFacts
         var (game, company, lift) = WithLift();
         company.DeepParcels = 0b11;
         var old = game.EstateOf(company).Origin;
+        var oldSide = WorldLayout.SideOf(game.EstateOf(company).Slot);
         var bottom = WorldLayout.Deep(lift.Position);
         var vault = new Building { Id = game.World.NextBuildingId, Type = "vault", Owner = company.Id, X = bottom.X + 3, Y = bottom.Y, Size = 2 };
         game.World.LoadBuilding(vault);
@@ -144,8 +145,11 @@ public class DeepFacts
 
         var estate = game.World.EstateOf(company)!;
         Assert.AreNotEqual(old, estate.Origin);
-        Assert.AreEqual(0b11, company.DeepParcels, "the caverns come along");
-        Assert.AreEqual(TerrainType.Cavern, game.World.Tile(WorldLayout.Deep(estate.Origin.Offset(10, 2))).Terrain);
+        // The caverns come along, turned to face the new Yard like the plot
+        var turned = WorldLayout.MoveParcels(oldSide, WorldLayout.SideOf(estate.Slot), 0b11);
+        Assert.AreEqual(turned, company.DeepParcels, "the caverns come along");
+        var cavern = WorldLayout.ParcelOrigin(System.Numerics.BitOperations.TrailingZeroCount(turned));
+        Assert.AreEqual(TerrainType.Cavern, game.World.Tile(WorldLayout.Deep(estate.Origin.Offset(cavern.X + 2, cavern.Y + 2))).Terrain);
         Assert.AreEqual(TerrainType.Rock, game.World.Tile(WorldLayout.Deep(old.Offset(10, 2))).Terrain);
         if (game.World.BuildingsOf(company.Id).SingleOrDefault(t => t.Type == "deepLift") is { } moved)
         {

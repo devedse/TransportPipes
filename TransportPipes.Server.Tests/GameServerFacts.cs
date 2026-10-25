@@ -77,7 +77,8 @@ public class GameServerFacts
         Assert.AreEqual(1, hello.Company.BuildingCounts["hq"]);
 
         // The chunk with the HQ contains it, the district lists the company
-        var hq = new TilePos(hello.Company.EstateX + GameWorld.HqLocal.X, hello.Company.EstateY + GameWorld.HqLocal.Y);
+        var (hqX, hqY) = WorldLayout.HqLocal(hello.Company.Slot);
+        var hq = new TilePos(hello.Company.EstateX + hqX, hello.Company.EstateY + hqY);
         var (cx, cy) = WorldLayout.ChunkOf(hq.X, hq.Y);
         var chunks = await client.Invoke<IReadOnlyList<ChunkDto>>("GetChunks", new[] { cx, cy });
         Assert.IsTrue(chunks.Single().Objects.Buildings.Any(t => t.Type == "hq" && t.X == hq.X && t.Y == hq.Y));
@@ -144,7 +145,7 @@ public class GameServerFacts
         // The start screen's picker opens the first district
         await ana.Invoke<StationsDto>("GetStations", null, null, null);
         await ana.Command("CreateCompany", "Ana Pipes", "#3399ff", 0, 0, 0, null);
-        await ben.Command("CreateCompany", "Ben Works", "#ff9933", 0, 0, 3, null);
+        await ben.Command("CreateCompany", "Ben Works", "#ff9933", 0, 0, 12, null);
         var benId = (await ben.Invoke<HelloDto>("Hello")).Company!.Id;
 
         var plan = await ana.Invoke<LinkPlanDto>("PlanLink", benId, "coal", true, 1);

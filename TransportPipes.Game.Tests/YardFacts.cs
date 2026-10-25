@@ -460,7 +460,7 @@ public class YardFacts
         var game = new TestGame();
         var a = game.NewCompany("A");
         var estate = game.EstateOf(a);
-        var corridor = estate.Origin.Offset(WorldLayout.EstateSize, 5);
+        var corridor = WorldLayout.DistrictOrigin(estate.District).Offset(WorldLayout.RoadX, 5);
         Assert.AreEqual(ZoneKind.Corridor, WorldLayout.ZoneAt(corridor.X, corridor.Y).Kind);
         Assert.IsFalse(game.World.PlacePipes(a.Id, [corridor]).Success);
 

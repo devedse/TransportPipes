@@ -216,23 +216,25 @@ public static partial class GameViews
         return new ProjectWeekDto($"{head} · wants {And(wants)}{tail}", share);
     }
 
-    /// <summary>Dealt land (step 5): the goods your seat holds, and who in your station holds the others (null on old land)</summary>
+    /// <summary>Your plot's land (1.4 §5): what it has and lacks, its strength, and every plot of your Yard with theirs</summary>
     private static LandDto? Land(GameWorld world, Company me)
     {
-        if (!world.Generator.DealtLand || world.EstateOf(me) is not { } home)
+        if (world.EstateOf(me) is not { } home)
         {
             return null;
         }
         var seats = GameWorld.StationSeats(home.Station).Select(seat =>
         {
             var owner = world.Estate(seat.District, seat.Slot)?.OwnerId is { } id ? world.Company(id) : null;
-            var goods = world.Generator.LandOf(seat.District, seat.Slot);
+            var profile = world.Generator.Estate(seat.District, seat.Slot);
+            var goods = profile.Goods;
             // "Makes" only when someone does (run 2: Mia was told Jo makes coal; Jo never built a Coal Pit)
             var makes = owner == null ? [] : world.BuildingsOf(owner.Id).Where(t => !t.UnderConstruction)
                 .SelectMany(t => world.Content.Building(t.Type).Out.Keys).Where(goods.Contains).Distinct().ToList();
-            return new LandSeatDto(seat.Slot, owner == null ? null : world.NameFor(owner, me), owner?.Id == me.Id, goods, makes);
+            return new LandSeatDto(seat.Slot, owner == null ? null : world.NameFor(owner, me), owner?.Id == me.Id, goods, profile.Lacks, profile.Strength, makes);
         }).ToList();
-        return new LandDto(world.Generator.LandOf(home.District, home.Slot), seats);
+        var mine = world.Generator.Estate(home.District, home.Slot);
+        return new LandDto(mine.Goods, mine.Lacks, mine.Strength, seats);
     }
 
     /// <summary>Today's hub orders, each with what the trading posts sell of its good now (they fill from it)</summary>
@@ -537,7 +539,9 @@ public static partial class GameViews
                 Camel(profile.Primary),
                 profile.Secondary is { } secondary ? Camel(secondary) : null,
                 owner is { } ? Camel(world.ActivityOf(owner)) : null,
-                profile.Goods));
+                profile.Goods,
+                profile.Lacks,
+                profile.Strength));
         }
         var hub = WorldLayout.HubOrigin(district);
         return new DistrictDto(
@@ -1239,7 +1243,9 @@ public static partial class GameViews
             owner?.Color,
             owner?.Level ?? 0,
             owner is { } && owner.Id != me?.Id ? ActivityBucket(world, owner) : null,
-            profile.Goods);
+            profile.Goods,
+            profile.Lacks,
+            profile.Strength);
     }
 
     /// <summary>A Yard on the map: its crew's name and banner, whether it's open, its plots and its Plan board</summary>
@@ -1649,33 +1655,41 @@ public static partial class GameViews
             content.Progression.CostPerLevel,
             content.Progression.Milestones,
             content.Progression.CostPerCopy,
-            content.Progression.StartParcels,
             content.Progression.ParcelLevels,
             ParcelCosts = Enumerable.Range(0, content.Progression.ParcelLevels.Count).Select(content.Progression.ParcelCost).ToList(),
             content.Progression.HubSpread,
         },
+        // The geometry of 1.4 §4 (TransportPipes.Frontend/src/game/layout.ts reads it): the town, its Yard groups and plots,
+        // each plot's gate, start area, HQ and trading post, and the outskirts set aside for it
         Layout = new
         {
             WorldLayout.EstateSize,
-            WorldLayout.CorridorWidth,
-            WorldLayout.BlocksPerSide,
             WorldLayout.ParcelSize,
             WorldLayout.ParcelsPerSide,
-            WorldLayout.WildernessWidth,
             WorldLayout.ChunkSize,
-            WorldLayout.BlockPitch,
-            WorldLayout.DistrictSize,
-            WorldLayout.DistrictPitch,
-            WorldLayout.HubBlock,
-            WorldLayout.OriginOffset,
-            WorldLayout.YardSize,
-            YardGates = Enumerable.Range(0, WorldLayout.EstatesPerDistrict).Select(WorldLayout.YardGateLocal).Select(t => new { t.X, t.Y }).ToList(),
-            Stations = Enumerable.Range(0, WorldLayout.StationsPerDistrict).Select(t => new
+            WorldLayout.DistrictWidth,
+            WorldLayout.DistrictHeight,
+            WorldLayout.WildernessWidth,
+            WorldLayout.DistrictPitchX,
+            WorldLayout.DistrictPitchY,
+            WorldLayout.OriginOffsetX,
+            WorldLayout.OriginOffsetY,
+            WorldLayout.RoadX,
+            WorldLayout.RoadY,
+            WorldLayout.RoadWidth,
+            Hub = WorldLayout.HubLocal is var hub ? new { hub.X0, hub.Y0, hub.X1, hub.Y1 } : null,
+            TownGates = WorldLayout.TownGatesLocal.Select(t => new { t.X0, t.Y0, t.X1, t.Y1 }).ToList(),
+            Plots = Enumerable.Range(0, WorldLayout.EstatesPerDistrict).Select(slot => new
             {
-                Yard = WorldLayout.YardLocal(t) is var yard ? new { yard.X0, yard.Y0, yard.X1, yard.Y1 } : null,
-                Slots = WorldLayout.StationSlots(t),
+                Origin = WorldLayout.EstateLocal(slot) is var (x, y) ? new { X = x, Y = y } : null,
+                Side = Camel(WorldLayout.SideOf(slot)),
+                Gate = WorldLayout.YardGateLocal(slot) is var (gx, gy) ? new { X = gx, Y = gy } : null,
+                StartParcels = WorldLayout.StartParcels(slot),
+                Hq = WorldLayout.HqLocal(slot) is var (hx, hy) ? new { X = hx, Y = hy } : null,
+                TradingPost = WorldLayout.TradingPostLocal(slot) is var (px, py) ? new { X = px, Y = py } : null,
+                Outskirts = WorldLayout.OutskirtsParcels(slot).Select(t => new { t.X, t.Y }).ToList(),
             }).ToList(),
-            StationOfSlot = Enumerable.Range(0, WorldLayout.EstatesPerDistrict).Select(WorldLayout.StationOfSlot).ToList(),
+            Yards = Enumerable.Range(0, WorldLayout.StationsPerDistrict).Select(t => WorldLayout.YardLocal(t) is var yard ? new { yard.X0, yard.Y0, yard.X1, yard.Y1 } : null).ToList(),
             Terrain = Enum.GetValues<TerrainType>().Select(Camel).ToList(),
             RichnessMultiplier = GameWorld.RichnessMultiplier,
         },

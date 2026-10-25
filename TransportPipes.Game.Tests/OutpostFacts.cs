@@ -12,9 +12,9 @@ public class OutpostFacts
     {
         var x0 = WorldLayout.DistrictOriginX(company.District.X);
         var y0 = WorldLayout.DistrictOriginY(company.District.Y);
-        for (var y = y0 - WorldLayout.WildernessWidth; y < y0 + WorldLayout.DistrictSize + WorldLayout.WildernessWidth; y++)
+        for (var y = y0 - WorldLayout.WildernessWidth; y < y0 + WorldLayout.DistrictHeight + WorldLayout.WildernessWidth; y++)
         {
-            for (var x = x0 - WorldLayout.WildernessWidth; x < x0 + WorldLayout.DistrictSize + WorldLayout.WildernessWidth; x++)
+            for (var x = x0 - WorldLayout.WildernessWidth; x < x0 + WorldLayout.DistrictWidth + WorldLayout.WildernessWidth; x++)
             {
                 if (game.World.OutpostBlocker(company, new TilePos(x, y)) == null)
                 {

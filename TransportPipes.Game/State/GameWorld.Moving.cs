@@ -43,7 +43,7 @@ public sealed partial class GameWorld
         {
             return;
         }
-        var packed = new PackedEstate { UnlockedParcels = estate.UnlockedParcels };
+        var packed = new PackedEstate { Side = WorldLayout.SideOf(estate.Slot), UnlockedParcels = estate.UnlockedParcels };
         foreach (var building in BuildingsOf(company.Id).Where(t => InEstateOrBelow(estate, t.Position)).ToList())
         {
             // A lift's shaft comes back with its lift
@@ -89,12 +89,23 @@ public sealed partial class GameWorld
         Setting = building.Setting,
     };
 
-    /// <summary>Unpacks onto an estate: the same layout where the land allows it, the rest in crates</summary>
+    /// <summary>
+    /// Unpacks onto a plot: the same layout where the land allows it, turned to face the new plot's Yard (what stood by
+    /// the Yard gate stands by it again), the rest in crates
+    /// </summary>
     private void Unpack(Company company, Estate estate)
     {
-        var packed = company.Packed ?? new PackedEstate();
+        var packed = company.Packed ?? new PackedEstate { Side = WorldLayout.SideOf(estate.Slot) };
+        var (from, to) = (packed.Side, WorldLayout.SideOf(estate.Slot));
+        (int Dx, int Dy) Turn(int dx, int dy, int size)
+        {
+            var deep = dy >= WorldLayout.DeepOffset / 2 ? WorldLayout.DeepOffset : 0;
+            var (x, y) = WorldLayout.MoveFootprint(from, to, dx, dy - deep, size);
+            return (x, y + deep);
+        }
         estate.OwnerId = company.Id;
-        estate.UnlockedParcels = packed.UnlockedParcels != 0 ? packed.UnlockedParcels : Content.Progression.StartParcels.Aggregate(0, (mask, parcel) => mask | (1 << parcel));
+        estate.UnlockedParcels = packed.UnlockedParcels != 0 ? WorldLayout.MoveParcels(from, to, packed.UnlockedParcels) : WorldLayout.StartMask(estate.Slot);
+        company.DeepParcels = WorldLayout.MoveParcels(from, to, company.DeepParcels);
         estate.Touch();
         Changes.Estates.Add((estate.District, estate.Slot));
         company.District = estate.District;
@@ -110,8 +121,9 @@ public sealed partial class GameWorld
         foreach (var item in packed.Buildings.OrderBy(t => Content.Building(t.Type).Kind is BuildingKind.Hq or BuildingKind.TradingPost ? 0 : 1)
             .ThenBy(t => t.Dy >= WorldLayout.DeepOffset / 2 ? 1 : 0))
         {
-            var pos = estate.Origin.Offset(item.Dx, item.Dy);
             var definition = Content.Building(item.Type);
+            var (dx, dy) = Turn(item.Dx, item.Dy, definition.Size);
+            var pos = estate.Origin.Offset(dx, dy);
             var free = Enumerable.Range(0, definition.Size * definition.Size).All(i => !_buildingAt.ContainsKey(pos.Offset(i % definition.Size, i / definition.Size)));
             if (definition.Kind is BuildingKind.Hq or BuildingKind.TradingPost && free || CanPlace(company, definition, pos).Success)
             {
@@ -126,16 +138,19 @@ public sealed partial class GameWorld
         // trading post on the first one's tile (its networks would never settle)
         if (!BuildingsOf(company.Id).Any(t => Content.Building(t.Type).Kind == BuildingKind.Hq))
         {
-            AddBuilding(company, "hq", estate.Origin.Offset(HqLocal.X, HqLocal.Y), finished: true);
+            var (hqX, hqY) = WorldLayout.HqLocal(estate.Slot);
+            AddBuilding(company, "hq", estate.Origin.Offset(hqX, hqY), finished: true);
         }
-        var postAt = estate.Origin.Offset(TradingPostLocal.X, TradingPostLocal.Y);
+        var (postX, postY) = WorldLayout.TradingPostLocal(estate.Slot);
+        var postAt = estate.Origin.Offset(postX, postY);
         if (!BuildingsOf(company.Id).Any(t => Content.Building(t.Type).Kind == BuildingKind.TradingPost) && !IsOccupied(postAt))
         {
             AddBuilding(company, "tradingPost", postAt, finished: true);
         }
         foreach (var pipe in packed.Pipes)
         {
-            var pos = estate.Origin.Offset(pipe.Dx, pipe.Dy);
+            var (dx, dy) = Turn(pipe.Dx, pipe.Dy, 1);
+            var pos = estate.Origin.Offset(dx, dy);
             if (!IsOccupied(pos) && Tile(pos).Terrain is not (TerrainType.Mountain or TerrainType.Rock))
             {
                 _conductors[pos] = new Conductor { Pos = pos, Tier = pipe.Tier, Owner = company.Id };
@@ -349,7 +364,10 @@ public sealed partial class GameWorld
             {
                 continue;
             }
-            var pos = target.Origin.Offset(building.Position.X - home.Origin.X, building.Position.Y - home.Origin.Y);
+            var deep = WorldLayout.IsDeep(building.Position) ? WorldLayout.DeepOffset : 0;
+            var (dx, dy) = WorldLayout.MoveFootprint(WorldLayout.SideOf(home.Slot), WorldLayout.SideOf(target.Slot),
+                building.Position.X - home.Origin.X, building.Position.Y - deep - home.Origin.Y, definition.Size);
+            var pos = target.Origin.Offset(dx, dy + deep);
             if (!FitsTheLand(definition, pos))
             {
                 crates++;

@@ -301,14 +301,14 @@ public sealed partial class GameWorld
         for (var attempt = 0; attempt < 50; attempt++)
         {
             var side = random.Next(4);
-            var along = random.Next(WorldLayout.DistrictSize);
+            var along = random.Next(side < 2 ? WorldLayout.DistrictWidth : WorldLayout.DistrictHeight);
             var depth = 4 + random.Next(WorldLayout.WildernessWidth - 8);
             var pos = side switch
             {
                 0 => new TilePos(x0 + along, y0 - depth),
-                1 => new TilePos(x0 + along, y0 + WorldLayout.DistrictSize + depth - 1),
+                1 => new TilePos(x0 + along, y0 + WorldLayout.DistrictHeight + depth - 1),
                 2 => new TilePos(x0 - depth, y0 + along),
-                _ => new TilePos(x0 + WorldLayout.DistrictSize + depth - 1, y0 + along),
+                _ => new TilePos(x0 + WorldLayout.DistrictWidth + depth - 1, y0 + along),
             };
             if (WorldLayout.ZoneAt(pos.X, pos.Y).Kind == ZoneKind.Wilderness && Generator.Tile(pos).IsBuildableTerrain && OutpostAt(pos) == null && DiscoveryAt(pos) == null)
             {

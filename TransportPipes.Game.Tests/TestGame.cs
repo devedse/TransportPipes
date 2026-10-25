@@ -130,18 +130,25 @@ internal sealed class TestGame
 
     public TilePos Local(Company company, int x, int y) => EstateOf(company).Origin.Offset(x, y);
 
+    /// <summary>A tile of the start area (16×16, against the Yard): its corner plus (x, y)</summary>
+    public TilePos InStart(Company company, int x, int y)
+    {
+        var estate = EstateOf(company);
+        var corner = WorldLayout.StartParcels(estate.Slot).Select(WorldLayout.ParcelOrigin).Aggregate((a, b) => (Math.Min(a.X, b.X), Math.Min(a.Y, b.Y)));
+        return estate.Origin.Offset(corner.X + x, corner.Y + y);
+    }
+
     public Building TradingPost(Company company) => World.BuildingsOf(company.Id).Single(t => t.Type == "tradingPost");
 
     /// <summary>The first spot in the start parcels where this building can stand</summary>
     public TilePos Spot(Company company, string type, Func<TilePos, bool>? where = null)
     {
         var definition = World.Content.Building(type);
-        var estate = EstateOf(company);
-        for (var y = 8; y < 24; y++)
+        for (var y = 0; y < 16; y++)
         {
-            for (var x = 8; x < 24; x++)
+            for (var x = 0; x < 16; x++)
             {
-                var pos = estate.Origin.Offset(x, y);
+                var pos = InStart(company, x, y);
                 if ((where == null || where(pos)) && World.CanPlace(company, definition, pos).Success
                     && GameWorld.BorderTiles(pos, definition.Size).Any(t => !World.IsOccupied(t) && World.Tile(t).Terrain is not (TerrainType.Mountain or TerrainType.Water)))
                 {
@@ -155,12 +162,11 @@ internal sealed class TestGame
     /// <summary>A 2×2 deposit of a resource on free open land of the start area (the land's own deposits vary by plot)</summary>
     public TilePos Seed(Company company, string resource, int richness = 2)
     {
-        var estate = EstateOf(company);
-        for (var y = 8; y < 23; y++)
+        for (var y = 0; y < 15; y++)
         {
-            for (var x = 8; x < 23; x++)
+            for (var x = 0; x < 15; x++)
             {
-                var pos = estate.Origin.Offset(x, y);
+                var pos = InStart(company, x, y);
                 var square = new[] { pos, pos.Offset(1, 0), pos.Offset(0, 1), pos.Offset(1, 1) };
                 if (square.All(t => !World.IsOccupied(t) && World.Tile(t).Terrain is TerrainType.Grass or TerrainType.Hills && World.Tile(t).Deposit == null)
                     && GameWorld.BorderTiles(pos, 2).Any(t => !World.IsOccupied(t) && World.Tile(t).Terrain is not (TerrainType.Mountain or TerrainType.Water)))

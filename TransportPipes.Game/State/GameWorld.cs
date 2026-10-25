@@ -105,11 +105,10 @@ public sealed partial class GameWorld
     /// <summary>The gold a new company starts with (the content's value unless the server configures another)</summary>
     public double StartingGold { get; set; }
 
-    /// <param name="dealtLand">The land goods are dealt per station (step 5); old worlds keep their land</param>
-    public GameWorld(GameContent content, int seed, Func<DateTime> clock, bool dealtLand = false)
+    public GameWorld(GameContent content, int seed, Func<DateTime> clock)
     {
         Content = content;
-        Generator = new WorldGenerator(seed, dealtLand);
+        Generator = new WorldGenerator(seed);
         _clock = clock;
         LastTick = clock();
         StartingGold = content.Progression.StartingGold;
@@ -311,8 +310,6 @@ public sealed partial class GameWorld
         }
     }
 
-    public static readonly (int X, int Y) HqLocal = (15, 15);
-    public static readonly (int X, int Y) TradingPostLocal = (18, 15);
 
     /// <summary>
     /// A new company (1.4 §6), on the plot it chose when that is free for it (an open Yard, or a closed one with a
@@ -347,7 +344,7 @@ public sealed partial class GameWorld
         _companies[company.Id] = company;
 
         estate.OwnerId = company.Id;
-        estate.UnlockedParcels = Content.Progression.StartParcels.Aggregate(0, (mask, parcel) => mask | (1 << parcel));
+        estate.UnlockedParcels = WorldLayout.StartMask(estate.Slot);
         estate.Touch();
         Changes.Estates.Add((estate.District, estate.Slot));
 
@@ -365,8 +362,10 @@ public sealed partial class GameWorld
             Changes.Events.Add(new WorldEvent(neighbour.Id, WorldEventKind.Neighbour, $"{company.Name} moved into {WorldNames.Station(estate.Station)}, another Yard of your town"));
         }
 
-        AddBuilding(company, "hq", estate.Origin.Offset(HqLocal.X, HqLocal.Y), finished: true);
-        AddBuilding(company, "tradingPost", estate.Origin.Offset(TradingPostLocal.X, TradingPostLocal.Y), finished: true);
+        var (hqX, hqY) = WorldLayout.HqLocal(estate.Slot);
+        var (postX, postY) = WorldLayout.TradingPostLocal(estate.Slot);
+        AddBuilding(company, "hq", estate.Origin.Offset(hqX, hqY), finished: true);
+        AddBuilding(company, "tradingPost", estate.Origin.Offset(postX, postY), finished: true);
         company.BuiltTypes.Clear();
         // A plot it chose in a closed Yard: it plays here and asks there
         if (seat is { } asked && asked != chosen && Estate(asked.District, asked.Slot) is { OwnerId: null } && !YardOpen(WorldLayout.StationOf(asked.District, asked.Slot)))
@@ -573,7 +572,7 @@ public sealed partial class GameWorld
         }
         if (definition.Placement.Forest && ForestAround(pos, definition.Size) < 3)
         {
-            return CommandResult.Fail(Generator.DealtLand ? $"{definition.Name} needs the old forest nearby: its trees are marked on the Deposits map." : $"{definition.Name} needs a forest nearby.");
+            return CommandResult.Fail($"{definition.Name} needs a forest nearby.");
         }
         return CommandResult.Ok;
     }
@@ -641,8 +640,7 @@ public sealed partial class GameWorld
             for (var x = pos.X - 2; x < pos.X + size + 2; x++)
             {
                 var tile = new TilePos(x, y);
-                // Dealt land: only the old forest's marked trees (the wood of a seat that was dealt it)
-                if (Tile(tile) is { Terrain: TerrainType.Forest } info && (!Generator.DealtLand || info.Deposit == "wood") && !_buildingAt.ContainsKey(tile))
+                if (Tile(tile) is { Terrain: TerrainType.Forest } && !_buildingAt.ContainsKey(tile))
                 {
                     count++;
                 }
@@ -1080,7 +1078,7 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("You can only buy a parcel next to land you own.");
         }
-        var extra = estate.UnlockedCount - Content.Progression.StartParcels.Count;
+        var extra = estate.UnlockedCount - WorldLayout.StartParcelCount;
         var levelNeeded = Content.Progression.ParcelLevels[Math.Min(extra, Content.Progression.ParcelLevels.Count - 1)];
         if (company.Level < levelNeeded)
         {
@@ -1111,7 +1109,7 @@ public sealed partial class GameWorld
     public (double Cost, int Level) NextParcel(Company company, Estate? estate = null)
     {
         estate ??= EstateOf(company);
-        var extra = (estate?.UnlockedCount ?? 4) - Content.Progression.StartParcels.Count;
+        var extra = (estate?.UnlockedCount ?? WorldLayout.StartParcelCount) - WorldLayout.StartParcelCount;
         if (extra >= Content.Progression.ParcelLevels.Count)
         {
             return (0, int.MaxValue);

@@ -18,7 +18,7 @@ public class GameWorldFacts
         var estate = game.EstateOf(company);
         Assert.AreEqual(company.Id, estate.OwnerId);
         Assert.AreEqual(4, estate.UnlockedCount);
-        Assert.IsTrue(new[] { 5, 6, 9, 10 }.All(estate.IsUnlocked));
+        Assert.IsTrue(WorldLayout.StartParcels(estate.Slot).All(estate.IsUnlocked), "the start area against the Yard");
         CollectionAssert.AreEquivalent(new[] { "hq", "tradingPost" }, game.World.BuildingsOf(company.Id).Select(t => t.Type).ToArray());
         Assert.AreEqual(estate.YardGate, game.World.Conductors.Single(t => t.Kind == ConductorKind.Gate && t.Owner == company.Id).Pos);
         Assert.AreEqual(0, company.Xp, "the free buildings give no XP");
@@ -306,15 +306,22 @@ public class GameWorldFacts
     {
         var game = new TestGame();
         var company = game.NewCompany(gold: 6000);
+        var estate = game.EstateOf(company);
+        bool Touches(int parcel) => new[] { -1, 1, -4, 4 }.Select(t => parcel + t)
+            .Where(t => t is >= 0 and < 16 && (Math.Abs(t % 4 - parcel % 4) + Math.Abs(t / 4 - parcel / 4)) == 1).Any(estate.IsUnlocked);
+        var next = Enumerable.Range(0, 16).First(t => !estate.IsUnlocked(t) && Touches(t));
+        var far = Enumerable.Range(0, 16).First(t => !estate.IsUnlocked(t) && !Touches(t));
 
-        StringAssert.Contains(game.World.BuyParcel(company.Id, 1).Error, "Company Level 5");
+        StringAssert.Contains(game.World.BuyParcel(company.Id, next).Error, "Company Level 5");
         company.Level = 5;
-        StringAssert.Contains(game.World.BuyParcel(company.Id, 0).Error, "next to land you own");
-        Assert.IsTrue(game.World.BuyParcel(company.Id, 1).Success);
+        StringAssert.Contains(game.World.BuyParcel(company.Id, far).Error, "next to land you own");
+        Assert.IsTrue(game.World.BuyParcel(company.Id, next).Success);
         Assert.AreEqual(1000, company.Gold);
-        Assert.IsTrue(game.EstateOf(company).IsUnlocked(1));
+        Assert.IsTrue(estate.IsUnlocked(next));
         Assert.AreEqual((10000, 7), game.World.NextParcel(company));
-        Assert.IsTrue(game.World.PlaceBuilding(company.Id, "solarPanel", game.Local(company, 12, 2)).Success || game.World.Tile(game.Local(company, 12, 2)).Terrain is TerrainType.Water or TerrainType.Mountain);
+        var (px, py) = WorldLayout.ParcelOrigin(next);
+        var spot = game.Local(company, px + 4, py + 2);
+        Assert.IsTrue(game.World.PlaceBuilding(company.Id, "solarPanel", spot).Success || game.World.Tile(spot).Terrain is TerrainType.Water or TerrainType.Mountain || game.World.Tile(spot).Deposit != null);
     }
 
     [TestMethod]

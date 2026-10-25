@@ -86,10 +86,8 @@ public class ContentFacts
     {
         var progression = GameContent.Default.Progression;
 
-        Assert.HasCount(12, progression.ParcelOrder);
-        Assert.HasCount(12, progression.ParcelLevels);
+        Assert.HasCount(12, progression.ParcelLevels, "the twelve parcels around the start area");
         Assert.AreEqual(5000, progression.ParcelCost(0));
         Assert.AreEqual(10000, progression.ParcelCost(1));
-        CollectionAssert.AreEquivalent(Enumerable.Range(0, 16).ToList(), progression.StartParcels.Concat(progression.ParcelOrder).ToList());
     }
 }

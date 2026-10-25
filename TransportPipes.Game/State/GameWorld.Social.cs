@@ -123,7 +123,7 @@ public sealed partial class GameWorld
         }
         if (EstateOf(company) is { } estate)
         {
-            var extra = estate.UnlockedCount - Content.Progression.StartParcels.Count;
+            var extra = estate.UnlockedCount - WorldLayout.StartParcelCount;
             for (var i = 0; i < extra; i++)
             {
                 value += Content.Progression.ParcelCost(i);

@@ -60,7 +60,7 @@ public class TeleporterFacts
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var company = game.NewCompany(level: 40);
-        var far = new TilePos(game.Local(company, 0, 0).X + WorldLayout.DistrictPitch * 2, game.Local(company, 0, 0).Y);
+        var far = new TilePos(game.Local(company, 0, 0).X + WorldLayout.DistrictPitchX * 2, game.Local(company, 0, 0).Y);
         var post = game.Map(company, game.Local(company, 2, 2), "Q")[(0, 0)];
         var farPost = game.Map(company, far.Offset(0, 6), "Q")[(0, 0)];
         StringAssert.Contains(game.World.LinkTeleporter(company.Id, post.Id, farPost.Id, "ironOre").Error, "same district");

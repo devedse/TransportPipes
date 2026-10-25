@@ -50,9 +50,6 @@ public sealed class WorldStore
     /// </summary>
     public const int CurrentRules = 4;
 
-    /// <summary>The first rules with dealt land (step 5 of the redesign): older worlds keep the land they were made with</summary>
-    public const int DealtLandRules = 3;
-
     /// <summary>Whether the last load threw an old world away</summary>
     public bool WorldReset { get; private set; }
 
@@ -71,7 +68,7 @@ public sealed class WorldStore
         dbWorld ??= new DbWorld { Seed = newWorldSeed, CreatedAt = clock(), LastTick = clock() };
 
         _worldRules = dbWorld.Rules == 0 ? CurrentRules : dbWorld.Rules;
-        var world = new GameWorld(content, dbWorld.Seed, clock, dealtLand: _worldRules >= DealtLandRules) { Era = dbWorld.Era };
+        var world = new GameWorld(content, dbWorld.Seed, clock) { Era = dbWorld.Era };
 
         foreach (var row in await db.Companies.ToListAsync(cancellationToken))
         {

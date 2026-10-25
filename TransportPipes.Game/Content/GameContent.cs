@@ -530,8 +530,6 @@ public sealed class GameContent
             CostPerLevel = BuildingLevels.CostPerLevel,
             Milestones = BuildingLevels.Milestones,
             CostPerCopy = BuildingLevels.CostPerCopy,
-            StartParcels = Parcels.Start,
-            ParcelOrder = Parcels.Order,
             ParcelLevels = Parcels.Levels,
             FirstParcelCost = Parcels.FirstCost,
             ParcelCostFactor = Parcels.CostFactor,
@@ -584,8 +582,6 @@ public sealed class GameContent
 
     private sealed class ParcelsDto
     {
-        public List<int> Start { get; set; } = new();
-        public List<int> Order { get; set; } = new();
         public List<int> Levels { get; set; } = new();
         public double FirstCost { get; set; }
         public double CostFactor { get; set; } = 2;
