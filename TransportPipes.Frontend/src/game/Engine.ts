@@ -425,6 +425,8 @@ interface ObjectView {
 
 interface DistrictView {
   graphics: Graphics;
+  /** Its trunk lines, over the fog of the wilderness they cross */
+  lines: Graphics;
   labels: Container;
   hub: ObjectView[];
 }
@@ -467,6 +469,8 @@ export class Engine {
   private readonly overlayLayer = new Container();
   /** The fog over the wilderness nobody of yours mapped yet, over its trees and deposits */
   private readonly fogLayer = new Container();
+  /** Trunk lines: over the fog they cross */
+  private readonly lineLayer = new Container();
   private overlay: Overlay = "none";
   private readonly highlightLayer = new Graphics();
   /** Picking a plot: the free plots glow (pulsing), the closed ones are amber, the chosen one has a gold border */
@@ -579,6 +583,7 @@ export class Engine {
       this.highlightLayer,
       this.objectLayer,
       this.fogLayer,
+      this.lineLayer,
       this.pickGlow,
       this.pickMarks,
       this.flowLayer,
@@ -1368,7 +1373,12 @@ export class Engine {
     for (const key of districts) {
       if (canRequest && !this.districtViews.has(key)) {
         const [x, y] = key.split(",").map(Number) as [number, number];
-        this.districtViews.set(key, { graphics: new Graphics(), labels: new Container(), hub: [] });
+        this.districtViews.set(key, {
+          graphics: new Graphics(),
+          lines: new Graphics(),
+          labels: new Container(),
+          hub: [],
+        });
         this.callbacks.requestDistrict(x, y);
       }
     }
@@ -1381,6 +1391,7 @@ export class Engine {
     }
     for (const view of this.districtViews.values()) {
       view.graphics.destroy();
+      view.lines.destroy();
       view.labels.destroy({ children: true });
       for (const hub of view.hub) {
         this.effects.delete(hub);
@@ -2110,7 +2121,7 @@ export class Engine {
 
   /**
    * The kinds of goods a building at a tile takes or makes, in the order its lanes stand (a belt, a slim pipe, cables);
-   * none for a building without goods of its own (a Storage, a trading post keep the bulkhead)
+   * a Storage or a trading post shows the kinds moving through it now
    */
   private laneKinds(x: number, y: number): LaneKind[] {
     const building = this.world.buildingAt(x, y);
@@ -2119,11 +2130,14 @@ export class Engine {
     if (definition === undefined) {
       return [];
     }
-    const kinds = new Set(
-      [...Object.keys(definition.in), ...Object.keys(definition.out)].map(
-        (t) => content.resource(t)?.kind ?? "solid",
-      ),
-    );
+    let goods = [...Object.keys(definition.in), ...Object.keys(definition.out)];
+    if (goods.length === 0 && building !== undefined && building.network !== null) {
+      // A Storage or a trading post: the kinds of goods moving through it right now (none: the inlet box)
+      goods = (this.world.flows.get(building.network)?.flows ?? [])
+        .filter((t) => (t.from === building.id || t.to === building.id) && t.delivered > 1e-6)
+        .map((t) => t.resource);
+    }
+    const kinds = new Set(goods.map((t) => content.resource(t)?.kind ?? "solid"));
     return LANE_KINDS.filter((t) => kinds.has(t));
   }
 
@@ -2897,6 +2911,7 @@ export class Engine {
       const [dx, dy] = key.split(",").map(Number) as [number, number];
       const district = this.world.district(dx, dy);
       view.graphics.clear();
+      view.lines.clear();
       view.labels.removeChildren().forEach((child) => child.destroy());
       for (const hub of view.hub) {
         this.effects.delete(hub);
@@ -2909,6 +2924,7 @@ export class Engine {
       }
       if (view.graphics.parent === null) {
         this.estateLayer.addChild(view.graphics);
+        this.lineLayer.addChild(view.lines);
         this.labelLayer.addChild(view.labels);
       }
       this.drawDistrict(view, district, state.company);
@@ -3207,6 +3223,7 @@ export class Engine {
     }
     // The trunk lines that leave the town (1.4 §20): a big pipe through the wilderness in its tier's colour, its
     // carrier's colour down the middle
+    const lines = view.lines;
     for (const line of district.lines ?? []) {
       const points: Array<{ x: number; y: number }> = [];
       for (let i = 0; i + 1 < line.route.length; i += 2) {
@@ -3215,12 +3232,12 @@ export class Engine {
       if (points.length < 2) {
         continue;
       }
-      g.moveTo(points[0]!.x, points[0]!.y);
-      points.slice(1).forEach((p) => g.lineTo(p.x, p.y));
-      g.stroke({ color: PIPE_COLORS[line.tier] ?? "#8f969e", width: far ? 30 : 18, alpha: 0.95 });
-      g.moveTo(points[0]!.x, points[0]!.y);
-      points.slice(1).forEach((p) => g.lineTo(p.x, p.y));
-      g.stroke({ color: line.color, width: far ? 8 : 4, alpha: 0.9 });
+      lines.moveTo(points[0]!.x, points[0]!.y);
+      points.slice(1).forEach((p) => lines.lineTo(p.x, p.y));
+      lines.stroke({ color: PIPE_COLORS[line.tier] ?? "#8f969e", width: far ? 40 : 28, alpha: 0.95 });
+      lines.moveTo(points[0]!.x, points[0]!.y);
+      points.slice(1).forEach((p) => lines.lineTo(p.x, p.y));
+      lines.stroke({ color: line.color, width: far ? 10 : 6, alpha: 0.9 });
     }
     const tower = this.textures.generated("hub-gateTower", 2);
     for (const gate of TOWN_GATES_LOCAL) {

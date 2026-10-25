@@ -545,7 +545,30 @@ towns in later Eras greyed out on the map (per-town Eras come with phase B).
 
 Checks: game tests (LevelFacts, ResearchFacts, WonderFacts, OutskirtsFacts, WorkshopFacts new), server tests,
 `e2e/economy.mjs` (the Level from gold earned, a Lab's two lines, Hub Orders, a give switch, a level that waits for its
-goods, a workshop and the Depot, an outskirts parcel bought).
+goods, a workshop and the Depot, an outskirts parcel bought, a Monument's first stage in the Yard's square).
+
+The bots against the model (§17): the advisor now values a good its network doesn't make at what the market's Hub Order
+still takes, offers more extractors while their goods' Hub Orders have room, and counts materials the market brings in
+a building's price; the bot buys outskirts, tries the next step when one fails and takes a few steps per list.
+Big plots: wants are filled from the Storages once a settle (they scanned every building for every want, every tick)
+and the solver's sharing loop allocates nothing per consumer.
+
+**Phase C · Eras 3 to 5** (started 2026-10-25):
+- Art: the Motor, Battery, Titanium (mine and works) and Spaceframe Works (Codex, processed and fit-checked); the five
+  Monuments in three sizes each, standing on five sites in the Yard's square as their stages grow.
+- The pipe's three lanes (§9): where a pipe meets a building, a manifold and one connector per kind of good (a belt, a
+  slim pipe with a valve wheel, cables over a post), rendered pieces in the tier's trim; the pellets ride their lane.
+  A Storage or a trading post shows the kinds moving through it.
+- The wilderness (§20): fog over what your expeditions haven't mapped (1, 3 or 8 pieces a trip); outposts bought once
+  with the Era-4 research, only on mapped land; the Deep Level stays at Era 3.
+- Trunk lines (§20): from Era 3 to a neighbouring town, the right of way bought once, the builder its carrier with
+  public, crew and special fees; links between towns need one and pay its fee; a good can be sent to the other town's
+  market against half its Hub Order there; the Lines track makes lines cheaper and lose less, its master builds
+  superconductor lines. On the map, and in the Links tab.
+- The Launch and missions (§13): the Space Elevator launches (titles, Legacy written to every player's account) and
+  missions follow without end, each a star and +1% production for the town; the race (Era, Launch, stars) on the map
+  and in the picker.
+- Loady opens a chapter for each Era (waiting until the town gets there).
 
 ### After v1
 
