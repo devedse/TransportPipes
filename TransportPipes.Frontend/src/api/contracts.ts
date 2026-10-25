@@ -540,6 +540,15 @@ export interface TrunkLineDto {
   /** What it earned its carrier (yours only) */
   earned: number;
   route: number[];
+  /** The carrier's: every player of the two towns, with the fee of their own (null: the public or crew fee) */
+  players: LinePlayerDto[];
+}
+
+export interface LinePlayerDto {
+  id: number;
+  name: string;
+  color: string;
+  fee: number | null;
 }
 
 /** A neighbouring town a line could run to: what it would cost, and why it can't be (or null) */

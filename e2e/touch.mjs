@@ -1,10 +1,12 @@
 // Touch: one finger moves the map, a finger held still selects with a box (and paints with the build tool).
 // Real touch events through Chromium's DevTools protocol. node touch.mjs <outdir>
-import { start, newPlayer } from "./lib.mjs";
+import { start, newPlayer, kit } from "./lib.mjs";
 const [out = "shots/touch"] = process.argv.slice(2);
 const { browser, page, errors, shot, cheat } = await start(out, { width: 390, height: 844, touch: true });
 await newPlayer(page, "f");
 await cheat("gold");
+// 1.4: a plot starts empty: a small estate first
+await kit(page);
 await page.evaluate(async () => {
   await tp.gameClient.connection.skipTutorial();
   const co = tp.appStore.getState().company;

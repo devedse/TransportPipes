@@ -5702,6 +5702,19 @@ button.link.danger {
   gap: 8px;
 }
 
+/* A trunk line carrier's fees of their own for players */
+.line-players {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0;
+  display: grid;
+  gap: 3px;
+}
+
+.line-players input {
+  width: 4.5em;
+}
+
 .link-card {
   display: grid;
   gap: 6px;

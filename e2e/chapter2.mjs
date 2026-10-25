@@ -5,8 +5,8 @@ const [out = "shots/chapter2"] = process.argv.slice(2);
 const { browser, page, errors, shot, cheat } = await start(out);
 await newPlayer(page, "c");
 await cheat("gold");
-// Through chapter 1 (12 steps since v1.2's Yard and gift steps)
-for (let i = 0; i < 12; i++) await cheat("tutorial");
+// Through chapter 1 (11 steps: 1.4 §6's first hour)
+for (let i = 0; i < 11; i++) await cheat("tutorial");
 await page.evaluate(async () => {
   const c = tp.gameClient.connection; const s = tp.appStore.getState(); const w = tp.gameClient.world;
   const co = () => tp.appStore.getState().company;
@@ -21,8 +21,8 @@ console.log("loady", JSON.stringify(state));
 await shot("1-chapter2-and-advisor");
 const results = [];
 const expect = (label, ok, extra = "") => results.push(`${ok ? "ok  " : "FAIL"} ${label}${extra ? ` (${extra})` : ""}`);
-// Nine steps since the first Copper Pipe joined it (after run 4)
-expect("chapter 2, step 1 of 9", state?.chapter === 2 && state.step === "1/9");
+// Eight steps (1.4: the first Copper Pipe and the Lab's two lines)
+expect("chapter 2, step 1 of 8", state?.chapter === 2 && state.step === "1/8");
 expect("the Loady goal card shows", await page.locator(".loady-goal").isVisible());
 expect("the advisor shows below it", await page.locator(".next-steps").isVisible());
 

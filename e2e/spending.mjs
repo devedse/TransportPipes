@@ -1,13 +1,15 @@
 // Spending is safe (after run 3, the design team's step 1): a building's panel says what the next level and Max will do
 // to your income before the click, with the price as time of income; after buying, Undo gives the gold back for an hour.
 //   node spending.mjs shots/spending
-import { start, newPlayer } from "./lib.mjs";
+import { start, newPlayer, kit } from "./lib.mjs";
 
 const out = process.argv[2] ?? "shots/spending";
 const { browser, page, errors, shot, cheat } = await start(out);
 await newPlayer(page, "spend");
 await cheat("level");
 await cheat("gold");
+// 1.4: a plot starts empty: a small estate first
+await kit(page);
 await page.waitForTimeout(1500);
 for (let i = 0; i < 3 && (await page.locator("[role=dialog]:visible").count()) > 0; i++) {
   await page.keyboard.press("Escape");

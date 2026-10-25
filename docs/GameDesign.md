@@ -176,7 +176,9 @@ When two ideas fight, the rule higher in the list wins.
 
 - **The three lanes**: where a pipe meets a building, a connector leaves it for each kind of good the building takes or
   makes: a belt for solids, a slim pipe with a valve wheel for fluids (water, oil), copper cables for energy. They move
-  only when goods move; the pellets ride their lane.
+  only when goods move; the pellets ride their lane; zoomed out they fade. **Look inside**: hovering a pipe (or holding
+  Alt for every pipe) cuts it open: each flow a core in its good's colour at its lane's height, thicker the fuller the
+  pipe between its two buildings, and the tip says what runs in which lane.
 - **Valves** let chosen goods through; **priority valves** are served first; a network needs a **Pump Station** for
   every 50 buildings; **Power Lines** (Era 2) carry energy without loss across water.
 - **Complexes**: a track's tier 4 merges four 1×1 buildings in a square into one with the output of five, its tier 8
@@ -247,8 +249,9 @@ the gold (from your Storages; what they lack is bought at 2.5×).
   - **Giving goods**: each good has a give switch (off, beyond my Hub Order, all) that sends it through your Yard gate;
     you can give from your Storages and the Depot at any time; **buy and give** buys what a stage lacks at 2.5×.
   - A full stage stands a day later. Everyone who gave gets hours of their own income by their share of the stage:
-    Bronze from 1% (1 h), Silver 3% (3 h), Gold 7% (6 h), Diamond 15% (12 h). Each stage gives the town a perk; the last
-    brings the next Era.
+    Bronze from 1% (1 h), Silver 3% (3 h), Gold 7% (6 h), Diamond 15% (12 h), and a title. A Diamond builder gets a
+    statue in the hub (its sash in their colour; nine stand there, the most Diamonds first). Each stage gives the town a
+    perk; the last brings the next Era.
 - **Monuments** (from Level 5): every Era gives a Yard a Monument site; its crew picks one of five kinds (Grand Fountain:
   +3% production a stage; Clock Tower: Hub Orders +5%; Observatory: research 3% faster, up to 30%; Workshop: 3%
   cheaper, up to 30%; Lighthouse: Yard and link sales +3% paid by the market, up to 30%). Any resident pays gold into

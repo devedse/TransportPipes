@@ -1,10 +1,12 @@
 // Selecting several buildings: a left-drag box, Shift and Ctrl clicks, upgrade all, the keys; a right-drag still
 // pans. node selection.mjs <outdir>
-import { start, newPlayer } from "./lib.mjs";
+import { start, newPlayer, kit } from "./lib.mjs";
 const [out = "shots/selection"] = process.argv.slice(2);
 const { browser, page, errors, shot, cheat } = await start(out);
 await newPlayer(page, "s");
 for (let i = 0; i < 6; i++) await cheat("gold");
+// 1.4: a plot starts empty: a small estate first
+await kit(page);
 // The level-up card from the cheats can show during the drag: the map must work under it
 await page.evaluate(() => tp.appStore.setState({ levelUp: null }));
 const placed = await page.evaluate(async () => {

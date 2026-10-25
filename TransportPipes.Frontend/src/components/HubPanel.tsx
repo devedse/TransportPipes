@@ -310,9 +310,9 @@ function ExchangeTab({ serverNow }: { serverNow: number }) {
   if (exchange === null) {
     return <p className="muted">Loading…</p>;
   }
-  // One price between players, said before the click; what a sell order needs in your Storages (after run 4: Cleo's
-  // typed 3 g became 1.95 without a word, and Ana's sell order was refused for stone she didn't have stored)
-  // Your own price, between the market's two (1.4 §8); the default player price until you type one
+  // Your own price, between the market's two (1.4 §8; the default player price until you type one), said before the
+  // click with what a sell order needs in your Storages (after run 4: Cleo's typed 3 g became 1.95 without a word, and
+  // Ana's sell order was refused for stone she didn't have stored)
   const base = content.resource(resource)?.price ?? 1;
   const high = base * content.progression.hubSpread;
   const price = Math.min(high, Math.max(base, typed ?? exchange.prices?.[resource] ?? base));

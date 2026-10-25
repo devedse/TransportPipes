@@ -569,7 +569,11 @@ public static partial class GameViews
             var other = t.From == company.District ? t.To : t.From;
             return new TrunkLineDto(t.Id, carrier?.Name ?? "", carrier?.Color ?? "#888888", t.Owner == company.Id, WorldNames.District(company.District), WorldNames.District(other),
                 other.X, other.Y, t.Tier, t.Length, world.LineEfficiency(t), world.LineThroughput(t), Math.Round(t.Carried), t.PublicFee, t.CrewFee,
-                world.LineFee(t, company), t.Owner == company.Id ? Math.Round(t.Earned) : 0, t.Route.SelectMany(p => new[] { p.X, p.Y }).ToList());
+                world.LineFee(t, company), t.Owner == company.Id ? Math.Round(t.Earned) : 0, t.Route.SelectMany(p => new[] { p.X, p.Y }).ToList(),
+                // The carrier's special fees: every player of the two towns (theirs or none)
+                t.Owner != company.Id ? [] : world.Companies.Where(c => c.Id != company.Id && (c.District == t.From || c.District == t.To))
+                    .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                    .Select(c => new LinePlayerDto(c.Id, world.NameFor(c, company), c.Color, t.SpecialFees.TryGetValue(c.Id, out var fee) ? fee : null)).ToList());
         }).ToList();
         var options = world.LineNeighbours(company.District).Where(t => world.LineBetween(company.District, t) == null).Select(t =>
         {

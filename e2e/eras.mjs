@@ -93,6 +93,17 @@ if (canBuild) {
 const lines = await page.evaluate(() => tp.appStore.getState().lines);
 check("a trunk line built from the Links tab", (lines?.lines ?? []).some((t) => t.yours), JSON.stringify(lines?.options ?? []).slice(0, 200));
 await shot("line-built");
+// The carrier gives a player of the two towns a fee of their own (a friend for free) in the line's card
+const special = await page.evaluate(async () => {
+  const line = tp.appStore.getState().lines?.lines.find((t) => t.yours);
+  const player = line?.players[0];
+  if (!player) return { players: line?.players.length ?? -1 };
+  await tp.gameClient.setLineFee(line.id, String(player.id), 0);
+  await new Promise((r) => setTimeout(r, 1500));
+  const after = tp.appStore.getState().lines?.lines.find((t) => t.id === line.id);
+  return { players: line.players.length, fee: after?.players.find((t) => t.id === player.id)?.fee };
+});
+check("a player's fee of their own on the line", special.fee === 0, JSON.stringify(special));
 await page.keyboard.press("Escape");
 await page.evaluate(() => {
   const line = tp.appStore.getState().lines?.lines.find((t) => t.yours);

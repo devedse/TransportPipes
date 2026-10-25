@@ -1,7 +1,7 @@
 // The return card leads with what matters (after run 3, the analysts' rows 9 and 11 and the designers' rule): Ana and
 // Ben are a crew in one station; Ana's Market Hall stands as a scaffold that wants 500 bricks. Ben comes back after ten
-// days: his card has at most six lines, one about people, "Order the rest for Ana" though he makes no bricks, and no
-// crew line that says it twice; the rest folds under "more". Two browsers.
+// days: his card has at most six lines, one about people, "Buy the rest for Ana" though he makes no bricks (1.4: the
+// market brings a little meanwhile), and no crew line that says it twice; the rest folds under "more". Two browsers.
 //   node card-fold.mjs shots/card-fold
 import { start } from "./lib.mjs";
 
@@ -100,16 +100,16 @@ await ben.shot("1-card");
 expect("at most six lines lead", card.lines.length <= 6, `${card.lines.length}`);
 expect("one line about people", card.lines.filter((t) => t.kind === "people" || t.kind === "social").length <= 1);
 const order = card.lines.find((t) => t.action === "orderWant") ?? (card.folded ?? []).find((t) => t.action === "orderWant");
-expect("Ana's want, to order for her though he makes no bricks", order !== undefined && /Market Hall wants 500 bricks/.test(order.text), order?.text ?? "none");
+expect("Ana's want, to order for her though he makes no bricks", order !== undefined && /Market Hall wants \d+ bricks/.test(order.text), order?.text ?? "none");
 const crewLine = card.lines.find((t) => t.kind === "crew");
 expect("the crew line doesn't repeat the want the card offers", crewLine === undefined || !/Market Hall wants/.test(crewLine.text), crewLine?.text ?? "none");
-const button = ben.page.locator(".return-card button", { hasText: /^Order the rest for/ });
+const button = ben.page.locator(".return-card button", { hasText: /^Buy the rest for/ });
 if ((await button.count()) === 0 && (await ben.page.locator(".return-more").count()) > 0) {
   await ben.page.click(".return-more");
   await ben.page.waitForTimeout(400);
   await ben.shot("2-more");
 }
-expect("its button says what it costs", /^Order the rest for .* · [\d.,k]+ g$/.test((await button.first().innerText().catch(() => "")) ?? ""), await button.first().innerText().catch(() => "none"));
+expect("its button says what it costs", /^Buy the rest for .* · [\d.,k]+ g$/.test((await button.first().innerText().catch(() => "")) ?? ""), await button.first().innerText().catch(() => "none"));
 
 console.log(results.every(Boolean) ? "PASS" : "FAIL", "errors:", [...ana.errors, ...ben.errors].join(" | ") || "none");
 await ana.browser.close();

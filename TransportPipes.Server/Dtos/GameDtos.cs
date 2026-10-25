@@ -305,7 +305,11 @@ public record DistrictDto(int X, int Y, int OriginX, int OriginY, string Name, I
 /// how much it carries, its fees (and yours), what it earned its carrier, its route
 /// </summary>
 public record TrunkLineDto(long Id, string Carrier, string CarrierColor, bool Yours, string From, string To, int ToX, int ToY, int Tier, int Length,
-    double Efficiency, double Throughput, double Carried, double PublicFee, double CrewFee, double YourFee, double Earned, IReadOnlyList<int> Route);
+    double Efficiency, double Throughput, double Carried, double PublicFee, double CrewFee, double YourFee, double Earned, IReadOnlyList<int> Route,
+    IReadOnlyList<LinePlayerDto> Players);
+
+/// <summary>A player of the two towns a carrier may give a fee of their own (null: the public or crew fee)</summary>
+public record LinePlayerDto(long Id, string Name, string Color, double? Fee);
 
 /// <summary>A neighbouring town a line could run to from yours: its name and Era, what the line would cost, and why it can't be (or null)</summary>
 public record LineOptionDto(int X, int Y, string Name, int Era, int Tier, int Length, double Gold, string? Error);

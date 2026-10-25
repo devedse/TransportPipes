@@ -1,10 +1,12 @@
 // Phone and reading after run 4: the Chat button above an open panel, the panel's network folded, the inbox lines
 // apart, and the Links tab in one sentence: node phone-reading.mjs <outdir>
-import { start, newPlayer } from "./lib.mjs";
+import { start, newPlayer, kit } from "./lib.mjs";
 const [out = "shots/phone-reading"] = process.argv.slice(2);
 const { browser, page, errors, shot, cheat } = await start(out, { width: 390, height: 844 });
 await newPlayer(page, "p");
 for (const c of ["gold", "level", "finish"]) await cheat(c);
+// 1.4: a plot starts empty: a small estate first
+await kit(page);
 await page.evaluate(() => tp.appStore.setState({ levelUp: null }));
 await page.waitForTimeout(4000);
 let failed = 0;

@@ -1,10 +1,12 @@
 // A full Trading Post grows (after run 4's bots: Max bought every level a bank could on a post, its panel saw no gain,
 // and Grow everything left it out, so Mia's 5-minute level waited to day 28): node post-max.mjs <outdir>
-import { start, newPlayer } from "./lib.mjs";
+import { start, newPlayer, kit } from "./lib.mjs";
 const [out = "shots/post-max"] = process.argv.slice(2);
 const { browser, page, errors, shot, cheat } = await start(out);
 await newPlayer(page, "q");
 for (const c of ["gold", "gold", "gold", "gold", "level", "level"]) await cheat(c);
+// 1.4: a plot starts empty: a small estate first
+await kit(page);
 await page.evaluate(() => tp.appStore.setState({ levelUp: null }));
 let failures = 0;
 const check = (ok, text) => { console.log(`${ok ? "ok  " : "FAIL"} ${text}`); if (!ok) failures++; };

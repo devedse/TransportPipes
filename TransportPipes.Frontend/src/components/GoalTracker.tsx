@@ -281,7 +281,7 @@ export function GoalTracker() {
             <span className="goal-label">Era</span>
             <button
               className="goal-text link"
-              title="The Era Wonder, the Capital's want: open it"
+              title="Your town's Era Wonder: open Town & Wonder"
               onClick={() => void gameClient.openHub("wonders")}
             >
               {company.eraWonderLine.text} ›

@@ -8,9 +8,19 @@ import { ResourceIcon } from "./ResourceIcon";
 
 const percent = (share: number) => `${Math.round(share * 1000) / 10}%`;
 
-/** A carrier's fee field: a share of the goods' base value, 0 to 10% */
-function FeeInput({ line, who, value }: { line: number; who: string; value: number }) {
-  const [typed, setTyped] = useState(String(Math.round(value * 1000) / 10));
+/** A carrier's fee field: a share of the goods' base value, 0 to 10% (a player's own fee may be left empty) */
+function FeeInput({
+  line,
+  who,
+  value,
+  label,
+}: {
+  line: number;
+  who: string;
+  value: number | null;
+  label?: string;
+}) {
+  const [typed, setTyped] = useState(value === null ? "" : String(Math.round(value * 1000) / 10));
   return (
     <input
       type="number"
@@ -18,10 +28,39 @@ function FeeInput({ line, who, value }: { line: number; who: string; value: numb
       max={10}
       step={0.5}
       value={typed}
-      aria-label={`${who} fee in percent`}
+      placeholder="—"
+      aria-label={label ?? `${who} fee in percent`}
       onChange={(e) => setTyped(e.target.value)}
-      onBlur={() => void gameClient.setLineFee(line, who, Number(typed) / 100)}
+      onBlur={() => void gameClient.setLineFee(line, who, typed.trim() === "" ? null : Number(typed) / 100)}
     />
+  );
+}
+
+/** A carrier's fees of their own for players of the two towns (a friend for free, say); empty: the public or crew fee */
+function SpecialFees({ line }: { line: TrunkLineDto }) {
+  if (line.players.length === 0) {
+    return null;
+  }
+  return (
+    <details className="small">
+      <summary>
+        Fees of their own for players ({line.players.filter((t) => t.fee !== null).length} set)
+      </summary>
+      <ul className="line-players">
+        {line.players.map((player) => (
+          <li key={player.id}>
+            <span className="dot" style={{ background: player.color }} /> {player.name}{" "}
+            <FeeInput
+              line={line.id}
+              who={String(player.id)}
+              value={player.fee}
+              label={`${player.name}'s fee in percent`}
+            />{" "}
+            %
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 
@@ -55,6 +94,7 @@ function LineCard({ line, lines, content }: { line: TrunkLineDto; lines: LinesDt
           </>
         )}
       </p>
+      {line.yours && <SpecialFees line={line} />}
       <div className="small">
         To {line.to}&apos;s market (your Hub Order there is half of yours here):{" "}
         {exports.map(([good]) => (

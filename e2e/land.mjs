@@ -1,5 +1,6 @@
-// Dealt land (step 5 of the redesign): a newcomer's kit makes its seat's own good, the Deposits overlay labels every
-// seat's goods, and the Build menu says who makes a good the land lacks: node land.mjs <outdir>
+// Dealt land (step 5 of the redesign): the station's plots hold all five land goods between them, the Deposits overlay
+// labels every seat's goods, and the Build menu says who makes a good the land lacks (1.4: a plot starts empty, no
+// kit): node land.mjs <outdir>
 import { start, newPlayer } from "./lib.mjs";
 const [out = "shots/land"] = process.argv.slice(2);
 const fail = (why) => { console.log("FAIL", why); process.exitCode = 1; };
@@ -15,8 +16,7 @@ const state = await a.page.evaluate(() => {
 });
 console.log("land", JSON.stringify(state.land?.goods), "station", JSON.stringify(state.land?.station.map((t) => `${t.slot}:${t.goods.join("+")}${t.house ? "⚙" : ""}${t.you ? "*" : ""}`)), "kit", state.kit.join(","));
 if (state.land === null) fail("dealt land");
-const producers = { copperOre: "copperMine", coal: "coalPit", sand: "sandDredger", wood: "lumberCamp", stone: "quarry" };
-if (!state.kit.includes(producers[state.land?.goods[0]])) fail(`the kit makes the seat's ${state.land?.goods[0]}`);
+if (state.kit.some((t) => t !== "tradingPost" && t !== "hq")) fail(`a plot starts empty: ${state.kit.join(", ")}`);
 const station = state.land?.station.flatMap((t) => t.goods) ?? [];
 if (["copperOre", "coal", "sand", "wood", "stone"].some((t) => !station.includes(t))) fail("the station holds all five");
 

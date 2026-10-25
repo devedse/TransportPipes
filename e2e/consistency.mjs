@@ -63,8 +63,15 @@ const context = await browser.newContext({ storageState: await page.context().st
 const compare = async (label) => {
   await page.waitForTimeout(3500);
   const other = await context.newPage();
+  const said = [];
+  other.on("console", (m) => said.push(`${m.type()}: ${m.text()}`.slice(0, 200)));
+  other.on("pageerror", (e) => said.push(`pageerror: ${e.message}`.slice(0, 200)));
   await other.goto(base + "/");
-  await other.waitForSelector("body[data-ready='1']", { timeout: 60000 });
+  await other.waitForSelector("body[data-ready='1']", { timeout: 60000 }).catch(async (error) => {
+    const state = await other.evaluate(() => ({ phase: tp.appStore.getState().phase, connection: tp.gameClient.connection.status, shown: tp.appStore.getState().mapShown })).catch((e) => String(e));
+    console.log("the fresh tab never got ready:", JSON.stringify(state), "\n  " + said.slice(-12).join("\n  "));
+    throw error;
+  });
   await other.evaluate(({ x, y }) => tp.gameClient.engine.lookAt(x + 2, y, 0.4), await page.evaluate(() => window.__c.post));
   await other.waitForTimeout(4000);
   const truth = await snapshot(other);

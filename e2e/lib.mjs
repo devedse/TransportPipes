@@ -43,6 +43,43 @@ export async function pickPlot(page, name, seat = null) {
   await page.waitForTimeout(3000);
 }
 
+/**
+ * A small estate like the old starter kit (1.4: a plot starts empty): two Wind Moilys, a Solar Panel, an Iron Mine on iron
+ * ore, a Small Factory and a Storage near the trading post, finished, each piped to the post (what isn't unlocked yet is
+ * left out). What was built, as type@x,y
+ */
+export async function kit(page, types = ["windMoily", "windMoily", "solarPanel", "ironMine", "smallFactory", "storage"]) {
+  const built = await page.evaluate(async (types) => {
+    const c = tp.gameClient.connection;
+    const w = tp.gameClient.world;
+    const s = () => tp.appStore.getState();
+    const post = [...w.buildings.values()].find((t) => t.owner === s().company.id && t.type === "tradingPost");
+    const out = [];
+    for (const type of types) {
+      const definition = s().content.building(type);
+      let spot = null;
+      for (let r = 2; r < 16 && !spot; r++)
+        for (let dy = -r; dy <= r && !spot; dy++)
+          for (let dx = -r; dx <= r && !spot; dx++)
+            if (Math.max(Math.abs(dx), Math.abs(dy)) === r && tp.rules.canPlace(s().content, w, s().company, s().era, definition, post.x + dx, post.y + dy).ok)
+              spot = { x: post.x + dx, y: post.y + dy };
+      if (!spot || !(await c.placeBuilding(type, spot.x, spot.y)).success) continue;
+      await c.cheat("finish");
+      const size = definition.size;
+      const border = [];
+      for (let i = 0; i < size; i++) border.push([spot.x + i, spot.y - 1], [spot.x + i, spot.y + size], [spot.x - 1, spot.y + i], [spot.x + size, spot.y + i]);
+      for (const [fx, fy] of border) {
+        const route = tp.rules.routePipe(w, s().company, { x: fx, y: fy }, { x: post.x - 1, y: post.y }, s().content);
+        if (route && (await c.placePipes(route.flatMap((t) => [t.x, t.y]), 1)).success) break;
+      }
+      out.push(`${type}@${spot.x},${spot.y}`);
+    }
+    return out;
+  }, types);
+  await page.waitForTimeout(2500);
+  return built;
+}
+
 /** Builds a building near the trading post (or on a deposit), pipes it to the post and plans and lays the pipe to the Yard gate */
 export async function settle(player, type, deposit) {
   return player.page.evaluate(async ({ type, deposit }) => {

@@ -1,10 +1,12 @@
 // Painting with the build tool: a drag builds a row, Shift-drag an area, a click one; the ? key lists the keys.
 // node paint.mjs <outdir>
-import { start, newPlayer } from "./lib.mjs";
+import { start, newPlayer, kit } from "./lib.mjs";
 const [out = "shots/paint"] = process.argv.slice(2);
 const { browser, page, errors, shot, cheat } = await start(out);
 await newPlayer(page, "w");
 for (const c of ["gold", "gold"]) await cheat(c);
+// 1.4: a plot starts empty: a small estate first
+await kit(page);
 await page.evaluate(async () => {
   await tp.gameClient.connection.skipTutorial();
   const co = tp.appStore.getState().company;

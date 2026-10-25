@@ -1,10 +1,12 @@
 // Words and numbers that agree (after run 4: "+2,547/min · hub +2,598" against a top bar of +2,574, a Yard "spare 13"
 // against a panel "18 spare", and a Next step that stayed after it was done): node numbers.mjs <outdir>
-import { start, newPlayer } from "./lib.mjs";
+import { start, newPlayer, kit } from "./lib.mjs";
 const [out = "shots/numbers"] = process.argv.slice(2);
 const { browser, page, errors, shot, cheat } = await start(out);
 await newPlayer(page, "n");
 for (const c of ["gold", "gold", "level", "level", "finish"]) await cheat(c);
+// 1.4: a plot starts empty: a small estate first
+await kit(page);
 await page.evaluate(() => tp.appStore.setState({ levelUp: null }));
 await page.waitForTimeout(3000);
 await cheat("yard");
