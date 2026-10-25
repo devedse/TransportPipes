@@ -333,6 +333,10 @@ public class BalanceSimulation
             {
                 return 1;
             }
+            if (SavesForResearch())
+            {
+                return 0;
+            }
             var (cost, level) = World.NextParcel(company);
             if (level <= company.Level && World.BestParcel(company) is { } parcel)
             {
@@ -725,7 +729,7 @@ public class BalanceSimulation
                 }
             }
             // The first line (1.4 §17): the first two tiers of every track of its Era, then its main track to the top
-            if (company.CurrentTrack == null && NextTrack() is { } track)
+            if (company.CurrentTrack == null && NextTrack(new()) is { } track)
             {
                 var tier = World.NextTier(company, track)!.Value;
                 if (company.Gold >= World.TierCost(company, track, tier).Total && World.StartResearch(company.Id, track.Id).Success)
@@ -734,18 +738,66 @@ public class BalanceSimulation
                     started = true;
                 }
             }
+            QueuePlan();
             return started;
         }
 
         /// <summary>The tracks it masters, in order (the model: Iron, then Steel once Era 2 opens)</summary>
         public List<string> MainTracks { get; init; } = ["iron", "steel"];
 
-        private TrackDefinition? NextTrack()
+        /// <summary>The track of the plan's next tier, beyond what is researched, running and queued (and these extra)</summary>
+        private TrackDefinition? NextTrack(Dictionary<string, int> extra)
         {
-            var open = World.Content.TrackList.Where(t => World.TierBlocker(company, t) == null).ToList();
-            return open.FirstOrDefault(t => World.TrackTier(company, t.Id) < 2)
+            int Planned(TrackDefinition t) => World.TrackTier(company, t.Id) + (company.CurrentTrack == t.Id ? 1 : 0)
+                + company.TrackQueue.Count(q => q == t.Id) + extra.GetValueOrDefault(t.Id);
+            var tiers = World.Content.TrackRules.Tiers.Count;
+            var open = World.Content.TrackList.Where(t => t.Era <= World.YourEra(company) && t.Buildings.Count > 0 && Planned(t) < tiers).ToList();
+            return open.FirstOrDefault(t => Planned(t) < 2)
                 ?? MainTracks.Select(t => open.FirstOrDefault(o => o.Id == t)).OfType<TrackDefinition>().FirstOrDefault()
-                ?? open.OrderBy(t => World.TrackTier(company, t.Id)).FirstOrDefault();
+                ?? open.OrderBy(Planned).FirstOrDefault();
+        }
+
+        /// <summary>
+        /// The plan's next tiers in the Lab's queue, as a player who knows what they master queues them: they start by
+        /// themselves while the bot is away (the model's next tier does), where the game's Keep researching would start
+        /// the cheapest tier of any track
+        /// </summary>
+        private void QueuePlan()
+        {
+            if (!HasLab)
+            {
+                return;
+            }
+            var extra = new Dictionary<string, int>();
+            while (company.TrackQueue.Count < GameWorld.ResearchQueueLength && NextTrack(extra) is { } next)
+            {
+                if (!World.QueueResearch(company.Id, next.Id, true).Success)
+                {
+                    break;
+                }
+            }
+        }
+
+        private bool HasLab => World.BuildingsOf(company.Id).Any(t => !t.UnderConstruction && World.Content.Building(t.Type).Kind == BuildingKind.Lab);
+
+        /// <summary>
+        /// Whether it saves for its next tier or Era tree item (the model: while it costs at most eight hours of
+        /// income, nothing else is bought)
+        /// </summary>
+        private bool SavesForResearch()
+        {
+            if (!HasLab || Income <= 0)
+            {
+                return false;
+            }
+            var save = Income * 8 * 60;
+            if (company.CurrentTrack == null && company.TrackQueue.Count > 0 && World.Content.Tracks.GetValueOrDefault(company.TrackQueue[0]) is { } track
+                && World.NextTier(company, track) is { } tier && World.TierCost(company, track, tier).Total is var cost && cost > company.Gold && cost <= save)
+            {
+                return true;
+            }
+            return company.CurrentResearch == null && World.Content.ResearchList.Where(t => World.ResearchBlocker(company, t) == null)
+                .Select(t => World.ResearchCost(company, t)).DefaultIfEmpty(double.MaxValue).Min() is var item && item > company.Gold && item <= save;
         }
 
         /// <summary>
