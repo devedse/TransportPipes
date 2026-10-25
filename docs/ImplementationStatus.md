@@ -455,6 +455,55 @@ is the design's call (yes).
   sending). Friends on one Wi-Fi were one device to the Yard (hub price, no Sends or orders for each other, one
   keystone resident): the same IP the same day now only sizes a project's baskets, as v1.2 §3 says
 
+### 1.4 · Your own place (branch `feature/own-place`, design `docs/v1.4-design.html`)
+
+The design is `docs/v1.4-design.html` (built from `docs/design-notes/v1.4`, with the economy model in its `sim/`). It
+is built in four phases (§23); each lands on the test server when it's done, and the test world starts again at phase
+A (rules 4: accounts stay).
+
+**Phase A · Your own place** (2026-10-25, 02ed076 … 1b63b16):
+- Only people, one balance: Houses and stand-ins, starter kits, small mode, quiet grace and every size taken from
+  the number of active players are gone; so are the station's project and Asks, corporations, trunks, leagues, sleep
+  and the Quiet Isles, tending, Sends and Thanks, Refinements, knowledge diffusion and the Franchise (game, server and
+  every panel). Wonder stages have fixed baskets.
+- The map (§4): towns of four Yard groups (a Yard of 32×16 with a plot on each side), two roads crossing at the hub,
+  the outskirts set aside for each plot, 128 tiles of wilderness and a town gate where each road leaves the town;
+  plots turn to face their new Yard when they move; links run along the roads. The map draws square plots, the
+  Yards with their crews' banners and names, the gates and the outskirts.
+- The land (§5): every plot has water, iron ore, wood, wind and sun, and lacks one basic and one later good, dealt
+  so a Yard's four plots lack different ones; a ★4 deposit next to the start area; later-Era deposits sleep. Red
+  hills (bauxite) are the hills' texture on red earth (`node art/process.mjs derived`).
+- Starting from scratch (an HQ and a trading post by the Yard gate) and picking your spot on the real map (§6): free
+  plots glow, a plot card says what the land has and lacks and who lives at the Yard, Pick for me (a Yard where
+  people played in the last three days, else an empty one; never a closed Yard), Find a player, a friend's "Play
+  next to me" link (seven days, the first user may enter a closed Yard; without a plot it settles at the friend's
+  Yard), requests to closed Yards. Moving uses the same picker.
+- Yard = crew (§7): the first settler founds it, every resident is an owner, any of them names it, opens or closes
+  it and answers requests (three days); the last one out takes the crew with it; a new town opens when every open
+  town has fewer than two free plots. The Crew panel (K) and the top bar show it.
+- Your own prices (§8): a public price (1.3×), a crew price (1.15×), per good and special prices for named players,
+  1×–2.5× the base; the lowest that applies is paid; a rise waits an hour and the buyers are told. Each connected
+  resident has a stall at its Yard gate with what it sells, its crew price and what it wants.
+- Max and Grow keep spending up with income (§17): Grow buys the next parcel first as soon as the level and the gold
+  allow (and saves for it while it is at most eight hours of income away), then every pipe door and Max that pays
+  back within five days. The advice suggests another generator while the trading post sells all it is given.
+- The model's player (`BalanceSimulation.Bot.ModelStep`): research when the Labs are idle, land first, then of the
+  game's own next steps the one that pays back soonest within five days (nothing that waits for missing materials),
+  the Era Wonder when nothing pays.
+- The words of §3 in what players read: plot, Yard, town, crew.
+
+Checks: 350 game tests (CrewFacts, PriceFacts, WorldLayoutFacts, WorldGeneratorFacts new), 22 server tests;
+`e2e/four-friends.mjs` (four browsers, Ben on a phone: a Yard named and its link opened as a guest, Find a player, a
+closed Yard's plot asked for and answered yes), `e2e/start-map.mjs` (desktop and phone), `e2e/big-estate.mjs` on the
+new layout (a build into a 76-building network on the map in about 100 ms); the bots' first hour from nothing
+(`ModelBotSimulation`: 15 buildings and 459 g/min after an hour, about four minutes of income in hand). The model's
+days (`TP_BALANCE=1`) show where today's economy stops: income flat from day 3 with factories short of inputs and
+the gold piling up; Company Level reaches 3 in the first hour where the model's reaches 5. Both are phase B's
+economy (levels per copy with goods, Company Level from gold earned, the Monuments).
+
+Not in phase A: the Yard's workshops and Depot, Monuments (phase B), art for the town gates (a paved apron for now),
+towns in later Eras greyed out on the map (per-town Eras come with phase B).
+
 ### After v1
 
 Designed (GDD §11), not needed for a fun first version: the Bank (investing, insurance, Wonder bonds), District
