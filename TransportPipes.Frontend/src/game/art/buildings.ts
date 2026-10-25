@@ -1389,6 +1389,9 @@ export function drawHubStructure(type: string, size: number, look?: HubStructure
   if (type === "billboard") {
     return drawBillboard(look ?? { label: null, color: null, level: 0 });
   }
+  if (type === "statue") {
+    return drawBuilding("statue", 1);
+  }
   const k = new Iso(size, size * 90 + 60);
   const s = size;
   switch (type) {

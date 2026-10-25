@@ -112,6 +112,25 @@ public class WonderFacts
     }
 
     [TestMethod]
+    public void ADiamondBuilderGetsAStatueInTheHubAndOneMoreDiamondOnItEachTime()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(gold: 1e11);
+        var town = game.World.TownAt(company.District);
+        company.MeasuredIncome = 1000;
+
+        Assert.IsTrue(game.World.BuyAndGive(company.Id).Success);
+        game.Pass(25 * 60);
+        Assert.AreEqual(1, town.Statues.Single(t => t.Company == company.Id).Diamonds);
+
+        Assert.IsTrue(game.World.BuyAndGive(company.Id).Success);
+        game.Pass(25 * 60);
+        var statue = town.Statues.Single();
+        Assert.AreEqual(2, statue.Diamonds, "one statue a builder: its Diamonds count");
+        Assert.AreEqual(company.Name, statue.Name);
+    }
+
+    [TestMethod]
     public void TheLastStageBringsTheNextEraToItsTownOnly()
     {
         var game = new TestGame(content: TestGame.PlainContent);

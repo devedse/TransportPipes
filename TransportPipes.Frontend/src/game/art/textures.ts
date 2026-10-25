@@ -790,7 +790,9 @@ export class TextureBank {
     // Generated art: the hub's buildings, and the Wonders (they rise stage by stage, see Engine)
     const wonder =
       (type === "wonderSite" || type === "eraWonderSite") && look?.variant ? `wonder-${look.variant}` : null;
-    const generated = this.generatedBuilding(wonder ?? `hub-${type}`, size);
+    // A statue: one of three looks
+    const statue = type === "statue" && look?.variant ? `hub-statue-${look.variant}` : null;
+    const generated = this.generatedBuilding(wonder ?? statue ?? `hub-${type}`, size);
     if (generated !== null) {
       return generated;
     }

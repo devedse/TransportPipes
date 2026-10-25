@@ -579,6 +579,9 @@ public static partial class GameViews
         return new LinesDto(lines, options, tiers, company.Exports);
     }
 
+    /// <summary>Where the statue square's park stands (hub-local): nine statues take its place, 2 tiles apart</summary>
+    private static readonly (int X, int Y) StatueSquare = (5, 4);
+
     private static List<HubStructureDto> HubStructures(GameWorld world, DistrictCoord district)
     {
         var structures = new List<HubStructureDto>();
@@ -597,6 +600,19 @@ public static partial class GameViews
                 }
                 var definition = world.WonderDefinition(wonder);
                 structures.Add(new HubStructureDto(structure.Type, structure.X, structure.Y, structure.Size, definition.Name, Level: wonder.Stage, Variant: wonder.Type, Stages: definition.Stages.Count));
+                continue;
+            }
+            // The statue square: the park gives way to the Diamond builders' statues, the most Diamonds first
+            if (structure.Type == "park" && structure.X == StatueSquare.X && structure.Y == StatueSquare.Y && world.TownAt(district).Statues.Count > 0)
+            {
+                var statues = world.TownAt(district).Statues.OrderByDescending(t => t.Diamonds).ThenBy(t => t.At).Take(9).ToList();
+                for (var i = 0; i < statues.Count; i++)
+                {
+                    var statue = statues[i];
+                    structures.Add(new HubStructureDto("statue", StatueSquare.X - 1 + 2 * (i % 3), StatueSquare.Y - 1 + 2 * (i / 3), 1,
+                        statue.Diamonds > 1 ? $"{statue.Name} · {statue.Diamonds} ◆" : statue.Name, world.Company(statue.Company)?.Color,
+                        statue.Diamonds, (1 + statue.Company % 3).ToString()));
+                }
                 continue;
             }
             structures.Add(new HubStructureDto(structure.Type, structure.X, structure.Y, structure.Size));

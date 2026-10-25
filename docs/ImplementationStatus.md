@@ -574,6 +574,9 @@ and the solver's sharing loop allocates nothing per consumer.
   billion, the Thinking Machine 1.85 trillion, the Space Elevator 5 trillion (what a town of eight gives in four, four
   and four and a half weeks: the Launch about day 120), the first mission 600 billion; the Era tree of Eras 3 to 5 costs
   an hour or two of income when its Era begins, and the first outpost 4 billion.
+- Statues (§13): a Diamond builder of a stage gets a statue in the town's hub (three looks by Codex, the plinth's sash
+  in their colour, their name on a plaque, more Diamonds on the same statue); nine stand where the hub's corner park was.
+  Every town now shows its own Era Wonder in its hub (only the capital did: the other towns' site was a bare plot).
 - Look inside a pipe: hovering it (or holding Alt for every pipe) cuts it open, each flow a core in its good's colour at
   its lane's height, thicker the fuller the pipe; the tip says what runs in which lane. The connectors fade zoomed out.
 

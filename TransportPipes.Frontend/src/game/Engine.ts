@@ -3222,6 +3222,28 @@ export class Engine {
         container.position.set(anchor.x, anchor.y);
         placeArt(sprite, art, { x: 0, y: 0 }, structure.size);
         container.addChild(sprite);
+        if (structure.type === "statue" && structure.label !== null) {
+          // A Diamond builder's statue (1.4 §13): a sash in their colour on the plinth, their name on a plaque
+          const sash = new Graphics()
+            .roundRect(TILE_WIDTH - 26, -TILE_HEIGHT * 0.9, 52, 12, 4)
+            .fill({ color: structure.color ?? "#c9a227" })
+            .stroke({ color: 0x2a1c10, width: 2 });
+          const plaque = new Text({
+            text: structure.label,
+            style: {
+              fontFamily: "Georgia, serif",
+              fontSize: 18,
+              fontWeight: "700",
+              fill: "#fff4d6",
+              stroke: { color: "#2a1c10", width: 5 },
+            },
+          });
+          // Over the trees and houses in front of it
+          plaque.anchor.set(0.5, 0);
+          plaque.position.set(anchor.x + TILE_WIDTH, anchor.y + 4);
+          container.addChild(sash);
+          labels.addChild(plaque);
+        }
         // Wonders and the stations' projects rise stage by stage
         const wonder =
           structure.type === "wonderSite" ||

@@ -1021,6 +1021,27 @@
    "ax": 433,
    "ay": 786,
    "attachments": []
+  },
+  "hub-statue-1": {
+   "w": 289,
+   "h": 376,
+   "ax": 144,
+   "ay": 374,
+   "attachments": []
+  },
+  "hub-statue-2": {
+   "w": 289,
+   "h": 382,
+   "ax": 144,
+   "ay": 372,
+   "attachments": []
+  },
+  "hub-statue-3": {
+   "w": 289,
+   "h": 395,
+   "ax": 144,
+   "ay": 394,
+   "attachments": []
   }
  },
  "rotors": {
@@ -1247,6 +1268,9 @@
   "buildings/hub-project-landmark.webp": "182c03b716",
   "buildings/hub-project-waterTower.webp": "7d04a2e17a",
   "buildings/hub-project-workshop.webp": "7a8b64f598",
+  "buildings/hub-statue-1.webp": "3985fd4814",
+  "buildings/hub-statue-2.webp": "cea67a5145",
+  "buildings/hub-statue-3.webp": "2b99704820",
   "buildings/hub-townHall.webp": "a30572018d",
   "buildings/hub-tradingHouse.webp": "a6c8700c61",
   "buildings/hydroWheel.webp": "18d75c31b7",

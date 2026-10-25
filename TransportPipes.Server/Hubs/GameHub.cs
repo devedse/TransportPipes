@@ -996,6 +996,7 @@ public sealed class GameHub : Hub<IGameClient>
                         world.FinishConstruction(building.Id);
                     }
                     world.FinishResearch(companyId);
+                    world.StandFullStageNow(company.District);
                     if (company.DigEndsAt != null)
                     {
                         // The miners are done a moment from now

@@ -23,7 +23,19 @@ public sealed class Town
     /// <summary>The missions it finished since (each a star on the world map, +1% production for good)</summary>
     public int Missions { get; set; }
 
+    /// <summary>Its Diamond builders (1.4 §13): a statue each in the hub, with how many stages they were Diamond in</summary>
+    public List<TownStatue> Statues { get; set; } = [];
+
     public DistrictCoord Coord => new(X, Y);
+}
+
+/// <summary>A Diamond builder's statue in a town's hub: who (their name when they last earned it), how often</summary>
+public sealed class TownStatue
+{
+    public long Company { get; init; }
+    public string Name { get; set; } = "";
+    public int Diamonds { get; set; }
+    public DateTime At { get; set; }
 }
 
 /// <summary>A town's Era Wonder being built (1.4 §13)</summary>
@@ -412,6 +424,15 @@ public sealed partial class GameWorld
         }
     }
 
+    /// <summary>A full stage of the town's Wonder stands now, not a day later (a cheat for the browser checks)</summary>
+    public void StandFullStageNow(DistrictCoord district)
+    {
+        if (TownAt(district) is { Wonder.FullAt: not null } town)
+        {
+            CompleteStage(town);
+        }
+    }
+
     private void CompleteStage(Town town)
     {
         var wonder = town.Wonder!;
@@ -498,6 +519,19 @@ public sealed partial class GameWorld
             company.Gold += reward;
             CountEarned(company, reward, "rewards", definition.Name);
             company.Titles.Add($"{definition.Name} · {result.Tier}");
+            if (result.Tier == WonderTier.Diamond)
+            {
+                // A statue in the hub, or one more Diamond on the one it has
+                var statue = town.Statues.FirstOrDefault(t => t.Company == company.Id);
+                if (statue == null)
+                {
+                    statue = new TownStatue { Company = company.Id };
+                    town.Statues.Add(statue);
+                }
+                statue.Name = company.Name;
+                statue.Diamonds++;
+                statue.At = LastTick;
+            }
             company.Touch();
             Changes.Companies.Add(company.Id);
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder,

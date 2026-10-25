@@ -191,6 +191,40 @@ await page.evaluate(() => {
 await wait(4000);
 await shot("11-monument-yard");
 
+// The town's Wonder: buy and give the whole stage, it stands (a day later; the finish cheat stands it now), and its
+// Diamond builder gets a statue in the hub's statue square (1.4 §13)
+const statue = await page.evaluate(async () => {
+  const c = tp.gameClient.connection;
+  const co = tp.appStore.getState().company;
+  // What the stage lacks into a Storage, given from it (it counts as yours), then the next tick sees it full
+  const w = tp.gameClient.world;
+  const s = tp.appStore.getState();
+  if (![...w.buildings.values()].some((t) => t.owner === co.id && t.type === "storage")) {
+    const post = [...w.buildings.values()].find((t) => t.owner === co.id && t.type === "tradingPost");
+    const storage = s.content.building("storage");
+    let placed = false;
+    for (let r = 3; r < 14 && !placed; r++)
+      for (let dy = -r; dy <= r && !placed; dy++)
+        for (let dx = -r; dx <= r && !placed; dx++)
+          if (tp.rules.canPlace(s.content, w, s.company, s.era, storage, post.x + dx, post.y + dy).ok)
+            placed = (await c.placeBuilding("storage", post.x + dx, post.y + dy)).success;
+    await c.cheat("finish");
+  }
+  await c.cheat("wonder");
+  const given = await c.giveFromStorages();
+  await new Promise((r) => setTimeout(r, 4000));
+  await c.cheat("finish");
+  const d = await c.getDistrict(co.districtX, co.districtY);
+  const mine = d.hub.find((t) => t.type === "statue" && t.label?.startsWith(co.name));
+  const site = d.hub.find((t) => t.type === "eraWonderSite");
+  if (mine) tp.gameClient.engine.lookAt(d.originX + tp.layout.HUB_LOCAL.x0 + mine.x, d.originY + tp.layout.HUB_LOCAL.y0 + mine.y, 1.3);
+  return { given: given.success ? "ok" : given.error, mine, site: site ? `${site.variant} ${site.level}/${site.stages}` : null };
+});
+check("the town's Wonder stands in its hub", statue.site !== null && !statue.site.startsWith("null"), statue.site ?? "no site");
+check("a Diamond builder's statue in the hub", statue.mine !== undefined, JSON.stringify(statue));
+await wait(4000);
+await shot("12-statue");
+
 const pass = checks.every(Boolean) && errors.length === 0;
 console.log(pass ? "PASS" : "FAIL", "errors:", errors.length ? errors.join(" | ") : "none");
 await browser.close();

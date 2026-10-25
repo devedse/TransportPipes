@@ -610,10 +610,10 @@ public sealed class WorldGenerator
     /// </summary>
     public IReadOnlyList<HubStructure> HubStructures(DistrictCoord district)
     {
-        var capital = district == new DistrictCoord(0, 0);
+        // Every town builds its own Era Wonder (1.4 §11): its site in the middle of the hub
         var structures = new List<HubStructure>
         {
-            capital ? new("eraWonderSite", 31, 23, 6) : new("wonderSite", 31, 23, 6),
+            new("eraWonderSite", 31, 23, 6),
             new("marketHall", 25, 24, 3),
             new("townHall", 40, 24, 3),
             new("exchange", 32, 17, 3),
@@ -626,14 +626,8 @@ public sealed class WorldGenerator
             new("park", 6, 44, 3),
             new("park", 57, 44, 3),
         };
-        if (capital)
-        {
-            structures.Add(new("wonderSite", 4, 3, 6));
-        }
-        else
-        {
-            structures.Add(new("park", 5, 4, 3));
-        }
+        // The statue square: a park until the town has Diamond builders (GameViews.StatueSquare)
+        structures.Add(new("park", 5, 4, 3));
         foreach (var gate in WorldLayout.TownGatesLocal)
         {
             structures.Add(new("townGate", gate.X0 - WorldLayout.HubLocal.X0, gate.Y0 - WorldLayout.HubLocal.Y0, Math.Max(gate.Width, gate.Height)));

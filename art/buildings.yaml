@@ -85,6 +85,10 @@
 - { id: town-house3, size: 1, look: "a small corner shop with a striped awning and a bakery sign without letters" }
 - { id: town-stall, size: 1, look: "a small market stall with fruit and vegetables under a red awning" }
 - { id: town-tree, size: 1, look: "a round tree in a square stone planter on paving" }
+# A Diamond builder's statue in the hub (1.4 §13): three looks, the plinth's sash takes the builder's colour in the game
+- { id: hub-statue-1, size: 1, look: "a bronze statue of a proud engineer in a long coat holding up a rolled blueprint, on a tall square plinth of pale carved stone with a small laurel wreath, on a paved plate" }
+- { id: hub-statue-2, size: 1, look: "a bronze statue of a sturdy smith resting a big hammer on one shoulder, on a tall square plinth of pale carved stone with a small brass cogwheel emblem, on a paved plate" }
+- { id: hub-statue-3, size: 1, look: "a bronze statue of a cheerful pipe fitter holding a large wrench and a coil of pipe, on a tall square plinth of pale carved stone with a small brass valve wheel emblem, on a paved plate" }
 # A station's project (v1.2 §12): one shared building in the corner of the station's Yard, growing stage by stage
 - { id: hub-project-foundation, size: 4, look: "the first stage of a shared village building: a wide square stone foundation platform with a low wall, a few stacked stone blocks and timber beams, a small wooden crane and a surveyor's flag, the start of something big; warm and hopeful" }
 - { id: hub-project-waterTower, size: 4, look: "a charming village water tower on a square stone base: a round riveted copper tank on four sturdy brick legs, a ladder, a little pointed roof with a weather vane, pipes running down into the base, a small pump house beside it" }
