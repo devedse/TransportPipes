@@ -1,12 +1,10 @@
 // Painting with the build tool: a drag builds a row, Shift-drag an area, a click one; the ? key lists the keys.
 // node paint.mjs <outdir>
-import { start, newPlayer, kit } from "./lib.mjs";
+import { start, newPlayer } from "./lib.mjs";
 const [out = "shots/paint"] = process.argv.slice(2);
 const { browser, page, errors, shot, cheat } = await start(out);
 await newPlayer(page, "w");
 for (const c of ["gold", "gold"]) await cheat(c);
-// 1.4: a plot starts empty: a small estate first
-await kit(page);
 await page.evaluate(async () => {
   await tp.gameClient.connection.skipTutorial();
   const co = tp.appStore.getState().company;
@@ -18,18 +16,19 @@ const results = [];
 const expect = (label, ok, extra = "") => results.push(`${ok ? "ok  " : "FAIL"} ${label}${extra ? ` (${extra})` : ""}`);
 const panels = () => page.evaluate(() => [...tp.gameClient.world.buildings.values()].filter((t) => t.owner === tp.appStore.getState().company.id && t.type === "solarPanel").length);
 const screen = (x, y) => page.evaluate(([x, y]) => { const co = tp.appStore.getState().company; return tp.gameClient.engine.tileToScreen(co.estateX + x, co.estateY + y); }, [x, y]);
-// A free row in the start parcels
+// A free row of six on the plot's own land (1.4: its four start parcels against the Yard), with room for an area below
 const row = await page.evaluate(() => {
   const s = tp.appStore.getState(); const co = s.company; const def = s.content.building("solarPanel");
-  for (let y = 18; y < 23; y++) {
-    let run = 0;
-    for (let x = 8; x < 24; x++) {
-      run = tp.rules.canPlace(s.content, tp.gameClient.world, co, s.era, def, co.estateX + x, co.estateY + y).ok ? run + 1 : 0;
-      if (run === 6) return { x: x - 5, y };
-    }
-  }
+  const ok = (x, y) => tp.rules.canPlace(s.content, tp.gameClient.world, co, s.era, def, co.estateX + x, co.estateY + y).ok;
+  for (let y = 0; y < 28; y++)
+    for (let x = 0; x < 24; x++)
+      if ([0, 1, 2, 3, 4, 5].every((i) => ok(x + i, y)) && [0, 1, 2, 3].every((i) => ok(x + i, y + 2) && ok(x + i, y + 3)) && ok(x + 7, y + 5)) {
+        tp.gameClient.engine.lookAt(co.estateX + x + 3, co.estateY + y + 2, 0.9);
+        return { x, y };
+      }
   return null;
 });
+await page.waitForTimeout(1500);
 console.log("row", JSON.stringify(row));
 await page.evaluate(() => tp.gameClient.setTool({ kind: "build", type: "solarPanel" }));
 const a = await screen(row.x, row.y), b = await screen(row.x + 5, row.y);

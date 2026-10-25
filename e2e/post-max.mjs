@@ -5,13 +5,14 @@ const [out = "shots/post-max"] = process.argv.slice(2);
 const { browser, page, errors, shot, cheat } = await start(out);
 await newPlayer(page, "q");
 for (const c of ["gold", "gold", "gold", "gold", "level", "level"]) await cheat(c);
-// 1.4: a plot starts empty: a small estate first
-await kit(page);
+// 1.4: a plot starts empty: eight Wind Moilys on copper pipes and a Storage with the goods for their levels past 10
+console.log("kit", (await kit(page, [...Array(8).fill("windMoily"), "storage"], 2)).length);
+for (let i = 0; i < 12; i++) await cheat("stock");
 await page.evaluate(() => tp.appStore.setState({ levelUp: null }));
 let failures = 0;
 const check = (ok, text) => { console.log(`${ok ? "ok  " : "FAIL"} ${text}`); if (!ok) failures++; };
 
-// The kit's producers far past what the post sells
+// The producers far past what the post's Hub Order takes
 const setup = await page.evaluate(async () => {
   const c = tp.gameClient.connection; const w = tp.gameClient.world; const co = tp.appStore.getState().company;
   await c.cheat("finish");
@@ -23,7 +24,8 @@ const setup = await page.evaluate(async () => {
   return { post: post.id, level: post.level, ups };
 });
 console.log("setup", JSON.stringify(setup));
-await page.waitForTimeout(4000);
+// Their goods past level 10 come from the Storage at the next settle
+await page.waitForTimeout(12000);
 
 // Its panel
 await page.evaluate((id) => tp.gameClient.select?.(id) ?? tp.appStore.setState({ selectedBuilding: id }), setup.post);
@@ -38,7 +40,7 @@ const maxText = (await max.count()) > 0 ? (await max.innerText()).replace(/\s+/g
 const before = await page.evaluate(() => tp.appStore.getState().company.gold);
 check(maxText !== "", `Max is offered: ${maxText}`);
 const past = panel.split("\n").find((t) => t.startsWith("Past level")) ?? "";
-check(/would sell at \d+% of what it can: your buildings bring it/.test(past), `and why it stops there: ${past.trim()}`);
+check(/all it sells would be within your Hub Orders/.test(past), `and why it stops there: ${past.trim()}`);
 const maxCost = Number((maxText.match(/· ([\d.,]+[kM]?) g/)?.[1] ?? "0").replace(/,/g, "").replace(/k$/, "e3").replace(/M$/, "e6"));
 check(maxCost > 0 && maxCost < before * 0.5, `Max costs a part of the bank (${maxCost.toLocaleString("en")} of ${Math.round(before).toLocaleString("en")} g)`);
 

@@ -45,37 +45,48 @@ export async function pickPlot(page, name, seat = null) {
 
 /**
  * A small estate like the old starter kit (1.4: a plot starts empty): two Wind Moilys, a Solar Panel, an Iron Mine on iron
- * ore, a Small Factory and a Storage near the trading post, finished, each piped to the post (what isn't unlocked yet is
- * left out). What was built, as type@x,y
+ * ore, a Small Factory and a Storage near the trading post, a tile apart, finished, each piped to the post in a pipe tier
+ * (a better tier's goods come from a Storage: one is added and stocked); what isn't unlocked yet is left out. What was
+ * built, as type@x,y
  */
-export async function kit(page, types = ["windMoily", "windMoily", "solarPanel", "ironMine", "smallFactory", "storage"]) {
-  const built = await page.evaluate(async (types) => {
+export async function kit(page, types = ["windMoily", "windMoily", "solarPanel", "ironMine", "smallFactory", "storage"], tier = 1) {
+  const built = await page.evaluate(async ({ types, tier }) => {
     const c = tp.gameClient.connection;
     const w = tp.gameClient.world;
     const s = () => tp.appStore.getState();
     const post = [...w.buildings.values()].find((t) => t.owner === s().company.id && t.type === "tradingPost");
-    const out = [];
-    for (const type of types) {
+    const wanted = tier > 1 && !types.includes("storage") ? ["storage", ...types] : types;
+    const placed = [];
+    for (const type of wanted) {
       const definition = s().content.building(type);
       let spot = null;
-      for (let r = 2; r < 16 && !spot; r++)
-        for (let dy = -r; dy <= r && !spot; dy++)
-          for (let dx = -r; dx <= r && !spot; dx++)
+      // On even offsets from the post: a free tile between neighbours for the pipes
+      for (let r = 2; r < 18 && !spot; r += 2)
+        for (let dy = -r; dy <= r && !spot; dy += 2)
+          for (let dx = -r; dx <= r && !spot; dx += 2)
             if (Math.max(Math.abs(dx), Math.abs(dy)) === r && tp.rules.canPlace(s().content, w, s().company, s().era, definition, post.x + dx, post.y + dy).ok)
               spot = { x: post.x + dx, y: post.y + dy };
-      if (!spot || !(await c.placeBuilding(type, spot.x, spot.y)).success) continue;
-      await c.cheat("finish");
-      const size = definition.size;
+      if (spot && (await c.placeBuilding(type, spot.x, spot.y)).success) placed.push({ type, ...spot, size: definition.size });
+    }
+    await c.cheat("finish");
+    if (tier > 1) await c.cheat("stock");
+    const sides = [[post.x - 1, post.y], [post.x + post.size, post.y], [post.x, post.y - 1], [post.x, post.y + post.size]];
+    const out = [];
+    for (const b of placed) {
       const border = [];
-      for (let i = 0; i < size; i++) border.push([spot.x + i, spot.y - 1], [spot.x + i, spot.y + size], [spot.x - 1, spot.y + i], [spot.x + size, spot.y + i]);
-      for (const [fx, fy] of border) {
-        const route = tp.rules.routePipe(w, s().company, { x: fx, y: fy }, { x: post.x - 1, y: post.y }, s().content);
-        if (route && (await c.placePipes(route.flatMap((t) => [t.x, t.y]), 1)).success) break;
+      for (let i = 0; i < b.size; i++) border.push([b.x + i, b.y - 1], [b.x + i, b.y + b.size], [b.x - 1, b.y + i], [b.x + b.size, b.y + i]);
+      let piped = false;
+      for (const [tx, ty] of sides) {
+        for (const [fx, fy] of border) {
+          const route = tp.rules.routePipe(w, s().company, { x: fx, y: fy }, { x: tx, y: ty }, s().content);
+          if (route && (await c.placePipes(route.flatMap((t) => [t.x, t.y]), tier)).success) { piped = true; break; }
+        }
+        if (piped) break;
       }
-      out.push(`${type}@${spot.x},${spot.y}`);
+      out.push(`${b.type}@${b.x},${b.y}${piped ? "" : " (no pipe)"}`);
     }
     return out;
-  }, types);
+  }, { types, tier });
   await page.waitForTimeout(2500);
   return built;
 }

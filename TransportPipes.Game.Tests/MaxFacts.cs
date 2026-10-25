@@ -80,6 +80,17 @@ public class MaxFacts
     }
 
     [TestMethod]
+    public void AJustFloodedPostAlreadyShowsWhatALevelBrings()
+    {
+        // The e2e's plot: eight Moilys grown to level 25 a minute ago; the market's hour average hasn't seen them yet
+        var (game, company, post) = FloodedPost();
+        game.World.HubMarketOf(company, company.District).SoldRate.Clear();
+
+        Assert.IsGreaterThan(0, game.World.SmartMax(company, post).Levels, "what its posts sell now counts");
+        StringAssert.StartsWith(game.World.UpgradePreview(company, post, 1).Text, "+");
+    }
+
+    [TestMethod]
     public void MaxOnAPostWithinItsHubOrdersBuysNothing()
     {
         var (game, company, post) = FloodedPost(moilies: 1);

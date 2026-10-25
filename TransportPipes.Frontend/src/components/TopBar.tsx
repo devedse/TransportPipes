@@ -290,7 +290,8 @@ export function TopBar() {
           📷
         </button>
         <MuteButton />
-        <button className="icon-button" title="Log out" onClick={() => void gameClient.logout()}>
+        {/* On a phone Log out is in the company's panel (the bar had no room for Chat) */}
+        <button className="icon-button desktop-only" title="Log out" onClick={() => void gameClient.logout()}>
           ⎋
         </button>
       </div>

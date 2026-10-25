@@ -25,7 +25,7 @@ await row.locator("button.goal-text").click();
 await page.waitForSelector(".wonder-card", { timeout: 15000 });
 await page.waitForTimeout(1500);
 const card = page.locator(".wonder-card").first();
-expect("it opens Town & Wonder", /your town builds it together/.test(await card.innerText()));
+expect("it opens Town & Wonder", /your town builds it together/i.test(await card.innerText()));
 const needs = card.locator(".wonder-need");
 const count = await needs.count();
 expect("the stage lists its goods", count >= 2, `${count}`);

@@ -42,11 +42,19 @@ console.log("undo:", undo);
 await shot("2-bought");
 await page.click(".building-panel .undo-line button");
 await page.waitForTimeout(2500);
-const after = await page.evaluate(() => ({ level: tp.appStore.getState().buildingDetails.building.level, undo: document.querySelector(".building-panel .undo-line") !== null }));
+// Undo takes back the building's purchase of the hour: the levels, or (built within the hour, as the kit's are) the
+// building with its levels, all of the price back
+const after = await page.evaluate((id) => ({
+  exists: tp.gameClient.world.buildings.has(id),
+  level: tp.appStore.getState().buildingDetails?.building.level ?? null,
+  undo: document.querySelector(".building-panel .undo-line") !== null,
+  gold: tp.appStore.getState().company.gold,
+}), id);
 console.log("after undo:", JSON.stringify(after));
 await shot("3-undone");
 
-const pass = /Level \d+: [+−]/.test(before.preview ?? "") && /^Undo · .* g back$/.test(undo ?? "") && after.level === before.level && !after.undo;
+const undone = after.exists ? after.level === before.level && !after.undo : after.gold >= before.gold - 1;
+const pass = /Level \d+: [+−]/.test(before.preview ?? "") && /^Undo · .* g back$/.test(undo ?? "") && undone;
 console.log(pass ? "PASS" : "FAIL", "errors:", errors.length ? errors.join(" | ") : "none", "building", id);
 await browser.close();
 process.exit(pass ? 0 : 1);

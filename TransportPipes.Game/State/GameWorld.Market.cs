@@ -1,4 +1,5 @@
 using TransportPipes.Game.Content;
+using TransportPipes.Game.Simulation;
 using TransportPipes.Game.World;
 
 namespace TransportPipes.Game.State;
@@ -197,12 +198,35 @@ public sealed partial class GameWorld
     {
         var market = Content.Progression.Market;
         var gain = 0.0;
-        foreach (var (resource, rate) in HubMarketOf(company, company.District).SoldRate.Where(t => t.Value > 1e-9))
+        // What the posts sell now, where the hour's average still lags behind (a plot just grown read "adds nothing")
+        var rates = new Dictionary<string, double>(HubMarketOf(company, company.District).SoldRate);
+        foreach (var (resource, now) in SellingNow(company))
+        {
+            rates[resource] = Math.Max(rates.GetValueOrDefault(resource), now);
+        }
+        foreach (var (resource, rate) in rates.Where(t => t.Value > 1e-9))
         {
             var order = HubOrder(company, resource);
             gain += market.Pays(BasePrice(resource), order * Math.Pow(market.PostLevel, levels), rate) - market.Pays(BasePrice(resource), order, rate);
         }
         return gain;
+    }
+
+    /// <summary>What a company's trading posts sell to the hub a minute now, by good (its networks' last solve)</summary>
+    public Dictionary<string, double> SellingNow(Company company)
+    {
+        var selling = new Dictionary<string, double>();
+        foreach (var network in _networks.Values.Where(t => t.Owner == company.Id))
+        {
+            foreach (var flow in network.Solution.Flows.Where(t => t.Kind == FlowKind.Sale && t.Delivered > 1e-9))
+            {
+                if (_buildings.TryGetValue(flow.To, out var post) && post.Owner == company.Id)
+                {
+                    selling[flow.Resource] = selling.GetValueOrDefault(flow.Resource) + flow.Delivered;
+                }
+            }
+        }
+        return selling;
     }
 
     /// <summary>A company's Hub Order of a good at its home town's market</summary>

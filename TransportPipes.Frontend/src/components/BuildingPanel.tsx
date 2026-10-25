@@ -956,7 +956,7 @@ function MaxMore({
   const past = `Past level ${level + useful}`;
   const post = content.building(details.building.type)?.kind === "tradingPost";
   const reason = post
-    ? `${past} it would sell at ${Math.round(more.share * 100)}% of what it can: your buildings bring it ${formatAmount(more.have)} a minute`
+    ? `${past} all it sells would be within your Hub Orders: a level more pays nothing more until you sell more`
     : more.output
       ? details.status?.cause === "postFull"
         ? `${past} it would sell nothing more: your Trading Post sells all it can. Upgrade the Trading Post first.`

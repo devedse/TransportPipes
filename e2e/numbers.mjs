@@ -45,7 +45,9 @@ const yard = await page.locator("aside").filter({ has: page.locator(".yard-resid
 check(/Spare: what each still sells to the hub/.test(yard), "the Yard says what Spare means");
 check(/Spare \(to the hub\)/.test(yard), "your own row says your spare goes to the hub");
 const income = (yard.match(/Here [^\n]*/) ?? [""])[0];
-check(/of your [+−][\d,.]+\/min/.test(income), "the Yard says what it pays of your income, and whom for", income);
+// (only when the Yard pays you something: a Yard nobody else piped to has no line)
+const quiet = /Nobody else here has piped to the Yard yet/.test(yard);
+check(quiet ? income === "" : /of your [+−][\d,.]+\/min/.test(income), "the Yard says what it pays of your income, and whom for", income || (quiet ? "a quiet Yard: no line" : ""));
 // What the Yard pays here is what the network's "the Yard and neighbours" said, give or take the project's round
 const paid = [...income.matchAll(/([\d,.]+) g\/min/g)].reduce((a, m) => a + Number(m[1].replace(/,/g, "")), 0);
 // The network's parts past the hub's: neighbours, the project (and what is bought, below zero)

@@ -106,6 +106,9 @@ export function CompanyPanel() {
             <span className="company-dot" style={{ background: company.color }} /> {company.name}
           </h2>
           <span className="muted">Company Level {company.level}</span>
+          <button className="small phone-only" onClick={() => void gameClient.logout()}>
+            Log out
+          </button>
           <button className="icon-button" title="Close (Esc)" onClick={close}>
             ×
           </button>

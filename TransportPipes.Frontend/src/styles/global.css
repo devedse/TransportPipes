@@ -4025,7 +4025,8 @@ select option {
     display: none;
   }
 
-  .top-actions .phone-only {
+  .top-actions .phone-only,
+  .company-panel .phone-only {
     display: inline-flex;
   }
 
@@ -4766,6 +4767,26 @@ kbd {
   .top-gold {
     flex: 1 0 auto;
     min-width: max-content;
+  }
+
+  /* Room for every action on a phone (1.4's bar ran 120 px past the screen and hid Chat): the bank's days show in its
+     panel, the dot stays; the crew is in the toolbar */
+  .top-gold .gold-days {
+    font-size: 0;
+    margin-left: 2px;
+  }
+
+  .top-crew {
+    display: none;
+  }
+
+  .top-bar .top-actions {
+    padding: 3px;
+  }
+
+  .top-actions .icon-button {
+    width: 26px;
+    height: 26px;
   }
 
   .top-gold .gold-amount {

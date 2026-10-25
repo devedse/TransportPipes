@@ -41,14 +41,15 @@ const panelHeight = await page.evaluate(() => Math.round(document.querySelector(
 const folded = await page.evaluate(() => document.querySelector(".building-panel .net-summary")?.closest("details")?.open === false);
 check(folded, "the panel's network numbers are folded on a phone", `panel ${panelHeight} px`);
 
-// 2. The inbox: entries apart, each with its time
+// 2. The inbox: entries apart, each with its time (1.4: a new plot may have no news yet; then it says so)
 await page.evaluate(() => tp.gameClient.select(null));
 await page.waitForTimeout(500);
 await page.locator(".top-bar button[title*='nbox'], button[aria-label*='nbox'], .bell").first().click().catch(() => {});
 await page.waitForTimeout(1500);
 await shot("2-inbox");
 const times = await page.locator(".inbox-time").allInnerTexts();
-check(times.length > 0 && times.every((t) => !/instant/.test(t)), "inbox entries say when", times.join(" | "));
+const empty = (await page.locator("text=Nothing yet. News about your company lands here.").count()) > 0;
+check(times.length > 0 ? times.every((t) => !/instant/.test(t)) : empty, "inbox entries say when (or that there are none yet)", times.join(" | ") || "none yet");
 
 // 3. The Yard and its Links tab
 await page.keyboard.press("Escape");
