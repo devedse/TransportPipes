@@ -1045,11 +1045,13 @@ public sealed partial class GameWorld
                 return;
             }
         }
-        if (BuildingsOf(company.Id).Any(t => Content.Building(t.Type) is { Kind: BuildingKind.Producer, In.Count: 0, Out.Count: > 0 }))
+        var first = !BuildingsOf(company.Id).Any(t => Content.Building(t.Type) is { Kind: BuildingKind.Producer, In.Count: 0, Out.Count: > 0 });
+        // Another one only while the trading post sells all it is given (1.4 §17: the model's first evening is copies)
+        if (!first && TradingPostFull(post))
         {
             return;
         }
-        // Nothing makes anything yet: the generator that earns most for its price on its best spot
+        // The generator that earns most for its price on its best spot (nothing makes anything yet: the first one)
         var best = Content.BuildingList
             .Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.In.Count == 0 && t.Out.Count > 0 && t.Placement.Deposit == null && IsUnlocked(company, t, out _))
             .Select(t => (Definition: t, Spot: FindSpot(company, t, post.Position)))
@@ -1059,9 +1061,14 @@ public sealed partial class GameWorld
             .FirstOrDefault();
         if (best.Definition != null && best.Value > 0.01)
         {
-            add(new AdvisorStep(AdvisorKind.Start, $"Build {Article(best.Definition.Name)} and pipe it to your Trading Post",
-                $"About +{Gold(best.Value)}/min at the hub, on the best spot near it.",
-                AdvisorAction.Build, BuildCost(company, best.Definition), best.Value, BuildingType: best.Definition.Id, At: best.Spot), AdvisorFixFactor);
+            add(first
+                ? new AdvisorStep(AdvisorKind.Start, $"Build {Article(best.Definition.Name)} and pipe it to your Trading Post",
+                    $"About +{Gold(best.Value)}/min at the hub, on the best spot near it.",
+                    AdvisorAction.Build, BuildCost(company, best.Definition), best.Value, BuildingType: best.Definition.Id, At: best.Spot)
+                : new AdvisorStep(AdvisorKind.Chain, $"Build another {best.Definition.Name}",
+                    $"About +{Gold(best.Value)}/min at the hub on a good spot, back in {Minutes(BuildCost(company, best.Definition) / best.Value)}; its first levels are cheap.",
+                    AdvisorAction.Build, BuildCost(company, best.Definition), best.Value, BuildingType: best.Definition.Id, At: best.Spot),
+                first ? AdvisorFixFactor : 1);
         }
     }
 
@@ -1167,11 +1174,22 @@ public sealed partial class GameWorld
     private void ParcelStep(Company company, Action<AdvisorStep, double> add)
     {
         var (cost, level) = NextParcel(company);
-        if (level > company.Level || EstateOf(company) is not { } estate)
+        if (level > company.Level || EstateOf(company) is not { } estate || BestParcel(company) is not { } best)
         {
             return;
         }
-        // The parcel next to the company's land that holds the most it doesn't have yet
+        var have = LandHoldings(estate);
+        var holds = best.Holds.Count == 0 ? "room for more buildings" : string.Join(", ", best.Holds.Take(3).Select(t => t.Label));
+        var (ox, oy) = WorldLayout.ParcelOrigin(best.Parcel);
+        add(new AdvisorStep(AdvisorKind.Parcel, $"Buy a parcel: {holds}",
+            $"More land for {Gold(cost)}" + (best.Holds.Any(t => !have.Contains(t.What)) ? ", with what your land doesn't have yet." : "."),
+            AdvisorAction.Parcel, cost, 0, Parcel: best.Parcel, At: estate.Origin.Offset(ox + WorldLayout.ParcelSize / 2, oy + WorldLayout.ParcelSize / 2)),
+            1);
+    }
+
+    /// <summary>What a plot's own parcels hold now</summary>
+    private HashSet<string> LandHoldings(Estate estate)
+    {
         var have = new HashSet<string>();
         for (var parcel = 0; parcel < WorldLayout.ParcelCount; parcel++)
         {
@@ -1180,6 +1198,17 @@ public sealed partial class GameWorld
                 have.UnionWith(ParcelHoldings(estate, parcel).Select(t => t.What));
             }
         }
+        return have;
+    }
+
+    /// <summary>The parcel to buy next (the advisor's and Grow's): next to the land, holding the most it doesn't have yet</summary>
+    public (int Parcel, IReadOnlyList<(string What, string Label, int Richness)> Holds)? BestParcel(Company company)
+    {
+        if (EstateOf(company) is not { } estate)
+        {
+            return null;
+        }
+        var have = LandHoldings(estate);
         var best = Enumerable.Range(0, WorldLayout.ParcelCount)
             .Where(t => !estate.IsUnlocked(t) && ParcelNeighbours(t).Any(estate.IsUnlocked))
             .Select(t => (Parcel: t, Holds: ParcelHoldings(estate, t)))
@@ -1191,14 +1220,9 @@ public sealed partial class GameWorld
             .FirstOrDefault();
         if (best.Holds == null)
         {
-            return;
+            return null;
         }
-        var holds = best.Holds.Count == 0 ? "room for more buildings" : string.Join(", ", best.Holds.Take(3).Select(t => t.Label));
-        var (ox, oy) = WorldLayout.ParcelOrigin(best.Parcel);
-        add(new AdvisorStep(AdvisorKind.Parcel, $"Buy a parcel: {holds}",
-            $"More land for {Gold(cost)}" + (best.Holds.Any(t => !have.Contains(t.What)) ? ", with what your land doesn't have yet." : "."),
-            AdvisorAction.Parcel, cost, 0, Parcel: best.Parcel, At: estate.Origin.Offset(ox + WorldLayout.ParcelSize / 2, oy + WorldLayout.ParcelSize / 2)),
-            1);
+        return (best.Parcel, best.Holds);
     }
 
     /// <summary>

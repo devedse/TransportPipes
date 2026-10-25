@@ -151,9 +151,9 @@ public static partial class GameViews
             want = new GoldLineDto($"Your {own.Name} waits for {own.Want.Left:N0} {world.GoodsWord(own.Want.Resource)}", "want", own.Cost, own.Want.Resource, own.Target);
         }
         var plan = world.PlanGrowth(me);
-        var grow = plan.Parts.Count == 0 ? null
+        var grow = plan.Parts.Count == 0 && plan.Saving == null ? null
             : new GrowPlanDto(plan.Parts.Select(t => new GrowPartDto(t.Building, t.Text, Math.Round(t.Cost), Math.Round(t.Gain, 1))).ToList(), plan.Cost, plan.Gain,
-                me.LastGrowth is { } last && world.Now - last.At <= GameWorld.UndoFor ? last.At + GameWorld.UndoFor : null);
+                me.LastGrowth is { } last && world.Now - last.At <= GameWorld.UndoFor ? last.At + GameWorld.UndoFor : null, plan.Saving);
         if (grow == null && me.LastGrowth is { } recent && world.Now - recent.At <= GameWorld.UndoFor)
         {
             grow = new GrowPlanDto([], 0, 0, recent.At + GameWorld.UndoFor);

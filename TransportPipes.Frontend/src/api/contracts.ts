@@ -645,6 +645,8 @@ export interface GrowPlanDto {
   gain: number;
   /** The last Grow can be taken back until then */
   undoUntil: string | null;
+  /** What Grow keeps the gold for instead (the next parcel, soon): "Saving for your next parcel (…)" */
+  saving: string | null;
 }
 
 export interface GrowPartDto {

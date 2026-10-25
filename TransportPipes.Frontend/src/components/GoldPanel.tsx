@@ -19,7 +19,11 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
   const now = useNow(30000) + useAppStore((s) => s.serverOffsetMs);
   const undoLeft = uses?.grow?.undoUntil != null ? (new Date(uses.grow.undoUntil).getTime() - now) / 1000 : 0;
   const empty =
-    uses !== null && uses.shared === null && uses.want === null && (uses.grow?.parts.length ?? 0) === 0;
+    uses !== null &&
+    uses.shared === null &&
+    uses.want === null &&
+    (uses.grow?.parts.length ?? 0) === 0 &&
+    uses.grow?.saving == null;
   return (
     <div className="panel gold-uses" role="dialog" aria-label="What your gold can do">
       <div className="gold-uses-head">
@@ -83,12 +87,12 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
           <span>
             💡 <strong>Grow everything that pays</strong>: about +{formatAmount(uses.grow.gain)} g/min for{" "}
             {formatAmount(uses.grow.cost)} g (
-            {Math.max(1, Math.round((100 * uses.grow.cost) / Math.max(1, gold)))}% of your gold), each part
-            back within a week
+            {Math.max(1, Math.round((100 * uses.grow.cost) / Math.max(1, gold)))}% of your gold): your next
+            parcel first, then each level back within five days
           </span>
           <details>
             <summary className="small">
-              {uses.grow.parts.length} {uses.grow.parts.length === 1 ? "building" : "buildings"}
+              {uses.grow.parts.length} {uses.grow.parts.length === 1 ? "part" : "parts"}
             </summary>
             <ul className="small">
               {uses.grow.parts.map((part) => (
@@ -107,6 +111,10 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
           </button>
         </div>
       )}
+      {uses?.grow?.saving != null && (
+        // Land first, as the model plays (1.4 §17): Grow keeps the gold while the next parcel is a few hours away
+        <p className="gold-use grow small">💡 {uses.grow.saving}</p>
+      )}
       {undoLeft > 0 && (
         <p className="small">
           <button className="small" onClick={() => void gameClient.undoGrowth()}>
@@ -119,9 +127,9 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
       )}
       {empty && (
         <p className="small">
-          Nothing pays back within a week now: your buildings are at what their pipes and inputs carry, and
-          nobody near waits for anything gold can bring. New chains, parcels and your station&apos;s next goal
-          are in Next steps.
+          Nothing pays back within five days now: your buildings are at what their pipes and inputs carry, and
+          nobody near waits for anything gold can bring. New chains, the next parcel and the Era Wonder are in
+          Next steps.
         </p>
       )}
       {(uses?.shared != null || uses?.want != null) && (

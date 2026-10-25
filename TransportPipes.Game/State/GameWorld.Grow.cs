@@ -2,26 +2,53 @@ using TransportPipes.Game.Content;
 
 namespace TransportPipes.Game.State;
 
-/// <summary>One part of "Grow everything that pays": a building's pipe door (the pipe, then its levels), or its Max</summary>
-public sealed record GrowPart(long Building, string Text, bool Door, int Levels, double Cost, double Gain);
-
-/// <summary>What "Grow everything that pays" would buy now, its price and what it adds a minute (about: the parts are solved one by one)</summary>
-public sealed record GrowPlan(List<GrowPart> Parts, double Cost, double Gain);
+/// <summary>
+/// One part of "Grow everything that pays": a building's pipe door (the pipe, then its levels), its Max, or the next
+/// parcel (Parcel set, Building -1)
+/// </summary>
+public sealed record GrowPart(long Building, string Text, bool Door, int Levels, double Cost, double Gain, int? Parcel = null);
 
 /// <summary>
-/// Your gold, in one tap (after run 4, the design team's "your gold can"): every pipe door and every Max that pays back
-/// within a week, the best payback first, as far as the gold goes, with one preview and an hour's Undo. Run 4's
-/// returners came back to days of income and bought one level at a time: Ben came back to 13M and spent 3.4k; the
-/// advisor's bots, pressing every step, held 2.7 days of income where people held 24.
+/// What "Grow everything that pays" would buy now, its price and what it adds a minute (about: the parts are solved one
+/// by one); Saving says what it keeps the gold for instead (the next parcel, soon)
+/// </summary>
+public sealed record GrowPlan(List<GrowPart> Parts, double Cost, double Gain, string? Saving = null);
+
+/// <summary>
+/// Your gold, in one tap (after run 4, the design team's "your gold can"; 1.4 §17: the model's player): the next parcel
+/// as soon as the level and the gold allow (saving for it while it is at most eight hours of income away), then every
+/// pipe door and every Max that pays back within five days, the best payback first, as far as the gold goes, with one
+/// preview and an hour's Undo. Run 4's returners came back to days of income and bought one level at a time: Ben came
+/// back to 13M and spent 3.4k.
 /// </summary>
 public sealed partial class GameWorld
 {
-    /// <summary>A part pays back within this many minutes, or it isn't in the plan</summary>
-    public const double GrowPaybackMinutes = 7 * 24 * 60;
+    /// <summary>A part pays back within this many minutes, or it isn't in the plan (the model's five days)</summary>
+    public const double GrowPaybackMinutes = 5 * 24 * 60;
+
+    /// <summary>Grow saves for the next parcel while it costs at most this many minutes of income</summary>
+    public const double SaveForParcelMinutes = 8 * 60;
 
     /// <summary>What "Grow everything that pays" buys now</summary>
     public GrowPlan PlanGrowth(Company company)
     {
+        var left = company.Gold;
+        var chosen = new List<GrowPart>();
+        // Land first, as the model buys it: more room is what the levels can't give
+        var (parcelCost, parcelLevel) = NextParcel(company);
+        if (parcelLevel <= company.Level && BestParcel(company) is { } parcel)
+        {
+            var holds = parcel.Holds.Count == 0 ? "room for more buildings" : string.Join(", ", parcel.Holds.Take(2).Select(t => t.Label));
+            if (parcelCost <= left)
+            {
+                chosen.Add(new GrowPart(-1, $"A new parcel: {holds}", false, 0, parcelCost, 0, parcel.Parcel));
+                left -= parcelCost;
+            }
+            else if (GoldPerMinute().GetValueOrDefault(company.Id) is var income && income > 0 && (parcelCost - left) / income <= SaveForParcelMinutes)
+            {
+                return new GrowPlan([], 0, 0, $"Saving for your next parcel ({Gold(parcelCost)}): {Gold(parcelCost - left)} more, about {Minutes((parcelCost - left) / income)} of income");
+            }
+        }
         var parts = new List<GrowPart>();
         foreach (var building in BuildingsOf(company.Id).Where(t => !t.UnderConstruction && !IsSite(t)).ToList())
         {
@@ -41,8 +68,6 @@ public sealed partial class GameWorld
                 parts.Add(new GrowPart(building.Id, $"{definition.Name} to level {building.Level + max.Levels}", false, max.Levels, max.Cost, preview.Gain));
             }
         }
-        var chosen = new List<GrowPart>();
-        var left = company.Gold;
         foreach (var part in parts.Where(t => t.Cost / t.Gain <= GrowPaybackMinutes).OrderBy(t => t.Cost / t.Gain))
         {
             if (part.Cost <= left)
@@ -64,13 +89,19 @@ public sealed partial class GameWorld
         var plan = PlanGrowth(company);
         if (plan.Parts.Count == 0)
         {
-            return CommandResult.Fail("Nothing pays back within a week now: your buildings are at what their pipes and inputs carry.");
+            return CommandResult.Fail(plan.Saving ?? "Nothing pays back within five days now: your buildings are at what their pipes and inputs carry.");
         }
         var gold = company.Gold;
         var done = new List<long>();
-        // The pipe doors first: they read the flows as they are now, and an upgrade elsewhere changes them
-        foreach (var part in plan.Parts.OrderBy(t => t.Door ? 0 : 1))
+        var land = 0;
+        // The parcel first, then the pipe doors: they read the flows as they are now, and an upgrade elsewhere changes them
+        foreach (var part in plan.Parts.OrderBy(t => t.Parcel != null ? 0 : t.Door ? 1 : 2))
         {
+            if (part.Parcel is { } parcel)
+            {
+                land += BuyParcel(companyId, parcel).Success ? 1 : 0;
+                continue;
+            }
             var result = part.Door
                 ? ClimbPipe(companyId, part.Building)
                 : Upgrade(companyId, part.Building, Math.Min(part.Levels, Building(part.Building) is { } b ? AffordableLevels(company, b) : 0));
@@ -79,7 +110,7 @@ public sealed partial class GameWorld
                 done.Add(part.Building);
             }
         }
-        if (done.Count == 0)
+        if (done.Count == 0 && land == 0)
         {
             return CommandResult.Fail("None of it could be bought now.");
         }
@@ -87,7 +118,8 @@ public sealed partial class GameWorld
         AddStat(company, "pressed:grow", 1);
         company.Touch();
         Changes.Companies.Add(company.Id);
-        return CommandResult.Done($"Grown: {done.Count} {(done.Count == 1 ? "building" : "buildings")} for {Gold(gold - company.Gold)}, about +{Gold(plan.Gain)}/min · Undo for an hour takes the levels back");
+        var what = string.Join(" and ", new[] { land > 0 ? "a new parcel" : null, done.Count > 0 ? $"{done.Count} {(done.Count == 1 ? "building" : "buildings")}" : null }.OfType<string>());
+        return CommandResult.Done($"Grown: {what} for {Gold(gold - company.Gold)}, about +{Gold(plan.Gain)}/min" + (done.Count > 0 ? " · Undo for an hour takes the levels back" : ""));
     }
 
     /// <summary>The last "Grow everything" within the hour: its levels back, as each building's Undo gives them</summary>

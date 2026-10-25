@@ -4,8 +4,9 @@ namespace TransportPipes.Game.Tests;
 
 /// <summary>
 /// Your gold, in one tap (after run 4: Ben came back to 13M and spent 3.4k one level at a time; the advisor's bots,
-/// pressing every step, held 2.7 days of income where people held 24): every pipe door and Max that pays back within a
-/// week, the best first, as far as the gold goes, with an hour's Undo
+/// pressing every step, held 2.7 days of income where people held 24): the next parcel first, as the model of 1.4 §17
+/// buys it, then every pipe door and Max that pays back within five days, the best first, as far as the gold goes, with
+/// an hour's Undo
 /// </summary>
 [TestClass]
 public class GrowFacts
@@ -24,20 +25,23 @@ public class GrowFacts
     }
 
     [TestMethod]
-    public void GrowEverythingBuysEachDoorAndMaxThatPaysWithinAWeek()
+    public void GrowEverythingBuysTheNextParcelThenEachDoorAndMaxThatPaysWithinFiveDays()
     {
         var (game, company, moily, panel) = Estate();
+        var parcels = game.EstateOf(company).UnlockedCount;
         var plan = game.World.PlanGrowth(company);
+        Assert.IsNotNull(plan.Parts[0].Parcel, "land first");
         Assert.IsTrue(plan.Parts.Any(t => t.Building == moily.Id && t.Door), "the moily's pipe door");
         Assert.IsTrue(plan.Parts.Any(t => t.Building == panel.Id && !t.Door), "the panel's Max");
-        Assert.IsTrue(plan.Parts.All(t => t.Cost / t.Gain <= GameWorld.GrowPaybackMinutes), "each part back within a week");
+        Assert.IsTrue(plan.Parts.Where(t => t.Parcel == null).All(t => t.Cost / t.Gain <= GameWorld.GrowPaybackMinutes), "each level back within five days");
         var gold = company.Gold;
         var before = game.World.GoldPerMinute()[company.Id];
 
         var result = game.World.GrowEverything(company.Id);
 
         Assert.IsTrue(result.Success, result.Error);
-        StringAssert.StartsWith(result.Note, $"Grown: {plan.Parts.Count} buildings", result.Note);
+        StringAssert.StartsWith(result.Note, $"Grown: a new parcel and {plan.Parts.Count - 1} buildings", result.Note);
+        Assert.AreEqual(parcels + 1, game.EstateOf(company).UnlockedCount);
         Assert.AreEqual(plan.Cost, gold - company.Gold, plan.Cost * 0.05, "what it said");
         game.Pass(2);
         Assert.AreEqual(before + plan.Gain, game.World.GoldPerMinute()[company.Id], plan.Gain * 0.25, "about what it said: the parts are solved one by one");
@@ -59,7 +63,26 @@ public class GrowFacts
         game.Pass(1);
 
         Assert.IsEmpty(game.World.PlanGrowth(company).Parts);
-        StringAssert.StartsWith(game.World.GrowEverything(company.Id).Error, "Nothing pays back within a week now");
+        StringAssert.StartsWith(game.World.GrowEverything(company.Id).Error, "Nothing pays back within five days now");
+    }
+
+    [TestMethod]
+    public void GrowSavesForTheNextParcelWhileItIsAFewHoursAway()
+    {
+        var (game, company, _, _) = Estate();
+        var (cost, _) = game.World.NextParcel(company);
+        var income = game.World.GoldPerMinute()[company.Id];
+        company.Gold = Math.Max(0, cost - income * 60);
+
+        var plan = game.World.PlanGrowth(company);
+
+        Assert.IsEmpty(plan.Parts, "the gold is kept for the land");
+        StringAssert.StartsWith(plan.Saving, "Saving for your next parcel");
+        StringAssert.StartsWith(game.World.GrowEverything(company.Id).Error, "Saving for your next parcel");
+
+        // A parcel its level doesn't allow yet: nothing to save for, the levels that pay
+        company.Level = 1;
+        Assert.IsNull(game.World.PlanGrowth(company).Saving);
     }
 
     [TestMethod]

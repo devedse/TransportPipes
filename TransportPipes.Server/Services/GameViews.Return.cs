@@ -230,12 +230,15 @@ public static partial class GameViews
                 .OrderByDescending(t => world.Content.Building(t.Type).Out.Sum(o => o.Value * world.BasePrice(o.Key)) * world.Content.Progression.OutputMultiplier(t.Level))
                 .Take(6)
                 .ToList();
-            // Everything that pays back within a week, in one tap (after run 4: Ben came back to 13M and spent 3.4k one
+            // Everything that pays back within five days, in one tap (after run 4: Ben came back to 13M and spent 3.4k one
             // Max at a time); it leads the card's money line
             var plan = world.PlanGrowth(me);
             if (plan.Parts.Count > 0)
             {
-                Add(7, "invest", "💡", $"Grow everything that pays: about +{Amount(plan.Gain)} g/min for {Amount(plan.Cost)} g ({Math.Max(1, Math.Round(100 * plan.Cost / Math.Max(1, me.Gold))):0}% of your gold) · {Plural(plan.Parts.Count, "building")}",
+                var land = plan.Parts.Any(t => t.Parcel != null);
+                var grown = plan.Parts.Count(t => t.Parcel == null);
+                var what = string.Join(" and ", new[] { land ? "a new parcel" : null, grown > 0 ? Plural(grown, "building") : null }.OfType<string>());
+                Add(7, "invest", "💡", $"Grow everything that pays: about +{Amount(plan.Gain)} g/min for {Amount(plan.Cost)} g ({Math.Max(1, Math.Round(100 * plan.Cost / Math.Max(1, me.Gold))):0}% of your gold) · {what}",
                     "grow", null, plan.Cost);
             }
             else if (producers.FirstOrDefault(t => world.IdleReasonOf(t).Cause is IdleCause.PipeFull or IdleCause.PostFull) is { } held)

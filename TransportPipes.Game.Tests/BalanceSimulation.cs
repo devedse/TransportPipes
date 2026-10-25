@@ -303,6 +303,74 @@ public class BalanceSimulation
         /// <summary>One sensible thing to do, if there is one</summary>
         public bool Act() => TryPump() || TryResearch() || TryParcel() || TryChain() || TryUpgrade() || TryProducer();
 
+        /// <summary>
+        /// One thing the model's player of 1.4 §17 does: research when its Labs are idle, the next parcel as soon as the
+        /// level and the gold allow (waiting for it while it is a few hours of income away), then of the game's own next
+        /// steps the one that pays back soonest within five days (an upgrade is a Max, a building is placed and piped);
+        /// false when it waits
+        /// </summary>
+        public bool ModelStep()
+        {
+            company.LastSeenAt = game.Time;
+            if (TryResearch())
+            {
+                return true;
+            }
+            var (cost, level) = World.NextParcel(company);
+            if (level <= company.Level && World.BestParcel(company) is { } parcel)
+            {
+                if (cost <= company.Gold && World.BuyParcel(company.Id, parcel.Parcel).Success)
+                {
+                    _notes.Add("bought a parcel");
+                    return true;
+                }
+                if (Income > 0 && (cost - company.Gold) / Income <= GameWorld.SaveForParcelMinutes)
+                {
+                    return false;
+                }
+            }
+            var steps = World.NextSteps(company, 12);
+            // A building nobody piped earns nothing: its pipe first
+            if (steps.Any(t => t.Action == AdvisorAction.Connect) && ConnectAll())
+            {
+                _notes.Add("piped what wasn't");
+                return true;
+            }
+            var best = steps
+                .Where(t => t.Action is AdvisorAction.Build or AdvisorAction.Upgrade or AdvisorAction.Climb && t.GainPerMinute > 0 && t.Cost <= company.Gold)
+                .Where(t => t.Cost / t.GainPerMinute <= GameWorld.GrowPaybackMinutes)
+                // Not a scaffold that would wait for materials nobody brings
+                .Where(t => t.Action != AdvisorAction.Build || World.MaterialsLine(company, World.Content.Building(t.BuildingType!)) is not { Short.Count: > 0 })
+                .OrderBy(t => t.Cost / t.GainPerMinute)
+                .FirstOrDefault();
+            if (best == null)
+            {
+                // Nothing pays back within five days: the gold beyond two hours of income goes to the Era Wonder (the model
+                // splits it with the Yard's Monument, phase B)
+                var spare = company.Gold - Income * 120;
+                if (Income > 0 && spare > Income * 10 && World.EraWonder is { } wonder
+                    && wonder.Required.Keys.ToList().Any(good => World.OrderForWonder(company.Id, good, spare).Success))
+                {
+                    _notes.Add("gave to the Era Wonder");
+                    return true;
+                }
+                return false;
+            }
+            var done = best?.Action switch
+            {
+                AdvisorAction.Upgrade when World.Building(best.Building!.Value) is { } building =>
+                    World.Upgrade(company.Id, building.Id, Math.Max(best.Levels, World.SmartMax(company, building).Levels)).Success,
+                AdvisorAction.Build => PlaceAt(best.BuildingType!, best.At),
+                AdvisorAction.Climb => World.ClimbPipe(company.Id, best.Building!.Value, order: true).Success,
+                _ => false,
+            };
+            if (done)
+            {
+                _notes.Add(best!.Title);
+            }
+            return done;
+        }
+
         /// <summary>The first of the advisor's next steps the company can afford now, done</summary>
         private DateTime? _grownOn;
 
