@@ -913,7 +913,7 @@ export interface ResourceDefinition {
   tier: number;
   era: number;
   price: number;
-  /** "solid", "liquid" or "power" (the pipe's three lanes, phase C) */
+  /** "solid", "fluid" or "power" (the pipe's three lanes, 1.4 §9) */
   kind: string;
 }
 

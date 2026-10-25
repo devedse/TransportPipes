@@ -16,6 +16,7 @@ import type {
   CompanyDto,
   ConductorDto,
   DistrictDto,
+  FlowDto,
   MapLinkDto,
   OutpostDto,
   SeatState,
@@ -65,6 +66,7 @@ import { emblemIcon } from "../app/crews";
 import { sounds } from "../app/sound";
 import { canPlace, footprintOrigin, routePipe, type Placement } from "./rules";
 import { chunkKey, type WorldModel } from "./world";
+import { fullness, insidePipe, laneOf, type InsideFlow, type LaneKind } from "./inside";
 
 export type Tool =
   | { kind: "select" }
@@ -227,8 +229,6 @@ export interface PipeLook {
   shape: string;
   sockets: string[];
 }
-
-type LaneKind = "solid" | "fluid" | "power";
 
 /** The lanes' order across a side, and where they stand for one, two or three of them (art/pipes.mjs LANE_SLOTS) */
 const LANE_KINDS: LaneKind[] = ["solid", "fluid", "power"];
@@ -518,6 +518,12 @@ export class Engine {
   /** Building pictures that were still loading have arrived */
   private artArrived = false;
   private lastArtRedraw = 0;
+  /** Every flow's way along its pipes as drawn (look inside draws over it) */
+  private flowPaths: Array<{ flow: FlowDto; network: number; points: Array<{ x: number; y: number }> }> = [];
+  /** Look inside (1.4 §9): the pipe under the pointer, or every pipe while Alt is held, cut open */
+  private readonly insideLayer = new Graphics();
+  private insideKey = "";
+  private flowsVersion = 0;
   private flowDots: Array<{
     sprite: Sprite;
     points: Array<{ x: number; y: number }>;
@@ -555,6 +561,9 @@ export class Engine {
   private hovered: TilePosition | null = null;
   private lastToolKey = "";
   private readonly keys = new Set<string>();
+  /** The pipes' lane connectors: they fade as the map zooms out (1.4 §9: the map stays calm) */
+  private readonly laneSprites = new Set<Sprite>();
+  private laneScale = 0;
   private readonly removeListeners: Array<() => void> = [];
   private destroyed = false;
 
@@ -586,6 +595,7 @@ export class Engine {
       this.lineLayer,
       this.pickGlow,
       this.pickMarks,
+      this.insideLayer,
       this.flowLayer,
       this.ghostLayer,
       this.juice.layer,
@@ -872,6 +882,10 @@ export class Engine {
         return;
       }
       this.keys.add(event.key.toLowerCase());
+      // Alt looks inside the pipes: it doesn't open the browser's menu
+      if (event.key === "Alt") {
+        event.preventDefault();
+      }
     };
     const onKeyUp = (event: KeyboardEvent) => this.keys.delete(event.key.toLowerCase());
     const onBlur = () => this.keys.clear();
@@ -1289,6 +1303,8 @@ export class Engine {
       this.drawGhost();
     }
     this.drawHighlights();
+    this.fadeLanes();
+    this.drawInside();
     this.drawPicker();
     this.drawLinks(deltaSeconds);
     this.animate(deltaSeconds);
@@ -2215,6 +2231,10 @@ export class Engine {
           const sprite = new Sprite(art.texture);
           sprite.position.set(art.x, art.y);
           sprite.scale.set(art.scale);
+          if (shape.startsWith("lane-")) {
+            sprite.alpha = this.laneAlpha();
+            this.laneSprites.add(sprite);
+          }
           container.addChild(sprite);
         }
       }
@@ -2648,6 +2668,124 @@ export class Engine {
     }
   }
 
+  /** How much of the lane connectors shows at this zoom: all of them close up, none far out */
+  private laneAlpha(): number {
+    return Math.max(0, Math.min(1, (this.camera.scale - 0.22) / 0.18));
+  }
+
+  private fadeLanes() {
+    if (Math.abs(this.camera.scale - this.laneScale) < 0.005) {
+      return;
+    }
+    this.laneScale = this.camera.scale;
+    const alpha = this.laneAlpha();
+    for (const sprite of this.laneSprites) {
+      if (sprite.destroyed) {
+        this.laneSprites.delete(sprite);
+      } else {
+        sprite.alpha = alpha;
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------- Look inside
+
+  /**
+   * Look inside (1.4 §9): hovering a pipe with the select tool, or holding Alt, turns it see-through like the cutaway:
+   * a glass tube along the way of each flow in it, and in it a core in the good's colour at its lane's height (a belt
+   * low, the slim pipe in the middle, the cables high), thicker the fuller the pair's pipe is
+   */
+  private drawInside() {
+    const state = this.callbacks.getState();
+    const alt = this.keys.has("alt");
+    const tile = this.hovered;
+    const onPipe =
+      !alt &&
+      tile !== null &&
+      state.tool.kind === "select" &&
+      this.world.conductorAt(tile.x, tile.y)?.kind === "pipe" &&
+      this.world.buildingAt(tile.x, tile.y) === undefined;
+    const key = this.far
+      ? ""
+      : alt
+        ? `alt:${this.flowsVersion}`
+        : onPipe
+          ? `${tile.x},${tile.y}:${this.flowsVersion}`
+          : "";
+    if (key === this.insideKey) {
+      return;
+    }
+    this.insideKey = key;
+    const g = this.insideLayer;
+    g.clear();
+    if (key === "" || state.content === null) {
+      return;
+    }
+    const content = state.content;
+    let shown: Array<{
+      points: Array<{ x: number; y: number }>;
+      flow: FlowDto;
+      kind: LaneKind;
+      full: number;
+    }>;
+    if (alt) {
+      const full = new Map<number, (flow: FlowDto) => number>();
+      shown = this.flowPaths.slice(0, 600).map(({ flow, network, points }) => {
+        let of = full.get(network);
+        if (of === undefined) {
+          const flows = this.world.flows.get(network);
+          of = flows !== undefined ? fullness(this.world, content, flows) : () => 0;
+          full.set(network, of);
+        }
+        return { points, flow, kind: laneOf(content, flow.resource), full: of(flow) };
+      });
+    } else {
+      const inside = new Map<FlowDto, InsideFlow>(
+        insidePipe(this.world, content, tile!.x, tile!.y).map((t) => [t.flow, t]),
+      );
+      shown = this.flowPaths
+        .filter((t) => inside.has(t.flow))
+        .map((t) => ({
+          points: t.points,
+          flow: t.flow,
+          kind: inside.get(t.flow)!.kind,
+          full: inside.get(t.flow)!.full,
+        }));
+    }
+    const lift = this.textures.pipeHeight;
+    const trace = (points: Array<{ x: number; y: number }>, dy: number) => {
+      g.moveTo(points[0]!.x, points[0]!.y + dy);
+      for (const point of points.slice(1)) {
+        g.lineTo(point.x, point.y + dy);
+      }
+    };
+    // The tube cut open: its glass rim, then the dark inside the lanes run in
+    for (const { points } of shown) {
+      if (points.length >= 2) {
+        trace(points, 0);
+        g.stroke({ width: lift * 0.95, color: 0xe8f7ff, alpha: 0.4, cap: "round", join: "round" });
+      }
+    }
+    for (const { points } of shown) {
+      if (points.length >= 2) {
+        trace(points, 0);
+        g.stroke({ width: lift * 0.72, color: 0x1f2b33, alpha: 0.62, cap: "round", join: "round" });
+      }
+    }
+    for (const { points, flow, kind, full } of shown) {
+      if (points.length >= 2) {
+        trace(points, (0.86 - LANE_HEIGHT[kind]) * lift * 0.6);
+        g.stroke({
+          width: 3 + 9 * full,
+          color: content.resourceColor(flow.resource),
+          alpha: 0.9,
+          cap: "round",
+          join: "round",
+        });
+      }
+    }
+  }
+
   // ---------------------------------------------------------------- Flows
 
   private buildFlows() {
@@ -2655,6 +2793,8 @@ export class Engine {
       dot.sprite.destroy();
     }
     this.flowDots = [];
+    this.flowPaths = [];
+    this.flowsVersion++;
     const content = this.callbacks.getState().content;
     for (const network of this.world.flows.values()) {
       const sharing = Math.max(1, network.flows.filter((t) => t.path.length >= 2 && t.delivered > 0).length);
@@ -2684,6 +2824,7 @@ export class Engine {
         );
         const color = content.resourceColor(flow.resource);
         for (const points of pieces) {
+          this.flowPaths.push({ flow, network: network.id, points });
           let length = 0;
           for (let i = 1; i < points.length; i++) {
             length += Math.hypot(points[i]!.x - points[i - 1]!.x, points[i]!.y - points[i - 1]!.y);
