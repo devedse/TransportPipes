@@ -132,8 +132,20 @@ public sealed partial class GameWorld
         var set = full.ToHashSet(ReferenceEqualityComparer.Instance);
         if (Estimated(network))
         {
-            // A large network: what the full links carry now, times what they would carry more (half of it found a taker)
-            return FullLinkValue(network, full) * Math.Min(factor - 1, 3) * 0.5;
+            // A large network: what the full links carry now, times what they would carry more (half of it found a taker),
+            // but no more than the building could make beyond what its pipes carry now, at its new level (the solo bot's
+            // Small Factory at level 25 could make 111 ingots and its pipe carried 100: the door said +1,697 g/min)
+            var room = 0.0;
+            if (network.Index.Nodes.GetValueOrDefault(building.Id) is { } node)
+            {
+                var scale = Content.Progression.OutputMultiplier(level) / Content.Progression.OutputMultiplier(building.Level);
+                foreach (var (resource, perRun) in node.Out)
+                {
+                    var carried = network.Index.FlowsFrom(building.Id).Where(t => t.Resource == resource).Sum(t => t.Sent);
+                    room += Math.Max(0, perRun * node.MaxRate * scale - carried) * BasePrice(resource);
+                }
+            }
+            return Math.Min(FullLinkValue(network, full) * Math.Min(factor - 1, 3) * 0.5, room);
         }
         var up = level > building.Level ? ToFlowNode(building, level) : null;
         var after = WhatIfGold(network, company.Id,

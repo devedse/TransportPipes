@@ -72,6 +72,26 @@ public class PipeDoorFacts
     }
 
     [TestMethod]
+    public void InALargeNetworkTheDoorPromisesNoMoreThanTheBuildingCouldMake()
+    {
+        // B13's bot: a Small Factory at level 25 could make 111 ingots and its pipe carried 100, and the door of its large
+        // network (estimated, not solved again) said +1,697 g/min
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(gold: 10_000_000, level: 12);
+        var map = game.Map(company, game.Local(company, 1, 1), new string('S', 32) + "\n" + new string('+', 32) + "T\nW+", pipeTier: 1);
+        var moily = map[(0, 2)];
+        game.UpgradeNow(company, [moily.Id], 14);
+        game.Pass(2);
+        Assert.AreEqual(IdleCause.PipeFull, game.World.IdleReasonOf(moily).Cause);
+        var (could, carried) = game.World.PipeCarry(moily, "energy");
+
+        var door = game.World.PipeDoorFor(company, moily)!;
+
+        Assert.IsLessThanOrEqualTo((could - carried) * game.World.BasePrice("energy") + 1e-6, door.Gain, $"could {could:N1}, carried {carried:N1}");
+        Assert.IsGreaterThan(0, door.Gain);
+    }
+
+    [TestMethod]
     public void APipeWaitsForAFriendsIngotsAndOffersAnOrder()
     {
         var (game, company, moily) = GreyMoily(ingots: 0);
