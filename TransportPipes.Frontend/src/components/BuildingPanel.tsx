@@ -42,49 +42,26 @@ function partners(content: Content, flows: BuildingFlowDto[]): string {
 }
 
 /**
- * A building's trade with its neighbours (step 4), for its owner: who takes its goods and who sends it its inputs, both
- * ends named; who could use its goods and what the project wants of them, each with Send ▸ (the same tap lays the pipe
- * to the gate when its pipes don't reach it); 💛 Thanks to a neighbour who sends it something.
+ * The pipe to the Yard gate as a building's one fix (F2, step 4): when a neighbour could use its goods and its pipes
+ * don't reach the gate yet
  */
-/** The Send that is a building's one fix button (F2, step 4): the project's want, else the first bid, when its pipes don't reach the gate */
-function primarySend(trade: BuildingTradeDto | null) {
-  if (trade === null || trade.reachesGate || trade.gatePipe === null || trade.sends >= trade.maxSends) {
+function gatePipeFix(trade: BuildingTradeDto | null) {
+  if (trade === null || trade.reachesGate || trade.gatePipe === null || trade.bids.length === 0) {
     return null;
   }
-  const want = trade.project.find((t) => !t.sent);
-  if (want !== undefined) {
-    return {
-      resource: want.resource,
-      to: null,
-      name: `the ${want.stage}`,
-      building: null,
-      pipe: trade.gatePipe,
-    };
-  }
-  const bid = trade.bids[0];
-  return bid === undefined
-    ? null
-    : {
-        resource: bid.resource,
-        to: bid.buyer,
-        name: bid.buyerName,
-        building: bid.buildingId,
-        pipe: trade.gatePipe,
-      };
+  return { name: trade.bids[0]!.buyerName, pipe: trade.gatePipe };
 }
 
-function NeighbourTrade({ trade, content }: { trade: BuildingTradeDto; content: Content }) {
-  // The Send the panel's head offers already isn't offered twice
-  const primary = primarySend(trade);
+/**
+ * A building's trade with its neighbours (1.4 §8), for its owner: who takes its goods and who sends it its inputs, both
+ * ends named with the price; who could use its goods, and the pipe to the Yard gate when its pipes don't reach it
+ */
+function NeighbourTrade({ details, content }: { details: BuildingDetailsDto; content: Content }) {
+  const trade = details.trade!;
   const good = (resource: string) => content.resourceName(resource).toLowerCase();
-  const full = trade.sends >= trade.maxSends;
   const pipe = trade.reachesGate ? null : trade.gatePipe;
-  const sendLabel = (to: string) =>
-    pipe === null
-      ? `Send to ${to} ▸`
-      : `Lay the pipe and send to ${to} · ${pipe.newTiles} tiles · ${formatAmount(pipe.cost)} g`;
-  const send = (resource: string, to: number | null, name: string, building: number | null = null) =>
-    void gameClient.sendGood(resource, to, name, building, pipe?.tiles ?? null);
+  // The pipe the panel's head offers already isn't offered twice
+  const offered = gatePipeFix(trade) !== null && details.status?.pill != null;
   return (
     <section className="neighbour-trade">
       <h4>Neighbours</h4>
@@ -95,52 +72,8 @@ function NeighbourTrade({ trade, content }: { trade: BuildingTradeDto; content: 
             <span>
               to <strong>{t.partnerName}</strong>
               {t.partnerBuilding !== null && `${possessive(t.partnerName)} ${t.partnerBuilding}`} ·{" "}
-              {formatAmount(t.perMinute)}/min · {t.price.toFixed(2)} g{t.sent && " 💛"}
+              {formatAmount(t.perMinute)}/min · {t.price.toFixed(2)} g
             </span>
-            {!t.house &&
-              (t.sent ? (
-                <button
-                  className="link small"
-                  onClick={() => void gameClient.stopSend(t.resource, t.partner)}
-                >
-                  stop
-                </button>
-              ) : (
-                <button
-                  className="small"
-                  disabled={full}
-                  title="A standing promise: they come first when your spare gets short"
-                  onClick={() => send(t.resource, t.partner, t.partnerName, t.partnerBuildingId)}
-                >
-                  Keep {t.partnerName} first
-                </button>
-              ))}
-          </li>
-        ))}
-        {trade.project.map((p) => (
-          <li key={`project-${p.resource}`}>
-            <span aria-hidden="true">🏗</span>
-            <span>
-              The {p.stage} wants {formatAmount(p.wants)} {good(p.resource)}
-              {p.sent
-                ? p.perMinute > 0
-                  ? ` · yours goes there first: ${formatAmount(p.perMinute)}/min 💛`
-                  : ` · yours would go first, but nothing moves${p.nothingMoves !== null ? `: ${p.nothingMoves}` : ""}`
-                : " · you make it"}
-            </span>
-            {p.sent ? (
-              <button className="link small" onClick={() => void gameClient.stopSend(p.resource, null)}>
-                stop
-              </button>
-            ) : primary !== null && primary.to === null && primary.resource === p.resource ? null : (
-              <button
-                className="small"
-                disabled={full}
-                onClick={() => send(p.resource, null, `the ${p.stage}`)}
-              >
-                {pipe === null ? "Send ▸" : sendLabel(`the ${p.stage}`)}
-              </button>
-            )}
           </li>
         ))}
         {trade.bids.map((b) => (
@@ -149,42 +82,25 @@ function NeighbourTrade({ trade, content }: { trade: BuildingTradeDto; content: 
             <span>
               <strong>{b.buyerName}</strong>
               {b.building !== null && `${possessive(b.buyerName)} ${b.building}`} could use{" "}
-              {formatAmount(b.perMinute)}/min
-              {b.house !== null && <span className="muted"> · it buys from {b.house} ⚙ now</span>}
+              {formatAmount(b.perMinute)}/min of your {good(b.resource)}
             </span>
-            {(primary === null || primary.to !== b.buyer || primary.resource !== b.resource) && (
-              <button
-                className="small"
-                disabled={full}
-                onClick={() => send(b.resource, b.buyer, b.buyerName, b.buildingId)}
-              >
-                {sendLabel(b.buyerName)}
-              </button>
-            )}
           </li>
         ))}
         {trade.suppliers.map((t) => (
           <li key={`from-${t.partner}-${t.resource}`}>
             <ResourceIcon resource={t.resource} />
             <span>
-              {good(t.resource)} {formatAmount(t.perMinute)}/min from <strong>{t.partnerName}</strong>
-              {t.house ? " ⚙" : t.sent ? ", sent 💛" : ""} · {t.price.toFixed(2)} g
+              {good(t.resource)} {formatAmount(t.perMinute)}/min from <strong>{t.partnerName}</strong> ·{" "}
+              {t.price.toFixed(2)} g
             </span>
-            {t.canThank && (
-              <button
-                className="small"
-                onClick={() => void gameClient.thank(t.partner, t.resource, t.partnerName)}
-              >
-                💛 Thanks
-              </button>
-            )}
           </li>
         ))}
       </ul>
-      {(trade.sends > 0 || full) && (
-        <p className="muted small">
-          You send {trade.sends} of {trade.maxSends} things{full && ": stop one to send another"}.
-        </p>
+      {pipe !== null && trade.bids.length > 0 && !offered && (
+        <button className="small" onClick={() => void gameClient.fixBuilding(details, pipe)}>
+          Lay the pipe to your Yard gate · {pipe.newTiles} {pipe.newTiles === 1 ? "tile" : "tiles"} ·{" "}
+          {formatAmount(pipe.cost)} g
+        </button>
       )}
     </section>
   );
@@ -369,7 +285,7 @@ export function BuildingPanel() {
     return null;
   }
   const mine = company !== null && building.owner === company.id;
-  const send = mine ? primarySend(details.trade) : null;
+  const gatePipe = mine ? gatePipeFix(details.trade) : null;
   const gold = currentGold({ company, companyAt });
   // A price also as time: " (27 min of income)", from about a minute of income up (after run 3, step 1)
   const income = company?.goldPerMinute ?? 0;
@@ -430,17 +346,15 @@ export function BuildingPanel() {
             {details.status.pill}
           </p>
           {details.status.reach !== null && <p className="muted small reach">{details.status.reach}</p>}
-          {mine && send !== null && details.status.fix?.ownNeed !== true ? (
-            // Step 4: a neighbour or the project wants its goods, so the one fix is the Send that lays the pipe too (your
-            // own short building comes first: run 2, Cleo's mines)
+          {mine && gatePipe !== null && details.status.fix?.ownNeed !== true ? (
+            // Step 4: a neighbour could use its goods, so the one fix is the pipe to the Yard gate (your own short
+            // building comes first: run 2, Cleo's mines)
             <button
               className="primary wide fix"
-              onClick={() =>
-                void gameClient.sendGood(send.resource, send.to, send.name, send.building, send.pipe.tiles)
-              }
+              onClick={() => void gameClient.fixBuilding(details, gatePipe.pipe)}
             >
-              Lay the pipe and send to {send.name} · {send.pipe.newTiles}{" "}
-              {send.pipe.newTiles === 1 ? "tile" : "tiles"} · {formatAmount(send.pipe.cost)} g
+              Lay the pipe to your Yard gate for {gatePipe.name} · {gatePipe.pipe.newTiles}{" "}
+              {gatePipe.pipe.newTiles === 1 ? "tile" : "tiles"} · {formatAmount(gatePipe.pipe.cost)} g
             </button>
           ) : (
             mine &&
@@ -613,7 +527,7 @@ export function BuildingPanel() {
       )}
 
       {mine && details.trade !== null && !underConstruction && (
-        <NeighbourTrade trade={details.trade} content={content} />
+        <NeighbourTrade details={details} content={content} />
       )}
 
       {details.inputs.length > 0 && (
@@ -629,14 +543,6 @@ export function BuildingPanel() {
             />
           ))}
         </section>
-      )}
-      {details.refined !== null && (
-        <p
-          className="small refined-line"
-          title="Refinements: research after an Era's tree, for everyone in the station"
-        >
-          {details.refined.join(" · ")}
-        </p>
       )}
       {details.outputs.length > 0 && (
         <section>
@@ -657,11 +563,7 @@ export function BuildingPanel() {
         <button className="primary wide" onClick={() => void gameClient.openResearch()}>
           {company.currentResearch !== null
             ? `Researching ${researchName(company, content) ?? ""} · open research`
-            : company.refine.resting
-              ? "Rests: nothing left to research · open research"
-              : company.refine.open
-                ? "🔬 Refinements · open research"
-                : "🔬 Pick a research"}
+            : "🔬 Pick a research"}
         </button>
       )}
 

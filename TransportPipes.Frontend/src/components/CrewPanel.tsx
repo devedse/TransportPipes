@@ -5,7 +5,7 @@ import { useNow } from "../app/useNow";
 import { formatDuration } from "../app/format";
 import type { CrewDto } from "../api/contracts";
 import { setState, toast, useAppStore } from "../state/store";
-import { CrewFields } from "./FoundCompany";
+import { CrewFields } from "./CrewFields";
 
 /** Copies a link, or shows it to copy by hand when the browser won't */
 async function copy(text: string) {
@@ -74,9 +74,9 @@ function NextToMe({ crew, now }: { crew: CrewDto; now: number }) {
     <section>
       <h4>Play next to me</h4>
       <p className="muted small">
-        Your link opens the map at your Yard. The first friend who uses it may settle here even when the Yard is
-        closed. It works for seven days, and nothing is held: if the Yard fills up first, the map shows the nearest
-        free plots instead.
+        Your link opens the map at your Yard. The first friend who uses it may settle here even when the Yard
+        is closed. It works for seven days, and nothing is held: if the Yard fills up first, the map shows the
+        nearest free plots instead.
       </p>
       {link === null ? (
         <button className="primary" onClick={() => void get()}>
@@ -116,7 +116,12 @@ export function CrewPanel() {
   const crew = view?.crew ?? null;
   return (
     <div className="modal-backdrop" onClick={close}>
-      <div className="panel crew-panel" role="dialog" aria-label="Your Yard" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="panel crew-panel"
+        role="dialog"
+        aria-label="Your Yard"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="panel-header">
           <h2>
             {crew !== null ? (
@@ -210,7 +215,8 @@ export function CrewPanel() {
                     <li key={r.id}>
                       <span className="dot" style={{ background: r.color }} /> <strong>{r.name}</strong>{" "}
                       <span className="muted small grow">
-                        Lv {r.level} · waits {formatDuration(Math.max(0, (new Date(r.until).getTime() - now) / 1000))}
+                        Lv {r.level} · waits{" "}
+                        {formatDuration(Math.max(0, (new Date(r.until).getTime() - now) / 1000))}
                       </span>
                       <span className="button-row">
                         <button
@@ -226,7 +232,9 @@ export function CrewPanel() {
                         </button>
                         <button
                           className="small"
-                          onClick={() => void gameClient.crewCommand(gameClient.connection.answerRequest(r.id, false))}
+                          onClick={() =>
+                            void gameClient.crewCommand(gameClient.connection.answerRequest(r.id, false))
+                          }
                         >
                           No
                         </button>

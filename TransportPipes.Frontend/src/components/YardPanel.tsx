@@ -6,7 +6,6 @@ import type { Content } from "../game/content";
 import { setState, useAppStore } from "../state/store";
 import { LinksTab } from "./LinksTab";
 import { PlanBoard } from "./PlanBoard";
-import { ProjectTab } from "./ProjectTab";
 import { ResourceIcon } from "./ResourceIcon";
 
 function Rates({ rates, content, kind }: { rates: ResourceRateDto[]; content: Content; kind: string }) {
@@ -29,24 +28,21 @@ function Rates({ rates, content, kind }: { rates: ResourceRateDto[]; content: Co
   );
 }
 
-/** What each kind of House does for the station */
-const HOUSE_KIND: Record<string, string> = {
-  reliable: "a steady supplier",
-  collector: "buys what the station makes",
-  grower: "grows with the station",
-  neighbourInNeed: "needs what it lacks from the station",
-};
-
 const ACTIVITY: Record<string, string> = {
   active: "lively",
   resting: "resting",
   dormant: "away a while",
-  asleep: "asleep",
 };
 
+/** "1.15×" */
+function times(value: number): string {
+  return `${value.toFixed(2).replace(/0$/, "")}×`;
+}
+
 /**
- * Your station and its Yard (v1.2 §7): who lives here, what you sell to and buy from them, and what goes through the
- * Yard. The Yard is no buyer of its own: it passes what one resident has spare to the others who need it, at one price.
+ * Your Yard (1.4 §7): who lives around it, what you sell to and buy from them and at what price, and what goes through
+ * the Yard. The Yard is no buyer of its own: it passes what one resident has spare to the others who need it, each at
+ * the seller's price for them.
  */
 export function YardPanel() {
   const open = useAppStore((state) => state.yardOpen);
@@ -65,15 +61,9 @@ export function YardPanel() {
     <aside className="panel yard-panel" aria-label="Yard">
       <div className="panel-header">
         <div>
-          <h3>{yard?.station ?? "Your station"} · Yard</h3>
+          <h3>{yard?.station ?? "Your Yard"} · Yard</h3>
           <div className="muted small">
-            {/* A small station next to a crew's shares its Yard (run 2: Mia-B read "two seats" above six residents) */}
-            {yard?.small
-              ? yard.residents.length > 2
-                ? "A small station that shares this Yard with the station next door"
-                : "A small station of two seats"
-              : "A station of four seats"}
-            : one fair price for everybody
+            Four plots around one Yard: every seller sets its price for the crew
           </div>
         </div>
         <button
@@ -98,14 +88,6 @@ export function YardPanel() {
         </button>
         <button
           role="tab"
-          aria-selected={tab === "project"}
-          className={tab === "project" ? "tab active" : "tab"}
-          onClick={() => void gameClient.openProject()}
-        >
-          Project
-        </button>
-        <button
-          role="tab"
           aria-selected={tab === "links"}
           className={tab === "links" ? "tab active" : "tab"}
           onClick={() => void gameClient.openLinks()}
@@ -115,8 +97,6 @@ export function YardPanel() {
       </div>
       {tab === "links" ? (
         <LinksTab />
-      ) : tab === "project" ? (
-        <ProjectTab />
       ) : yard === null ? (
         <p className="muted">Loading…</p>
       ) : (
@@ -130,8 +110,8 @@ export function YardPanel() {
             </button>
           )}
           <p className="muted small">
-            To give a neighbour something, pipe the building that makes it to your Yard gate (G). It goes to
-            whoever here lacks it, and to the station&apos;s project. Send ▸ names who gets it first.
+            Pipe a building to your Yard gate (G): what it has spare goes to whoever here lacks it, at your
+            crew price. You set your prices in the trade settings.
           </p>
           {yard.yours.length > 0 && (
             <section>
@@ -143,16 +123,7 @@ export function YardPanel() {
                       <ResourceIcon resource={t.resource} /> {t.selling ? "You sell" : "You buy"}{" "}
                       {formatAmount(t.perMinute)}/min {content.resourceName(t.resource).toLowerCase()}{" "}
                       {t.selling ? "to" : "from"} <strong>{t.partnerName}</strong> at {t.price.toFixed(2)} g
-                      {t.sent && (t.selling ? " · you send it 💛" : " · sent to you 💛")}
                     </span>
-                    {t.canThank && (
-                      <button
-                        className="small"
-                        onClick={() => void gameClient.thank(t.partner, t.resource, t.partnerName)}
-                      >
-                        💛 Thanks
-                      </button>
-                    )}
                   </li>
                 ))}
               </ul>
@@ -191,7 +162,7 @@ export function YardPanel() {
           {/* Neighbours' scaffolds you can help with (after run 3, step 2): your Storage at a tap, or your spare by itself */}
           {company !== null && (company.wantsNear ?? []).length > 0 && (
             <section>
-              <h4>What your neighbours and your crew are building</h4>
+              <h4>What your neighbours are building</h4>
               <ul className="yard-trades">
                 {(company.wantsNear ?? []).map((w) => (
                   <li key={`${w.site}-${w.resource}`}>
@@ -235,58 +206,24 @@ export function YardPanel() {
                       <ResourceIcon resource={b.resource} /> <strong>{b.buyerName}</strong>
                       {b.building !== null && `${possessive(b.buyerName)} ${b.building}`} could use{" "}
                       {formatAmount(b.perMinute)}/min {content.resourceName(b.resource).toLowerCase()}
-                      {b.house !== null && <span className="muted"> · it buys from {b.house} ⚙ now</span>}
+                      <span className="muted"> · pipe it to your Yard gate and it goes there</span>
                     </span>
-                    <button
-                      className="small"
-                      disabled={yard.sendCount >= yard.maxSends}
-                      onClick={() => void gameClient.sendGood(b.resource, b.buyer, b.buyerName, b.buildingId)}
-                    >
-                      Send to {b.buyerName} ▸
-                    </button>
                   </li>
                 ))}
               </ul>
             </section>
           )}
-          {yard.sends.length > 0 && (
-            <section>
-              <h4>
-                Your Sends · {yard.sendCount} of {yard.maxSends}
-              </h4>
-              <ul className="yard-trades">
-                {yard.sends.map((t) => (
-                  <li key={`${t.to ?? "project"}-${t.resource}`}>
-                    <span>
-                      💛 <ResourceIcon resource={t.resource} /> {content.resourceName(t.resource)} to{" "}
-                      <strong>{t.toName}</strong>
-                      {t.building !== null && `${possessive(t.toName)} ${t.building}`} first
-                      {t.to !== null &&
-                        (t.perMinute > 0
-                          ? ` · ${formatAmount(t.perMinute)}/min now`
-                          : ` · nothing now${t.idle !== null ? `: ${t.idle}` : ""}`)}
-                      {/* What it really moved (run 2: Dev's Sends promised for 28 days and moved nothing) */}
-                      {t.to !== null && ` · ${formatAmount(t.week)} this week`}
-                    </span>
-                    <button className="link small" onClick={() => void gameClient.stopSend(t.resource, t.to)}>
-                      stop
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-          {yard.gifts.length > 0 && (
+          {yard.trades.length > 0 && (
             <section>
               <h4>This week between you and your neighbours</h4>
               <ul className="yard-trades">
-                {yard.gifts.map((g) => (
+                {yard.trades.map((g) => (
                   <li key={`${g.partner}-${g.resource}`}>
                     <span>
                       <ResourceIcon resource={g.resource} /> <strong>{g.name}</strong>:{" "}
                       {[
-                        g.given > 0 && `you gave ${formatAmount(g.given)}${g.youSend ? " 💛" : ""}`,
-                        g.received > 0 && `you got ${formatAmount(g.received)}${g.theySend ? " 💛" : ""}`,
+                        g.given > 0 && `you sold ${formatAmount(g.given)}`,
+                        g.received > 0 && `you bought ${formatAmount(g.received)}`,
                       ]
                         .filter(Boolean)
                         .join(" · ")}{" "}
@@ -309,47 +246,31 @@ export function YardPanel() {
                   <div className="resident-name">
                     <span className="dot" style={{ background: r.color }} />
                     <strong>{r.id === company.id ? "You" : r.name}</strong>
-                    {r.isNpc ? (
-                      <span
-                        className="badge house"
-                        title="A House: an NPC company that trades with the station"
-                      >
-                        ⚙ House
-                      </span>
-                    ) : (
-                      r.id !== company.id && (
-                        // Plainly a person (run 2: Mia took her neighbour Jo for "a House/NPC?")
-                        <span
-                          className="badge player"
-                          title="A player like you: what you trade with them is real"
-                        >
-                          a player
-                        </span>
-                      )
-                    )}
                     <span className="muted small">
                       Lv {r.level}
-                      {r.house !== null && ` · ${HOUSE_KIND[r.house] ?? r.house}`}
-                      {r.standIn !== null
-                        ? ` · asleep: ${r.standIn} ⚙ stands in`
-                        : r.activity !== null && r.id !== company.id
-                          ? ` · ${ACTIVITY[r.activity] ?? r.activity}`
-                          : ""}
+                      {r.activity !== null && r.id !== company.id
+                        ? ` · ${ACTIVITY[r.activity] ?? r.activity}`
+                        : ""}
                       {r.connected ? "" : " · not piped to the Yard yet"}
                       {r.blocked ? " · blocked" : ""}
                     </span>
                   </div>
-                  {(r.makes.length > 0 || r.needs.length > 0 || r.asks.length > 0) && r.id !== company.id && (
+                  {(r.makes.length > 0 || r.needs.length > 0) && r.id !== company.id && (
                     <div className="resident-pins small">
                       📌{" "}
                       {[
                         ...r.makes.map((t) => `makes ${content.resourceName(t).toLowerCase()}`),
                         ...r.needs.map((t) => `needs ${content.resourceName(t).toLowerCase()}`),
-                        ...r.asks.map(
-                          (t) =>
-                            `asks for ${formatAmount(t.amount - t.got)} ${content.resourceName(t.resource).toLowerCase()}`,
-                        ),
                       ].join(" · ")}
+                    </div>
+                  )}
+                  {r.id !== company.id && Object.keys(r.prices).length > 0 && (
+                    // Their price for you (1.4 §8): what you pay them for each good they have spare
+                    <div className="resident-pins small">
+                      🏷{" "}
+                      {Object.entries(r.prices)
+                        .map(([good, price]) => `${content.resourceName(good).toLowerCase()} ${times(price)}`)
+                        .join(" · ")}
                     </div>
                   )}
                   {r.connected && (
@@ -387,9 +308,7 @@ export function YardPanel() {
           {yard.residents.find((t) => t.id === company.id) !== undefined && (
             // Folded (after run 4, Mia: "Yard panel is a lot of words (Spare/Lacks/Plan board/Through the Yard)")
             <details className="yard-fold">
-              <summary className="small">
-                📌 Plan board and 🙋 Ask the station: say what you make or need ▸
-              </summary>
+              <summary className="small">📌 Plan board: say what you make or need ▸</summary>
               <PlanBoard me={yard.residents.find((t) => t.id === company.id)!} />
             </details>
           )}
@@ -412,9 +331,9 @@ export function YardPanel() {
                     </div>
                     <div className="muted">
                       {open
-                        ? "Every station whose players bring something out of it in its first three days gets its marker."
+                        ? "Every Yard whose players bring something out of it in its first three days gets its marker."
                         : "Its markers are given."}{" "}
-                      {d.yourStation && "Your station has one. "}
+                      {d.yourStation && "Your Yard has one. "}
                       {d.stations.length > 0 && `Marked: ${d.stations.join(", ")}.`}
                       {d.top.length > 0 && ` Most brought: ${d.top.join(", ")}.`}
                     </div>
@@ -431,7 +350,7 @@ export function YardPanel() {
           )}
           <span className="button-row">
             <button onClick={() => void gameClient.openTradeSettings()}>⚙ Trade settings</button>
-            <button onClick={() => void gameClient.openLinks()}>🔗 Links to other stations</button>
+            <button onClick={() => void gameClient.openLinks()}>🔗 Links to other Yards</button>
             <button onClick={() => void gameClient.openCrew()}>👥 Crew</button>
           </span>
         </>

@@ -73,60 +73,6 @@ function Achievement({ achievement }: { achievement: AchievementDto }) {
   );
 }
 
-/** The Franchise (GDD §8.7): sell the company to the Board for Shares, start again much faster */
-function FranchiseTab() {
-  const company = useAppStore((s) => s.company)!;
-  const franchise = company.franchise;
-  return (
-    <div className="franchise">
-      <div className="stat-grid">
-        <div className="stat">
-          <strong>{franchise.shares}</strong>
-          <span className="muted small">Shares: +{franchise.shares}% production</span>
-        </div>
-        <div className="stat">
-          <strong>+{franchise.sharesNow}</strong>
-          <span className="muted small">Shares a franchise gives now</span>
-        </div>
-        <div className="stat">
-          <strong>{franchise.franchises}</strong>
-          <span className="muted small">Franchises this season</span>
-        </div>
-        <div className="stat">
-          <strong>{franchise.legacyLevel}</strong>
-          <span className="muted small">Legacy level</span>
-        </div>
-      </div>
-      <p className="small">
-        Open a franchise: you cash in Shares (the square root of what you earned since the last franchise, in
-        thousands), each +1% production for good, and open a new estate in the newest district. It starts
-        small and grows like your first one; nothing of what you built goes. Up to three estates.
-      </p>
-      {company.branches.length > 0 && (
-        <ul className="facts">
-          {company.branches.map((branch, i) => (
-            <li key={`${branch.districtX},${branch.districtY}`}>
-              🏡 Branch in {branch.districtName}{" "}
-              <button className="small" onClick={() => gameClient.goToEstate(i + 1)}>
-                Go there
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <button
-        className="primary"
-        disabled={franchise.blocker !== null}
-        title={franchise.blocker ?? undefined}
-        onClick={() => void gameClient.openFranchise()}
-      >
-        Open a franchise · +{franchise.sharesNow} Shares and a new estate
-      </button>
-      {franchise.blocker !== null && <p className="muted small">🔒 {franchise.blocker}</p>}
-    </div>
-  );
-}
-
 /** Your company: statistics and titles, managers, achievements and collections (GDD §8.4, §8.5) */
 export function CompanyPanel() {
   const open = useAppStore((s) => s.companyOpen);
@@ -134,9 +80,9 @@ export function CompanyPanel() {
   const company = useAppStore((s) => s.company);
   const content = useAppStore((s) => s.content);
   const user = useAppStore((s) => s.user);
-  const [tab, setTab] = useState<
-    "overview" | "managers" | "achievements" | "collections" | "franchise" | "move"
-  >("overview");
+  const [tab, setTab] = useState<"overview" | "managers" | "achievements" | "collections" | "move">(
+    "overview",
+  );
   if (!open || company === null || content === null) {
     return null;
   }
@@ -179,9 +125,6 @@ export function CompanyPanel() {
           >
             Collections
           </button>
-          <button className={tab === "franchise" ? "tab active" : "tab"} onClick={() => setTab("franchise")}>
-            Franchise
-          </button>
           <button className={tab === "move" ? "tab active" : "tab"} onClick={() => setTab("move")}>
             Move
             {company.moving.crates.length > 0 && (
@@ -191,8 +134,6 @@ export function CompanyPanel() {
         </div>
         {tab === "move" ? (
           <MoveTab />
-        ) : tab === "franchise" ? (
-          <FranchiseTab />
         ) : details === null ? (
           <p className="muted">Loading…</p>
         ) : tab === "overview" ? (

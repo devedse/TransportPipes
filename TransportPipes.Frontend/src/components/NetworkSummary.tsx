@@ -181,12 +181,6 @@ export function NetworkSummary({
                   {owner.neighbourSales > 0.05 && (
                     <span className="plus">the Yard +{formatAmount(owner.neighbourSales)}</span>
                   )}
-                  {owner.projectSales > 0.05 && (
-                    // The station's project pays for the goods it takes at the gate (after run 4)
-                    <span className="plus">
-                      the {owner.project ?? "project"} +{formatAmount(owner.projectSales)}
-                    </span>
-                  )}
                   {owner.neighbourPurchases > 0.05 && (
                     <span className="minus">
                       bought from neighbours −{formatAmount(owner.neighbourPurchases)}

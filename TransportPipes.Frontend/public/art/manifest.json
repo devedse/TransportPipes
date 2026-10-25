@@ -896,6 +896,9 @@
   },
   "rock": {
    "size": 512
+  },
+  "redHills": {
+   "size": 512
   }
  },
  "props": {
@@ -1142,6 +1145,7 @@
   "terrain/grass.webp": "5bf13fdc5a",
   "terrain/hills.webp": "de2c96f5ff",
   "terrain/mountain.webp": "619e20afd9",
+  "terrain/redHills.webp": "62b2fe39a9",
   "terrain/road.webp": "ec9bc6ec73",
   "terrain/rock.webp": "ec79dca188",
   "terrain/water.webp": "2ad3abb1b8",

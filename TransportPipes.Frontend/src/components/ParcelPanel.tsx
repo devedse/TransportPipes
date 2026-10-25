@@ -107,6 +107,7 @@ function ParcelContents({ x, y }: { x: number; y: number }) {
     (terrain.get("forest") ?? 0) >= 4 &&
       (yours("wood") ? "forest" : "forest (trees only: wood isn't your land's good)"),
     (terrain.get("hills") ?? 0) >= 6 && "windy hills",
+    (terrain.get("redHills") ?? 0) >= 6 && "red hills",
     (terrain.get("desert") ?? 0) >= 6 && "sunny desert",
   ].filter(Boolean);
   if (deposits.size === 0 && land.length === 0) {

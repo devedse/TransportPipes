@@ -81,18 +81,7 @@ export function TopBar() {
       >
         <span className="company-dot" style={{ background: company.color }} />
         <div>
-          <div className="company-name">
-            {company.name}
-            {company.corporationTag !== null && (
-              <button
-                className="corp-tag small-tag"
-                title="Your corporation (C)"
-                onClick={() => void gameClient.openCorporation()}
-              >
-                {company.corporationTag}
-              </button>
-            )}
-          </div>
+          <div className="company-name">{company.name}</div>
           <div className="muted small">
             {user?.isGuest === true ? (
               <button
@@ -107,16 +96,17 @@ export function TopBar() {
             ) : (
               user?.userName
             )}
-            {company.crew === null && (
+            {company.crew !== null && (
               <button
                 className="link small"
+                title="Your Yard's crew (K)"
                 onClick={(event) => {
                   event.stopPropagation();
                   void gameClient.openCrew();
                 }}
               >
                 {" "}
-                · play with friends
+                · {emblemIcon(company.crew.emblem)} {company.crew.name}
               </button>
             )}
           </div>
@@ -188,15 +178,6 @@ export function TopBar() {
             </div>
             <div className="xp-pace small">
               +{formatAmount(company.experience.perMinute)} XP/min
-              {company.tailwind > 1 && (
-                <span
-                  className="tailwind-chip"
-                  title="Tailwind: far behind the people you live with, you get more XP until you catch up"
-                >
-                  {" "}
-                  🍃 ×{company.tailwind.toFixed(1)}
-                </span>
-              )}
               {levelEta(company) !== null && (
                 <>
                   {" "}
@@ -267,12 +248,6 @@ export function TopBar() {
           <span className="muted small">{formatRate(company.researchPerMinute)}</span>
           {company.currentResearch !== null && content !== null ? (
             <span className="small current-research">→ {researchName(company, content)}</span>
-          ) : company.refine.resting ? (
-            <span className="small current-research muted">Labs rest: nothing left</span>
-          ) : company.refine.open ? (
-            <span className="small current-research muted">
-              Refinement at {formatAmount(company.refine.cost)}
-            </span>
           ) : (
             company.researchPerMinute > 0 &&
             (company.researchOpen ? (
@@ -314,16 +289,6 @@ export function TopBar() {
         <button className="icon-button" title="Back to my estate (H)" onClick={() => gameClient.goHome()}>
           <img className="ui-icon" src="/art/ui/ui-home.webp" alt="" />
         </button>
-        {company?.branches.map((branch, i) => (
-          <button
-            key={`${branch.districtX},${branch.districtY}`}
-            className="icon-button"
-            title={`Your branch in ${branch.districtName}`}
-            onClick={() => gameClient.goToEstate(i + 1)}
-          >
-            {i + 2}
-          </button>
-        ))}
         <button
           className="icon-button desktop-only"
           title="Zoom out (-)"

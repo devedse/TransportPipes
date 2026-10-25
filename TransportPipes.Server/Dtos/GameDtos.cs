@@ -161,8 +161,8 @@ public record LandDto(IReadOnlyList<string> Goods, IReadOnlyList<string> Lacks, 
 /// <param name="Makes">Of its land goods, those its owner makes now (a finished building of theirs makes it)</param>
 public record LandSeatDto(int Slot, string? Owner, bool You, IReadOnlyList<string> Goods, IReadOnlyList<string> Lacks, string Strength, IReadOnlyList<string> Makes);
 
-/// <summary>A company's crew as the top bar and the map show it</summary>
-public record CrewBadgeDto(long Id, string Name, string Emblem, string Color, string Color2, int Members);
+/// <summary>Your Yard's crew on the top bar: its name and banner, its residents, the requests that wait for an answer</summary>
+public record CrewBadgeDto(long Id, string Name, string Emblem, string Color, string Color2, int Members, int Requests);
 
 /// <summary>
 /// Experience: XP per minute from what the company earns now, where its XP came from (per source per item) and what
@@ -292,7 +292,10 @@ public record EstateDto(int Slot, int X, int Y, long? OwnerId, string? OwnerName
 /// <summary>A hub structure; a Wonder site has its Wonder's name, stage and variant</summary>
 public record HubStructureDto(string Type, int X, int Y, int Size, string? Label = null, string? Color = null, int Level = 0, string? Variant = null, int Stages = 0);
 
-public record DistrictDto(int X, int Y, int OriginX, int OriginY, string Name, IReadOnlyList<EstateDto> Estates, IReadOnlyList<HubStructureDto> Hub);
+public record DistrictDto(int X, int Y, int OriginX, int OriginY, string Name, IReadOnlyList<EstateDto> Estates, IReadOnlyList<HubStructureDto> Hub, IReadOnlyList<DistrictYardDto> Yards);
+
+/// <summary>A town's Yard on the map: its crew's name and banner (none while nobody lives there), open or closed</summary>
+public record DistrictYardDto(int Index, string Name, string? Emblem, string? Color, string? Color2, bool Open);
 
 public record FlowDto(long From, long To, string Resource, double Sent, double Delivered, string Kind, double Price, IReadOnlyList<int> Path);
 
@@ -728,13 +731,18 @@ public record SeatDto(
     /// <summary>What the plot's land has and lacks, and its strength (a ★4 deposit of something it has)</summary>
     IReadOnlyList<string>? Goods = null,
     IReadOnlyList<string>? Lacks = null,
-    string? Strength = null);
+    string? Strength = null,
+    /// <summary>For a player who would move here: how many of their buildings wouldn't fit its land and wait in crates</summary>
+    int? Crates = null);
 
 /// <summary>A Yard on the map: its crew's name and banner, whether anyone may settle, its plots and its Plan board</summary>
 public record StationDto(int DistrictX, int DistrictY, int Index, string Name, string? Emblem, string? Color, string? Color2, bool Open, int Free, int Lively,
     IReadOnlyList<SeatDto> Seats, int X0, int Y0, int X1, int Y1, IReadOnlyList<string> Makes, IReadOnlyList<string> Needs);
 
 public record SeatRefDto(int DistrictX, int DistrictY, int Slot);
+
+/// <summary>A player Find a player found (1.4 §6): who, and where they live</summary>
+public record FoundPlayerDto(long Id, string Name, string Color, int Level, int DistrictX, int DistrictY, int Slot, string District, string? Yard);
 
 /// <summary>A town's Yards for the start on the map, the plot Pick for me chooses, and the open towns</summary>
 public record StationsDto(int DistrictX, int DistrictY, string District, IReadOnlyList<StationDto> Stations, SeatRefDto PickForMe, IReadOnlyList<DistrictRefDto> Districts);
@@ -804,7 +812,7 @@ public record LinkPartnerDto(long Id, string Name, string Color, int Level, stri
 public record LinkPlanDto(int Length, double Efficiency, double Throughput, double Gold, IReadOnlyList<ResourceRateDto> Materials, string? Error, IReadOnlyList<int> Route);
 
 /// <summary>A link on the map: its route (x, y pairs) along the corridors</summary>
-public record MapLinkDto(long Id, string Resource, int Tier, bool Flowing, long Seller, long Buyer, IReadOnlyList<int> Route, string Kind = "link", IReadOnlyList<string>? Colors = null, int Needed = 0);
+public record MapLinkDto(long Id, string Resource, int Tier, bool Flowing, long Seller, long Buyer, IReadOnlyList<int> Route);
 
 /// <summary>The "This week" row while the station builds its project (F4): "🏗 Water Tower 12% · wants sand · Ben can"</summary>
 /// <summary>The station's project in one line (This week, the return card, the Project tab), and the step its Show me takes</summary>

@@ -92,7 +92,7 @@ public static partial class GameViews
             Experience(world, company, goldPerMinute),
             Camel(company.TradeWith),
             world.CrewOf(company) is { } crew
-                ? new CrewBadgeDto(crew.Id, crew.NameHidden ? $"Crew {crew.Id}" : crew.Name, crew.Emblem, crew.Color, crew.Color2, world.CrewMembers(crew).Count())
+                ? new CrewBadgeDto(crew.Id, crew.NameHidden ? WorldNames.Station(crew.Yard) : crew.Name, crew.Emblem, crew.Color, crew.Color2, world.CrewMembers(crew).Count(), crew.Requests.Count)
                 : null,
             Land(world, company),
             company.ResearchQueue.ToList(),
@@ -545,7 +545,6 @@ public static partial class GameViews
                 profile.Lacks,
                 profile.Strength));
         }
-        var hub = WorldLayout.HubOrigin(district);
         return new DistrictDto(
             district.X,
             district.Y,
@@ -553,7 +552,10 @@ public static partial class GameViews
             WorldLayout.DistrictOriginY(district.Y),
             WorldNames.District(district),
             estates,
-            HubStructures(world, district));
+            HubStructures(world, district),
+            WorldLayout.Stations(district).Select(t => world.CrewAt(t) is { } crew
+                ? new DistrictYardDto(t.Index, crew.NameHidden ? WorldNames.Station(t) : crew.Name, crew.Emblem, crew.Color, crew.Color2, crew.Open)
+                : new DistrictYardDto(t.Index, WorldNames.Station(t), null, null, null, true)).ToList());
     }
 
     /// <summary>The two billboards of a hub: the richest companies of the district with the Brand tech</summary>
@@ -1247,7 +1249,8 @@ public static partial class GameViews
             owner is { } && owner.Id != me?.Id ? ActivityBucket(world, owner) : null,
             profile.Goods,
             profile.Lacks,
-            profile.Strength);
+            profile.Strength,
+            me is { } && owner == null ? world.CratesIfMovedTo(me, seat) : null);
     }
 
     /// <summary>A Yard on the map: its crew's name and banner, whether it's open, its plots and its Plan board</summary>
@@ -1277,6 +1280,25 @@ public static partial class GameViews
     }
 
     private static SeatRefDto Ref(EstateKey seat) => new(seat.District.X, seat.District.Y, seat.Slot);
+
+    /// <summary>Find a player (1.4 §6): the companies whose name holds the text, those it starts first, with where they live</summary>
+    public static IReadOnlyList<FoundPlayerDto> FindPlayer(GameWorld world, string text)
+    {
+        var query = text.Trim();
+        if (query.Length < 2)
+        {
+            return [];
+        }
+        return world.Companies
+            .Where(t => t.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(t => t.Name.StartsWith(query, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenByDescending(t => t.Level)
+            .ThenBy(t => t.Id)
+            .Take(8)
+            .Select(t => new FoundPlayerDto(t.Id, t.Name, t.Color, t.Level, t.District.X, t.District.Y, t.Slot, WorldNames.District(t.District),
+                world.CrewOf(t) is { NameHidden: false } crew ? crew.Name : null))
+            .ToList();
+    }
 
     /// <summary>A town's Yards for the map's start (the one Pick for me chooses when none is given)</summary>
     public static StationsDto Stations(GameWorld world, Company? me, DistrictCoord? district, string? code = null)

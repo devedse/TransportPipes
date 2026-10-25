@@ -20,7 +20,12 @@ import type { TilePosition } from "../game/isometric";
 import {
   buyableParcels,
   DEEP_OFFSET,
+  DISTRICT_HEIGHT,
+  DISTRICT_WIDTH,
   ESTATE_SIZE,
+  districtOriginX,
+  districtOriginY,
+  estateOrigin,
   PARCEL_SIZE,
   PARCELS_PER_SIDE,
   isDeep,
@@ -790,6 +795,11 @@ export class GameClient {
     await this.command(this.connection.setTradeWith(tradeWith));
   }
 
+  /** One of your prices (1.4 §8; null: back to its default): a cut counts at once, a rise waits an hour */
+  async setPrice(key: string, value: number | null) {
+    return this.command(this.connection.setPrice(key, value));
+  }
+
   /** Who you trade with and at what prices: the Neighbours panel's trade settings */
   async openTradeSettings() {
     setState({ ...MODALS, neighboursOpen: true, neighboursTab: "trade" });
@@ -864,9 +874,46 @@ export class GameClient {
   }
 
   /** Moves your plot to a free one (into a friend's closed Yard with their "Play next to me" code) */
-  async relocateTo(seat: SeatRefDto, code: string | null = null) {
-    if (await this.command(this.connection.relocateTo(seat, code), "Up, up and away: your plot is on its way")) {
+  async relocateTo(seat: SeatRefDto, code: string | null = null): Promise<boolean> {
+    if (
+      await this.command(this.connection.relocateTo(seat, code), "Up, up and away: your plot is on its way")
+    ) {
       setState({ companyOpen: false });
+      return true;
+    }
+    return false;
+  }
+
+  /** Moving your plot: the map picker (1.4 §6), the panels out of the way */
+  openPicker() {
+    setState({ ...MODALS, picker: { mode: "move", seats: {}, chosen: null } });
+  }
+
+  /** Back from the picker to your plot */
+  closePicker() {
+    setState({ picker: null });
+    this.goHome();
+  }
+
+  /** The picker's camera: a whole town, zoomed out (1.4 §6: the start is the real map) */
+  lookAtTown(districtX: number, districtY: number) {
+    const x = districtOriginX(districtX);
+    const y = districtOriginY(districtY);
+    this.engine?.lookAtArea(x, y, x + DISTRICT_WIDTH, y + DISTRICT_HEIGHT);
+  }
+
+  /**
+   * The picker's camera: a plot close enough to see its land, beside the plot card (left of it on a desktop, above it on
+   * a phone: a step along x and y moves the view down the screen, a step along x against y to the side)
+   */
+  lookAtPlot(seat: SeatRefDto) {
+    const origin = estateOrigin(seat.districtX, seat.districtY, seat.slot);
+    const x = origin.x + ESTATE_SIZE / 2;
+    const y = origin.y + ESTATE_SIZE / 2;
+    if (PHONE()) {
+      this.engine?.lookAt(x + 17, y + 17, 0.06);
+    } else {
+      this.engine?.lookAt(x + 5, y - 5, 0.17);
     }
   }
 
@@ -960,9 +1007,13 @@ export class GameClient {
         outpostCheck: state.outpostCheck,
         mapLinks: state.mapLinks,
         focusLink: state.focusLink,
+        picker: state.picker,
       };
     },
-    canRequest: () => this.connection.status === "connected" && appStore.getState().phase === "playing",
+    // The map loads while you pick your spot too (1.4 §6: the start is the real map)
+    canRequest: () =>
+      this.connection.status === "connected" &&
+      (appStore.getState().phase === "playing" || appStore.getState().phase === "found"),
     requestChunks: (pairs) => {
       this.connection.getChunks(pairs).then(
         (chunks) => {
@@ -1189,6 +1240,19 @@ export class GameClient {
 
   private clickTile(tile: TilePosition, building: BuildingDto | undefined, modifiers?: ClickModifiers) {
     const state = appStore.getState();
+    if (state.picker !== null) {
+      // Picking a plot: a tap on one chooses it (the picker loads its town when it is another)
+      const zone = zoneAt(tile.x, tile.y);
+      if (zone.kind === "estate") {
+        setState({
+          picker: {
+            ...state.picker,
+            chosen: { districtX: zone.districtX, districtY: zone.districtY, slot: zone.slot },
+          },
+        });
+      }
+      return;
+    }
     // Shift adds a building to the selection (or takes it out), Ctrl takes all of its type, a double click all of
     // its type in its network
     const company = state.company;
@@ -1361,7 +1425,9 @@ export class GameClient {
    */
   back() {
     const state = appStore.getState();
-    if (state.keysOpen) {
+    if (state.picker?.mode === "move") {
+      this.closePicker();
+    } else if (state.keysOpen) {
       setState({ keysOpen: false });
     } else if (
       state.researchOpen ||
@@ -2125,10 +2191,6 @@ export class GameClient {
       case "links":
         setState({ returnCard: null });
         await this.openLinks();
-        return true;
-      case "crew":
-        setState({ returnCard: null });
-        await this.openCrew();
         return true;
       case "fillWant":
         return line.building !== null ? await this.sendToSite(line.building) : false;

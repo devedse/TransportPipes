@@ -29,6 +29,8 @@ import type {
   MapLinkDto,
   ReturnCardDto,
   CrewViewDto,
+  SeatRefDto,
+  SeatState,
 } from "../api/contracts";
 import type { ConnectionStatus } from "../api/server";
 import type { Content } from "../game/content";
@@ -37,6 +39,20 @@ import type { TilePosition } from "../game/isometric";
 import type { Placement } from "../game/rules";
 
 export type Phase = "loading" | "login" | "found" | "playing" | "error";
+
+/**
+ * Picking a plot on the map (1.4 §6): to start, or to move. The map shows the plots of the towns the picker loaded (by
+ * "x,y,slot") as free, closed, taken or yours, and the chosen one; a tap on a plot chooses it.
+ */
+export interface PickerState {
+  mode: "start" | "move";
+  seats: Record<string, SeatState>;
+  chosen: SeatRefDto | null;
+}
+
+export function seatKey(seat: SeatRefDto): string {
+  return `${seat.districtX},${seat.districtY},${seat.slot}`;
+}
 
 export type HubTab = "orders" | "market" | "calendar" | "wonders" | "exchange";
 
@@ -132,6 +148,9 @@ export interface AppState {
   crew: CrewViewDto | null;
   /** The "Play next to me" link this visit came with, and what it opens */
   invite: { code: string; dto: NextToMeDto } | null;
+  picker: PickerState | null;
+  /** Counts up when the picker must load its town again (a plot taken a moment ago) */
+  pickerReload: number;
   /** The form that turns a guest into an account */
   keepOpen: boolean;
   /** A guest reached a keep level: the top bar's "Keep my estate" glows until it is tapped */
@@ -241,6 +260,8 @@ export const initialState: AppState = {
   crewOpen: false,
   crew: null,
   invite: null,
+  picker: null,
+  pickerReload: 0,
   keepOpen: false,
   keepNudge: false,
   companyOpen: false,

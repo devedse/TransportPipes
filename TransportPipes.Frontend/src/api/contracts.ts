@@ -122,11 +122,29 @@ export interface CompanyDto {
   eraWonderLine: ProjectWeekDto | null;
   /** The pipe ladder on the goal tracker while a pipe is full (after run 4) */
   pipes: PipesLineDto | null;
+  /** Your prices for other players (1.4 §8): every one you set, with a rise that waits */
+  prices: PriceDto[] | null;
 }
 
-/** Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there */
+/**
+ * One of your prices: its key ("public", "crew", "public:good", "crew:good", "for:companyId"), what it is now, and a
+ * rise that counts at pendingAt (pending null with back: the setting goes); forName names a special price's player
+ */
+export interface PriceDto {
+  key: string;
+  value: number;
+  pending: number | null;
+  back: boolean;
+  pendingAt: string | null;
+  forName: string | null;
+}
+
+/** Your plot's land (1.4 §5): what it has and lacks, its strength, and every plot of your Yard with its land */
 export interface LandDto {
   goods: string[];
+  lacks: string[];
+  /** A ★4 deposit of something it has, next to the start area */
+  strength: string;
   station: LandSeatDto[];
 }
 
@@ -135,6 +153,8 @@ export interface LandSeatDto {
   owner: string | null;
   you: boolean;
   goods: string[];
+  lacks: string[];
+  strength: string;
   /** Of its land goods, those its owner makes now */
   makes: string[];
 }
@@ -305,27 +325,12 @@ export interface ReturnLineDto {
   kind: "people" | "look" | "project" | "social" | "today" | "invest" | "crew" | "still" | "orders";
   icon: string;
   text: string;
-  action:
-    | "repairAll"
-    | "show"
-    | "project"
-    | "upgrade"
-    | "send"
-    | "thank"
-    | "tend"
-    | "links"
-    | "seat"
-    | "grow"
-    | "crew"
-    | "fillWant"
-    | "orderWant"
-    | null;
+  action: "repairAll" | "show" | "upgrade" | "links" | "grow" | "fillWant" | "orderWant" | null;
   building: number | null;
   cost: number | null;
-  /** send: whose building, which good; thank: whose goods, which good; tend: whose estate */
   partner: number | null;
   resource: string | null;
-  /** thank, tend: what they are called */
+  /** orderWant: whose want it is (null: your own) */
   partnerName: string | null;
 }
 
@@ -433,8 +438,10 @@ export interface EstateDto {
   secondary: string | null;
   /** The owner's activity stage (players only) */
   activity: ActivityStage | null;
-  /** The land goods dealt to it (step 5; empty on old land) */
+  /** What its land has and lacks, and its strength */
   goods: string[] | null;
+  lacks: string[] | null;
+  strength: string | null;
 }
 
 /** A hub structure; corporation HQs have the corporation's tag, colour and HQ level */
@@ -459,6 +466,18 @@ export interface DistrictDto {
   name: string;
   estates: EstateDto[];
   hub: HubStructureDto[];
+  /** The town's four Yards, by their index (0 NW, 1 NE, 2 SW, 3 SE) */
+  yards: DistrictYardDto[];
+}
+
+/** A town's Yard on the map: its crew's name and banner (none while nobody lives there), open or closed */
+export interface DistrictYardDto {
+  index: number;
+  name: string;
+  emblem: string | null;
+  color: string | null;
+  color2: string | null;
+  open: boolean;
 }
 
 export type FlowKind = "internal" | "trade" | "toStorage" | "fromStorage" | "sale" | "import";
@@ -545,8 +564,6 @@ export interface BuildingDetailsDto {
   undoUntil: string | null;
   /** A scaffold that still wants materials */
   site: SiteDto | null;
-  /** The station's Refinements it gets, named: "Bricks +6% · Cleo's research 💛" */
-  refined: string[] | null;
   /** Its pipe door, when its pipe is what holds it back */
   pipeDoor: PipeDoorDto | null;
 }
@@ -739,7 +756,9 @@ export type TerrainType =
   | "city"
   | "yard"
   | "rock"
-  | "cavern";
+  | "cavern"
+  | "redHills"
+  | "outskirts";
 
 export type BuildingKind =
   | "producer"
@@ -1398,6 +1417,8 @@ export interface YardResidentDto {
   /** The Plan board's pins: what it makes and needs (v1.2 §12) */
   makes: string[];
   needs: string[];
+  /** Its price for you per good (a multiple of the base), for the goods it sells */
+  prices: Record<string, number>;
 }
 
 /** One of your trades through the Yard: with whom, what, how much per minute, which way, at what price */
@@ -1454,8 +1475,12 @@ export interface SeatDto {
   ownerLevel: number;
   /** For strangers: lively, some days or resting */
   activity: string | null;
-  /** Dealt land: the goods the seat holds (beside the HQ, then in the first parcels) */
+  /** What the plot's land has and lacks, and its strength (a ★4 deposit of something it has) */
   goods: string[] | null;
+  lacks: string[] | null;
+  strength: string | null;
+  /** For a player who would move here: how many of their buildings wouldn't fit its land and wait in crates */
+  crates: number | null;
 }
 
 export interface StationDto {
@@ -1488,15 +1513,27 @@ export interface SeatRefDto {
   slot: number;
 }
 
+/** A player Find a player found (1.4 §6): who, and where they live */
+export interface FoundPlayerDto {
+  id: number;
+  name: string;
+  color: string;
+  level: number;
+  districtX: number;
+  districtY: number;
+  slot: number;
+  district: string;
+  yard: string | null;
+}
+
 export interface StationsDto {
   districtX: number;
   districtY: number;
   district: string;
   stations: StationDto[];
-  /** The seats the game suggests for each way of starting */
   /** The plot Pick for me chooses */
   pickForMe: SeatRefDto;
-  /** The open districts, nearest the Capital first */
+  /** The open towns, nearest the Capital first */
   districts: DistrictRefDto[];
 }
 
@@ -1596,6 +1633,8 @@ export interface CrewBadgeDto {
   color: string;
   color2: string;
   members: number;
+  /** Requests to settle that wait for an answer */
+  requests: number;
 }
 
 /**
@@ -1682,10 +1721,6 @@ export interface MapLinkDto {
   seller: number;
   buyer: number;
   route: number[];
-  /** A link between two companies, or a crew's trunk (its paid segments in their payers' colours) */
-  kind: "link" | "trunk";
-  colors: string[] | null;
-  needed: number;
 }
 
 /**

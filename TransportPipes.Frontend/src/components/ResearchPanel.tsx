@@ -4,8 +4,6 @@ import { useNow } from "../app/useNow";
 import type { ResearchBranch, ResearchDefinition, ResearchStateDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import { setState, useAppStore } from "../state/store";
-import { researchName } from "../app/research";
-import { ResourceIcon } from "./ResourceIcon";
 
 const BRANCHES: Array<{ id: ResearchBranch; name: string; icon: string }> = [
   { id: "energy", name: "Energy", icon: "⚡" },
@@ -15,87 +13,6 @@ const BRANCHES: Array<{ id: ResearchBranch; name: string; icon: string }> = [
 ];
 
 const ERAS = [1, 2, 3, 4, 5];
-
-const WALL_ICONS: Record<string, string> = { pipes: "⧉", trading: "🏪", hubOrders: "📋" };
-
-/**
- * Refinements (after run 3, step 6): after an Era's tree the points refine the station, one at a time; the walls first
- * (pipes, trading posts, Hub Orders), then a good; each line stops at +50% for the whole station
- */
-function Refinements() {
-  const company = useAppStore((s) => s.company)!;
-  const content = useAppStore((s) => s.content)!;
-  const refine = company.refine;
-  if (!refine.open && !refine.lines.some((t) => t.now > 0)) {
-    return null;
-  }
-  const next = refine.lines.find((t) => t.id === refine.next);
-  return (
-    <div className="refinements">
-      <strong>🔧 Refinements</strong>
-      <span className="muted small">
-        {refine.resting
-          ? "Every line is at its cap: your Labs rest and eat nothing until the next Era's research."
-          : refine.open
-            ? `This Era's tree is done: your points refine your station, one at a time, ${formatAmount(refine.cost)} points and ${formatDuration(refine.minutes * 60)} for the next. The walls come first, then the good you earn most from; each line stops at +50% for the whole station.`
-            : "Your station's research after its Era's tree. Yours opens when this Era's techs are done."}
-      </span>
-      {company.currentResearch !== null && refine.current !== null && (
-        <p className="small">Refining now: {researchName(company, content)}</p>
-      )}
-      {refine.open && company.currentResearch === null && next !== undefined && (
-        <button
-          className="primary"
-          disabled={company.researchPoints < refine.cost}
-          onClick={() => void gameClient.startResearch(`refine:${next.id}`)}
-        >
-          {next.name} +{Math.round(next.step * 100)}% · {formatAmount(refine.cost)} points
-        </button>
-      )}
-      <div className="refine-lines">
-        {refine.lines.map((line) => (
-          <div key={line.id} className={refine.choice === line.id ? "refine-line chosen" : "refine-line"}>
-            <span className="refine-name">
-              {line.wall ? (
-                <span className="refine-icon">{WALL_ICONS[line.id] ?? "🔧"}</span>
-              ) : (
-                <ResourceIcon resource={line.id} />
-              )}
-              {line.name}
-            </span>
-            <div className="meter-bar">
-              <div className="meter-fill" style={{ width: `${Math.min(100, (line.now / 0.5) * 100)}%` }} />
-            </div>
-            <span className="small">
-              +{Math.round(line.now * 100)}%{line.capped ? " · at its cap" : ""}
-              {refine.current === line.id && " · refining"}
-            </span>
-            <span className="muted small">
-              {[line.mine > 0 ? `you ${line.mine}` : null, line.by].filter((t) => t !== null).join(", ")}
-            </span>
-            {refine.open && !line.capped ? (
-              <button
-                className="small"
-                disabled={refine.next === line.id}
-                title="Your Labs take this line next, until it reaches its cap"
-                onClick={() => void gameClient.chooseRefinement(line.id)}
-              >
-                {refine.next === line.id ? "Next ✓" : "Refine next"}
-              </button>
-            ) : (
-              <span />
-            )}
-          </div>
-        ))}
-      </div>
-      {refine.choice !== null && (
-        <button className="link small" onClick={() => void gameClient.chooseRefinement(null)}>
-          Back to the walls first, then your best good
-        </button>
-      )}
-    </div>
-  );
-}
 
 function effectText(tech: ResearchDefinition, content: Content): string | null {
   const parts: string[] = [];
@@ -286,7 +203,6 @@ export function ResearchPanel() {
             ))}
           </p>
         )}
-        <Refinements />
         {company !== null && company.mastery.available && (
           <div className="mastery">
             <strong>

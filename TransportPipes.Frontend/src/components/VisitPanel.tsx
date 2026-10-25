@@ -36,15 +36,7 @@ export function VisitPanel() {
         <div className="building-title">
           <span className="company-dot" style={{ background: visit.color }} />
           <div>
-            <h3>
-              {visit.name}
-              {visit.corporationTag !== null && (
-                <span className="corp-tag small-tag" title={visit.corporationName ?? ""}>
-                  {visit.corporationTag}
-                </span>
-              )}
-              {visit.isNpc && <span className="badge npc">NPC</span>}
-            </h3>
+            <h3>{visit.name}</h3>
             <div className="muted small">
               Company Level {visit.level} · founded {formatTimeAgo(new Date(visit.createdAt), new Date(now))}{" "}
               ago
@@ -73,7 +65,7 @@ export function VisitPanel() {
           <span className="muted small">likes</span>
         </div>
       </div>
-      {!visit.isYou && !visit.isNpc && (
+      {!visit.isYou && (
         <div className="button-row">
           <button
             className={visit.likedToday ? "liked" : "primary"}
@@ -97,27 +89,6 @@ export function VisitPanel() {
           >
             {isBlocked ? "✅" : "🚫"}
           </button>
-        </div>
-      )}
-      {!visit.isYou && !visit.isNpc && (
-        <div className="swap-offer">
-          {visit.swapFromThem ? (
-            <>
-              <span className="small">{visit.name} proposes to swap estates with you.</span>
-              <button className="primary" onClick={() => void gameClient.proposeSwap(visit.id)}>
-                Accept the swap
-              </button>
-            </>
-          ) : visit.swapFromYou ? (
-            <span className="muted small">You proposed to swap estates; they have to agree.</span>
-          ) : (
-            <button
-              title="Both estates trade places with their whole layout"
-              onClick={() => void gameClient.proposeSwap(visit.id)}
-            >
-              ⇄ Propose to swap estates
-            </button>
-          )}
         </div>
       )}
       {(visit.wants ?? []).length > 0 && (
@@ -159,37 +130,35 @@ export function VisitPanel() {
       )}
       {visit.isYourMentor && <p className="small">🎓 Your mentor.</p>}
       {visit.mentees > 0 && <p className="muted small">🎓 Mentor of {visit.mentees} newcomers.</p>}
-      {!visit.isNpc && (
-        <div className="guestbook">
-          <div className="panel-title">Guestbook</div>
-          {!visit.isYou && (
-            <form className="guestbook-form" onSubmit={(event) => void write(event)}>
-              <input
-                value={note}
-                maxLength={200}
-                placeholder="Leave a note…"
-                onChange={(e) => setNote(e.target.value)}
-              />
-              <button disabled={note.trim() === ""}>Sign</button>
-            </form>
-          )}
-          {visit.guestbook.length === 0 && <p className="muted small">No notes yet.</p>}
-          {visit.guestbook.map((n) => (
-            <div key={n.id} className="guestbook-note">
-              <div>
-                <strong className="small">{n.authorName}</strong>{" "}
-                <span className="muted small">{formatTimeAgo(new Date(n.at), new Date(now))} ago</span>
-              </div>
-              <div>{n.text}</div>
-              {visit.isYou && (
-                <button className="link small" onClick={() => void gameClient.deleteGuestbookNote(n.id)}>
-                  Remove
-                </button>
-              )}
+      <div className="guestbook">
+        <div className="panel-title">Guestbook</div>
+        {!visit.isYou && (
+          <form className="guestbook-form" onSubmit={(event) => void write(event)}>
+            <input
+              value={note}
+              maxLength={200}
+              placeholder="Leave a note…"
+              onChange={(e) => setNote(e.target.value)}
+            />
+            <button disabled={note.trim() === ""}>Sign</button>
+          </form>
+        )}
+        {visit.guestbook.length === 0 && <p className="muted small">No notes yet.</p>}
+        {visit.guestbook.map((n) => (
+          <div key={n.id} className="guestbook-note">
+            <div>
+              <strong className="small">{n.authorName}</strong>{" "}
+              <span className="muted small">{formatTimeAgo(new Date(n.at), new Date(now))} ago</span>
             </div>
-          ))}
-        </div>
-      )}
+            <div>{n.text}</div>
+            {visit.isYou && (
+              <button className="link small" onClick={() => void gameClient.deleteGuestbookNote(n.id)}>
+                Remove
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

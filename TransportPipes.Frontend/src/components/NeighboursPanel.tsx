@@ -317,7 +317,6 @@ export function NeighboursPanel() {
                   <div>
                     <strong>{n.name}</strong> <span className="muted small">Lv {n.level}</span>{" "}
                     <Stars count={n.contractStars} />
-                    {n.isNpc && <span className="badge npc">tenant</span>}
                     {n.connected && <span className="badge connected">connected</span>}
                   </div>
                   <div className="small">
@@ -346,14 +345,12 @@ export function NeighboursPanel() {
                     >
                       Visit
                     </button>
-                    {!n.isNpc && (
-                      <button
-                        title="Send a message"
-                        onClick={() => void gameClient.messageCompany(n.id, n.name)}
-                      >
-                        ✉
-                      </button>
-                    )}
+                    <button
+                      title="Send a message"
+                      onClick={() => void gameClient.messageCompany(n.id, n.name)}
+                    >
+                      ✉
+                    </button>
                   </span>
                   <button
                     onClick={() =>

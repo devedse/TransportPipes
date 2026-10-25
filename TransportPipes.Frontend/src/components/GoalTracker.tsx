@@ -218,30 +218,6 @@ export function GoalTracker() {
             </span>
           </li>
         )}
-        {company.week !== null && (
-          <li>
-            <span className="goal-label">This week</span>
-            <button
-              className="goal-text link"
-              title="The station's project: open it"
-              onClick={() => void gameClient.openProject()}
-            >
-              {company.week.text} ›
-            </button>
-            {company.week.step !== null && (
-              <button
-                className="small goal-show"
-                aria-label={`Show me: ${company.week.step.title}`}
-                onClick={() => void gameClient.showNextStep(company.week!.step!)}
-              >
-                Show me
-              </button>
-            )}
-            <span className="goal-bar">
-              <span style={{ width: `${Math.round(company.week.share * 100)}%` }} />
-            </span>
-          </li>
-        )}
         {(company.wants ?? []).length > 0 &&
           (() => {
             // Your own scaffold, said as it is (after run 4: "is being built", and it waited for bricks to the end)
@@ -309,7 +285,7 @@ export function GoalTracker() {
             </span>
           </li>
         )}
-        {company.week === null && company.nextParcelCost !== null && company.nextParcelLevel !== null && (
+        {company.nextParcelCost !== null && company.nextParcelLevel !== null && (
           <li>
             <span className="goal-label">This week</span>
             <span className="goal-text">

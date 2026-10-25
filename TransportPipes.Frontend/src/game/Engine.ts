@@ -18,6 +18,7 @@ import type {
   DistrictDto,
   MapLinkDto,
   OutpostDto,
+  SeatState,
   TerrainType,
 } from "../api/contracts";
 import { createCanvas, hash01 } from "./art/iso";
@@ -30,18 +31,25 @@ import { diagonalToScreen, worldToTile, type TilePosition } from "./isometric";
 import {
   CHUNK_SIZE,
   DEEP_OFFSET,
-  DISTRICT_SIZE,
+  DISTRICT_HEIGHT,
+  DISTRICT_WIDTH,
   ESTATE_SIZE,
+  HUB_LOCAL,
   PARCEL_SIZE,
   PARCELS_PER_SIDE,
+  ROAD_WIDTH,
+  ROAD_X,
+  ROAD_Y,
+  TOWN_GATES_LOCAL,
   chunkOf,
   districtOf,
   districtOriginX,
   districtOriginY,
-  estateOutline,
+  estateOrigin,
   isDeep,
   isParcelUnlocked,
-  stationOfSlot,
+  outskirtsParcels,
+  sideOf,
   tileKey,
   yardRect,
   zoneAt,
@@ -49,6 +57,7 @@ import {
 import { BuildingEffects, pelletTexture } from "./render/effects";
 import { Juice } from "./render/juice";
 import { levelTier, LEVEL_TIERS, tierIndex } from "./levels";
+import { emblemIcon } from "../app/crews";
 import { sounds } from "../app/sound";
 import { canPlace, footprintOrigin, routePipe, type Placement } from "./rules";
 import { chunkKey, type WorldModel } from "./world";
@@ -100,6 +109,11 @@ export interface EngineState {
   /** Links between stations (v1.2 §7), drawn as covered channels along the corridors, and the one the Links tab shows */
   mapLinks: MapLinkDto[];
   focusLink: number | null;
+  /** Picking a plot (1.4 §6): the plots it shows, by "x,y,slot", and the chosen one */
+  picker: {
+    seats: Record<string, SeatState>;
+    chosen: { districtX: number; districtY: number; slot: number } | null;
+  } | null;
 }
 
 export interface EngineCallbacks {
@@ -344,19 +358,6 @@ function traceFootprint(g: Graphics, x: number, y: number, size: number, height 
   g.closePath();
 }
 
-/** A polygon of tile-grid corners (relative to x, y), like an estate's border around its part of the Yard */
-function traceOutline(g: Graphics, x: number, y: number, points: Array<[number, number]>) {
-  points.forEach(([px, py], i) => {
-    const corner = diagonalToScreen(x + px, y + py);
-    if (i === 0) {
-      g.moveTo(corner.x + TILE_WIDTH, corner.y - TILE_HEIGHT);
-    } else {
-      g.lineTo(corner.x + TILE_WIDTH, corner.y - TILE_HEIGHT);
-    }
-  });
-  g.closePath();
-}
-
 /** A footprint grown outwards by a share of a tile on every side: a ring that shows around a building's plate */
 function traceRing(g: Graphics, x: number, y: number, size: number, grow: number) {
   const top = diagonalToScreen(x, y);
@@ -448,6 +449,10 @@ export class Engine {
   private readonly overlayLayer = new Container();
   private overlay: Overlay = "none";
   private readonly highlightLayer = new Graphics();
+  /** Picking a plot: the free plots glow (pulsing), the closed ones are amber, the chosen one has a gold border */
+  private readonly pickGlow = new Graphics();
+  private readonly pickMarks = new Graphics();
+  private pickKey = "";
   /** Links: their channels (drawn when they change) and the goods moving along the flowing ones */
   private readonly linkLayer = new Graphics();
   private readonly linkPulse = new Graphics();
@@ -553,6 +558,8 @@ export class Engine {
       this.linkPulse,
       this.highlightLayer,
       this.objectLayer,
+      this.pickGlow,
+      this.pickMarks,
       this.flowLayer,
       this.ghostLayer,
       this.juice.layer,
@@ -1256,6 +1263,7 @@ export class Engine {
       this.drawGhost();
     }
     this.drawHighlights();
+    this.drawPicker();
     this.drawLinks(deltaSeconds);
     this.animate(deltaSeconds);
     this.juice.update(deltaSeconds);
@@ -1758,7 +1766,8 @@ export class Engine {
           tileSprite(this.textures.rocks(variant))
         );
       case "grass":
-      case "hills": {
+      case "hills":
+      case "redHills": {
         const wild = zoneAt(x, y).kind === "wilderness";
         if (wild && roll < 0.05) {
           return propSprite(
@@ -1807,7 +1816,8 @@ export class Engine {
 
   /**
    * A free hub tile for the town around the structures: "street" when it lies along one of the streets (every 8
-   * tiles), "inner" inside a block, null when it is a street, next to a structure or outside the hub
+   * tiles, and the two roads that cross the hub), "inner" inside a block, null when it is a street, next to a structure
+   * or outside the hub
    */
   private freeHubTile(x: number, y: number): "street" | "inner" | null {
     const d = districtOf(x, y);
@@ -1815,9 +1825,20 @@ export class Engine {
     if (district === undefined) {
       return null;
     }
-    const lx = x - (district.originX + 2 + 2 * 34);
-    const ly = y - (district.originY + 2 + 2 * 34);
-    if (lx < 1 || ly < 1 || lx > 30 || ly > 30 || lx % 8 === 0 || ly % 8 === 0) {
+    const lx = x - (district.originX + HUB_LOCAL.x0);
+    const ly = y - (district.originY + HUB_LOCAL.y0);
+    const roadX = ROAD_X - HUB_LOCAL.x0;
+    const roadY = ROAD_Y - HUB_LOCAL.y0;
+    const onRoad = (lx >= roadX && lx < roadX + ROAD_WIDTH) || (ly >= roadY && ly < roadY + ROAD_WIDTH);
+    if (
+      lx < 1 ||
+      ly < 1 ||
+      lx > HUB_LOCAL.x1 - HUB_LOCAL.x0 - 1 ||
+      ly > HUB_LOCAL.y1 - HUB_LOCAL.y0 - 1 ||
+      lx % 8 === 0 ||
+      ly % 8 === 0 ||
+      onRoad
+    ) {
       return null;
     }
     if (
@@ -2087,13 +2108,11 @@ export class Engine {
   private conductorView(conductor: ConductorDto): ObjectView {
     const anchor = diagonalToScreen(conductor.x, conductor.y);
     if (conductor.kind === "gate") {
-      // The Yard gate: its barrier faces the Yard (the pipe runs on towards it)
+      // The Yard gate: its barrier faces the Yard (the pipe runs on towards it); the plots above and below a Yard face it
+      // along y
       const zone = zoneAt(conductor.x, conductor.y);
-      const yard =
-        zone.kind === "estate" ? yardRect(zone.districtX, zone.districtY, stationOfSlot(zone.slot)) : null;
-      const towardsY =
-        yard !== null &&
-        Math.abs((yard.y0 + yard.y1) / 2 - conductor.y) > Math.abs((yard.x0 + yard.x1) / 2 - conductor.x);
+      const side = zone.kind === "estate" ? sideOf(zone.slot) : null;
+      const towardsY = side === "north" || side === "south";
       const art = this.textures.gate("open", towardsY);
       const sprite = new Sprite(art.frames[0]);
       sprite.anchor.set(0, 1);
@@ -2821,17 +2840,15 @@ export class Engine {
     for (const estate of district.estates) {
       const mine = company !== null && estate.ownerId === company.id;
       const color = estate.ownerColor ?? "#ffffff";
-      // The border goes around the estate's part of its station's Yard
-      const outline = estateOutline(estate.slot);
       if (estate.ownerId !== null) {
         if (far) {
-          traceOutline(g, estate.x, estate.y, outline);
+          traceFootprint(g, estate.x, estate.y, ESTATE_SIZE);
           g.fill({ color, alpha: 0.12 });
         }
-        traceOutline(g, estate.x, estate.y, outline);
+        traceFootprint(g, estate.x, estate.y, ESTATE_SIZE);
         g.stroke({ color, width: far ? (mine ? 40 : 26) : mine ? 7 : 5, alpha: far ? 0.85 : 0.75 });
       } else {
-        traceOutline(g, estate.x, estate.y, outline);
+        traceFootprint(g, estate.x, estate.y, ESTATE_SIZE);
         g.stroke({ color: 0xffffff, width: far ? 14 : 3, alpha: 0.22 });
       }
 
@@ -2885,17 +2902,17 @@ export class Engine {
       });
       name.anchor.set(0.5);
       const center = tileCenter(
-        districtOriginX(district.x) + DISTRICT_SIZE / 2,
-        districtOriginY(district.y) + DISTRICT_SIZE / 2,
+        districtOriginX(district.x) + DISTRICT_WIDTH / 2,
+        districtOriginY(district.y) + DISTRICT_HEIGHT / 2,
       );
       name.position.set(center.x, center.y);
       name.label = "district";
       labels.addChild(name);
     } else {
       // The hub city
-      const hubX = district.originX + 2 + 2 * 34;
-      const hubY = district.originY + 2 + 2 * 34;
-      for (const structure of district.hub) {
+      const hubX = district.originX + HUB_LOCAL.x0;
+      const hubY = district.originY + HUB_LOCAL.y0;
+      for (const structure of district.hub.filter((t) => t.type !== "townGate")) {
         const art = this.textures.hub(structure.type, structure.size, structure);
         const sprite = new Sprite(art.frames[0]);
         const x = hubX + structure.x;
@@ -2969,13 +2986,71 @@ export class Engine {
           container.addChild(hub.effects.container);
           this.effects.add(hub);
         }
-        // The corporation quarter is a flat plaza under the HQs that stand on it
-        container.zIndex =
-          structure.type === "corporationQuarter"
-            ? (x + y) * 4 - 8
-            : (x + y + 2 * (structure.size - 1)) * 4 + 3;
+        container.zIndex = (x + y + 2 * (structure.size - 1)) * 4 + 3;
         this.objectLayer.addChild(container);
         view.hub.push(hub);
+      }
+    }
+    this.drawTownParts(view, district);
+  }
+
+  /**
+   * A town's own places (1.4 §4): each Yard with its crew's banner and name (a lock when it's closed), the town gates
+   * where the roads leave the town, and up close the outskirts set aside for the plots (they open with Era 2)
+   */
+  private drawTownParts(view: DistrictView, district: DistrictDto) {
+    const g = view.graphics;
+    const far = this.far;
+    const ox = districtOriginX(district.x);
+    const oy = districtOriginY(district.y);
+    for (const yard of district.yards ?? []) {
+      const rect = yardRect(district.x, district.y, yard.index);
+      const width = rect.x1 - rect.x0 + 1;
+      const height = rect.y1 - rect.y0 + 1;
+      if (yard.color !== null) {
+        // The crew's banner colours around its Yard
+        traceFootprint(g, rect.x0, rect.y0, width, height);
+        g.stroke({ color: yard.color, width: far ? 22 : 6, alpha: 0.85 });
+        traceFootprint(g, rect.x0 + 1, rect.y0 + 1, width - 2, height - 2);
+        g.stroke({ color: yard.color2 ?? yard.color, width: far ? 12 : 4, alpha: 0.7 });
+      }
+      if (yard.emblem === null && !far) {
+        continue;
+      }
+      const label = new Text({
+        text: `${yard.emblem !== null ? `${emblemIcon(yard.emblem)} ` : ""}${yard.name}${yard.open ? "" : "  🔒"}`,
+        style: {
+          fontFamily: "Georgia, serif",
+          fontSize: 32,
+          fontWeight: "700",
+          fill: yard.emblem !== null ? "#fff4d6" : "#e8dcc0",
+          stroke: { color: "#2a1c10", width: 8 },
+        },
+      });
+      label.anchor.set(0.5);
+      const center = tileCenter(rect.x0 + width / 2 - 0.5, rect.y0 + height / 2 - 0.5);
+      label.position.set(center.x, center.y);
+      label.label = "estate";
+      view.labels.addChild(label);
+    }
+    for (const gate of TOWN_GATES_LOCAL) {
+      // The town gate: a paved apron where the road leaves the town
+      traceFootprint(g, ox + gate.x0, oy + gate.y0, gate.x1 - gate.x0 + 1, gate.y1 - gate.y0 + 1);
+      g.fill({ color: 0xcdb48a, alpha: far ? 0.6 : 0.45 });
+      traceFootprint(g, ox + gate.x0, oy + gate.y0, gate.x1 - gate.x0 + 1, gate.y1 - gate.y0 + 1);
+      g.stroke({ color: 0x5a4630, width: far ? 10 : 4, alpha: 0.8 });
+    }
+    if (far) {
+      return;
+    }
+    for (const estate of district.estates) {
+      for (const parcel of outskirtsParcels(estate.slot)) {
+        traceFootprint(g, ox + parcel.x, oy + parcel.y, PARCEL_SIZE);
+        g.stroke({
+          color: estate.ownerColor ?? 0xfff2c8,
+          width: 2,
+          alpha: estate.ownerId !== null ? 0.3 : 0.14,
+        });
       }
     }
   }
@@ -3340,46 +3415,6 @@ export class Engine {
         const mine = link.seller === myId || link.buyer === myId;
         const focus = link.id === state.focusLink;
         const color = state.content.resourceColor(link.resource);
-        if (link.kind === "trunk") {
-          // A crew's trunk: a wide steel channel, each paid segment in its payer's colour
-          const trace = () => points.forEach((p, i) => (i === 0 ? g.moveTo(p.x, p.y) : g.lineTo(p.x, p.y)));
-          trace();
-          g.stroke({
-            color: 0x3c4148,
-            width: 46 * w,
-            alpha: link.flowing ? 0.9 : 0.45,
-            cap: "round",
-            join: "round",
-          });
-          const total = length;
-          const colors = link.colors ?? [];
-          colors.forEach((c, i) => {
-            const from = (i / Math.max(1, link.needed)) * total;
-            const to = ((i + 1) / Math.max(1, link.needed)) * total;
-            let walked = 0;
-            for (let k = 1; k < points.length; k++) {
-              const a = points[k - 1]!;
-              const b = points[k]!;
-              const segment = Math.hypot(b.x - a.x, b.y - a.y);
-              const s0 = Math.max(from, walked);
-              const s1 = Math.min(to, walked + segment);
-              if (s1 > s0 && segment > 0) {
-                g.moveTo(
-                  a.x + ((b.x - a.x) * (s0 - walked)) / segment,
-                  a.y + ((b.y - a.y) * (s0 - walked)) / segment,
-                );
-                g.lineTo(
-                  a.x + ((b.x - a.x) * (s1 - walked)) / segment,
-                  a.y + ((b.y - a.y) * (s1 - walked)) / segment,
-                );
-              }
-              walked += segment;
-            }
-            g.stroke({ color: c, width: 18 * w, alpha: 0.95, cap: "butt" });
-          });
-          this.linkPaths.push({ points, length, color: "#c9d3dc", mine: mine && link.flowing });
-          continue;
-        }
         this.linkPaths.push({ points, length, color, mine: mine && link.flowing });
         const trace = () => points.forEach((p, i) => (i === 0 ? g.moveTo(p.x, p.y) : g.lineTo(p.x, p.y)));
         if (focus) {
@@ -3427,6 +3462,48 @@ export class Engine {
         }
       }
       pulse.fill({ color: 0xfff6d8, alpha: 0.95 });
+    }
+  }
+
+  /** The plots a picker shows: drawn again when they change, the free ones' glow pulses */
+  private drawPicker() {
+    const picker = this.callbacks.getState().picker;
+    const key = picker === null ? "" : `${JSON.stringify(picker)}|${this.far}`;
+    if (key !== this.pickKey) {
+      this.pickKey = key;
+      const glow = this.pickGlow;
+      const marks = this.pickMarks;
+      glow.clear();
+      marks.clear();
+      if (picker !== null) {
+        const far = this.far;
+        for (const [seat, state] of Object.entries(picker.seats)) {
+          const [dx, dy, slot] = seat.split(",").map(Number) as [number, number, number];
+          const origin = estateOrigin(dx, dy, slot);
+          if (state === "free") {
+            traceFootprint(glow, origin.x, origin.y, ESTATE_SIZE);
+            glow.fill({ color: 0x9cf07a, alpha: 0.3 });
+            traceFootprint(glow, origin.x, origin.y, ESTATE_SIZE);
+            glow.stroke({ color: 0xd8ffb0, width: far ? 30 : 8, alpha: 0.95 });
+          } else if (state === "closed") {
+            traceFootprint(marks, origin.x, origin.y, ESTATE_SIZE);
+            marks.fill({ color: 0xf2b134, alpha: 0.16 });
+            traceFootprint(marks, origin.x, origin.y, ESTATE_SIZE);
+            marks.stroke({ color: 0xf2b134, width: far ? 22 : 6, alpha: 0.8 });
+          }
+        }
+        const chosen = picker.chosen;
+        if (chosen !== null) {
+          const origin = estateOrigin(chosen.districtX, chosen.districtY, chosen.slot);
+          traceFootprint(marks, origin.x, origin.y, ESTATE_SIZE);
+          marks.stroke({ color: 0x2b1d0e, width: far ? 70 : 20, alpha: 0.6 });
+          traceFootprint(marks, origin.x, origin.y, ESTATE_SIZE);
+          marks.stroke({ color: 0xffd34d, width: far ? 44 : 12, alpha: 1 });
+        }
+      }
+    }
+    if (picker !== null) {
+      this.pickGlow.alpha = 0.55 + 0.45 * Math.sin(performance.now() / 380);
     }
   }
 

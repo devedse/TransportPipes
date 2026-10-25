@@ -1109,6 +1109,46 @@ kbd {
   opacity: 0.55;
 }
 
+/* Your prices (1.4 §8): a row of a name, the stepper and its reset */
+.price-list .partner {
+  grid-template-columns: 1fr auto auto;
+}
+
+.price-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.price-stepper button {
+  min-width: 28px;
+  padding: 2px 6px;
+}
+
+.price-stepper strong {
+  min-width: 3.2em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.add-special {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.add-special input {
+  flex: 1 1 14em;
+  min-width: 0;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
 .partner-name {
   display: grid;
   min-width: 0;
@@ -6265,4 +6305,196 @@ button.top-gold {
 h5.chat-day {
   font-family: inherit;
   letter-spacing: normal;
+}
+
+/* ---------- Picking your spot on the map (1.4 §6) ---------- */
+
+/* The bar over the map: the title, Pick for me, the town, Find a player and a friend's link */
+.picker-top {
+  position: absolute;
+  top: max(var(--gap), env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(720px, calc(100vw - 24px));
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px;
+  z-index: 20;
+}
+
+.picker-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.picker-title h2 {
+  font-family: var(--font-title);
+  font-size: 1.5rem;
+}
+
+.picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.find-player {
+  position: relative;
+  display: flex;
+  flex: 1 1 14em;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.find-player input {
+  flex: 1 1 8em;
+  min-width: 0;
+}
+
+.find-results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+}
+
+.picker-friend .dot,
+.plot-residents .dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* The chosen plot's card: on the right on a desktop, a sheet at the bottom on a phone */
+.plot-card {
+  position: absolute;
+  top: calc(var(--gap) + 150px);
+  right: var(--gap);
+  width: min(380px, calc(100vw - 24px));
+  max-height: calc(100vh - 170px);
+  overflow-y: auto;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 14px 16px;
+  z-index: 20;
+  scrollbar-width: thin;
+}
+
+.plot-card h3 {
+  font-family: var(--font-title);
+  font-size: 1.25rem;
+}
+
+.plot-card h4 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.crew-banner.empty {
+  background: repeating-linear-gradient(135deg, #6e6250 0 10px, #7c6f5b 10px 20px);
+}
+
+.plot-land {
+  display: grid;
+  gap: 6px;
+}
+
+.plot-strength .icon {
+  font-size: 1.2rem;
+}
+
+.plot-goods {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.plot-goods > .muted:first-child {
+  min-width: 3.4em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.plot-good {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.plot-goods.later .plot-good {
+  opacity: 0.6;
+}
+
+.plot-goods.lacks .plot-good {
+  color: var(--warning);
+  text-decoration: line-through;
+  text-decoration-color: rgba(244, 162, 97, 0.6);
+}
+
+.plot-residents {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.plot-residents li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.plot-residents li.chosen {
+  background: rgba(246, 199, 68, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(246, 199, 68, 0.5);
+}
+
+.plot-residents .side {
+  min-width: 3.2em;
+  text-transform: capitalize;
+}
+
+.start-form {
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .picker-top {
+    padding: 10px 12px;
+  }
+
+  .picker-top > p.muted {
+    display: none;
+  }
+
+  .picker-title h2 {
+    font-size: 1.2rem;
+  }
+
+  .plot-card {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: auto;
+    max-height: 55vh;
+    border-radius: var(--panel-radius) var(--panel-radius) 0 0;
+    padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  }
 }

@@ -63,14 +63,8 @@ export function Toolbar() {
   const researchOpen = useAppStore((state) => state.researchOpen);
   const hubOpen = useAppStore((state) => state.hubOpen);
   const yardOpen = useAppStore((state) => state.yardOpen);
-  const corporationOpen = useAppStore((state) => state.corporationOpen);
-  const invites = useAppStore(
-    (state) =>
-      (state.corporations?.mine?.applications.length ?? 0) +
-      (state.corporations?.mine === null
-        ? (state.corporations?.district.filter((t) => t.invited).length ?? 0)
-        : 0),
-  );
+  const crewOpen = useAppStore((state) => state.crewOpen);
+  const requests = useAppStore((state) => state.company?.crew?.requests ?? 0);
   const blueprintsOpen = useAppStore((state) => state.blueprintsOpen);
   const level = useAppStore((state) => state.company?.level ?? 1);
   // Tools the player has not tried yet glow
@@ -111,14 +105,14 @@ export function Toolbar() {
       run: () => (yardOpen ? setState({ yardOpen: false }) : void gameClient.openYard()),
     },
     {
-      key: "corporation",
-      label: "Corp",
-      badge: invites,
-      badgeTitle: "invitations to answer",
-      icon: "🏢",
-      hotkey: "C",
-      active: corporationOpen,
-      run: () => (corporationOpen ? setState({ corporationOpen: false }) : void gameClient.openCorporation()),
+      key: "crew",
+      label: "Crew",
+      badge: requests,
+      badgeTitle: "requests to settle in your Yard",
+      icon: "🏳",
+      hotkey: "K",
+      active: crewOpen,
+      run: () => (crewOpen ? setState({ crewOpen: false }) : void gameClient.openCrew()),
     },
     {
       key: "hub",

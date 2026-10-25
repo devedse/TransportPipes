@@ -220,6 +220,10 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> SetYard(string name, string emblem, string color, string color2) =>
         Command((world, company) => world.SetYard(company, name, emblem, color, color2));
 
+    /// <summary>Find a player by name, to fly the map to them</summary>
+    public Task<IReadOnlyList<FoundPlayerDto>> FindPlayer(string text) =>
+        _world.RunAsync(world => GameViews.FindPlayer(world, text ?? ""), changesWorld: false);
+
     /// <summary>Any resident opens or closes the Yard</summary>
     public Task<CommandResultDto> SetYardOpen(bool open) =>
         Command((world, company) => world.SetYardOpen(company, open));

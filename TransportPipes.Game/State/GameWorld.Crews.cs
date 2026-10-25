@@ -91,6 +91,7 @@ public sealed partial class GameWorld
     {
         crew.Touch();
         Changes.Crews.Add(crew.Id);
+        Changes.Districts.Add(crew.Yard.District);
         foreach (var member in CrewMembers(crew))
         {
             Changes.Companies.Add(member.Id);

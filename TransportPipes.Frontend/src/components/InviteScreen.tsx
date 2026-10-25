@@ -1,8 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { gameClient } from "../app/client";
-import { COLORS, emblemIcon, landIcon, landText, lived, nameIdea } from "../app/crews";
-import { toast, useAppStore } from "../state/store";
-import { Swatches } from "./FoundCompany";
+import { emblemIcon } from "../app/crews";
+import { useAppStore } from "../state/store";
 
 /** Browsers inside chat apps forget guests: there the account is asked for right away */
 function inAppBrowser(): boolean {
@@ -10,142 +9,77 @@ function inAppBrowser(): boolean {
 }
 
 /**
- * A friend's invite (v1.2 §5): "Ana invites you to Kettle & Co.", the seat kept for you preselected. Tap 1 moves in
- * (as a guest when you have no account), tap 2 names the company (filled in already). Inside a chat app's browser the
- * account comes with tap 2, because those forget guests.
+ * A friend's "Play next to me" link before you play (1.4 §6): who sent it and their Yard, and Play next to them (as a
+ * guest when you have no account). The map then opens at their Yard, their free plots glowing. Inside a chat app's
+ * browser an account comes first, because those forget guests.
  */
-export function InviteScreen({ onLogin }: { onLogin?: () => void }) {
+export function InviteScreen({ onLogin }: { onLogin: () => void }) {
   const invite = useAppStore((state) => state.invite)!;
-  const user = useAppStore((state) => state.user);
-  const phase = useAppStore((state) => state.phase);
   const dto = invite.dto;
-  const station = dto.station;
-  const [name, setName] = useState(dto.name ?? nameIdea());
-  const [color, setColor] = useState(dto.color ?? COLORS[0]!);
-  const [account, setAccount] = useState({ userName: "", password: "" });
+  const yard = dto.yard;
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const needsAccount = inAppBrowser() && (user === null || user.isGuest);
+  const from = dto.from ?? "Your friend";
+  const full = yard !== null && yard.free === 0;
 
-  const moveIn = async () => {
+  const play = async () => {
     setBusy(true);
     setError(await gameClient.playAsGuest().catch((reason: unknown) => String(reason)));
     setBusy(false);
   };
 
-  const done = async (event: FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    try {
-      // The server settles you on the kept seat (a seat code) or next to the crew (its link) and joins you up
-      const failure = await gameClient.foundCompany(name, color, null, invite.code);
-      if (failure !== null) {
-        setError(failure.error);
-        return;
-      }
-      if (dto.needsApproval) {
-        toast(`You asked to join ${dto.crewName}: a member lets you in`, "info", 7000);
-      }
-      if (needsAccount && account.userName !== "") {
-        setError(await gameClient.keepEstate(account.userName, account.password, ""));
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div className="screen found-screen">
       <div className="panel found-panel invite-panel">
-        <div
-          className="crew-banner"
-          style={{
-            background: `linear-gradient(90deg, ${dto.color ?? "#236b69"} 50%, ${dto.color2 ?? "#c9963a"} 50%)`,
-          }}
-        >
-          <span>{emblemIcon(dto.emblem)}</span> <strong>{dto.crewName}</strong>
-        </div>
-        <h2>
-          {dto.friendName !== null && dto.seatCode
-            ? `${dto.from ?? "A friend"} kept this seat for ${dto.friendName}`
-            : `${dto.from ?? "A friend"} invites you to ${dto.crewName}`}
-        </h2>
-        {station !== null && (
-          <>
-            <p className="muted">
-              {dto.seatCode ? "A seat next to them" : "Their home"} in <strong>{station.name}</strong>
-              {dto.needsApproval && " (an older link: a member lets you in)"}
-            </p>
-            <ul className="seat-list">
-              {station.seats.map((s) => (
-                <li key={s.slot} className={s.slot === dto.slot ? "chosen" : undefined}>
-                  <span className="icon">{lived(s) ? "🏠" : landIcon(s.primary)}</span>{" "}
-                  {lived(s) ? (
-                    <strong>{s.ownerName}</strong>
-                  ) : (
-                    <>
-                      {landText(s.primary, s.secondary, s.goods)}
-                      {s.slot === dto.slot && <span className="badge">your seat</span>}
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </>
+        {yard !== null && (
+          <div
+            className={yard.emblem !== null ? "crew-banner" : "crew-banner empty"}
+            style={
+              yard.emblem !== null
+                ? {
+                    background: `linear-gradient(90deg, ${yard.color} 50%, ${yard.color2 ?? yard.color} 50%)`,
+                  }
+                : undefined
+            }
+          >
+            {yard.emblem !== null && <span>{emblemIcon(yard.emblem)}</span>} <strong>{yard.name}</strong>
+          </div>
         )}
-        {phase === "login" ? (
+        <h2>
+          <span className="dot" style={{ background: dto.fromColor ?? "#999" }} /> {from} plays at{" "}
+          {yard?.name ?? "their Yard"}
+        </h2>
+        <p>
+          Play next to them: your plot goes beside theirs around the Yard, and you trade your spare with each
+          other from the first evening.
+          {full && " Their Yard is full now: the map shows you the nearest free plots."}
+          {!full &&
+            dto.opens &&
+            yard !== null &&
+            !yard.open &&
+            " Their Yard is closed, but their link lets you in."}
+        </p>
+        {inAppBrowser() ? (
           <>
-            <button className="primary wide" disabled={busy} onClick={() => void moveIn()}>
-              {busy ? "Moving in…" : "Move in"}
+            <p className="small">
+              This app&apos;s browser forgets guests: make an account first, it takes a moment.
+            </p>
+            <button className="primary wide" onClick={onLogin}>
+              Make an account
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="primary wide" disabled={busy} onClick={() => void play()}>
+              {busy ? "One moment…" : `Play next to ${from}`}
             </button>
             <p className="muted small">
-              No account needed now: you can keep your estate with a name and password later.{" "}
-              <button className="link" onClick={() => (onLogin ?? (() => gameClient.forgetInvite()))()}>
+              No account needed now: keep your company with a name and a password later.{" "}
+              <button className="link" onClick={onLogin}>
                 I have an account
               </button>
             </p>
           </>
-        ) : (
-          <form onSubmit={(event) => void done(event)}>
-            <label>
-              Your company
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                minLength={3}
-                maxLength={24}
-              />
-            </label>
-            <Swatches
-              value={color}
-              onChange={setColor}
-              colors={[dto.color ?? COLORS[0]!, dto.color2 ?? COLORS[1]!, ...COLORS]}
-            />
-            {needsAccount && (
-              <div className="keep-fields">
-                <p className="small">
-                  This browser forgets guests: keep your estate with a name and a password.
-                </p>
-                <input
-                  placeholder="User name"
-                  autoComplete="username"
-                  value={account.userName}
-                  onChange={(e) => setAccount({ ...account, userName: e.target.value })}
-                />
-                <input
-                  placeholder="Password"
-                  type="password"
-                  autoComplete="new-password"
-                  value={account.password}
-                  onChange={(e) => setAccount({ ...account, password: e.target.value })}
-                />
-              </div>
-            )}
-            <button className="primary wide" type="submit" disabled={busy}>
-              {busy ? "Settling…" : "Done"}
-            </button>
-          </form>
         )}
         {error !== null && (
           <p className="form-error" role="alert">

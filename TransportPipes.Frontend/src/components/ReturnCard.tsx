@@ -1,33 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { gameClient } from "../app/client";
 import { formatAmount } from "../app/format";
-import type { LandingCardDto, ReturnLineDto } from "../api/contracts";
+import type { ReturnLineDto } from "../api/contracts";
 import { setState, useAppStore } from "../state/store";
-
-const CARD_TITLE: Record<LandingCardDto["kind"], string> = {
-  yours: "Your seat",
-  crew: "Next to your crew",
-  lively: "A lively station",
-  frontier: "The Frontier",
-};
 
 /** A line's one button: what it says */
 function actionLabel(line: ReturnLineDto): string | null {
   switch (line.action) {
     case "repairAll":
       return `Repair all · ${formatAmount(line.cost ?? 0)} g`;
-    case "project":
-      return "Open";
-    case "send":
-      return "Send ▸";
-    case "thank":
-      return "💛 Thanks";
-    case "tend":
-      return "💛 Tend";
     case "links":
       return "Look";
-    case "seat":
-      return "Move in";
     case "fillWant":
       return "Send them ▸";
     case "grow":
@@ -36,8 +19,6 @@ function actionLabel(line: ReturnLineDto): string | null {
       return line.partnerName === null
         ? `Order the rest · ${formatAmount(line.cost ?? 0)} g`
         : `Order the rest for ${line.partnerName} · ${formatAmount(line.cost ?? 0)} g`;
-    case "crew":
-      return "Crew";
     case "show":
     case "upgrade":
       return "Show me";
@@ -54,7 +35,7 @@ function close() {
  * The return card (F5): one card for every return with news, built by the server on its clock. Gold and level, then
  * what matters (one line about people, the crew, the shared goal you can unblock, one-tap fixes, what stops you, and one
  * "Still:" line for what hasn't changed), each with its one button, the rest folded under "more", and one Continue. While it is open the keys are its own: Tab stays inside, Escape
- * continues, and the map's keys wait. After the Quiet Isles it also asks where to land.
+ * continues, and the map's keys wait.
  */
 export function ReturnCard() {
   const card = useAppStore((s) => s.returnCard);
@@ -134,16 +115,6 @@ export function ReturnCard() {
       setBusy(false);
     }
   };
-  const land = async (landing: LandingCardDto) => {
-    setBusy(true);
-    try {
-      await gameClient.relocateTo(landing.seat);
-    } finally {
-      setBusy(false);
-      close();
-    }
-  };
-  const choosing = card.landing.length > 1;
   return (
     <div className="modal-backdrop">
       <div
@@ -210,37 +181,8 @@ export function ReturnCard() {
           </button>
         )}
         {card.fine.length > 0 && <p className="muted small">{card.fine.join(" ")}</p>}
-        {choosing && (
-          <>
-            <p className="muted small">Your estate is on your seat already. Another place is a free move.</p>
-            <div className="landing-cards">
-              {card.landing.map((landing) => (
-                <button
-                  key={`${landing.kind}-${landing.seat.slot}`}
-                  type="button"
-                  className={landing.here ? "landing-card here" : "landing-card"}
-                  disabled={busy}
-                  onClick={() => (landing.here ? close() : void land(landing))}
-                >
-                  <strong>{CARD_TITLE[landing.kind]}</strong>
-                  <span>{landing.station}</span>
-                  <span className="muted small">
-                    {landing.neighbours > 0
-                      ? `${landing.neighbours} ${landing.neighbours === 1 ? "neighbour" : "neighbours"}`
-                      : "Houses for neighbours"}{" "}
-                    ·{" "}
-                    {landing.crates === 0
-                      ? "everything fits"
-                      : `${landing.crates} ${landing.crates === 1 ? "crate" : "crates"}`}
-                  </span>
-                  {landing.here && <span className="badge">here</span>}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
         <button type="button" className="primary wide" autoFocus onClick={close}>
-          {choosing ? "Stay here" : "Continue"}
+          Continue
         </button>
       </div>
     </div>

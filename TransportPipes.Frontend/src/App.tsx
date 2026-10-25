@@ -12,11 +12,11 @@ import { VisitPanel } from "./components/VisitPanel";
 import { WildernessPanel } from "./components/WildernessPanel";
 import { ConnectionOverlay } from "./components/ConnectionOverlay";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { FoundCompany } from "./components/FoundCompany";
+import { PlotPicker } from "./components/PlotPicker";
 import { GameCanvas } from "./components/GameCanvas";
 import { MapLoading } from "./components/MapLoading";
 import { YardPanel } from "./components/YardPanel";
-import { CrewPanel, ShareCodes } from "./components/CrewPanel";
+import { CrewPanel } from "./components/CrewPanel";
 import { InviteInGame, KeepEstate } from "./components/KeepEstate";
 import { HoverTip } from "./components/HoverTip";
 import { HubPanel } from "./components/HubPanel";
@@ -200,6 +200,8 @@ export function App() {
   const content = useAppStore((state) => state.content);
   const photoMode = useAppStore((state) => state.photoMode);
   const mapShown = useAppStore((state) => state.mapShown);
+  const movePicker = useAppStore((state) => state.picker?.mode === "move");
+  const invite = useAppStore((state) => state.invite);
 
   return (
     <div className="app">
@@ -229,7 +231,6 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="CrewPanel">
             <CrewPanel />
-            <ShareCodes />
             <KeepEstate />
             <InviteInGame />
           </ErrorBoundary>
@@ -300,6 +301,11 @@ export function App() {
           <ErrorBoundary name="SeasonPanel">
             <SeasonPanel />
           </ErrorBoundary>
+          {movePicker && (
+            <ErrorBoundary name="PlotPicker">
+              <PlotPicker key={invite?.code ?? ""} mode="move" />
+            </ErrorBoundary>
+          )}
           <ErrorBoundary name="ReturnCard">
             {/* Over the drawn map, not a dark screen (run 2) */}
             {mapShown && <ReturnCard />}
@@ -308,7 +314,12 @@ export function App() {
         </>
       )}
       {phase === "login" && <AuthScreen />}
-      {phase === "found" && <FoundCompany />}
+      {phase === "found" && (
+        <ErrorBoundary name="PlotPicker">
+          {/* A friend's link opened on the way starts the picker again at their Yard */}
+          <PlotPicker key={invite?.code ?? ""} mode="start" />
+        </ErrorBoundary>
+      )}
       {phase === "loading" && <MapLoading text="Loading the world…" />}
       {phase === "error" && (
         <div className="screen">

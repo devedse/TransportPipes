@@ -42,6 +42,7 @@ import type {
   CrewViewDto,
   GuestResult,
   SeatRefDto,
+  FoundPlayerDto,
   StationsDto,
 } from "./contracts";
 
@@ -267,12 +268,18 @@ export class GameConnection {
   /** Any resident names the Yard and picks its banner */
   setYard = (name: string, emblem: string, color: string, color2: string) =>
     this.invoke<CommandResult>("SetYard", name, emblem, color, color2);
+  /** Find a player by name, to fly the map to them */
+  findPlayer = (text: string) => this.invoke<FoundPlayerDto[]>("FindPlayer", text);
+  /** One of your prices ("public", "crew", "public:good", "crew:good", "for:companyId"; null: back to its default) */
+  setPrice = (key: string, value: number | null) => this.invoke<CommandResult>("SetPrice", key, value);
   /** Any resident opens or closes the Yard */
   setYardOpen = (open: boolean) => this.invoke<CommandResult>("SetYardOpen", open);
   /** Asks to settle on a free plot of a closed Yard (the request waits three days) */
-  requestPlot = (seat: SeatRefDto) => this.invoke<CommandResult>("RequestPlot", seat.districtX, seat.districtY, seat.slot);
+  requestPlot = (seat: SeatRefDto) =>
+    this.invoke<CommandResult>("RequestPlot", seat.districtX, seat.districtY, seat.slot);
   /** A resident says yes (the newcomer moves in for free) or no to a request */
-  answerRequest = (requester: number, yes: boolean) => this.invoke<CommandResult>("AnswerRequest", requester, yes);
+  answerRequest = (requester: number, yes: boolean) =>
+    this.invoke<CommandResult>("AnswerRequest", requester, yes);
   /** Your "Play next to me" link's code (valid for seven days) */
   getNextToMeLink = () => this.invoke<string | null>("GetNextToMeLink");
   /** A friend's tap: what your Storages hold of what a neighbour's scaffold wants goes into it */

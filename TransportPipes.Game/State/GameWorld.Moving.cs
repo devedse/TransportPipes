@@ -349,9 +349,10 @@ public sealed partial class GameWorld
     }
 
 
-    /// <summary>How many of a company's buildings wouldn't fit another seat's land and would wait in crates</summary>
-    public int CratesIfMovedTo(Company company, Estate target)
+    /// <summary>How many of a company's buildings wouldn't fit another plot's land and would wait in crates</summary>
+    public int CratesIfMovedTo(Company company, EstateKey target)
     {
+        var origin = WorldLayout.EstateOrigin(target.District, target.Slot);
         if (EstateOf(company) is not { } home)
         {
             return company.Crates.Count;
@@ -367,7 +368,7 @@ public sealed partial class GameWorld
             var deep = WorldLayout.IsDeep(building.Position) ? WorldLayout.DeepOffset : 0;
             var (dx, dy) = WorldLayout.MoveFootprint(WorldLayout.SideOf(home.Slot), WorldLayout.SideOf(target.Slot),
                 building.Position.X - home.Origin.X, building.Position.Y - deep - home.Origin.Y, definition.Size);
-            var pos = target.Origin.Offset(dx, dy + deep);
+            var pos = origin.Offset(dx, dy + deep);
             if (!FitsTheLand(definition, pos))
             {
                 crates++;

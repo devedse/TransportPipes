@@ -1,6 +1,7 @@
 // Turns generated art into game sprites (docs/ArtDirection.md):
 //   node process.mjs buildings <source dir>   ground plate → footprint, WebP, manifest
 //   node process.mjs terrain <source dir>     seamless textures, WebP
+//   node process.mjs derived                  terrain made from another one's texture (red hills)
 // Output goes to TransportPipes.Frontend/public/art, the manifest to public/art/manifest.json.
 import sharp from "sharp";
 import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
@@ -259,5 +260,18 @@ async function loady(source) {
 }
 
 const [kind, source] = process.argv.slice(2);
+/** Terrain made from another one's texture: the red hills (bauxite, 1.4 §5) are the hills' dry grass on red earth */
+const DERIVED = { redHills: { from: "hills", tone: { hue: -58, saturation: 0.8, brightness: 0.78 } } };
+
+async function derived() {
+  const m = manifest();
+  for (const [id, { from, tone }] of Object.entries(DERIVED)) {
+    await sharp(join(OUT, "terrain", `${from}.webp`)).modulate(tone).webp({ quality: 90 }).toFile(join(OUT, "terrain", `${id}.webp`));
+    m.terrain[id] = { size: m.terrain[from].size };
+    console.log(`${id}: from ${from}`);
+  }
+  save(m);
+}
+
 // `node process.mjs hashes` only stamps the manifest
-await { buildings, terrain, props, loady, ui, hashes: async () => save(manifest()) }[kind](source);
+await { buildings, terrain, props, loady, ui, derived, hashes: async () => save(manifest()) }[kind](source);
