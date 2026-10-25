@@ -16,7 +16,10 @@ const setup = await page.evaluate(async () => {
   const s = () => tp.appStore.getState(); const co = () => s().company;
   const post = [...w.buildings.values()].find((t) => t.owner === co().id && t.type === "tradingPost");
   const ok = (type, x, y) => tp.rules.canPlace(s().content, w, co(), s().era, s().content.building(type), x, y).ok;
-  const near = (type, cx, cy) => { for (let r = 1; r < 9; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (ok(type, cx + dx, cy + dy)) return { x: cx + dx, y: cy + dy }; return null; };
+  // A free spot with a free tile around it (buildings side by side leave no room for their pipes)
+  const taken = new Set();
+  const roomy = (x, y) => [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dy]) => !taken.has(`${x + dx},${y + dy}`));
+  const near = (type, cx, cy) => { for (let r = 1; r < 9; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (ok(type, cx + dx, cy + dy) && roomy(cx + dx, cy + dy)) { taken.add(`${cx + dx},${cy + dy}`); return { x: cx + dx, y: cy + dy }; } return null; };
   const built = {};
   for (const [name, type, dx, dy] of [["moilyA", "windMoily", 4, -3], ["moilyB", "windMoily", 6, 2], ["solar", "solarPanel", -3, 4], ["storage", "storage", 3, 4]]) {
     const at = near(type, post.x + dx, post.y + dy);
@@ -24,15 +27,18 @@ const setup = await page.evaluate(async () => {
     built[name] = at;
   }
   await c.cheat("finish");
+  // To one tile, or to whichever side of the post a route reaches
   const lay = async (b, to) => {
-    for (const [fx, fy] of [[b.x - 1, b.y], [b.x + 1, b.y], [b.x, b.y - 1], [b.x, b.y + 1]]) {
-      const route = tp.rules.routePipe(w, co(), { x: fx, y: fy }, to, s().content);
-      if (route && (await c.placePipes(route.flatMap((t) => [t.x, t.y]), 1)).success) return route;
-    }
+    const goals = to ? [to] : [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([dx, dy]) => ({ x: post.x + dx, y: post.y + dy }));
+    for (const goal of goals)
+      for (const [fx, fy] of [[b.x - 1, b.y], [b.x + 1, b.y], [b.x, b.y - 1], [b.x, b.y + 1]]) {
+        const route = tp.rules.routePipe(w, co(), { x: fx, y: fy }, goal, s().content);
+        if (route && (await c.placePipes(route.flatMap((t) => [t.x, t.y]), 1)).success) return route;
+      }
     return null;
   };
   const routes = {};
-  for (const name of Object.keys(built)) routes[name] = await lay(built[name], { x: post.x - 1, y: post.y });
+  for (const name of Object.keys(built)) routes[name] = await lay(built[name], null);
   const gate = [...w.conductors.values()].filter((t) => t.kind === "gate" && t.owner === co().id)
     .sort((a, b) => Math.abs(a.x - post.x) + Math.abs(a.y - post.y) - (Math.abs(b.x - post.x) + Math.abs(b.y - post.y)))[0];
   const inEstate = (x, y) => x >= co().estateX && y >= co().estateY && x < co().estateX + 32 && y < co().estateY + 32;
@@ -60,18 +66,25 @@ const snapshot = (p) => p.evaluate(() => {
 });
 // A second browser context with the same login (the player's cookie): a fresh tab loads the true state
 const context = await browser.newContext({ storageState: await page.context().storageState(), viewport: { width: 1600, height: 1000 } });
-const compare = async (label) => {
-  await page.waitForTimeout(3500);
+/** A freshly loaded tab of the same player, ready (once more when it isn't: on a loaded machine the dev proxy's fallback
+ * transport sometimes never brings the map, which isn't what this checks) */
+const freshTab = async (tries = 2) => {
   const other = await context.newPage();
   const said = [];
   other.on("console", (m) => said.push(`${m.type()}: ${m.text()}`.slice(0, 200)));
   other.on("pageerror", (e) => said.push(`pageerror: ${e.message}`.slice(0, 200)));
   await other.goto(base + "/");
-  await other.waitForSelector("body[data-ready='1']", { timeout: 60000 }).catch(async (error) => {
-    const state = await other.evaluate(() => ({ phase: tp.appStore.getState().phase, connection: tp.gameClient.connection.status, shown: tp.appStore.getState().mapShown })).catch((e) => String(e));
-    console.log("the fresh tab never got ready:", JSON.stringify(state), "\n  " + said.slice(-12).join("\n  "));
-    throw error;
-  });
+  const ready = await other.waitForSelector("body[data-ready='1']", { timeout: 60000 }).then(() => true, () => false);
+  if (ready) return other;
+  const state = await other.evaluate(() => ({ phase: tp.appStore.getState().phase, connection: tp.gameClient.connection.status, shown: tp.appStore.getState().mapShown })).catch((e) => String(e));
+  console.log("the fresh tab never got ready:", JSON.stringify(state), "\n  " + said.filter((t) => t.startsWith("error") || t.startsWith("warn")).slice(-4).join("\n  "));
+  await other.close();
+  if (tries <= 1) throw new Error("no fresh tab got ready");
+  return freshTab(tries - 1);
+};
+const compare = async (label) => {
+  await page.waitForTimeout(3500);
+  const other = await freshTab();
   await other.evaluate(({ x, y }) => tp.gameClient.engine.lookAt(x + 2, y, 0.4), await page.evaluate(() => window.__c.post));
   await other.waitForTimeout(4000);
   const truth = await snapshot(other);

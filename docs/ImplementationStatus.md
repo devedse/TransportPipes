@@ -553,7 +553,7 @@ a building's price; the bot buys outskirts, tries the next step when one fails a
 Big plots: wants are filled from the Storages once a settle (they scanned every building for every want, every tick)
 and the solver's sharing loop allocates nothing per consumer.
 
-**Phase C · Eras 3 to 5** (started 2026-10-25):
+**Phase C · Eras 3 to 5** (2026-10-25, pushed with phase B as d2dcde1; the test server starts a fresh world):
 - Art: the Motor, Battery, Titanium (mine and works) and Spaceframe Works (Codex, processed and fit-checked); the five
   Monuments in three sizes each, standing on five sites in the Yard's square as their stages grow.
 - The pipe's three lanes (§9): where a pipe meets a building, a manifold and one connector per kind of good (a belt, a
@@ -579,6 +579,24 @@ and the solver's sharing loop allocates nothing per consumer.
   Every town now shows its own Era Wonder in its hub (only the capital did: the other towns' site was a bare plot).
 - Look inside a pipe: hovering it (or holding Alt for every pipe) cuts it open, each flow a core in its good's colour at
   its lane's height, thicker the fuller the pipe; the tip says what runs in which lane. The connectors fade zoomed out.
+- A trunk line's carrier sets fees of their own for players of the two towns (the Links tab).
+
+**Phase D · Balance and polish** (started 2026-10-25):
+- Every e2e script was run on 1.4 (60 of them): 21 failed, mostly on 1.4's empty plots and new wording. A `kit` helper
+  lays a small estate; the scripts follow 1.4 (era-wonder rewritten for the town's Wonder). Their runs found real bugs:
+  the phone's top bar ran 120 px past the screen and hid Chat; a trading post's level preview and Max read "adds
+  nothing" for an hour after a plot grew (they used the market's hour average only); a pipe from a building to the
+  post was refused where it crossed the Yard gate beside the post.
+- The bots against the model (§17): the game's Keep researching started the cheapest tier while a bot was away, so its
+  research went wide (Power 5, Stone 5 on day 7) where the model masters Iron (tier 7): the bot queues its plan's tiers
+  and saves for the next, as the model's player does. It played a plot lacking copper ore, the most valuable basic;
+  it now plays the model's plot (lacking sand and oil, rich in iron ore). Day 1 is now within 3% of the model; from
+  day 2 it fell behind because the advisor never tried a Smelter: it ranked factories by their inputs at the market's
+  2.5×, so eight extractors always came first (the plot sold 900 copper ore a minute at a quarter of its price). Inputs
+  the company makes now count at what they sell for.
+- A whole town of bots for 120 days is out of reach at today's speed (a bot's day takes about six minutes of a CPU
+  core, so a town of eight for 120 days would take days); the model of §17, checked against the bots' first week, sets
+  the pacing of all five Eras instead.
 
 ### After v1
 

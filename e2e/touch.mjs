@@ -47,7 +47,8 @@ const from = { x: Math.max(5, Math.min(...xs2) - 70), y: Math.max(160, Math.min(
 const still = await origin();
 await drag(from, to, 700);
 expect("a long press and drag selects with a box", (await selection()) >= 2, `${await selection()} selected`);
-expect("and doesn't move the map", Math.abs((await origin()).x - still.x) < 2);
+const moved = (await origin()).x - still.x;
+expect("and doesn't move the map", Math.abs(moved) < 2, `${Math.round(moved)} px`);
 await shot("1-touch-box");
 console.log(results.join("\n"));
 console.log(errors.length ? errors.join("\n") : "no errors");
