@@ -1,11 +1,13 @@
 // The way back (v1.2 §10, F5): A plays, is "gone" for ten days (the dev cheat) and comes back to one card:
 // node return.mjs <outdir>
-import { start, newPlayer } from "./lib.mjs";
+import { start, newPlayer, settle } from "./lib.mjs";
 const [out = "shots/return"] = process.argv.slice(2);
 const fail = (why) => { console.log("FAIL", why); process.exitCode = 1; };
 
 const a = await start(out, { width: 1280, height: 860 });
 await newPlayer(a.page, "ra");
+// A plot starts empty (1.4 §6): something that earns while A is away
+console.log(await settle(a, "solarPanel"));
 
 // Ten days away: what happened, that the estate is safe
 await a.cheat("gone");
