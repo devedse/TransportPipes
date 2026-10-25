@@ -100,3 +100,19 @@
 - { id: titaniumMine, size: 2, look: "a titanium mine of the space age at the foot of a mountain: a cut into dark grey rock with a sleek white headframe, a covered conveyor and a heap of dark metallic grey ore glinting in the light" }
 - { id: titaniumWorks, size: 2, look: "a titanium works of the space age: a futuristic refinery with tall white rounded reactor vessels, glowing pale blue windows and pipes, a loading pad with silvery titanium sponge blocks" }
 - { id: spaceframeWorks, size: 3, look: "a spaceframe works of the space age: a huge white assembly hall with a giant open gantry crane where a white lattice spaceframe truss segment is being built by orange robot arms, glowing blue light strips, very clean and futuristic" }
+# 1.4 §13: the Yard's Monuments, each in three sizes as its stages grow (1–2, 3–9, 10 and more)
+- { id: monument-grandFountain-1, size: 3, look: "a small town fountain on a round stone plaza: a low octagonal basin of pale stone with a single jet of sparkling water, two benches and flower tubs" }
+- { id: monument-grandFountain-2, size: 3, look: "a fine town fountain on a round stone plaza: a two-tier basin of pale carved stone with bronze dolphins spouting water, lanterns, benches and flower beds around it" }
+- { id: monument-grandFountain-3, size: 3, look: "a grand monumental fountain on a wide stone plaza: three tiers of carved marble basins, gilded statues and many sparkling jets, mosaic paving, ornate lanterns and colourful flower beds" }
+- { id: monument-clockTower-1, size: 3, look: "a small clock tower on a stone plaza: a slim brick tower with a white clock face and a little copper roof, a bench at its foot" }
+- { id: monument-clockTower-2, size: 3, look: "a handsome clock tower on a stone plaza: a tall brick and stone tower with four clock faces, a bell in an open belfry, a pointed copper roof with a weather vane" }
+- { id: monument-clockTower-3, size: 3, look: "a magnificent clock tower on a grand plaza: a very tall ornate stone tower with gilded clock faces, a carillon of bells, a verdigris spire and flags, arcades and lanterns at its base" }
+- { id: monument-observatory-1, size: 3, look: "a small observatory on a stone plaza: a round stone hut with a little white dome and a brass telescope peeking out" }
+- { id: monument-observatory-2, size: 3, look: "an observatory on a stone plaza: a round stone building with a big white dome open to the sky, a large brass telescope, an armillary sphere in front" }
+- { id: monument-observatory-3, size: 3, look: "a grand observatory on a plaza: a tall domed tower of pale stone with a huge brass telescope, two smaller domes, a giant golden armillary sphere and star-pattern mosaic paving" }
+- { id: monument-workshop-1, size: 3, look: "a small guild workshop on a stone plaza: a timber-framed shed with a big cogwheel sign, a workbench and tools outside" }
+- { id: monument-workshop-2, size: 3, look: "a guild workshop hall on a stone plaza: a brick hall with a sawtooth roof, a giant brass cogwheel monument in front, a crane arm and crates" }
+- { id: monument-workshop-3, size: 3, look: "a grand guild hall of makers on a plaza: an ornate brick and iron hall with huge interlocking golden cogwheels turning on its facade, a tall chimney, banners and a statue of a smith" }
+- { id: monument-lighthouse-1, size: 3, look: "a small beacon tower on a stone plaza: a short white and red striped tower with a lantern room on top" }
+- { id: monument-lighthouse-2, size: 3, look: "a lighthouse on a stone plaza: a tall white and red striped tower with a glowing lantern room and a gallery, a little keeper's cottage beside it" }
+- { id: monument-lighthouse-3, size: 3, look: "a grand lighthouse monument on a plaza: a very tall ornate stone lighthouse with a brilliant golden lantern sending beams, brass details, a keeper's house and anchors as decoration" }

@@ -180,6 +180,11 @@ public sealed partial class GameWorld
                 var once = $" once its {Join(waits.Short.Keys.Select(GoodsWord).ToList())} {(waits.Short.Count == 1 && !GoodsWord(waits.Short.Keys.First()).EndsWith('s') ? "is" : "are")} in";
                 var reason = System.Text.RegularExpressions.Regex.Replace(step.Reason, @", back in [^.:]+", once);
                 step = step with { Reason = reason == step.Reason ? $"{step.Reason.TrimEnd('.')}{once}." : reason };
+                // 1.4 §9: the market brings them within minutes at 2.5× (unless the player turned that off): part of its price
+                if (company.WantsFromMarket)
+                {
+                    step = step with { Cost = step.Cost + Math.Ceiling(waits.Short.Sum(t => t.Value * WantMarketPrice(company, t.Key))) };
+                }
             }
             var score = step.Kind switch
             {
@@ -360,7 +365,12 @@ public sealed partial class GameWorld
         }
         foreach (var (resource, amount) in changed.Out)
         {
-            gain += (amount - (old?.Out.GetValueOrDefault(resource) ?? 0)) * values.Value.GetValueOrDefault(resource);
+            // A good the network doesn't make yet sells at the company's trading post, at what its Hub Order still takes
+            var worth = values.Value.TryGetValue(resource, out var known) ? known
+                : network.Buildings.Any(t => _buildings[t].Owner == company.Id && Content.Building(_buildings[t].Type).Kind == BuildingKind.TradingPost)
+                    ? HubOrderValue(company, resource, amount - (old?.Out.GetValueOrDefault(resource) ?? 0))
+                    : 0;
+            gain += (amount - (old?.Out.GetValueOrDefault(resource) ?? 0)) * worth;
         }
         gain *= Math.Max(0, share);
         if (old != null && values.OnFullLinks.Contains(old.Id))
@@ -382,6 +392,21 @@ public sealed partial class GameWorld
         var unused = mine.Values.Where(t => t.Out.ContainsKey(resource))
             .Sum(t => Math.Max(0, t.Out[resource] * (t.MaxRate - network.Solution.Rate(t.Id))));
         return leaving + unused;
+    }
+
+    /// <summary>What a company's Hub Order for a good still takes a minute beyond what it sells there now (1.4 §8)</summary>
+    private double HubOrderRoom(Company company, string resource) =>
+        Math.Max(0, HubOrder(company, resource) - HubMarketOf(company, company.District).SoldRate.GetValueOrDefault(resource));
+
+    /// <summary>
+    /// What a unit of more of a good brings at the company's market: the full price while its Hub Order has room, about
+    /// half the price beyond it (the square-root curve's margin)
+    /// </summary>
+    private double HubOrderValue(Company company, string resource, double units)
+    {
+        var price = HubBuyPrice(company, resource);
+        var room = HubOrderRoom(company, resource);
+        return units <= 1e-9 ? price : price * (Math.Min(units, room) + Math.Max(0, units - room) * 0.5) / units;
     }
 
     /// <summary>What flows over the full links of a network is worth a minute</summary>
@@ -436,6 +461,14 @@ public sealed partial class GameWorld
             if (estate.IsUnlocked(parcel))
             {
                 tiles.AddRange(ParcelTiles(estate, parcel));
+            }
+        }
+        // And the outskirts it bought (1.4 §5)
+        for (var parcel = 0; parcel < WorldLayout.OutskirtsParcels(estate.Slot).Count; parcel++)
+        {
+            if (estate.HasOutskirts(parcel))
+            {
+                tiles.AddRange(OutskirtsTiles(estate, parcel));
             }
         }
         TilePos? best = null;
@@ -968,7 +1001,12 @@ public sealed partial class GameWorld
         var main = networks.OrderByDescending(t => t.Buildings.Count(b => _buildings[b].Owner == company.Id && Content.Building(_buildings[b].Type).Kind == BuildingKind.TradingPost))
             .ThenByDescending(t => t.Buildings.Count).First();
         var evaluated = 0;
-        foreach (var definition in Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.Count > 0 && IsUnlocked(company, t, out _)))
+        // 1.4 §8: every good has its own Hub Order, so the most promising first: what a copy would sell at the market
+        // while its goods' Hub Orders have room
+        var candidates = Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.Count > 0 && IsUnlocked(company, t, out _))
+            .OrderByDescending(t => t.Out.Sum(o => o.Value * HubOrderValue(company, o.Key, o.Value)) - t.In.Sum(i => i.Value * HubBuyPrice(company, i.Key)))
+            .ToList();
+        foreach (var definition in candidates)
         {
             if (!WhatIfsLeft() || evaluated >= 8)
             {
@@ -979,8 +1017,8 @@ public sealed partial class GameWorld
             Network? network;
             if (extractor)
             {
-                // An extractor of something its land holds that it doesn't mine yet
-                network = owned == 0 ? main : null;
+                // An extractor of something its land holds: the first one, or another while its goods' Hub Orders have room
+                network = owned == 0 || definition.Out.Keys.Any(t => HubOrderRoom(company, t) > definition.Out[t]) ? main : null;
             }
             else if (definition.In.Count > 0)
             {
@@ -1059,7 +1097,7 @@ public sealed partial class GameWorld
             .Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.In.Count == 0 && t.Out.Count > 0 && t.Placement.Deposit == null && IsUnlocked(company, t, out _))
             .Select(t => (Definition: t, Spot: FindSpot(company, t, post.Position)))
             .Where(t => t.Spot != null)
-            .Select(t => (t.Definition, t.Spot, Value: HypotheticalNode(company, t.Definition, t.Spot!.Value, -1)?.Out.Sum(o => o.Value * HubBuyPrice(company, o.Key)) ?? 0))
+            .Select(t => (t.Definition, t.Spot, Value: HypotheticalNode(company, t.Definition, t.Spot!.Value, -1)?.Out.Sum(o => o.Value * HubOrderValue(company, o.Key, o.Value)) ?? 0))
             .OrderByDescending(t => t.Value / Math.Max(1, BuildCost(company, t.Definition)))
             .FirstOrDefault();
         if (best.Definition != null && best.Value > 0.01)

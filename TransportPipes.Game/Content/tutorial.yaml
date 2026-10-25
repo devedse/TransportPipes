@@ -8,7 +8,7 @@
     text: "Now pipe it: pick the Pipe tool (P), then drag from your panel to the pipe next to it. Pipes carry what it makes to your Trading Post.",
     phoneText: "Now pipe it to your Trading Post: Show me plans the pipe, and one tap lays it. Pipes carry what it makes to be sold." }
 - { id: firstUpgrade, stat: levelsBought, amount: 1, gold: 150, hint: { select: paying },
-    text: "Coins! Upgrade a building: every level makes 10% more, and level 10 doubles it. Show me opens the one where a level pays back soonest." }
+    text: "Coins! Upgrade a building: every level makes 10% more, and every fifth level doubles it. Show me opens the one where a level pays back soonest." }
 - { id: firstMoily, stat: "built:solarPanel|windMoily", amount: 2, gold: 200, hint: { tool: build, building: windMoily, overlay: wind },
     text: "More energy, more gold. Find a windy spot (the Wind overlay shows it) and build a Wind Moily: six times a panel." }
 - { id: firstYard, stat: yard, amount: 1, gold: 500, hint: { panel: yard },
@@ -22,7 +22,7 @@
 - { id: firstOrder, stat: orders, amount: 1, gold: 500, hint: { panel: hub },
     text: "The hub posts three orders a day and buys them at twice the price from what your trading post sells. Keep selling: one fills by itself." }
 - { id: firstResearch, stat: researched, amount: 1, gold: 800, hint: { tool: build, building: lab },
-    text: "Build a Lab, connect energy and iron ingots, and pick your first research." }
+    text: "Build a Lab and pick your first research: a track makes one chain's buildings better, the Era tree opens new pipes and buildings. Research costs gold, then time, and runs on while you're away." }
 - { id: firstParcel, stat: parcels, amount: 5, gold: 1000, hint: { panel: parcel },
     text: "Room to grow: click a dark parcel next to your land and buy it." }
 
@@ -34,11 +34,11 @@
 - { id: firstMilestone, chapter: 2, stat: maxLevel, amount: 10, gold: 2500, hint: { select: highest },
     text: "Level 10 doubles what a building makes, and its badge turns green. Upgrade one of your buildings to level 10." }
 - { id: copperPipe, chapter: 2, stat: pipeTiers, amount: 1, gold: 3000, hint: { select: pipeFull },
-    text: "A pipe carries only so much: a grey one 100 a minute to each taker. When a building's pipe is full, its panel shows the way up: a Copper Pipe carries five times as much, and the levels after it pay again. Lay your first Copper Pipe." }
+    text: "A pipe carries only so much between two buildings: a grey one 100 a minute. When a building's pipe is full, its panel shows the way up: a Copper Pipe carries fifty times as much, and the levels after it pay again. Lay your first Copper Pipe." }
 - { id: threeResearches, chapter: 2, stat: researched, amount: 3, gold: 3000, hint: { panel: research },
-    text: "Research is a plan, not a list: pick techs that help what you make. Finish three researches." }
+    text: "Research is a plan, not a list: the tracks of the chains you make, and the Era tree beside them (your Lab works on both at once). Finish three researches." }
 - { id: moreOrders, chapter: 2, stat: orders, amount: 4, gold: 3000, hint: { panel: hub },
-    text: "Fill three more of the hub's daily orders: they buy at twice the price from what your trading post sells, and bring reputation." }
+    text: "Fill three more of the hub's daily orders: they buy at twice the price from what your trading post sells." }
 - { id: neighbourIncome, chapter: 2, stat: neighbourIncome, amount: 30, gold: 4000, hint: { panel: yard },
     text: "Your Yard pays more than the market. Earn 30 gold a minute from your neighbours: make what they lack (the Yard shows it)." }
 - { id: secondParcel, chapter: 2, stat: parcels, amount: 6, gold: 5000, hint: { panel: parcel },

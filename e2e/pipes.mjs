@@ -28,5 +28,16 @@ console.log(await page.evaluate(async () => {
 }));
 await page.waitForTimeout(6000);
 await shot("1-pipes");
+// Close up on the factory: its lanes (1.4 §9: a belt, cables) and the goods riding them
+await page.evaluate(() => {
+  const me = tp.appStore.getState().company.id;
+  const w = tp.gameClient.world;
+  const piped = (b) => [[b.x - 1, b.y], [b.x + b.size, b.y], [b.x, b.y - 1], [b.x, b.y + b.size]].some(([x, y]) => w.conductorAt(x, y) !== undefined);
+  const mine = [...w.buildings.values()].filter((t) => t.owner === me && piped(t));
+  const building = mine.find((t) => t.type === "smallFactory") ?? mine.find((t) => t.type === "ironMine") ?? mine.find((t) => t.type !== "tradingPost");
+  if (building) tp.gameClient.engine.lookAt(building.x, building.y, 2.2);
+});
+await page.waitForTimeout(3000);
+await shot("2-lanes");
 console.log(errors.length ? errors.join("\n") : "no errors");
 await browser.close();

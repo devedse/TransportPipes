@@ -54,8 +54,14 @@ light of the generated art (top left), soft shadows and the same dark outlines.
 - Overlays drawn over the pieces where the game wants them: a brass flange at every third joint and where the tier
   changes, a foot under every other straight tile, the inlet boxes. Each overlay hides behind the tube it belongs to.
 - Pipes plug only into buildings that take or give resources (not decorations or the HQ), and run on under gates.
-- One material per tier: painted iron, copper, blue steel, glass with a glowing core, superconductor with violet
-  bands. The flows are small glowing pellets riding along the tube, around the bends and into the sockets.
+- One material per tier: painted iron, copper, blue steel, charcoal composite with orange fittings, glass with a
+  glowing core, superconductor with violet bands. The flows are small glowing pellets riding along the tube, around
+  the bends and into the sockets.
+- The three lanes (1.4 §9): where a pipe meets a building that makes or takes goods, a manifold crosses the tile (a
+  straight run past the building is its own) and one connector leaves it for each kind of good: a belt on little legs
+  for solids, a slim blue pipe with a red valve wheel for fluids, two copper cables over a post for energy, each from
+  a brass hatch in the tier's trim, side by side across the edge. The pellets of a flow ride their good's lane at its
+  height. Storages and trading posts keep the inlet box.
 - The pieces are rendered once per shape and shaded per tier into one atlas per tier (`public/art/pipes/`); the first
   tier loads with the map, the others when they are first needed.
 

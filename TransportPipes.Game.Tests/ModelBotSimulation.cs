@@ -88,6 +88,81 @@ public class ModelBotSimulation
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "model-days.md"), report.ToString());
     }
 
+    /// <summary>
+    /// Alone and together (§17's "Alone and together, measured"): Ana, Ben, Cleo and Dev in one Yard, each lacking a
+    /// different basic and each mastering a different track, against four players of the same town each alone in a
+    /// Yard; same visits, same rules. Slow: run it with TP_BALANCE=1 (TP_BALANCE_DAYS, default 7).
+    /// </summary>
+    [TestMethod]
+    public void TheCrewsDays()
+    {
+        if (Environment.GetEnvironmentVariable("TP_BALANCE") != "1")
+        {
+            Assert.Inconclusive("Set TP_BALANCE=1 to run the crew's days.");
+        }
+        var days = int.TryParse(Environment.GetEnvironmentVariable("TP_BALANCE_DAYS"), out var d) ? d : 7;
+        var (together, crewEach) = PlayFour([0, 1, 2, 3], days);
+        var (alone, aloneEach) = PlayFour([0, 4, 8, 12], days);
+        var report = new StringBuilder();
+        report.AppendLine("| Day | Earned by the crew | By four alone | Crew ahead | Paid trade, share of income | Monument stages, crew · alone |");
+        report.AppendLine("| --- | --- | --- | --- | --- | --- |");
+        foreach (var (crew, solo) in together.Zip(alone))
+        {
+            report.AppendLine($"| {crew.Day} | {crew.Earned:N0} | {solo.Earned:N0} | {(solo.Earned <= 0 ? 0 : crew.Earned / solo.Earned - 1):P0} | {crew.Trade:P0} | {crew.Monument:N1} · {solo.Monument:N1} |");
+        }
+        // The tracks against each other (§12: within a third): each alone player masters another one
+        report.AppendLine();
+        report.AppendLine($"Earned in all, each in the crew: {string.Join(" · ", crewEach.Select(t => $"{t.Name} ({t.Track}) {t.Earned:N0}"))}");
+        report.AppendLine($"Earned in all, each alone: {string.Join(" · ", aloneEach.Select(t => $"{t.Name} ({t.Track}) {t.Earned:N0}"))}");
+        report.AppendLine($"The best track alone against the worst: ×{aloneEach.Max(t => t.Earned) / Math.Max(1, aloneEach.Min(t => t.Earned)):N2}");
+        TestContext.WriteLine(report.ToString());
+        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "crew-days.md"), report.ToString());
+    }
+
+    /// <summary>
+    /// Four model players on the given plots of the first town for some days, three visits a day: each midnight what they
+    /// earned in all, the share of it other players paid, and their Monuments' stages (each Yard's sites, averaged over
+    /// the four)
+    /// </summary>
+    private static (List<(int Day, double Earned, double Trade, double Monument)> Days, List<(string Name, string Track, double Earned)> Each) PlayFour(int[] slots, int days)
+    {
+        var game = new TestGame(seed: 4242, tutorial: true);
+        game.Time = game.Time.Date.AddHours(19.5);
+        string[] names = ["Ana", "Ben", "Cleo", "Dev"];
+        List<string>[] tracks = [["iron", "steel"], ["copper", "wire"], ["stone", "concrete"], ["wood", "aluminium"]];
+        var companies = slots.Select((slot, i) => game.NewCompany(names[i], gold: game.World.StartingGold, slot: slot)).ToList();
+        var bots = companies.Select((company, i) => new BalanceSimulation.Bot(game, company) { MainTracks = tracks[i] }).ToList();
+        var rows = new List<(int, double, double, double)>();
+        for (var minute = 0; minute < days * 24 * 60; minute++)
+        {
+            var clock = (minute + 19 * 60 + 30) % (24 * 60);
+            var playing = minute < 120 || clock is >= 8 * 60 and < 8 * 60 + 10 or >= 19 * 60 + 30 and < 20 * 60 + 15 or >= 22 * 60 + 30 and < 22 * 60 + 40;
+            if (playing)
+            {
+                foreach (var bot in bots)
+                {
+                    for (var action = 0; action < (minute < 120 ? 2 : 6) && bot.ModelStep(); action++)
+                    {
+                    }
+                }
+                game.Pass(1);
+            }
+            else
+            {
+                game.Pass(5);
+                minute += 4;
+            }
+            if ((minute + 19 * 60 + 30 + 1) % (24 * 60) == 0)
+            {
+                var earned = companies.Sum(t => t.LifetimeEarnings);
+                var fromPlayers = companies.Sum(t => t.EarnedLog.GetValueOrDefault("players")?.Values.Sum() ?? 0);
+                var stages = companies.Average(t => game.World.CrewOf(t) is { } crew ? game.World.MonumentsOf(crew).Sum(m => m.Stages) : 0);
+                rows.Add(((minute + 19 * 60 + 30) / (24 * 60) + 1, earned, earned <= 0 ? 0 : fromPlayers / earned, stages));
+            }
+        }
+        return (rows, companies.Select((t, i) => (t.Name, tracks[i][0], t.LifetimeEarnings)).ToList());
+    }
+
     /// <summary>The first hour from nothing, minute by minute, at two things a minute</summary>
     [TestMethod]
     public void TheFirstHourFromNothing()

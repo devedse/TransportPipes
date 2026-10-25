@@ -510,6 +510,8 @@ export interface DistrictYardDto {
   color2: string | null;
   open: boolean;
   stalls: StallDto[];
+  /** The Monuments standing in its square (1.4 §13) */
+  monuments: Array<{ era: number; kind: string; stages: number }> | null;
 }
 
 /** A resident's stall at its Yard gate (1.4 §7): what it sells the crew, its crew price, what it would buy */

@@ -1,12 +1,13 @@
 using TransportPipes.Game.Content;
+using TransportPipes.Game.World;
 
 namespace TransportPipes.Game.State;
 
 /// <summary>
-/// One part of "Grow everything that pays": a building's pipe door (the pipe, then its levels), its Max, or the next
-/// parcel (Parcel set, Building -1)
+/// One part of "Grow everything that pays": a building's pipe door (the pipe, then its levels), its Max, the next
+/// parcel (Parcel set, Building -1) or the next outskirts parcel (Outskirts set, Building -1)
 /// </summary>
-public sealed record GrowPart(long Building, string Text, bool Door, int Levels, double Cost, double Gain, int? Parcel = null);
+public sealed record GrowPart(long Building, string Text, bool Door, int Levels, double Cost, double Gain, int? Parcel = null, int? Outskirts = null);
 
 /// <summary>
 /// What "Grow everything that pays" would buy now, its price and what it adds a minute (about: the parts are solved one
@@ -47,6 +48,22 @@ public sealed partial class GameWorld
             else if (GoldPerMinute().GetValueOrDefault(company.Id) is var income && income > 0 && (parcelCost - left) / income <= SaveForParcelMinutes)
             {
                 return new GrowPlan([], 0, 0, $"Saving for your next parcel ({Gold(parcelCost)}): {Gold(parcelCost - left)} more, about {Minutes((parcelCost - left) / income)} of income");
+            }
+        }
+        // Then the outskirts from Era 2, in the same way (1.4 §5)
+        if (OutskirtsBlocker(company) == null && EstateOf(company) is { } home)
+        {
+            var cost = NextOutskirtsCost(company);
+            var free = Enumerable.Range(0, WorldLayout.OutskirtsParcels(home.Slot).Count).First(t => !home.HasOutskirts(t));
+            if (cost <= left)
+            {
+                chosen.Add(new GrowPart(-1, "An outskirts parcel: room beyond your plot", false, 0, cost, 0, Outskirts: free));
+                left -= cost;
+            }
+            else if (GoldPerMinute().GetValueOrDefault(company.Id) is var income && income > 0 && (cost - left) / income <= SaveForParcelMinutes)
+            {
+                return new GrowPlan(chosen, Math.Round(chosen.Sum(t => t.Cost)), 0,
+                    chosen.Count > 0 ? null : $"Saving for your next outskirts parcel ({Gold(cost)}): {Gold(cost - left)} more, about {Minutes((cost - left) / income)} of income");
             }
         }
         var parts = new List<GrowPart>();
@@ -95,11 +112,16 @@ public sealed partial class GameWorld
         var done = new List<long>();
         var land = 0;
         // The parcel first, then the pipe doors: they read the flows as they are now, and an upgrade elsewhere changes them
-        foreach (var part in plan.Parts.OrderBy(t => t.Parcel != null ? 0 : t.Door ? 1 : 2))
+        foreach (var part in plan.Parts.OrderBy(t => t.Parcel != null || t.Outskirts != null ? 0 : t.Door ? 1 : 2))
         {
             if (part.Parcel is { } parcel)
             {
                 land += BuyParcel(companyId, parcel).Success ? 1 : 0;
+                continue;
+            }
+            if (part.Outskirts is { } outskirts)
+            {
+                land += BuyOutskirts(companyId, outskirts).Success ? 1 : 0;
                 continue;
             }
             var result = part.Door

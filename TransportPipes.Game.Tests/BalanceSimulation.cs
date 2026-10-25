@@ -329,6 +329,21 @@ public class BalanceSimulation
                     return false;
                 }
             }
+            // Then the outskirts from Era 2, in the same way (1.4 §5)
+            if (World.OutskirtsBlocker(company) == null && game.EstateOf(company) is var home)
+            {
+                var price = World.NextOutskirtsCost(company);
+                var free = Enumerable.Range(0, WorldLayout.OutskirtsParcels(home.Slot).Count).First(t => !home.HasOutskirts(t));
+                if (price <= company.Gold && World.BuyOutskirts(company.Id, free).Success)
+                {
+                    _notes.Add("bought outskirts");
+                    return true;
+                }
+                if (Income > 0 && (price - company.Gold) / Income <= GameWorld.SaveForParcelMinutes)
+                {
+                    return false;
+                }
+            }
             var steps = World.NextSteps(company, 12);
             // A building nobody piped earns nothing: its pipe first
             if (steps.Any(t => t.Action == AdvisorAction.Connect) && ConnectAll())
@@ -336,33 +351,43 @@ public class BalanceSimulation
                 _notes.Add("piped what wasn't");
                 return true;
             }
-            var best = steps
+            var choices = steps
                 .Where(t => t.Action is AdvisorAction.Build or AdvisorAction.Upgrade or AdvisorAction.Climb && t.GainPerMinute > 0 && t.Cost <= company.Gold)
                 .Where(t => t.Cost / t.GainPerMinute <= GameWorld.GrowPaybackMinutes)
-                // Not a scaffold that would wait for materials nobody brings
-                .Where(t => t.Action != AdvisorAction.Build || World.MaterialsLine(company, World.Content.Building(t.BuildingType!)) is not { Short.Count: > 0 })
+                // Not a scaffold that would wait for materials nobody brings (the market brings them, unless that is off)
+                .Where(t => t.Action != AdvisorAction.Build || company.WantsFromMarket || World.MaterialsLine(company, World.Content.Building(t.BuildingType!)) is not { Short.Count: > 0 })
+                // Not what didn't work a moment ago (a spot it can't pipe): a player tries the next thing
+                .Where(t => !_failed.TryGetValue(t.Title, out var until) || until <= game.Time)
                 .OrderBy(t => t.Cost / t.GainPerMinute)
-                .FirstOrDefault();
-            if (best == null)
+                .ToList();
+            if (choices.Count == 0)
             {
                 // Nothing pays back within five days: the gold beyond two hours of income goes half to the Yard's Monument,
                 // half to the town's Wonder (1.4 §17)
                 return GiveLateGold();
             }
-            var done = best?.Action switch
+            foreach (var best in choices.Take(5))
             {
-                AdvisorAction.Upgrade when World.Building(best.Building!.Value) is { } building =>
-                    World.Upgrade(company.Id, building.Id, Math.Max(best.Levels, World.SmartMax(company, building).Levels)).Success,
-                AdvisorAction.Build => PlaceAt(best.BuildingType!, best.At),
-                AdvisorAction.Climb => World.ClimbPipe(company.Id, best.Building!.Value, order: true).Success,
-                _ => false,
-            };
-            if (done)
-            {
-                _notes.Add(best!.Title);
+                var done = best.Action switch
+                {
+                    AdvisorAction.Upgrade when World.Building(best.Building!.Value) is { } building =>
+                        World.Upgrade(company.Id, building.Id, Math.Max(best.Levels, World.SmartMax(company, building).Levels)).Success,
+                    AdvisorAction.Build => PlaceAt(best.BuildingType!, best.At),
+                    AdvisorAction.Climb => World.ClimbPipe(company.Id, best.Building!.Value, order: true).Success,
+                    _ => false,
+                };
+                if (done)
+                {
+                    _notes.Add(best.Title);
+                    return true;
+                }
+                _failed[best.Title] = game.Time.AddHours(1);
             }
-            return done;
+            return GiveLateGold();
         }
+
+        /// <summary>Steps that didn't work, and until when they aren't tried again</summary>
+        private readonly Dictionary<string, DateTime> _failed = new();
 
         /// <summary>The first of the advisor's next steps the company can afford now, done</summary>
         private DateTime? _grownOn;

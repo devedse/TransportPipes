@@ -55,6 +55,7 @@ import {
   tileKey,
   yardRect,
   zoneAt,
+  MONUMENT_SITES,
 } from "./layout";
 import { BuildingEffects, pelletTexture } from "./render/effects";
 import { Juice } from "./render/juice";
@@ -225,6 +226,19 @@ export interface PipeLook {
   shape: string;
   sockets: string[];
 }
+
+type LaneKind = "solid" | "fluid" | "power";
+
+/** The lanes' order across a side, and where they stand for one, two or three of them (art/pipes.mjs LANE_SLOTS) */
+const LANE_KINDS: LaneKind[] = ["solid", "fluid", "power"];
+const LANE_SLOTS: Record<number, number[]> = { 1: [1], 2: [0, 2], 3: [0, 1, 2] };
+const LANE_ACROSS = [0.27, 0.5, 0.73];
+
+/** How high each lane carries its goods, as a share of the big pipe's height */
+const LANE_HEIGHT: Record<LaneKind, number> = { solid: 0.7, fluid: 0.83, power: 1.05 };
+
+const PIPE_DX: Record<string, number> = { u: 0, r: 1, d: 0, l: -1 };
+const PIPE_DY: Record<string, number> = { u: -1, r: 0, d: 1, l: 0 };
 
 function pipeLookOf(
   x: number,
@@ -2034,6 +2048,25 @@ export class Engine {
     return g;
   }
 
+  /**
+   * The kinds of goods a building at a tile takes or makes, in the order its lanes stand (a belt, a slim pipe, cables);
+   * none for a building without goods of its own (a Storage, a trading post keep the bulkhead)
+   */
+  private laneKinds(x: number, y: number): LaneKind[] {
+    const building = this.world.buildingAt(x, y);
+    const content = this.callbacks.getState().content;
+    const definition = building !== undefined ? content.building(building.type) : undefined;
+    if (definition === undefined) {
+      return [];
+    }
+    const kinds = new Set(
+      [...Object.keys(definition.in), ...Object.keys(definition.out)].map(
+        (t) => content.resource(t)?.kind ?? "solid",
+      ),
+    );
+    return LANE_KINDS.filter((t) => kinds.has(t));
+  }
+
   /** Whether the building at a tile takes pipes */
   private pipeBuildingAt(x: number, y: number): boolean {
     const building = this.world.buildingAt(x, y);
@@ -2088,6 +2121,30 @@ export class Engine {
       ) {
         overlays.push(`flange-${side}`);
       }
+    }
+    // The lanes into one building (1.4 §9): a connector for each kind of good it takes or makes, out of a manifold across
+    // the tile (a straight run past the building is its own); a building without its own goods keeps the bulkhead
+    const side = look.sockets.length === 1 ? look.sockets[0]! : null;
+    const lanes = side !== null ? this.laneKinds(x + PIPE_DX[side]!, y + PIPE_DY[side]!) : [];
+    if (side !== null && lanes.length > 0 && this.textures.pipePiece(`manifold-${side}`, tier) !== null) {
+      const rest = look.shape.replace(side, "");
+      const runsPast = rest === (side === "u" || side === "d" ? "rl" : "ud");
+      const shapes = [
+        ...(rest.length > 0 ? [rest] : []),
+        ...overlays,
+        ...(runsPast ? [] : [`manifold-${side}`]),
+        ...lanes.map((kind, i) => `lane-${kind}-${side}-${LANE_SLOTS[lanes.length]![i]}`),
+      ];
+      for (const shape of shapes) {
+        const art = this.textures.pipePiece(shape, tier);
+        if (art !== null) {
+          const sprite = new Sprite(art.texture);
+          sprite.position.set(art.x, art.y);
+          sprite.scale.set(art.scale);
+          container.addChild(sprite);
+        }
+      }
+      return container;
     }
     // A straight run past a building taps into it with a tee (a hub is for pipes meeting)
     const through = look.shape.replace(look.sockets[0] ?? "", "");
@@ -2544,7 +2601,12 @@ export class Engine {
         const from = this.world.buildings.get(flow.from);
         const to = this.world.buildings.get(flow.to);
         const pieces = tiles.map((run, index) =>
-          this.flowPoints(run, index === 0 ? from : undefined, index === tiles.length - 1 ? to : undefined),
+          this.flowPoints(
+            run,
+            index === 0 ? from : undefined,
+            index === tiles.length - 1 ? to : undefined,
+            flow.resource,
+          ),
         );
         const color = content.resourceColor(flow.resource);
         for (const points of pieces) {
@@ -2683,21 +2745,27 @@ export class Engine {
 
   /**
    * Where the dots of a flow run along pipe tiles (ground coordinates: a tile's centre is x + 0.5): through the
-   * middle of straight pieces, around the bends like the pipes, from and to the socket of a building next to the ends
+   * middle of straight pieces, around the bends like the pipes, from and to the socket of a building next to the ends;
+   * into a building with lanes along its good's lane (1.4 §9: on the belt, through the slim pipe, along the cables)
    */
   private flowPoints(
     run: Array<{ x: number; y: number }>,
     from: BuildingDto | undefined,
     to: BuildingDto | undefined,
+    resource?: string,
   ): Array<{ x: number; y: number }> {
     const lift = this.textures.pipeHeight;
-    const screen = (gx: number, gy: number) => {
+    const screen = (gx: number, gy: number, height = 1) => {
       const c = tileCenter(gx - 0.5, gy - 0.5);
-      return { x: c.x, y: c.y - lift };
+      return { x: c.x, y: c.y - lift * height };
     };
-    // The edge of the end tile toward the building (its socket), or the building's middle when it isn't next to it
+    const content = this.callbacks.getState().content;
+    const kind = (resource !== undefined ? content.resource(resource)?.kind : undefined) as
+      LaneKind | undefined;
+    // The edge of the end tile toward the building (its socket, or its good's lane and the manifold it leaves from,
+    // building first), or the building's middle when it isn't next to it
     const socket = (tile: { x: number; y: number }, building: BuildingDto) => {
-      for (const [, dx, dy] of PIPE_SIDES) {
+      for (const [side, dx, dy] of PIPE_SIDES) {
         const nx = tile.x + dx;
         const ny = tile.y + dy;
         if (
@@ -2706,14 +2774,26 @@ export class Engine {
           nx < building.x + building.size &&
           ny < building.y + building.size
         ) {
-          return screen(tile.x + 0.5 + dx / 2, tile.y + 0.5 + dy / 2);
+          const lanes = this.laneKinds(nx, ny);
+          const sockets = this.pipeLook(tile.x, tile.y).sockets;
+          const index =
+            kind !== undefined && sockets.length === 1 && sockets[0] === side ? lanes.indexOf(kind) : -1;
+          if (index >= 0) {
+            const across = LANE_ACROSS[LANE_SLOTS[lanes.length]![index]!]!;
+            const at = (along: number) =>
+              dx !== 0 ? [tile.x + along, tile.y + across] : [tile.x + across, tile.y + along];
+            const [ex, ey] = at(0.5 + (dx + dy) / 2);
+            const [mx, my] = at(0.5);
+            return [screen(ex!, ey!, LANE_HEIGHT[kind!]), screen(mx!, my!, LANE_HEIGHT[kind!])];
+          }
+          return [screen(tile.x + 0.5 + dx / 2, tile.y + 0.5 + dy / 2)];
         }
       }
-      return this.buildingCenter(building);
+      return [this.buildingCenter(building)];
     };
     const points: Array<{ x: number; y: number }> = [];
     if (from !== undefined && run.length > 0) {
-      points.push(socket(run[0]!, from));
+      points.push(...socket(run[0]!, from));
     }
     run.forEach((tile, i) => {
       const before = run[i - 1];
@@ -2738,7 +2818,7 @@ export class Engine {
       }
     });
     if (to !== undefined && run.length > 0) {
-      points.push(socket(run[run.length - 1]!, to));
+      points.push(...socket(run[run.length - 1]!, to).reverse());
     }
     return points;
   }
@@ -3038,6 +3118,28 @@ export class Engine {
       for (const yard of district.yards ?? []) {
         for (const stall of yard.stalls) {
           this.drawStall(view, district, stall);
+        }
+        // The Yard's Monuments on their sites, bigger as their stages grow (1.4 §13)
+        const rect = yardRect(district.x, district.y, yard.index);
+        for (const monument of yard.monuments ?? []) {
+          const site = MONUMENT_SITES[monument.era - 1];
+          const look = monument.stages >= 10 ? 3 : monument.stages >= 3 ? 2 : 1;
+          const art = this.textures.generated(`monument-${monument.kind}-${look}`, 3);
+          if (site === undefined || art === null) {
+            continue;
+          }
+          const sprite = new Sprite(art.frames[0]);
+          placeArt(sprite, art, footprintAnchor(rect.x0 + site.x, rect.y0 + site.y, 3), 3);
+          sprite.zIndex = (rect.x0 + site.x + rect.y0 + site.y + 3) * 4 + 3;
+          this.objectLayer.addChild(sprite);
+          view.hub.push({
+            display: sprite,
+            effects: null,
+            building: null,
+            machine: null,
+            idle: null,
+            progress: null,
+          });
         }
       }
     }

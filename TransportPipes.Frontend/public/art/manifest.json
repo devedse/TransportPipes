@@ -916,6 +916,111 @@
    "ax": 289,
    "ay": 488,
    "attachments": []
+  },
+  "monument-clockTower-1": {
+   "w": 866,
+   "h": 954,
+   "ax": 432,
+   "ay": 933,
+   "attachments": []
+  },
+  "monument-clockTower-2": {
+   "w": 868,
+   "h": 1139,
+   "ax": 433,
+   "ay": 1152,
+   "attachments": []
+  },
+  "monument-clockTower-3": {
+   "w": 867,
+   "h": 974,
+   "ax": 433,
+   "ay": 995,
+   "attachments": []
+  },
+  "monument-grandFountain-1": {
+   "w": 867,
+   "h": 490,
+   "ax": 433,
+   "ay": 440,
+   "attachments": []
+  },
+  "monument-grandFountain-2": {
+   "w": 867,
+   "h": 691,
+   "ax": 433,
+   "ay": 617,
+   "attachments": []
+  },
+  "monument-grandFountain-3": {
+   "w": 866,
+   "h": 830,
+   "ax": 432,
+   "ay": 792,
+   "attachments": []
+  },
+  "monument-lighthouse-1": {
+   "w": 867,
+   "h": 1012,
+   "ax": 433,
+   "ay": 980,
+   "attachments": []
+  },
+  "monument-lighthouse-2": {
+   "w": 867,
+   "h": 899,
+   "ax": 432,
+   "ay": 912,
+   "attachments": []
+  },
+  "monument-lighthouse-3": {
+   "w": 867,
+   "h": 996,
+   "ax": 433,
+   "ay": 1008,
+   "attachments": []
+  },
+  "monument-observatory-1": {
+   "w": 867,
+   "h": 744,
+   "ax": 433,
+   "ay": 726,
+   "attachments": []
+  },
+  "monument-observatory-2": {
+   "w": 866,
+   "h": 829,
+   "ax": 432,
+   "ay": 776,
+   "attachments": []
+  },
+  "monument-observatory-3": {
+   "w": 867,
+   "h": 843,
+   "ax": 433,
+   "ay": 783,
+   "attachments": []
+  },
+  "monument-workshop-1": {
+   "w": 867,
+   "h": 791,
+   "ax": 433,
+   "ay": 775,
+   "attachments": []
+  },
+  "monument-workshop-2": {
+   "w": 870,
+   "h": 699,
+   "ax": 433,
+   "ay": 704,
+   "attachments": []
+  },
+  "monument-workshop-3": {
+   "w": 867,
+   "h": 842,
+   "ax": 433,
+   "ay": 786,
+   "attachments": []
   }
  },
  "rotors": {
@@ -1153,6 +1258,21 @@
   "buildings/machineShop.webp": "ea80dab2ea",
   "buildings/magmaTap.webp": "0037e60779",
   "buildings/marketHall.webp": "41f4ab75d1",
+  "buildings/monument-clockTower-1.webp": "b6c7b14506",
+  "buildings/monument-clockTower-2.webp": "b6c17683b6",
+  "buildings/monument-clockTower-3.webp": "b8c1d17a7b",
+  "buildings/monument-grandFountain-1.webp": "cec8f8c461",
+  "buildings/monument-grandFountain-2.webp": "ae3c1326ab",
+  "buildings/monument-grandFountain-3.webp": "bb6023e0ff",
+  "buildings/monument-lighthouse-1.webp": "338c868da6",
+  "buildings/monument-lighthouse-2.webp": "4f698f42e4",
+  "buildings/monument-lighthouse-3.webp": "1d86361aa4",
+  "buildings/monument-observatory-1.webp": "d6ef51dc67",
+  "buildings/monument-observatory-2.webp": "5f107bb73c",
+  "buildings/monument-observatory-3.webp": "78a77a4b89",
+  "buildings/monument-workshop-1.webp": "6aaba67130",
+  "buildings/monument-workshop-2.webp": "efd8cd0d23",
+  "buildings/monument-workshop-3.webp": "9e653770f6",
   "buildings/motorWorks.webp": "1bf2884edf",
   "buildings/oilDerrick.webp": "e2642a1a39",
   "buildings/pneumaticPost.webp": "bf2df5af7d",
@@ -1242,12 +1362,12 @@
   "props/treeOak.webp": "0c3a213482",
   "props/treePine.webp": "f4ef48b7c2",
   "props/treePines.webp": "d5990822cc",
-  "pipes/tier1.webp": "1bf3a562fd",
-  "pipes/tier2.webp": "9e8d781e54",
-  "pipes/tier3.webp": "1ac680cc49",
-  "pipes/tier4.webp": "7d4603c104",
-  "pipes/tier5.webp": "9776255d90",
-  "pipes/tier6.webp": "c0c3a11317"
+  "pipes/tier1.webp": "8008a4b65f",
+  "pipes/tier2.webp": "43ff0cffa4",
+  "pipes/tier3.webp": "ba9a015e98",
+  "pipes/tier4.webp": "411c9277da",
+  "pipes/tier5.webp": "07dc391868",
+  "pipes/tier6.webp": "ca552db8e9"
  },
  "pipes": {
   "resolution": 1.5,
@@ -1303,39 +1423,39 @@
     "oy": 93
    },
    "ud": {
-    "x": 1,
-    "y": 153,
+    "x": 1131,
+    "y": 1,
     "w": 204,
     "h": 150,
     "ox": 63,
     "oy": 68
    },
    "rd": {
-    "x": 227,
-    "y": 153,
+    "x": 1357,
+    "y": 1,
     "w": 162,
     "h": 95,
     "ox": 63,
     "oy": 124
    },
    "urd": {
-    "x": 453,
-    "y": 153,
+    "x": 1583,
+    "y": 1,
     "w": 204,
     "h": 150,
     "ox": 63,
     "oy": 68
    },
    "l": {
-    "x": 679,
-    "y": 153,
+    "x": 1809,
+    "y": 1,
     "w": 162,
     "h": 130,
     "ox": 43,
     "oy": 68
    },
    "ul": {
-    "x": 905,
+    "x": 1,
     "y": 153,
     "w": 224,
     "h": 102,
@@ -1343,79 +1463,159 @@
     "oy": 68
    },
    "rl": {
-    "x": 1,
-    "y": 305,
+    "x": 227,
+    "y": 153,
     "w": 182,
     "h": 139,
     "ox": 43,
     "oy": 68
    },
    "url": {
-    "x": 227,
-    "y": 305,
+    "x": 453,
+    "y": 153,
     "w": 224,
     "h": 141,
     "ox": 43,
     "oy": 68
    },
    "dl": {
-    "x": 453,
-    "y": 305,
+    "x": 679,
+    "y": 153,
     "w": 108,
     "h": 150,
     "ox": 43,
     "oy": 68
    },
    "udl": {
-    "x": 679,
-    "y": 305,
+    "x": 905,
+    "y": 153,
     "w": 224,
     "h": 150,
     "ox": 43,
     "oy": 68
    },
    "rdl": {
-    "x": 905,
-    "y": 305,
+    "x": 1131,
+    "y": 153,
     "w": 182,
     "h": 150,
     "ox": 43,
     "oy": 68
    },
    "urdl": {
-    "x": 1,
-    "y": 457,
+    "x": 1357,
+    "y": 153,
     "w": 224,
     "h": 150,
     "ox": 43,
     "oy": 68
    },
    "flange-u": {
-    "x": 227,
-    "y": 457,
+    "x": 1583,
+    "y": 153,
     "w": 47,
     "h": 59,
     "ox": 191,
     "oy": 60
    },
    "socket-u": {
-    "x": 453,
-    "y": 457,
+    "x": 1809,
+    "y": 153,
     "w": 68,
     "h": 94,
     "ox": 170,
     "oy": 45
    },
    "tee-u": {
-    "x": 679,
-    "y": 457,
+    "x": 1,
+    "y": 305,
     "w": 224,
     "h": 139,
     "ox": 43,
     "oy": 68
    },
-   "flange-r": {
+   "manifold-u": {
+    "x": 227,
+    "y": 305,
+    "w": 130,
+    "h": 92,
+    "ox": 79,
+    "oy": 79
+   },
+   "lane-power-u-0": {
+    "x": 453,
+    "y": 305,
+    "w": 73,
+    "h": 47,
+    "ox": 115,
+    "oy": 73
+   },
+   "lane-power-u-1": {
+    "x": 679,
+    "y": 305,
+    "w": 73,
+    "h": 47,
+    "ox": 148,
+    "oy": 90
+   },
+   "lane-power-u-2": {
     "x": 905,
+    "y": 305,
+    "w": 73,
+    "h": 48,
+    "ox": 181,
+    "oy": 106
+   },
+   "lane-solid-u-0": {
+    "x": 1131,
+    "y": 305,
+    "w": 75,
+    "h": 57,
+    "ox": 115,
+    "oy": 77
+   },
+   "lane-solid-u-1": {
+    "x": 1357,
+    "y": 305,
+    "w": 75,
+    "h": 58,
+    "ox": 148,
+    "oy": 93
+   },
+   "lane-solid-u-2": {
+    "x": 1583,
+    "y": 305,
+    "w": 75,
+    "h": 57,
+    "ox": 181,
+    "oy": 110
+   },
+   "lane-fluid-u-0": {
+    "x": 1809,
+    "y": 305,
+    "w": 73,
+    "h": 43,
+    "ox": 115,
+    "oy": 72
+   },
+   "lane-fluid-u-1": {
+    "x": 1,
+    "y": 457,
+    "w": 73,
+    "h": 43,
+    "ox": 148,
+    "oy": 88
+   },
+   "lane-fluid-u-2": {
+    "x": 227,
+    "y": 457,
+    "w": 73,
+    "h": 43,
+    "ox": 181,
+    "oy": 105
+   },
+   "flange-r": {
+    "x": 453,
     "y": 457,
     "w": 37,
     "h": 57,
@@ -1423,23 +1623,103 @@
     "oy": 131
    },
    "socket-r": {
-    "x": 1,
-    "y": 609,
+    "x": 679,
+    "y": 457,
     "w": 68,
     "h": 93,
     "ox": 170,
     "oy": 106
    },
    "tee-r": {
-    "x": 227,
-    "y": 609,
+    "x": 905,
+    "y": 457,
     "w": 204,
     "h": 150,
     "ox": 63,
     "oy": 68
    },
-   "flange-d": {
+   "manifold-r": {
+    "x": 1131,
+    "y": 457,
+    "w": 130,
+    "h": 92,
+    "ox": 79,
+    "oy": 79
+   },
+   "lane-power-r-0": {
+    "x": 1357,
+    "y": 457,
+    "w": 73,
+    "h": 59,
+    "ox": 181,
+    "oy": 102
+   },
+   "lane-power-r-1": {
+    "x": 1583,
+    "y": 457,
+    "w": 73,
+    "h": 58,
+    "ox": 148,
+    "oy": 119
+   },
+   "lane-power-r-2": {
+    "x": 1809,
+    "y": 457,
+    "w": 73,
+    "h": 58,
+    "ox": 115,
+    "oy": 136
+   },
+   "lane-solid-r-0": {
+    "x": 1,
+    "y": 609,
+    "w": 75,
+    "h": 73,
+    "ox": 181,
+    "oy": 102
+   },
+   "lane-solid-r-1": {
+    "x": 227,
+    "y": 609,
+    "w": 75,
+    "h": 72,
+    "ox": 148,
+    "oy": 119
+   },
+   "lane-solid-r-2": {
     "x": 453,
+    "y": 609,
+    "w": 75,
+    "h": 72,
+    "ox": 115,
+    "oy": 136
+   },
+   "lane-fluid-r-0": {
+    "x": 679,
+    "y": 609,
+    "w": 72,
+    "h": 54,
+    "ox": 181,
+    "oy": 102
+   },
+   "lane-fluid-r-1": {
+    "x": 905,
+    "y": 609,
+    "w": 72,
+    "h": 53,
+    "ox": 148,
+    "oy": 119
+   },
+   "lane-fluid-r-2": {
+    "x": 1131,
+    "y": 609,
+    "w": 71,
+    "h": 53,
+    "ox": 115,
+    "oy": 136
+   },
+   "flange-d": {
+    "x": 1357,
     "y": 609,
     "w": 37,
     "h": 57,
@@ -1447,7 +1727,7 @@
     "oy": 131
    },
    "socket-d": {
-    "x": 679,
+    "x": 1583,
     "y": 609,
     "w": 68,
     "h": 93,
@@ -1455,48 +1735,208 @@
     "oy": 106
    },
    "tee-d": {
-    "x": 905,
+    "x": 1809,
     "y": 609,
     "w": 182,
     "h": 150,
     "ox": 43,
     "oy": 68
    },
-   "flange-l": {
+   "manifold-d": {
     "x": 1,
     "y": 761,
+    "w": 130,
+    "h": 92,
+    "ox": 79,
+    "oy": 79
+   },
+   "lane-power-d-0": {
+    "x": 227,
+    "y": 761,
+    "w": 73,
+    "h": 59,
+    "ox": 34,
+    "oy": 102
+   },
+   "lane-power-d-1": {
+    "x": 453,
+    "y": 761,
+    "w": 73,
+    "h": 58,
+    "ox": 67,
+    "oy": 119
+   },
+   "lane-power-d-2": {
+    "x": 679,
+    "y": 761,
+    "w": 73,
+    "h": 58,
+    "ox": 100,
+    "oy": 136
+   },
+   "lane-solid-d-0": {
+    "x": 905,
+    "y": 761,
+    "w": 75,
+    "h": 73,
+    "ox": 32,
+    "oy": 102
+   },
+   "lane-solid-d-1": {
+    "x": 1131,
+    "y": 761,
+    "w": 75,
+    "h": 72,
+    "ox": 65,
+    "oy": 119
+   },
+   "lane-solid-d-2": {
+    "x": 1357,
+    "y": 761,
+    "w": 75,
+    "h": 72,
+    "ox": 98,
+    "oy": 136
+   },
+   "lane-fluid-d-0": {
+    "x": 1583,
+    "y": 761,
+    "w": 72,
+    "h": 54,
+    "ox": 35,
+    "oy": 102
+   },
+   "lane-fluid-d-1": {
+    "x": 1809,
+    "y": 761,
+    "w": 72,
+    "h": 53,
+    "ox": 68,
+    "oy": 119
+   },
+   "lane-fluid-d-2": {
+    "x": 1,
+    "y": 913,
+    "w": 71,
+    "h": 53,
+    "ox": 102,
+    "oy": 136
+   },
+   "flange-l": {
+    "x": 227,
+    "y": 913,
     "w": 47,
     "h": 59,
     "ox": 50,
     "oy": 60
    },
    "socket-l": {
-    "x": 227,
-    "y": 761,
+    "x": 453,
+    "y": 913,
     "w": 68,
     "h": 94,
     "ox": 50,
     "oy": 45
    },
    "tee-l": {
-    "x": 453,
-    "y": 761,
+    "x": 679,
+    "y": 913,
     "w": 224,
     "h": 150,
     "ox": 43,
     "oy": 68
    },
-   "foot-x": {
+   "manifold-l": {
+    "x": 905,
+    "y": 913,
+    "w": 130,
+    "h": 92,
+    "ox": 79,
+    "oy": 79
+   },
+   "lane-power-l-0": {
+    "x": 1131,
+    "y": 913,
+    "w": 73,
+    "h": 47,
+    "ox": 100,
+    "oy": 73
+   },
+   "lane-power-l-1": {
+    "x": 1357,
+    "y": 913,
+    "w": 73,
+    "h": 47,
+    "ox": 67,
+    "oy": 90
+   },
+   "lane-power-l-2": {
+    "x": 1583,
+    "y": 913,
+    "w": 73,
+    "h": 48,
+    "ox": 34,
+    "oy": 106
+   },
+   "lane-solid-l-0": {
+    "x": 1809,
+    "y": 913,
+    "w": 75,
+    "h": 57,
+    "ox": 98,
+    "oy": 77
+   },
+   "lane-solid-l-1": {
+    "x": 1,
+    "y": 1065,
+    "w": 75,
+    "h": 58,
+    "ox": 65,
+    "oy": 93
+   },
+   "lane-solid-l-2": {
+    "x": 227,
+    "y": 1065,
+    "w": 75,
+    "h": 57,
+    "ox": 32,
+    "oy": 110
+   },
+   "lane-fluid-l-0": {
+    "x": 453,
+    "y": 1065,
+    "w": 73,
+    "h": 43,
+    "ox": 100,
+    "oy": 72
+   },
+   "lane-fluid-l-1": {
     "x": 679,
-    "y": 761,
+    "y": 1065,
+    "w": 73,
+    "h": 43,
+    "ox": 67,
+    "oy": 88
+   },
+   "lane-fluid-l-2": {
+    "x": 905,
+    "y": 1065,
+    "w": 73,
+    "h": 43,
+    "ox": 34,
+    "oy": 105
+   },
+   "foot-x": {
+    "x": 1131,
+    "y": 1065,
     "w": 34,
     "h": 60,
     "ox": 126,
     "oy": 102
    },
    "foot-y": {
-    "x": 905,
-    "y": 761,
+    "x": 1357,
+    "y": 1065,
     "w": 34,
     "h": 60,
     "ox": 128,

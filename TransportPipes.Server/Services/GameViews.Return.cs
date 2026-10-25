@@ -234,8 +234,8 @@ public static partial class GameViews
             var plan = world.PlanGrowth(me);
             if (plan.Parts.Count > 0)
             {
-                var land = plan.Parts.Any(t => t.Parcel != null);
-                var grown = plan.Parts.Count(t => t.Parcel == null);
+                var land = plan.Parts.Any(t => t.Parcel != null || t.Outskirts != null);
+                var grown = plan.Parts.Count(t => t.Parcel == null && t.Outskirts == null);
                 var what = string.Join(" and ", new[] { land ? "a new parcel" : null, grown > 0 ? Plural(grown, "building") : null }.OfType<string>());
                 Add(7, "invest", "💡", $"Grow everything that pays: about +{Amount(plan.Gain)} g/min for {Amount(plan.Cost)} g ({Math.Max(1, Math.Round(100 * plan.Cost / Math.Max(1, me.Gold))):0}% of your gold) · {what}",
                     "grow", null, plan.Cost);

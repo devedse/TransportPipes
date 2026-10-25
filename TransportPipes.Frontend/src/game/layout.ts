@@ -396,6 +396,20 @@ export function outskirtsOwner(localX: number, localY: number): { slot: number; 
   return OUTSKIRTS_AT.get(`${cornerX},${cornerY}`) ?? null;
 }
 
+// ---------------------------------------------------------------- The Yard's square
+
+/**
+ * Where a Yard's Monument of an Era stands (Yard-local corner of its 3×3 site, 1.4 §13): in the Yard's middle, between
+ * the workshops at its ends and clear of the stalls by the gates
+ */
+export const MONUMENT_SITES: Array<{ x: number; y: number }> = [
+  { x: 9, y: 3 },
+  { x: 20, y: 3 },
+  { x: 9, y: 10 },
+  { x: 20, y: 10 },
+  { x: 14, y: 6 },
+];
+
 // ---------------------------------------------------------------- Town gates
 
 /** The four town gates (town-local): where the roads leave the town (top, bottom, left, right) */

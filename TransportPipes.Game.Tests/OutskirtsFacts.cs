@@ -52,4 +52,29 @@ public class OutskirtsFacts
         Assert.AreEqual(0, estate.OutskirtsParcels);
         Assert.IsTrue(company.Crates.Any(t => t.Type == "windMoily"), "what stood there waits in a crate");
     }
+
+    [TestMethod]
+    public void GrowBuysTheNextOutskirtsParcelAndTheAdvisorBuildsOnIt()
+    {
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(gold: 150_000_000, level: 20);
+        game.World.AdvanceEra(company.District);
+        company.Researched.Add("survey");
+        // Every parcel of the plot bought: the outskirts are the land left
+        for (var parcel = 0; parcel < WorldLayout.ParcelCount; parcel++)
+        {
+            game.EstateOf(company).UnlockedParcels |= 1 << parcel;
+        }
+
+        var plan = game.World.PlanGrowth(company);
+        Assert.IsTrue(plan.Parts.Any(t => t.Outskirts == 0), string.Join(", ", plan.Parts.Select(t => t.Text)));
+        Assert.IsTrue(game.World.GrowEverything(company.Id).Success);
+        Assert.IsTrue(game.EstateOf(company).HasOutskirts(0));
+
+        // The advisor's spots include the outskirts: near them, a new building goes there
+        var tiles = GameWorld.OutskirtsTiles(game.EstateOf(company), 0).ToHashSet();
+        var near = tiles.First(t => game.World.Tile(t).Terrain is TerrainType.Grass or TerrainType.Hills);
+        var spot = game.World.FindSpot(company, game.World.Content.Building("windMoily"), near);
+        Assert.IsTrue(spot is { } found && tiles.Contains(found), $"{spot}");
+    }
 }

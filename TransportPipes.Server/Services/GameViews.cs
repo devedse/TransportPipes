@@ -543,7 +543,8 @@ public static partial class GameViews
             HubStructures(world, district),
             WorldLayout.Stations(district).Select(t => world.CrewAt(t) is { } crew
                 ? new DistrictYardDto(t.Index, crew.NameHidden ? WorldNames.Station(t) : crew.Name, crew.Emblem, crew.Color, crew.Color2, crew.Open,
-                    world.Stalls(t).Select(s => new StallDto(s.Slot, s.Sells, s.CrewPrice, s.Wants)).ToList())
+                    world.Stalls(t).Select(s => new StallDto(s.Slot, s.Sells, s.CrewPrice, s.Wants)).ToList(),
+                    world.MonumentsOf(crew).Where(m => m.Kind != null && m.Stages > 0).Select(m => new YardMonumentDto(m.Era, m.Kind!, m.Stages)).ToList())
                 : new DistrictYardDto(t.Index, WorldNames.Station(t), null, null, null, true, [])).ToList());
     }
 

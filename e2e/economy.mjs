@@ -168,6 +168,29 @@ company = await state();
 check("an outskirts parcel bought", (company.outskirts?.parcels ?? 0) === 1, company.outskirts?.blocker ?? "");
 await shot("9-outskirts-bought");
 
+// The Yard's Monument: a Grand Fountain on the Era 1 site, its first stage paid, standing in the Yard's square
+for (let i = 0; i < 110; i++) await cheat("earn");
+const monument = await page.evaluate(async () => {
+  const c = tp.gameClient.connection;
+  const chosen = await c.chooseMonument(1, "grandFountain");
+  const paid = await c.payMonument(1, 100_000_000);
+  return chosen.success && paid.success ? "ok" : `${chosen.error ?? ""} ${paid.error ?? ""}`;
+});
+await page.evaluate(() => tp.gameClient.openHub("wonders"));
+await wait(2000);
+const site = await page.evaluate(() => tp.appStore.getState().town?.monuments.find((t) => t.era === 1));
+check("a Monument's first stage", monument === "ok" && site?.stages === 1, `${monument} · ${JSON.stringify(site)}`);
+await shot("10-monument-panel");
+await page.keyboard.press("Escape");
+await page.evaluate(() => {
+  const co = tp.appStore.getState().company;
+  const station = tp.layout.stationOfSlot(co.slot);
+  const yard = tp.layout.yardRect(co.districtX, co.districtY, station);
+  tp.gameClient.engine?.lookAt(yard.x0 + 10, yard.y0 + 4, 1.1);
+});
+await wait(4000);
+await shot("11-monument-yard");
+
 const pass = checks.every(Boolean) && errors.length === 0;
 console.log(pass ? "PASS" : "FAIL", "errors:", errors.length ? errors.join(" | ") : "none");
 await browser.close();

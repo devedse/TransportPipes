@@ -504,6 +504,49 @@ economy (levels per copy with goods, Company Level from gold earned, the Monumen
 Not in phase A: the Yard's workshops and Depot, Monuments (phase B), art for the town gates (a paved apron for now),
 towns in later Eras greyed out on the map (per-town Eras come with phase B).
 
+**Phase B · The economy** (2026-10-25, ec3264f …; the test world starts again: rules 5):
+- The Company Level comes from all the gold ever earned (§14: at the market, from players, orders and rewards), with
+  where it came from in the top bar's panel; XP, its log and its rules are gone.
+- Levels to 25 priced per copy (§9): every copy costs 7% more than the last and its levels cost from it, 15% more each;
+  from level 11 a step also takes goods worth 30% of its gold, which come like a scaffold's materials (Storages, own
+  spare, the Yard, the Depot, then the market at 2.5× within about ten minutes, which a switch in the trade settings
+  turns off); the building works at its old level until they are in, "Buy the rest" brings them at once, Undo takes
+  the waiting steps back. Max, Grow and the advisor count the goods.
+- The market (§8): a fixed Hub Order per good and player (1,000 g a minute of an Era-1 good, ×4 per Era) raised by the
+  trading post's levels, research, the Wonder, Trader Lin and the Market Monument; the square-root curve over the
+  hour's average; later-Era goods pay a quarter; trading posts have no unit limit. The Exchange opens at Level 12 with
+  your own price between the market's two and a 4% fee.
+- Pipes carry per building pair: 100 / 5,000 / 50,000 / 500k / 5M / no limit, six tiers (the composite pipe is new);
+  Widen is gone.
+- Research (§12): two lines in the Lab, each with a queue of five and Keep researching: 21 tracks of nine tiers
+  (faster, leaner, complexes, mega complexes, master; from tier 3 the track's own good, from tier 5 bigger Hub Orders;
+  Power at half strength; a Coal Pit follows the better of Copper and Stone), and the Era tree that opens pipes,
+  buildings and systems (Copper Pipes for everyone at Level 8). Research points, Labs that eat ingots and mastery
+  are gone.
+- Per-town Eras (§11, §13): each town has its Era and its Era Wonder at a fixed size (the Great Dynamo 4.3 billion g of
+  goods, smaller for each town that built it before); give switches per good (beyond my Hub Order, all), give from
+  your Storages and the Depot, buy and give at 2.5×; a full stage stands a day later and pays Bronze to Diamond in
+  hours of income; perks per stage; the last brings the next Era with a day's +10% launch party. A building of a
+  later Era than its town sleeps; you may move to towns of your Era or one below. The season and the finale are gone.
+- Monuments (§13): one site per Era in each Yard, five kinds, endless stages 40% dearer each, caps and perks, paid in
+  gold from Level 5 by any resident.
+- The outskirts (§5): nine 8×8 parcels per plot from Era 2 with Survey the Outskirts, 100M × 1.4ⁿ, built and piped like
+  the plot, bought back at half on a move; Grow, the advisor and the bots use them.
+- The Yard's ends (§7): from Level 10 each resident builds producers and Storages on up to 64 tiles there, joined to
+  its own Yard gate without pipes; the crew's Depot keeps goods for the neighbours' levels and buildings (at the
+  depositor's crew price) and for the Wonder; a move takes the workshops and your Depot goods along.
+- Retired with it: contracts, corporations, TradeWith, hub reputation, the Showroom, Exchange Office, Bank, Pneumatic
+  Post, Assembly Plant and engines, district Wonders, the EraLaunch event.
+- The frontend follows: the research panel's two lines, Hub › Town & Wonder (give switches, buy and give, tiers,
+  Monuments), the market's Hub Orders, the Exchange at your own price, level waits with Buy the rest, the copy price
+  and track on a building, the Depot in the Yard panel, outskirts on the map with their buy panel, the Company Level
+  bar from gold earned. Art: the six pipe tiers, and Codex drew the Bauxite Pit, the Aluminium Works, the Yard Depot
+  and the Motor, Battery, Titanium and Spaceframe Works for phase C.
+
+Checks: game tests (LevelFacts, ResearchFacts, WonderFacts, OutskirtsFacts, WorkshopFacts new), server tests,
+`e2e/economy.mjs` (the Level from gold earned, a Lab's two lines, Hub Orders, a give switch, a level that waits for its
+goods, a workshop and the Depot, an outskirts parcel bought).
+
 ### After v1
 
 Designed (GDD §11), not needed for a fun first version: the Bank (investing, insurance, Wonder bonds), District
