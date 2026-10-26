@@ -590,10 +590,17 @@ and the solver's sharing loop allocates nothing per consumer.
 - The bots against the model (§17): the game's Keep researching started the cheapest tier while a bot was away, so its
   research went wide (Power 5, Stone 5 on day 7) where the model masters Iron (tier 7): the bot queues its plan's tiers
   and saves for the next, as the model's player does. It played a plot lacking copper ore, the most valuable basic;
-  it now plays the model's plot (lacking sand and oil, rich in iron ore). Day 1 is now within 3% of the model; from
-  day 2 it fell behind because the advisor never tried a Smelter: it ranked factories by their inputs at the market's
-  2.5×, so eight extractors always came first (the plot sold 900 copper ore a minute at a quarter of its price). Inputs
-  the company makes now count at what they sell for.
+  it now plays the model's plot (seed 4, slot 15: lacking sand and oil, rich in iron ore, copper ore in its start
+  area). The advisor it follows had three faults the players share: it never tried a Smelter (it ranked factories by
+  their inputs at the market's 2.5×, so eight extractors always came first, while the plot sold 900 copper ore a minute
+  at a quarter of its price); its spot search put factories and Solar Panels on ore (13 Iron Mines where the model has
+  36); a large network's pipe door promised eleven times what the building could add (+1,697 g/min for a Copper
+  Pipe worth +151); and on a full plot every spot it offered had a free tile beside it but no way for a pipe to get
+  there, so the bot built, couldn't pipe and took it back for days with five hours of income banked. All four are
+  fixed, for the players' Show me too. Now (7 days, the model's plot): day 1 6% under the model, day 2 26%, day 5 34%,
+  day 7 38% (149k against 240k g a minute). The rest is land: by day 7 its eleven parcels are full at 388 buildings
+  (the model's 501; each of its pipes is laid to the nearest network tile, where the model leaves a fifth of the land
+  to pipes), and half its factories wait for inputs. Not within a fifth yet: open.
 - A whole town of bots for 120 days is out of reach at today's speed (a bot's day takes about six minutes of a CPU
   core, so a town of eight for 120 days would take days); the model of §17, checked against the bots' first week, sets
   the pacing of all five Eras instead.
