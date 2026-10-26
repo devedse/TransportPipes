@@ -85,6 +85,30 @@ public class AdvisorFacts
     }
 
     [TestMethod]
+    public void ASpotIsWhereAPipeFromYourNetworkCanReach()
+    {
+        // B13's bot: every spot it was shown on a full plot had a free tile beside it but no way through
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(gold: 1e7, level: 12);
+        var solar = game.World.Content.Building("solarPanel");
+        var post = game.TradingPost(company);
+        // A 4×4 block of free land near the post: its ring of twelve panels walls off the 2×2 in the middle
+        var corner = Enumerable.Range(3, 10).SelectMany(r => Enumerable.Range(-r, 2 * r + 1).SelectMany(dy => Enumerable.Range(-r, 2 * r + 1).Select(dx => post.Position.Offset(dx, dy))))
+            .First(c => GameWorld.Footprint(c, 6).All(t => game.World.CanPlace(company, solar, t).Success));
+        var origin = corner.Offset(1, 1);
+        var hole = new[] { origin.Offset(1, 1), origin.Offset(2, 1), origin.Offset(1, 2), origin.Offset(2, 2) };
+        foreach (var tile in GameWorld.Footprint(origin, 4).Where(t => !hole.Contains(t)))
+        {
+            game.Build(company, "solarPanel", tile);
+        }
+
+        var spot = game.World.FindSpot(company, solar, hole[0]);
+
+        Assert.IsNotNull(spot);
+        Assert.IsFalse(hole.Contains(spot.Value), $"not in the walled-off hole: {spot}");
+    }
+
+    [TestMethod]
     public void BuildingsThatMineNothingStayOffDeposits()
     {
         // B13's bot: Solar Panels and factories took the plot's iron tiles (13 Iron Mines where the model has 36)

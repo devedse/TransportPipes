@@ -480,6 +480,7 @@ public sealed partial class GameWorld
                 tiles.AddRange(OutskirtsTiles(estate, parcel));
             }
         }
+        var reach = PipeReach(company, estate);
         TilePos? best = null;
         var bestScore = double.MinValue;
         var found = 0;
@@ -488,10 +489,11 @@ public sealed partial class GameWorld
                      && (definition.Placement.Deposit == null || DepositMatches(definition.Placement.Deposit, info.Deposit)))
                      .OrderBy(t => Distance(t, near)).Take(300))
         {
-            // Somewhere a pipe can reach it: a free tile beside it that isn't water or mountain
+            // Somewhere a pipe from the company's network can reach it (B13's bot: on a full plot every spot it was shown had
+            // a free tile beside it but no way through, so it built, couldn't pipe, and took it back for days)
             if ((offDeposits && Footprint(pos, definition.Size).Any(t => Tile(t).Deposit != null))
                 || !CanPlace(company, definition, pos).Success
-                || !BorderTiles(pos, definition.Size).Any(t => !IsOccupied(t) && Tile(t).Terrain is not (TerrainType.Mountain or TerrainType.Water)))
+                || !BorderTiles(pos, definition.Size).Any(reach.Contains))
             {
                 continue;
             }
@@ -508,6 +510,46 @@ public sealed partial class GameWorld
             }
         }
         return best;
+    }
+
+    /// <summary>
+    /// Where a new pipe can run from a company's pipes, gates and trading posts: its own plot (bought or not) and outskirts,
+    /// over free land, not mountains (water takes a bridge)
+    /// </summary>
+    private HashSet<TilePos> PipeReach(Company company, Estate estate)
+    {
+        bool Land(TilePos t) => (estate.Contains(t) || OwnsOutskirts(company, t)) && !IsOccupied(t) && Tile(t).Terrain != TerrainType.Mountain;
+        var reach = new HashSet<TilePos>();
+        var queue = new Queue<TilePos>();
+        foreach (var conductor in _conductors.Values.Where(t => t.Owner == company.Id && t.Kind is ConductorKind.Pipe or ConductorKind.Gate))
+        {
+            if (reach.Add(conductor.Pos))
+            {
+                queue.Enqueue(conductor.Pos);
+            }
+        }
+        foreach (var post in BuildingsOf(company.Id).Where(t => Content.Building(t.Type).Kind == BuildingKind.TradingPost))
+        {
+            foreach (var tile in BorderTiles(post.Position, post.Size).Where(Land))
+            {
+                if (reach.Add(tile))
+                {
+                    queue.Enqueue(tile);
+                }
+            }
+        }
+        while (queue.TryDequeue(out var tile))
+        {
+            foreach (var next in new[] { tile.Offset(1, 0), tile.Offset(-1, 0), tile.Offset(0, 1), tile.Offset(0, -1) })
+            {
+                if (!reach.Contains(next) && Land(next))
+                {
+                    reach.Add(next);
+                    queue.Enqueue(next);
+                }
+            }
+        }
+        return reach;
     }
 
     // ---------------------------------------------------------------- The kinds of steps
