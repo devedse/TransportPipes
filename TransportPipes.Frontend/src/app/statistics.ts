@@ -633,7 +633,8 @@ export function timeTicks(
     const start = new Date(from);
     start.setMinutes(0, 0, 0);
     const ticks: { t: number; label: string }[] = [];
-    for (let t = start.getTime(); t <= to; t += HOUR) {
+    // (not at the very end: that is now, the graph's edge)
+    for (let t = start.getTime(); t < to; t += HOUR) {
       const hour = new Date(t).getHours();
       if (t >= from && hour % (step / HOUR) === 0) {
         ticks.push({ t, label: `${String(hour).padStart(2, "0")}:00` });
