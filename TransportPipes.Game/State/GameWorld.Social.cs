@@ -205,6 +205,17 @@ public sealed partial class GameWorld
     /// <summary>The number of companies each company trades with right now (through the Yards)</summary>
     public Dictionary<long, int> PartnerCounts()
     {
+        var partners = new Dictionary<long, int>();
+        foreach (var (a, _) in PartnerPairs())
+        {
+            partners[a] = partners.GetValueOrDefault(a) + 1;
+        }
+        return partners;
+    }
+
+    /// <summary>Who trades with whom right now (through the Yards), both ways round</summary>
+    public HashSet<(long, long)> PartnerPairs()
+    {
         var pairs = new HashSet<(long, long)>();
         foreach (var (key, terms) in _gateTerms)
         {
@@ -221,12 +232,7 @@ public sealed partial class GameWorld
                 }
             }
         }
-        var partners = new Dictionary<long, int>();
-        foreach (var (a, _) in pairs)
-        {
-            partners[a] = partners.GetValueOrDefault(a) + 1;
-        }
-        return partners;
+        return pairs;
     }
 
     public int Mentees(long mentorId) => _companies.Values.Count(t => t.MentorId == mentorId);

@@ -12,6 +12,7 @@
 - { id: ui-chat, look: "a speech bubble" }
 - { id: ui-inbox, look: "a brass bell" }
 - { id: ui-trophy, look: "a golden trophy cup" }
+- { id: ui-stats, look: "a small wooden easel holding a cream chart card with a rising teal line graph and a gold arrow pointing up at its end" }
 - { id: ui-home, look: "a little house with a red roof" }
 - { id: ui-gold, look: "a shiny gold coin with a crown stamped on it" }
 - { id: ui-level, look: "a golden star with a teal ribbon" }

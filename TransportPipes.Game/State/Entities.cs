@@ -73,6 +73,12 @@ public sealed class Company : Entity
     /// <summary>Building types this company has built at least once (for the first-time XP bonus)</summary>
     public HashSet<string> BuiltTypes { get; init; } = new();
 
+    /// <summary>The companies it ever traded with (a new one is a key moment of its statistics)</summary>
+    public HashSet<long> TradedWith { get; init; } = new();
+
+    /// <summary>A company saved before statistics: who it trades with now fills TradedWith without moments (not saved)</summary>
+    public bool TradedWithUnknown { get; set; }
+
     /// <summary>The Era tree items it has researched (1.4 §12, the Lab's second line)</summary>
     public HashSet<string> Researched { get; init; } = new();
 

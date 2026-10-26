@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using TransportPipes.Database;
 using TransportPipes.Game.State;
 using TransportPipes.Game.World;
 using TransportPipes.Server.Dtos;
@@ -48,14 +49,17 @@ public sealed class GameHub : Hub<IGameClient>
     private readonly ConnectedUsers _connectedUsers;
     private readonly SocialService _social;
     private readonly AccountService _accounts;
+    private readonly HistoryStore _history;
     private readonly TransportPipesOptions _options;
 
-    public GameHub(WorldHost world, ConnectedUsers connectedUsers, SocialService social, AccountService accounts, Microsoft.Extensions.Options.IOptions<TransportPipesOptions> options)
+    public GameHub(WorldHost world, ConnectedUsers connectedUsers, SocialService social, AccountService accounts, HistoryStore history,
+        Microsoft.Extensions.Options.IOptions<TransportPipesOptions> options)
     {
         _world = world;
         _connectedUsers = connectedUsers;
         _social = social;
         _accounts = accounts;
+        _history = history;
         _options = options.Value;
     }
 
@@ -600,6 +604,56 @@ public sealed class GameHub : Hub<IGameClient>
     /// <summary>Whether the market brings what your levels and buildings still lack, at 2.5× (on by default)</summary>
     public Task<CommandResultDto> SetWantsFromMarket(bool on) =>
         Command((world, company) => world.SetWantsFromMarket(company, on));
+
+    // ---------------------------------------------------------------- Statistics (docs/design-notes/statistics.md)
+
+    /// <summary>A company's statistics over a range (day, week, month, all): your own whole, another's public part</summary>
+    public async Task<StatisticsDto?> GetStatistics(long? company, string range)
+    {
+        var userId = UserId;
+        if (await _world.RunAsync(world => Statistics.Of(world, userId, company), changesWorld: false) is not { } live)
+        {
+            return null;
+        }
+        range = Statistics.RangeName(range);
+        var (from, step) = Statistics.Range(range, live.Now, live.Founded);
+        var samples = await _history.SamplesAsync(StatSubject.Company, live.Company, from, step);
+        var moments = await _history.MomentsAsync(live.Company, from, bigOnly: !live.Own);
+        var town = await _history.SamplesAsync(StatSubject.Town, GameWorld.TownKey(live.District), from, step);
+        return Statistics.Dto(live, range, from, samples, moments, town, WorldNames.District(live.District));
+    }
+
+    /// <summary>One series of another company over a range, to compare with: only one everyone may see</summary>
+    public async Task<StatsSeriesDto?> GetStatisticsSeries(long company, string key, string range)
+    {
+        var userId = UserId;
+        if (await _world.RunAsync(world => Statistics.Of(world, userId, company), changesWorld: false) is not { } live
+            || (!live.Own && !Statistics.Public.Contains(key)))
+        {
+            return null;
+        }
+        var (from, step) = Statistics.Range(Statistics.RangeName(range), live.Now, live.Founded);
+        return Statistics.Series(live, key, await _history.SamplesAsync(StatSubject.Company, live.Company, from, step));
+    }
+
+    /// <summary>The admin's Pace: every company's gold earned by days since it was founded, and the model's player</summary>
+    public async Task<PaceDto?> GetPace()
+    {
+        if (!await IsAdminAsync())
+        {
+            return null;
+        }
+        var daily = await _history.DailyAsync("earned");
+        var companies = await _world.RunAsync(world => world.Companies.Select(t => (t.Id, t.Name, t.Color, t.CreatedAt, t.LifetimeEarnings)).ToList(), changesWorld: false);
+        var now = _world.Now;
+        var lines = companies.Select(c =>
+        {
+            var points = daily.GetValueOrDefault(c.Id, []).Where(t => t.At > c.CreatedAt).Append((At: now, Value: c.LifetimeEarnings)).ToList();
+            return new PaceLineDto(c.Id, c.Name, c.Color, c.CreatedAt, points.Select(t => Math.Round((t.At - c.CreatedAt).TotalDays, 3)).Prepend(0).ToList(),
+                points.Select(t => t.Value).Prepend(0).ToList());
+        }).ToList();
+        return new PaceDto(lines, ModelPace.Earned);
+    }
 
     // ---------------------------------------------------------------- Visiting, mentors and leaderboards
 

@@ -330,6 +330,64 @@ namespace TransportPipes.Database.Migrations
                     b.ToTable("InboxMessages", (string)null);
                 });
 
+            modelBuilder.Entity("TransportPipes.Database.Entities.DbMoment", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Big")
+                        .HasColumnType("boolean");
+
+                    b.Property<long>("Company")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Ref")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Company", "At");
+
+                    b.ToTable("Moments", (string)null);
+                });
+
+            modelBuilder.Entity("TransportPipes.Database.Entities.DbStatSample", b =>
+                {
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("Subject")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Values")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Kind", "Subject", "At");
+
+                    b.ToTable("StatSamples", (string)null);
+                });
+
             modelBuilder.Entity("TransportPipes.Database.Entities.DbTerrainOverride", b =>
                 {
                     b.Property<int>("X")

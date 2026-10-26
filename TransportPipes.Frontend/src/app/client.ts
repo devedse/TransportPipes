@@ -9,6 +9,7 @@ import type {
   CompanyDto,
   GiveMode,
   LeaderboardKind,
+  StatsRange,
   NextStepDto,
   ReturnLineDto,
   SeatRefDto,
@@ -1464,6 +1465,7 @@ export class GameClient {
       state.hubOpen ||
       state.neighboursOpen ||
       state.leaderboardOpen ||
+      state.statsOpen ||
       state.companyOpen ||
       state.blueprintsOpen ||
       state.moderationOpen
@@ -2406,6 +2408,34 @@ export class GameClient {
   async dismissManager(manager: string) {
     if (await this.command(this.connection.dismissManager(manager))) {
       await this.refreshCompanyDetails();
+    }
+  }
+
+  // ---------------------------------------------------------------- Statistics (docs/design-notes/statistics.md)
+
+  /** Opens a company's statistics (null or your own: yours) at a graph */
+  async openStatistics(company: number | null = null, metric?: string) {
+    const state = appStore.getState();
+    const whose = company === state.company?.id ? null : company;
+    setState({
+      ...MODALS,
+      statsOpen: true,
+      statsCompany: whose,
+      statsMetric: metric ?? state.statsMetric,
+      stats: state.statsCompany === whose ? state.stats : null,
+    });
+    await this.refreshStatistics();
+  }
+
+  /** Loads the statistics shown again, for a range */
+  async refreshStatistics(range?: StatsRange) {
+    const whose = appStore.getState().statsCompany;
+    const r = range ?? appStore.getState().statsRange;
+    setState({ statsRange: r });
+    const stats = await this.connection.getStatistics(whose, r).catch(() => null);
+    const now = appStore.getState();
+    if (now.statsOpen && now.statsCompany === whose && now.statsRange === r) {
+      setState({ stats });
     }
   }
 

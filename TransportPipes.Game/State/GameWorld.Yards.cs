@@ -191,7 +191,7 @@ public sealed partial class GameWorld
                 CountDiscovery(building, flow.Sent * minutes);
                 owner.EraOutput += flow.Sent * minutes * BasePrice(flow.Resource);
                 Add(owner.Report.Produced, flow.Resource, flow.Sent * minutes);
-                AddStat(owner, $"produced:{flow.Resource}", flow.Sent * minutes);
+                CountProduced(owner, flow.Resource, flow.Sent * minutes);
             }
         }
         foreach (var payment in GatePayments(network))

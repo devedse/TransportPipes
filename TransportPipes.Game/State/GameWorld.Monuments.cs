@@ -135,6 +135,7 @@ public sealed partial class GameWorld
             foreach (var resident in CrewMembers(crew))
             {
                 Changes.Events.Add(new WorldEvent(resident.Id, WorldEventKind.Wonder, $"Your Yard's {kind.Name} reached stage {site.Stages}: {MonumentPerkText(kind, site.Stages)} for every resident"));
+                AddMoment(resident, "monument", $"{kind.Name} stage {site.Stages}", false);
                 MarkCompanyNetworksDirty(resident.Id);
             }
             Changes.Markets.Add(crew.Yard.District);

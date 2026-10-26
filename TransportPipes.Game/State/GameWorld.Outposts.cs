@@ -185,6 +185,8 @@ public sealed partial class GameWorld
             return payment;
         }
         AddStat(company, "outpostGold", price);
+        AddStat(company, "landGold", price);
+        AddMoment(company, "land", $"Claimed outpost {_outposts.Values.Count(t => t.Owner == companyId) + 1}", true);
         var outpost = new Outpost { Id = NextOutpostId++, Owner = companyId, X = origin.X, Y = origin.Y, ClaimedAt = Now, Price = price };
         _outposts[outpost.Id] = outpost;
         OutpostChanged(outpost);

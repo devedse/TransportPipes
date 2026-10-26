@@ -11,7 +11,7 @@ public class YardFacts
     /// Company A (slot 0) has a Wind Moily, company B (slot 1, the same station) an Iron Mine that needs energy; both pipe
     /// to their Yard gates
     /// </summary>
-    private static (TestGame Game, Company A, Company B, Building Moily, Building Mine) Neighbours(bool mineToStorage = false)
+    internal static (TestGame Game, Company A, Company B, Building Moily, Building Mine) Neighbours(bool mineToStorage = false)
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var a = game.NewCompany("A");

@@ -91,6 +91,8 @@ public sealed partial class GameWorld
             return payment;
         }
         AddStat(company, "outskirtsGold", cost);
+        AddStat(company, "landGold", cost);
+        AddMoment(company, "land", $"Bought outskirts parcel {estate.OutskirtsCount + 1}", true);
         estate.OutskirtsParcels |= 1 << index;
         estate.Touch();
         Changes.Estates.Add((estate.District, estate.Slot));
@@ -131,6 +133,7 @@ public sealed partial class GameWorld
         var back = Math.Round(paid * Content.Progression.OutskirtsBuyBack);
         company.Gold += back;
         AddStat(company, "goldSpent", -back);
+        AddStat(company, "landGold", -back);
         Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Neighbour, $"Your {estate.OutskirtsCount} outskirts parcels were bought back for {Gold(back)}: what stood there waits in crates"));
         estate.OutskirtsParcels = 0;
         foreach (var tile in tiles)

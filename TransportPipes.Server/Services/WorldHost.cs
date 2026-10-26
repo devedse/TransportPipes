@@ -36,11 +36,14 @@ public sealed class WorldHost : BackgroundService
     private GameWorld? _world;
     private bool _saveSoon;
     private DateTime _lastSave;
+    private readonly HistoryStore _history;
+    private DateTime _lastPrune;
 
-    public WorldHost(WorldStore store, IHubContext<GameHub, IGameClient> hub, ConnectedUsers connectedUsers, SocialService social, AccountService accounts, IOptions<TransportPipesOptions> options, ILogger<WorldHost> logger, TimeProvider time, PlaytestLog? playtestLog = null)
+    public WorldHost(WorldStore store, HistoryStore history, IHubContext<GameHub, IGameClient> hub, ConnectedUsers connectedUsers, SocialService social, AccountService accounts, IOptions<TransportPipesOptions> options, ILogger<WorldHost> logger, TimeProvider time, PlaytestLog? playtestLog = null)
     {
         _playtestLog = playtestLog;
         _store = store;
+        _history = history;
         _hub = hub;
         _connectedUsers = connectedUsers;
         _social = social;
@@ -52,7 +55,7 @@ public sealed class WorldHost : BackgroundService
 
     public Task Ready => _ready.Task;
 
-    private DateTime Now => _time.GetUtcNow().UtcDateTime;
+    public DateTime Now => _time.GetUtcNow().UtcDateTime;
 
     private readonly PlaytestLog? _playtestLog;
 
@@ -136,6 +139,7 @@ public sealed class WorldHost : BackgroundService
                 {
                     await TickAsync();
                     await SaveAsync(force: false);
+                    await PruneHistoryAsync();
                 }
                 catch (Exception ex)
                 {
@@ -186,6 +190,17 @@ public sealed class WorldHost : BackgroundService
             await SaveAsync(force: true);
             _logger.LogInformation("Saved the world");
         }
+    }
+
+    /// <summary>Thins the statistics' old samples once an hour (docs/design-notes/statistics.md)</summary>
+    private async Task PruneHistoryAsync()
+    {
+        if (Now - _lastPrune < TimeSpan.FromHours(1))
+        {
+            return;
+        }
+        _lastPrune = Now;
+        await _history.PruneAsync(Now);
     }
 
     /// <summary>Saves after commands (within a tick) and at least every SaveSeconds</summary>

@@ -1122,11 +1122,14 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail($"Your next parcel needs Company Level {levelNeeded}.");
         }
-        var payment = Pay(company, Math.Round(Content.Progression.ParcelCost(extra) * CostFactor(company)), new Dictionary<string, double>());
+        var cost = Math.Round(Content.Progression.ParcelCost(extra) * CostFactor(company));
+        var payment = Pay(company, cost, new Dictionary<string, double>());
         if (!payment.Success)
         {
             return payment;
         }
+        AddStat(company, "landGold", cost);
+        AddMoment(company, "land", $"Bought parcel {extra + 1} of {Content.Progression.ParcelLevels.Count}", true);
 
         estate.UnlockedParcels |= 1 << parcel;
         estate.Touch();
@@ -1422,6 +1425,10 @@ public sealed partial class GameWorld
         var level = Content.Progression.LevelForEarned(company.LifetimeEarnings);
         if (level > company.Level)
         {
+            for (var reached = company.Level + 1; reached <= level; reached++)
+            {
+                AddMoment(company, "level", $"Company Level {reached}", reached % 5 == 0);
+            }
             company.Report.LevelsGained += level - company.Level;
             company.Level = level;
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.LevelUp, $"Company Level {level}!"));

@@ -90,6 +90,7 @@ public sealed partial class GameWorld
     private void Unlock(Company company, string key, string name, double hours, double gold, string? title, bool changesOutput)
     {
         company.Achievements.Add(key);
+        AddMoment(company, "achievement", key.StartsWith("collection:", StringComparison.Ordinal) ? $"Collection: {name}" : $"Achievement: {name}", false);
         gold = Math.Round(Math.Max(gold, hours * 60 * MeasuredIncome(company)));
         company.Gold += gold;
         CountEarned(company, gold, "achievements", name);

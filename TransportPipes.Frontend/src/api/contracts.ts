@@ -1963,3 +1963,77 @@ export interface CrewRequestDto {
   slot: number;
   until: string;
 }
+
+// ---------------------------------------------------------------- Statistics (docs/design-notes/statistics.md)
+
+export type StatsRange = "day" | "week" | "month" | "all";
+
+/** A key moment: big ones are flags on every graph; ref is a good or building for its icon */
+export interface MomentDto {
+  at: string;
+  /** founded, level, first, land, era, wonder, crew, partner, move, track, research, achievement, monument, event */
+  kind: string;
+  text: string;
+  big: boolean;
+  ref: string | null;
+}
+
+/** Samples as columns: a key per series, a time per row, null where a sample lacks a series; the last row is now */
+export interface StatsColumns {
+  keys: string[];
+  at: string[];
+  rows: (number | null)[][];
+}
+
+export interface StatsTownDto extends StatsColumns {
+  name: string;
+}
+
+/** Someone to compare with: your crew first, then your town */
+export interface StatsPeerDto {
+  id: number;
+  name: string;
+  color: string;
+  crew: boolean;
+}
+
+/** A company's statistics over a range: yours whole, another's public part and its big moments */
+export interface StatisticsDto extends StatsColumns {
+  company: number;
+  name: string;
+  color: string;
+  founded: string;
+  own: boolean;
+  range: StatsRange;
+  from: string;
+  now: string;
+  moments: MomentDto[];
+  town: StatsTownDto;
+  peers: StatsPeerDto[];
+}
+
+/** One series of a company over a range, to compare with */
+export interface StatsSeriesDto {
+  company: number;
+  name: string;
+  color: string;
+  founded: string;
+  key: string;
+  at: string[];
+  values: (number | null)[];
+}
+
+/** The admin's Pace: every company's gold earned by days since it was founded, and the model's player by day */
+export interface PaceDto {
+  companies: PaceLineDto[];
+  model: number[];
+}
+
+export interface PaceLineDto {
+  id: number;
+  name: string;
+  color: string;
+  founded: string;
+  days: number[];
+  earned: number[];
+}

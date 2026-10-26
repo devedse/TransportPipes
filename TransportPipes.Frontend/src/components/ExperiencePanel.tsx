@@ -96,7 +96,18 @@ export function ExperiencePanel({
         </>
       )}
 
-      <h4>Where your gold came from</h4>
+      <h4>
+        Where your gold came from{" "}
+        <button
+          className="link small"
+          onClick={() => {
+            onClose();
+            void gameClient.openStatistics(null, "earnedBy");
+          }}
+        >
+          Over time 📈
+        </button>
+      </h4>
       {sources.length === 0 ? (
         <p className="muted small">Nothing yet: build something!</p>
       ) : (

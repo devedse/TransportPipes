@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { gameClient } from "../app/client";
 import { formatAmount } from "../app/format";
 import type { ReturnLineDto } from "../api/contracts";
+import { HOUR, awayStretches, column, time, type Series } from "../app/statistics";
 import { setState, useAppStore } from "../state/store";
+import { Sparkline } from "./StatisticsPanel";
 
 /** A line's one button: what it says */
 function actionLabel(line: ReturnLineDto): string | null {
@@ -43,6 +45,28 @@ export function ReturnCard() {
   const [done, setDone] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [more, setMore] = useState(false);
+  // Your income while you were away: the statistics' last away stretch, if it ends about now
+  const [awayIncome, setAwayIncome] = useState<Series | null>(null);
+  useEffect(() => {
+    if (card === null) {
+      return;
+    }
+    let current = true;
+    void gameClient.connection
+      .getStatistics(null, "week")
+      .then((stats) => {
+        const stretch = stats === null ? undefined : awayStretches(stats).at(-1);
+        if (!current || stats === null || stretch === undefined || time(stats.now) - stretch.to > HOUR) {
+          return;
+        }
+        const points = column(stats, "income").filter((p) => p.t >= stretch.from);
+        setAwayIncome(points.length > 2 ? { label: "Income", color: "#236b69", points } : null);
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [card]);
 
   useEffect(() => {
     if (card === null) {
@@ -143,6 +167,20 @@ export function ReturnCard() {
             )}
           </span>
         </div>
+        {awayIncome !== null && (
+          <button
+            type="button"
+            className="return-graph"
+            title="Your statistics"
+            onClick={() => {
+              close();
+              void gameClient.openStatistics(null, "income");
+            }}
+          >
+            <span className="small muted">Your income while you were away 📈</span>
+            <Sparkline series={[awayIncome]} stacked={false} />
+          </button>
+        )}
         {card.hint !== null && <p>{card.hint}</p>}
         {(card.lines.length > 0 || more) && (
           <ul className="return-lines">

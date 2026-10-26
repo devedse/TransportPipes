@@ -851,3 +851,41 @@ public record MapLinkDto(long Id, string Resource, int Tier, bool Flowing, long 
 /// <summary>The "This week" row while the station builds its project (F4): "🏗 Water Tower 12% · wants sand · Ben can"</summary>
 /// <summary>The station's project in one line (This week, the return card, the Project tab), and the step its Show me takes</summary>
 public record ProjectWeekDto(string Text, double Share, NextStepDto? Step = null);
+
+// ---------------------------------------------------------------- Statistics (docs/design-notes/statistics.md)
+
+/// <summary>
+/// A company's statistics over a range: its samples as columns (a key per series, a row per time, null where a sample
+/// lacks a series; the last row is now), its key moments, its town's samples and who it can be compared with
+/// </summary>
+public record StatisticsDto(
+    long Company,
+    string Name,
+    string Color,
+    DateTime Founded,
+    bool Own,
+    string Range,
+    DateTime From,
+    DateTime Now,
+    IReadOnlyList<string> Keys,
+    IReadOnlyList<DateTime> At,
+    IReadOnlyList<IReadOnlyList<double?>> Rows,
+    IReadOnlyList<MomentDto> Moments,
+    StatsTownDto Town,
+    IReadOnlyList<StatsPeerDto> Peers);
+
+/// <summary>A key moment: big ones are flags on every graph; ref is a good or building for its icon</summary>
+public record MomentDto(DateTime At, string Kind, string Text, bool Big, string? Ref);
+
+public record StatsTownDto(string Name, IReadOnlyList<string> Keys, IReadOnlyList<DateTime> At, IReadOnlyList<IReadOnlyList<double?>> Rows);
+
+/// <summary>Someone to compare with: your crew first, then your town</summary>
+public record StatsPeerDto(long Id, string Name, string Color, bool Crew);
+
+/// <summary>One series of a company over a range (to compare with)</summary>
+public record StatsSeriesDto(long Company, string Name, string Color, DateTime Founded, string Key, IReadOnlyList<DateTime> At, IReadOnlyList<double?> Values);
+
+/// <summary>The admin's Pace: every company's gold earned by days since it was founded, and the model's regular player</summary>
+public record PaceDto(IReadOnlyList<PaceLineDto> Companies, IReadOnlyList<double> Model);
+
+public record PaceLineDto(long Id, string Name, string Color, DateTime Founded, IReadOnlyList<double> Days, IReadOnlyList<double> Earned);

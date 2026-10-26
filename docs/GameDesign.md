@@ -308,6 +308,13 @@ Exchange (12), Monuments (5) and expeditions (20).
 
 ## 18. Everything else
 
+**Statistics** (`docs/design-notes/statistics.md`): every 15 minutes the game samples every company and town (income,
+value, gold earned and spent by kind, production and sales per good, land, buildings, research, trade, minutes played);
+everything for 2 days, hourly for 30 days, daily for good. Key moments (levels, first goods, land, Eras, Wonder stages,
+crews, moves, research, achievements, new partners, the calendar) are flags on the graphs and lines in a journal. The
+Statistics panel (J) shows a card per graph over 24 hours, 7 days, 30 days or all, with the stretches you were away
+shaded, and compares with your crew and town; others see what the leaderboards show and their big moments.
+
 Managers (Planner Sam keeps both research lines busy, Trader Lin buys stale wants and adds 5% to Hub Orders, and
 others), achievements and collections that pay hours of income, three daily orders, calendar events (storms, heat
 waves, shortages, expos, festivals), blueprints, the Yard's Plan board, crew, town and world chat with blocking and

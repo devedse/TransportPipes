@@ -101,6 +101,11 @@ public sealed partial class GameWorld
                 CheckStalls();
             }));
         }
+        // The statistics' samples, the last thing at their moment (docs/design-notes/statistics.md)
+        for (var at = NextMarketUpdate(LastTick); at <= now; at = NextMarketUpdate(at))
+        {
+            events.Add((at, long.MaxValue, TakeSamples));
+        }
         for (var at = NextDay(LastTick); at <= now; at = NextDay(at))
         {
             events.Add((at, long.MinValue + 1, () =>
@@ -417,7 +422,7 @@ public sealed partial class GameWorld
                 CountDiscovery(from, flow.Sent * minutes);
                 producer.EraOutput += flow.Sent * minutes * BasePrice(flow.Resource);
                 Add(producer.Report.Produced, flow.Resource, flow.Sent * minutes);
-                AddStat(producer, $"produced:{flow.Resource}", flow.Sent * minutes);
+                CountProduced(producer, flow.Resource, flow.Sent * minutes);
             }
         }
 

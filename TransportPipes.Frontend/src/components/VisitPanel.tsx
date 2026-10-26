@@ -83,6 +83,12 @@ export function VisitPanel() {
             👁 Look
           </button>
           <button
+            title="How their company grew: income, value, land and their big moments"
+            onClick={() => void gameClient.openStatistics(visit.id, "income")}
+          >
+            📈 Statistics
+          </button>
+          <button
             className="icon-button"
             title={isBlocked ? "Unblock: see their messages again" : "Block: hide their messages"}
             onClick={() => void gameClient.setBlocked(visit.id, !isBlocked)}

@@ -15,7 +15,11 @@ public sealed class WorldSnapshot
     internal List<object> Deletes { get; } = new();
     internal List<DbTerrainOverride> TerrainOverrides { get; } = new();
 
-    public int Count => Upserts.Count + Deletes.Count;
+    /// <summary>The statistics' samples and key moments taken since the last save (docs/design-notes/statistics.md)</summary>
+    internal List<DbStatSample> Samples { get; } = new();
+    internal List<DbMoment> Moments { get; } = new();
+
+    public int Count => Upserts.Count + Deletes.Count + Samples.Count + Moments.Count;
 }
 
 /// <summary>
@@ -34,6 +38,11 @@ public sealed class WorldStore
     private readonly Dictionary<TilePos, TerrainType> _terrainOverrides = new();
     private readonly List<object> _orphans = new();
     private bool _worldExists;
+
+    /// <summary>Samples and moments of a save that failed: they go with the next one</summary>
+    private readonly List<DbStatSample> _unsavedSamples = new();
+    private readonly List<DbMoment> _unsavedMoments = new();
+    private const int MaxUnsaved = 50_000;
 
     /// <summary>The rules the loaded world was made with (a new world: today's)</summary>
     private int _worldRules = CurrentRules;
@@ -117,6 +126,8 @@ public sealed class WorldStore
                 DistinctDays = settings.DistinctDays,
                 LastPlayedDay = settings.LastPlayedDay,
                 BuiltTypes = settings.BuiltTypes,
+                TradedWith = settings.TradedWith ?? new HashSet<long>(),
+                TradedWithUnknown = settings.TradedWith == null,
                 EarnedLog = settings.EarnedLog,
                 Era = Math.Max(1, settings.Era),
                 Give = settings.Give ?? new Dictionary<string, GiveMode>(),
@@ -263,6 +274,8 @@ public sealed class WorldStore
     private static async Task ResetWorldAsync(TransportPipesDbContext db, CancellationToken cancellationToken)
     {
         await db.Blocks.ExecuteDeleteAsync(cancellationToken);
+        await db.StatSamples.ExecuteDeleteAsync(cancellationToken);
+        await db.Moments.ExecuteDeleteAsync(cancellationToken);
         await db.GuestbookNotes.ExecuteDeleteAsync(cancellationToken);
         await db.InboxMessages.ExecuteDeleteAsync(cancellationToken);
         await db.ChatMessages.ExecuteDeleteAsync(cancellationToken);
@@ -345,6 +358,7 @@ public sealed class WorldStore
                     DistinctDays = company.DistinctDays,
                     LastPlayedDay = company.LastPlayedDay,
                     BuiltTypes = company.BuiltTypes,
+                    TradedWith = company.TradedWith,
                     EarnedLog = company.EarnedLog,
                     Era = company.Era,
                     Give = company.Give,
@@ -461,6 +475,29 @@ public sealed class WorldStore
         }
         world.Deleted.Clear();
 
+        snapshot.Samples.AddRange(_unsavedSamples);
+        snapshot.Moments.AddRange(_unsavedMoments);
+        _unsavedSamples.Clear();
+        _unsavedMoments.Clear();
+        snapshot.Samples.AddRange(world.PendingSamples.Select(t => new DbStatSample
+        {
+            Kind = (int)t.Kind,
+            Subject = t.Subject,
+            At = t.At,
+            Values = JsonSerializer.Serialize(t.Values, Json),
+        }));
+        snapshot.Moments.AddRange(world.PendingMoments.Select(t => new DbMoment
+        {
+            Company = t.Company,
+            At = t.At,
+            Kind = t.Kind,
+            Text = t.Text.Length > 200 ? t.Text[..200] : t.Text,
+            Big = t.Big,
+            Ref = t.Ref,
+        }));
+        world.PendingSamples.Clear();
+        world.PendingMoments.Clear();
+
         foreach (var (source, _) in snapshot.Upserts)
         {
             source.Dirty = false;
@@ -468,10 +505,14 @@ public sealed class WorldStore
         return snapshot;
     }
 
-    /// <summary>Writes a snapshot in one transaction. When it fails the entities are marked dirty again.</summary>
+    /// <summary>
+    /// Writes a snapshot in one transaction. When it fails the entities are marked dirty again, and its samples and moments
+    /// go with the next one.
+    /// </summary>
     public async Task SaveAsync(WorldSnapshot snapshot, CancellationToken cancellationToken = default)
     {
         await using var db = _dbFactory.CreateDbContext();
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var newCompanies = new List<long>();
         var newEstates = new List<(int, int, int)>();
         var newBuildings = new List<long>();
@@ -505,6 +546,9 @@ public sealed class WorldStore
                         break;
                     case DbCompany company when _companies.Contains(company.Id):
                         db.Companies.Remove(company);
+                        // Its history goes with it (a later company may get its number)
+                        await db.StatSamples.Where(t => t.Kind == 0 && t.Subject == company.Id).ExecuteDeleteAsync(cancellationToken);
+                        await db.Moments.Where(t => t.Company == company.Id).ExecuteDeleteAsync(cancellationToken);
                         break;
                     case DbConductor conductor when _conductors.Contains(new TilePos(conductor.X, conductor.Y)):
                         db.Conductors.Remove(conductor);
@@ -537,7 +581,10 @@ public sealed class WorldStore
             {
                 Upsert(db, row, _terrainOverrides.ContainsKey(new TilePos(row.X, row.Y)), () => { });
             }
+            db.Moments.AddRange(snapshot.Moments);
             await db.SaveChangesAsync(cancellationToken);
+            await InsertSamplesAsync(db, snapshot.Samples, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
         }
         catch
         {
@@ -545,6 +592,12 @@ public sealed class WorldStore
             {
                 source.Dirty = true;
             }
+            foreach (var moment in snapshot.Moments)
+            {
+                moment.Id = 0;
+            }
+            _unsavedSamples.AddRange(snapshot.Samples.TakeLast(MaxUnsaved));
+            _unsavedMoments.AddRange(snapshot.Moments.TakeLast(MaxUnsaved));
             throw;
         }
 
@@ -571,6 +624,23 @@ public sealed class WorldStore
         foreach (var row in snapshot.TerrainOverrides)
         {
             _terrainOverrides[new TilePos(row.X, row.Y)] = (TerrainType)row.Terrain;
+        }
+    }
+
+    /// <summary>Samples, a thousand to a statement; one that is there already stays (the same moment can't be sampled twice)</summary>
+    private static async Task InsertSamplesAsync(TransportPipesDbContext db, List<DbStatSample> samples, CancellationToken cancellationToken)
+    {
+        foreach (var chunk in samples.Chunk(1000))
+        {
+            var sql = new System.Text.StringBuilder("INSERT INTO \"StatSamples\" (\"Kind\", \"Subject\", \"At\", \"Values\") VALUES ");
+            var parameters = new List<object>();
+            for (var i = 0; i < chunk.Length; i++)
+            {
+                sql.Append(i == 0 ? "" : ", ").Append($"({{{4 * i}}}, {{{4 * i + 1}}}, {{{4 * i + 2}}}, {{{4 * i + 3}}})");
+                parameters.AddRange([chunk[i].Kind, chunk[i].Subject, chunk[i].At, chunk[i].Values]);
+            }
+            sql.Append(" ON CONFLICT DO NOTHING");
+            await db.Database.ExecuteSqlRawAsync(sql.ToString(), parameters, cancellationToken);
         }
     }
 
@@ -621,6 +691,7 @@ public sealed class WorldStore
         public int DistinctDays { get; init; }
         public int LastPlayedDay { get; init; }
         public HashSet<string> BuiltTypes { get; init; } = new();
+        public HashSet<long>? TradedWith { get; init; }
         public Dictionary<string, Dictionary<string, double>> EarnedLog { get; init; } = new();
         public int Era { get; init; } = 1;
         public Dictionary<string, GiveMode>? Give { get; init; }

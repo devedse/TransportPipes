@@ -259,6 +259,14 @@ export function TopBar() {
         >
           <img className="ui-icon" src="/art/ui/ui-trophy.webp" alt="" />
         </button>
+        {/* (on a phone the Company panel opens them: the top bar has no room) */}
+        <button
+          className="icon-button desktop-only"
+          title="Statistics (J): your company over time"
+          onClick={() => void gameClient.openStatistics()}
+        >
+          <img className="ui-icon" src="/art/ui/ui-stats.webp" alt="" />
+        </button>
         <button className="icon-button" title="Back to my plot (H)" onClick={() => gameClient.goHome()}>
           <img className="ui-icon" src="/art/ui/ui-home.webp" alt="" />
         </button>

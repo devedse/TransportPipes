@@ -438,6 +438,12 @@ public sealed partial class GameWorld
         var wonder = town.Wonder!;
         var definition = WonderDefinition(wonder);
         var stage = definition.Stages[wonder.Stage];
+        foreach (var company in CompaniesInTown(town.Coord))
+        {
+            var tier = StageTier(wonder, company.Id).Tier;
+            AddMoment(company, "wonder", $"{definition.Name}: stage {wonder.Stage + 1} of {definition.Stages.Count} stands"
+                + (tier == WonderTier.None ? "" : $" · {tier} builder"), true);
+        }
         PayStageRewards(town, wonder, definition);
         wonder.Stage++;
         wonder.FullAt = null;
@@ -463,6 +469,7 @@ public sealed partial class GameWorld
             town.Wonder = NewMission(town);
             foreach (var company in CompaniesInTown(town.Coord))
             {
+                AddMoment(company, "era", $"{definition.Name} launched: the town's star number {town.Missions}", true);
                 Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Wonder,
                     $"{definition.Name} launched: +{Content.Missions.Perk:P0} production for good for everyone in your town, and its star number {town.Missions}"));
             }
@@ -559,6 +566,7 @@ public sealed partial class GameWorld
         foreach (var company in CompaniesInTown(town.Coord).ToList())
         {
             company.Era = Math.Max(company.Era, town.Era);
+            AddMoment(company, "era", $"Era {town.Era}: {finished} stands", true);
             company.EraEnded = $"{finished} stands: Era {town.Era} began";
             company.Touch();
             GrantResearch(company);
@@ -728,6 +736,7 @@ public sealed partial class GameWorld
         foreach (var company in CompaniesInTown(town.Coord))
         {
             company.Titles.Add("Launched the Space Elevator");
+            AddMoment(company, "era", $"{definition.Name} launched: the town reached the stars", true);
             company.Touch();
             var gave = wonder.Given.GetValueOrDefault(company.Id) > 0;
             Changes.Legacy.Add((company.UserId, LaunchLegacy + (gave ? LaunchGiverLegacy : 0), "Launched the Space Elevator"));

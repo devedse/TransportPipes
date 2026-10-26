@@ -70,6 +70,7 @@ plots: a second server on its own database (`--ConnectionStrings:TransportPipes=
 | `consistency.mjs` | After every kind of change, the playing tab matches a freshly loaded one |
 | `big-estate.mjs` | A grown estate (about 90 buildings on 300 pipe tiles, with the dev cheats): a building placed into its network shows on the map within the budget (1.5 s; `THROTTLE=4` runs the page four times slower). Start the server with `--TransportPipes:SlowWorldMilliseconds=30` to log where each slow world operation's time went |
 | `panels.mjs`, `panels-network.mjs`, `phone-pipe.mjs`, `deep.mjs` | Every panel under the theme; the post's flows; a phone's pipe; the Deep Level |
+| `statistics.mjs` | Statistics (`docs/design-notes/statistics.md`): two and a half days of play with stretches away, then the panel's graphs, moments, journal, compare, someone else's public part, the admin's Pace, the return card's graph and the phone. It moves the clock, so it needs a server on the playtest clock and its own database (`TransportPipes__Playtest=true TransportPipes__PlaytestToken=stats-local TransportPipes__PlaytestDataDir=<dir>` and a `…Database=transportpipes_stats…` connection string, in Development for the cheats and the seeded admin) |
 
 `load.mjs [fast4g|slow4g] [seconds on the title]` measures how long a new and a returning player wait on a throttled
 phone network. It needs a production build served by the server (caching and compression as in production):

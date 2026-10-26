@@ -26,6 +26,7 @@ const KEYS: Array<[string, string]> = [
   ["Esc", "back"],
   ["H · G", "home · the Deep Level"],
   ["N · M · R · C · I · L", "neighbours · hub · research · corporation · company · leaderboard"],
+  ["J", "statistics: your company over time"],
   ["O · F · T · Y", "overlays · photo mode · chat · plans"],
   ["?", "this list"],
 ];

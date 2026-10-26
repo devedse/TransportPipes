@@ -144,6 +144,7 @@ public sealed partial class GameWorld
         {
             return payment;
         }
+        AddStat(company, "landGold", DigCost(dug));
         company.DigParcel = parcel;
         company.DigStartedAt = Now;
         company.DigEndsAt = Now + DigTime(dug);
@@ -197,6 +198,7 @@ public sealed partial class GameWorld
         var stone = StoreGoods(company, "stone", minutes * DigStonePerMinute);
         var ores = StoreGoods(company, ore, minutes * DigOrePerMinute);
         AddStat(company, "dug", 1);
+        AddMoment(company, "land", $"Dug out Deep parcel {DugCount(company)}", true);
         company.Touch();
         Changes.Companies.Add(company.Id);
         Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ConstructionFinished, stone + ores < 1

@@ -168,7 +168,7 @@ public class GameServerFacts
     }
 
     /// <summary>A spot next to the trading post for a pipe and a wind moily behind it</summary>
-    private static Task<(TilePos Pipe, TilePos Moily)> SpotNextToTradingPost(GameServer server, long userId) =>
+    internal static Task<(TilePos Pipe, TilePos Moily)> SpotNextToTradingPost(GameServer server, long userId) =>
         server.World.RunAsync(world =>
         {
             var company = world.CompanyOfUser(userId)!;

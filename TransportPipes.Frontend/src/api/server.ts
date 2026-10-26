@@ -1,5 +1,9 @@
 import { HubConnectionBuilder, LogLevel, type HubConnection } from "@microsoft/signalr";
 import type {
+  PaceDto,
+  StatisticsDto,
+  StatsRange,
+  StatsSeriesDto,
   NextToMeDto,
   GoldUsesDto,
   LinkPlanDto,
@@ -382,6 +386,13 @@ export class GameConnection {
   setValveFilter = (building: number, resource: string, enabled: boolean) =>
     this.invoke<CommandResult>("SetValveFilter", building, resource, enabled);
   cheat = (what: string) => this.invoke<CommandResult>("Cheat", what);
+
+  // Statistics (docs/design-notes/statistics.md)
+  getStatistics = (company: number | null, range: StatsRange) =>
+    this.invoke<StatisticsDto | null>("GetStatistics", company, range);
+  getStatisticsSeries = (company: number, key: string, range: StatsRange) =>
+    this.invoke<StatsSeriesDto | null>("GetStatisticsSeries", company, key, range);
+  getPace = () => this.invoke<PaceDto | null>("GetPace");
 
   // Society
   getLeaderboard = (kind: LeaderboardKind, district: boolean) =>

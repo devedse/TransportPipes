@@ -175,6 +175,7 @@ public sealed partial class GameWorld
         var yard = estate.Station;
         if (CrewAt(yard) is { } crew)
         {
+            AddMoment(company, "crew", $"Moved in at the Yard of {crew.Name}", true);
             company.CrewId = crew.Id;
             crew.Requests.RemoveAll(t => t.Company == company.Id);
             company.Touch();
@@ -226,6 +227,11 @@ public sealed partial class GameWorld
         company.CrewId = null;
         company.Touch();
         Changes.Companies.Add(company.Id);
+        AddMoment(company, "crew", $"Left the Yard of {crew.Name}", false);
+        foreach (var member in CrewMembers(crew))
+        {
+            AddMoment(member, "crew", $"{company.Name} moved away", false);
+        }
         // What it put in the Depot and its Storages didn't hold (see Pack) stays for the crew; so does the Depot it built
         if (crew.Depot.Remove(company.Id, out var mine) && CrewMembers(crew).FirstOrDefault() is { } heir)
         {
@@ -455,6 +461,7 @@ public sealed partial class GameWorld
         foreach (var member in CrewMembers(crew).Where(t => t.Id != company.Id))
         {
             var text = $"{company.Name} moved in next door";
+            AddMoment(member, "crew", text, true);
             member.Report.NewNeighbours.Add(company.Name);
             member.Report.Notes.Add(text);
             member.Touch();

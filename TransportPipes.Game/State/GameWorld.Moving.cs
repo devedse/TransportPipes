@@ -306,6 +306,7 @@ public sealed partial class GameWorld
         }
         Unpack(company, estate);
         RerouteLinks(company);
+        AddMoment(company, "move", $"Moved to {WorldNames.District(company.District)}", true);
         Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Neighbour, company.Crates.Count == 0
             ? "Your plot has landed in its new spot"
             : $"Your plot has landed; {company.Crates.Count} buildings didn't fit and wait in crates"));

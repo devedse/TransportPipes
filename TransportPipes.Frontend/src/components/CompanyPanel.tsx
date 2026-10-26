@@ -77,6 +77,21 @@ function Achievement({ achievement }: { achievement: AchievementDto }) {
   );
 }
 
+/** The graph of the Statistics panel that shows a number of the Overview over time */
+const STAT_GRAPHS: Record<string, string> = {
+  "Gold earned": "earned",
+  "Net worth": "worth",
+  "Buildings built": "buildings",
+  "Pipe tiles laid": "pipes",
+  "Levels bought": "levels",
+  "Trading partners": "partners",
+  "Track tiers researched": "tiers",
+  "Era tree items researched": "tree",
+  "Given to Wonders (g)": "given",
+  Likes: "likes",
+  "Gold per tile per hour": "perTile",
+};
+
 /** Your company: statistics and titles, managers, achievements and collections (GDD §8.4, §8.5) */
 export function CompanyPanel() {
   const open = useAppStore((s) => s.companyOpen);
@@ -153,13 +168,31 @@ export function CompanyPanel() {
                 </button>
               </div>
             )}
+            <div className="company-stats-head">
+              <span className="muted small">Your company in numbers. Tap one to see it over time.</span>
+              <button className="primary" onClick={() => void gameClient.openStatistics(null, "income")}>
+                📈 Statistics (J)
+              </button>
+            </div>
             <div className="stat-grid">
-              {details.stats.map((stat) => (
-                <div key={stat.name} className="stat">
-                  <strong>{formatAmount(stat.value)}</strong>
-                  <span className="muted small">{stat.name}</span>
-                </div>
-              ))}
+              {details.stats.map((stat) =>
+                STAT_GRAPHS[stat.name] !== undefined ? (
+                  <button
+                    key={stat.name}
+                    className="stat"
+                    title="See it over time"
+                    onClick={() => void gameClient.openStatistics(null, STAT_GRAPHS[stat.name])}
+                  >
+                    <strong>{formatAmount(stat.value)}</strong>
+                    <span className="muted small">{stat.name} 📈</span>
+                  </button>
+                ) : (
+                  <div key={stat.name} className="stat">
+                    <strong>{formatAmount(stat.value)}</strong>
+                    <span className="muted small">{stat.name}</span>
+                  </div>
+                ),
+              )}
             </div>
             {details.produced.length > 0 && (
               <>

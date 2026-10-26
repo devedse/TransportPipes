@@ -35,6 +35,7 @@ const FIRST_ICONS = [
   "ui-level",
   "ui-inbox",
   "ui-trophy",
+  "ui-stats",
   "ui-home",
   "ui-chat",
   "loady-wave",

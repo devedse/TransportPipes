@@ -605,6 +605,19 @@ and the solver's sharing loop allocates nothing per consumer.
   core, so a town of eight for 120 days would take days); the model of §17, checked against the bots' first week, sets
   the pacing of all five Eras instead.
 
+**Statistics** (2026-10-26, design `docs/design-notes/statistics.md`): the game kept only today's totals, so nobody could
+look back. Now every 15 minutes, with the market update, it samples every company (also while away) and every town:
+income, value, bank, gold earned and spent by kind, what it made and sold per good, its plot, research, trade and
+the minutes played, about 30 series. The samples are kept in full for 2 days, on the hour for 30 days and at midnight
+for good, written in the world's own transaction. Key moments are recorded where they happen: the levels, the first
+unit of every good, land, Eras, Wonder stages with your builder tier, crews and neighbours, moves, research, achievements,
+new trading partners and the town's calendar. The Statistics panel (J, the top bar's easel, the Company panel's
+numbers, the Company Level, a visit, a leaderboard row) has a card per graph, a range of 24 hours to all, graphs with
+the stretches away shaded and the moments as flags, a few sentences about the range, a journal, and compare with your
+crew and town. Someone else's statistics show only what the leaderboards show and their big moments. The return card
+draws your income while you were away. The admin's Pace puts every company's gold earned by days since founding next to
+the model's regular player: the check of the balance against real players that the bots couldn't give.
+
 ### After v1
 
 Designed (GDD §11), not needed for a fun first version: the Bank (investing, insurance, Wonder bonds), District

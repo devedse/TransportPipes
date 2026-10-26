@@ -276,6 +276,7 @@ public sealed partial class GameWorld
         if (Content.Research.TryGetValue(techId, out var tech))
         {
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ResearchFinished, $"Research done: {tech.Name}"));
+            AddMoment(company, "research", $"Researched {tech.Name}", false);
             company.Report.ResearchDone.Add(tech.Name);
             TreeItemDone(company, tech);
         }
@@ -432,6 +433,7 @@ public sealed partial class GameWorld
         };
         Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ResearchFinished, $"{track.Name} tier {tier}: {text}"));
         company.Report.ResearchDone.Add($"{track.Name} {tier}");
+        AddMoment(company, "track", effect == TierEffect.Master ? $"{track.Name} Master: the track's last tier" : $"{track.Name} tier {tier}", effect == TierEffect.Master);
         if (effect == TierEffect.Master)
         {
             company.Titles.Add($"{track.Name} Master");

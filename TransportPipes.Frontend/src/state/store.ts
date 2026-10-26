@@ -14,6 +14,8 @@ import type {
   InboxDto,
   LeaderboardDto,
   LeaderboardKind,
+  StatisticsDto,
+  StatsRange,
   TownDto,
   TrackStateDto,
   LinesDto,
@@ -188,6 +190,12 @@ export interface AppState {
   leaderboardKind: LeaderboardKind;
   leaderboardDistrict: boolean;
   leaderboard: LeaderboardDto | null;
+  /** Statistics (docs/design-notes/statistics.md): whose (null: yours), the range, the graph shown, the numbers */
+  statsOpen: boolean;
+  statsCompany: number | null;
+  statsRange: StatsRange;
+  statsMetric: string;
+  stats: StatisticsDto | null;
   /** The company whose estate the player visits */
   visiting: number | null;
   visit: EstateVisitDto | null;
@@ -288,6 +296,11 @@ export const initialState: AppState = {
   leaderboardKind: "netWorth",
   leaderboardDistrict: true,
   leaderboard: null,
+  statsOpen: false,
+  statsCompany: null,
+  statsRange: "week",
+  statsMetric: "income",
+  stats: null,
   visiting: null,
   visit: null,
   inboxOpen: false,
@@ -307,6 +320,7 @@ export const MODALS = {
   neighboursOpen: false,
   crewOpen: false,
   leaderboardOpen: false,
+  statsOpen: false,
   companyOpen: false,
   blueprintsOpen: false,
   moderationOpen: false,

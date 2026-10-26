@@ -8,6 +8,7 @@ import { EventBar } from "./components/EventBar";
 import { CompanyPanel } from "./components/CompanyPanel";
 import { InboxPanel } from "./components/InboxPanel";
 import { LeaderboardPanel } from "./components/LeaderboardPanel";
+import { StatisticsPanel } from "./components/StatisticsPanel";
 import { VisitPanel } from "./components/VisitPanel";
 import { WildernessPanel } from "./components/WildernessPanel";
 import { ConnectionOverlay } from "./components/ConnectionOverlay";
@@ -164,6 +165,13 @@ function useShortcuts() {
             void gameClient.openLeaderboard();
           }
           break;
+        case "j":
+          if (state.statsOpen) {
+            setState({ statsOpen: false });
+          } else {
+            void gameClient.openStatistics();
+          }
+          break;
         case "t":
           void gameClient.toggleChat();
           break;
@@ -282,6 +290,9 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="LeaderboardPanel">
             <LeaderboardPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="StatisticsPanel">
+            <StatisticsPanel />
           </ErrorBoundary>
           <ErrorBoundary name="VisitPanel">
             <VisitPanel />

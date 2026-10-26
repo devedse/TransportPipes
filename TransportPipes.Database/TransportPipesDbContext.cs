@@ -23,6 +23,8 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<DbInboxMessage> InboxMessages => Set<DbInboxMessage>();
     public DbSet<DbGuestbookNote> GuestbookNotes => Set<DbGuestbookNote>();
     public DbSet<DbBlock> Blocks => Set<DbBlock>();
+    public DbSet<DbStatSample> StatSamples => Set<DbStatSample>();
+    public DbSet<DbMoment> Moments => Set<DbMoment>();
 
     /// <summary>The keys that protect the login cookies, so logins survive a restart</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
@@ -127,6 +129,21 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
         {
             terrain.ToTable("TerrainOverrides");
             terrain.HasKey(t => new { t.X, t.Y });
+        });
+
+        modelBuilder.Entity<DbStatSample>(sample =>
+        {
+            sample.ToTable("StatSamples");
+            sample.HasKey(t => new { t.Kind, t.Subject, t.At });
+        });
+
+        modelBuilder.Entity<DbMoment>(moment =>
+        {
+            moment.ToTable("Moments");
+            moment.Property(t => t.Kind).HasMaxLength(20);
+            moment.Property(t => t.Text).HasMaxLength(200);
+            moment.Property(t => t.Ref).HasMaxLength(40);
+            moment.HasIndex(t => new { t.Company, t.At });
         });
     }
 }

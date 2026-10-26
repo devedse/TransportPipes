@@ -31,6 +31,28 @@ function Row({ entry, kind }: { entry: LeaderboardEntryDto; kind: LeaderboardKin
         <span className="company-dot" style={{ background: entry.color }} />{" "}
         <button className="link" onClick={() => void gameClient.visitEstate(entry.company, true)}>
           {entry.name}
+        </button>{" "}
+        <button
+          className="link stats-link"
+          title={entry.you ? "Your statistics" : `${entry.name}: how their company grew`}
+          onClick={() =>
+            void gameClient.openStatistics(
+              entry.you ? null : entry.company,
+              kind === "netWorth"
+                ? "worth"
+                : kind === "efficiency"
+                  ? "perTile"
+                  : kind === "level"
+                    ? "earned"
+                    : kind === "partners"
+                      ? "partners"
+                      : kind === "likes"
+                        ? "likes"
+                        : "income",
+            )
+          }
+        >
+          📈
         </button>
       </td>
       <td className="value">{kind === "level" ? `Level ${level}` : formatAmount(entry.value)}</td>
