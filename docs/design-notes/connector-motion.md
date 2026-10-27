@@ -2,7 +2,8 @@
 
 The Yard gate is the transfer point into the shared Yard network. Its striped pad is ground, a receiving box takes
 the estate's pipes, and the posts and barrier stand above it. The box joins whichever neighbours are connected;
-there is no capped pipe end poking through the pad. Pipe routes and the simulation keep the same gate tile.
+there is no capped pipe end poking through the pad. The box's raised roof and faces target the gate tile when
+drawing a pipe, just like its posts. Pipe routes and the simulation keep the same gate tile.
 
 The short building connectors make the existing flows readable up close:
 

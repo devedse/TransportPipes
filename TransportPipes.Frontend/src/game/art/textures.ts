@@ -1,6 +1,7 @@
 import { Assets, Rectangle, Texture, type Spritesheet } from "pixi.js";
 import type { TerrainType } from "../../api/contracts";
 import { resolveFrames } from "../spriteFrames";
+import { gateInletContains } from "../connectors";
 import {
   drawBuilding,
   drawGate,
@@ -793,8 +794,9 @@ export class TextureBank {
 
   private readonly gateMasks = new Map<string, ImageData>();
 
-  /** Hit the visible posts and barrier, rather than the ground behind their raised parts. Coordinates use the sprite's bottom-left anchor. */
+  /** Hit the inlet, posts and barrier above the ground. Coordinates use the sprite's bottom-left anchor. */
   gateContains(alongU: boolean, x: number, y: number, tolerance: number): boolean {
+    if (gateInletContains(x, y, tolerance)) return true;
     this.gate("open", alongU);
     const mask = this.gateMasks.get(`gate:open:${alongU}`)!;
     const px = Math.round(x);

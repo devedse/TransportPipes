@@ -20,6 +20,27 @@ export interface ConnectorFlow {
 
 export const connectorKey = (x: number, y: number, building: number) => `${x},${y}:${building}`;
 
+// Conservative projected silhouette of art/pipes.mjs's receiving box: half-width .2, height .444.
+const inletHeight = 0.444 * 117.58;
+const inletHull = [
+  [96, -48 - 19.2 - inletHeight],
+  [134.4, -48 - inletHeight],
+  [134.4, -48],
+  [96, -28.8],
+  [57.6, -48],
+  [57.6, -48 - inletHeight],
+];
+
+/** The raised inlet belongs to the gate tile, including its roof above the ground diamond. */
+export function gateInletContains(x: number, y: number, tolerance = 0): boolean {
+  return inletHull.every((a, i) => {
+    const b = inletHull[(i + 1) % inletHull.length]!;
+    const dx = b[0]! - a[0]!;
+    const dy = b[1]! - a[1]!;
+    return dx * (y - a[1]!) - dy * (x - a[0]!) >= -tolerance * Math.hypot(dx, dy);
+  });
+}
+
 /** Actual traffic at the two building ends of each flow. Outgoing uses sent; incoming uses delivered after losses. */
 export function connectorTraffic(networks: Iterable<NetworkFlowsDto>): Map<string, ConnectorFlow[]> {
   const result = new Map<string, ConnectorFlow[]>();

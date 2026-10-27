@@ -1,6 +1,6 @@
 // Building inlets and the Yard barrier: run with a development server, node pipe-connections.mjs shots/connections.
 // Optional BEFORE=1 captures the reported rendering and gesture before the fix.
-import { start, newPlayer, emptySeats, moveTo } from "./lib.mjs";
+import { start, newPlayer, moveTo } from "./lib.mjs";
 
 const out = process.argv[2] ?? "shots/connections";
 const player = await start(out, process.env.TOUCH ? { touch: true } : {});
@@ -10,8 +10,25 @@ const check = (ok, text) => { console.log(`${ok ? "ok" : "FAIL"} ${text}`); if (
 await newPlayer(page, "join");
 await cheat("gold");
 if (process.env.SIDE !== undefined) {
-  const seats = await emptySeats(page, 4);
-  await moveTo(player, seats[Number(process.env.SIDE)]);
+  await cheat("district"); // Ensure a free Era 1 plot exists even after a long shared-world test run.
+  const seat = await page.evaluate(async (side) => {
+    const c = tp.gameClient.connection;
+    const era = tp.appStore.getState().era;
+    const towns = await c.getStations(null, null);
+    // This shared dev world also has older towns in later Eras, which a new player cannot move into.
+    for (const d of towns.districts.filter((d) => d.era <= era && d.era >= era - 1)) {
+      const dto = await c.getStations(d.districtX, d.districtY);
+      for (const station of dto.stations) {
+        const plot = station.seats.find((s) => s.state === "free" && s.slot % 4 === side);
+        if (plot) return { districtX: d.districtX, districtY: d.districtY, slot: plot.slot };
+      }
+    }
+    return null;
+  }, Number(process.env.SIDE));
+  if (!seat) throw new Error(`no free seat for gate orientation ${process.env.SIDE}`);
+  const moved = await moveTo(player, seat);
+  if (moved !== `seat ${seat.slot}`) throw new Error(`relocation failed: ${moved}`);
+  await page.waitForFunction((slot) => tp.appStore.getState().company.slot === slot, seat.slot);
   check(await page.evaluate(() => tp.appStore.getState().company.slot % 4) === Number(process.env.SIDE), "the requested gate orientation is being tested");
 }
 if (process.env.TOUCH) await page.setViewportSize(process.env.PLAN_ONLY ? { width: 390, height: 844 } : { width: 900, height: 800 });
@@ -55,21 +72,29 @@ const points = await page.evaluate(({ gate, post }) => {
   // Midway up the yellow post, well above the gate's ground tile.
   const alongU = tp.appStore.getState().company.slot % 4 === 0 || tp.appStore.getState().company.slot % 4 === 3;
   const pole = { x: center.x + (alongU ? -40 : 40), y: center.y - 70 };
-  return { from: e.tileToScreen(post.x, post.y), pole, ground: center, groundUnderPole: e.tileAtScreen(pole.x, pole.y) };
+  return { from: e.tileToScreen(post.x, post.y), inlet: { x: center.x, y: center.y - 54 }, pole, ground: center, groundUnderPole: e.tileAtScreen(pole.x, pole.y) };
 }, { gate, post });
 console.log("gate", { x: gate.x, y: gate.y, ...points });
 let touch;
 if (process.env.TOUCH) {
   touch = await page.context().newCDPSession(page);
   await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...points.from, id: 1 }] });
-  for (let i = 1; i <= 20; i++) {
-    const x = points.from.x + (points.pole.x - points.from.x) * i / 20;
-    const y = points.from.y + (points.pole.y - points.from.y) * i / 20;
-    await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y, id: 1 }] });
-  }
+  await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ ...points.inlet, id: 1 }] });
 } else {
   await page.mouse.move(points.from.x, points.from.y);
   await page.mouse.down();
+  await page.mouse.move(points.inlet.x, points.inlet.y, { steps: 20 });
+}
+await page.waitForTimeout(200);
+const inletRoute = await page.evaluate(() => tp.appStore.getState().pipeRoute);
+check(inletRoute?.some((p) => p.x === gate.x && p.y === gate.y), "dragging onto the receiving box roof targets the gate tile");
+if (touch) {
+  for (let i = 1; i <= 20; i++) {
+    const x = points.inlet.x + (points.pole.x - points.inlet.x) * i / 20;
+    const y = points.inlet.y + (points.pole.y - points.inlet.y) * i / 20;
+    await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y, id: 1 }] });
+  }
+} else {
   await page.mouse.move(points.pole.x, points.pole.y, { steps: 20 });
 }
 await page.waitForTimeout(300);

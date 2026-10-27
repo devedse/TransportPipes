@@ -1201,7 +1201,7 @@ export class Engine {
     this.callbacks.onPipeRoute(route);
   }
 
-  /** The raised gate is part of its tile: a drag onto either post or the barrier snaps to the inlet below it. */
+  /** The inlet box, posts and barrier all belong to the gate tile. */
   private pipeTargetAt(screenX: number, screenY: number): TilePosition {
     const company = this.callbacks.getState().company;
     if (company !== null) {

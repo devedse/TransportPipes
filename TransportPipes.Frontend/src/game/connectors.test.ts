@@ -4,6 +4,7 @@ import {
   connectorDensity,
   connectorPath,
   connectorTraffic,
+  gateInletContains,
   packetResource,
   type PipeSide,
 } from "./connectors";
@@ -20,6 +21,24 @@ const flow = (changes: Partial<FlowDto> = {}): FlowDto => ({
   ...changes,
 });
 const traffic = (...flows: FlowDto[]) => connectorTraffic([{ id: 1, rates: {}, flows }]);
+
+describe("Yard receiving box targeting", () => {
+  it("hits the roof and front faces above the ground diamond", () => {
+    for (const [x, y] of [
+      [96, -102],
+      [75, -75],
+      [117, -75],
+      [96, -40],
+    ])
+      expect(gateInletContains(x!, y!)).toBe(true);
+  });
+  it("leaves the surrounding ground selectable and allows touch tolerance", () => {
+    expect(gateInletContains(96, -125)).toBe(false);
+    expect(gateInletContains(145, -75)).toBe(false);
+    expect(gateInletContains(96, -20)).toBe(false);
+    expect(gateInletContains(140, -75, 8)).toBe(true);
+  });
+});
 
 describe("traffic on the short building connectors", () => {
   it("uses sent goods at the source and delivered goods at the destination", () => {
