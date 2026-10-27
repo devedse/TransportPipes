@@ -194,12 +194,20 @@ const LANE_SLOTS = [0.27, 0.5, 0.73];
  * The manifold where a pipe meets a building on a side: a short tube across the tile's middle, parallel to the
  * building's edge, that the connectors leave from (a pipe running past the building is its own manifold)
  */
-function manifold(prims, side) {
+function manifold(prims, side, connections = "") {
   const s = SIDES[side];
   const [a, b] = [LANE_SLOTS[0] - 0.09, LANE_SLOTS[2] + 0.09];
-  prims.push(s.axis === "x" ? { d: tubeY(0.5, Z, R * 0.92, a, b), m: "pipe", u: (_, y) => y } : { d: tubeX(0.5, Z, R * 0.92, a, b), m: "pipe", u: (x) => x });
-  for (const end of [a, b]) {
+  const [low, high] = s.axis === "x" ? ["u", "d"] : ["l", "r"];
+  const start = connections.includes(low) ? -EXT : a;
+  const stop = connections.includes(high) ? 1 + EXT : b;
+  // This is the actual pipe, including its incoming arms. Never layer a capped end or a bend over it.
+  prims.push(s.axis === "x" ? { d: tubeY(0.5, Z, R, start, stop), m: "pipe", u: (_, y) => y } : { d: tubeX(0.5, Z, R, start, stop), m: "pipe", u: (x) => x });
+  for (const end of [connections.includes(low) ? null : a, connections.includes(high) ? null : b]) {
+    if (end === null) continue;
     prims.push(s.axis === "x" ? { d: discY(0.5, end, Z, R * 1.05, 0.02), m: "cap" } : { d: discX(end, 0.5, Z, R * 1.05, 0.02), m: "cap" });
+  }
+  for (const incoming of connections) {
+    if (incoming !== low && incoming !== high) arm(prims, incoming, 0.5);
   }
   prims.push(s.axis === "x" ? { d: tubeY(0.5, Z, R * 1.12, 0.46, 0.54), m: "collar" } : { d: tubeX(0.5, Z, R * 1.12, 0.46, 0.54), m: "collar" });
   support(prims, [0.5, 0.5], s.axis === "x" ? [0, 1, 0] : [1, 0, 0], false);
@@ -269,6 +277,11 @@ function lane(prims, kind, side, slot) {
 
 function piece(shape) {
   const prims = [];
+  if (shape.startsWith("feed-")) {
+    const [, side, connections] = shape.split("-");
+    manifold(prims, side, connections === "none" ? "" : connections);
+    return prims;
+  }
   if (shape.startsWith("manifold-")) {
     manifold(prims, shape.slice(9));
     return prims;
@@ -407,7 +420,7 @@ function piece(shape) {
 /** The core of a glass pipe: a thin glowing line along the tube's path */
 function core(shape) {
   const prims = [];
-  if (shape.includes("-") && !shape.startsWith("tee-")) {
+  if (shape.includes("-") && !shape.startsWith("tee-") && !shape.startsWith("feed-")) {
     return prims;
   }
   for (const p of piece(shape)) {
@@ -799,6 +812,11 @@ function shapes() {
   }
   for (const side of ["u", "r", "d", "l"]) {
     list.push(`flange-${side}`, `socket-${side}`, `tee-${side}`, `manifold-${side}`);
+    const other = ["u", "r", "d", "l"].filter((s) => s !== side);
+    for (let mask = 0; mask < 8; mask++) {
+      const connections = other.filter((_, i) => mask & (1 << i)).join("");
+      list.push(`feed-${side}-${connections || "none"}`);
+    }
     // The lanes into a building (1.4 §9): each kind of good at each of the three places across the side
     for (const kind of ["power", "solid", "fluid"]) {
       for (const slot of [0, 1, 2]) {
@@ -841,7 +859,7 @@ async function main() {
     const coreGeometry = render(parts.flatMap(core));
     const tiers = {};
     for (const tier of [1, 2, 3, 4, 5, 6]) {
-      tiers[tier] = compose(geometry, coreGeometry, tier, shape.includes("-") && !shape.startsWith("tee-"));
+      tiers[tier] = compose(geometry, coreGeometry, tier, shape.includes("-") && !shape.startsWith("tee-") && !shape.startsWith("feed-"));
     }
     rendered.push({ shape, tiers });
     console.log(`${shape || "(none)"}: ${Date.now() - started} ms`);

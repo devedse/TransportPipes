@@ -44,6 +44,7 @@ and piped to the post (`kit(page, types, 2)` in Copper Pipe, its ingots stocked)
 | `art-check.mjs`, `showcase.mjs` | Generated buildings on an estate (`showcase.mjs shots/x type,type,...`; scaffolds buy their materials) |
 | `pipes.mjs` | Pipes and flowing resources |
 | `pipe-gallery.mjs` | Every pipe piece close up: runs, bends, junctions, ends, sockets into buildings, the six tiers |
+| `pipe-connections.mjs` | Building inlets on all four sides, fed by an end, bend or continuous run; dragging to the raised Yard post and immediate quest completion; Loady's Show me highlights and plans the gate connection. `GATE_ONLY=1 SIDE=0..3 TOUCH=1` checks touch dragging at each side of a Yard; `PLAN_ONLY=1 TOUCH=1` checks Show me and Lay it on a phone |
 | `juice.mjs` | A finished building, coin pops and the level-up |
 | `ui-check.mjs`, `title.mjs` | The panels, the title screen and the managers |
 | `mobile.mjs` | The phone layout (390×844) |

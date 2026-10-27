@@ -6,6 +6,26 @@ namespace TransportPipes.Game.Tests;
 public class TutorialFacts
 {
     [TestMethod]
+    [DataRow(0)]
+    [DataRow(1)]
+    [DataRow(2)]
+    [DataRow(3)]
+    public void TheGateStepCompletesOnConnectionWithoutWaitingForATradeRound(int slot)
+    {
+        var game = new TestGame(content: TestGame.PlainContent, tutorial: true);
+        var company = game.NewCompany(slot: slot);
+        company.TutorialStep = game.World.Content.Tutorial.ToList().FindIndex(t => t.Id == "firstYard");
+        game.Pass(0.01);
+        Assert.AreEqual("firstYard", game.World.CurrentTutorialStep(company)!.Id);
+
+        game.ConnectToGate(company, game.TradingPost(company));
+        game.Pass(0.01);
+
+        Assert.AreEqual(0, game.World.StatValue(company, "yard"), "no trading round has run yet");
+        Assert.AreEqual("firstMine", game.World.CurrentTutorialStep(company)!.Id, "the connection itself completes the quest");
+    }
+
+    [TestMethod]
     public void LoadyGuidesStepByStepAndPaysALittleForEachStep()
     {
         var game = new TestGame(content: TestGame.PlainContent, tutorial: true);

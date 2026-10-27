@@ -12,7 +12,7 @@
 - { id: firstMoily, stat: "built:solarPanel|windMoily", amount: 2, gold: 200, hint: { tool: build, building: windMoily, overlay: wind },
     text: "More energy, more gold. Find a windy spot (the Wind overlay shows it) and build a Wind Moily: six times a panel." }
 - { id: firstYard, stat: yard, amount: 1, gold: 500, hint: { panel: yard },
-    text: "Your Yard gate (G) is your door to the neighbours: pipe your network to it, and what reaches it goes to their buildings by itself, at the price on your stall." }
+    text: "The yellow posts and raised barrier are your Yard gate. Drag a pipe from your network onto either post: it snaps to the gate. Show me plans the connection for you. Your neighbours can then buy your spare goods at the price on your stall." }
 - { id: firstMine, stat: "built:ironMine", amount: 1, gold: 300, hint: { tool: build, building: ironMine, overlay: deposits },
     text: "Mine the iron on your land: build an Iron Mine on an iron deposit (the Deposits overlay shows them)." }
 - { id: firstIngot, stat: "produced:ironIngot", amount: 1, gold: 400, hint: { tool: build, building: smallFactory },

@@ -62,6 +62,8 @@ light of the generated art (top left), soft shadows and the same dark outlines.
   for solids, a slim blue pipe with a red valve wheel for fluids, two copper cables over a post for energy, each from
   a brass hatch in the tier's trim, side by side across the edge. The pellets of a flow ride their good's lane at its
   height. A Storage or a trading post shows the lanes of what moves through it now (nothing moving: the inlet box).
+  The manifold and its incoming pipe arms are rendered together (`feed-<building side>-<pipe sides>`): no separate
+  capped end or bend underneath, and the crossbar has caps only on ends that do not continue into another pipe.
 - The pieces are rendered once per shape and shaded per tier into one atlas per tier (`public/art/pipes/`); the first
   tier loads with the map, the others when they are first needed.
 

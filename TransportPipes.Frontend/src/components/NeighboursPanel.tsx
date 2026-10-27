@@ -157,7 +157,13 @@ export function PlannedRouteBanner() {
       </button>
       <button
         onClick={() =>
-          setState({ plannedRoute: null, plannedPartner: null, plannedTarget: null, plannedDone: null })
+          setState({
+            plannedRoute: null,
+            plannedPartner: null,
+            plannedTarget: null,
+            plannedDone: null,
+            hintTile: null,
+          })
         }
       >
         Cancel

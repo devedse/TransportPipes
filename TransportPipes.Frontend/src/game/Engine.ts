@@ -55,6 +55,7 @@ import {
   stallLocal,
   tileKey,
   yardRect,
+  yardGate,
   zoneAt,
   MONUMENT_SITES,
 } from "./layout";
@@ -770,7 +771,7 @@ export class Engine {
       canvas.setPointerCapture(event.pointerId);
       const tool = this.callbacks.getState().tool;
       if (event.button === 0 && tool.kind === "pipe") {
-        this.pipeStart = this.camera.screenToTile(local.x, local.y);
+        this.pipeStart = this.pipeTargetAt(local.x, local.y);
         this.updatePipeRoute();
       }
       if (event.button === 0 && tool.kind === "bulldoze") {
@@ -848,6 +849,9 @@ export class Engine {
         this.cancelToolDrag();
         return;
       }
+      const local = toLocal(event);
+      this.pointerX = local.x;
+      this.pointerY = local.y;
       if (wasToolDrag && this.isBoxDrag()) {
         if (this.movedBeyondClick) {
           this.finishBox();
@@ -1118,8 +1122,11 @@ export class Engine {
         this.callbacks.onPlaceBuildings(tool.type, paint.spots);
       }
     }
-    if (tool.kind === "pipe" && this.pipeRoute !== null && this.pipeRoute.length > 0) {
-      this.callbacks.onPlacePipes(this.pipeRoute);
+    if (tool.kind === "pipe") {
+      this.updatePipeRoute();
+      if (this.pipeRoute !== null && this.pipeRoute.length > 0) {
+        this.callbacks.onPlacePipes(this.pipeRoute);
+      }
     }
     if (tool.kind === "bulldoze" && this.bulldozeTiles.size > 0) {
       const tiles = [...this.bulldozeTiles.values()];
@@ -1184,10 +1191,29 @@ export class Engine {
     if (this.pipeStart === null || state.company === null) {
       return;
     }
-    const end = this.camera.screenToTile(this.pointerX, this.pointerY);
+    const end = this.pipeTargetAt(this.pointerX, this.pointerY);
     const route = routePipe(this.world, state.company, this.pipeStart, end, state.content);
     this.pipeRoute = route;
     this.callbacks.onPipeRoute(route);
+  }
+
+  /** The raised gate is part of its tile: a drag onto either post or the barrier snaps to the inlet below it. */
+  private pipeTargetAt(screenX: number, screenY: number): TilePosition {
+    const company = this.callbacks.getState().company;
+    if (company !== null) {
+      const gate = yardGate(company.estateX, company.estateY, company.slot);
+      if (this.world.conductorAt(gate.x, gate.y)?.kind === "gate") {
+        const anchor = diagonalToScreen(gate.x, gate.y);
+        const point = this.camera.screenToWorld(screenX, screenY);
+        const side = sideOf(company.slot);
+        const alongU = side === "north" || side === "south";
+        const tolerance = Math.min(16, (this.dragPointerType === "touch" ? 8 : 3) / this.camera.scale);
+        if (this.textures.gateContains(alongU, point.x - anchor.x, point.y - anchor.y, tolerance)) {
+          return gate;
+        }
+      }
+    }
+    return this.camera.screenToTile(screenX, screenY);
   }
 
   // ---------------------------------------------------------------- Frame
@@ -1277,8 +1303,11 @@ export class Engine {
       this.callbacks.onLayer(this.deep);
     }
 
-    const tile = this.camera.screenToTile(this.pointerX, this.pointerY);
     const tool = this.callbacks.getState().tool;
+    const tile =
+      tool.kind === "pipe"
+        ? this.pipeTargetAt(this.pointerX, this.pointerY)
+        : this.camera.screenToTile(this.pointerX, this.pointerY);
     // A blueprint tool carries its whole layout: its id is enough
     const toolKey =
       (tool.kind === "blueprint" ? `blueprint:${tool.blueprint.id}` : JSON.stringify(tool)) +
@@ -2212,17 +2241,15 @@ export class Engine {
         overlays.push(`flange-${side}`);
       }
     }
-    // The lanes into one building (1.4 §9): a connector for each kind of good it takes or makes, out of a manifold across
-    // the tile (a straight run past the building is its own); a building without its own goods keeps the bulkhead
+    // A building inlet is one connected piece: its crossbar extends into the neighbouring pipes. Layering a bend or
+    // a capped end beneath a separate manifold leaves overlapping tubes and false caps across a continuous run.
     const side = look.sockets.length === 1 ? look.sockets[0]! : null;
     const lanes = side !== null ? this.laneKinds(x + PIPE_DX[side]!, y + PIPE_DY[side]!) : [];
-    if (side !== null && lanes.length > 0 && this.textures.pipePiece(`manifold-${side}`, tier) !== null) {
-      const rest = look.shape.replace(side, "");
-      const runsPast = rest === (side === "u" || side === "d" ? "rl" : "ud");
+    const feed = side !== null ? `feed-${side}-${look.shape.replace(side, "") || "none"}` : null;
+    if (side !== null && lanes.length > 0 && feed !== null && this.textures.pipePiece(feed, tier) !== null) {
       const shapes = [
-        ...(rest.length > 0 ? [rest] : []),
-        ...overlays,
-        ...(runsPast ? [] : [`manifold-${side}`]),
+        feed,
+        ...overlays.filter((s) => !s.startsWith("foot-")),
         ...lanes.map((kind, i) => `lane-${kind}-${side}-${LANE_SLOTS[lanes.length]![i]}`),
       ];
       for (const shape of shapes) {
@@ -3013,7 +3040,13 @@ export class Engine {
     run.forEach((tile, i) => {
       const before = run[i - 1];
       const after = run[i + 1];
-      if (before !== undefined && after !== undefined && before.x !== after.x && before.y !== after.y) {
+      if (
+        before !== undefined &&
+        after !== undefined &&
+        before.x !== after.x &&
+        before.y !== after.y &&
+        this.pipeLook(tile.x, tile.y).shape.length === 2
+      ) {
         // A bend: around the corner between the two edges, a quarter circle of half a tile
         const cx = tile.x + 0.5 + (before.x - tile.x + after.x - tile.x) / 2;
         const cy = tile.y + 0.5 + (before.y - tile.y + after.y - tile.y) / 2;
@@ -3029,6 +3062,7 @@ export class Engine {
           points.push(screen(cx + 0.5 * Math.cos(a), cy + 0.5 * Math.sin(a)));
         }
       } else {
+        // Inlet manifolds and junctions meet at the middle, even when this flow turns there.
         points.push(screen(tile.x + 0.5, tile.y + 0.5));
       }
     });
@@ -3992,6 +4026,15 @@ export class Engine {
       return;
     }
     const state = this.callbacks.getState();
+    if (
+      state.tool.kind === "pipe" &&
+      this.hovered !== null &&
+      this.world.conductorAt(this.hovered.x, this.hovered.y)?.kind === "gate"
+    ) {
+      traceFootprint(g, this.hovered.x, this.hovered.y, 1);
+      g.fill({ color: 0x2ec4a6, alpha: 0.3 });
+      g.stroke({ color: 0x2ec4a6, width: 5 });
+    }
     if (state.hintTile !== null) {
       // Loady's suggestion: a pulsing golden footprint
       const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);

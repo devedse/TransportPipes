@@ -775,11 +775,46 @@ export class TextureBank {
     return this.art?.pipes?.z ?? 22;
   }
 
+  private readonly gateMasks = new Map<string, ImageData>();
+
+  /** Hit the visible posts and barrier, rather than the ground behind their raised parts. Coordinates use the sprite's bottom-left anchor. */
+  gateContains(alongU: boolean, x: number, y: number, tolerance: number): boolean {
+    this.gate("open", alongU);
+    const mask = this.gateMasks.get(`gate:open:${alongU}`)!;
+    const px = Math.round(x);
+    const py = Math.round(y + mask.height);
+    const radius = Math.ceil(tolerance);
+    if (px < -radius || px >= mask.width + radius || py < -radius || py >= mask.height + radius) {
+      return false;
+    }
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const sx = px + dx;
+        const sy = py + dy;
+        if (
+          dx * dx + dy * dy <= radius * radius &&
+          sx >= 0 &&
+          sx < mask.width &&
+          sy >= 0 &&
+          sy < mask.height &&
+          mask.data[(sy * mask.width + sx) * 4 + 3]! > 128
+        ) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   gate(policy: "open" | "closed" | "contract" | "corporation", alongU: boolean): BuildingTextures {
     const key = `gate:${policy}:${alongU}`;
     let result = this.buildingCache.get(key);
     if (result === undefined) {
       const art = drawGate(policy, alongU);
+      this.gateMasks.set(
+        key,
+        art.canvas.getContext("2d")!.getImageData(0, 0, art.canvas.width, art.canvas.height),
+      );
       result = { frames: [Texture.from(art.canvas)], size: 1, attachments: art.attachments, original: false };
       this.buildingCache.set(key, result);
     }

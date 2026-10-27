@@ -605,6 +605,11 @@ and the solver's sharing loop allocates nothing per consumer.
   core, so a town of eight for 120 days would take days); the model of §17, checked against the bots' first week, sets
   the pacing of all five Eras instead.
 
+- Pipe connections (2026-10-27): building inlets render their manifold and incoming arms as one joined piece, with
+  caps only at real ends; this removes overlapping bends and caps across continuous pipes. Dragging onto a Yard
+  gate's raised post or barrier targets the gate tile. Loady's gate step counts the connection immediately, and
+  Show me highlights the gate and plans its pipe (also on a phone).
+
 **Statistics** (2026-10-26, design `docs/design-notes/statistics.md`): the game kept only today's totals, so nobody could
 look back. Now every 15 minutes, with the market update, it samples every company (also while away) and every town:
 income, value, bank, gold earned and spent by kind, what it made and sold per good, its plot, research, trade and

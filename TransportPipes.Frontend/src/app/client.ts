@@ -455,67 +455,41 @@ export class GameClient {
     const gate = yardGate(company.estateX, company.estateY, company.slot);
     setState({ neighboursOpen: false, yardOpen: false, tool: { kind: "select" } });
     this.engine?.lookAt(gate.x, gate.y, 0.6);
-    const steps: Array<[number, number]> = [
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1],
-    ];
     for (let attempt = 0; attempt < 10; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 250));
       const current = appStore.getState().company;
       if (current === null) {
         return;
       }
-      // From the gate to the nearest of your own pipes (or the trading post's side)
-      const own: Array<{ x: number; y: number }> = [];
-      for (let dy = 0; dy < ESTATE_SIZE; dy++) {
-        for (let dx = 0; dx < ESTATE_SIZE; dx++) {
-          const x = current.estateX + dx;
-          const y = current.estateY + dy;
-          const conductor = this.world.conductorAt(x, y);
-          if (conductor?.kind === "pipe" && conductor.owner === current.id) {
-            own.push({ x, y });
-          }
-        }
-      }
-      if (own.length === 0) {
-        // No pipe yet: start next to the trading post
-        for (let dy = 0; dy < ESTATE_SIZE && own.length === 0; dy++) {
-          for (let dx = 0; dx < ESTATE_SIZE && own.length === 0; dx++) {
-            const building = this.world.buildingAt(current.estateX + dx, current.estateY + dy);
-            if (building?.owner === current.id && building.type === "tradingPost") {
-              for (const [sx, sy] of steps) {
-                own.push({ x: building.x + sx, y: building.y + sy });
-              }
-            }
-          }
-        }
-      }
-      const targets = own
+      // A loose pipe beside the gate is not a connected network. Aim for a pipe that serves a building, or the
+      // Trading Post itself, and include the gate tile in the preview so the destination is unambiguous.
+      const buildings = [...this.world.buildings.values()].filter((b) => b.owner === current.id);
+      const networks = new Set(buildings.map((b) => b.network).filter((id) => id !== null));
+      const targets = [...this.world.conductors.values()]
+        .filter(
+          (c) => c.kind === "pipe" && c.owner === current.id && c.network !== null && networks.has(c.network),
+        )
         .sort(
           (a, b) =>
-            Math.abs(a.x - gate.x) +
-            Math.abs(a.y - gate.y) -
-            (Math.abs(b.x - gate.x) + Math.abs(b.y - gate.y)),
+            Math.abs(a.x - gate.x) + Math.abs(a.y - gate.y) - Math.abs(b.x - gate.x) - Math.abs(b.y - gate.y),
         )
         .slice(0, 6);
-      for (const [dx, dy] of steps) {
-        const start = { x: gate.x + dx, y: gate.y + dy };
-        if (zoneAt(start.x, start.y).kind !== "estate") {
-          continue;
-        }
-        for (const target of targets) {
-          const route = routePipe(this.world, current, start, target, state.content ?? undefined, 4000);
-          if (route !== null) {
-            setState({
-              plannedRoute: route,
-              plannedPartner: null,
-              plannedTarget: "your Yard gate (G)",
-              plannedDone: null,
-            });
-            return;
-          }
+      const post = buildings.find((b) => b.type === "tradingPost");
+      const destinations: Array<{ x: number; y: number }> = [
+        ...targets,
+        ...(post === undefined ? [] : [post]),
+      ];
+      for (const target of destinations) {
+        const route = routePipe(this.world, current, gate, target, state.content ?? undefined, 4000);
+        if (route !== null) {
+          setState({
+            plannedRoute: route,
+            plannedPartner: null,
+            plannedTarget: "your Yard gate",
+            plannedDone: "Connected to your Yard gate",
+            hintTile: { ...gate, size: 1 },
+          });
+          return;
         }
       }
     }
@@ -537,7 +511,13 @@ export class GameClient {
         state.plannedDone ?? "Connected! Trade starts right away.",
       )
     ) {
-      setState({ plannedRoute: null, plannedPartner: null, plannedTarget: null, plannedDone: null });
+      setState({
+        plannedRoute: null,
+        plannedPartner: null,
+        plannedTarget: null,
+        plannedDone: null,
+        hintTile: null,
+      });
     }
   }
 
@@ -1491,7 +1471,13 @@ export class GameClient {
     } else if (state.wildTile !== null) {
       this.closeWild();
     } else if (state.plannedRoute !== null) {
-      setState({ plannedRoute: null, plannedPartner: null, plannedTarget: null, plannedDone: null });
+      setState({
+        plannedRoute: null,
+        plannedPartner: null,
+        plannedTarget: null,
+        plannedDone: null,
+        hintTile: null,
+      });
     } else if (state.tool.kind !== "select") {
       this.setTool({ kind: "select" });
     } else if (state.buildMenuOpen) {
@@ -1869,6 +1855,10 @@ export class GameClient {
       this.hintOverlay = { step: step.id, overlay: hint.overlay as Overlay };
     }
     if (hint.panel === "yard") {
+      if (step.id === "firstYard") {
+        void this.planYardPipe();
+        return;
+      }
       void this.openYard();
       return;
     }

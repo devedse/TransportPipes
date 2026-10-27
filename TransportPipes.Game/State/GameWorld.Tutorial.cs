@@ -19,6 +19,11 @@ public sealed partial class GameWorld
     /// </summary>
     public double TutorialProgress(Company company, TutorialStep step)
     {
+        // Connecting a pipe is immediate; the Yard's trading round may be a minute later. Keep past completion too.
+        if (step.Stat == "yard")
+        {
+            return Math.Max(StatValue(company, "yard"), EstateOf(company) is { } estate && GateNetwork(estate) != null ? 1 : 0);
+        }
         if (step.Stat.Split(':') is not [("built" or "piped") and var kind, var types])
         {
             return StatValue(company, step.Stat);
