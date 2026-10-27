@@ -18,7 +18,13 @@ if (process.env.TOUCH) await page.setViewportSize(process.env.PLAN_ONLY ? { widt
 // Go straight to the gate step without changing the player's level.
 for (let i = 0; i < 4; i++) await cheat("tutorial");
 await page.waitForFunction(() => tp.appStore.getState().company.tutorial.id === "firstYard");
-const gate = await page.evaluate(() => [...tp.gameClient.world.conductors.values()].find((c) => c.kind === "gate" && c.owner === tp.appStore.getState().company.id));
+const gate = await page.evaluate(async () => {
+  const yard = await tp.gameClient.connection.getYard();
+  return { x: yard.gateX, y: yard.gateY };
+});
+await page.evaluate((g) => tp.gameClient.engine.lookAt(g.x, g.y, 1), gate);
+await page.waitForFunction((g) => tp.gameClient.world.conductorAt(g.x, g.y)?.kind === "gate" &&
+  [...tp.gameClient.world.buildings.values()].some((b) => b.type === "tradingPost" && b.owner === tp.appStore.getState().company.id), gate);
 const post = await page.evaluate(() => [...tp.gameClient.world.buildings.values()].find((b) => b.type === "tradingPost" && b.owner === tp.appStore.getState().company.id));
 if (!process.env.BEFORE) {
   await page.locator(".loady-card button.primary").click();
