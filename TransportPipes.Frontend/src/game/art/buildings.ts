@@ -6,6 +6,7 @@ import { Iso, OUTLINE, shade, type Attachment } from "./iso";
 
 export interface BuildingArt {
   canvas: HTMLCanvasElement;
+  ground?: HTMLCanvasElement;
   size: number;
   attachments: Attachment[];
 }
@@ -1075,16 +1076,17 @@ export function drawGate(
   alongU: boolean,
 ): BuildingArt {
   const open = policy !== "closed";
-  const k = new Iso(1, 110);
+  const k = new Iso(1, 160);
+  const ground = new Iso(1, 0);
   const a: [number, number] = alongU ? [0.08, 0.5] : [0.5, 0.08];
   const b: [number, number] = alongU ? [0.92, 0.5] : [0.5, 0.92];
-  k.pad(alongU ? 0 : 0.3, alongU ? 0.3 : 0, alongU ? 1 : 0.4, alongU ? 0.4 : 1, "#6d6a64");
+  ground.pad(alongU ? 0 : 0.3, alongU ? 0.3 : 0, alongU ? 1 : 0.4, alongU ? 0.4 : 1, "#6d6a64");
   for (let i = 0; i < 4; i++) {
     // Zebra marking on the ground between the posts
     const f = 0.15 + i * 0.2;
     const u = alongU ? f : 0.32;
     const v = alongU ? 0.32 : f;
-    k.pad(u, v, alongU ? 0.1 : 0.36, alongU ? 0.36 : 0.1, i % 2 === 0 ? "#e8c547" : "#2a2a2a", null);
+    ground.pad(u, v, alongU ? 0.1 : 0.36, alongU ? 0.36 : 0.1, i % 2 === 0 ? "#e8c547" : "#2a2a2a", null);
   }
   k.cylinder(a[0], a[1], 0.06, 64, "#c9a227", 0, "flat", "#e0be4a");
   if (open) {
@@ -1113,7 +1115,7 @@ export function drawGate(
   k.cylinder(b[0], b[1], 0.06, 64, "#c9a227", 0, "flat", "#e0be4a");
   const light = { open: "#3fe07a", contract: "#f6c744", corporation: "#6cb4ee", closed: "#ff4040" }[policy];
   k.attach("blink", b[0], b[1], 72, 0.6, light);
-  return { canvas: k.canvas, size: 1, attachments: k.attachments };
+  return { canvas: k.canvas, ground: ground.canvas, size: 1, attachments: k.attachments };
 }
 
 /** The buildings of the hub city */

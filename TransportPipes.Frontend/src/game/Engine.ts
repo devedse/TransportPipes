@@ -68,6 +68,17 @@ import { sounds } from "../app/sound";
 import { canPlace, footprintOrigin, routePipe, type Placement } from "./rules";
 import { chunkKey, type WorldModel } from "./world";
 import { fullness, insidePipe, laneOf, type InsideFlow, type LaneKind } from "./inside";
+import {
+  connectorKey,
+  connectorPath,
+  connectorTraffic,
+  LANE_KINDS,
+  LANE_SLOTS,
+  PIPE_SIDES,
+  type ConnectorFlow,
+  type PipeSide,
+} from "./connectors";
+import { ConnectorAnimation } from "./render/connectors";
 
 export type Tool =
   | { kind: "select" }
@@ -218,23 +229,11 @@ export function takesPipes(definition: BuildingDefinition | undefined): boolean 
   );
 }
 
-const PIPE_SIDES: Array<[string, number, number]> = [
-  ["u", 0, -1],
-  ["r", 1, 0],
-  ["d", 0, 1],
-  ["l", -1, 0],
-];
-
 /** How a pipe looks at a tile: the sides it joins (in u, r, d, l order) and the ones where it plugs into a building */
 export interface PipeLook {
   shape: string;
   sockets: string[];
 }
-
-/** The lanes' order across a side, and where they stand for one, two or three of them (art/pipes.mjs LANE_SLOTS) */
-const LANE_KINDS: LaneKind[] = ["solid", "fluid", "power"];
-const LANE_SLOTS: Record<number, number[]> = { 1: [1], 2: [0, 2], 3: [0, 1, 2] };
-const LANE_ACROSS = [0.27, 0.5, 0.73];
 
 /** How high each lane carries its goods, as a share of the big pipe's height */
 const LANE_HEIGHT: Record<LaneKind, number> = { solid: 0.7, fluid: 0.83, power: 1.05 };
@@ -565,6 +564,11 @@ export class Engine {
   /** The pipes' lane connectors: they fade as the map zooms out (1.4 §9: the map stays calm) */
   private readonly laneSprites = new Set<Sprite>();
   private laneScale = 0;
+  private readonly connectorViews = new Set<ConnectorAnimation>();
+  private connectorFlows = new Map<string, ConnectorFlow[]>();
+  private readonly dynamicLanes = new Map<number, string>();
+  private readonly reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+  private connectorSoundAt = 0;
   private readonly removeListeners: Array<() => void> = [];
   private destroyed = false;
 
@@ -2297,12 +2301,19 @@ export class Engine {
       sprite.anchor.set(0, 1);
       const container = new Container();
       container.position.set(anchor.x, anchor.y);
-      // The pipe runs on through the gate, under its barrier
+      // The pad is ground. The pipes enter a receiving box above it; the posts stand in front.
+      if (art.ground !== undefined) {
+        const base = new Sprite(art.ground);
+        base.anchor.set(0, 1);
+        container.addChild(base);
+      }
       const look = this.pipeLook(conductor.x, conductor.y);
-      if (look.shape.length > 0) {
-        const pipe = this.pipeDisplay(conductor.x, conductor.y, conductor.tier, look);
-        pipe.position.set(0, 0);
-        container.addChild(pipe);
+      const inlet = this.textures.pipePiece(`gate-${look.shape || "none"}`, conductor.tier);
+      if (inlet !== null) {
+        const intake = new Sprite(inlet.texture);
+        intake.position.set(inlet.x, inlet.y);
+        intake.scale.set(inlet.scale);
+        container.addChild(intake);
       }
       container.addChild(sprite);
       const effects = new BuildingEffects(art.attachments, "#ffffff");
@@ -2326,6 +2337,28 @@ export class Engine {
       conductor.tier,
       this.pipeLook(conductor.x, conductor.y),
     );
+    const look = this.pipeLook(conductor.x, conductor.y);
+    if (look.sockets.length === 1) {
+      const side = look.sockets[0] as PipeSide;
+      const building = this.world.buildingAt(conductor.x + PIPE_DX[side]!, conductor.y + PIPE_DY[side]!);
+      const kinds = this.laneKinds(conductor.x + PIPE_DX[side]!, conductor.y + PIPE_DY[side]!);
+      if (building !== undefined && kinds.length > 0) {
+        const key = connectorKey(conductor.x, conductor.y, building.id);
+        const animation = new ConnectorAnimation(
+          key,
+          conductor.x,
+          conductor.y,
+          side,
+          kinds,
+          this.callbacks.getState().content,
+          this.textures,
+          hash01(conductor.x * 73856093 + conductor.y * 19349663 + building.id),
+        );
+        animation.setFlows(this.connectorFlows.get(key) ?? []);
+        pipe.addChild(animation.container);
+        this.connectorViews.add(animation);
+      }
+    }
     pipe.zIndex = (conductor.x + conductor.y) * 4 + 2;
     this.objectLayer.addChild(pipe);
     return { display: pipe, effects: null, building: null, machine: null, idle: null, progress: null };
@@ -2647,6 +2680,37 @@ export class Engine {
     if (this.far) {
       return;
     }
+    const area = this.camera.viewRect(this.app.screen.width, this.app.screen.height);
+    const alpha = this.laneAlpha() * (this.overlay === "none" ? 1 : 0.35);
+    let audible: ConnectorAnimation | undefined;
+    for (const connector of this.connectorViews) {
+      const point = tileCenter(connector.x, connector.y);
+      const visible =
+        point.x >= area.left - 192 &&
+        point.x <= area.right + 192 &&
+        point.y >= area.top - 150 &&
+        point.y <= area.bottom + 100;
+      connector.update(this.time, visible ? alpha : 0, this.reducedMotion?.matches === true);
+      if (visible && connector.active && this.hovered?.x === connector.x && this.hovered.y === connector.y)
+        audible = connector;
+    }
+    // A quiet inspection sound, bounded for the whole map and governed by the existing mute control.
+    if (
+      audible !== undefined &&
+      this.pointerInside &&
+      !this.dragging &&
+      this.callbacks.getState().tool.kind === "select" &&
+      this.camera.scale > 0.75 &&
+      this.time > this.connectorSoundAt &&
+      !this.reducedMotion?.matches &&
+      document.visibilityState === "visible"
+    ) {
+      const kinds = audible.activeKinds;
+      if (kinds.includes("fluid") && (!kinds.includes("power") || Math.floor(this.time / 3) % 2 === 1))
+        sounds.water();
+      else if (kinds.includes("power")) sounds.electric();
+      this.connectorSoundAt = this.time + 3;
+    }
     const now = Date.now() + this.callbacks.getState().serverOffsetMs;
     const content = this.callbacks.getState().content;
     for (const view of this.effects) {
@@ -2701,6 +2765,8 @@ export class Engine {
   }
 
   private fadeLanes() {
+    for (const connector of this.connectorViews)
+      if (connector.container.destroyed) this.connectorViews.delete(connector);
     if (Math.abs(this.camera.scale - this.laneScale) < 0.005) {
       return;
     }
@@ -2823,6 +2889,29 @@ export class Engine {
     this.flowPaths = [];
     this.flowsVersion++;
     const content = this.callbacks.getState().content;
+    this.connectorFlows = connectorTraffic(this.world.flows.values());
+    for (const id of this.dynamicLanes.keys())
+      if (!this.world.buildings.has(id)) this.dynamicLanes.delete(id);
+    for (const connector of this.connectorViews) {
+      if (!connector.container.destroyed) connector.setFlows(this.connectorFlows.get(connector.key) ?? []);
+    }
+    // Storage and Trading Post ports reflect their actual traffic, including its first arrival and last departure.
+    for (const building of this.world.buildings.values()) {
+      if (building.type !== "storage" && building.type !== "tradingPost") continue;
+      const kinds = this.laneKinds(building.x, building.y).join(",");
+      if (this.dynamicLanes.get(building.id) === kinds) continue;
+      this.dynamicLanes.set(building.id, kinds);
+      for (let i = 0; i < building.size; i++)
+        for (const [x, y] of [
+          [building.x + i, building.y - 1],
+          [building.x + i, building.y + building.size],
+          [building.x - 1, building.y + i],
+          [building.x + building.size, building.y + i],
+        ]) {
+          const chunk = chunkOf(x!, y!);
+          this.dirtyChunks.add(chunkKey(chunk.x, chunk.y));
+        }
+    }
     for (const network of this.world.flows.values()) {
       const sharing = Math.max(1, network.flows.filter((t) => t.path.length >= 2 && t.delivered > 0).length);
       for (const flow of network.flows) {
@@ -3021,12 +3110,10 @@ export class Engine {
           const index =
             kind !== undefined && sockets.length === 1 && sockets[0] === side ? lanes.indexOf(kind) : -1;
           if (index >= 0) {
-            const across = LANE_ACROSS[LANE_SLOTS[lanes.length]![index]!]!;
-            const at = (along: number) =>
-              dx !== 0 ? [tile.x + along, tile.y + across] : [tile.x + across, tile.y + along];
-            const [ex, ey] = at(0.5 + (dx + dy) / 2);
-            const [mx, my] = at(0.5);
-            return [screen(ex!, ey!, LANE_HEIGHT[kind!]), screen(mx!, my!, LANE_HEIGHT[kind!])];
+            // The short lane has its own cargo / sparks / fluid animation. Pipe pellets stay inside the big pipe.
+            const start = connectorPath(side, LANE_SLOTS[lanes.length]![index]!, kind!)[0]!;
+            const anchor = diagonalToScreen(tile.x, tile.y);
+            return [{ x: anchor.x + start.x, y: anchor.y + start.y }];
           }
           return [screen(tile.x + 0.5 + dx / 2, tile.y + 0.5 + dy / 2)];
         }

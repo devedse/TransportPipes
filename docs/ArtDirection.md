@@ -53,7 +53,8 @@ light of the generated art (top left), soft shadows and the same dark outlines.
   where a straight run taps into a building beside it; an inlet box where a pipe plugs into a building's plate.
 - Overlays drawn over the pieces where the game wants them: a brass flange at every third joint and where the tier
   changes, a foot under every other straight tile, the inlet boxes. Each overlay hides behind the tube it belongs to.
-- Pipes plug only into buildings that take or give resources (not decorations or the HQ), and run on under gates.
+- Pipes plug only into buildings that take or give resources (not decorations or the HQ). At a Yard gate they enter
+  its receiving box, drawn above the striped ground pad and below the posts; no capped end pokes through the pad.
 - One material per tier: painted iron, copper, blue steel, charcoal composite with orange fittings, glass with a
   glowing core, superconductor with violet bands. The flows are small glowing pellets riding along the tube, around
   the bends and into the sockets.
@@ -64,6 +65,9 @@ light of the generated art (top left), soft shadows and the same dark outlines.
   height. A Storage or a trading post shows the lanes of what moves through it now (nothing moving: the inlet box).
   The manifold and its incoming pipe arms are rendered together (`feed-<building side>-<pipe sides>`): no separate
   capped end or bend underneath, and the crossbar has caps only on ends that do not continue into another pipe.
+- The short connectors animate from actual network traffic (`docs/design-notes/connector-motion.md`): painted goods
+  on two belt tracks, travelling arcs on cables, coloured slugs in a glassy fluid tube. They stop when idle and fade
+  at a distance. Sprites and textures are reused; reduced motion holds them still.
 - The pieces are rendered once per shape and shaded per tier into one atlas per tier (`public/art/pipes/`); the first
   tier loads with the map, the others when they are first needed.
 

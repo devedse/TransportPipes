@@ -46,7 +46,8 @@ if (!process.env.BEFORE) {
   }
   await page.evaluate(() => tp.appStore.setState({ plannedRoute: null, hintTile: null }));
 }
-await page.evaluate((g) => { tp.appStore.setState({ tool: { kind: "pipe", tier: 1 } }); tp.gameClient.engine.lookAt(g.x, g.y, 1); }, gate);
+// Keep the gesture's source clear of transient HUD cards on either side of the Yard.
+await page.evaluate((g) => { tp.appStore.setState({ photoMode: true, tool: { kind: "pipe", tier: 1 } }); tp.gameClient.engine.lookAt(g.x, g.y, 1); }, gate);
 await page.waitForTimeout(1500);
 const points = await page.evaluate(({ gate, post }) => {
   const e = tp.gameClient.engine;

@@ -29,6 +29,8 @@ export const TERRAIN_VARIANTS = 4;
 
 export interface BuildingTextures {
   frames: Texture[];
+  /** A gate's ground pad, below its inlet and posts. */
+  ground?: Texture;
   size: number;
   /** Generated art: the sprite's anchor is the bottom corner of its ground plate, scaled down from its resolution */
   placement?: { anchorX: number; anchorY: number; scale: number };
@@ -135,6 +137,20 @@ export class TextureBank {
   private readonly cache = new Map<string, Texture>();
   private readonly buildingCache = new Map<string, BuildingTextures>();
   private readonly thumbnailCache = new Map<string, string>();
+  private readonly resourceIcons = new Map<string, Texture | null>();
+
+  /** Cargo on the little belts uses the same painted resource icons as the UI, loaded once when first visible. */
+  resourceIcon(resource: string): Texture | null {
+    if (!this.resourceIcons.has(resource)) {
+      this.resourceIcons.set(resource, null);
+      void Assets.load<Texture>(`/art/ui/res-${resource}.webp`)
+        .then((texture) => {
+          this.resourceIcons.set(resource, texture);
+        })
+        .catch(() => undefined);
+    }
+    return this.resourceIcons.get(resource) ?? null;
+  }
   private atlasImage: HTMLImageElement | null = null;
   private readonly artRequested = new Set<string>();
   private readonly artFailed = new Set<string>();
@@ -815,7 +831,13 @@ export class TextureBank {
         key,
         art.canvas.getContext("2d")!.getImageData(0, 0, art.canvas.width, art.canvas.height),
       );
-      result = { frames: [Texture.from(art.canvas)], size: 1, attachments: art.attachments, original: false };
+      result = {
+        frames: [Texture.from(art.canvas)],
+        ground: art.ground === undefined ? undefined : Texture.from(art.ground),
+        size: 1,
+        attachments: art.attachments,
+        original: false,
+      };
       this.buildingCache.set(key, result);
     }
     return result;

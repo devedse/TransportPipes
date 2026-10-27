@@ -609,6 +609,12 @@ and the solver's sharing loop allocates nothing per consumer.
   caps only at real ends; this removes overlapping bends and caps across continuous pipes. Dragging onto a Yard
   gate's raised post or barrier targets the gate tile. Loady's gate step counts the connection immediately, and
   Show me highlights the gate and plans its pipe (also on a phone).
+- Building connector motion (2026-10-27, design `docs/design-notes/connector-motion.md`): actual network traffic
+  drives painted goods on separate inbound and outbound belt tracks, travelling electrical arcs and coloured fluid
+  glints. Pooled sprites stop when idle, fade with distance and respect reduced motion; quiet inspection sounds use
+  the existing mute control. The Yard gate now has a receiving box above its ground pad and behind its posts, so
+  the pipe visibly ends at the transfer point. Browser checks cover movement, idle, distance, reduced motion, the
+  sprite budget and touch connections at all four gate orientations.
 
 **Statistics** (2026-10-26, design `docs/design-notes/statistics.md`): the game kept only today's totals, so nobody could
 look back. Now every 15 minutes, with the market update, it samples every company (also while away) and every town:

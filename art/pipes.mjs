@@ -247,13 +247,16 @@ function lane(prims, kind, side, slot) {
   } else if (kind === "solid") {
     const mid = pt((from + end) / 2);
     const half = (from - end) / 2;
-    const [bx, by] = across(0.045, half);
+    const [bx, by] = across(0.075, half);
     prims.push({ d: box(mid[0], mid[1], 0.105, bx, by, 0.012, 0.006), m: "rubber" });
     for (const k of [-1, 1]) {
-      const r = pt((from + end) / 2, lat + k * 0.052);
+      const r = pt((from + end) / 2, lat + k * 0.083);
       const [rx, ry] = across(0.008, half);
       prims.push({ d: box(r[0], r[1], 0.115, rx, ry, 0.018, 0.004), m: "collar" });
     }
+    // Two narrow tracks share the frame: inbound and outbound goods never pass through each other.
+    const [mx, my] = across(0.004, half);
+    prims.push({ d: box(mid[0], mid[1], 0.119, mx, my, 0.006, 0.002), m: "clamp" });
     for (const t of [end + 0.05, from - 0.04]) {
       for (const k of [-1, 1]) {
         const leg = pt(t, lat + k * 0.04);
@@ -277,6 +280,18 @@ function lane(prims, kind, side, slot) {
 
 function piece(shape) {
   const prims = [];
+  if (shape.startsWith("gate-")) {
+    const sides = shape.slice(5) === "none" ? "" : shape.slice(5);
+    for (const side of sides) arm(prims, side, 0.5);
+    // The pipe enters a receiving box here, where the Yard network takes over; no blind flange through the gate.
+    prims.push({ d: box(0.5, 0.5, 0.2, 0.185, 0.185, 0.2, 0.024), m: "hub" });
+    prims.push({ d: box(0.5, 0.5, 0.405, 0.2, 0.2, 0.02, 0.014), m: "collar" });
+    prims.push({ d: box(0.5, 0.5, 0.432, 0.105, 0.075, 0.01, 0.006), m: "gauge" });
+    for (const dx of [-0.145, 0.145]) for (const dy of [-0.145, 0.145]) {
+      prims.push({ d: post(0.5 + dx, 0.5 + dy, 0.012, 0.425, 0.444, 0.004), m: "bolt" });
+    }
+    return prims;
+  }
   if (shape.startsWith("feed-")) {
     const [, side, connections] = shape.split("-");
     manifold(prims, side, connections === "none" ? "" : connections);
@@ -420,7 +435,7 @@ function piece(shape) {
 /** The core of a glass pipe: a thin glowing line along the tube's path */
 function core(shape) {
   const prims = [];
-  if (shape.includes("-") && !shape.startsWith("tee-") && !shape.startsWith("feed-")) {
+  if (shape.includes("-") && !shape.startsWith("tee-") && !shape.startsWith("feed-") && !shape.startsWith("gate-")) {
     return prims;
   }
   for (const p of piece(shape)) {
@@ -608,7 +623,7 @@ const BOLT_DARK = { color: hex("#5c5040"), spec: 0.4, shine: 30 };
 const RED = { color: hex("#c8402c"), spec: 0.55, shine: 40 };
 const RUBBER = { color: hex("#2f2c2a"), spec: 0.12, shine: 10 };
 const CABLE = { color: hex("#e08a45"), spec: 0.9, shine: 40 };
-const SLIM = { color: hex("#3f8fcf"), spec: 0.7, shine: 50 };
+const SLIM = { color: hex("#6fb7d9"), spec: 0.8, shine: 60, glass: true };
 
 /** The materials of each tier (pipe and hub follow the tier's colour, see PIPE_COLORS in the game): grey, copper, steel,
  * composite (charcoal carbon fibre, orange fittings), glass, superconductor */
@@ -808,7 +823,8 @@ function compose(geometry, coreGeometry, tier, overlay) {
 function shapes() {
   const list = [];
   for (let mask = 0; mask < 16; mask++) {
-    list.push(["u", "r", "d", "l"].filter((_, i) => mask & (1 << i)).join(""));
+    const sides = ["u", "r", "d", "l"].filter((_, i) => mask & (1 << i)).join("");
+    list.push(sides, `gate-${sides || "none"}`);
   }
   for (const side of ["u", "r", "d", "l"]) {
     list.push(`flange-${side}`, `socket-${side}`, `tee-${side}`, `manifold-${side}`);
@@ -859,7 +875,7 @@ async function main() {
     const coreGeometry = render(parts.flatMap(core));
     const tiers = {};
     for (const tier of [1, 2, 3, 4, 5, 6]) {
-      tiers[tier] = compose(geometry, coreGeometry, tier, shape.includes("-") && !shape.startsWith("tee-") && !shape.startsWith("feed-"));
+      tiers[tier] = compose(geometry, coreGeometry, tier, shape.includes("-") && !shape.startsWith("tee-") && !shape.startsWith("feed-") && !shape.startsWith("gate-"));
     }
     rendered.push({ shape, tiers });
     console.log(`${shape || "(none)"}: ${Date.now() - started} ms`);
