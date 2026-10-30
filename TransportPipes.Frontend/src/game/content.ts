@@ -123,12 +123,23 @@ export class Content {
     if (definition.unlock.era > era) {
       return `Era ${definition.unlock.era}`;
     }
-    if (company.level < definition.unlock.level) {
-      return `Level ${definition.unlock.level}`;
+    // Research everyone gets at a Company Level opens the building before it (the Big Factory, as the Copper Pipes)
+    const early =
+      definition.unlock.research !== null && (this.research(definition.unlock.research)?.grant ?? 0) > 0
+        ? this.research(definition.unlock.research)!
+        : null;
+    if (
+      company.level < definition.unlock.level &&
+      !(early !== null && company.research.researched.includes(early.id))
+    ) {
+      return early !== null
+        ? `Level ${definition.unlock.level} or research`
+        : `Level ${definition.unlock.level}`;
     }
     if (
       definition.unlock.research !== null &&
-      !company.research.researched.includes(definition.unlock.research)
+      !company.research.researched.includes(definition.unlock.research) &&
+      !(early !== null && company.level >= early.grant)
     ) {
       return `Research ${this.research(definition.unlock.research)?.name ?? definition.unlock.research}`;
     }

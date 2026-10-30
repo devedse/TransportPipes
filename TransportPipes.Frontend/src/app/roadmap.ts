@@ -94,9 +94,14 @@ function unlocksAt(
     } else if (Object.keys(building.in).length > 0) {
       note = "you make all it needs";
     }
+    // Research everyone gets at this level comes with it (the Big Factory at 12)
     if (
       building.unlock.research !== null &&
-      !company.research.researched.includes(building.unlock.research)
+      !company.research.researched.includes(building.unlock.research) &&
+      !(
+        (content.research(building.unlock.research)?.grant ?? 0) > 0 &&
+        (content.research(building.unlock.research)?.grant ?? 0) <= level
+      )
     ) {
       const tech = content.research(building.unlock.research)?.name ?? building.unlock.research;
       note = `${note !== null ? `${note} · ` : ""}+ research ${tech}`;

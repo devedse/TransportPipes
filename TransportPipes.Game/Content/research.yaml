@@ -66,7 +66,7 @@ tree:
   - { id: copperPipes,  name: Copper Pipes,  era: 1, minutes: 10, gold: 300,  grant: 8, description: "Copper pipes: fifty times what a grey pipe carries, half its loss. Everyone gets them at Level 8 anyway." }
   - { id: valves,       name: Valves,        era: 1, minutes: 15, gold: 500,  description: "Valves (only chosen goods pass) and Priority Valves (served first)." }
   - { id: pumpStations, name: Pump Stations, era: 1, minutes: 20, gold: 800,  description: "Pump Stations: a network needs one for every 50 buildings." }
-  - { id: bigFactory,   name: Big Factory,   era: 1, minutes: 30, gold: 2000, description: "The Big Factory (Level 12)." }
+  - { id: bigFactory,   name: Big Factory,   era: 1, minutes: 30, gold: 2000, grant: 12, description: "The Big Factory before Level 12: iron ingots on a bigger scale. Everyone gets it at Level 12 anyway." }
   # Era 2
   - { id: steelPipes,  name: Steel Pipes,           era: 2, minutes: 60,  gold: 5000000,  description: "Steel pipes: ten times what a copper pipe carries." }
   - { id: powerLines,  name: Power Lines,           era: 2, minutes: 60,  gold: 10000000, description: "Power Line Pylons: energy only, no loss, no limit, across water." }

@@ -451,14 +451,19 @@ public sealed partial class GameWorld
             reason = $"{definition.Name} needs Era {definition.Unlock.Era}.";
             return false;
         }
-        if (company.Level < definition.Unlock.Level)
+        // Research everyone gets at a Company Level opens the building before it, as the Copper Pipes do (playtest: the Big
+        // Factory's research didn't, and it needed Level 12 as well)
+        var early = definition.Unlock.Research is { } own && Content.Research.TryGetValue(own, out var tech) && tech.Grant > 0 ? tech : null;
+        if (company.Level < definition.Unlock.Level && !(early != null && HasResearch(company, early.Id)))
         {
-            reason = $"{definition.Name} needs Company Level {definition.Unlock.Level}.";
+            reason = early != null
+                ? $"{definition.Name} needs Company Level {definition.Unlock.Level}, or its research in your Lab sooner."
+                : $"{definition.Name} needs Company Level {definition.Unlock.Level}.";
             return false;
         }
-        if (definition.Unlock.Research is { } research && !HasResearch(company, research))
+        if (definition.Unlock.Research is { } research && !HasResearch(company, research) && !(early != null && company.Level >= early.Grant))
         {
-            reason = $"{definition.Name} needs research.";
+            reason = $"{definition.Name} needs research in your Lab.";
             return false;
         }
         if (definition.Unlock.Collection is { } collection && !company.Achievements.Contains(CollectionKey(collection)))

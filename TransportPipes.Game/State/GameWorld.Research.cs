@@ -30,8 +30,12 @@ public sealed partial class GameWorld
                 company.ResearchEndsAt = null;
                 StartQueuedResearch(company);
             }
+            // A pipe's or a building's (the Big Factory at 12)
+            var opens = Content.BuildingList.Where(t => t.Buildable && t.Unlock.Research == tech.Id).Select(t => t.Name).ToList();
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ResearchFinished,
-                $"{tech.Name} are yours at Company Level {tech.Grant}: a full pipe's building offers them on its panel"));
+                Content.PipeTiers.Any(t => t.Research == tech.Id) ? $"{tech.Name} are yours at Company Level {tech.Grant}: a full pipe's building offers them on its panel"
+                : opens.Count > 0 ? $"{tech.Name} is yours at Company Level {tech.Grant}: you can build the {string.Join(" and the ", opens)} now"
+                : $"{tech.Name} is yours at Company Level {tech.Grant}"));
             TreeItemDone(company, tech);
         }
     }

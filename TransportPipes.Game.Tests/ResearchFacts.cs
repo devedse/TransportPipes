@@ -51,6 +51,30 @@ public class ResearchFacts
     }
 
     [TestMethod]
+    public void TheBigFactorysResearchOpensItBeforeLevelTwelveAndLevelTwelveGivesIt()
+    {
+        // Playtest: like the Copper Pipes it read as research, but it also needed Level 12; researched early, nothing came
+        var (game, company) = WithLab(level: 6);
+        var big = game.World.Content.Building("bigFactory");
+        Assert.IsFalse(game.World.IsUnlocked(company, big, out var reason));
+        Assert.AreEqual("Big Factory needs Company Level 12, or its research in your Lab sooner.", reason);
+
+        Assert.IsTrue(game.World.StartResearch(company.Id, "bigFactory").Success);
+        game.Pass(31);
+
+        Assert.IsTrue(game.World.IsUnlocked(company, big, out reason), reason);
+
+        // Without the research, Level 12 gives it, and says so
+        var other = game.NewCompany(level: 11);
+        game.World.TakeChanges();
+        game.ReachLevel(other, 12);
+        game.Pass(1);
+        Assert.IsTrue(game.World.HasResearch(other, "bigFactory"));
+        Assert.IsTrue(game.World.IsUnlocked(other, big, out reason), reason);
+        Assert.IsTrue(game.World.TakeChanges().Events.Any(t => t.Company == other.Id && t.Text == "Big Factory is yours at Company Level 12: you can build the Big Factory now"));
+    }
+
+    [TestMethod]
     public void ResearchNeedsALab()
     {
         var game = new TestGame();
