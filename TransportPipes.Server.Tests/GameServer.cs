@@ -60,8 +60,6 @@ public sealed class GameServer : WebApplicationFactory<Program>
         builder.UseSetting("TransportPipes:TickSeconds", "1");
         // Loady's thank-you gold and a House's starter kit would change the expected numbers
         builder.UseSetting("TransportPipes:Tutorial", "false");
-        builder.UseSetting("TransportPipes:Surveys", "false");
-        builder.UseSetting("TransportPipes:Tenants", "false");
         builder.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(Time));
     }
 

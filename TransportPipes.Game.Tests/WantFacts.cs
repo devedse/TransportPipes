@@ -65,8 +65,9 @@ public class WantFacts
         Assert.IsFalse(GameWorld.IsSite(site), "it has its bricks");
         Assert.IsTrue(site.UnderConstruction, "and is being built");
         Assert.AreEqual(300, game.World.Materials(ben.Id).GetValueOrDefault("bricks"), 1e-6, "500 left Ben's Storage");
-        var price = 500 * game.World.PlayerPrice("bricks");
-        Assert.AreEqual(benGold + price, ben.Gold, 1e-6, "Ben is paid the one player price");
+        var price = 500 * game.World.PriceFor(ben, ana, "bricks");
+        Assert.AreEqual(GameWorld.DefaultCrewPrice * game.World.BasePrice("bricks"), game.World.PriceFor(ben, ana, "bricks"), 1e-9, "Ben's crew price");
+        Assert.AreEqual(benGold + price, ben.Gold, 1e-6, "Ben is paid his price for Ana");
         Assert.AreEqual(anaGold - price, ana.Gold, 1e-6);
         var events = game.World.TakeChanges().Events;
         Assert.IsTrue(events.Any(t => t.Company == ana.Id && t.Text.Contains("Ben") && t.Text.Contains("Market Hall")), string.Join(" | ", events.Select(t => t.Text)));
@@ -81,7 +82,7 @@ public class WantFacts
         var site = MarketHall(game, ana);
         // The engine is the same for any good: an energy want, which Ben's and Ana's moilies have spare at their gates
         ana.Asks.RemoveAll(t => t.Site == site.Id);
-        ana.Asks.Add(new CompanyAsk { Resource = "energy", Amount = 300, Until = DateTime.MaxValue, Site = site.Id });
+        ana.Asks.Add(new CompanyAsk { Resource = "energy", Amount = 300, Site = site.Id });
         game.ConnectToGate(ben, game.Build(ben, "windMoily"));
         var benGold = ben.Gold;
 
@@ -140,6 +141,68 @@ public class WantFacts
     }
 
     [TestMethod]
+    public void UpgradeClickedAgainDoesNotAskTwice()
+    {
+        // Playtest: every click on the network card's Upgrade made another Copper Pipe want on the same 13 tiles, each paid
+        var (game, ana, _, pipe) = GreyPipe();
+        var gold = ana.Gold;
+        Assert.IsTrue(game.World.UpgradePipes(ana.Id, pipe, 2).Success);
+
+        var again = game.World.UpgradePipes(ana.Id, pipe, 2);
+
+        Assert.IsFalse(again.Success);
+        StringAssert.Contains(again.Error, "wait for their Copper Pipe already");
+        Assert.HasCount(1, ana.Asks.Where(t => t.PipeTiles != null).Select(t => t.WantId).Distinct());
+        Assert.AreEqual(gold - 10 * pipe.Count, ana.Gold, 1e-6, "paid once");
+        CollectionAssert.AreEquivalent(pipe, game.World.PipeTilesWaiting(ana, 2).ToList());
+    }
+
+    [TestMethod]
+    public void PipeWantsWithNothingLeftToDoAreGivenBack()
+    {
+        // Wants made twice before the fix: once one is laid, the other gives its gold back
+        var (game, ana, ben, pipe) = GreyPipe();
+        Assert.IsTrue(game.World.UpgradePipes(ana.Id, pipe, 2).Success);
+        var first = ana.Asks.Single(t => t.PipeTiles != null);
+        ana.Asks.Add(new CompanyAsk
+        {
+            Resource = first.Resource, Amount = first.Amount, PipeTiles = [.. first.PipeTiles!], PipeTier = 2, WantId = first.WantId + 1, Raised = game.Time,
+        });
+        ana.Gold -= 10 * pipe.Count;
+        var gold = ana.Gold;
+
+        Store(game, ben, "copperIngot", 100);
+        var benGold = ben.Gold;
+        var target = game.World.WantsNear(ben).First().Target;
+        Assert.IsTrue(game.World.SendToSite(ben.Id, target).Success);
+        var paid = ben.Gold - benGold;
+
+        Assert.IsTrue(pipe.All(t => game.World.Conductors.First(c => c.Pos == t).Tier == 2), "copper now");
+        Assert.IsEmpty(ana.Asks, "the other want had nothing left to do");
+        Assert.AreEqual(gold - paid + 10 * pipe.Count, ana.Gold, 1e-6, "its gold came back (Ben's ingots paid)");
+        var events = game.World.TakeChanges().Events;
+        Assert.IsTrue(events.Any(t => t.Company == ana.Id && t.Text.Contains("had nothing left to do")), string.Join(" | ", events.Select(t => t.Text)));
+    }
+
+    [TestMethod]
+    public void TwoWantsForTheSamePipesKeepTheOneThatGotFurthest()
+    {
+        var (game, ana, _, pipe) = GreyPipe();
+        Assert.IsTrue(game.World.UpgradePipes(ana.Id, pipe, 2).Success);
+        var first = ana.Asks.Single(t => t.PipeTiles != null);
+        ana.Asks.Add(new CompanyAsk
+        {
+            Resource = first.Resource, Amount = first.Amount, Got = 2, PipeTiles = [.. first.PipeTiles!], PipeTier = 2, WantId = first.WantId + 1, Raised = game.Time,
+        });
+        var gold = ana.Gold;
+
+        game.World.TidyAllPipeWants();
+
+        Assert.AreEqual(first.WantId + 1, ana.Asks.Single(t => t.PipeTiles != null).WantId, "the one with 2 ingots in stays");
+        Assert.AreEqual(gold + 10 * pipe.Count, ana.Gold, 1e-6, "the other's gold came back");
+    }
+
+    [TestMethod]
     public void AFullGreyPipeOffersCopper()
     {
         // A moily that makes more than its grey pipe carries: its fix is the Copper Pipe on that link
@@ -147,7 +210,7 @@ public class WantFacts
         var company = game.NewCompany(gold: 10_000_000, level: 30);
         company.Researched.Add("copperPipes");
         var map = game.Map(company, game.Local(company, 1, 1), "W+T", pipeTier: 1);
-        game.World.UpgradeMany(company.Id, [map[(0, 0)].Id], 14);
+        game.UpgradeNow(company, [map[(0, 0)].Id], 14);
         game.Pass(2);
 
         var fix = game.World.IdleStatusOf(map[(0, 0)]).Fix;
@@ -158,7 +221,7 @@ public class WantFacts
     }
 
     [TestMethod]
-    public void AnOrderShipsTheRestOverSixHoursWhenNobodyNearMakesIt()
+    public void BuyTheRestFillsAWantAtOnceAtTheMarketsPrice()
     {
         var (game, ana, _) = Station();
         game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
@@ -166,39 +229,28 @@ public class WantFacts
         var gold = ana.Gold;
 
         Assert.IsTrue(game.World.OrderRest(ana.Id, site.Id).Success);
-        Assert.AreEqual(gold - 500 * game.World.BasePrice("bricks") * GameWorld.OrderPrice, ana.Gold, 1, "paid up front at 2 × base");
-        game.Pass(3 * 60);
-        var want = game.World.WantsOf(site).Single();
-        Assert.AreEqual(250, want.Got, 15, "half in three hours");
-        game.Pass(3 * 60 + 5);
 
-        Assert.IsFalse(GameWorld.IsSite(site), "in six hours it has them all, and is built");
+        Assert.AreEqual(gold - 500 * game.World.BasePrice("bricks") * 2.5, ana.Gold, 1, "the market's 2.5× (1.4 §9)");
+        Assert.IsFalse(GameWorld.IsSite(site), "it has them all, and is built");
     }
 
     [TestMethod]
-    public void AnOrderWaitsForTheFriendWhoHoldsItThenFriendsComeFirst()
+    public void AWantTakesTheMarketsGoodsUnlessItsOwnerTurnedThatOff()
     {
-        // The friends' window: Ben holds bricks and hasn't played since Ana's Market Hall wanted them
-        var (game, ana, ben) = Station();
-        Store(game, ben, "bricks", 800);
-        ben.LastSeenAt = game.World.Now.AddHours(-1);
+        var (game, ana, _) = Station();
+        Assert.IsTrue(game.World.SetWantsFromMarket(ana.Id, false).Success);
         game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
         var site = MarketHall(game, ana);
-        game.World.OrderRest(ana.Id, site.Id);
-        var paid = ana.Gold;
+        game.Pass(5);
+        Assert.AreEqual(0, game.World.WantsOf(site).Single().Got, 1e-9, "nobody brings them, and the market is off");
+        var post = game.TradingPost(ana);
+        game.World.SetImport(ana.Id, post.Id, "bricks", true);
+        var gold = ana.Gold;
 
-        game.Pass(60);
-        var want = game.World.WantsOf(site).Single();
-        Assert.AreEqual(0, want.Got, 1e-6, "the hub waits for Ben's turn");
-        StringAssert.Contains(game.World.OrderStartText(ana, want, ana), "Ben's next session");
+        game.Pass(12);
 
-        // Ben comes and sends his: what he brings comes off the order, its gold back to Ana
-        ben.LastSeenAt = game.World.Now;
-        Assert.IsTrue(game.World.SendToSite(ben.Id, site.Id).Success);
-
-        Assert.IsFalse(GameWorld.IsSite(site));
-        Assert.AreEqual(paid + 500 * game.World.BasePrice("bricks") * GameWorld.OrderPrice - 500 * game.World.PlayerPrice("bricks"), ana.Gold, 1,
-            "the order's gold back, Ben's bricks paid at the one player price");
+        Assert.IsFalse(GameWorld.IsSite(site), "importing bricks: the market brought them within about ten minutes");
+        Assert.AreEqual(gold - 500 * game.World.BasePrice("bricks") * 2.5, ana.Gold, 1);
     }
 
     [TestMethod]
@@ -212,8 +264,7 @@ public class WantFacts
         Assert.IsTrue(game.World.OrderRest(ben.Id, site.Id).Success);
 
         Assert.AreEqual(anaGold, ana.Gold, 1e-6, "Ana pays nothing");
-        Assert.IsLessThan(benGold, ben.Gold, "Ben paid the hub for her");
-        game.Pass(6 * 60 + 5);
+        Assert.AreEqual(benGold - 500 * game.World.BasePrice("bricks") * 2.5, ben.Gold, 1, "Ben bought them from the market for her");
         Assert.IsFalse(GameWorld.IsSite(site));
     }
 

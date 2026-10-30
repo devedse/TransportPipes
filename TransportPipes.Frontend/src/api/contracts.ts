@@ -43,12 +43,10 @@ export interface CompanyDto {
   color: string;
   gold: number;
   goldPerMinute: number;
-  xp: number;
+  /** The Company Level (1.4 §14): the gold earned in all it needs, and what the next one needs */
   level: number;
-  levelXp: number;
-  nextLevelXp: number;
-  researchPoints: number;
-  researchPerMinute: number;
+  levelEarned: number;
+  nextLevelEarned: number;
   lifetimeEarnings: number;
   districtX: number;
   districtY: number;
@@ -59,38 +57,28 @@ export interface CompanyDto {
   nextParcelCost: number | null;
   nextParcelLevel: number | null;
   buildingCounts: Record<string, number>;
-  researched: string[];
-  currentResearch: string | null;
-  researchEndsAt: string | null;
-  hubReputation: number;
-  reputationLevel: number;
-  nextReputation: number | null;
+  research: ResearchLinesDto;
   dailyOrders: DailyOrderDto[];
   noTrade: string[];
-  corporationId: number | null;
-  corporationTag: string | null;
-  corporationRole: CorporationRole | null;
   mentorId: number | null;
   likes: number;
   /** Running events and the ones within the forecast */
   events: GameEventDto[];
   forecastHours: number;
+  /** Your town's Era, and your own (the highest a town reached while you lived there) */
   era: number;
-  eraDeadline: string;
+  yourEra: number;
   titles: string[];
   /** Finished collections (they unlock decorations) */
   collections: string[];
   outposts: OutpostDto[];
-  franchise: FranchiseDto;
-  season: SeasonInfoDto;
+  /** The Legacy level the player brought from earlier seasons */
+  legacyLevel: number;
   moving: MovingDto;
   deep: DeepDto;
-  /** Branch estates opened by franchising */
-  branches: BranchDto[];
   /** Loady's guide: the current step (null when done) */
   tutorial: TutorialDto | null;
   expedition: ExpeditionDto;
-  mastery: { level: number; available: boolean; cost: number; minutes: number; bonus: number };
   /** What holds the company back right now */
   /** What holds it back: pumps, post, storage or damage (with what Repair all costs) */
   alerts: Array<{
@@ -100,101 +88,146 @@ export interface CompanyDto {
     cost: number | null;
   }>;
   serverTime: string;
-  /** XP per minute from earnings, where the XP came from (per source per item) and what gives XP */
-  experience: {
+  /** The gold earned (1.4 §14): what it earns a minute now, and where it came from (per source per item) */
+  earned: {
     perMinute: number;
     log: Record<string, Record<string, number>>;
-    rules: Array<{ source: string; text: string }>;
   };
-  /** Who it trades with on its pipes */
-  tradeWith: "everyone" | "corporation" | "contracts";
   /** The company's crew (v1.2 §6) */
   crew: CrewBadgeDto | null;
-  /** The XP multiplier while far behind the people you live with (v1.2 §10) */
-  tailwind: number;
-  /** The lone-human card waits: nobody else in the station played lately */
-  loneCard: boolean;
-  /** The league it plays in this week (v1.2 §13; none in small mode) */
-  league: number | null;
-  /** The station's project on the "This week" row (null: none, the next parcel shows) */
-  week: ProjectWeekDto | null;
-  /** Dealt land: your seat's goods and who in your station holds the others (null on old land) */
+  /** Your plot's land: what it has, and who in your Yard has the rest */
   land: LandDto | null;
-  /** The research queue (F11): techs that start by themselves, in order */
-  researchQueue: string[] | null;
-  /** With nothing queued, the cheapest tech the points cover starts by itself */
-  keepResearching: boolean;
-  /** Something can be researched now (run 3: "pick one!" over 449k points with every tech locked) */
-  researchOpen: boolean;
-  /** A seat a friend keeps for you, whose link you opened while living elsewhere (null: none) */
-  keptSeat: KeptSeatDto | null;
   /** Neighbours' scaffolds and pipes this player could help with */
   wantsNear: WantNearDto[] | null;
   /** This player's own open wants, a building's or a pipe's */
   wants: OwnWantDto[] | null;
   /** The Era Wonder on the goal tracker (after run 3, step 5): its stage's share, and your part or what it wants */
   eraWonderLine: ProjectWeekDto | null;
-  /** Refinements after an Era's tree (after run 3, step 6) */
-  refine: RefineDto;
   /** The pipe ladder on the goal tracker while a pipe is full (after run 4) */
   pipes: PipesLineDto | null;
+  /** Your prices for other players (1.4 §8): every one you set, with a rise that waits */
+  prices: PriceDto[] | null;
+  /** What you give your town's Wonder by itself, per good (1.4 §13) */
+  give: Record<string, GiveMode> | null;
+  /** Whether the market brings what your levels and buildings lack, at 2.5× (1.4 §9) */
+  wantsFromMarket: boolean;
+  outskirts: OutskirtsDto | null;
+  workshops: WorkshopsDto | null;
+  /** The wilderness chunks your expeditions mapped ("x,y"): the rest of it is fog on your map (1.4 §20) */
+  explored: string[] | null;
+}
+
+export type GiveMode = "off" | "beyondHubOrder" | "all";
+
+/** Your plot's outskirts (1.4 §5): the parcels you bought (bits 0..8), what the next costs, and why you can't buy one yet */
+export interface OutskirtsDto {
+  parcels: number;
+  nextCost: number;
+  blocker: string | null;
+}
+
+/** Building in the Yard (1.4 §7): the tiles of its ends your workshops cover, of how many, from which Level; the crew's Depot */
+export interface WorkshopsDto {
+  tilesUsed: number;
+  tiles: number;
+  level: number;
+  depot: DepotDto | null;
+}
+
+/** The Yard's Depot: where it stands, what it holds of how much, and every resident's goods in it */
+export interface DepotDto {
+  building: number;
+  x: number;
+  y: number;
+  capacity: number;
+  holds: number;
+  goods: Array<{ resource: string; amount: number; owner: number; ownerName: string; yours: boolean }>;
 }
 
 /**
- * Refinements: whether they are open (the Era's tree is done), what the next costs, what the Labs refine now and next, the
- * player's choice, whether the Labs rest, and every line with the station's percentage and whose research it is
+ * The Lab's two lines (1.4 §12): the Era tree's items done, being researched and queued; the tracks' tiers, the tier
+ * being researched and the queue (a track once for every tier); whether research starts by itself while you're away,
+ * and whether something can be researched now
  */
-export interface RefineDto {
+export interface ResearchLinesDto {
+  hasLab: boolean;
+  researched: string[];
+  currentResearch: string | null;
+  researchEndsAt: string | null;
+  researchQueue: string[];
+  tiers: Record<string, number>;
+  currentTrack: string | null;
+  trackEndsAt: string | null;
+  trackQueue: string[];
+  keepResearching: boolean;
   open: boolean;
-  cost: number;
-  minutes: number;
-  current: string | null;
-  next: string | null;
-  choice: string | null;
-  resting: boolean;
-  lines: RefineLineDto[];
 }
 
-/** A Refinement line: "pipes", "trading", "hubOrders" or a good; the station's share now, a step, your steps, who else */
-export interface RefineLineDto {
+/**
+ * A track as the research panel shows it: its tiers, the next tier's price (gold, and from tier 3 its good: from your
+ * Storages, the rest bought), how long it takes, what it does and about what it adds a minute; why it can't start
+ */
+export interface TrackStateDto {
   id: string;
-  name: string;
-  wall: boolean;
-  now: number;
-  step: number;
-  mine: number;
-  by: string | null;
-  capped: boolean;
+  tiers: number;
+  next: number | null;
+  gold: number;
+  good: string | null;
+  units: number;
+  fromStorages: number;
+  bought: number;
+  total: number;
+  minutes: number;
+  effect: TierEffect | null;
+  amount: number;
+  gain: number;
+  hubOrderFactor: number;
+  reason: string | null;
 }
 
-/** Dealt land (step 5): the goods your seat holds, and every seat of your station with its goods and who lives there */
+/**
+ * One of your prices: its key ("public", "crew", "public:good", "crew:good", "for:companyId"), what it is now, and a
+ * rise that counts at pendingAt (pending null with back: the setting goes); forName names a special price's player
+ */
+export interface PriceDto {
+  key: string;
+  value: number;
+  pending: number | null;
+  back: boolean;
+  pendingAt: string | null;
+  forName: string | null;
+}
+
+/** Your plot's land (1.4 §5): what it has and lacks, its strength, and every plot of your Yard with its land */
 export interface LandDto {
   goods: string[];
+  lacks: string[];
+  /** A ★4 deposit of something it has, next to the start area */
+  strength: string;
   station: LandSeatDto[];
 }
 
 export interface LandSeatDto {
   slot: number;
   owner: string | null;
-  house: boolean;
   you: boolean;
   goods: string[];
+  lacks: string[];
+  strength: string;
   /** Of its land goods, those its owner makes now */
   makes: string[];
 }
 
-export type ActivityStage = "active" | "resting" | "dormant" | "asleep";
+export type ActivityStage = "active" | "resting" | "dormant";
 
 /** Moving and activity (GDD §12) */
 export interface MovingDto {
   activity: ActivityStage;
-  asleep: boolean;
   arrivesAt: string | null;
   crates: CrateDto[];
   freeMoves: number;
   moveCost: number;
   canMoveAt: string | null;
-  swapWith: number | null;
 }
 
 export interface CrateDto {
@@ -210,51 +243,7 @@ export interface DistrictChoiceDto {
   freeEstates: number;
   players: number;
   activeShare: number;
-  reservedForYou: boolean;
   yours: boolean;
-}
-
-export interface SleeperDto {
-  id: number;
-  name: string;
-  color: string;
-  level: number;
-  since: string;
-}
-
-/** The Franchise (GDD §8.7) */
-export interface FranchiseDto {
-  shares: number;
-  franchises: number;
-  sharesNow: number;
-  blocker: string | null;
-  at: string | null;
-  legacyLevel: number;
-}
-
-export interface SeasonInfoDto {
-  season: number;
-  finaleAt: string | null;
-  endedAt: string | null;
-  nextWorldAt: string | null;
-}
-
-export interface SeasonResultDto {
-  company: string;
-  netWorth: number;
-  rank: number;
-  legacy: number;
-  title: string | null;
-  you: boolean;
-}
-
-export interface SeasonDto {
-  season: number;
-  finaleAt: string | null;
-  endedAt: string | null;
-  nextWorldAt: string | null;
-  top: SeasonResultDto[];
-  you: SeasonResultDto | null;
 }
 
 export type EventKind =
@@ -287,8 +276,6 @@ export interface DailyOrderDto {
   amount: number;
   delivered: number;
   rewardGold: number;
-  rewardXp: number;
-  rewardReputation: number;
   expiresAt: string;
   /** A Shortage order: bigger, better paid, gone when the event ends */
   urgent: boolean;
@@ -296,29 +283,32 @@ export interface DailyOrderDto {
   selling: number;
   /** What it paid over the hub's price so far */
   premium: number;
+  /** What your Storages hold of the good: Deliver fills the order from it at once */
+  stored: number;
+  /** What the hub pays you for a unit now: the order pays the rest of its price on top */
+  hubPrice: number;
 }
 
 /**
- * One resource at the hub of the player's district: what the hub pays the player (its own Hub Order), what it charges,
- * what the player sold there lately against the order, the one price between players, and the trade settings
+ * One good at the market of the player's town (1.4 §8): what it pays the player now (its own Hub Order), what it
+ * charges, what the player sold there lately against its Hub Order, the default player price, and the trade settings
  */
 export interface MarketResourceDto {
   resource: string;
   basePrice: number;
-  /** What the hub pays you now (your own order: nobody else's sales move it) */
+  /** What the market pays you now (your own Hub Order: nobody else's sales move it) */
   buyPrice: number;
-  /** What the hub charges */
+  /** What the market charges */
   sellPrice: number;
-  /** What you sold there per minute lately, and its order: up to it the full price */
+  /** What you sold there per minute over the last hour */
   soldPerMinute: number;
-  demand: number;
-  /** The one price between players (the Yard, contracts, the Exchange) */
+  /** Your Hub Order: up to it a minute the full price, beyond it the price falls */
+  hubOrder: number;
+  /** The default price between players (the Yard, the Exchange) */
   playerPrice: number;
   noTrade: boolean;
   /** Not bought from other companies */
   noBuy: boolean;
-  /** Market Insight: where the hub's buy price is heading */
-  heading: number | null;
 }
 
 export interface MarketDto {
@@ -334,8 +324,6 @@ export interface ResearchStateDto {
   state: "done" | "researching" | "available" | "locked";
   cost: number;
   reason: string | null;
-  /** Share of the other active companies that have it (0..1) */
-  diffusion: number;
 }
 
 export interface HelloDto {
@@ -362,7 +350,6 @@ export interface ReturnCardDto {
   level: number;
   fine: string[];
   lines: ReturnLineDto[];
-  landing: LandingCardDto[];
   hint: string | null;
   /** What folds under "more" (after run 3, row 11: the card leads with what matters) */
   folded: ReturnLineDto[] | null;
@@ -373,38 +360,13 @@ export interface ReturnLineDto {
   kind: "people" | "look" | "project" | "social" | "today" | "invest" | "crew" | "still" | "orders";
   icon: string;
   text: string;
-  action:
-    | "repairAll"
-    | "show"
-    | "project"
-    | "upgrade"
-    | "send"
-    | "thank"
-    | "tend"
-    | "links"
-    | "seat"
-    | "grow"
-    | "crew"
-    | "fillWant"
-    | "orderWant"
-    | null;
+  action: "repairAll" | "show" | "upgrade" | "links" | "grow" | "fillWant" | "orderWant" | null;
   building: number | null;
   cost: number | null;
-  /** send: whose building, which good; thank: whose goods, which good; tend: whose estate */
   partner: number | null;
   resource: string | null;
-  /** thank, tend: what they are called */
+  /** orderWant: whose want it is (null: your own) */
   partnerName: string | null;
-}
-
-/** A place to land: your seat, next to your crew, a lively station, the Frontier */
-export interface LandingCardDto {
-  kind: "yours" | "crew" | "lively" | "frontier";
-  seat: SeatRefDto;
-  station: string;
-  crates: number;
-  here: boolean;
-  neighbours: number;
 }
 
 export interface BuildingDto {
@@ -453,7 +415,7 @@ export interface ChunkObjectsDto {
   deposits: DepositOverrideDto[];
 }
 
-/** An outpost claim in the wilderness (lease details only for its owner) */
+/** An outpost claim in the wilderness (1.4 §20: bought once; its price only for its owner) */
 export interface OutpostDto {
   id: number;
   owner: number;
@@ -462,8 +424,7 @@ export interface OutpostDto {
   x: number;
   y: number;
   size: number;
-  lease: number | null;
-  paidUntil: string | null;
+  price: number | null;
 }
 
 export interface DepositOverrideDto {
@@ -478,7 +439,8 @@ export interface OutpostCheckDto {
   /** The best claim covering the tile */
   x: number;
   y: number;
-  lease: number;
+  /** What the claim costs, once */
+  price: number;
   size: number;
   deposit: string | null;
   richTiles: number;
@@ -509,18 +471,17 @@ export interface EstateDto {
   unlockedParcels: number;
   primary: string;
   secondary: string | null;
-  corporationTag: string | null;
   /** The owner's activity stage (players only) */
   activity: ActivityStage | null;
-  /** A corporation block: the tag of the corporation it is kept for */
-  reservedFor: string | null;
-  /** The land goods dealt to it (step 5; empty on old land) */
+  /** What its land has and lacks, and its strength */
   goods: string[] | null;
-  /** A House lives there */
-  house: boolean;
+  lacks: string[] | null;
+  strength: string | null;
+  /** The outskirts parcels its owner bought (bits 0..8, 1.4 §5) */
+  outskirtsParcels: number;
 }
 
-/** A hub structure; corporation HQs have the corporation's tag, colour and HQ level */
+/** A hub structure; a Wonder site has its Wonder's name, stage and variant */
 export interface HubStructureDto {
   type: string;
   x: number;
@@ -529,12 +490,9 @@ export interface HubStructureDto {
   label: string | null;
   color: string | null;
   level: number;
-  corporation: number | null;
   /** Wonders: the Wonder's id and how many stages it has (level = stages built) */
   variant: string | null;
   stages: number;
-  /** A station Landmark's storeys: its tower rises one band a storey (after run 4) */
-  storeys: number;
 }
 
 export interface DistrictDto {
@@ -545,6 +503,97 @@ export interface DistrictDto {
   name: string;
   estates: EstateDto[];
   hub: HubStructureDto[];
+  /** The town's four Yards, by their index (0 NW, 1 NE, 2 SW, 3 SE) */
+  yards: DistrictYardDto[];
+  /** Where it stands in the race between towns: its Era, its Launch, its stars (missions done) */
+  era: number;
+  launched: boolean;
+  stars: number;
+  /** The trunk lines that leave it (1.4 §20) */
+  lines: MapLineDto[] | null;
+}
+
+/** A trunk line on the map: its route's corners (x, y pairs), its tier and its carrier's colour */
+export interface MapLineDto {
+  id: number;
+  route: number[];
+  tier: number;
+  color: string;
+}
+
+/** A trunk line (1.4 §20) as a player sees it */
+export interface TrunkLineDto {
+  id: number;
+  carrier: string;
+  carrierColor: string;
+  yours: boolean;
+  from: string;
+  to: string;
+  toX: number;
+  toY: number;
+  tier: number;
+  length: number;
+  efficiency: number;
+  throughput: number;
+  /** Units it carried in all */
+  carried: number;
+  publicFee: number;
+  crewFee: number;
+  /** What you pay its carrier (of the goods' base value) */
+  yourFee: number;
+  /** What it earned its carrier (yours only) */
+  earned: number;
+  route: number[];
+  /** The carrier's: every player of the two towns, with the fee of their own (null: the public or crew fee) */
+  players: LinePlayerDto[];
+}
+
+export interface LinePlayerDto {
+  id: number;
+  name: string;
+  color: string;
+  fee: number | null;
+}
+
+/** A neighbouring town a line could run to: what it would cost, and why it can't be (or null) */
+export interface LineOptionDto {
+  x: number;
+  y: number;
+  name: string;
+  era: number;
+  tier: number;
+  length: number;
+  gold: number;
+  error: string | null;
+}
+
+export interface LinesDto {
+  lines: TrunkLineDto[];
+  options: LineOptionDto[];
+  tiers: number[];
+  /** The goods you send over a line to another town's market, and the line */
+  exports: Record<string, number>;
+}
+
+/** A town's Yard on the map: its crew's name and banner (none while nobody lives there), open or closed, its stalls */
+export interface DistrictYardDto {
+  index: number;
+  name: string;
+  emblem: string | null;
+  color: string | null;
+  color2: string | null;
+  open: boolean;
+  stalls: StallDto[];
+  /** The Monuments standing in its square (1.4 §13) */
+  monuments: Array<{ era: number; kind: string; stages: number }> | null;
+}
+
+/** A resident's stall at its Yard gate (1.4 §7): what it sells the crew, its crew price, what it would buy */
+export interface StallDto {
+  slot: number;
+  sells: string[];
+  crewPrice: number;
+  wants: string[];
 }
 
 export type FlowKind = "internal" | "trade" | "toStorage" | "fromStorage" | "sale" | "import";
@@ -591,7 +640,6 @@ export interface BuildingDetailsDto {
   locationMultiplier: number;
   inputs: ResourceAmountDto[];
   outputs: ResourceAmountDto[];
-  researchPerMinute: number;
   contents: Record<string, number> | null;
   capacity: number | null;
   throughput: number | null;
@@ -612,8 +660,8 @@ export interface BuildingDetailsDto {
   teleporter: TeleporterDto | null;
   /** What it can evolve into where it stands */
   evolve: { into: string; cost: number; problem: string | null } | null;
-  /** A storage: what it keeps of each resource, and whether a full trading post sends it the rest */
-  keep: { keeps: Record<string, number>; tradingPostFull: boolean } | null;
+  /** A storage: what it keeps of each resource */
+  keep: { keeps: Record<string, number> } | null;
   /**
    * Smart Max: maxAffordableLevels are the levels its pipes can feed; these are the levels the gold could buy beyond
    * them, how fast it would run there, and what holds it back
@@ -631,10 +679,26 @@ export interface BuildingDetailsDto {
   undoUntil: string | null;
   /** A scaffold that still wants materials */
   site: SiteDto | null;
-  /** The station's Refinements it gets, named: "Bricks +6% · Cleo's research 💛" */
-  refined: string[] | null;
   /** Its pipe door, when its pipe is what holds it back */
   pipeDoor: PipeDoorDto | null;
+  /** The levels bought whose goods are still coming (1.4 §9; null: none) */
+  levelWait: LevelWaitDto | null;
+  /** What this copy cost to build (its levels cost from it), and the goods the next step takes */
+  copyPrice: number;
+  nextLevelGoods: ResourceAmountDto[] | null;
+  /** The track it follows and your tiers in it (1.4 §12) */
+  track: string | null;
+  trackTiers: number;
+  /** A building of a later Era than its town's: it sleeps until the town gets there */
+  sleeping: boolean;
+}
+
+/** A building that works at its old level until the goods of the levels bought are in (1.4 §9) */
+export interface LevelWaitDto {
+  boughtLevel: number;
+  wants: SiteWantDto[];
+  /** What buying the rest at the market costs now (null: nothing to buy) */
+  buyRest: number | null;
 }
 
 /**
@@ -645,13 +709,10 @@ export interface BuildingTradeDto {
   takers: TradeEndDto[];
   suppliers: TradeEndDto[];
   bids: BidDto[];
-  project: ProjectWantDto[];
   reachesGate: boolean;
   gatePipe: BuildingFixDto | null;
   /** "runs on Ben's sand 💛" */
   runsOn: string | null;
-  sends: number;
-  maxSends: number;
 }
 
 /** One end of a Yard trade; sent: a Send, canThank: Thanks today, house: an NPC partner */
@@ -663,9 +724,6 @@ export interface TradeEndDto {
   partnerBuildingId: number | null;
   perMinute: number;
   price: number;
-  sent: boolean;
-  house: boolean;
-  canThank: boolean;
 }
 
 /** "Ana's Glassworks could use 15/min · it buys from Bertha ⚙ now · Send to Ana ▸" */
@@ -676,18 +734,6 @@ export interface BidDto {
   building: string | null;
   buildingId: number | null;
   perMinute: number;
-  house: string | null;
-}
-
-/** "🏗 The Water Tower wants 5,400 · you make it · Send ▸" */
-export interface ProjectWantDto {
-  resource: string;
-  stage: string;
-  wants: number;
-  perMinute: number;
-  sent: boolean;
-  /** Why none of it reaches the Yard gate ("it doesn't run (idle: no energy here)"); null when some does */
-  nothingMoves: string | null;
 }
 
 export interface BuildingStatusDto {
@@ -709,7 +755,7 @@ export interface GoldUsesDto {
 /** One line: "wonder" orders resource for cost (a day of your income) or allCost; "want" orders the rest of target */
 export interface GoldLineDto {
   text: string;
-  action: "storey" | "wonder" | "want";
+  action: "wonder" | "want";
   cost: number | null;
   resource: string | null;
   target: number | null;
@@ -723,6 +769,8 @@ export interface GrowPlanDto {
   gain: number;
   /** The last Grow can be taken back until then */
   undoUntil: string | null;
+  /** What Grow keeps the gold for instead (the next parcel, soon): "Saving for your next parcel (…)" */
+  saving: string | null;
 }
 
 export interface GrowPartDto {
@@ -821,7 +869,8 @@ export type ToastKind =
   | "neighbour"
   | "calendar"
   | "wonder"
-  | "achievement";
+  | "achievement"
+  | "orderPosted";
 
 export interface ToastDto {
   kind: ToastKind;
@@ -843,7 +892,9 @@ export type TerrainType =
   | "city"
   | "yard"
   | "rock"
-  | "cavern";
+  | "cavern"
+  | "redHills"
+  | "outskirts";
 
 export type BuildingKind =
   | "producer"
@@ -855,21 +906,17 @@ export type BuildingKind =
   | "valve"
   | "priorityValve"
   | "pump"
-  | "tollMeter"
   | "cargoDepot"
-  | "exchangeOffice"
-  | "showroom"
+  | "depot"
   | "workshop"
   | "weatherStation"
   | "recycler"
   | "expeditionOffice"
   | "blueprintOffice"
   | "deepLift"
-  | "bank"
   | "teleporter"
   | "terraformer"
   | "powerLine"
-  | "corporationHq"
   | "decoration";
 
 export interface ResourceDefinition {
@@ -880,6 +927,8 @@ export interface ResourceDefinition {
   tier: number;
   era: number;
   price: number;
+  /** "solid", "fluid" or "power" (the pipe's three lanes, 1.4 §9) */
+  kind: string;
 }
 
 export interface BuildingDefinition {
@@ -895,7 +944,6 @@ export interface BuildingDefinition {
   in: Record<string, number>;
   out: Record<string, number>;
   outFromDeposit: string[];
-  researchPerMinute: number;
   placement: {
     terrain: TerrainType[];
     deposit: string | null;
@@ -928,23 +976,44 @@ export interface PipeTierDefinition {
   research: string | null;
 }
 
-export type ResearchBranch = "energy" | "industry" | "logistics" | "economy";
-
+/** An item of the Era tree (1.4 §12): short research that opens an Era's pipes, buildings and systems */
 export interface ResearchDefinition {
   id: string;
   name: string;
-  branch: ResearchBranch;
   era: number;
-  level: number;
   /** Every company gets it at this Company Level once its Era has come (0: only by research) */
   grant: number;
-  cost: number;
+  gold: number;
   minutes: number;
-  requires: string[];
-  outputBonuses: Array<{ targets: string[]; amount: number }>;
-  throughputBonus: number;
-  bandWidthBonus: number;
   managerSlots: number;
+  description: string;
+}
+
+/** A research track (1.4 §12): deep research for one chain, nine tiers */
+export interface TrackDefinition {
+  id: string;
+  name: string;
+  era: number;
+  /** The share of each faster tier's boost (Power: half) */
+  strength: number;
+  /** What tiers from 3 take besides gold */
+  good: string | null;
+  /** Whose Hub Orders it raises from tier 5 */
+  goods: string[];
+  buildings: string[];
+  description: string;
+}
+
+export type TierEffect = "faster" | "leaner" | "complexes" | "megaComplexes" | "master";
+
+export type MonumentPerk = "production" | "hubOrders" | "research" | "cheaper" | "yardSales";
+
+export interface MonumentKindDefinition {
+  id: string;
+  name: string;
+  perk: MonumentPerk;
+  amount: number;
+  cap: number;
   description: string;
 }
 
@@ -954,42 +1023,73 @@ export interface GameContentDto {
   buildings: BuildingDefinition[];
   pipeTiers: PipeTierDefinition[];
   research: ResearchDefinition[];
+  tracks: TrackDefinition[];
+  /** The nine tiers every track has: how long, what it does, its gold in an Era-1 track (×4 per Era) */
+  trackTiers: Array<{ tier: number; minutes: number; effect: TierEffect; amount: number; gold: number }>;
+  hubOrderFrom: number;
+  hubOrderPerTier: number;
+  monuments: MonumentKindDefinition[];
+  wonders: Array<{ id: string; name: string; era: number; description: string; worth: number }>;
   progression: {
     maxCompanyLevel: number;
-    xpForLevel: number[];
-    xpRewards: Record<string, number>;
+    /** The gold earned in all each Company Level needs */
+    earnedForLevel: number[];
     maxBuildingLevel: number;
     outputPerLevel: number;
     costPerLevel: number;
     milestones: number[];
     costPerCopy: number;
-    startParcels: number[];
+    /** From this building level a step takes goods too, worth this share of its gold */
+    levelGoodsFrom: number;
+    levelGoodsShare: number;
     parcelLevels: number[];
     parcelCosts: number[];
     hubSpread: number;
   };
+  /** The geometry of 1.4 §4 (district-local tiles) */
   layout: {
     estateSize: number;
-    corridorWidth: number;
-    blocksPerSide: number;
     parcelSize: number;
     parcelsPerSide: number;
-    wildernessWidth: number;
     chunkSize: number;
-    blockPitch: number;
-    districtSize: number;
-    districtPitch: number;
-    hubBlock: number;
-    originOffset: number;
-    yardSize: number;
-    /** Every slot's Yard gate, estate-local */
-    yardGates: Array<{ x: number; y: number }>;
-    /** The stations of a district: their Yard (district-local) and seats */
-    stations: Array<{ yard: { x0: number; y0: number; x1: number; y1: number }; slots: number[] }>;
-    stationOfSlot: number[];
+    districtWidth: number;
+    districtHeight: number;
+    wildernessWidth: number;
+    districtPitchX: number;
+    districtPitchY: number;
+    originOffsetX: number;
+    originOffsetY: number;
+    roadX: number;
+    roadY: number;
+    roadWidth: number;
+    hub: Rect | null;
+    townGates: Rect[];
+    plots: Array<{
+      origin: Point | null;
+      side: string;
+      gate: Point | null;
+      startParcels: number[];
+      hq: Point | null;
+      tradingPost: Point | null;
+      /** The nine outskirts parcels set aside for the plot (district-local corners) */
+      outskirts: Point[];
+    }>;
+    yards: Array<Rect | null>;
     terrain: TerrainType[];
     richnessMultiplier: number[];
   };
+}
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface Rect {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
 }
 
 export interface NetworkResourceDto {
@@ -1028,14 +1128,13 @@ export interface NetworkDetailsDto {
     neighbourSales: number;
     neighbourPurchases: number;
     hubPurchases: number;
-    /** What the station's project pays for goods through the gate, and its stage's name */
-    projectSales: number;
-    project: string | null;
   }>;
   resources: NetworkResourceDto[];
   bottlenecks: Array<{ a: number; b: number; capacity: number; used: number; path: number[] }>;
   /** The buildings whose goods can't leave (F2): the card names them first */
   stuck: Array<{ building: number; type: string; line: string }> | null;
+  /** Your pipe tiles that wait for a better pipe already (x, y pairs): Upgrade leaves them out */
+  waiting: number[] | null;
 }
 
 export interface ResourceRateDto {
@@ -1048,8 +1147,6 @@ export interface NeighbourDto {
   name: string;
   color: string;
   level: number;
-  contractStars: number;
-  isNpc: boolean;
   slot: number;
   estateX: number;
   estateY: number;
@@ -1066,31 +1163,8 @@ export interface NeighbourDto {
   pipeTiles: number | null;
   /** You don't trade with them */
   blocked: boolean;
-}
-
-export interface ContractDto {
-  id: number;
-  proposer: number;
-  proposerName: string;
-  seller: number;
-  sellerName: string;
-  buyer: number;
-  buyerName: string;
-  resource: string;
-  rate: number;
-  price: number;
-  days: number;
-  state: "offered" | "active" | "ended" | "declined" | "cancelled";
-  createdAt: string;
-  endsAt: string | null;
-  delivered: number;
-  expected: number;
-  proposerStars: number;
-}
-
-export interface ContractsDto {
-  mine: ContractDto[];
-  board: ContractDto[];
+  /** A block you set that waits its hour's notice: when it counts */
+  blockAt: string | null;
 }
 
 export interface ExchangeOrderDto {
@@ -1125,92 +1199,23 @@ export interface ExchangeBookDto {
 }
 
 export interface ExchangeDto {
-  hasOffice: boolean;
+  /** The Company Level the Exchange opens at (1.4 §8: 12), null once it's open */
+  opens: number | null;
   books: ExchangeBookDto[];
   orders: ExchangeOrderDto[];
   shipments: ShipmentDto[];
   fee: number;
   /** Global Exchange: orders trade with every hub */
   global: boolean;
-  /** The one player price of each good, and what your Storages hold */
+  /** The default player price of each good, and what your Storages hold */
   prices: Record<string, number> | null;
   stored: Record<string, number> | null;
 }
 
 // ---------------------------------------------------------------- Society
 
-export type CorporationRole = "member" | "officer" | "leader";
-
-export interface CorporationSummaryDto {
-  id: number;
-  name: string;
-  tag: string;
-  color: string;
-  description: string;
-  members: number;
-  hqLevel: number;
-  weeklyEarnings: number;
-  applied: boolean;
-  invited: boolean;
-}
-
-export interface CorporationMemberDto {
-  id: number;
-  name: string;
-  color: string;
-  level: number;
-  role: CorporationRole;
-  weeklyEarnings: number;
-  contribution: number;
-  online: boolean;
-}
-
-export interface CorporationGoalDto {
-  resource: string;
-  amount: number;
-  delivered: number;
-  rewardGold: number;
-  endsAt: string;
-  yourContribution: number;
-  yourStock: number;
-  rewarded: boolean;
-}
-
-export interface CorporationPerkDto {
-  level: number;
-  text: string;
-  active: boolean;
-}
-
-export interface CorporationDto {
-  id: number;
-  name: string;
-  tag: string;
-  color: string;
-  description: string;
-  treasury: number;
-  tax: number;
-  hqLevel: number;
-  nextHqCost: number | null;
-  perkResource: string | null;
-  yourRole: CorporationRole;
-  members: CorporationMemberDto[];
-  applications: CorporationMemberDto[];
-  goal: CorporationGoalDto | null;
-  perks: CorporationPerkDto[];
-}
-
-export interface CorporationsDto {
-  mine: CorporationDto | null;
-  district: CorporationSummaryDto[];
-  foundLevel: number;
-  foundCost: number;
-  maxMembers: number;
-  canJoinAt: string | null;
-}
-
 export type LeaderboardKind =
-  "netWorth" | "income" | "weeklyEarnings" | "level" | "partners" | "likes" | "efficiency" | "league";
+  "netWorth" | "income" | "weeklyEarnings" | "level" | "partners" | "likes" | "efficiency";
 
 export interface LeaderboardEntryDto {
   company: number;
@@ -1242,12 +1247,11 @@ export interface EstateVisitDto {
   name: string;
   color: string;
   level: number;
-  isNpc: boolean;
   isYou: boolean;
   likes: number;
   likedToday: boolean;
-  corporationTag: string | null;
-  corporationName: string | null;
+  /** The Yard they live at */
+  yard: string | null;
   netWorth: number;
   buildings: number;
   partners: number;
@@ -1258,8 +1262,6 @@ export interface EstateVisitDto {
   isYourMentor: boolean;
   mentees: number;
   guestbook: GuestbookNoteDto[];
-  swapFromThem: boolean;
-  swapFromYou: boolean;
   /** What their scaffolds and pipes wait for, and what ordering it for them costs you (after run 4) */
   wants?: WantNearDto[] | null;
 }
@@ -1300,28 +1302,22 @@ export interface InboxDto {
   unread: number;
 }
 
-// ---------------------------------------------------------------- Wonders and Eras
+// ---------------------------------------------------------------- Your town: its Era, its Wonder, your Yard's Monuments (1.4 §11, §13)
 
 export interface WonderNeedDto {
   resource: string;
   required: number;
   delivered: number;
   yourStock: number;
-  /** The Era Wonder: how much of it may be ordered now (half of each good at most comes by order), and for what */
-  orderUnits: number | null;
-  orderCost: number | null;
-  /** What arrives a minute now, by pipe from the Capital's gates */
+  /** What buying and giving the rest of it costs (the market's 2.5×) */
+  buyCost: number;
+  /** What the town's give switches send it now a minute */
   perMinute: number;
-  /** What the hub still ships of the orders on it */
-  ordered: number;
-  /** All the units ordered for it so far, and who ordered them ("Cleo 900") */
-  orderedTotal: number;
-  orderers: string[];
-  /** The share orders may bring: 0.5 while a Capital player makes it, else 1 */
-  orderCap: number;
-  /** The Capital's players who make it (the pipe half comes from them) */
+  /** Your give switch for it */
+  give: GiveMode;
+  /** The town's players who make it */
   makers: string[];
-  /** When nobody makes it: the building that would, and where its inputs come from */
+  /** When you don't make it: the building that would */
   chain: string | null;
   /** That building's type, for Show me (null when you may not build it yet) */
   chainBuilding: string | null;
@@ -1332,39 +1328,73 @@ export interface WonderBuilderDto {
   name: string;
   color: string;
   value: number;
-  /** What they built in hours of their own income */
-  hours: number;
+  /** Their share of the stage */
+  share: number;
 }
 
 export type WonderTier = "none" | "bronze" | "silver" | "gold" | "diamond";
 
-export interface WonderDto {
+/** A town's Era Wonder: its stage and goods, when a full stage stands, your part and tier, the perks it gave */
+export interface TownWonderDto {
   type: string;
   name: string;
   description: string;
-  isEra: boolean;
+  era: number;
   stage: number;
   stages: number;
-  finished: boolean;
   needs: WonderNeedDto[];
-  total: number;
-  yourContribution: number;
+  stageWorth: number;
+  worth: number;
+  /** A full stage stands a day after (null: not full yet) */
+  standsAt: string | null;
+  yourStageShare: number;
   yourTier: WonderTier;
-  yourShare: number;
+  yourGiven: number;
   topBuilders: WonderBuilderDto[];
-  /** The stage waits to be sized: it opens at a midnight, from what the builders there make */
-  opens: boolean;
-  /** An hour of your income, for ordering by the hour */
-  yourHour: number;
+  buyAllCost: number;
+  /** How much smaller towns that finished it before made it (0.9: 10%) */
+  trail: number;
+  perks: string[];
+  nextPerk: string | null;
 }
 
-export interface WondersDto {
+/** A Monument site of your Yard: its Era, what was built there, its stages and the next stage's price */
+export interface MonumentDto {
   era: number;
+  kind: string | null;
+  name: string | null;
+  stages: number;
+  paid: number;
+  nextCost: number;
+  capped: boolean;
+  perk: string | null;
+  yourPaid: number;
+}
+
+export interface MonumentKindDto {
+  id: string;
+  name: string;
+  description: string;
+  built: boolean;
+}
+
+/** Your town and Yard (1.4 §11, §13): its Era, its launch party, its Wonder, your Yard's Monuments */
+export interface TownDto {
+  name: string;
+  era: number;
+  yourEra: number;
   eraStartedAt: string;
-  eraDeadline: string;
-  district: WonderDto | null;
-  eraWonder: WonderDto | null;
-  districtName: string;
+  partyUntil: string | null;
+  wonder: TownWonderDto | null;
+  monuments: MonumentDto[];
+  kinds: MonumentKindDto[];
+  /** The Company Level that pays for Monuments */
+  monumentLevel: number;
+  /** An hour of your income */
+  yourHour: number;
+  launchedAt: string | null;
+  /** Missions done since the Launch: a star each */
+  stars: number;
 }
 
 // ---------------------------------------------------------------- Company: managers, achievements, statistics
@@ -1386,7 +1416,8 @@ export interface AchievementDto {
   amount: number;
   value: number;
   done: boolean;
-  xp: number;
+  /** What it pays: hours of your income, at least this much gold */
+  hours: number;
   gold: number;
   title: string | null;
 }
@@ -1474,19 +1505,6 @@ export interface DeepDto {
   offset: number;
 }
 
-/** A branch estate (GDD §8.7): its index for BuyParcel is its place in CompanyDto.branches plus one */
-export interface BranchDto {
-  districtX: number;
-  districtY: number;
-  districtName: string;
-  slot: number;
-  x: number;
-  y: number;
-  unlockedParcels: number;
-  nextParcelCost: number;
-  nextParcelLevel: number;
-}
-
 /** A step of Loady's guide; the hint says what "Show me" does (tool, building, overlay, select, panel) */
 export interface TutorialDto {
   step: number;
@@ -1513,6 +1531,8 @@ export interface TutorialDto {
   pipeTarget: string | null;
   /** When the step began: open two days, it shrinks to one line */
   since: string | null;
+  /** The Era its chapter waits for (null: it can be done now) */
+  waitEra: number | null;
 }
 
 /** Expeditions (GDD §11.3) */
@@ -1583,31 +1603,17 @@ export interface YardResidentDto {
   name: string;
   color: string;
   level: number;
-  isNpc: boolean;
   slot: number;
   connected: boolean;
   activity: ActivityStage | null;
   spare: ResourceRateDto[];
   lacks: ResourceRateDto[];
   blocked: boolean;
-  /** A House's kind (v1.2 §9) */
-  house: "reliable" | "collector" | "grower" | "neighbourInNeed" | null;
-  /** The House standing in for an asleep player */
-  standIn: string | null;
   /** The Plan board's pins: what it makes and needs (v1.2 §12) */
   makes: string[];
   needs: string[];
-  asks: AskDto[];
-}
-
-/** An Ask: a good asked of the station, how much came, until when */
-export interface AskDto {
-  resource: string;
-  amount: number;
-  got: number;
-  until: string;
-  renew: boolean;
-  perMinute: number;
+  /** Its price for you per good (a multiple of the base), for the goods it sells */
+  prices: Record<string, number>;
 }
 
 /** One of your trades through the Yard: with whom, what, how much per minute, which way, at what price */
@@ -1618,40 +1624,11 @@ export interface YardTradeDto {
   perMinute: number;
   selling: boolean;
   price: number;
-  /** A Send: yours (selling) or theirs to you (buying) */
-  sent: boolean;
-  canThank: boolean;
-  house: boolean;
-}
-
-/** A Send of yours (step 4): the good, who it goes to (null: the project), the building it's for, what it brings now */
-export interface SendDto {
-  resource: string;
-  to: number | null;
-  toName: string;
-  building: string | null;
-  perMinute: number;
-  /** What it moved this week (since it began) */
-  week: number;
-  /** Why it moves nothing now ("their Quarry gets all it needs now"), if it doesn't */
-  idle: string | null;
-}
-
-/** What you and a neighbour gave each other this week, in units each way */
-export interface GiftDto {
-  partner: number;
-  name: string;
-  resource: string;
-  given: number;
-  received: number;
-  youSend: boolean;
-  theySend: boolean;
 }
 
 /** Your station and its Yard */
 export interface YardDto {
   station: string;
-  small: boolean;
   x0: number;
   y0: number;
   x1: number;
@@ -1666,19 +1643,20 @@ export interface YardDto {
   totals: ResourceRateDto[];
   line: string;
   discoveries: DiscoveryDto[];
-  sends: SendDto[];
-  sendCount: number;
-  maxSends: number;
   /** Who could use your goods */
   bids: BidDto[];
-  gifts: GiftDto[];
+  /** What you and each neighbour sold each other this week */
+  trades: WeekTradeDto[];
   /** What the Yard pays you of your income, and whom for it (null: nothing yet) */
   incomeLine: string | null;
+  /** The Company Level from which you pay into the Yard's Monuments */
+  monumentLevel: number;
 }
 
-// ---------------------------------------------------------------- Crews and seats (v1.2 §4–6)
+// ---------------------------------------------------------------- Yards and plots (1.4 §6–7)
 
-export type SeatState = "free" | "house" | "held" | "taken" | "you";
+/** A plot on the map: free, closed (free, but its Yard is closed: you ask first), taken, yours */
+export type SeatState = "free" | "closed" | "taken" | "you";
 
 /** A seat of a station as the picker shows it */
 export interface SeatDto {
@@ -1694,30 +1672,33 @@ export interface SeatDto {
   ownerLevel: number;
   /** For strangers: lively, some days or resting */
   activity: string | null;
-  crewName: string | null;
-  heldForYou: boolean;
-  /** Dealt land: the goods the seat holds (beside the HQ, then in the first parcels) */
+  /** What the plot's land has and lacks, and its strength (a ★4 deposit of something it has) */
   goods: string[] | null;
+  lacks: string[] | null;
+  strength: string | null;
+  /** For a player who would move here: how many of their buildings wouldn't fit its land and wait in crates */
+  crates: number | null;
 }
 
 export interface StationDto {
   districtX: number;
   districtY: number;
   index: number;
+  /** Its crew's name, or the name the game gave it while nobody lives there */
   name: string;
-  small: boolean;
-  /** Strangers may settle (a station where one crew lives in or holds 3+ seats is closed) */
+  /** Its crew's banner (null: nobody lives there) */
+  emblem: string | null;
+  color: string | null;
+  color2: string | null;
+  /** Anyone may settle on its free plots (closed: newcomers ask first) */
   open: boolean;
   free: number;
   lively: number;
   seats: SeatDto[];
-  crewName: string | null;
   x0: number;
   y0: number;
   x1: number;
   y1: number;
-  /** The project's stage and progress ("Water Tower · 40%") */
-  project: string | null;
   /** The Plan board: what its players pinned they make and need */
   makes: string[] | null;
   needs: string[] | null;
@@ -1729,16 +1710,27 @@ export interface SeatRefDto {
   slot: number;
 }
 
+/** A player Find a player found (1.4 §6): who, and where they live */
+export interface FoundPlayerDto {
+  id: number;
+  name: string;
+  color: string;
+  level: number;
+  districtX: number;
+  districtY: number;
+  slot: number;
+  district: string;
+  yard: string | null;
+}
+
 export interface StationsDto {
   districtX: number;
   districtY: number;
   district: string;
   stations: StationDto[];
-  /** The seats the game suggests for each way of starting */
-  neighbours: SeatRefDto;
-  ownStation: SeatRefDto;
-  friends: SeatRefDto;
-  /** The open districts, nearest the Capital first */
+  /** The plot Pick for me chooses */
+  pickForMe: SeatRefDto;
+  /** The open towns, nearest the Capital first */
   districts: DistrictRefDto[];
 }
 
@@ -1746,26 +1738,9 @@ export interface DistrictRefDto {
   districtX: number;
   districtY: number;
   name: string;
-}
-
-/** What a seat code or crew link opens */
-export interface InviteDto {
-  valid: boolean;
-  crewName: string | null;
-  emblem: string | null;
-  color: string | null;
-  color2: string | null;
-  from: string | null;
-  station: StationDto | null;
-  /** The seat a seat code keeps */
-  slot: number | null;
-  seatCode: boolean;
-  /** An old crew link: a member lets you in */
-  needsApproval: boolean;
-  /** A company name nobody uses yet */
-  name: string | null;
-  /** Who the seat was kept for ("Ben") */
-  friendName: string | null;
+  era: number;
+  launched: boolean;
+  stars: number;
 }
 
 export interface CrewMemberDto {
@@ -1774,22 +1749,8 @@ export interface CrewMemberDto {
   color: string;
   level: number;
   activity: string | null;
-  station: string;
   slot: number;
   you: boolean;
-  /** You may tend their estate today (v1.2 §12): only when it repairs their storm damage (F9) */
-  canTend: boolean;
-  tended: boolean;
-  asleep: boolean;
-  /** "💛 Tend: repair Ben's storm-damaged Wind Moily" */
-  tendLabel: string | null;
-}
-
-/** An asleep crew mate's seat whose hold ends soon: keep it 60 more days? */
-export interface KeepCardDto {
-  id: number;
-  name: string;
-  ends: string;
 }
 
 /** A scaffold's wants (after run 3, step 2): each material, what is in, what comes now and from whom, and what Cancel gives back */
@@ -1839,67 +1800,29 @@ export interface WantNearDto {
   orderCost: number | null;
 }
 
-/** A friend's kept seat: its code, who keeps it, their crew, where it is and where you live */
-export interface KeptSeatDto {
-  code: string;
-  from: string;
-  crew: string;
-  station: string;
-  yourStation: string | null;
-}
-
-export interface HeldSeatDto {
-  code: string;
-  districtX: number;
-  districtY: number;
-  slot: number;
-  primary: string;
-  secondary: string | null;
-  until: string;
-  /** A seat kept for a member (a crew move, an asleep friend's seat) */
-  for: number | null;
-  forName: string | null;
-  station: string | null;
-  /** Who the seat is for, as the crew calls them ("Ben") */
-  friendName: string | null;
-  /** Who opened its link while living elsewhere, and where they live (run 3: Ben) */
-  openedBy: string | null;
-  openedByStation: string | null;
-  /** They said "Not with them" */
-  declined: boolean;
-  openedById: number | null;
-}
-
 export interface CrewDto {
   id: number;
   name: string;
   emblem: string;
   color: string;
   color2: string;
+  /** A resident named the Yard (until then it carries the name the game gave it) */
+  named: boolean;
+  /** Open: anyone may settle on its free plots; closed: newcomers ask first */
+  open: boolean;
   members: CrewMemberDto[];
-  holds: HeldSeatDto[];
-  inviteCode: string;
-  inviteOpenUntil: string;
-  requests: CrewMemberDto[];
-  stationOpen: boolean;
-  stationClosed: boolean;
-  maxSize: number;
-  keepCards: KeepCardDto[];
-  consolidationCard: boolean;
-  /** Where the crew could move together */
-  moveTo: string | null;
+  /** Who asked to settle while it's closed, on which plot, and until when the request waits */
+  requests: CrewRequestDto[];
+  /** Your "Play next to me" link and until when it works (null: none yet, or its first user came) */
+  link: string | null;
+  linkUntil: string | null;
+  /** You'd be the last one out: moving away takes the Yard's own things with it */
+  lastOut: boolean;
 }
 
 export interface CrewViewDto {
   crew: CrewDto | null;
   emblems: string[];
-}
-
-export interface FoundCrewResultDto {
-  success: boolean;
-  error: string | null;
-  holds: HeldSeatDto[];
-  code?: string | null;
 }
 
 /** A company's crew as the top bar and the map show it */
@@ -1910,6 +1833,8 @@ export interface CrewBadgeDto {
   color: string;
   color2: string;
   members: number;
+  /** Requests to settle that wait for an answer */
+  requests: number;
 }
 
 /**
@@ -1975,44 +1900,6 @@ export interface LinksDto {
   suggestions: LinkSuggestionDto[];
   max: number;
   partners: LinkPartnerDto[];
-  trunks: TrunksDto;
-}
-
-/** Beyond your own hub (v1.2 §13): far sales, your crew's trunks, where a new one could go */
-export interface TrunksDto {
-  sales: RemoteSaleDto[];
-  crew: TrunkDto[];
-  targets: TrunkTargetDto[];
-  segmentGold: number;
-  segmentMaterials: ResourceRateDto[];
-  canBuild: boolean;
-  blocker: string | null;
-}
-
-export interface RemoteSaleDto {
-  resource: string;
-  market: string;
-  perMinute: number;
-  price: number;
-  public: boolean;
-}
-
-export interface TrunkDto {
-  id: number;
-  target: string;
-  length: number;
-  segments: number;
-  needed: number;
-  colors: string[];
-  built: boolean;
-  efficiency: number;
-}
-
-export interface TrunkTargetDto {
-  districtX: number | null;
-  districtY: number | null;
-  port: boolean;
-  name: string;
 }
 
 export interface LinkPlanDto {
@@ -2034,70 +1921,6 @@ export interface MapLinkDto {
   seller: number;
   buyer: number;
   route: number[];
-  /** A link between two companies, or a crew's trunk (its paid segments in their payers' colours) */
-  kind: "link" | "trunk";
-  colors: string[] | null;
-  needed: number;
-}
-
-/**
- * A station's project (v1.2 §12): the stage, its basket (with the keystone nobody here makes), who helped (shares, as a
- * ring of colours), what the finished stages give every seat, and your own part
- */
-/** The Landmark's storeys: how many stand, the open one's purse and givers, the pipe perk, the next, the last plaque */
-export interface StoreyDto {
-  storeys: number;
-  open: boolean;
-  purse: number;
-  given: number;
-  givers: string[];
-  pipeBonus: number;
-  nextAt: string | null;
-  plaque: string[];
-  yourHour: number;
-}
-
-export interface ProjectDto {
-  station: string;
-  stage: string;
-  stageIndex: number;
-  stages: string[];
-  basket: ProjectGoodDto[];
-  helpers: ProjectHelperDto[];
-  bonus: number;
-  foundryChains: string[];
-  opensAt: string | null;
-  yourCredit: number;
-  yourAllowance: number;
-  projectFirst: string[];
-  line: string;
-  /** How much of the stage is in, by worth */
-  share: number;
-  /** At this pace (null: a good nobody brings now) */
-  minutesLeft: number | null;
-  /** Your goods that go in now */
-  goingIn: string[];
-  /** Your spare is more than your daily share takes */
-  shareCapped: boolean;
-  sharePerDay: number;
-  /** What the stage gives every seat when it stands, and that in gold a minute for you and for the station */
-  stageBonus: number;
-  yourGain: number;
-  stationGain: number;
-  /** The Landmark's storeys, once it stands (after run 4) */
-  storey: StoreyDto | null;
-}
-
-/** A good of a project's basket: what it pays, and for one nobody makes yet who could and with what building */
-export interface ProjectGoodDto {
-  resource: string;
-  target: number;
-  delivered: number;
-  keystone: boolean;
-  madeHere: boolean;
-  price: number;
-  makers: string[];
-  makerBuilding: string | null;
 }
 
 /**
@@ -2111,12 +1934,6 @@ export interface ProjectWeekDto {
   step: NextStepDto | null;
 }
 
-export interface ProjectHelperDto {
-  color: string;
-  share: number;
-  you: boolean;
-}
-
 /** A Discovery: where, until when its markers are given, which stations got one, the three who brought most */
 export interface DiscoveryDto {
   resource: string;
@@ -2127,4 +1944,107 @@ export interface DiscoveryDto {
   stations: string[];
   top: string[];
   yourStation: boolean;
+}
+
+/** What you and a neighbour sold each other of a good this week (units each way) */
+export interface WeekTradeDto {
+  partner: number;
+  name: string;
+  resource: string;
+  given: number;
+  received: number;
+}
+
+/** What a "Play next to me" link opens (1.4 §6): who sent it, their Yard, whether it lets you into a closed Yard, a free company name */
+export interface NextToMeDto {
+  valid: boolean;
+  from: string | null;
+  fromColor: string | null;
+  yard: StationDto | null;
+  opens: boolean;
+  name: string | null;
+}
+
+/** Someone who asked to settle in your closed Yard, on which plot, and until when the request waits */
+export interface CrewRequestDto {
+  id: number;
+  name: string;
+  color: string;
+  level: number;
+  slot: number;
+  until: string;
+}
+
+// ---------------------------------------------------------------- Statistics (docs/design-notes/statistics.md)
+
+export type StatsRange = "day" | "week" | "month" | "all";
+
+/** A key moment: big ones are flags on every graph; ref is a good or building for its icon */
+export interface MomentDto {
+  at: string;
+  /** founded, level, first, land, era, wonder, crew, partner, move, track, research, achievement, monument, event */
+  kind: string;
+  text: string;
+  big: boolean;
+  ref: string | null;
+}
+
+/** Samples as columns: a key per series, a time per row, null where a sample lacks a series; the last row is now */
+export interface StatsColumns {
+  keys: string[];
+  at: string[];
+  rows: (number | null)[][];
+}
+
+export interface StatsTownDto extends StatsColumns {
+  name: string;
+}
+
+/** Someone to compare with: your crew first, then your town */
+export interface StatsPeerDto {
+  id: number;
+  name: string;
+  color: string;
+  crew: boolean;
+}
+
+/** A company's statistics over a range: yours whole, another's public part and its big moments */
+export interface StatisticsDto extends StatsColumns {
+  company: number;
+  name: string;
+  color: string;
+  founded: string;
+  own: boolean;
+  range: StatsRange;
+  from: string;
+  now: string;
+  moments: MomentDto[];
+  town: StatsTownDto;
+  peers: StatsPeerDto[];
+}
+
+/** One series of a company over a range, to compare with */
+export interface StatsSeriesDto {
+  company: number;
+  name: string;
+  color: string;
+  founded: string;
+  key: string;
+  at: string[];
+  values: (number | null)[];
+}
+
+/** The admin's Pace: every company's gold earned by days since it was founded, and the model's player by day */
+export interface PaceDto {
+  companies: PaceLineDto[];
+  model: number[];
+}
+
+export interface PaceLineDto {
+  id: number;
+  name: string;
+  color: string;
+  founded: string;
+  days: number[];
+  earned: number[];
 }

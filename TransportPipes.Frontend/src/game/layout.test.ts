@@ -1,54 +1,97 @@
 import { describe, expect, it } from "vitest";
 import {
-  estateOutline,
+  districtOriginX,
+  districtOriginY,
+  estateOrigin,
+  ESTATES_PER_DISTRICT,
+  hqLocal,
+  outskirtsParcels,
+  parcelOf,
+  startParcels,
   stationOfSlot,
   stationSlots,
+  tradingPostLocal,
+  yardGate,
   yardGateLocal,
   yardLocal,
-  yardPart,
-  zoneAt,
   yardRect,
+  zoneAt,
 } from "./layout";
 
 // The same geometry as TransportPipes.Game/World/WorldLayout.cs (WorldLayoutFacts checks the server's)
-describe("stations and Yards", () => {
-  it("has four stations of four and four of two", () => {
-    const sizes = Array.from({ length: 8 }, (_, i) => stationSlots(i).length);
-    expect(sizes).toEqual([4, 4, 4, 4, 2, 2, 2, 2]);
-    expect(stationSlots(0)).toEqual([0, 1, 5, 6]);
-    expect(stationOfSlot(2)).toBe(4);
+describe("the town", () => {
+  it("has the Capital's road crossing at the origin, in the hub", () => {
+    expect(zoneAt(0, 0).kind).toBe("hub");
+    expect(districtOriginX(0)).toBe(-98);
+    expect(districtOriginY(0)).toBe(-82);
   });
 
-  it("puts a corner station's Yard on its corridor crossing and a small one's beside its middle", () => {
-    expect(yardLocal(0)).toEqual({ x0: 30, y0: 30, x1: 39, y1: 39 });
-    expect(yardLocal(4)).toEqual({ x0: 90, y0: 30, x1: 99, y1: 39 });
-    expect(yardPart(0)).toEqual({ x0: 28, y0: 28, x1: 31, y1: 31 });
-    expect(yardPart(2)).toEqual({ x0: 20, y0: 28, x1: 29, y1: 31 });
+  it("is four Yard groups with roads between them and wilderness around", () => {
+    const at = (lx: number, ly: number) => zoneAt(districtOriginX(0) + lx, districtOriginY(0) + ly);
+    expect(at(97, 10).kind).toBe("corridor");
+    expect(at(10, 81).kind).toBe("corridor");
+    expect(at(196, 10).kind).toBe("wilderness");
+    expect(at(10, 164).kind).toBe("wilderness");
+    expect(at(196 + 128, 10).districtX).toBe(1);
+    expect(at(196 + 127, 10).kind).toBe("wilderness");
   });
 
-  it("puts every Yard gate right next to its Yard, as the server does", () => {
-    expect(yardGateLocal(0)).toEqual({ x: 27, y: 28 });
-    expect(yardGateLocal(1)).toEqual({ x: 4, y: 28 });
-    expect(yardGateLocal(2)).toEqual({ x: 24, y: 27 });
-    expect(yardGateLocal(7)).toEqual({ x: 24, y: 4 });
+  it("puts every plot and Yard where its group puts it", () => {
+    for (let station = 0; station < 4; station++) {
+      const yard = yardRect(2, -1, station);
+      expect(yard.x1 - yard.x0 + 1).toBe(32);
+      expect(yard.y1 - yard.y0 + 1).toBe(16);
+      expect(zoneAt(yard.x0 + 3, yard.y0 + 5)).toMatchObject({ kind: "yard", slot: station });
+      for (const slot of stationSlots(station)) {
+        const plot = estateOrigin(2, -1, slot);
+        expect(zoneAt(plot.x + 5, plot.y + 7)).toMatchObject({ kind: "estate", slot, localX: 5, localY: 7 });
+        expect(stationOfSlot(slot)).toBe(station);
+      }
+    }
+    expect(yardLocal(3)).toEqual({ x0: 132, y0: 116, x1: 163, y1: 131 });
   });
 
-  it("knows a Yard tile and its station", () => {
-    const yard = yardRect(0, 0, 3);
-    const zone = zoneAt(yard.x0 + 1, yard.y0 + 1);
-    expect(zone.kind).toBe("yard");
-    expect(zone.slot).toBe(3);
+  it("puts every gate on its plot's edge against the Yard, in the start area", () => {
+    for (let slot = 0; slot < ESTATES_PER_DISTRICT; slot++) {
+      const origin = estateOrigin(0, 0, slot);
+      const gate = yardGate(origin.x, origin.y, slot);
+      const yard = yardRect(0, 0, stationOfSlot(slot));
+      const touches = [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ].filter(([dx, dy]) => {
+        const x = gate.x + dx!;
+        const y = gate.y + dy!;
+        return x >= yard.x0 && x <= yard.x1 && y >= yard.y0 && y <= yard.y1;
+      });
+      expect(touches).toHaveLength(1);
+      const local = yardGateLocal(slot);
+      expect(startParcels(slot)).toContain(parcelOf(local.x, local.y));
+    }
   });
 
-  it("draws an estate's border around its part of the Yard", () => {
-    expect(estateOutline(0)).toEqual([
-      [0, 0],
-      [32, 0],
-      [32, 28],
-      [28, 28],
-      [28, 32],
-      [0, 32],
-    ]);
-    expect(estateOutline(2)).toHaveLength(8);
+  it("puts the HQ and the trading post by the gate, as the server does", () => {
+    expect(hqLocal(3)).toEqual({ x: 13, y: 1 });
+    expect(tradingPostLocal(3)).toEqual({ x: 18, y: 1 });
+    expect(hqLocal(0)).toEqual({ x: 13, y: 29 });
+    expect(tradingPostLocal(0)).toEqual({ x: 18, y: 30 });
+  });
+
+  it("sets nine outskirts parcels aside for every plot", () => {
+    const all = new Set<string>();
+    for (let slot = 0; slot < ESTATES_PER_DISTRICT; slot++) {
+      const parcels = outskirtsParcels(slot);
+      expect(parcels).toHaveLength(9);
+      for (const t of parcels) {
+        all.add(`${t.x},${t.y}`);
+        expect(zoneAt(districtOriginX(0) + t.x + 3, districtOriginY(0) + t.y + 3)).toMatchObject({
+          kind: "outskirts",
+          slot,
+        });
+      }
+    }
+    expect(all.size).toBe(144);
   });
 });

@@ -15,7 +15,7 @@ public class LinkFacts
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var ana = game.NewCompany("Ana", slot: 0);
-        var ben = game.NewCompany("Ben", level: 2, slot: 3);
+        var ben = game.NewCompany("Ben", level: 2, slot: 12);
         Assert.AreNotEqual(game.EstateOf(ana).Station, game.EstateOf(ben).Station);
 
         var moily = game.Build(ana, "windMoily");
@@ -62,28 +62,37 @@ public class LinkFacts
     }
 
     [TestMethod]
-    public void TheRouteRunsThroughTheCorridorsAndTheWilderness()
+    public void TheRouteRunsAlongTheRoadsAndAcrossTheWilderness()
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var capital = new DistrictCoord(0, 0);
-        var east = new DistrictCoord(1, 0);
-        foreach (var (from, to) in new[] { (new StationRef(capital, 0), new StationRef(capital, 3)), (new StationRef(capital, 5), new StationRef(east, 6)) })
+        foreach (var (from, to) in new[]
+                 {
+                     (new StationRef(capital, 0), new StationRef(capital, 3)),
+                     (new StationRef(capital, 1), new StationRef(new DistrictCoord(1, 0), 2)),
+                     (new StationRef(capital, 2), new StationRef(new DistrictCoord(1, 1), 1)),
+                 })
         {
             var a = WorldLayout.YardGate(from.District, WorldLayout.StationSlots(from.Index)[0]);
             var b = WorldLayout.YardGate(to.District, WorldLayout.StationSlots(to.Index)[0]);
             var route = GameWorld.LinkRoute(a, from, b, to);
-            // Between the two Yards' anchors every step is along a corridor (or through the wilderness), never an estate or a hub
-            var middle = route.Skip(1).Take(route.Count - 2).ToList();
-            for (var i = 0; i + 1 < middle.Count; i++)
+            Assert.AreEqual(a, route[0]);
+            Assert.AreEqual(b, route[^1]);
+            for (var i = 0; i + 1 < route.Count; i++)
             {
-                var (p, q) = (middle[i], middle[i + 1]);
-                Assert.IsTrue(p.X == q.X || p.Y == q.Y, $"straight segments: {p} {q}");
+                Assert.IsTrue(route[i].X == route[i + 1].X || route[i].Y == route[i + 1].Y, $"straight segments: {route[i]} {route[i + 1]}");
+            }
+            // Out of the Yards it runs on roads, the hub's plaza or the wilderness: the legs between the roads
+            var legs = route.Skip(3).Take(route.Count - 6).ToList();
+            for (var i = 0; i + 1 < legs.Count; i++)
+            {
+                var (p, q) = (legs[i], legs[i + 1]);
                 var steps = Math.Abs(p.X - q.X) + Math.Abs(p.Y - q.Y);
                 for (var s = 0; s <= steps; s++)
                 {
                     var t = new TilePos(p.X + Math.Sign(q.X - p.X) * s, p.Y + Math.Sign(q.Y - p.Y) * s);
                     var zone = WorldLayout.ZoneAt(t.X, t.Y).Kind;
-                    Assert.IsTrue(zone is ZoneKind.Corridor or ZoneKind.Yard or ZoneKind.Wilderness, $"{t} is {zone} on the way from {from} to {to}");
+                    Assert.IsTrue(zone is ZoneKind.Corridor or ZoneKind.Hub or ZoneKind.Wilderness, $"{t} is {zone} on the way from {from} to {to}");
                 }
             }
             Assert.AreEqual(GameWorld.RouteLength(route), route.Zip(route.Skip(1), (p, q) => Math.Abs(p.X - q.X) + Math.Abs(p.Y - q.Y)).Sum());
@@ -98,12 +107,13 @@ public class LinkFacts
         var (game, ana, ben, moily, mine) = Apart();
         var link = Linked(game, ana, ben);
         // It fills from what Ana has spare besides Ben's need
-        game.Pass(240);
+        game.Pass(480);
         Assert.AreEqual(link.TankSize, game.World.TankNow(link), 1e-6, "full");
         Assert.AreEqual(link.Need * GameWorld.TankMinutes, link.TankSize, 1e-6, "two hours of what Ben needs");
 
         Assert.IsTrue(game.World.Demolish(ana.Id, moily.Id).Success);
-        game.Pass(30);
+        // A steady link rounds every 16 minutes: the tank's level follows from the next round
+        game.Pass(46);
         Assert.IsTrue(link.Flow is LinkFlow.SellerShort or LinkFlow.NotConnected, "Ana has nothing to send now");
         Assert.AreEqual(10, ImportedBy(game, mine, "energy"), 1e-6, "the tank keeps the mine going");
         Assert.IsLessThan(link.TankSize * 0.85, game.World.TankNow(link));
@@ -214,7 +224,7 @@ public class LinkFacts
         var ben = game.NewCompany("Ben", slot: 1);
         var dee = game.NewCompany("Dee", slot: 8);
 
-        StringAssert.Contains(game.World.OfferLink(ana.Id, ben.Id, "coal", true).Result.Error, "your station", "neighbours trade through the Yard");
+        StringAssert.Contains(game.World.OfferLink(ana.Id, ben.Id, "coal", true).Result.Error, "at your Yard", "neighbours trade through the Yard");
         foreach (var resource in new[] { "coal", "wood", "stone", "sand", "water" })
         {
             Assert.IsTrue(game.World.OfferLink(ana.Id, dee.Id, resource, true).Result.Success);
@@ -224,33 +234,16 @@ public class LinkFacts
     }
 
     [TestMethod]
-    public void AContractBetweenStationsRunsOverALink()
-    {
-        var (game, ana, ben, _, _) = Apart();
-        var price = game.World.PlayerPrice("energy");
-
-        StringAssert.Contains(game.World.ProposeContract(ana.Id, ben.Id, true, "energy", 5, price, 1).Error, "link");
-        Linked(game, ana, ben);
-        var proposed = game.World.ProposeContract(ana.Id, ben.Id, true, "energy", 5, price, 1);
-        Assert.IsTrue(proposed.Success, proposed.Error);
-        var contract = game.World.Contracts.Single(t => t.Seller == ana.Id && t.Buyer == ben.Id);
-        Assert.IsTrue(game.World.AcceptContract(ben.Id, contract.Id).Success);
-
-        game.Pass(60);
-        Assert.IsGreaterThan(0, contract.Delivered, "the link delivers the contract");
-    }
-
-    [TestMethod]
     public void ALinkTakesTheNewWayWhenAnEstateMoves()
     {
         var (game, ana, ben, _, _) = Apart();
         var link = Linked(game, ana, ben);
         var before = link.Length;
 
-        Assert.IsTrue(game.World.RelocateTo(ben.Id, new EstateKey(new DistrictCoord(0, 0), 19)).Success);
+        Assert.IsTrue(game.World.RelocateTo(ben.Id, new EstateKey(new DistrictCoord(0, 0), 9)).Success);
         game.Pass(2);
 
-        Assert.AreEqual(19, ben.Slot);
+        Assert.AreEqual(9, ben.Slot);
         Assert.AreNotEqual(before, link.Length, "rerouted to the new gate");
         Assert.AreEqual(game.World.EstateOf(ben)!.YardGate, link.Route[^1]);
     }

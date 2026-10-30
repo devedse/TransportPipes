@@ -4,13 +4,69 @@ using TransportPipes.Game.World;
 namespace TransportPipes.Game.State;
 
 /// <summary>
-/// Expeditions (GDD §11.3): from the Expedition Office a team goes into the wilderness for 1, 4 or 12 hours and comes
-/// back with gold and, by luck, the location of a rich deposit, a decoration in a crate or a relic. A classic idle timer
-/// with a surprise.
+/// Expeditions (GDD §11.3, 1.4 §20): from the Expedition Office a team goes into the wilderness for 1, 4 or 12 hours, maps
+/// a piece of it (the wilderness starts in fog on your map) and comes back with gold and, by luck, the location of a rich
+/// deposit, a decoration in a crate or a relic. A classic idle timer with a surprise.
 /// </summary>
 public sealed partial class GameWorld
 {
     public static readonly int[] ExpeditionHours = [1, 4, 12];
+
+    /// <summary>The chunks of wilderness an expedition maps, by its hours</summary>
+    public static int ExpeditionMaps(int hours) => hours switch { 1 => 1, 4 => 3, _ => 8 };
+
+    /// <summary>Whether a company has mapped a tile: everything but the wilderness, and the wilderness its expeditions mapped</summary>
+    public bool IsExplored(Company company, TilePos tile) =>
+        WorldLayout.ZoneAt(tile.X, tile.Y).Kind != ZoneKind.Wilderness || company.Explored.Contains(ChunkKey(WorldLayout.ChunkOf(tile.X, tile.Y)));
+
+    private static string ChunkKey((int X, int Y) chunk) => $"{chunk.X},{chunk.Y}";
+
+    /// <summary>Maps the wilderness chunks nearest the company's town it hasn't mapped yet; returns how many</summary>
+    public int Explore(Company company, int count)
+    {
+        var center = new TilePos(
+            WorldLayout.DistrictOriginX(company.District.X) + WorldLayout.DistrictWidth / 2,
+            WorldLayout.DistrictOriginY(company.District.Y) + WorldLayout.DistrictHeight / 2);
+        var (cx, cy) = WorldLayout.ChunkOf(center.X, center.Y);
+        var mapped = 0;
+        for (var ring = 0; ring < 40 && mapped < count; ring++)
+        {
+            // A ring of chunks around the town, nearest first; a chunk counts as wilderness when any of its corners is
+            var candidates = new List<(int X, int Y)>();
+            for (var dy = -ring; dy <= ring; dy++)
+            {
+                for (var dx = -ring; dx <= ring; dx++)
+                {
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) == ring)
+                    {
+                        candidates.Add((cx + dx, cy + dy));
+                    }
+                }
+            }
+            foreach (var chunk in candidates.OrderBy(t => (t.X - cx) * (t.X - cx) + (t.Y - cy) * (t.Y - cy)).ThenBy(t => t.Y).ThenBy(t => t.X))
+            {
+                if (mapped >= count || company.Explored.Contains(ChunkKey(chunk)) || !HasWilderness(chunk))
+                {
+                    continue;
+                }
+                company.Explored.Add(ChunkKey(chunk));
+                mapped++;
+            }
+        }
+        if (mapped > 0)
+        {
+            company.Touch();
+            Changes.Companies.Add(company.Id);
+        }
+        return mapped;
+    }
+
+    private static bool HasWilderness((int X, int Y) chunk)
+    {
+        var size = WorldLayout.ChunkSize;
+        return new[] { (0, 0), (size - 1, 0), (0, size - 1), (size - 1, size - 1), (size / 2, size / 2) }
+            .Any(t => WorldLayout.ZoneAt(chunk.X * size + t.Item1, chunk.Y * size + t.Item2).Kind == ZoneKind.Wilderness);
+    }
     private const int ExpeditionLogLength = 10;
     public const string RelicTitle = "Archaeologist";
 
@@ -81,6 +137,10 @@ public sealed partial class GameWorld
         var gold = Math.Round(ExpeditionCost(company, expedition.Hours) * (1.2 + random.NextDouble() * 0.8));
         company.Gold += gold;
         finds.Add($"{gold:N0} gold");
+        if (Explore(company, ExpeditionMaps(expedition.Hours)) is > 0 and var mapped)
+        {
+            finds.Add($"a map of {mapped} {(mapped == 1 ? "piece" : "pieces")} of the wilderness");
+        }
 
         if (random.NextDouble() < luck)
         {
@@ -98,9 +158,10 @@ public sealed partial class GameWorld
             }
             else if (roll < 0.7 && WildSpotNear(company.District, random) is { } spot)
             {
-                var resources = Era >= 3 ? new[] { "oil", "rareEarth", "copperOre", "coal" } : ["copperOre", "coal", "ironOre"];
+                var resources = YourEra(company) >= 3 ? new[] { "oil", "rareEarth", "copperOre", "coal" } : ["copperOre", "coal", "ironOre"];
                 var resource = resources[random.Next(resources.Length)];
                 StartDiscovery(spot, resource);
+                company.Explored.Add(ChunkKey(WorldLayout.ChunkOf(spot.X, spot.Y)));
                 finds.Add($"a rich {Content.Resources[resource].Name.ToLowerInvariant()} deposit in the wilderness");
             }
             else

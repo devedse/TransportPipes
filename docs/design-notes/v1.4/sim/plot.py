@@ -26,7 +26,10 @@ def make_land(lacks, lacks2, strength):
     rich = 1.6
     # the rich (strength) deposit, next to the start area
     parcels.append(('rich', {f'dep:{strength}': [(12, rich)], 'general': PARCEL - 12}))
-    parcels.append(('hill', {'hill': 40, 'general': PARCEL - 40} | ({'dep:stone': [(12, 1.0)]} if 'stone' in has else {})))
+    # (later Eras' deposits on the plot, as WorldGenerator lays them: rare earth on the hills, oil in the desert,
+    # titanium ore at the feet of the grass parcel's mountain; each ★2, none of the one the plot lacks)
+    parcels.append(('hill', {'hill': 40, 'general': PARCEL - 40} | ({'dep:stone': [(12, 1.0)]} if 'stone' in has else {})
+                    | ({'dep:rareEarth': [(6, 1.0)], 'general': PARCEL - 46} if lacks2 != 'rareEarth' else {})))
     parcels.append(('iron', {'dep:ironOre': [(12, 1.3)], 'general': PARCEL - 12}))
     parcels.append(('basicB', {f'dep:{has[1]}': [(12, 1.0)], 'general': PARCEL - 12}))
     parcels.append(('basicC', {f'dep:{has[2]}': [(12, 1.0)], 'general': PARCEL - 12}))
@@ -34,8 +37,8 @@ def make_land(lacks, lacks2, strength):
     parcels.append(('lake', {'shore': 12, 'general': PARCEL - 12 - 8} | ({'dep:sand': [(8, 1.0)]} if 'sand' in has else {})))
     parcels.append(('redhills', ({'dep:bauxite': [(12, 1.0)]} if lacks2 != 'bauxite' else {}) | {'hill': 20, 'general': PARCEL - 32}))
     parcels.append(('basicA2', {f'dep:{first}': [(12, 1.3)], 'general': PARCEL - 12}))
-    parcels.append(('desert', {'desert': PARCEL}))
-    parcels.append(('grass', {'general': PARCEL}))
+    parcels.append(('desert', {'desert': PARCEL} | ({'dep:oil': [(9, 1.0)], 'desert': PARCEL - 9} if lacks2 != 'oil' else {})))
+    parcels.append(('grass', {'general': PARCEL} | ({'dep:titaniumOre': [(8, 1.0)], 'general': PARCEL - 12} if lacks2 != 'titaniumOre' else {})))
     parcels.append(('grass2', {'general': PARCEL}))
     return start, parcels
 
@@ -53,6 +56,13 @@ def make_outskirts(lacks, lacks2):
     out.append(('o-copper', {'dep:copperOre': [(12, 1.3)], 'general': PARCEL - 12}))
     out.append(('o-grass', {'general': PARCEL}))
     return out
+
+
+# The Deep Level (Era 3, the Deep Lift): rich veins (★3–★5) of iron ore, copper ore and coal for Deep Mines, and magma
+DEEP = {'dep:ironOre': [(16, 1.6)], 'dep:copperOre': [(16, 1.6)], 'dep:coal': [(16, 1.6)], 'dep:magma': [(16, 1.0)]}
+# An outpost (Era 4): an 8x8 claim in the wilderness on a rich deposit (★3–★5); the rest of it is land to build on
+OUTPOST_RICH = (16, 1.6)
+OUTPOST_LAND = 40
 
 
 class Plot:
@@ -136,6 +146,15 @@ class Plot:
         else:
             self.pools[pool] -= size
 
+    def free(self, i):
+        """Knock building i down: its land is free again, and the next copy costs less"""
+        t, lvl, m, paid, pool = self.buildings.pop(i)
+        if pool.startswith('dep:'):
+            self.add_pools({pool: [(B[t]['size'], m)]})
+        else:
+            self.pools[pool] = self.pools.get(pool, 0) + B[t]['size']
+        self.copies[t] -= 1
+
     def unlocked(self, t):
         d = B[t]
         allowed = getattr(self, 'allowed', None)
@@ -156,7 +175,7 @@ class Plot:
     def build(self, t, spot, rules=None):
         cost = self.build_cost(t, rules)
         self.take(t, spot)
-        self.buildings.append([t, 1, spot[1], cost])
+        self.buildings.append([t, 1, spot[1], cost, spot[0]])
         self.copies[t] = self.copies.get(t, 0) + 1
         return cost
 

@@ -11,7 +11,7 @@ public class YardFacts
     /// Company A (slot 0) has a Wind Moily, company B (slot 1, the same station) an Iron Mine that needs energy; both pipe
     /// to their Yard gates
     /// </summary>
-    private static (TestGame Game, Company A, Company B, Building Moily, Building Mine) Neighbours(bool mineToStorage = false)
+    internal static (TestGame Game, Company A, Company B, Building Moily, Building Mine) Neighbours(bool mineToStorage = false)
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var a = game.NewCompany("A");
@@ -36,7 +36,7 @@ public class YardFacts
         game.World.NetworkOf(building.Id)!.GateFlows.Where(t => !t.Import && t.Building == building.Id && t.Resource == resource).Sum(t => t.Delivered);
 
     [TestMethod]
-    public void NeighboursTradeThroughTheYardAtThePlayerPrice()
+    public void NeighboursTradeThroughTheYardAtTheCrewPrice()
     {
         var (game, a, b, moily, mine) = Neighbours();
 
@@ -48,16 +48,16 @@ public class YardFacts
         var atTheGate = game.World.NetworkOf(mine.Id)!.GateFlows.Where(t => t.Import).Sum(t => t.Sent);
         Assert.IsGreaterThan(10, atTheGate, "B's own pipe loses a little between its gate and its mine");
         Assert.AreEqual(atTheGate, ExportedBy(game, moily, "energy"), 1e-6, "A sends that to the Yard");
-        Assert.AreEqual(1.3, game.World.PlayerPrice("energy"));
+        Assert.AreEqual(GameWorld.DefaultCrewPrice, game.World.PriceFor(a, b, "energy"), "neighbours in a Yard are its crew: 1.15× the base");
 
         var goldA = a.Gold;
         var goldB = b.Gold;
-        var paid = atTheGate * 1.3;
+        var paid = atTheGate * GameWorld.DefaultCrewPrice;
         var oreSales = game.World.NetworkOf(mine.Id)!.Solution.GoldPerMinute[b.Id] + paid;
         var energySales = game.World.NetworkOf(moily.Id)!.Solution.GoldPerMinute[a.Id];
         game.Pass(10);
         Assert.AreEqual(goldA + 10 * (energySales + paid), a.Gold, 1e-6, "A earns what B pays for the energy, besides its hub sales");
-        Assert.AreEqual(goldB + 10 * (oreSales - paid), b.Gold, 1e-6, "B pays the player price for what leaves the Yard for it");
+        Assert.AreEqual(goldB + 10 * (oreSales - paid), b.Gold, 1e-6, "B pays A's price for what leaves the Yard for it");
     }
 
     /// <summary>
@@ -117,8 +117,8 @@ public class YardFacts
     [TestMethod]
     public void ABuyerHeldBackByAnotherInputIsMatchedOnlyWhatItCanUse()
     {
-        // Cleo's Lab, small: B's factory at level 10 could use 94 energy a minute, but its one mine brings only a fifth
-        // of the iron ore it needs, so the energy it can use is a fifth too
+        // B's factory at level 16 could use 84 energy a minute, but its one mine brings only a quarter of the iron ore it
+        // needs, so the energy it can use is a quarter too
         var game = new TestGame(content: TestGame.LosslessContent);
         var a = game.NewCompany("A");
         var post = game.TradingPost(a);
@@ -131,7 +131,7 @@ public class YardFacts
         var b = game.NewCompany("B", level: 10);
         var mine = game.Build(b, "ironMine", game.Spot(b, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
         var factory = game.Build(b, "smallFactory");
-        Assert.IsTrue(game.World.Upgrade(b.Id, factory.Id, 9).Success);
+        game.UpgradeNow(b, [factory.Id], 15);
         game.Connect(b, mine, factory);
         game.ConnectToGate(b, mine);
         game.ConnectToGate(b, factory);
@@ -238,7 +238,7 @@ public class YardFacts
         var ownB = game.World.NetworkOf(mine.Id)!.Solution.GoldPerMinute[b.Id];
         game.Pass(10);
 
-        Assert.AreEqual(taken * game.World.PlayerPrice("energy") * 10, Paid() - paid, 1e-6, "A gets what B's buildings took, at the player price");
+        Assert.AreEqual(taken * game.World.PriceFor(a, b, "energy") * 10, Paid() - paid, 1e-6, "A gets what B's buildings took, at A's price for B");
         Assert.AreEqual(goldB + 10 * ownB, b.Gold, 1e-6, "and B paid exactly that (its network's rate already counts it)");
         Assert.AreEqual(0, game.World.StatValue(a, "yardFloor"), 1e-9, "the mine takes all it was matched");
     }
@@ -336,21 +336,6 @@ public class YardFacts
     }
 
     [TestMethod]
-    public void TheFloorNeverPaysTheProjectTwice()
-    {
-        var game = new TestGame(content: TestGame.PlainContent);
-        game.World.ProjectsEnabled = true;
-        var a = game.NewCompany("A");
-        var moily = game.Build(a, "windMoily");
-        game.ConnectToGate(a, moily);
-        game.Connect(a, moily, game.TradingPost(a));
-        game.Pass(30);
-
-        Assert.IsTrue(game.World.StatValue(a, "projectGold") > 0, "the Foundation takes A's energy and pays for it");
-        Assert.AreEqual(0, game.World.StatValue(a, "yardFloor"), "what the project took is paid by the project only");
-    }
-
-    [TestMethod]
     public void WhenTwoYardPipesMeetBothSeeTheHandshake()
     {
         var (game, a, b, _, _) = Neighbours();
@@ -427,9 +412,7 @@ public class YardFacts
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var a = game.NewCompany("A");
-        // Slot 2 is in the small station north of the hub
-        var others = Enumerable.Range(0, 2).Select(i => game.NewCompany($"B{i}")).ToList();
-        var b = others.Last();
+        var b = game.NewCompany("B", slot: WorldLayout.StationSlots(3)[0]);
         Assert.AreNotEqual(WorldLayout.StationOf(a.District, a.Slot), WorldLayout.StationOf(b.District, b.Slot));
         var moily = game.Build(a, "windMoily");
         game.ConnectToGate(a, moily);
@@ -458,26 +441,12 @@ public class YardFacts
     }
 
     [TestMethod]
-    public void AContractIsDeliveredThroughTheYard()
-    {
-        var (game, a, b, _, _) = Neighbours();
-        Assert.IsTrue(game.World.ProposeContract(a.Id, b.Id, selling: true, "energy", 5, 99, 1).Success);
-        var contract = game.World.Contracts.Single();
-        Assert.AreEqual(1.3, contract.Price, "one price between players");
-        Assert.IsTrue(game.World.AcceptContract(b.Id, contract.Id).Success);
-
-        game.Pass(60);
-
-        Assert.IsTrue(contract.Fulfillment > 0.9, $"delivered {contract.Fulfillment:P0}");
-    }
-
-    [TestMethod]
     public void PipesCantGoInTheCorridorsOrTheYard()
     {
         var game = new TestGame();
         var a = game.NewCompany("A");
         var estate = game.EstateOf(a);
-        var corridor = estate.Origin.Offset(WorldLayout.EstateSize, 5);
+        var corridor = WorldLayout.DistrictOrigin(estate.District).Offset(WorldLayout.RoadX, 5);
         Assert.AreEqual(ZoneKind.Corridor, WorldLayout.ZoneAt(corridor.X, corridor.Y).Kind);
         Assert.IsFalse(game.World.PlacePipes(a.Id, [corridor]).Success);
 

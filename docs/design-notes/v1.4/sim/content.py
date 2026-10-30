@@ -5,8 +5,14 @@ PRICE = {
     'energy': 1, 'water': 0.5, 'ironOre': 3, 'wood': 1.5, 'copperOre': 3.5, 'coal': 2.5, 'stone': 1.5, 'sand': 1.2,
     'ironIngot': 14, 'copperIngot': 18, 'bricks': 5, 'glass': 14, 'planks': 3.5,
     'bauxite': 8, 'steel': 60, 'copperWire': 40, 'concrete': 20, 'aluminium': 80,
+    # Eras 3 to 5 (phase C: the model plays them to set their numbers)
+    'oil': 25, 'plastic': 150, 'gears': 290, 'motors': 700,
+    'rareEarth': 300, 'circuits': 1500, 'batteries': 1800, 'robots': 7700,
+    'titaniumOre': 1300, 'titanium': 4800, 'superconductors': 10000, 'spaceframes': 34000,
 }
-ERA_OF_GOOD = {g: (2 if g in ('bauxite', 'steel', 'copperWire', 'concrete', 'aluminium') else 1) for g in PRICE}
+ERA_GOODS = {2: ('bauxite', 'steel', 'copperWire', 'concrete', 'aluminium'), 3: ('oil', 'plastic', 'gears', 'motors'),
+             4: ('rareEarth', 'circuits', 'batteries', 'robots'), 5: ('titaniumOre', 'titanium', 'superconductors', 'spaceframes')}
+ERA_OF_GOOD = {g: next((e for e, gs in ERA_GOODS.items() if g in gs), 1) for g in PRICE}
 
 # name: era, size (tiles), gold, materials, in, out, unlock level, track, place
 # place: wind | sun | shore | dep:<good> | forest | any
@@ -40,10 +46,34 @@ B = {
     'wireMill':       dict(era=2, size=1, gold=12000,  inp={'energy': 40, 'copperIngot': 6}, out={'copperWire': 6}, unlock=0, track='wire', place='any'),
     'cementKiln':     dict(era=2, size=4, gold=40000,  inp={'energy': 50, 'stone': 20, 'sand': 20, 'water': 10}, out={'concrete': 25}, unlock=0, track='concrete', place='any'),
     'aluminiumWorks': dict(era=2, size=4, gold=45000,  inp={'energy': 300, 'bauxite': 30}, out={'aluminium': 12}, unlock=0, track='aluminium', place='any'),
+    # Era 3 (buildings.yaml; a later Era's building pays for its materials too: build_cost's x1.25)
+    'solarFarm':      dict(era=3, size=9, gold=650000,  inp={}, out={'energy': 3600}, unlock=0, track='power', place='sun'),
+    'oilDerrick':     dict(era=3, size=1, gold=76000,   inp={'energy': 30}, out={'oil': 18}, unlock=0, track='oil', place='dep:oil'),
+    'refinery':       dict(era=3, size=9, gold=640000,  inp={'energy': 600, 'oil': 60, 'water': 40}, out={'plastic': 38}, unlock=0, track='oil', place='any'),
+    'machineShop':    dict(era=3, size=4, gold=290000,  inp={'energy': 400, 'steel': 20}, out={'gears': 11}, unlock=0, track='gears', place='any'),
+    'motorWorks':     dict(era=3, size=4, gold=280000,  inp={'energy': 500, 'copperWire': 10, 'aluminium': 6, 'gears': 2}, out={'motors': 5}, unlock=0, track='motors', place='any'),
+    # the Deep Level's magma (the Deep Lift, Era 3)
+    'magmaTap':       dict(era=3, size=4, gold=300000,  inp={}, out={'energy': 1600}, unlock=0, track='power', place='dep:magma'),
+    # Era 4
+    'geothermalPlant':    dict(era=4, size=4, gold=2300000, inp={'water': 20}, out={'energy': 6400}, unlock=0, track='power', place='dep:geothermal'),
+    'rareEarthExcavator': dict(era=4, size=4, gold=2300000, inp={'energy': 200}, out={'rareEarth': 22}, unlock=0, track='rareEarth', place='dep:rareEarth'),
+    'circuitFab':         dict(era=4, size=4, gold=2400000, inp={'energy': 1500, 'copperWire': 20, 'plastic': 10, 'glass': 10}, out={'circuits': 7}, unlock=0, track='circuits', place='any'),
+    'batteryWorks':       dict(era=4, size=4, gold=2400000, inp={'energy': 1500, 'rareEarth': 6, 'aluminium': 10}, out={'batteries': 6}, unlock=0, track='batteries', place='any'),
+    'robotWorks':         dict(era=4, size=9, gold=5200000, inp={'energy': 4000, 'motors': 4, 'circuits': 4, 'batteries': 2}, out={'robots': 4}, unlock=0, track='robots', place='any'),
+    # Era 5
+    'fusionReactor':      dict(era=5, size=9, gold=41000000, inp={'superconductors': 1, 'water': 100}, out={'energy': 67000}, unlock=0, track='power', place='any'),
+    'titaniumMine':       dict(era=5, size=4, gold=18000000, inp={'energy': 400}, out={'titaniumOre': 20}, unlock=0, track='titanium', place='dep:titaniumOre'),
+    'titaniumWorks':      dict(era=5, size=4, gold=18000000, inp={'energy': 6000, 'titaniumOre': 20}, out={'titanium': 12}, unlock=0, track='titanium', place='any'),
+    'superconductorLab':  dict(era=5, size=4, gold=17000000, inp={'energy': 6000, 'rareEarth': 10, 'circuits': 4, 'copperWire': 20}, out={'superconductors': 4}, unlock=0, track='superconductors', place='any'),
+    'spaceframeWorks':    dict(era=5, size=9, gold=41000000, inp={'energy': 15000, 'titanium': 6, 'robots': 2, 'superconductors': 2}, out={'spaceframes': 4}, unlock=0, track='spaceframes', place='any'),
 }
 
 TRACKS1 = ['power', 'iron', 'copper', 'coal', 'stone', 'sand', 'wood']
 TRACKS2 = ['steel', 'wire', 'concrete', 'aluminium']
+TRACKS3 = ['oil', 'gears', 'motors']
+TRACKS4 = ['rareEarth', 'circuits', 'batteries', 'robots']
+TRACKS5 = ['titanium', 'superconductors', 'spaceframes']
+TRACK_ERA = {t: e for e, ts in enumerate([TRACKS1, TRACKS2, TRACKS3, TRACKS4, TRACKS5], 1) for t in ts}
 BASICS = ['copperOre', 'coal', 'stone', 'sand']
 DEEP_MINES = {'deepMine', 'deepMineCopper', 'deepMineCoal'}
 
@@ -58,9 +88,23 @@ TREE = [
     ('deepMining', 2, 2, 20e6, 'build:deep'),
     ('powerLines', 2, 1, 10e6, None),
     ('silos', 2, 1, 10e6, None),
+    # Eras 3 to 5 (research.yaml): what the model plays opens pipes and land; the rest is only its price
+    # (about an hour or two of a regular player's income when the Era begins: 2.8M, 12M and 35M g a minute)
+    ('compositePipes', 3, 4, 200e6, 'pipe:composite'),
+    ('deepLift', 3, 8, 400e6, 'deep'),
+    ('trains', 3, 4, 200e6, None),
+    ('trunkLines', 3, 6, 300e6, None),
+    ('terraforming', 3, 12, 600e6, None),
+    ('glassConduit', 4, 12, 800e6, 'pipe:glass'),
+    ('outposts', 4, 12, 1e9, 'outposts'),
+    ('automation', 4, 8, 800e6, None),
+    ('quantumLink', 4, 16, 1.2e9, None),
+    ('superconductorPipes', 5, 24, 3e9, 'pipe:superconductor'),
+    ('orbitalLogistics', 5, 24, 3e9, None),
 ]
 # Re-laying a plot's pipes in a better tier: gold and goods a tile (the goods at the market's price)
-PIPE_RELAY = {'copper': 10 + 18 * 2.5, 'steel': 40 + 60 * 2.5}
+PIPE_RELAY = {'copper': 10 + 18 * 2.5, 'steel': 40 + 60 * 2.5, 'composite': 200 + 150 * 2.5, 'glass': 1000 + 1500 * 2.5,
+              'superconductor': 5000 + 10000 * 2.5}
 PIPE_TILES_PER_PARCEL = 13
 
 # A track: nine tiers. time in hours; effect; gold at Era 1 (x4 per Era)

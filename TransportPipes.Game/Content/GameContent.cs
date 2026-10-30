@@ -10,21 +10,29 @@ namespace TransportPipes.Game.Content;
 /// </summary>
 public sealed class GameContent
 {
-    /// <summary>Pseudo resource for research points made by labs; it is credited to the company, it never flows.</summary>
-    public const string ResearchPoints = "research";
-
     public IReadOnlyDictionary<string, ResourceDefinition> Resources { get; }
     public IReadOnlyList<ResourceDefinition> ResourceList { get; }
     public IReadOnlyDictionary<string, BuildingDefinition> Buildings { get; }
     public IReadOnlyList<BuildingDefinition> BuildingList { get; }
     public IReadOnlyList<PipeTierDefinition> PipeTiers { get; }
     public ProgressionSettings Progression { get; }
+    /// <summary>The Era tree (the Lab's second line)</summary>
     public IReadOnlyDictionary<string, ResearchDefinition> Research { get; }
     public IReadOnlyList<ResearchDefinition> ResearchList { get; }
 
-    /// <summary>District Wonders (one is picked per district) and the Era Wonders by Era</summary>
-    public IReadOnlyList<WonderDefinition> DistrictWonders { get; }
+    /// <summary>The tracks (the Lab's first line) and how their tiers work</summary>
+    public IReadOnlyDictionary<string, TrackDefinition> Tracks { get; }
+    public IReadOnlyList<TrackDefinition> TrackList { get; }
+    public TrackRules TrackRules { get; }
+
+    /// <summary>The Era Wonders by Era (1.4 §13)</summary>
     public IReadOnlyList<WonderDefinition> EraWonders { get; }
+
+    /// <summary>The Monuments a Yard can build (1.4 §13)</summary>
+    public MonumentRules Monuments { get; }
+
+    /// <summary>The missions after a town's Launch (1.4 §13)</summary>
+    public MissionRules Missions { get; }
 
     public IReadOnlyList<ManagerDefinition> Managers { get; }
     public IReadOnlyList<AchievementDefinition> Achievements { get; }
@@ -43,15 +51,23 @@ public sealed class GameContent
         IReadOnlyList<AchievementDefinition>? achievements = null,
         IReadOnlyList<CollectionDefinition>? collections = null,
         IReadOnlyList<TutorialStep>? tutorial = null,
-        IReadOnlyList<RelicDefinition>? relics = null)
+        IReadOnlyList<RelicDefinition>? relics = null,
+        IReadOnlyList<TrackDefinition>? tracks = null,
+        TrackRules? trackRules = null,
+        MonumentRules? monuments = null,
+        MissionRules? missions = null)
     {
+        Monuments = monuments ?? new MonumentRules();
+        Missions = missions ?? new MissionRules();
+        TrackList = tracks ?? [];
+        Tracks = TrackList.ToDictionary(t => t.Id);
+        TrackRules = trackRules ?? new TrackRules();
         Tutorial = tutorial ?? [];
         Relics = relics ?? [];
         Managers = managers ?? [];
         Achievements = achievements ?? [];
         Collections = collections ?? [];
-        DistrictWonders = wonders?.Where(t => t.Era == 0).ToList() ?? [];
-        EraWonders = wonders?.Where(t => t.Era > 0).OrderBy(t => t.Era).ToList() ?? [];
+        EraWonders = wonders?.OrderBy(t => t.Era).ToList() ?? [];
         ResearchList = research ?? [];
         Research = ResearchList.ToDictionary(t => t.Id);
         ResourceList = resources;
@@ -62,6 +78,18 @@ public sealed class GameContent
         Progression = progression;
         Validate();
     }
+
+    /// <summary>A copy with some parts replaced (tests, the bots' what-ifs)</summary>
+    public GameContent With(
+        IReadOnlyList<ResourceDefinition>? resources = null,
+        IReadOnlyList<BuildingDefinition>? buildings = null,
+        IReadOnlyList<PipeTierDefinition>? pipeTiers = null,
+        ProgressionSettings? progression = null,
+        IReadOnlyList<TutorialStep>? tutorial = null,
+        TrackRules? trackRules = null,
+        IReadOnlyList<WonderDefinition>? wonders = null) =>
+        new(resources ?? ResourceList, buildings ?? BuildingList, pipeTiers ?? PipeTiers, progression ?? Progression, ResearchList, wonders ?? EraWonders, Managers,
+            Achievements, Collections, tutorial ?? Tutorial, Relics, TrackList, trackRules ?? TrackRules, Monuments, Missions);
 
     public BuildingDefinition Building(string id) =>
         Buildings.TryGetValue(id, out var definition) ? definition : throw new KeyNotFoundException($"Unknown building '{id}'.");
@@ -93,24 +121,28 @@ public sealed class GameContent
         var buildings = Read<List<BuildingDto>>("buildings.yaml").Select(t => t.ToDefinition()).ToList();
         var pipes = Read<List<PipeTierDto>>("pipes.yaml").Select(t => t.ToDefinition()).ToList();
         var progression = Read<ProgressionDto>("progression.yaml").ToSettings();
-        var research = Read<List<ResearchDto>>("research.yaml").Select(t => t.ToDefinition()).ToList();
+        var research = Read<ResearchFileDto>("research.yaml");
         var wonders = Read<WondersDto>("wonders.yaml");
         var managers = Read<List<ManagerDto>>("managers.yaml").Select(t => new ManagerDefinition(t.Id, t.Name, t.Cost, t.Color, t.Automation, t.Bonus)).ToList();
         var achievements = Read<AchievementsDto>("achievements.yaml");
-        var tutorial = Read<List<TutorialDto>>("tutorial.yaml").Select(t => new TutorialStep(t.Id, t.Text, t.Stat, t.Amount, t.Gold, t.Hint, t.Chapter, t.PhoneText, t.DealtText)).ToList();
+        var tutorial = Read<List<TutorialDto>>("tutorial.yaml").Select(t => new TutorialStep(t.Id, t.Text, t.Stat, t.Amount, t.Gold, t.Hint, t.Chapter, t.PhoneText, t.Era)).ToList();
         var relics = Read<List<RelicDto>>("relics.yaml").Select(t => new RelicDefinition(t.Id, t.Name, t.Lore)).ToList();
         return new GameContent(
             resources,
             buildings,
             pipes,
             progression,
-            research,
-            [.. wonders.District.Select(t => t.ToDefinition()), .. wonders.Era.Select(t => t.ToDefinition())],
+            research.Tree.Select(t => t.ToDefinition()).ToList(),
+            wonders.Era.Select(t => t.ToDefinition()).ToList(),
             managers,
             achievements.Achievements.Select(t => t.ToDefinition()).ToList(),
-            achievements.Collections.Select(t => new CollectionDefinition(t.Id, t.Name, t.Level, t.Buildings, t.Xp, t.Title, t.Description)).ToList(),
+            achievements.Collections.Select(t => new CollectionDefinition(t.Id, t.Name, t.Level, t.Buildings, t.Hours, t.Title, t.Description)).ToList(),
             tutorial,
-            relics);
+            relics,
+            research.Tracks.Select(t => t.ToDefinition()).ToList(),
+            research.ToRules(),
+            wonders.Monuments.ToRules(),
+            wonders.Missions.ToRules());
     }
 
     private void Validate()
@@ -120,7 +152,7 @@ public sealed class GameContent
 
         void CheckResource(string owner, string resource)
         {
-            if (resource != ResearchPoints && !Resources.ContainsKey(resource))
+            if (!Resources.ContainsKey(resource))
             {
                 errors.Add($"{owner}: unknown resource '{resource}'");
             }
@@ -172,46 +204,48 @@ public sealed class GameContent
         {
             CheckResearch($"pipe {pipe.Id}", pipe.Research);
         }
-        foreach (var tech in ResearchList)
+        foreach (var track in TrackList)
         {
-            foreach (var required in tech.Requires)
+            foreach (var building in track.Buildings)
             {
-                CheckResearch($"research {tech.Id}", required);
-            }
-            foreach (var target in tech.OutputBonuses.SelectMany(t => t.Targets))
-            {
-                var colon = target.IndexOf(':');
-                var kind = colon < 0 ? "" : target[..colon];
-                var value = colon < 0 ? "" : target[(colon + 1)..];
-                var known = kind switch
+                var (id, deposit) = SplitTrackBuilding(building);
+                if (!Buildings.ContainsKey(id) || (deposit != null && !Resources.ContainsKey(deposit)))
                 {
-                    "modifier" => Enum.TryParse<ProductionModifier>(value, true, out _),
-                    "building" => Buildings.ContainsKey(value),
-                    "category" => BuildingList.Any(t => t.Category == value),
-                    "resource" => Resources.ContainsKey(value),
-                    _ => false,
-                };
-                if (!known)
-                {
-                    errors.Add($"research {tech.Id}: unknown bonus target '{target}'");
+                    errors.Add($"track {track.Id}: unknown building '{building}'");
                 }
             }
+            foreach (var good in track.Goods.Append(track.Good).OfType<string>())
+            {
+                CheckResource($"track {track.Id}", good);
+            }
         }
-        if (ResearchList.Select(t => t.Id).Distinct().Count() != ResearchList.Count)
+        if (TrackList.Count != 0 && TrackRules.Tiers.Count != 9)
+        {
+            errors.Add("A track has nine tiers");
+        }
+        if (ResearchList.Select(t => t.Id).Concat(TrackList.Select(t => t.Id)).Distinct().Count() != ResearchList.Count + TrackList.Count)
         {
             errors.Add("Research ids must be unique");
         }
 
-        foreach (var wonder in DistrictWonders.Concat(EraWonders))
+        foreach (var wonder in EraWonders)
         {
-            if (wonder.Stages.Count == 0)
+            if (wonder.Stages.Count == 0 || wonder.Stages.Any(t => t.Goods.Count == 0))
             {
-                errors.Add($"wonder {wonder.Id}: needs stages");
+                errors.Add($"wonder {wonder.Id}: needs stages with goods");
             }
-            foreach (var resource in wonder.Stages.SelectMany(t => t.Keys))
+            if (Math.Abs(wonder.Stages.Sum(t => t.Share) - 1) > 0.01)
+            {
+                errors.Add($"wonder {wonder.Id}: its stages' shares add up to one");
+            }
+            foreach (var resource in wonder.Stages.SelectMany(t => t.Goods))
             {
                 CheckResource($"wonder {wonder.Id}", resource);
             }
+        }
+        if (Monuments.Kinds.Select(t => t.Id).Distinct().Count() != Monuments.Kinds.Count)
+        {
+            errors.Add("Monument ids must be unique");
         }
         foreach (var collection in Collections)
         {
@@ -241,6 +275,13 @@ public sealed class GameContent
 
     // ---------------------------------------------------------------- YAML shapes
 
+    /// <summary>"deepMine:coal": a building on a deposit; "smelter": the building wherever it stands</summary>
+    public static (string Building, string? Deposit) SplitTrackBuilding(string entry)
+    {
+        var colon = entry.IndexOf(':');
+        return colon < 0 ? (entry, null) : (entry[..colon], entry[(colon + 1)..]);
+    }
+
     private sealed class ResourceDto
     {
         public string Id { get; set; } = "";
@@ -250,10 +291,9 @@ public sealed class GameContent
         public int Tier { get; set; } = 1;
         public int Era { get; set; } = 1;
         public double Price { get; set; }
-        public double? Demand { get; set; }
+        public string Kind { get; set; } = "solid";
 
-        /// <summary>Without a demand the hub wants about 1,000 gold worth per minute per active company</summary>
-        public ResourceDefinition ToDefinition() => new(Id, Name, Icon, Color, Tier, Era, Price, Demand ?? Math.Round(1000 / Math.Max(Price, 0.01)));
+        public ResourceDefinition ToDefinition() => new(Id, Name, Icon, Color, Tier, Era, Price, Kind);
     }
 
     private sealed class UnlockDto
@@ -367,7 +407,7 @@ public sealed class GameContent
         public Dictionary<string, string> Hint { get; set; } = new();
         public int Chapter { get; set; } = 1;
         public string? PhoneText { get; set; }
-        public string? DealtText { get; set; }
+        public int Era { get; set; } = 1;
     }
 
     private sealed class AchievementsDto
@@ -382,14 +422,20 @@ public sealed class GameContent
         public string Name { get; set; } = "";
         public string Stat { get; set; } = "";
         public double Amount { get; set; }
-        public double Xp { get; set; }
+        public double Hours { get; set; }
         public double Gold { get; set; }
         public string? Title { get; set; }
         public OutputBonusDto? Output { get; set; }
         public string Description { get; set; } = "";
 
         public AchievementDefinition ToDefinition() =>
-            new(Id, Name, Stat, Amount, Xp, Gold, Title, Output == null ? null : new OutputBonus(Output.Targets, Output.Amount), Description);
+            new(Id, Name, Stat, Amount, Hours, Gold, Title, Output == null ? null : new OutputBonus(Output.Targets, Output.Amount), Description);
+    }
+
+    private sealed class OutputBonusDto
+    {
+        public List<string> Targets { get; set; } = new();
+        public double Amount { get; set; }
     }
 
     private sealed class CollectionDto
@@ -398,15 +444,28 @@ public sealed class GameContent
         public string Name { get; set; } = "";
         public int Level { get; set; }
         public List<string> Buildings { get; set; } = new();
-        public double Xp { get; set; }
+        public double Hours { get; set; }
         public string? Title { get; set; }
         public string Description { get; set; } = "";
     }
 
     private sealed class WondersDto
     {
-        public List<WonderDto> District { get; set; } = new();
         public List<WonderDto> Era { get; set; } = new();
+        public MonumentsDto Monuments { get; set; } = new();
+        public MissionsDto Missions { get; set; } = new();
+    }
+
+    private sealed class MissionsDto
+    {
+        public string Name { get; set; } = "Mission";
+        public string Description { get; set; } = "";
+        public double Worth { get; set; } = 100_000_000_000_000;
+        public double Growth { get; set; } = 1.1;
+        public double Perk { get; set; } = 0.01;
+        public List<string> Goods { get; set; } = new();
+
+        public MissionRules ToRules() => new() { Name = Name, Description = Description, Worth = Worth, Growth = Growth, Perk = Perk, Goods = Goods };
     }
 
     private sealed class WonderDto
@@ -414,26 +473,61 @@ public sealed class GameContent
         public string Id { get; set; } = "";
         public string Name { get; set; } = "";
         public int Era { get; set; }
-        public WonderPerkDto? Perk { get; set; }
         public string Description { get; set; } = "";
-        public List<Dictionary<string, double>> Stages { get; set; } = new();
+        public double Worth { get; set; }
+        public List<WonderStageDto> Stages { get; set; } = new();
 
         public WonderDefinition ToDefinition() => new()
         {
             Id = Id,
             Name = Name,
             Era = Era,
-            Perk = Perk == null ? WonderPerk.None : Enum.Parse<WonderPerk>(Perk.Kind, ignoreCase: true),
-            PerkAmount = Perk?.Amount ?? 0,
             Description = Description,
-            Stages = Stages,
+            Worth = Worth,
+            Stages = Stages.Select(t => new WonderStage(t.Share, t.Goods,
+                t.Perk == null ? WonderPerk.None : Enum.Parse<WonderPerk>(t.Perk.Kind, ignoreCase: true), t.Perk?.Amount ?? 0)).ToList(),
         };
+    }
+
+    private sealed class WonderStageDto
+    {
+        public double Share { get; set; }
+        public List<string> Goods { get; set; } = new();
+        public WonderPerkDto? Perk { get; set; }
     }
 
     private sealed class WonderPerkDto
     {
         public string Kind { get; set; } = "";
         public double Amount { get; set; }
+    }
+
+    private sealed class MonumentsDto
+    {
+        public double FirstStage { get; set; } = 100_000_000;
+        public double EraFactor { get; set; } = 10;
+        public double StageFactor { get; set; } = 1.4;
+        public int Level { get; set; } = 5;
+        public List<MonumentKindDto> Kinds { get; set; } = new();
+
+        public MonumentRules ToRules() => new()
+        {
+            FirstStage = FirstStage,
+            EraFactor = EraFactor,
+            StageFactor = StageFactor,
+            Level = Level,
+            Kinds = Kinds.Select(t => new MonumentKind(t.Id, t.Name, Enum.Parse<MonumentPerk>(t.Perk, ignoreCase: true), t.Amount, t.Cap, t.Description)).ToList(),
+        };
+    }
+
+    private sealed class MonumentKindDto
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Perk { get; set; } = "production";
+        public double Amount { get; set; }
+        public int Cap { get; set; }
+        public string Description { get; set; } = "";
     }
 
     private sealed class PipeTierDto
@@ -451,54 +545,80 @@ public sealed class GameContent
         public PipeTierDefinition ToDefinition() => new(Id, Name, Tier, Era, Gold, Materials, LossPerTile, Throughput, Research);
     }
 
-    private sealed class AmountDto
+    private sealed class ResearchFileDto
     {
+        public List<TierDto> Tiers { get; set; } = new();
+        public int TierGoodsFrom { get; set; } = 3;
+        public double TierGoodsShare { get; set; } = 0.2;
+        public int HubOrderFrom { get; set; } = 5;
+        public double HubOrderPerTier { get; set; } = 1.8;
+        public List<double> LeanerOutput { get; set; } = new();
+        public List<TrackDto> Tracks { get; set; } = new();
+        public List<TreeDto> Tree { get; set; } = new();
+
+        public TrackRules ToRules() => new()
+        {
+            Tiers = Tiers.Select((t, i) => new TrackTier(i + 1, t.Minutes, Enum.Parse<TierEffect>(t.Effect, ignoreCase: true), t.Amount, t.Gold)).ToList(),
+            TierGoodsFrom = TierGoodsFrom,
+            TierGoodsShare = TierGoodsShare,
+            HubOrderFrom = HubOrderFrom,
+            HubOrderPerTier = HubOrderPerTier,
+            LeanerOutput = LeanerOutput,
+        };
+    }
+
+    private sealed class TierDto
+    {
+        public double Minutes { get; set; }
+        public string Effect { get; set; } = "faster";
         public double Amount { get; set; }
+        public double Gold { get; set; }
     }
 
-    private sealed class OutputBonusDto
-    {
-        public List<string> Targets { get; set; } = new();
-        public double Amount { get; set; }
-    }
-
-    private sealed class ResearchEffectDto
-    {
-        public OutputBonusDto? Output { get; set; }
-        public AmountDto? Throughput { get; set; }
-        public AmountDto? BandWidth { get; set; }
-        public AmountDto? ManagerSlots { get; set; }
-    }
-
-    private sealed class ResearchDto
+    private sealed class TrackDto
     {
         public string Id { get; set; } = "";
         public string Name { get; set; } = "";
-        public string Branch { get; set; } = "energy";
         public int Era { get; set; } = 1;
-        public int Level { get; set; }
-        public int Grant { get; set; }
-        public double Cost { get; set; }
+        public double Strength { get; set; } = 1;
+        public string? Good { get; set; }
+        public List<string> Goods { get; set; } = new();
+        public List<string> Buildings { get; set; } = new();
+        public string Description { get; set; } = "";
+
+        public TrackDefinition ToDefinition() => new()
+        {
+            Id = Id,
+            Name = Name,
+            Era = Era,
+            Strength = Strength,
+            Good = Good,
+            Goods = Goods,
+            Buildings = Buildings,
+            Description = Description,
+        };
+    }
+
+    private sealed class TreeDto
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public int Era { get; set; } = 1;
         public double Minutes { get; set; }
-        public List<string> Requires { get; set; } = new();
-        public List<ResearchEffectDto> Effects { get; set; } = new();
+        public double Gold { get; set; }
+        public int Grant { get; set; }
+        public int ManagerSlots { get; set; }
         public string Description { get; set; } = "";
 
         public ResearchDefinition ToDefinition() => new()
         {
             Id = Id,
             Name = Name,
-            Branch = Enum.Parse<ResearchBranch>(Branch, ignoreCase: true),
             Era = Era,
-            Level = Level,
-            Grant = Grant,
-            Cost = Cost,
             Minutes = Minutes,
-            Requires = Requires,
-            OutputBonuses = Effects.Where(t => t.Output != null).Select(t => new OutputBonus(t.Output!.Targets, t.Output.Amount)).ToList(),
-            ThroughputBonus = Effects.Sum(t => t.Throughput?.Amount ?? 0),
-            BandWidthBonus = Effects.Sum(t => t.BandWidth?.Amount ?? 0),
-            ManagerSlots = (int)Effects.Sum(t => t.ManagerSlots?.Amount ?? 0),
+            Gold = Gold,
+            Grant = Grant,
+            ManagerSlots = ManagerSlots,
             Description = Description,
         };
     }
@@ -506,107 +626,119 @@ public sealed class GameContent
     private sealed class ProgressionDto
     {
         public CompanyLevelDto CompanyLevel { get; set; } = new();
-        public Dictionary<string, double> Xp { get; set; } = new();
         public BuildingLevelsDto BuildingLevels { get; set; } = new();
+        public Dictionary<int, List<LevelGoodsDto>> LevelGoods { get; set; } = new();
         public ParcelsDto Parcels { get; set; } = new();
+        public OutskirtsDto Outskirts { get; set; } = new();
         public Dictionary<int, int> ManagerSlots { get; set; } = new();
         public double StartingGold { get; set; }
         public double HubSpread { get; set; } = 2.5;
         public TogetherDto Together { get; set; } = new();
+        public MarketDto Market { get; set; } = new();
 
         public ProgressionSettings ToSettings() => new()
         {
             Together = Together.ToSettings(),
             MaxCompanyLevel = CompanyLevel.MaxLevel,
-            XpBase = CompanyLevel.XpBase,
-            XpExponent = CompanyLevel.XpExponent,
-            XpRamp = CompanyLevel.XpRamp,
-            XpRampLevel = CompanyLevel.XpRampLevel,
-            XpLateRamp = CompanyLevel.XpLateRamp,
-            XpLateRampFrom = CompanyLevel.XpLateRampFrom,
-            XpLateRampTo = CompanyLevel.XpLateRampTo,
-            XpRewards = Xp,
+            LevelPieces = CompanyLevel.GoldPieces.Select(t => new LevelPiece(t.From, t.Gold, t.Factor)).ToList(),
             MaxBuildingLevel = BuildingLevels.MaxLevel,
             OutputPerLevel = BuildingLevels.OutputPerLevel,
             CostPerLevel = BuildingLevels.CostPerLevel,
             Milestones = BuildingLevels.Milestones,
             CostPerCopy = BuildingLevels.CostPerCopy,
-            StartParcels = Parcels.Start,
-            ParcelOrder = Parcels.Order,
+            LevelGoodsFrom = BuildingLevels.LevelGoodsFrom,
+            LevelGoodsShare = BuildingLevels.LevelGoodsShare,
+            LevelGoods = LevelGoods.ToDictionary(t => t.Key, t => (IReadOnlyList<LevelGoodsBand>)t.Value.Select(b => new LevelGoodsBand(b.UpTo, b.Goods)).ToList()),
             ParcelLevels = Parcels.Levels,
             FirstParcelCost = Parcels.FirstCost,
             ParcelCostFactor = Parcels.CostFactor,
+            FirstOutskirtsCost = Outskirts.FirstCost,
+            OutskirtsCostFactor = Outskirts.CostFactor,
+            OutskirtsBuyBack = Outskirts.BuyBack,
             ManagerSlots = ManagerSlots,
             StartingGold = StartingGold,
             HubSpread = HubSpread,
+            Market = Market.ToSettings(),
         };
     }
 
     private sealed class TogetherDto
     {
-        public double PlayerPrice { get; set; } = 1.75;
-        public double HouseBuy { get; set; } = 1.25;
-        public double HouseSell { get; set; } = 2.0;
-        public double HouseSellLand { get; set; } = 1.4;
-        public double NpcCap { get; set; } = 0.25;
-        public double HubMaxMultiplier { get; set; } = 1.0;
-        public double HubMinMultiplier { get; set; } = 0.25;
-        public List<QuietGraceDto> QuietGrace { get; set; } = [new() { Below = 10, Factor = 4 }, new() { Below = 50, Factor = 2 }];
+        public double PlayerPrice { get; set; } = 1.3;
         public double MoveCooldownMinutes { get; set; } = 5;
         public double MoveFlightMinutes { get; set; } = 1;
         public double MoveCostPerLevel { get; set; }
-        public Dictionary<int, double> TypicalIncome { get; set; } = new();
 
         public TogetherSettings ToSettings() => new()
         {
             PlayerPrice = PlayerPrice,
-            HouseBuy = HouseBuy,
-            HouseSell = HouseSell,
-            HouseSellLand = HouseSellLand,
-            NpcCap = NpcCap,
-            HubMaxMultiplier = HubMaxMultiplier,
-            HubMinMultiplier = HubMinMultiplier,
-            QuietGrace = QuietGrace.Select(t => new QuietGrace(t.Below, t.Factor)).ToList(),
             MoveCooldownMinutes = MoveCooldownMinutes,
             MoveFlightMinutes = MoveFlightMinutes,
             MoveCostPerLevel = MoveCostPerLevel,
-            TypicalIncome = TypicalIncome,
         };
     }
 
-    private sealed class QuietGraceDto
+    private sealed class MarketDto
     {
-        public int Below { get; set; }
-        public double Factor { get; set; }
+        public double HubOrderValue { get; set; } = 1000;
+        public double EraValue { get; set; } = 4;
+        public double EraGrowth { get; set; } = 1.5;
+        public double PostLevel { get; set; } = 1.1;
+        public double FloodFrom { get; set; } = 16;
+        public double Floor { get; set; } = 0.25;
+
+        public MarketSettings ToSettings() => new()
+        {
+            HubOrderValue = HubOrderValue,
+            EraValue = EraValue,
+            EraGrowth = EraGrowth,
+            PostLevel = PostLevel,
+            FloodFrom = FloodFrom,
+            Floor = Floor,
+        };
     }
 
     private sealed class CompanyLevelDto
     {
         public int MaxLevel { get; set; } = 60;
-        public double XpBase { get; set; } = 100;
-        public double XpExponent { get; set; } = 1.7;
-        public double XpRamp { get; set; } = 1;
-        public int XpRampLevel { get; set; } = 2;
-        public double XpLateRamp { get; set; } = 1;
-        public int XpLateRampFrom { get; set; } = 60;
-        public int XpLateRampTo { get; set; } = 60;
+        public List<LevelPieceDto> GoldPieces { get; set; } = new();
+    }
+
+    private sealed class LevelPieceDto
+    {
+        public int From { get; set; }
+        public double Gold { get; set; }
+        public double Factor { get; set; }
     }
 
     private sealed class BuildingLevelsDto
     {
-        public int MaxLevel { get; set; } = 100;
+        public int MaxLevel { get; set; } = 25;
         public double OutputPerLevel { get; set; } = 1.1;
         public double CostPerLevel { get; set; } = 1.15;
         public List<int> Milestones { get; set; } = new();
         public double CostPerCopy { get; set; } = 1.07;
+        public int LevelGoodsFrom { get; set; } = 11;
+        public double LevelGoodsShare { get; set; } = 0.3;
+    }
+
+    private sealed class LevelGoodsDto
+    {
+        public int UpTo { get; set; }
+        public List<string> Goods { get; set; } = new();
     }
 
     private sealed class ParcelsDto
     {
-        public List<int> Start { get; set; } = new();
-        public List<int> Order { get; set; } = new();
         public List<int> Levels { get; set; } = new();
         public double FirstCost { get; set; }
         public double CostFactor { get; set; } = 2;
+    }
+
+    private sealed class OutskirtsDto
+    {
+        public double FirstCost { get; set; } = 100_000_000;
+        public double CostFactor { get; set; } = 1.4;
+        public double BuyBack { get; set; } = 0.5;
     }
 }

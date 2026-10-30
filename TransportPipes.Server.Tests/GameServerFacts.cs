@@ -77,7 +77,8 @@ public class GameServerFacts
         Assert.AreEqual(1, hello.Company.BuildingCounts["hq"]);
 
         // The chunk with the HQ contains it, the district lists the company
-        var hq = new TilePos(hello.Company.EstateX + GameWorld.HqLocal.X, hello.Company.EstateY + GameWorld.HqLocal.Y);
+        var (hqX, hqY) = WorldLayout.HqLocal(hello.Company.Slot);
+        var hq = new TilePos(hello.Company.EstateX + hqX, hello.Company.EstateY + hqY);
         var (cx, cy) = WorldLayout.ChunkOf(hq.X, hq.Y);
         var chunks = await client.Invoke<IReadOnlyList<ChunkDto>>("GetChunks", new[] { cx, cy });
         Assert.IsTrue(chunks.Single().Objects.Buildings.Any(t => t.Type == "hq" && t.X == hq.X && t.Y == hq.Y));
@@ -87,25 +88,26 @@ public class GameServerFacts
     }
 
     [TestMethod]
-    public async Task AFriendOpensASeatLinkPlaysAsAGuestAndKeepsTheEstate()
+    public async Task AFriendsLinkSettlesAGuestInTheirClosedYardWhoKeepsTheCompany()
     {
         using var server = new GameServer();
         await using var ana = await server.ConnectAsync(await server.RegisterAsync("Ana"));
-        var stations = await ana.Invoke<StationsDto>("GetStations", null, null);
-        var started = await ana.Invoke<FoundCrewResultDto>("StartWithFriends", "Ana Pipes", "#3399ff", "Kettle & Co.", "kettle", "#236b69", "#c9963a",
-            stations.Friends.DistrictX, stations.Friends.DistrictY, stations.Friends.Slot, 3);
-        Assert.IsTrue(started.Success, started.Error);
-        Assert.HasCount(3, started.Holds);
-        var code = started.Holds[0].Code;
+        await ana.Command("CreateCompany", "Ana Pipes", "#3399ff", null, null, null, null);
+        await ana.Command("SetYard", "Kettle & Co.", "kettle", "#236b69", "#c9963a");
+        await ana.Command("SetYardOpen", false);
+        var code = await ana.Invoke<string>("GetNextToMeLink");
 
-        // The link shows the crew and the seat before the friend has an account
+        // The link shows Ana's Yard before the friend has an account, and that it lets them in although it's closed
         var http = server.CreateClient();
-        var invite = await http.GetFromJsonAsync<InviteDto>($"/api/invite/{code}", GameServer.Json);
+        var invite = await http.GetFromJsonAsync<NextToMeDto>($"/api/invite/{code}", GameServer.Json);
         Assert.IsTrue(invite!.Valid);
-        Assert.AreEqual("Kettle & Co.", invite.CrewName);
-        Assert.AreEqual(started.Holds[0].Slot, invite.Slot);
+        Assert.AreEqual("Ana Pipes", invite.From);
+        Assert.AreEqual("Kettle & Co.", invite.Yard!.Name);
+        Assert.IsFalse(invite.Yard.Open);
+        Assert.IsTrue(invite.Opens);
+        var plot = invite.Yard.Seats.First(t => t.State == "free");
 
-        // "Move in": a guest, then the company on the kept seat
+        // "Play": a guest, then the company on a free plot of Ana's Yard
         var guest = await http.PostAsync("/api/auth/guest", null);
         var result = await guest.Content.ReadFromJsonAsync<GuestResult>(GameServer.Json);
         Assert.IsTrue(result!.Success, result.Error);
@@ -113,11 +115,13 @@ public class GameServerFacts
         await using (var ben = await server.ConnectAsync(cookie))
         {
             Assert.IsTrue((await ben.Invoke<HelloDto>("Hello")).User.IsGuest);
-            await ben.Command("CreateCompany", invite.Name!, "#236b69", null, null, null, code);
+            await ben.Command("CreateCompany", invite.Name!, "#236b69", invite.Yard.DistrictX, invite.Yard.DistrictY, plot.Slot, code);
             var hello = await ben.Invoke<HelloDto>("Hello");
-            Assert.AreEqual(started.Holds[0].Slot, hello.Company!.Slot);
+            Assert.AreEqual(plot.Slot, hello.Company!.Slot);
             Assert.AreEqual("Kettle & Co.", hello.Company.Crew!.Name);
         }
+        // Only the first who uses the link: it lets nobody else into the closed Yard
+        Assert.IsFalse((await http.GetFromJsonAsync<NextToMeDto>($"/api/invite/{code}", GameServer.Json))!.Opens);
 
         // Keeping the estate: a name and a password of its own, and the guest is a player like any other
         var keep = new HttpRequestMessage(HttpMethod.Post, "/api/auth/keep") { Content = JsonContent.Create(new KeepRequest("Ben", "secret123", null), options: GameServer.Json) };
@@ -129,7 +133,7 @@ public class GameServerFacts
         await using var back = await server.ConnectAsync(again);
         var home = await back.Invoke<HelloDto>("Hello");
         Assert.IsFalse(home.User.IsGuest);
-        Assert.AreEqual(started.Holds[0].Slot, home.Company!.Slot);
+        Assert.AreEqual(plot.Slot, home.Company!.Slot);
     }
 
     [TestMethod]
@@ -139,9 +143,9 @@ public class GameServerFacts
         await using var ana = await server.ConnectAsync(await server.RegisterAsync("Ana"));
         await using var ben = await server.ConnectAsync(await server.RegisterAsync("Ben"));
         // The start screen's picker opens the first district
-        await ana.Invoke<StationsDto>("GetStations", null, null);
+        await ana.Invoke<StationsDto>("GetStations", null, null, null);
         await ana.Command("CreateCompany", "Ana Pipes", "#3399ff", 0, 0, 0, null);
-        await ben.Command("CreateCompany", "Ben Works", "#ff9933", 0, 0, 3, null);
+        await ben.Command("CreateCompany", "Ben Works", "#ff9933", 0, 0, 12, null);
         var benId = (await ben.Invoke<HelloDto>("Hello")).Company!.Id;
 
         var plan = await ana.Invoke<LinkPlanDto>("PlanLink", benId, "coal", true, 1);
@@ -164,7 +168,7 @@ public class GameServerFacts
     }
 
     /// <summary>A spot next to the trading post for a pipe and a wind moily behind it</summary>
-    private static Task<(TilePos Pipe, TilePos Moily)> SpotNextToTradingPost(GameServer server, long userId) =>
+    internal static Task<(TilePos Pipe, TilePos Moily)> SpotNextToTradingPost(GameServer server, long userId) =>
         server.World.RunAsync(world =>
         {
             var company = world.CompanyOfUser(userId)!;
@@ -254,8 +258,9 @@ public class GameServerFacts
                 Assert.AreEqual(stopped.BuildingCounts["windMoily"], hello.Company.BuildingCounts["windMoily"], "the kit's moilies and the new one");
                 Assert.IsGreaterThan(0, hello.Company.GoldPerMinute);
                 // About an hour of the estate's income while the server was down (the hub's price moves with its market
-                // updates, and the Yard's trade with the Houses comes on top)
-                var earned = hello.Company.Gold - stopped.Gold;
+                // updates, and the Yard's trade with the Houses comes on top), and what today's orders paid over the hub
+                var premium = hello.Company.DailyOrders.Sum(t => t.Premium) - stopped.DailyOrders.Sum(t => t.Premium);
+                var earned = hello.Company.Gold - stopped.Gold - premium;
                 Assert.IsGreaterThan(hello.Company.GoldPerMinute * 60 / 1.3, earned);
                 Assert.IsLessThanOrEqualTo(hello.Company.GoldPerMinute * 60 * 1.3, earned);
                 Assert.IsNotNull(hello.Card, "a return card after an hour away");

@@ -28,5 +28,54 @@ console.log(await page.evaluate(async () => {
 }));
 await page.waitForTimeout(6000);
 await shot("1-pipes");
+// Close up on the factory: its lanes (1.4 §9: a belt, cables) and the goods riding them
+await page.evaluate(() => {
+  const me = tp.appStore.getState().company.id;
+  const w = tp.gameClient.world;
+  const piped = (b) => [[b.x - 1, b.y], [b.x + b.size, b.y], [b.x, b.y - 1], [b.x, b.y + b.size]].some(([x, y]) => w.conductorAt(x, y) !== undefined);
+  const mine = [...w.buildings.values()].filter((t) => t.owner === me && piped(t));
+  const building = mine.find((t) => t.type === "smallFactory") ?? mine.find((t) => t.type === "ironMine") ?? mine.find((t) => t.type !== "tradingPost");
+  if (building) tp.gameClient.engine.lookAt(building.x, building.y, 2.2);
+});
+await page.waitForTimeout(3000);
+await shot("2-lanes");
+// Look inside (1.4 §9): the pointer on a pipe tile that carries goods cuts it open, and the tip says what runs in which lane
+const busy = await page.evaluate(() => {
+  const w = tp.gameClient.world;
+  const counts = new Map();
+  for (const network of w.flows.values())
+    for (const flow of network.flows)
+      if (flow.delivered > 0)
+        for (let i = 2; i + 3 < flow.path.length; i += 2) {
+          const key = `${flow.path[i]},${flow.path[i + 1]}`;
+          if (w.conductorAt(flow.path[i], flow.path[i + 1])?.kind === "pipe" && !w.buildingAt(flow.path[i], flow.path[i + 1])) counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+  const [key] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0] ?? [];
+  if (!key) return null;
+  const [x, y] = key.split(",").map(Number);
+  tp.gameClient.engine.lookAt(x, y, 1.6);
+  return { x, y };
+});
+await page.waitForTimeout(2500);
+let inside = "";
+if (busy) {
+  const at = await page.evaluate(({ x, y }) => tp.gameClient.engine.tileToScreen(x, y), busy);
+  await page.mouse.move(at.x, at.y);
+  await page.waitForTimeout(1200);
+  inside = await page.locator(".hover-tip").innerText().catch(() => "");
+}
+console.log("look inside:", inside);
+await shot("3-look-inside");
+await page.keyboard.down("Alt");
+await page.waitForTimeout(800);
+await shot("4-alt-every-pipe");
+await page.keyboard.up("Alt");
+// Zoomed out the connectors fade, so the map stays calm
+await page.evaluate(() => {
+  const co = tp.appStore.getState().company;
+  tp.gameClient.engine.lookAt(co.estateX + 16, co.estateY + 16, 0.3);
+});
+await page.waitForTimeout(2500);
+await shot("5-zoomed-out");
 console.log(errors.length ? errors.join("\n") : "no errors");
 await browser.close();

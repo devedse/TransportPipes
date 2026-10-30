@@ -1,6 +1,6 @@
 # Plays plots session by session: gold comes in all the time, the player spends it when they play
 import math
-from content import B, TIERS, TRACKS1, TRACKS2, level_mult, step_cost, copy_cost, PARCEL_LEVELS, parcel_cost, xp_for_level
+from content import B, TIERS, TRACKS1, TRACKS2, TRACK_ERA, level_mult, step_cost, copy_cost, PARCEL_LEVELS, parcel_cost, xp_for_level
 from econ import solve, Rules
 from plot import Plot
 
@@ -125,8 +125,12 @@ class Sim:
             spot = p.spot(t)
             if spot:
                 out.append(('build', t, spot, p.build_cost(t, self.rules)))
+            elif B[t]['era'] >= 3 and not B[t]['place'].startswith('dep:'):
+                room = self.make_room(p, t)
+                if room:
+                    out.append(('replace', t, room, p.build_cost(t, self.rules)))
         lowest = {}
-        for i, (t, lvl, m, paid) in enumerate(p.buildings):
+        for i, (t, lvl, m, paid, *_) in enumerate(p.buildings):
             if lvl >= self.rules.max_level:
                 continue
             key = t
@@ -149,8 +153,42 @@ class Sim:
             out.append(('newpost', None, None, 2500 * pc ** p.post_copies))
         return out
 
+    def value(self, p, i, research, mv):
+        """What building i adds a minute now, at what its goods are worth"""
+        t, lvl, m, *_ = p.buildings[i]
+        d = B[t]
+        f, l, cx = research.get(d['track'], (1, 1, 1))
+        return (sum(mv.get(g, 0) * v for g, v in d['out'].items()) - sum(mv.get(g, 0) * v * l for g, v in d['inp'].items())) * m * level_mult(lvl) * f * cx
+
+    def make_room(self, p, t):
+        """Land for a later Era's building on a full plot (phase C): the older buildings that add least a tile, knocked
+        down in the pool where that loses least; (pool, mult, indices) or None"""
+        from plot import POOLS, MULT
+        from econ import track_mults, tiers_of
+        mv = getattr(p, '_mv', None)
+        if mv is None:
+            return None
+        research = {k: track_mults(tiers_of(p, k), k) for k in set(p.tiers) | {'coal'}}
+        size = B[t]['size']
+        place = B[t]['place']
+        best = None
+        for pool in POOLS[place]:
+            have = p.pools.get(pool, 0)
+            olds = sorted(((self.value(p, i, research, mv) / B[b[0]]['size'], i) for i, b in enumerate(p.buildings)
+                           if len(b) > 4 and b[4] == pool and B[b[0]]['era'] < B[t]['era']), key=lambda e: e[0])
+            idx, lost = [], 0.0
+            for per, i in olds:
+                if have >= size:
+                    break
+                idx.append(i)
+                have += B[p.buildings[i][0]]['size']
+                lost += per * B[p.buildings[i][0]]['size']
+            if have >= size and (best is None or lost < best[0]):
+                best = (lost, (pool, MULT.get(pool, {}).get(place, 1.0), idx))
+        return best[1] if best else None
+
     def up_gold(self, p, i):
-        t, lvl, m, paid = p.buildings[i]
+        t, lvl, m, paid, *_ = p.buildings[i]
         base = paid if self.rules.copy_levels else B[t]['gold']
         return base * self.rules.level_factor ** (lvl - 1)
 
@@ -158,7 +196,7 @@ class Sim:
         from econ import materials
         if not self.rules.upgrade_mats:
             return {}
-        t, lvl, m, paid = p.buildings[i]
+        t, lvl, m, paid, *_ = p.buildings[i]
         return materials(B[t]['era'], lvl, self.up_gold(p, i), self.rules.mats_share)
 
     def up_cost(self, p, i):
@@ -185,6 +223,12 @@ class Sim:
         kind, t, arg, cost = c
         if kind == 'build':
             p.build(t, arg, self.rules)
+            return ('build', t)
+        if kind == 'replace':
+            pool, mult, idx = arg
+            for i in sorted(idx, reverse=True):
+                p.free(i)
+            p.build(t, (pool, mult), self.rules)
             return ('build', t)
         if kind == 'up':
             p.buildings[arg][1] += 1
@@ -238,13 +282,17 @@ class Sim:
             return 9e9
         d = B[t]
         f, l, cx = research.get(d['track'], (1, 1, 1))
+        lost = 0.0
         if kind == 'build':
             du = arg[1]
+        elif kind == 'replace':
+            du = arg[1]
+            lost = sum(self.value(p, i, research, mv) for i in arg[2])
         else:
-            tt, lvl, m, paid = p.buildings[arg]
+            tt, lvl, m, paid, *_ = p.buildings[arg]
             du = m * (level_mult(lvl + 1) - level_mult(lvl))
         va = (sum(mv[g] * v for g, v in d['out'].items()) - sum(mv[g] * v * l for g, v in d['inp'].items())) * du * f * cx
-        return va / cost
+        return (va - lost) / cost
 
     def best(self, p, base, keep=10):
         from econ import track_mults
@@ -276,13 +324,13 @@ class Sim:
             n = p.tiers.get(track, 0)
             if n >= upto or (track == 'coal' and econ.COAL_IN):
                 continue
-            if track in TRACKS2 and p.era < 2:
+            if TRACK_ERA.get(track, 1) > p.era:
                 continue
             return track, n
         return None
 
     def research_cost(self, track, n):
-        era = 2 if track in TRACKS2 else 1
+        era = TRACK_ERA.get(track, 1)
         base = self.rules.tier_gold[n] if self.rules.tier_gold else TIERS[n][2]
         gold = base * 4 ** (era - 1) * self.rules.research_scale * self.rules.all_costs
         return gold * (1.2 if n >= 2 else 1)
@@ -332,6 +380,9 @@ class Sim:
             opens = next(t[4] for t in TREE if t[0] == item)
             if opens and opens.startswith('pipe:'):
                 p.pipe = opens[5:]
+            if opens == 'deep':
+                from plot import DEEP
+                p.add_pools(DEEP)
             return True
         return False
 
@@ -360,6 +411,23 @@ class Sim:
             p.outskirts += 1
             p.spend_gold('outskirts', cost)
             p.gain_xp(100)
+            return 'bought'
+        return 'save' if cost <= self.save * max(inc, 1) else 'far'
+
+    def try_outpost(self, p):
+        """Era 4: up to three outposts in the wilderness, bought once (20B x 2^n), each on a rich deposit"""
+        from plot import OUTPOST_RICH, OUTPOST_LAND
+        n = getattr(p, 'outposts', 0)
+        if self.era() < 4 or 'outposts' not in p.tree or n >= 3:
+            return 'no'
+        cost = self.rules.outpost_first * 2 ** n
+        inc = self.state[p.name]['income']
+        if p.gold >= cost:
+            # what the plot lacks first (a Discovery finds titanium ore), then geothermal heat, rare earth, oil
+            kinds = ([p.lacks2] if p.lacks2 in ('oil', 'rareEarth', 'titaniumOre') else []) + ['geothermal', 'rareEarth', 'oil']
+            p.add_pools({f'dep:{kinds[n % len(kinds)]}': [OUTPOST_RICH], 'general': OUTPOST_LAND})
+            p.outposts = n + 1
+            p.spend_gold('outposts', cost)
             return 'bought'
         return 'save' if cost <= self.save * max(inc, 1) else 'far'
 
@@ -457,6 +525,13 @@ class Sim:
                 continue
             if o == 'save':
                 q = 'save'
+            w = self.try_outpost(p)
+            if w == 'bought':
+                actions += 1
+                self.state[p.name] = self.econ(p)
+                continue
+            if w == 'save':
+                q = 'save'
             if r == 'save' or q == 'save':
                 p.stop = 'save research' if r == 'save' else 'save parcel'
                 return
@@ -482,7 +557,7 @@ class Sim:
             else:
                 gold = c[3]
             what = self.apply(p, c)
-            p.spend_gold('buildings' if c[0] == 'build' else 'levels', gold)
+            p.spend_gold('buildings' if c[0] in ('build', 'replace') else 'levels', gold)
             p.gain_xp(10 + 50 * (p.copies.get(c[1], 0) == 1) if c[0] == 'build' else 2)
             actions += 1
             # Max: an upgrade keeps going on the same building while each next step pays back in time
@@ -613,6 +688,6 @@ class Sim:
                                earned=p.earned, spent=dict(p.spent), market=st['gold_market'], crew=st['gold_crew'],
                                crew_cost=st['cost_crew'], imports=st['cost_market'], gift_goods=p.gift_goods, gift_gold=p.gift_gold,
                                outskirts=p.outskirts, buildings=[list(b) for b in p.buildings], post=p.posts[0],
-                               monument=getattr(p, 'monument_stage', 0), mats_paid=getattr(p, 'mats_paid', 0),
+                               monument=getattr(p, 'monument_stage', 0), era=self.era(), outposts=getattr(p, 'outposts', 0), mats_paid=getattr(p, 'mats_paid', 0),
                                mats_own=getattr(p, 'mats_own', 0), mats_crew=getattr(p, 'mats_crew', 0), mats_market=getattr(p, 'mats_market', 0), mats_sold=getattr(p, 'mats_sold', 0))
         return out

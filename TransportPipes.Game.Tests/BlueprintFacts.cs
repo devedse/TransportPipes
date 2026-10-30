@@ -1,3 +1,4 @@
+using TransportPipes.Game.World;
 using TransportPipes.Game.State;
 
 namespace TransportPipes.Game.Tests;
@@ -61,15 +62,15 @@ public class BlueprintFacts
     }
 
     [TestMethod]
-    public void SharedBlueprintsReachTheCorporationOrEveryoneAndGetRatings()
+    public void SharedBlueprintsReachTheYardOrEveryoneAndGetRatings()
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var author = WithOffice(game, "Author");
-        Assert.IsTrue(game.World.FoundCorporation(author.Id, "Pipe Guild", "PG", "#3399ff").Success);
+        // Pick for me puts the next newcomer in the author's Yard: they are its crew
         var member = game.NewCompany("Member", level: GameWorld.BlueprintLevel);
-        Assert.IsTrue(game.World.ApplyToCorporation(member.Id, game.World.Corporations.Single().Id).Success);
-        Assert.IsTrue(game.World.InviteToCorporation(author.Id, member.Id).Success);
-        var stranger = game.NewCompany("Stranger", level: GameWorld.BlueprintLevel);
+        Assert.AreEqual(author.CrewId, member.CrewId);
+        var stranger = game.NewCompany("Stranger", level: GameWorld.BlueprintLevel, slot: WorldLayout.StationSlots(3)[0]);
+        Assert.AreNotEqual(author.CrewId, stranger.CrewId);
         game.Map(author, game.Local(author, 2, 2), "W");
         Assert.IsTrue(game.World.SaveBlueprint(author.Id, "Moily", game.Local(author, 2, 2), 1, 1).Success);
         var blueprint = game.World.Blueprints.Single();

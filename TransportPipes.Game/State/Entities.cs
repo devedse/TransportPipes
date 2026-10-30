@@ -26,18 +26,28 @@ public sealed class Company : Entity
     public required string Name { get; set; }
     public required string Color { get; set; }
     public double Gold { get; set; }
-    public double Xp { get; set; }
+
+    /// <summary>The Company Level: from the gold earned in all (1.4 §14)</summary>
     public int Level { get; set; } = 1;
-    public double ResearchPoints { get; set; }
+
     public DateTime CreatedAt { get; init; }
     public DateTime LastSeenAt { get; set; }
-    public bool IsNpc { get; init; }
 
-    /// <summary>What a House (an NPC company) does for its station; null for players</summary>
-    public HouseKind? House { get; set; }
-
-    /// <summary>Total gold earned (sales and trades), for statistics and XP</summary>
+    /// <summary>All the gold it ever earned (1.4 §14: the market, other players, orders, rewards): its Company Level</summary>
     public double LifetimeEarnings { get; set; }
+
+    /// <summary>Its Era (1.4 §11): the highest Era a town reached while it lived there; it never goes down</summary>
+    public int Era { get; set; } = 1;
+
+    /// <summary>
+    /// Whether what its levels and new buildings wait for comes from the market (2.5×) when its own spare and the Yard
+    /// don't bring it within about ten minutes (1.4 §9: "the market if you allow imports"); on by default, like the model's
+    /// player, so a level never waits for goods nobody near makes
+    /// </summary>
+    public bool WantsFromMarket { get; set; } = true;
+
+    /// <summary>What it gives the town's Wonder by itself, per good (1.4 §13)</summary>
+    public Dictionary<string, GiveMode> Give { get; init; } = new();
 
     public DistrictCoord District { get; set; }
     public int Slot { get; set; }
@@ -48,8 +58,8 @@ public sealed class Company : Entity
     /// <summary>Resources this company never sells to other companies</summary>
     public HashSet<string> NoTrade { get; init; } = new();
 
-    /// <summary>Where its XP came from: per source (buildings, upgrades, earnings...) per item (a building type...)</summary>
-    public Dictionary<string, Dictionary<string, double>> XpLog { get; init; } = new();
+    /// <summary>Where the gold it earned came from: per source (market, players, orders, rewards...) per item (a good...)</summary>
+    public Dictionary<string, Dictionary<string, double>> EarnedLog { get; init; } = new();
 
     /// <summary>Companies this one doesn't trade with (neither sells to nor buys from)</summary>
     public HashSet<long> TradeBlocked { get; init; } = new();
@@ -57,28 +67,46 @@ public sealed class Company : Entity
     /// <summary>Blocks that take effect after the notice period (an hour: the partner's tank covers it), by company</summary>
     public Dictionary<long, DateTime> PendingBlocks { get; init; } = new();
 
-    /// <summary>Who the company trades with on its pipes: everyone, its corporation, or nobody but contract partners</summary>
-    public TradeWith TradeWith { get; set; } = TradeWith.Everyone;
-
     /// <summary>Resources the company doesn't buy from other companies</summary>
     public HashSet<string> NoBuy { get; init; } = new();
 
     /// <summary>Building types this company has built at least once (for the first-time XP bonus)</summary>
     public HashSet<string> BuiltTypes { get; init; } = new();
 
-    /// <summary>Techs this company has researched</summary>
+    /// <summary>The companies it ever traded with (a new one is a key moment of its statistics)</summary>
+    public HashSet<long> TradedWith { get; init; } = new();
+
+    /// <summary>A company saved before statistics: who it trades with now fills TradedWith without moments (not saved)</summary>
+    public bool TradedWithUnknown { get; set; }
+
+    /// <summary>The Era tree items it has researched (1.4 §12, the Lab's second line)</summary>
     public HashSet<string> Researched { get; init; } = new();
 
-    /// <summary>The tech being researched now, and when it is done</summary>
+    /// <summary>The Era tree item being researched now, and when it is done</summary>
     public string? CurrentResearch { get; set; }
 
-    /// <summary>The techs to research next, in order (F11: at most five); each starts when the last is done and the points are there</summary>
+    /// <summary>The Era tree items to research next, in order (at most five); each starts when the last is done and the gold is there</summary>
     public List<string> ResearchQueue { get; set; } = new();
     public DateTime? ResearchEndsAt { get; set; }
 
-    /// <summary>The crew this company is in (v1.2 §6), and when it last left one (an extra free move once a month)</summary>
+    /// <summary>Its tiers of every track (1.4 §12, the Lab's first line)</summary>
+    public Dictionary<string, int> TrackTiers { get; init; } = new();
+
+    /// <summary>The track whose next tier is being researched now, when it is done, and the tracks next (one tier each)</summary>
+    public string? CurrentTrack { get; set; }
+    public DateTime? TrackEndsAt { get; set; }
+    public List<string> TrackQueue { get; set; } = new();
+
+    /// <summary>Its prices for other players (1.4 §8), by key: "public", "crew", "public:good", "crew:good", "for:companyId"</summary>
+    public Dictionary<string, PriceSetting> Prices { get; set; } = new();
+
+    /// <summary>The crew of the Yard this company lives at (1.4 §7)</summary>
     public long? CrewId { get; set; }
-    public DateTime? LeftCrewAt { get; set; }
+
+    /// <summary>Its "Play next to me" link (1.4 §6): the code, until when it works, and whether its first user came</summary>
+    public string? NextToMeCode { get; set; }
+    public DateTime? NextToMeUntil { get; set; }
+    public bool NextToMeUsed { get; set; }
 
     /// <summary>A guest: the player hasn't made an account yet (counts as new for every rule against alts)</summary>
     public bool IsGuest { get; set; }
@@ -86,13 +114,6 @@ public sealed class Company : Entity
     /// <summary>On how many different days the company played, and the last one (days since 1970)</summary>
     public int DistinctDays { get; set; }
     public int LastPlayedDay { get; set; }
-
-    /// <summary>The corporation this company is in, and its role there</summary>
-    public long? CorporationId { get; set; }
-    public CorporationRole Role { get; set; }
-
-    /// <summary>When it last left (or was removed from) a corporation: joining again waits a day</summary>
-    public DateTime? LeftCorporationAt { get; set; }
 
     /// <summary>The mentor of a newcomer, and the levels the mentorship rewarded already</summary>
     public long? MentorId { get; set; }
@@ -107,34 +128,12 @@ public sealed class Company : Entity
     /// <summary>Titles earned (Wonder tiers, achievements)</summary>
     public HashSet<string> Titles { get; init; } = new();
 
-    /// <summary>Franchise (GDD §8.7): Shares (+1% production each), when a franchise takes effect, how often it happened</summary>
-    public int Shares { get; set; }
-    /// <summary>No longer used (a franchise used to be announced 24 hours ahead); kept for old saves</summary>
-    public DateTime? FranchiseAt { get; set; }
-
-    /// <summary>Branch estates opened by franchising (the first estate is District/Slot)</summary>
-    public List<EstateRef> Branches { get; init; } = new();
-    public int Franchises { get; set; }
-
-    /// <summary>LifetimeEarnings at the last franchise: Shares come from what was earned since</summary>
-    public double EarningsAtFranchise { get; set; }
-
     /// <summary>The Legacy level the owner brought from earlier seasons (a free manager slot from level 5)</summary>
     public int LegacyLevel { get; set; }
 
-    /// <summary>Moving and sleeping (GDD §12): the packed estate, buildings that didn't fit, the move in progress</summary>
+    /// <summary>Moving (1.4 §18): the packed estate and the buildings that didn't fit</summary>
     public PackedEstate? Packed { get; set; }
     public List<PackedBuilding> Crates { get; init; } = new();
-    public bool Asleep { get; set; }
-
-    /// <summary>What its crew calls its player ("Ben"): the name the seat it took was kept for (F9)</summary>
-    public string? KnownAs { get; set; }
-
-    /// <summary>
-    /// The stranger next door (step 6): it came alone and lives in the small station beside a crew's, sharing their Yard
-    /// and project
-    /// </summary>
-    public bool SeatedNextDoor { get; set; }
 
     /// <summary>The return card has said once that the Yard sells its spare to neighbours by itself (run 2: "did I agree?")</summary>
     public bool YardSalesExplained { get; set; }
@@ -148,12 +147,6 @@ public sealed class Company : Entity
     /// <summary>The last "Grow everything that pays", for its hour's Undo (after run 4)</summary>
     public GrowthPurchase? LastGrowth { get; set; }
 
-    /// <summary>Refinements researched after an Era's tree (after run 3, step 6), by line: a wall ("pipes", "trading", "hubOrders") or a good</summary>
-    public Dictionary<string, int> Refinements { get; set; } = new();
-
-    /// <summary>The line its Labs refine next (null: walls first, then its best-earning good)</summary>
-    public string? RefineChoice { get; set; }
-
     /// <summary>The lines its last return card led with: one that comes back unchanged folds into "Still:" (after run 3, row 11)</summary>
     public List<string> LastCardLines { get; set; } = new();
 
@@ -163,43 +156,11 @@ public sealed class Company : Entity
     /// <summary>When its player's current (or last) session began; not stored (LastSeenAt moves on every tick they're online)</summary>
     public DateTime SessionStartedAt { get; set; }
 
-    /// <summary>When the research queue is empty and the Labs are free, the cheapest tech the points cover starts by itself</summary>
+    /// <summary>When a line's queue is empty and the player away, the cheapest research the gold covers starts by itself</summary>
     public bool KeepResearching { get; set; } = true;
-
-    /// <summary>The House that keeps an asleep company's trades going (v1.2 §9), and whether its partners heard on day 23</summary>
-    public StandIn? StandIn { get; set; }
-    public bool StandInAnnounced { get; set; }
-
-    /// <summary>When an asleep company's seat stops being held when a friend kept it longer, and whether its crew got the keep card</summary>
-    public DateTime? HoldUntil { get; set; }
-    public bool KeepAsked { get; set; }
-
-    /// <summary>Tending (v1.2 §12): who tended the estate on which day, and until when it counts as tended</summary>
-    public Dictionary<long, int> TendedBy { get; set; } = new();
-    public DateTime? TendedUntil { get; set; }
-
-    /// <summary>The seat a returner had before the Quiet Isles (its landing card)</summary>
-    public EstateKey? LastSeat { get; set; }
-
-    /// <summary>The lone-human card (v1.2 §4): days alone among the active, when it last came, whether it waits to be seen</summary>
-    public int LoneDays { get; set; }
-    public DateTime? LoneCardAt { get; set; }
-    public bool LoneCard { get; set; }
-
-    /// <summary>The league it plays in this week (null: none, in small mode or before three days of play)</summary>
-    public int? League { get; set; }
 
     /// <summary>The worth (base prices) of what it made this Era: the Era Wonder's tiers are a share of it (v1.2 §13)</summary>
     public double EraOutput { get; set; }
-
-    /// <summary>Goods whose spare goes to the station's project before the Yard (v1.2 §7): a Send to the project</summary>
-    public HashSet<string> ProjectFirst { get; set; } = new();
-
-    /// <summary>Its Sends (step 4): goods whose spare goes to a neighbour first</summary>
-    public List<GoodSend> Sends { get; set; } = new();
-
-    /// <summary>The day it last thanked each giver (once a day per pair)</summary>
-    public Dictionary<long, int> ThankedOn { get; set; } = new();
 
     /// <summary>The first gifts it was told about ("receiver:good", "project:stage:good"): each is announced once</summary>
     public HashSet<string> GiftsAnnounced { get; set; } = new();
@@ -210,9 +171,6 @@ public sealed class Company : Entity
 
     /// <summary>What it asked its station for (v1.2 §12)</summary>
     public List<CompanyAsk> Asks { get; set; } = new();
-
-    /// <summary>The starter kit a House left it (v1.2 §5): Loady counts only what the player builds</summary>
-    public HashSet<long> KitBuildings { get; set; } = new();
 
     /// <summary>When the company's current step of Loady's guide began (a step open two days shrinks to one line)</summary>
     public DateTime? TutorialStepSince { get; set; }
@@ -236,20 +194,12 @@ public sealed class Company : Entity
     /// </summary>
     public Dictionary<string, UsualTrade> UsualTrades { get; set; } = new();
 
-    /// <summary>A stranger in a crew's station is on probation for its first 14 days (v1.2 §6)</summary>
-    public DateTime? ProbationUntil { get; set; }
-
-    /// <summary>The XP multiplier while far behind the people you live with (v1.2 §10), worked out every quarter of an hour</summary>
-    public double Tailwind { get; set; } = 1;
+    /// <summary>A move in progress lands then, and when the last move was (moves wait a few minutes between them)</summary>
     public DateTime? ArrivesAt { get; set; }
     public DateTime? LastMovedAt { get; set; }
 
-    /// <summary>Free moves (after waking up, or when a district merges) and a free parcel on arrival</summary>
+    /// <summary>Moves that skip the wait between moves</summary>
     public int FreeMoves { get; set; }
-    public bool MergeBonus { get; set; }
-
-    /// <summary>Mastery steps researched after the whole tree (+0.5% output each)</summary>
-    public int Mastery { get; set; }
 
     /// <summary>The expedition that is out (GDD §11.3)</summary>
     public Expedition? Expedition { get; set; }
@@ -259,6 +209,12 @@ public sealed class Company : Entity
 
     /// <summary>Relics found by expeditions</summary>
     public HashSet<string> Relics { get; init; } = new();
+
+    /// <summary>The wilderness the company's expeditions mapped (1.4 §20): its chunks, as "x,y"; the rest is fog</summary>
+    public HashSet<string> Explored { get; init; } = new();
+
+    /// <summary>The goods it sends over a trunk line to another town's market, and the line (1.4 §20)</summary>
+    public Dictionary<string, long> Exports { get; init; } = new();
 
     /// <summary>How far the company is with Loady's guide (an index into the tutorial steps)</summary>
     public int TutorialStep { get; set; }
@@ -271,21 +227,10 @@ public sealed class Company : Entity
     public DateTime? DigStartedAt { get; set; }
     public DateTime? DigEndsAt { get; set; }
 
-    /// <summary>A swap of estates this company proposed to another one</summary>
-    public long? SwapWith { get; set; }
-
     /// <summary>Hired managers (ids), achievements and collections reached (ids), and the counters behind them</summary>
     public HashSet<string> Managers { get; init; } = new();
     public HashSet<string> Achievements { get; init; } = new();
     public Dictionary<string, double> Stats { get; init; } = new();
-
-    /// <summary>How well this company keeps its contracts (0..1, starts at 1): the stars others see</summary>
-    public double ContractScore { get; set; } = 1;
-
-    public int ContractsCompleted { get; set; }
-
-    /// <summary>Hub reputation points (daily orders, trade with the hub)</summary>
-    public double HubReputation { get; set; }
 
     /// <summary>Today's orders from the hub</summary>
     public List<DailyOrder> DailyOrders { get; set; } = new();
@@ -304,8 +249,6 @@ public sealed class DailyOrder
     public double Amount { get; set; }
     public double Delivered { get; set; }
     public double RewardGold { get; set; }
-    public double RewardXp { get; set; }
-    public double RewardReputation { get; set; }
     public DateTime ExpiresAt { get; set; }
 
     /// <summary>A Shortage order: bigger, better paid, gone when the event ends</summary>
@@ -329,20 +272,14 @@ public sealed class CompanyReport
     public int BuildingsCompleted { get; set; }
     public List<string> Notes { get; set; } = new();
     public List<string> ResearchDone { get; set; } = new();
-    public List<string> Contracts { get; set; } = new();
     public List<string> NewNeighbours { get; set; } = new();
 
-    /// <summary>On how many days a crew mate tended the estate</summary>
-    public int TendedDays { get; set; }
     public int OrdersCompleted { get; set; }
 
     /// <summary>What filled hub orders paid over the hub's price, and their goods (the return card shows them once filled)</summary>
     public double OrderGold { get; set; }
     public List<string> OrdersFilled { get; set; } = new();
     public int LikesReceived { get; set; }
-
-    /// <summary>Who thanked it for its goods ("Ana thanked you for your coal 💛"): the return card's social line</summary>
-    public List<string> Thanks { get; set; } = new();
 
     /// <summary>
     /// The books since the report began, by "partner:good" (after run 3, row 9: a card said +86.5k g against about 14k
@@ -354,16 +291,7 @@ public sealed class CompanyReport
 
     /// <summary>Crew mates who looked at its estate (after run 3, row 12: a visit leaves a line on the friend's card)</summary>
     public List<string> VisitedBy { get; set; } = new();
-
-    /// <summary>
-    /// Goods that stood a stage of a station project: its own ("your sand built a fifth of the Water Tower") and its
-    /// station's by others, strangers too (after run 4: Mia-B's wood finished the crew's Water Tower and nobody knew)
-    /// </summary>
-    public List<StoodGift> StageGifts { get; set; } = new();
 }
-
-/// <summary>A good that stood a stage: whose, which, the stage, and its share of the stage's worth</summary>
-public sealed record StoodGift(long Giver, string Good, string Stage, double Share);
 
 /// <summary>A friend's running trade that fell to under half (after run 3, row 9): both ends hear it, with its cause</summary>
 public sealed class TradeFall
@@ -388,13 +316,16 @@ public sealed class Estate : Entity
     /// <summary>Bit n is set when parcel n is unlocked</summary>
     public int UnlockedParcels { get; set; }
 
-    /// <summary>A corporation block (GDD §12.3): a free estate kept for the members of a corporation for a while</summary>
-    public long? ReservedFor { get; set; }
-    public DateTime? ReservedUntil { get; set; }
-
     public bool IsUnlocked(int parcel) => (UnlockedParcels & (1 << parcel)) != 0;
 
     public int UnlockedCount => System.Numerics.BitOperations.PopCount((uint)UnlockedParcels);
+
+    /// <summary>Bit n is set when outskirts parcel n (of the nine set aside for the plot, 1.4 §5) is bought</summary>
+    public int OutskirtsParcels { get; set; }
+
+    public bool HasOutskirts(int index) => (OutskirtsParcels & (1 << index)) != 0;
+
+    public int OutskirtsCount => System.Numerics.BitOperations.PopCount((uint)OutskirtsParcels);
 
     public bool Contains(TilePos pos) =>
         pos.X >= Origin.X && pos.Y >= Origin.Y && pos.X < Origin.X + WorldLayout.EstateSize && pos.Y < Origin.Y + WorldLayout.EstateSize;
@@ -416,6 +347,9 @@ public sealed class Building : Entity
     public int Y { get; set; }
     public int Size { get; init; } = 1;
     public int Level { get; set; } = 1;
+
+    /// <summary>What this copy cost to build (1.4 §9): its levels cost from it</summary>
+    public double Price { get; set; }
 
     /// <summary>Null when the building is finished</summary>
     public DateTime? ConstructionEndsAt { get; set; }
@@ -483,95 +417,6 @@ public sealed class Conductor : Entity
     public int Tier { get; set; } = 1;
     public long Owner { get; set; }
 
-    /// <summary>A Copper or Steel Pipe widened for gold carries this many times its tier (after run 3, step 9: 1, 2 or 4)</summary>
-    public int Widen { get; set; } = 1;
-}
-
-public enum ContractState
-{
-    Offered,
-    Active,
-    Ended,
-    Declined,
-    Cancelled,
-}
-
-/// <summary>
-/// A fixed amount per minute of a resource from a seller to a buyer at a fixed price for some days (GDD §5.7).
-/// Offered to one company, or to everyone in the district on the contract board.
-/// </summary>
-public sealed class Contract : Entity
-{
-    public long Id { get; init; }
-    public long Proposer { get; init; }
-
-    /// <summary>0 while it is an open offer on the board without a seller or buyer yet</summary>
-    public long Seller { get; set; }
-    public long Buyer { get; set; }
-    public required string Resource { get; init; }
-    public double Rate { get; init; }
-    public double Price { get; init; }
-    public double Days { get; init; }
-    public double PenaltyRate { get; init; } = 0.05;
-    public DateTime CreatedAt { get; init; }
-    public DateTime? StartedAt { get; set; }
-    public DateTime? EndsAt { get; set; }
-    public ContractState State { get; set; }
-
-    /// <summary>Delivered and expected so far (units)</summary>
-    public double Delivered { get; set; }
-    public double Expected { get; set; }
-
-    public bool IsOpen => State is ContractState.Offered or ContractState.Active;
-
-    public double Fulfillment => Expected <= 1e-9 ? 1 : Math.Min(1, Delivered / Expected);
-}
-
-public enum CorporationRole
-{
-    Member,
-    Officer,
-    Leader,
-}
-
-/// <summary>A goal for a corporation's week: deliver an amount of a resource together</summary>
-public sealed class CorporationGoal
-{
-    public required string Resource { get; set; }
-    public double Amount { get; set; }
-    public double Delivered { get; set; }
-    public double RewardGold { get; set; }
-    public DateTime EndsAt { get; set; }
-    public Dictionary<long, double> Contributions { get; init; } = new();
-    public bool Rewarded { get; set; }
-}
-
-/// <summary>A corporation (GDD §9.2): up to 30 companies with a treasury, an HQ with perks and weekly goals</summary>
-public sealed class Corporation : Entity
-{
-    public long Id { get; init; }
-    public required string Name { get; set; }
-    public required string Tag { get; set; }
-    public required string Color { get; set; }
-    public DistrictCoord District { get; init; }
-    public DateTime CreatedAt { get; init; }
-    public double Treasury { get; set; }
-
-    /// <summary>Share of members' trade income that goes to the treasury (0..0.1)</summary>
-    public double Tax { get; set; }
-
-    public int HqLevel { get; set; } = 1;
-
-    /// <summary>The resource the level 2 perk boosts</summary>
-    public string? PerkResource { get; set; }
-
-    public string Description { get; set; } = "";
-
-    /// <summary>Companies that asked to join, and companies invited</summary>
-    public HashSet<long> Applications { get; init; } = new();
-    public HashSet<long> Invites { get; init; } = new();
-
-    public CorporationGoal? Goal { get; set; }
 }
 
 /// <summary>A building in a crate or a packed estate: where it stood (relative to the estate), its level and contents</summary>
@@ -581,6 +426,10 @@ public sealed class PackedBuilding
     public int Dx { get; init; }
     public int Dy { get; init; }
     public int Level { get; init; } = 1;
+
+    /// <summary>What the copy cost (its levels cost from it), and its id before it was packed (its level goods follow it)</summary>
+    public double Price { get; init; }
+    public long OldId { get; init; }
     public Dictionary<string, double> Contents { get; init; } = new();
     public HashSet<string> Imports { get; init; } = new();
     public HashSet<string> Filter { get; init; } = new();
@@ -590,6 +439,9 @@ public sealed class PackedBuilding
 /// <summary>An estate packed up for a move or for the Quiet Isles: nothing is lost</summary>
 public sealed class PackedEstate
 {
+    /// <summary>The side of its Yard the plot lay on: unpacked on another side, the layout turns to face its new Yard</summary>
+    public PlotSide Side { get; init; }
+
     public int UnlockedParcels { get; init; }
     public List<PackedBuilding> Buildings { get; init; } = new();
     public List<PackedPipe> Pipes { get; init; } = new();
@@ -603,10 +455,14 @@ public sealed record Expedition(int Hours, DateTime StartedAt, DateTime EndsAt);
 /// <summary>An estate by its district and slot (saved with the company)</summary>
 public sealed record EstateRef(int DistrictX, int DistrictY, int Slot);
 
-/// <summary>Who a company trades with on its pipes (contracts always go through)</summary>
-public enum TradeWith
+/// <summary>What a company gives the town's Wonder of a good by itself (1.4 §13), after its own buildings, links and Yard</summary>
+public enum GiveMode
 {
-    Everyone,
-    Corporation,
-    Contracts,
+    Off,
+
+    /// <summary>What the market would pay least for: the spare beyond its Hub Order</summary>
+    BeyondHubOrder,
+
+    /// <summary>All of its spare</summary>
+    All,
 }

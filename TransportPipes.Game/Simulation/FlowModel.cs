@@ -26,8 +26,6 @@ public sealed class FlowNode
     /// <summary>0..1: 0 while under construction, 0.5 when damaged, ...</summary>
     public double MaxRate { get; init; } = 1;
 
-    public double ResearchPerMinute { get; init; }
-
     /// <summary>Storage: false when it is full</summary>
     public bool StorageCanAccept { get; init; } = true;
 
@@ -43,9 +41,6 @@ public sealed class FlowNode
     /// <summary>Storage: whether it takes more of a resource</summary>
     public bool StorageTakes(string resource) => StorageCanAccept && (StorageWants == null || StorageWants.Contains(resource));
 
-    /// <summary>Trading post: units per minute it can sell plus import</summary>
-    public double Throughput { get; init; }
-
     /// <summary>Trading post: extra on the hub buy price (0.05 = 5%)</summary>
     public double PriceBonus { get; init; }
 
@@ -60,11 +55,9 @@ public sealed class FlowNode
         In = In,
         Out = Out,
         MaxRate = maxRate,
-        ResearchPerMinute = ResearchPerMinute,
         StorageCanAccept = StorageCanAccept,
         StorageContents = StorageContents,
         StorageWants = StorageWants,
-        Throughput = Throughput,
         PriceBonus = PriceBonus,
         Imports = Imports,
     };
@@ -102,24 +95,12 @@ public sealed class FlowMarket
     /// <summary>Whether two different companies may trade (settings, gold)</summary>
     public Func<long, long, string, bool> TradeAllowed { get; init; } = (_, _, _) => true;
 
-    /// <summary>Active contracts: delivered before open trade, at their own price, up to their rate</summary>
-    public IReadOnlyList<FlowContract> Contracts { get; init; } = [];
-
-    /// <summary>Members of a corporation (HQ level 1) trade with each other whatever the buyer's maximum price</summary>
-    public Func<long, long, bool> IgnoreMaxPrice { get; init; } = (_, _) => false;
-
     /// <summary>Whether two different companies may trade over this link (the gates on its path)</summary>
     public Func<FlowLink, long, long, string, bool> LinkTradeAllowed { get; init; } = (_, _, _, _) => true;
 }
 
-/// <summary>A contract the solver serves: the seller delivers up to Rate per minute of a resource to the buyer at Price</summary>
-public sealed record FlowContract(long Id, long Seller, long Buyer, string Resource, double Rate, double Price);
-
 public enum FlowKind
 {
-    /// <summary>Between two companies under a contract, at the contract price</summary>
-    Contract,
-
     /// <summary>Between buildings of the same company</summary>
     Internal,
 
@@ -153,8 +134,6 @@ public sealed class FlowSolution
     /// <summary>Gold per minute per company (hub sales and trades minus imports and purchases)</summary>
     public required IReadOnlyDictionary<long, double> GoldPerMinute { get; init; }
 
-    public required IReadOnlyDictionary<long, double> ResearchPerMinute { get; init; }
-
     /// <summary>Net change per minute of every storage, per resource</summary>
     public required IReadOnlyDictionary<long, IReadOnlyDictionary<string, double>> StorageNet { get; init; }
 
@@ -165,7 +144,6 @@ public sealed class FlowSolution
         Rates = new Dictionary<long, double>(),
         Flows = [],
         GoldPerMinute = new Dictionary<long, double>(),
-        ResearchPerMinute = new Dictionary<long, double>(),
         StorageNet = new Dictionary<long, IReadOnlyDictionary<string, double>>(),
     };
 }

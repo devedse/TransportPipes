@@ -74,11 +74,8 @@ public enum AdvisorAction
     /// <summary>The pipe tool, at Building</summary>
     Connect,
 
-    /// <summary>Opens Hub › Wonders (the Era Wonder's goods to order)</summary>
+    /// <summary>Opens the Hub at your town and its Wonder (the goods to give)</summary>
     Wonder,
-
-    /// <summary>Opens the station's project, its storey's Give (after run 4)</summary>
-    Storey,
 }
 
 /// <summary>
@@ -181,8 +178,13 @@ public sealed partial class GameWorld
                 && MaterialsLine(company, definition) is { Short.Count: > 0 } waits)
             {
                 var once = $" once its {Join(waits.Short.Keys.Select(GoodsWord).ToList())} {(waits.Short.Count == 1 && !GoodsWord(waits.Short.Keys.First()).EndsWith('s') ? "is" : "are")} in";
-                var reason = System.Text.RegularExpressions.Regex.Replace(step.Reason, @", back in [^.:]+", once);
+                var reason = System.Text.RegularExpressions.Regex.Replace(step.Reason, @", pays for itself in [^.:;]+", once);
                 step = step with { Reason = reason == step.Reason ? $"{step.Reason.TrimEnd('.')}{once}." : reason };
+                // 1.4 §9: the market brings them within minutes at 2.5× (unless the player turned that off): part of its price
+                if (company.WantsFromMarket)
+                {
+                    step = step with { Cost = step.Cost + Math.Ceiling(waits.Short.Sum(t => t.Value * WantMarketPrice(company, t.Key))) };
+                }
             }
             var score = step.Kind switch
             {
@@ -306,7 +308,7 @@ public sealed partial class GameWorld
             .Where(t => t.Value.Consumers.Count > 0 && t.Value.Needed - t.Value.Got > Math.Max(0.05, t.Value.Needed * 0.05))
             .Select(t => t.Key)
             .ToHashSet();
-        var post = network.Buildings.Select(t => _buildings[t]).Any(t => t.Owner == company.Id && Content.Building(t.Type).Kind == BuildingKind.TradingPost && !TradingPostFull(t));
+        var post = network.Buildings.Select(t => _buildings[t]).Any(t => t.Owner == company.Id && Content.Building(t.Type).Kind == BuildingKind.TradingPost);
         var value = new Dictionary<string, double>();
         foreach (var resource in network.Buildings.SelectMany(t => Content.Building(_buildings[t].Type).Out.Keys.Concat(Content.Building(_buildings[t].Type).In.Keys)).Distinct())
         {
@@ -344,10 +346,7 @@ public sealed partial class GameWorld
         var values = ValuesOf(network, company);
         if (changed.Kind == FlowNodeKind.TradingPost && old != null)
         {
-            // A full trading post sells more: about half its extra throughput finds something to sell
-            var sold = network.Solution.Flows.Where(t => t.To == old.Id && t.Kind == FlowKind.Sale).ToList();
-            var price = sold.Count > 0 ? sold.Sum(t => t.Delivered * t.PricePerUnit) / Math.Max(1e-9, sold.Sum(t => t.Delivered)) : 0;
-            return TradingPostFull(_buildings[old.Id]) ? (changed.Throughput - old.Throughput) * price * 0.5 : 0;
+            return 0;
         }
         var gain = 0.0;
         var share = 1.0;
@@ -366,7 +365,12 @@ public sealed partial class GameWorld
         }
         foreach (var (resource, amount) in changed.Out)
         {
-            gain += (amount - (old?.Out.GetValueOrDefault(resource) ?? 0)) * values.Value.GetValueOrDefault(resource);
+            // A good the network doesn't make yet sells at the company's trading post, at what its Hub Order still takes
+            var worth = values.Value.TryGetValue(resource, out var known) ? known
+                : network.Buildings.Any(t => _buildings[t].Owner == company.Id && Content.Building(_buildings[t].Type).Kind == BuildingKind.TradingPost)
+                    ? HubOrderValue(company, resource, amount - (old?.Out.GetValueOrDefault(resource) ?? 0))
+                    : 0;
+            gain += (amount - (old?.Out.GetValueOrDefault(resource) ?? 0)) * worth;
         }
         gain *= Math.Max(0, share);
         if (old != null && values.OnFullLinks.Contains(old.Id))
@@ -390,6 +394,21 @@ public sealed partial class GameWorld
         return leaving + unused;
     }
 
+    /// <summary>What a company's Hub Order for a good still takes a minute beyond what it sells there now (1.4 §8)</summary>
+    private double HubOrderRoom(Company company, string resource) =>
+        Math.Max(0, HubOrder(company, resource) - HubMarketOf(company, company.District).SoldRate.GetValueOrDefault(resource));
+
+    /// <summary>
+    /// What a unit of more of a good brings at the company's market: the full price while its Hub Order has room, about
+    /// half the price beyond it (the square-root curve's margin)
+    /// </summary>
+    private double HubOrderValue(Company company, string resource, double units)
+    {
+        var price = HubBuyPrice(company, resource);
+        var room = HubOrderRoom(company, resource);
+        return units <= 1e-9 ? price : price * (Math.Min(units, room) + Math.Max(0, units - room) * 0.5) / units;
+    }
+
     /// <summary>What flows over the full links of a network is worth a minute</summary>
     private double FullLinkValue(Network network, IEnumerable<FlowLink> full)
     {
@@ -411,8 +430,6 @@ public sealed partial class GameWorld
             In = node.In,
             Out = node.Out,
             MaxRate = node.MaxRate,
-            ResearchPerMinute = node.ResearchPerMinute,
-            Throughput = node.Throughput,
             PriceBonus = node.PriceBonus,
             Imports = node.Imports,
         } : null;
@@ -431,7 +448,16 @@ public sealed partial class GameWorld
         return _spots[(definition.Id, near)] = SearchSpot(company, definition, near);
     }
 
-    private TilePos? SearchSpot(Company company, BuildingDefinition definition, TilePos near)
+    /// <summary>
+    /// The best spot: a building that mines nothing stays off deposits while other land is free (B13's bot: Solar Panels
+    /// and factories took the plot's iron tiles, so it had 13 Iron Mines where the model has 36, and "Show me" did the same)
+    /// </summary>
+    private TilePos? SearchSpot(Company company, BuildingDefinition definition, TilePos near) =>
+        definition.Placement.Deposit == null
+            ? SearchSpot(company, definition, near, offDeposits: true) ?? SearchSpot(company, definition, near, offDeposits: false)
+            : SearchSpot(company, definition, near, offDeposits: false);
+
+    private TilePos? SearchSpot(Company company, BuildingDefinition definition, TilePos near, bool offDeposits)
     {
         if (EstateOf(company) is not { } estate)
         {
@@ -446,6 +472,15 @@ public sealed partial class GameWorld
                 tiles.AddRange(ParcelTiles(estate, parcel));
             }
         }
+        // And the outskirts it bought (1.4 §5)
+        for (var parcel = 0; parcel < WorldLayout.OutskirtsParcels(estate.Slot).Count; parcel++)
+        {
+            if (estate.HasOutskirts(parcel))
+            {
+                tiles.AddRange(OutskirtsTiles(estate, parcel));
+            }
+        }
+        var reach = PipeReach(company, estate);
         TilePos? best = null;
         var bestScore = double.MinValue;
         var found = 0;
@@ -454,7 +489,11 @@ public sealed partial class GameWorld
                      && (definition.Placement.Deposit == null || DepositMatches(definition.Placement.Deposit, info.Deposit)))
                      .OrderBy(t => Distance(t, near)).Take(300))
         {
-            if (!CanPlace(company, definition, pos).Success)
+            // Somewhere a pipe from the company's network can reach it (B13's bot: on a full plot every spot it was shown had
+            // a free tile beside it but no way through, so it built, couldn't pipe, and took it back for days)
+            if ((offDeposits && Footprint(pos, definition.Size).Any(t => Tile(t).Deposit != null))
+                || !CanPlace(company, definition, pos).Success
+                || !BorderTiles(pos, definition.Size).Any(reach.Contains))
             {
                 continue;
             }
@@ -471,6 +510,46 @@ public sealed partial class GameWorld
             }
         }
         return best;
+    }
+
+    /// <summary>
+    /// Where a new pipe can run from a company's pipes, gates and trading posts: its own plot (bought or not) and outskirts,
+    /// over free land, not mountains (water takes a bridge)
+    /// </summary>
+    private HashSet<TilePos> PipeReach(Company company, Estate estate)
+    {
+        bool Land(TilePos t) => (estate.Contains(t) || OwnsOutskirts(company, t)) && !IsOccupied(t) && Tile(t).Terrain != TerrainType.Mountain;
+        var reach = new HashSet<TilePos>();
+        var queue = new Queue<TilePos>();
+        foreach (var conductor in _conductors.Values.Where(t => t.Owner == company.Id && t.Kind is ConductorKind.Pipe or ConductorKind.Gate))
+        {
+            if (reach.Add(conductor.Pos))
+            {
+                queue.Enqueue(conductor.Pos);
+            }
+        }
+        foreach (var post in BuildingsOf(company.Id).Where(t => Content.Building(t.Type).Kind == BuildingKind.TradingPost))
+        {
+            foreach (var tile in BorderTiles(post.Position, post.Size).Where(Land))
+            {
+                if (reach.Add(tile))
+                {
+                    queue.Enqueue(tile);
+                }
+            }
+        }
+        while (queue.TryDequeue(out var tile))
+        {
+            foreach (var next in new[] { tile.Offset(1, 0), tile.Offset(-1, 0), tile.Offset(0, 1), tile.Offset(0, -1) })
+            {
+                if (!reach.Contains(next) && Land(next))
+                {
+                    reach.Add(next);
+                    queue.Enqueue(next);
+                }
+            }
+        }
+        return reach;
     }
 
     // ---------------------------------------------------------------- The kinds of steps
@@ -502,28 +581,15 @@ public sealed partial class GameWorld
         {
             return;
         }
-        var hour = 60 * Math.Max(MinMeasuredIncome, income);
-        // The station's storey first: the shared goal after the Landmark
-        if (EstateOf(company) is { } home && ExistingProject(home.Station) is { Stage: ProjectStage.Storey } storey && PurseLeft(storey) >= 1)
-        {
-            add(new AdvisorStep(AdvisorKind.Shared, $"Give to your Landmark's storey {storey.Storeys + 1}: its purse wants {Gold(PurseLeft(storey))} more",
-                $"An hour of your income is {Gold(hour)}, a day {Gold(24 * hour)}; anyone gives as often as they like, named in hours of their own income. Each storey makes the station's pipes carry 10% more.",
-                AdvisorAction.Storey, Math.Min(hour, PurseLeft(storey)), 0), 1.3);
-        }
-        if (company.District != Capital || EraWonder is not { Finished: false } wonder || Unsized(wonder))
-        {
-            return;
-        }
-        var best = wonder.Required.Keys.Select(t => (Good: t, Offer: WonderOrderOffer(t))).Where(t => t.Offer != null).OrderByDescending(t => t.Offer!.Value.Cost).FirstOrDefault();
-        if (best.Offer is not { } offer)
+        var all = BuyAndGiveCost(company);
+        if (!WondersGiving || WonderOf(company.District) is not { FullAt: null } wonder || all <= 0)
         {
             return;
         }
         var name = WonderDefinition(wonder).Name;
-        var day = Math.Min(offer.Cost, 24 * 60 * Math.Max(MinMeasuredIncome, income));
-        var who = WonderMakers(best.Good).Count > 0 ? "half of it comes by pipe; the other half may be ordered" : $"nobody here makes {GoodsWord(best.Good)}, so all of it may be ordered";
-        add(new AdvisorStep(AdvisorKind.Shared, $"Give to {name}: it wants {Amount(offer.Units)} {GoodsWord(best.Good)}",
-            $"{char.ToUpperInvariant(who[0])}{who[1..]}: a day of your income orders {Gold(day)} of it, all of it costs {Gold(offer.Cost)}. Each stage lifts the Capital's pipes.",
+        var day = Math.Min(all, 24 * 60 * Math.Max(MinMeasuredIncome, income));
+        add(new AdvisorStep(AdvisorKind.Shared, $"Give to {name}: its stage {wonder.Stage + 1} wants {Gold(Worth(wonder.Required.ToDictionary(t => t.Key, t => WonderLacks(wonder, t.Key))))} of goods",
+            $"Buy and give: a day of your income buys {Gold(day)} of its goods at the market; all of it costs {Gold(all)}. Its last stage brings your town's next Era.",
             AdvisorAction.Wonder, day, 0), 1.2);
     }
 
@@ -537,16 +603,15 @@ public sealed partial class GameWorld
         var near = NearPlayers(company);
         bool Made(string good) => near.Any(c => BuildingsOf(c.Id).Any(b => Content.Building(b.Type).Out.ContainsKey(good)));
         var waits = new List<(string Good, string Who, double Units, bool Friend)>();
-        foreach (var want in WantsNear(company).Where(t => !t.Makes && t.Want.Order == null && !Made(t.Want.Resource)))
+        foreach (var want in WantsNear(company).Where(t => !t.Makes && !Made(t.Want.Resource)))
         {
             waits.Add((want.Want.Resource, $"{PossessiveFor(want.Owner, company)} {want.Name}", want.Want.Left, true));
         }
-        if (company.District == Capital && EraWonder is { Finished: false } wonder && !Unsized(wonder))
+        if (WondersGiving && WonderOf(company.District) is { FullAt: null } wonder)
         {
-            foreach (var (good, required) in wonder.Required.Where(t => !Made(t.Key)))
+            foreach (var good in wonder.Required.Keys.Where(t => !Made(t)))
             {
-                var left = required - wonder.Delivered.GetValueOrDefault(good) - wonder.Orders.Where(o => o.Resource == good).Sum(o => o.Units - o.Shipped);
-                if (left >= 1)
+                if (WonderLacks(wonder, good) is >= 1 and var left)
                 {
                     waits.Add((good, $"the {WonderDefinition(wonder).Name.Replace("The ", "")}", left, false));
                 }
@@ -614,7 +679,7 @@ public sealed partial class GameWorld
                 case PipeDoorKind.Locked:
                     // The better pipe needs research the Lab can do now (before the grant)
                     var tier = Content.PipeTier(door.Tier);
-                    if (tier.Research != null && Content.Research.TryGetValue(tier.Research, out var tech) && ResearchBlocker(company, tech) == null && ResearchCost(company, tech) <= company.ResearchPoints)
+                    if (tier.Research != null && Content.Research.TryGetValue(tier.Research, out var tech) && ResearchBlocker(company, tech) == null && ResearchCost(company, tech) <= company.Gold)
                     {
                         add(new AdvisorStep(AdvisorKind.Pipes, title,
                             $"Research {tech.Name}: {Plural(tier.Name, 2)} carry {Amount(tier.Throughput)} a minute{(tech.Grant > 0 ? $" (yours anyway at Company Level {tech.Grant})" : "")}.",
@@ -625,7 +690,7 @@ public sealed partial class GameWorld
                     if (door.OrderCost is { } order)
                     {
                         add(new AdvisorStep(AdvisorKind.Pipes, $"{door.Text}",
-                            $"{door.Source}. Order them: the hub brings them over six hours, then the pipe is laid.",
+                            $"{door.Source}. Buy the rest from the market: the pipe is laid at once.",
                             AdvisorAction.Climb, order, door.Gain, Network: network.Id, Building: building.Id, At: new TilePos(building.X, building.Y)), 1.2);
                     }
                     break;
@@ -838,62 +903,84 @@ public sealed partial class GameWorld
 
     private void ResearchStep(Company company, Action<AdvisorStep, double> add, double income, IReadOnlyList<Network> networks)
     {
-        if (!BuildingsOf(company.Id).Any(t => Content.Building(t.Type).ResearchPerMinute > 0))
+        if (!HasLab(company))
         {
-            // No research at all: techs add output and unlock better pipes, so a Lab comes first (more so with full pipes),
-            // once the company makes what it uses: run 2's Labs sat at 0% without ingots. It stands beside the building
-            // that makes them, so one short pipe feeds it.
+            // No research at all: tracks make a chain faster and leaner, the Era tree opens better pipes, so a Lab comes
+            // first (more so with full pipes). It stands beside the trading post.
             var post = BuildingsOf(company.Id).FirstOrDefault(t => Content.Building(t.Type).Kind == BuildingKind.TradingPost);
-            var lab = Content.BuildingList.FirstOrDefault(t => t.Buildable && t.ResearchPerMinute > 0 && IsUnlocked(company, t, out _));
-            var makers = lab?.In.Keys.Where(t => t != "energy")
-                .Select(good => BuildingsOf(company.Id).FirstOrDefault(b => !b.UnderConstruction && Content.Building(b.Type).Out.ContainsKey(good)))
-                .ToList() ?? [];
-            if (post != null && lab != null && makers.All(t => t != null)
-                && FindSpot(company, lab, (makers.FirstOrDefault() ?? post).Position) is { } spot)
+            var lab = Content.BuildingList.FirstOrDefault(t => t.Buildable && t.Kind == BuildingKind.Lab && IsUnlocked(company, t, out _));
+            if (post != null && lab != null && BuildingsOf(company.Id).All(t => Content.Building(t.Type).Kind != BuildingKind.Lab)
+                && FindSpot(company, lab, post.Position) is { } spot)
             {
-                var fullPipes = networks.Any(t => FullLinks(t).Count > 0);
-                add(new AdvisorStep(AdvisorKind.Research, fullPipes ? $"Build {Article(lab.Name)}: your pipes are full, better ones need research" : $"Build {Article(lab.Name)}: research makes everything better",
-                    $"Techs add output to your buildings and unlock better pipes. {Article(lab.Name)} turns {string.Join(" and ", lab.In.Keys.Select(ResourceWord))} into research points.",
+                // Full pipes need research only when they are the best pipe you may lay (a grey one waits for copper,
+                // which Level 8 gives: its pipe door is the way, not a Lab)
+                var bestPipe = Content.PipeTiers.Where(t => t.Era <= YourEra(company) && (t.Research == null || HasResearch(company, t.Research))).Max(t => t.Throughput);
+                var fullPipes = networks.Any(t => FullLinks(t).Any(link => link.Capacity >= bestPipe * 0.999));
+                add(new AdvisorStep(AdvisorKind.Research, fullPipes ? $"Build {Article(lab.Name)}: your pipes are full, better ones need research" : $"Build {Article(lab.Name)}: research makes your chains better",
+                    $"{Article(lab.Name)} has two lines: a track makes one chain faster and leaner tier by tier, the Era tree opens better pipes.",
                     AdvisorAction.Build, BuildCost(company, lab), Math.Max(1, income * 0.05), BuildingType: lab.Id, At: spot), fullPipes ? 2 : 1);
             }
             return;
         }
-        if (company.CurrentResearch != null)
+        // The second line: the Era tree, cheapest first (copper pipes before anything)
+        if (company.CurrentResearch == null && company.ResearchQueue.Count == 0
+            && Content.ResearchList.Where(t => ResearchBlocker(company, t) == null).OrderBy(t => ResearchCost(company, t)).FirstOrDefault() is { } tech
+            && ResearchCost(company, tech) <= company.Gold)
+        {
+            add(new AdvisorStep(AdvisorKind.Research, $"Research {tech.Name} on your Lab's second line",
+                $"{tech.Description.TrimEnd('.')} · {Minutes(tech.Minutes)}, {Gold(ResearchCost(company, tech))}.",
+                AdvisorAction.Research, ResearchCost(company, tech), Math.Max(1, income * 0.02), Research: tech.Id), 1);
+        }
+        // The first line: the track tier that adds the most gold a minute
+        if (company.CurrentTrack != null || company.TrackQueue.Count != 0)
         {
             return;
         }
-        // What each startable tech would add to what the company's buildings make now, in gold
-        var made = new List<(Building Building, BuildingDefinition Definition, string Resource, double Value)>();
+        var best = Content.TrackList
+            .Where(t => TierBlocker(company, t) == null && NextTier(company, t) is not null)
+            .Select(t => (Track: t, Tier: NextTier(company, t)!.Value, Gain: TierGain(company, t)))
+            .OrderByDescending(t => t.Gain).ThenBy(t => TierCost(company, t.Track, t.Tier).Total)
+            .FirstOrDefault();
+        if (best.Track == null || TierCost(company, best.Track, best.Tier) is var cost && cost.Total > company.Gold)
+        {
+            return;
+        }
+        var effect = Content.TrackRules.Tiers[best.Tier - 1];
+        var what = effect.Effect switch
+        {
+            TierEffect.Faster or TierEffect.Master => $"its buildings work {effect.Amount:0.##}× as fast",
+            TierEffect.Leaner => $"its buildings need {1 - effect.Amount:P0} less",
+            TierEffect.Complexes => "complexes: four of its buildings in a square make as much as five",
+            _ => "mega complexes: nine in a square make as much as twelve",
+        };
+        add(new AdvisorStep(AdvisorKind.Research, $"Research {best.Track.Name} tier {best.Tier}",
+            $"{char.ToUpperInvariant(what[0])}{what[1..]}{(best.Gain > 0.05 ? $" (about +{Gold(best.Gain)}/min)" : "")} · {Minutes(effect.Minutes)}, {Gold(cost.Total)}.",
+            AdvisorAction.Research, cost.Total, best.Gain, Research: best.Track.Id), 1);
+    }
+
+    /// <summary>About what a track's next tier adds a minute: its buildings' net output at hub prices, by how much more they'd make</summary>
+    public double TierGain(Company company, TrackDefinition track)
+    {
+        if (NextTier(company, track) is not { } tier)
+        {
+            return 0;
+        }
+        var gain = 0.0;
         foreach (var building in BuildingsOf(company.Id))
         {
-            if (NetworkOf(building.Id) is not { } network || ToFlowNode(building) is not { } node)
+            if (TrackOf(building).Track?.Id != track.Id || NetworkOf(building.Id) is not { } network || ToFlowNode(building) is not { } node)
             {
                 continue;
             }
             var rate = network.Solution.Rate(building.Id);
-            foreach (var (resource, amount) in node.Out)
-            {
-                made.Add((building, Content.Building(building.Type), resource, rate * amount * HubBuyPrice(Company(network.Owner), network.District, resource)));
-            }
+            var made = node.Out.Sum(t => t.Value * HubBuyPrice(company, t.Key)) * rate;
+            var used = node.In.Sum(t => t.Value * HubBuyPrice(company, t.Key)) * rate;
+            var now = TrackFactors(building);
+            var next = TrackFactors(building, tier);
+            gain += (made - used) * (next.Faster * next.PowerFree * next.Big / (now.Faster * now.PowerFree * now.Big) - 1)
+                + used * next.Faster / now.Faster * (1 - next.Leaner / now.Leaner);
         }
-        var best = Content.ResearchList
-            .Where(t => ResearchBlocker(company, t) == null && ResearchCost(company, t) <= company.ResearchPoints)
-            .Select(t => (Tech: t, Helps: made.Where(m => t.OutputBonuses.Any(b => b.Applies(m.Definition, m.Resource))).ToList()))
-            .Select(t => (t.Tech, t.Helps, Gain: t.Helps.Sum(m => m.Value * t.Tech.OutputBonuses.Where(b => b.Applies(m.Definition, m.Resource)).Sum(b => b.Amount))))
-            .OrderByDescending(t => t.Gain).ThenBy(t => ResearchCost(company, t.Tech))
-            .FirstOrDefault();
-        if (best.Tech == null)
-        {
-            return;
-        }
-        var bonus = best.Tech.OutputBonuses.FirstOrDefault();
-        var helped = best.Helps.Select(t => t.Building.Id).Distinct().Count();
-        var what = bonus != null && helped > 0
-            ? $"+{bonus.Amount:P0} for {helped} of your buildings" + (best.Gain > 0.05 ? $" (+{Gold(best.Gain)}/min)" : "")
-            : best.Tech.Description.TrimEnd('.');
-        add(new AdvisorStep(AdvisorKind.Research, $"Pick a research: {best.Tech.Name}",
-            $"{what} · you have {Amount(company.ResearchPoints)} points and your labs are idle.",
-            AdvisorAction.Research, 0, best.Gain, Research: best.Tech.Id), 1);
+        return Math.Max(0, gain);
     }
 
     private void UpgradeSteps(Company company, List<Network> networks, Func<Network, double> baseGold, Action<AdvisorStep, double> add)
@@ -905,13 +992,12 @@ public sealed partial class GameWorld
             .Where(t => t.Building.Owner == company.Id && CanUpgrade(t.Building) && Content.Building(t.Building.Type) is { Kind: BuildingKind.Producer or BuildingKind.TradingPost } d && (d.Out.Count > 0 || d.Kind == BuildingKind.TradingPost))
             .GroupBy(t => (t.Network.Id, t.Building.Type, t.Building.Level, Math.Round(LocationMultiplier(t.Building, Content.Building(t.Building.Type)), 2)))
             .Select(t => t.First())
-            .OrderByDescending(t => TradingPostFull(t.Building) ? 1 : 0)
-            .ThenByDescending(t => t.Network.Solution.Rate(t.Building.Id))
+            .OrderByDescending(t => t.Network.Solution.Rate(t.Building.Id))
             .Take(40)
             .ToList();
         // Producers that sell a lot first: their upgrades are worth measuring (a big network solves slowly)
-        candidates = candidates.OrderByDescending(t => TradingPostFull(t.Building) ? 1 : 0)
-            .ThenByDescending(t => t.Network.Solution.Flows.Where(f => f.From == t.Building.Id).Sum(f => f.Delivered * Math.Max(f.PricePerUnit, HubBuyPrice(Company(t.Network.Owner), t.Network.District, f.Resource))))
+        candidates = candidates
+            .OrderByDescending(t => t.Network.Solution.Flows.Where(f => f.From == t.Building.Id).Sum(f => f.Delivered * Math.Max(f.PricePerUnit, HubBuyPrice(Company(t.Network.Owner), t.Network.District, f.Resource))))
             .ToList();
         foreach (var (network, building) in candidates)
         {
@@ -920,15 +1006,17 @@ public sealed partial class GameWorld
                 continue;
             }
             var definition = Content.Building(building.Type);
-            var full = TradingPostFull(building);
-            // One level, or straight to the next milestone when it is close (it doubles the output)
-            var milestone = progression.Milestones.Where(t => t > building.Level && t <= building.Level + 15 && t <= progression.MaxBuildingLevel).DefaultIfEmpty(0).Min();
+            var from = BoughtLevel(building);
             var best = (Levels: 0, Gain: 0.0, Cost: 0.0);
-            foreach (var levels in milestone > 0 ? new[] { 1, milestone - building.Level } : [1])
+            // One level, or five at once
+            foreach (var levels in new[] { 1, Math.Min(5, progression.MaxBuildingLevel - from) }.Where(t => t >= 1).Distinct())
             {
-                var cost = UpgradeCost(building, levels);
-                var up = ToFlowNode(building, building.Level + levels);
-                var gain = Estimated(network)
+                // Its goods from level 11 count at what they'd cost (1.4 §9): its own at their worth, a neighbour's at their
+                // price, the market's at 2.5×
+                var cost = UpgradeCost(building, levels) + StepGoodsCost(building, levels);
+                var up = ToFlowNode(building, from + levels);
+                var gain = definition.Kind == BuildingKind.TradingPost ? PostLevelGain(company, from + levels - building.Level)
+                    : Estimated(network)
                     ? EstimateChange(network, company, ToFlowNode(building), up)
                     : WhatIfGold(network, company.Id, t => t.Id == building.Id && up != null ? WithPumps(network, [up])[0] : t) - baseGold(network);
                 if (gain > 0.01 && (best.Levels == 0 || gain / cost > best.Gain / best.Cost))
@@ -940,18 +1028,15 @@ public sealed partial class GameWorld
             {
                 continue;
             }
-            var target = building.Level + best.Levels;
+            var target = from + best.Levels;
             // Which one, when there are several (run 2: Cleo read the step for her second Wind Moily as the first's)
             var same = BuildingsOf(company.Id).Where(t => t.Type == building.Type).OrderBy(t => t.Id).ToList();
             var name = same.Count > 1 ? $"your {Ordinal(same.FindIndex(t => t.Id == building.Id) + 1)} {definition.Name}" : definition.Name;
             var payback = best.Cost / best.Gain;
-            var why = progression.Milestones.Contains(target) ? $"Level {target} doubles it" : "Every level makes 10% more";
-            add(new AdvisorStep(full ? AdvisorKind.Full : AdvisorKind.Upgrade,
-                full ? $"Your {name} sells all it can" : $"Upgrade {name} to level {target}",
-                full ? $"Upgrade it to level {target}: {Plus(network, best.Gain)} for {Gold(best.Cost)}, back in {Minutes(payback)}."
-                    : $"{why}: {Plus(network, best.Gain)} for {Gold(best.Cost)}, back in {Minutes(payback)}.",
-                AdvisorAction.Upgrade, best.Cost, best.Gain, Building: building.Id, BuildingType: building.Type, Levels: best.Levels, At: building.Position),
-                full ? 1.5 : 1);
+            var why = definition.Kind == BuildingKind.TradingPost ? "Every level raises all your Hub Orders by 10%" : "Every level makes 10% more";
+            add(new AdvisorStep(AdvisorKind.Upgrade, $"Upgrade {name} to level {target}",
+                $"{why}: {Plus(network, best.Gain)} for {Gold(best.Cost)}, pays for itself in {Minutes(payback)}.",
+                AdvisorAction.Upgrade, best.Cost, best.Gain, Building: building.Id, BuildingType: building.Type, Levels: best.Levels, At: building.Position), 1);
         }
     }
 
@@ -971,7 +1056,21 @@ public sealed partial class GameWorld
         var main = networks.OrderByDescending(t => t.Buildings.Count(b => _buildings[b].Owner == company.Id && Content.Building(_buildings[b].Type).Kind == BuildingKind.TradingPost))
             .ThenByDescending(t => t.Buildings.Count).First();
         var evaluated = 0;
-        foreach (var definition in Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.Count > 0 && IsUnlocked(company, t, out _)))
+        // The room left in a good's Hub Order by what the posts sell now (the hour's average lags behind a growing plot)
+        var selling = SellingNow(company);
+        double Room(string resource) => Math.Max(0, HubOrder(company, resource)
+            - Math.Max(HubMarketOf(company, company.District).SoldRate.GetValueOrDefault(resource), selling.GetValueOrDefault(resource)));
+        // An input the company makes is worth what selling it brings now: the full price within its Hub Order, a quarter
+        // beyond (at the market's 2.5× a Smelter ranked last behind every extractor, and the bot's plot sold 900 copper ore
+        // a minute at a quarter of its price for days without one)
+        var makes = networks.SelectMany(t => made[t]).ToHashSet();
+        double InputValue(string resource) => makes.Contains(resource) ? BasePrice(resource) * (Room(resource) > 0 ? 1 : 0.25) : HubBuyPrice(company, resource);
+        // 1.4 §8: every good has its own Hub Order, so the most promising first: what a copy would sell at the market
+        // while its goods' Hub Orders have room
+        var candidates = Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.Count > 0 && IsUnlocked(company, t, out _))
+            .OrderByDescending(t => t.Out.Sum(o => o.Value * HubOrderValue(company, o.Key, o.Value)) - t.In.Sum(i => i.Value * InputValue(i.Key)))
+            .ToList();
+        foreach (var definition in candidates)
         {
             if (!WhatIfsLeft() || evaluated >= 8)
             {
@@ -982,8 +1081,8 @@ public sealed partial class GameWorld
             Network? network;
             if (extractor)
             {
-                // An extractor of something its land holds that it doesn't mine yet
-                network = owned == 0 ? main : null;
+                // An extractor of something its land holds: the first one, or another while its goods' Hub Orders have room
+                network = owned == 0 || definition.Out.Keys.Any(t => Room(t) > definition.Out[t]) ? main : null;
             }
             else if (definition.In.Count > 0)
             {
@@ -1022,7 +1121,7 @@ public sealed partial class GameWorld
                 : $"{(owned == 0 ? $"Build {Article(definition.Name)}" : $"Another {definition.Name}")}: {string.Join(" and ", definition.In.Keys.Where(r => spare[network].ContainsKey(r)).Select(ResourceWord))} into {ResourceWord(output)}";
             var payback = cost / gain;
             add(new AdvisorStep(AdvisorKind.Chain, title,
-                $"{Plus(network, gain)} for {Gold(cost)}, back in {Minutes(payback)}" + (extractor ? "." : ": the hub pays more for it than for what goes in."),
+                $"{Plus(network, gain)} for {Gold(cost)}, pays for itself in {Minutes(payback)}" + (extractor ? "." : ": the hub pays more for it than for what goes in."),
                 AdvisorAction.Build, cost, gain, BuildingType: definition.Id, At: spot), 1);
         }
     }
@@ -1055,23 +1154,26 @@ public sealed partial class GameWorld
                 return;
             }
         }
-        if (BuildingsOf(company.Id).Any(t => Content.Building(t.Type) is { Kind: BuildingKind.Producer, In.Count: 0, Out.Count: > 0 }))
-        {
-            return;
-        }
-        // Nothing makes anything yet: the generator that earns most for its price on its best spot
+        var first = !BuildingsOf(company.Id).Any(t => Content.Building(t.Type) is { Kind: BuildingKind.Producer, In.Count: 0, Out.Count: > 0 });
+
+        // The generator that earns most for its price on its best spot (nothing makes anything yet: the first one)
         var best = Content.BuildingList
             .Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.In.Count == 0 && t.Out.Count > 0 && t.Placement.Deposit == null && IsUnlocked(company, t, out _))
             .Select(t => (Definition: t, Spot: FindSpot(company, t, post.Position)))
             .Where(t => t.Spot != null)
-            .Select(t => (t.Definition, t.Spot, Value: HypotheticalNode(company, t.Definition, t.Spot!.Value, -1)?.Out.Sum(o => o.Value * HubBuyPrice(company, o.Key)) ?? 0))
+            .Select(t => (t.Definition, t.Spot, Value: HypotheticalNode(company, t.Definition, t.Spot!.Value, -1)?.Out.Sum(o => o.Value * HubOrderValue(company, o.Key, o.Value)) ?? 0))
             .OrderByDescending(t => t.Value / Math.Max(1, BuildCost(company, t.Definition)))
             .FirstOrDefault();
         if (best.Definition != null && best.Value > 0.01)
         {
-            add(new AdvisorStep(AdvisorKind.Start, $"Build {Article(best.Definition.Name)} and pipe it to your Trading Post",
-                $"About +{Gold(best.Value)}/min at the hub, on the best spot near it.",
-                AdvisorAction.Build, BuildCost(company, best.Definition), best.Value, BuildingType: best.Definition.Id, At: best.Spot), AdvisorFixFactor);
+            add(first
+                ? new AdvisorStep(AdvisorKind.Start, $"Build {Article(best.Definition.Name)} and pipe it to your Trading Post",
+                    $"About +{Gold(best.Value)}/min at the hub, on the best spot near it.",
+                    AdvisorAction.Build, BuildCost(company, best.Definition), best.Value, BuildingType: best.Definition.Id, At: best.Spot)
+                : new AdvisorStep(AdvisorKind.Chain, $"Build another {best.Definition.Name}",
+                    $"About +{Gold(best.Value)}/min at the hub on a good spot, pays for itself in {Minutes(BuildCost(company, best.Definition) / best.Value)}; its first levels are cheap.",
+                    AdvisorAction.Build, BuildCost(company, best.Definition), best.Value, BuildingType: best.Definition.Id, At: best.Spot),
+                first ? AdvisorFixFactor : 1);
         }
     }
 
@@ -1131,34 +1233,19 @@ public sealed partial class GameWorld
         }
         var made = BuildingsOf(company.Id).Where(t => !t.UnderConstruction).SelectMany(t => Content.Building(t.Type).Out.Keys).ToHashSet();
         var spare = new Dictionary<string, (double Amount, Company Who)>();
-        foreach (var resident in YardResidents(estate.Station).Where(t => t.Connected && !t.Company.IsNpc && t.Company.Id != company.Id && TradesWith(company, t.Company) && TradesWith(t.Company, company)))
+        foreach (var resident in YardResidents(estate.Station).Where(t => t.Connected && t.Company.Id != company.Id && TradesWith(company, t.Company) && TradesWith(t.Company, company)))
         {
             foreach (var (resource, amount) in resident.Spare.Where(t => t.Value > spare.GetValueOrDefault(t.Key).Amount))
             {
                 spare[resource] = (amount, resident.Company);
             }
         }
-        // Dealt land: a land good a House of the station holds, it sells from its stock (one building fully, at its land price)
-        var houses = new Dictionary<string, Company>();
-        if (Generator.DealtLand)
-        {
-            foreach (var seat in BigStation(estate.Station).SelectMany(StationSeats))
-            {
-                if (Estate(seat.District, seat.Slot)?.OwnerId is { } id && Company(id) is { IsNpc: true } house)
-                {
-                    foreach (var good in Generator.LandOf(seat.District, seat.Slot))
-                    {
-                        houses[good] = house;
-                    }
-                }
-            }
-        }
-        if (spare.Count == 0 && houses.Count == 0)
+        if (spare.Count == 0)
         {
             return;
         }
-        bool Comes(string good) => spare.ContainsKey(good) || houses.ContainsKey(good);
-        double Price(string good) => spare.ContainsKey(good) ? PlayerPrice(good) : HouseSellPrice(good);
+        bool Comes(string good) => spare.ContainsKey(good);
+        double Price(string good) => PlayerPrice(good);
         (BuildingDefinition Definition, double Gain, string Good)? best = null;
         foreach (var definition in Content.BuildingList.Where(t => t.Buildable && t.Kind == BuildingKind.Producer && t.Out.Count > 0 && t.In.Keys.Any(k => k != "energy") && IsUnlocked(company, t, out _)))
         {
@@ -1182,9 +1269,8 @@ public sealed partial class GameWorld
         {
             return;
         }
-        var title = spare.TryGetValue(chosen.Good, out var from)
-            ? $"{NameFor(from.Who, company)} has {Amount(from.Amount)} {ResourceWord(chosen.Good)} spare a minute: build {Article(chosen.Definition.Name)} by your Yard gate"
-            : $"{houses[chosen.Good].Name} ⚙ sells {ResourceWord(chosen.Good)}: build {Article(chosen.Definition.Name)} by your Yard gate";
+        var from = spare[chosen.Good];
+        var title = $"{NameFor(from.Who, company)} has {Amount(from.Amount)} {ResourceWord(chosen.Good)} spare a minute: build {Article(chosen.Definition.Name)} by your Yard gate";
         add(new AdvisorStep(AdvisorKind.Chain, title,
             $"Piped to your gate it gets them by itself: about +{Gold(chosen.Gain)}/min.",
             AdvisorAction.Build, BuildCost(company, chosen.Definition), chosen.Gain, BuildingType: chosen.Definition.Id, At: FindSpot(company, chosen.Definition, estate.YardGate)), 1);
@@ -1193,29 +1279,11 @@ public sealed partial class GameWorld
     private void ParcelStep(Company company, Action<AdvisorStep, double> add)
     {
         var (cost, level) = NextParcel(company);
-        if (level > company.Level || EstateOf(company) is not { } estate)
+        if (level > company.Level || EstateOf(company) is not { } estate || BestParcel(company) is not { } best)
         {
             return;
         }
-        // The parcel next to the company's land that holds the most it doesn't have yet
-        var have = new HashSet<string>();
-        for (var parcel = 0; parcel < WorldLayout.ParcelCount; parcel++)
-        {
-            if (estate.IsUnlocked(parcel))
-            {
-                have.UnionWith(ParcelHoldings(estate, parcel).Select(t => t.What));
-            }
-        }
-        var best = Enumerable.Range(0, WorldLayout.ParcelCount)
-            .Where(t => !estate.IsUnlocked(t) && ParcelNeighbours(t).Any(estate.IsUnlocked))
-            .Select(t => (Parcel: t, Holds: ParcelHoldings(estate, t)))
-            .OrderByDescending(t => t.Holds.Sum(h => (have.Contains(h.What) ? 1 : 3) + h.Richness))
-            .ThenBy(t => Content.Progression.ParcelOrder.ToList().IndexOf(t.Parcel) is var i and >= 0 ? i : 99)
-            .FirstOrDefault();
-        if (best.Holds == null)
-        {
-            return;
-        }
+        var have = LandHoldings(estate);
         var holds = best.Holds.Count == 0 ? "room for more buildings" : string.Join(", ", best.Holds.Take(3).Select(t => t.Label));
         var (ox, oy) = WorldLayout.ParcelOrigin(best.Parcel);
         add(new AdvisorStep(AdvisorKind.Parcel, $"Buy a parcel: {holds}",
@@ -1224,14 +1292,51 @@ public sealed partial class GameWorld
             1);
     }
 
+    /// <summary>What a plot's own parcels hold now</summary>
+    private HashSet<string> LandHoldings(Estate estate)
+    {
+        var have = new HashSet<string>();
+        for (var parcel = 0; parcel < WorldLayout.ParcelCount; parcel++)
+        {
+            if (estate.IsUnlocked(parcel))
+            {
+                have.UnionWith(ParcelHoldings(estate, parcel).Select(t => t.What));
+            }
+        }
+        return have;
+    }
+
+    /// <summary>The parcel to buy next (the advisor's and Grow's): next to the land, holding the most it doesn't have yet</summary>
+    public (int Parcel, IReadOnlyList<(string What, string Label, int Richness)> Holds)? BestParcel(Company company)
+    {
+        if (EstateOf(company) is not { } estate)
+        {
+            return null;
+        }
+        var have = LandHoldings(estate);
+        var best = Enumerable.Range(0, WorldLayout.ParcelCount)
+            .Where(t => !estate.IsUnlocked(t) && ParcelNeighbours(t).Any(estate.IsUnlocked))
+            .Select(t => (Parcel: t, Holds: ParcelHoldings(estate, t)))
+            .OrderByDescending(t => t.Holds.Sum(h => (have.Contains(h.What) ? 1 : 3) + h.Richness))
+            // Then the one nearest the Yard gate (any order is fine, as long as it touches your land)
+            .ThenBy(t => WorldLayout.ParcelOrigin(t.Parcel) is var (px, py) && WorldLayout.YardGateLocal(estate.Slot) is var (gx, gy)
+                ? Math.Abs(px + WorldLayout.ParcelSize / 2 - gx) + Math.Abs(py + WorldLayout.ParcelSize / 2 - gy) : 0)
+            .ThenBy(t => t.Parcel)
+            .FirstOrDefault();
+        if (best.Holds == null)
+        {
+            return null;
+        }
+        return (best.Parcel, best.Holds);
+    }
+
     /// <summary>
-    /// What a parcel holds: its deposits (with their best richness), water, forest. On dealt land only what the seat may
-    /// make counts (run 4: Cleo bought a "forest" parcel for a Lumber Camp her land can't have)
+    /// What a parcel holds: its deposits of this Era and before (with their best richness), water, forest; a later
+    /// Era's deposits sleep and count for nothing yet
     /// </summary>
     public List<(string What, string Label, int Richness)> ParcelHoldings(Estate estate, int parcel)
     {
-        var dealt = Generator.DealtLand ? Generator.LandOf(estate.District, estate.Slot) : null;
-        bool Yours(string good) => dealt == null || !WorldGenerator.LandGoods.Contains(good) || dealt.Contains(good);
+        bool Yours(string good) => good is "water" or "wood" || (Content.Resources.TryGetValue(good, out var resource) && resource.Era <= TownEra(estate.District));
         var deposits = new Dictionary<string, int>();
         var water = 0;
         var forest = 0;

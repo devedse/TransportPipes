@@ -1,10 +1,12 @@
 // Phone and reading after run 4: the Chat button above an open panel, the panel's network folded, the inbox lines
 // apart, and the Links tab in one sentence: node phone-reading.mjs <outdir>
-import { start, newPlayer } from "./lib.mjs";
+import { start, newPlayer, kit } from "./lib.mjs";
 const [out = "shots/phone-reading"] = process.argv.slice(2);
 const { browser, page, errors, shot, cheat } = await start(out, { width: 390, height: 844 });
 await newPlayer(page, "p");
 for (const c of ["gold", "level", "finish"]) await cheat(c);
+// 1.4: a plot starts empty: a small estate first
+await kit(page);
 await page.evaluate(() => tp.appStore.setState({ levelUp: null }));
 await page.waitForTimeout(4000);
 let failed = 0;
@@ -39,14 +41,15 @@ const panelHeight = await page.evaluate(() => Math.round(document.querySelector(
 const folded = await page.evaluate(() => document.querySelector(".building-panel .net-summary")?.closest("details")?.open === false);
 check(folded, "the panel's network numbers are folded on a phone", `panel ${panelHeight} px`);
 
-// 2. The inbox: entries apart, each with its time
+// 2. The inbox: entries apart, each with its time (1.4: a new plot may have no news yet; then it says so)
 await page.evaluate(() => tp.gameClient.select(null));
 await page.waitForTimeout(500);
 await page.locator(".top-bar button[title*='nbox'], button[aria-label*='nbox'], .bell").first().click().catch(() => {});
 await page.waitForTimeout(1500);
 await shot("2-inbox");
 const times = await page.locator(".inbox-time").allInnerTexts();
-check(times.length > 0 && times.every((t) => !/instant/.test(t)), "inbox entries say when", times.join(" | "));
+const empty = (await page.locator("text=Nothing yet. News about your company lands here.").count()) > 0;
+check(times.length > 0 ? times.every((t) => !/instant/.test(t)) : empty, "inbox entries say when (or that there are none yet)", times.join(" | ") || "none yet");
 
 // 3. The Yard and its Links tab
 await page.keyboard.press("Escape");
@@ -55,7 +58,7 @@ await page.waitForTimeout(2000);
 await shot("3-yard");
 const yardLine = await page.locator(".yard-line").innerText().catch(() => "");
 const lacks = await page.locator(".yard-residents").innerText().catch(() => "");
-check(!(/Nobody here needs (\w+)/.test(yardLine) && new RegExp(`Lacks[^\n]*${yardLine.match(/needs (\w+)/)?.[1]}`).test(lacks)), "the Yard's line doesn't say nobody needs what a neighbour lacks", yardLine);
+check(!(/Nobody here needs (?:your )?(\w+)/.test(yardLine) && new RegExp(`Lacks[^\n]*${yardLine.match(/needs (?:your )?(\w+)/)?.[1]}`).test(lacks)), "the Yard's line doesn't say nobody needs what a neighbour lacks", yardLine);
 await page.evaluate(() => tp.gameClient.openLinks());
 await page.waitForTimeout(2000);
 await shot("4-links");

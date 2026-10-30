@@ -1,26 +1,45 @@
-# Every resource that can flow through pipes. Prices are what the hub pays (it sells at 2.5x).
-# Rates in the game are per minute.
-- { id: energy,      name: Energy,          icon: "⚡", color: "#ffd23f", tier: 1, era: 1, price: 1 }
-- { id: water,       name: Water,           icon: "💧", color: "#6ec6ff", tier: 1, era: 1, price: 0.5 }
+# Every good that flows through pipes (1.4 §10). price is the base price: the market pays it within your Hub Order and
+# sells at 2.5×; every price between players is a multiple of it. Rates in the game are per minute.
+# kind: how the pipe carries it (1.4 §9, the pipe's three lanes): power (cables), fluid (a slim pipe) or solid (a belt)
+# Every Era brings one land resource and three or four goods; a building adds about four times the value per tile of
+# one of the Era before.
+
+# ---------------------------------------------------------------- Era 1 · Steam & Iron
+- { id: energy,      name: Energy,          icon: "⚡", color: "#ffd23f", tier: 1, era: 1, price: 1,   kind: power }
+- { id: water,       name: Water,           icon: "💧", color: "#6ec6ff", tier: 1, era: 1, price: 0.5, kind: fluid }
 - { id: ironOre,     name: Iron ore,        icon: "◆", color: "#c0603a", tier: 1, era: 1, price: 3 }
+- { id: wood,        name: Wood,            icon: "▮", color: "#8a5a32", tier: 1, era: 1, price: 1.5 }
 - { id: copperOre,   name: Copper ore,      icon: "◆", color: "#e8893a", tier: 1, era: 1, price: 3.5 }
 - { id: coal,        name: Coal,            icon: "●", color: "#3a3a40", tier: 1, era: 1, price: 2.5 }
 - { id: stone,       name: Stone,           icon: "▲", color: "#9aa1a8", tier: 1, era: 1, price: 1.5 }
 - { id: sand,        name: Sand,            icon: "∴", color: "#e6cf8f", tier: 1, era: 1, price: 1.2 }
-- { id: wood,        name: Wood,            icon: "▮", color: "#8a5a32", tier: 1, era: 1, price: 1.5 }
 - { id: ironIngot,   name: Iron ingot,      icon: "▣", color: "#d6dde5", tier: 2, era: 1, price: 14 }
 - { id: copperIngot, name: Copper ingot,    icon: "▣", color: "#e07a3f", tier: 2, era: 1, price: 18 }
 - { id: bricks,      name: Bricks,          icon: "▤", color: "#c4553f", tier: 2, era: 1, price: 5 }
 - { id: glass,       name: Glass,           icon: "◇", color: "#7fe3f0", tier: 2, era: 1, price: 14 }
 - { id: planks,      name: Planks,          icon: "▭", color: "#d1a06a", tier: 2, era: 1, price: 3.5 }
+
+# ---------------------------------------------------------------- Era 2 · Electric
+- { id: bauxite,     name: Bauxite,         icon: "◆", color: "#b8573a", tier: 1, era: 2, price: 8 }
 - { id: steel,       name: Steel,           icon: "⬢", color: "#b49cff", tier: 3, era: 2, price: 60 }
 - { id: copperWire,  name: Copper wire,     icon: "∿", color: "#f0a060", tier: 3, era: 2, price: 40 }
-- { id: concrete,    name: Concrete,        icon: "■", color: "#8b9bb0", tier: 3, era: 2, price: 18 }
-- { id: gears,       name: Gears,           icon: "⚙", color: "#9aa4b0", tier: 3, era: 2, price: 110 }
-- { id: oil,         name: Oil,             icon: "⬤", color: "#5a3a6e", tier: 1, era: 3, price: 8 }
-- { id: plastic,     name: Plastic,         icon: "◉", color: "#ff8fc8", tier: 3, era: 3, price: 45 }
-- { id: rareEarth,   name: Rare earth,      icon: "✦", color: "#a77bff", tier: 1, era: 4, price: 30 }
-- { id: circuits,    name: Circuits,        icon: "▦", color: "#4ee08a", tier: 4, era: 4, price: 400 }
-- { id: engines,     name: Engines,         icon: "⛭", color: "#7aa0c8", tier: 4, era: 4, price: 1500 }
-- { id: robots,      name: Robots,          icon: "🤖", color: "#f2f5f8", tier: 5, era: 4, price: 6000 }
-- { id: superconductors, name: Superconductors, icon: "❄", color: "#7fd4ff", tier: 5, era: 5, price: 25000 }
+- { id: concrete,    name: Concrete,        icon: "■", color: "#8b9bb0", tier: 3, era: 2, price: 20 }
+- { id: aluminium,   name: Aluminium,       icon: "▥", color: "#cfd8e0", tier: 3, era: 2, price: 80 }
+
+# ---------------------------------------------------------------- Era 3 · Oil & Machines
+- { id: oil,         name: Oil,             icon: "⬤", color: "#5a3a6e", tier: 1, era: 3, price: 25,  kind: fluid }
+- { id: plastic,     name: Plastic,         icon: "◉", color: "#ff8fc8", tier: 3, era: 3, price: 150 }
+- { id: gears,       name: Gears,           icon: "⚙", color: "#9aa4b0", tier: 3, era: 3, price: 290 }
+- { id: motors,      name: Motors,          icon: "⛭", color: "#7aa0c8", tier: 4, era: 3, price: 700 }
+
+# ---------------------------------------------------------------- Era 4 · Electronics
+- { id: rareEarth,   name: Rare earth,      icon: "✦", color: "#a77bff", tier: 1, era: 4, price: 300 }
+- { id: circuits,    name: Circuits,        icon: "▦", color: "#4ee08a", tier: 4, era: 4, price: 1500 }
+- { id: batteries,   name: Batteries,       icon: "▮", color: "#7bd16f", tier: 4, era: 4, price: 1800 }
+- { id: robots,      name: Robots,          icon: "🤖", color: "#f2f5f8", tier: 5, era: 4, price: 7700 }
+
+# ---------------------------------------------------------------- Era 5 · Space Age
+- { id: titaniumOre, name: Titanium ore,    icon: "◆", color: "#a9b8c9", tier: 1, era: 5, price: 1300 }
+- { id: titanium,    name: Titanium,        icon: "⬣", color: "#dfe7ef", tier: 3, era: 5, price: 4800 }
+- { id: superconductors, name: Superconductors, icon: "❄", color: "#7fd4ff", tier: 5, era: 5, price: 10000 }
+- { id: spaceframes, name: Spaceframes,     icon: "✶", color: "#ffe6a3", tier: 5, era: 5, price: 34000 }

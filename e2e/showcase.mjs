@@ -31,6 +31,10 @@ console.log(await page.evaluate(async (types) => {
     if (!done) placed.push(`!${type}`);
     await c.cheat("stock");
   }
+  // Scaffolds still waiting for materials (1.4: they come like a level's goods) buy the rest, then stand
+  for (const building of [...tp.gameClient.world.buildings.values()].filter((t) => t.owner === co.id && t.siteShare !== null)) {
+    await c.orderRest(building.id);
+  }
   await c.cheat("finish");
   tp.gameClient.engine.lookAt(co.estateX + 16, co.estateY + 16, 0.42);
   return placed.join(" ");

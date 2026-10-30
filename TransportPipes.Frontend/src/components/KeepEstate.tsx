@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { gameClient } from "../app/client";
 import { emblemIcon } from "../app/crews";
 import { setState, useAppStore } from "../state/store";
@@ -30,9 +30,9 @@ export function KeepEstate() {
         onSubmit={(e) => void submit(e)}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2>Keep your estate</h2>
+        <h2>Keep your plot</h2>
         <p className="muted">
-          You play as a guest: this browser remembers you. With a name and a password your estate is yours on
+          You play as a guest: this browser remembers you. With a name and a password your plot is yours on
           any device.
         </p>
         <label>
@@ -67,7 +67,7 @@ export function KeepEstate() {
           </p>
         )}
         <button className="primary" type="submit" disabled={busy}>
-          {busy ? "One moment…" : "Keep my estate"}
+          {busy ? "One moment…" : "Keep my plot"}
         </button>
       </form>
     </div>
@@ -75,60 +75,45 @@ export function KeepEstate() {
 }
 
 /**
- * A friend's link opened by someone who already plays: join their crew (and move to the kept seat). A seat link is
- * remembered, so the seat stays on the player's return card until they answer (run 3: Ben)
+ * A friend's "Play next to me" link opened by someone who already plays (1.4 §6): move next to them, on the map picker
+ * at their Yard (their link lets you in although it's closed)
  */
 export function InviteInGame() {
   const invite = useAppStore((s) => s.invite);
   const phase = useAppStore((s) => s.phase);
-  const seen = useRef<string | null>(null);
-  useEffect(() => {
-    if (invite !== null && phase === "playing" && invite.dto.seatCode && seen.current !== invite.code) {
-      seen.current = invite.code;
-      void gameClient.connection.sawSeatCode(invite.code, false).catch(() => undefined);
-    }
-  }, [invite, phase]);
-  if (invite === null || phase !== "playing") {
+  const picking = useAppStore((s) => s.picker !== null);
+  const company = useAppStore((s) => s.company);
+  if (invite === null || phase !== "playing" || picking) {
     return null;
   }
   const dto = invite.dto;
+  const yard = dto.yard;
   const close = () => gameClient.forgetInvite();
+  const home =
+    yard !== null &&
+    company !== null &&
+    company.districtX === yard.districtX &&
+    company.districtY === yard.districtY &&
+    Math.floor(company.slot / 4) === yard.index;
   return (
     <div className="modal-backdrop" onClick={close}>
       <div className="panel keep-panel" onClick={(e) => e.stopPropagation()}>
         <h2>
-          {emblemIcon(dto.emblem)} {dto.from ?? "A friend"} invites you to {dto.crewName}
+          {yard !== null && yard.emblem !== null ? `${emblemIcon(yard.emblem)} ` : ""}
+          {dto.from ?? "A friend"} plays at {yard?.name ?? "their Yard"}
         </h2>
         <p>
-          {dto.seatCode
-            ? `They keep a seat for you in ${dto.station?.name ?? "their station"}: your estate moves there for free, with its layout.`
-            : "Join their crew: you can move next to them afterwards."}
+          {home
+            ? "You live there already."
+            : "Move next to them: your plot lifts off with its layout and lands beside theirs."}
         </p>
         <span className="button-row">
-          <button
-            className="primary"
-            onClick={() => {
-              void gameClient.crewCommand(
-                gameClient.connection.joinCrew(invite.code),
-                dto.seatCode ? "On your way to your friends" : "Welcome to the crew",
-              );
-              close();
-            }}
-          >
-            {dto.seatCode ? "Join and move" : "Join"}
-          </button>
-          <button onClick={close}>Not now</button>
-          {dto.seatCode && (
-            <button
-              className="link"
-              onClick={() => {
-                void gameClient.connection.sawSeatCode(invite.code, true).catch(() => undefined);
-                close();
-              }}
-            >
-              Not with them
+          {!home && (
+            <button className="primary" onClick={() => gameClient.openPicker()}>
+              Show me their Yard
             </button>
           )}
+          <button onClick={close}>{home ? "Close" : "Not now"}</button>
         </span>
       </div>
     </div>

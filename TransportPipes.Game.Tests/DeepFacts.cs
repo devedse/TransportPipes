@@ -11,6 +11,8 @@ public class DeepFacts
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var company = game.NewCompany(level: 30);
+        // The Deep Level opens with Era 3 (1.4 §11)
+        game.TownToEra(3);
         company.Researched.Add("deepLift");
         var pos = game.Local(company, 2, 2);
         var lift = new Building { Id = game.World.NextBuildingId, Type = "deepLift", Owner = company.Id, X = pos.X, Y = pos.Y, Size = 2, ConstructionEndsAt = game.Time.AddSeconds(1) };
@@ -77,7 +79,7 @@ public class DeepFacts
 
         StringAssert.Contains(game.World.CanPlace(company, magmaTap, game.Local(company, 10, 10)).Error, "Deep Level");
         StringAssert.Contains(game.World.CanPlace(company, game.World.Content.Building("windMoily"), WorldLayout.Deep(game.Local(company, 10, 10))).Error, "Deep Level");
-        StringAssert.Contains(game.World.CanPlace(company, game.World.Content.Building("storage"), WorldLayout.Deep(game.Local(company, 40, 10))).Error, "your own estate");
+        StringAssert.Contains(game.World.CanPlace(company, game.World.Content.Building("storage"), WorldLayout.Deep(game.Local(company, 40, 10))).Error, "your own plot");
 
         // Rich veins of metal and magma down there
         var deposits = new Dictionary<string, int>();
@@ -111,8 +113,9 @@ public class DeepFacts
         var (game, company, lift) = WithLift();
         company.DeepParcels = 0xFFFF;
         var bottom = WorldLayout.Deep(lift.Position);
-        // Down: a Magma Tap with steel pipes to the shaft (they would lose a little on the surface). Up: the lift into a storage.
-        var tap = new Building { Id = game.World.NextBuildingId, Type = "magmaTap", Owner = company.Id, X = bottom.X + 8, Y = bottom.Y, Size = 2 };
+        // Down: a Magma Tap at level 2 (more than the lift carries) with steel pipes to the shaft (they would lose a little on
+        // the surface). Up: the lift into a storage.
+        var tap = new Building { Id = game.World.NextBuildingId, Type = "magmaTap", Owner = company.Id, X = bottom.X + 8, Y = bottom.Y, Size = 2, Level = 2 };
         game.World.LoadBuilding(tap);
         game.Map(company, bottom.Offset(2, 0), "++++++", pipeTier: 3);
         game.Map(company, lift.Position.Offset(2, 0), "+O");
@@ -124,7 +127,7 @@ public class DeepFacts
         Assert.IsTrue(game.World.Upgrade(company.Id, lift.Id, 1).Success);
         game.Pass(1);
         stored = game.World.NetworkOf(tap.Id)!.Solution.Flows.Where(t => t.Kind == FlowKind.ToStorage).Sum(t => t.Sent);
-        Assert.AreEqual(game.World.Content.Building("magmaTap").Out["energy"], stored, 1e-6, "everything, without losses");
+        Assert.AreEqual(game.World.ToFlowNode(tap)!.Out["energy"], stored, 1e-6, "everything, without losses");
     }
 
     [TestMethod]
@@ -133,19 +136,29 @@ public class DeepFacts
         var (game, company, lift) = WithLift();
         company.DeepParcels = 0b11;
         var old = game.EstateOf(company).Origin;
+        var oldSide = WorldLayout.SideOf(game.EstateOf(company).Slot);
         var bottom = WorldLayout.Deep(lift.Position);
         var vault = new Building { Id = game.World.NextBuildingId, Type = "vault", Owner = company.Id, X = bottom.X + 3, Y = bottom.Y, Size = 2 };
         game.World.LoadBuilding(vault);
 
-        Assert.IsTrue(game.World.Relocate(company.Id, MovingFacts.OtherDistrict(game, company)).Success);
+        // A town of its Era (1.4 §11: your Era or one below)
+        var other = MovingFacts.OtherDistrict(game, company);
+        while (game.World.TownEra(other) < game.World.YourEra(company))
+        {
+            game.World.AdvanceEra(other);
+        }
+        Assert.IsTrue(game.World.Relocate(company.Id, other).Success);
         Assert.IsNull(game.World.BuildingAt(bottom), "the shaft is packed with its lift");
         Assert.IsNull(game.World.Building(vault.Id));
         game.Pass(61);
 
         var estate = game.World.EstateOf(company)!;
         Assert.AreNotEqual(old, estate.Origin);
-        Assert.AreEqual(0b11, company.DeepParcels, "the caverns come along");
-        Assert.AreEqual(TerrainType.Cavern, game.World.Tile(WorldLayout.Deep(estate.Origin.Offset(10, 2))).Terrain);
+        // The caverns come along, turned to face the new Yard like the plot
+        var turned = WorldLayout.MoveParcels(oldSide, WorldLayout.SideOf(estate.Slot), 0b11);
+        Assert.AreEqual(turned, company.DeepParcels, "the caverns come along");
+        var cavern = WorldLayout.ParcelOrigin(System.Numerics.BitOperations.TrailingZeroCount(turned));
+        Assert.AreEqual(TerrainType.Cavern, game.World.Tile(WorldLayout.Deep(estate.Origin.Offset(cavern.X + 2, cavern.Y + 2))).Terrain);
         Assert.AreEqual(TerrainType.Rock, game.World.Tile(WorldLayout.Deep(old.Offset(10, 2))).Terrain);
         if (game.World.BuildingsOf(company.Id).SingleOrDefault(t => t.Type == "deepLift") is { } moved)
         {

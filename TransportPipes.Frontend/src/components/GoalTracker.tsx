@@ -60,7 +60,8 @@ export function GoalTracker() {
   const filled = company.dailyOrders.filter((t) => t.delivered >= t.amount - 1e-9);
   const levelShare = Math.min(
     1,
-    (company.xp - company.levelXp) / Math.max(1, company.nextLevelXp - company.levelXp),
+    (company.lifetimeEarnings - company.levelEarned) /
+      Math.max(1, company.nextLevelEarned - company.levelEarned),
   );
   return (
     <aside className="goal-tracker" aria-label="Goals">
@@ -95,7 +96,12 @@ export function GoalTracker() {
             </div>
             <p>{text}</p>
             {step.tip != null && <p className="loady-wait small">{step.tip}</p>}
-            {step.waitLevel != null ? (
+            {step.waitEra != null ? (
+              <p className="loady-wait small">
+                <strong>When your town reaches Era {step.waitEra}.</strong> Its Wonder brings it: give to it
+                in Hub › Town &amp; Wonder.
+              </p>
+            ) : step.waitLevel != null ? (
               <p className="loady-wait small">
                 <strong>At Company Level {step.waitLevel}.</strong>{" "}
                 {nextSteps.length > 0
@@ -108,7 +114,7 @@ export function GoalTracker() {
               </span>
             )}
             <div className="loady-actions">
-              {step.waitLevel == null && (
+              {step.waitLevel == null && step.waitEra == null && (
                 <button className="small" onClick={() => gameClient.showTutorialHint()}>
                   Show me
                 </button>
@@ -218,30 +224,6 @@ export function GoalTracker() {
             </span>
           </li>
         )}
-        {company.week !== null && (
-          <li>
-            <span className="goal-label">This week</span>
-            <button
-              className="goal-text link"
-              title="The station's project: open it"
-              onClick={() => void gameClient.openProject()}
-            >
-              {company.week.text} ›
-            </button>
-            {company.week.step !== null && (
-              <button
-                className="small goal-show"
-                aria-label={`Show me: ${company.week.step.title}`}
-                onClick={() => void gameClient.showNextStep(company.week!.step!)}
-              >
-                Show me
-              </button>
-            )}
-            <span className="goal-bar">
-              <span style={{ width: `${Math.round(company.week.share * 100)}%` }} />
-            </span>
-          </li>
-        )}
         {(company.wants ?? []).length > 0 &&
           (() => {
             // Your own scaffold, said as it is (after run 4: "is being built", and it waited for bricks to the end)
@@ -263,9 +245,9 @@ export function GoalTracker() {
                   <button
                     className="small goal-show"
                     disabled={company.gold < want.orderCost}
-                    onClick={() => void gameClient.orderRest(want.target)}
+                    onClick={() => void gameClient.orderRest(want.target, null, want.resource)}
                   >
-                    Order the rest · {formatAmount(want.orderCost)} g
+                    Buy the rest · {formatAmount(want.orderCost)} g
                   </button>
                 )}
                 <span className="goal-bar">
@@ -299,7 +281,7 @@ export function GoalTracker() {
             <span className="goal-label">Era</span>
             <button
               className="goal-text link"
-              title="The Era Wonder, the Capital's want: open it"
+              title="Your town's Era Wonder: open Town & Wonder"
               onClick={() => void gameClient.openHub("wonders")}
             >
               {company.eraWonderLine.text} ›
@@ -309,7 +291,7 @@ export function GoalTracker() {
             </span>
           </li>
         )}
-        {company.week === null && company.nextParcelCost !== null && company.nextParcelLevel !== null && (
+        {company.nextParcelCost !== null && company.nextParcelLevel !== null && (
           <li>
             <span className="goal-label">This week</span>
             <span className="goal-text">

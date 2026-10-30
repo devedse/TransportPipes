@@ -52,8 +52,12 @@ function ManagerCard({ manager, freeSlot }: { manager: ManagerDto; freeSlot: boo
 function Achievement({ achievement }: { achievement: AchievementDto }) {
   const progress = Math.min(1, achievement.value / achievement.amount);
   const rewards = [
-    achievement.xp > 0 ? `${formatAmount(achievement.xp)} XP` : null,
-    achievement.gold > 0 ? `${formatAmount(achievement.gold)} g` : null,
+    // It pays hours of your income, at least its gold
+    achievement.hours > 0
+      ? `${achievement.hours} h of income (at least ${formatAmount(achievement.gold)} g)`
+      : achievement.gold > 0
+        ? `${formatAmount(achievement.gold)} g`
+        : null,
     achievement.title !== null ? `“${achievement.title}”` : null,
   ].filter((t) => t !== null);
   return (
@@ -73,59 +77,20 @@ function Achievement({ achievement }: { achievement: AchievementDto }) {
   );
 }
 
-/** The Franchise (GDD §8.7): sell the company to the Board for Shares, start again much faster */
-function FranchiseTab() {
-  const company = useAppStore((s) => s.company)!;
-  const franchise = company.franchise;
-  return (
-    <div className="franchise">
-      <div className="stat-grid">
-        <div className="stat">
-          <strong>{franchise.shares}</strong>
-          <span className="muted small">Shares: +{franchise.shares}% production</span>
-        </div>
-        <div className="stat">
-          <strong>+{franchise.sharesNow}</strong>
-          <span className="muted small">Shares a franchise gives now</span>
-        </div>
-        <div className="stat">
-          <strong>{franchise.franchises}</strong>
-          <span className="muted small">Franchises this season</span>
-        </div>
-        <div className="stat">
-          <strong>{franchise.legacyLevel}</strong>
-          <span className="muted small">Legacy level</span>
-        </div>
-      </div>
-      <p className="small">
-        Open a franchise: you cash in Shares (the square root of what you earned since the last franchise, in
-        thousands), each +1% production for good, and open a new estate in the newest district. It starts
-        small and grows like your first one; nothing of what you built goes. Up to three estates.
-      </p>
-      {company.branches.length > 0 && (
-        <ul className="facts">
-          {company.branches.map((branch, i) => (
-            <li key={`${branch.districtX},${branch.districtY}`}>
-              🏡 Branch in {branch.districtName}{" "}
-              <button className="small" onClick={() => gameClient.goToEstate(i + 1)}>
-                Go there
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <button
-        className="primary"
-        disabled={franchise.blocker !== null}
-        title={franchise.blocker ?? undefined}
-        onClick={() => void gameClient.openFranchise()}
-      >
-        Open a franchise · +{franchise.sharesNow} Shares and a new estate
-      </button>
-      {franchise.blocker !== null && <p className="muted small">🔒 {franchise.blocker}</p>}
-    </div>
-  );
-}
+/** The graph of the Statistics panel that shows a number of the Overview over time */
+const STAT_GRAPHS: Record<string, string> = {
+  "Gold earned": "earned",
+  "Net worth": "worth",
+  "Buildings built": "buildings",
+  "Pipe tiles laid": "pipes",
+  "Levels bought": "levels",
+  "Trading partners": "partners",
+  "Track tiers researched": "tiers",
+  "Era tree items researched": "tree",
+  "Given to Wonders (g)": "given",
+  Likes: "likes",
+  "Gold per tile per hour": "perTile",
+};
 
 /** Your company: statistics and titles, managers, achievements and collections (GDD §8.4, §8.5) */
 export function CompanyPanel() {
@@ -134,9 +99,9 @@ export function CompanyPanel() {
   const company = useAppStore((s) => s.company);
   const content = useAppStore((s) => s.content);
   const user = useAppStore((s) => s.user);
-  const [tab, setTab] = useState<
-    "overview" | "managers" | "achievements" | "collections" | "franchise" | "move"
-  >("overview");
+  const [tab, setTab] = useState<"overview" | "managers" | "achievements" | "collections" | "move">(
+    "overview",
+  );
   if (!open || company === null || content === null) {
     return null;
   }
@@ -156,6 +121,9 @@ export function CompanyPanel() {
             <span className="company-dot" style={{ background: company.color }} /> {company.name}
           </h2>
           <span className="muted">Company Level {company.level}</span>
+          <button className="small phone-only" onClick={() => void gameClient.logout()}>
+            Log out
+          </button>
           <button className="icon-button" title="Close (Esc)" onClick={close}>
             ×
           </button>
@@ -179,9 +147,6 @@ export function CompanyPanel() {
           >
             Collections
           </button>
-          <button className={tab === "franchise" ? "tab active" : "tab"} onClick={() => setTab("franchise")}>
-            Franchise
-          </button>
           <button className={tab === "move" ? "tab active" : "tab"} onClick={() => setTab("move")}>
             Move
             {company.moving.crates.length > 0 && (
@@ -191,27 +156,43 @@ export function CompanyPanel() {
         </div>
         {tab === "move" ? (
           <MoveTab />
-        ) : tab === "franchise" ? (
-          <FranchiseTab />
         ) : details === null ? (
           <p className="muted">Loading…</p>
         ) : tab === "overview" ? (
           <div className="company-overview">
             {user?.isGuest === true && (
               <div className="keep-note">
-                <span>You play as a guest: only this browser knows your estate.</span>
+                <span>You play as a guest: only this browser knows your plot.</span>
                 <button className="primary" onClick={() => setState({ keepOpen: true })}>
-                  Keep my estate
+                  Keep my plot
                 </button>
               </div>
             )}
+            <div className="company-stats-head">
+              <span className="muted small">Your company in numbers. Tap one to see it over time.</span>
+              <button className="primary" onClick={() => void gameClient.openStatistics(null, "income")}>
+                📈 Statistics (J)
+              </button>
+            </div>
             <div className="stat-grid">
-              {details.stats.map((stat) => (
-                <div key={stat.name} className="stat">
-                  <strong>{formatAmount(stat.value)}</strong>
-                  <span className="muted small">{stat.name}</span>
-                </div>
-              ))}
+              {details.stats.map((stat) =>
+                STAT_GRAPHS[stat.name] !== undefined ? (
+                  <button
+                    key={stat.name}
+                    className="stat"
+                    title="See it over time"
+                    onClick={() => void gameClient.openStatistics(null, STAT_GRAPHS[stat.name])}
+                  >
+                    <strong>{formatAmount(stat.value)}</strong>
+                    <span className="muted small">{stat.name} 📈</span>
+                  </button>
+                ) : (
+                  <div key={stat.name} className="stat">
+                    <strong>{formatAmount(stat.value)}</strong>
+                    <span className="muted small">{stat.name}</span>
+                  </div>
+                ),
+              )}
             </div>
             {details.produced.length > 0 && (
               <>

@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { gameClient } from "../app/client";
 import { formatAmount, formatDuration } from "../app/format";
 import { useNow } from "../app/useNow";
-import type { CrewDto, CrewMemberDto, LinkDto, LinkPlanDto, LinkSuggestionDto } from "../api/contracts";
+import type { LinkDto, LinkPlanDto, LinkSuggestionDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import { setState, useAppStore } from "../state/store";
 import { ResourceIcon } from "./ResourceIcon";
-import { TrunksSection } from "./TrunksSection";
+import { TrunkLines } from "./TrunkLines";
 
 /** How much of what is sent arrives, as players read it */
 function arrives(efficiency: number): string {
@@ -25,7 +25,7 @@ function LinkCard({ link, content }: { link: LinkDto; content: Content }) {
     (t) =>
       t.tier === link.tier + 1 &&
       t.era <= era &&
-      (t.research === null || company.researched.includes(t.research)),
+      (t.research === null || company.research.researched.includes(t.research)),
   );
   const good = content.resourceName(link.resource).toLowerCase();
   const tankMinutes = link.need > 1e-6 ? link.tank / link.need : 0;
@@ -163,12 +163,6 @@ function LinkCard({ link, content }: { link: LinkDto; content: Content }) {
   );
 }
 
-/** Crew mates who live in another station than you */
-function elsewhere(crew: CrewDto): CrewMemberDto[] {
-  const mine = crew.members.find((t) => t.you)?.station;
-  return crew.members.filter((t) => !t.you && t.station !== mine);
-}
-
 interface Draft {
   partnerId: number | null;
   resource: string;
@@ -207,7 +201,7 @@ function NewLink({
   const plan =
     draft.partnerId !== null && draft.resource !== "" && planned?.key === key ? planned.plan : null;
   const tiers = content.pipeTiers.filter(
-    (t) => t.era <= era && (t.research === null || company.researched.includes(t.research)),
+    (t) => t.era <= era && (t.research === null || company.research.researched.includes(t.research)),
   );
   const resources = content.resources.filter((r) => r.era <= era);
   const partner = links.partners.find((t) => t.id === draft.partnerId);
@@ -317,15 +311,14 @@ function Suggestion({ s, content, onPick }: { s: LinkSuggestionDto; content: Con
 }
 
 /**
- * Links (v1.2 §7): trade with anyone outside your station on a two-ended pipe through the corridors, at the one player
- * price. Offers waiting for you come first, then your links with their state line and tank, then who a link would suit.
+ * Links (1.4 §8): standing deals with players in other Yards of your town, on a two-ended pipe along the roads, at the
+ * seller's price for the buyer. Offers waiting for you come first, then your links with their state line and tank, then
+ * who a link would suit.
  */
 export function LinksTab() {
   const links = useAppStore((s) => s.links);
   const content = useAppStore((s) => s.content);
-  const crew = useAppStore((s) => s.crew?.crew ?? null);
   const linkPartner = useAppStore((s) => s.linkPartner);
-  const era = useAppStore((s) => s.era);
   // The Crew panel's "Link ▸": the new link starts with that friend
   const [draft, setDraft] = useState<Draft>(() => ({
     partnerId: linkPartner,
@@ -338,11 +331,6 @@ export function LinksTab() {
       setState({ linkPartner: null });
     }
   }, [linkPartner]);
-  useEffect(() => {
-    if (crew === null) {
-      void gameClient.refreshCrew();
-    }
-  }, [crew]);
   useEffect(() => {
     // The flows change every round: the tab follows
     const timer = window.setInterval(() => void gameClient.refreshLinks(), 30000);
@@ -358,11 +346,11 @@ export function LinksTab() {
       <div className="link-picture" aria-hidden="true">
         <span className="link-end">🏠 your Yard gate</span>
         <span className="link-pipe">one good ▶</span>
-        <span className="link-end">🏠 a friend in another station</span>
+        <span className="link-end">🏠 a friend at another Yard</span>
       </div>
       <p className="small">
-        <strong>A link pipes one good to one company in another station</strong>, every minute, at the one
-        player price. Inside your own station you need none: the Yard shares by itself.
+        <strong>A link pipes one good to one company at another Yard</strong>, every minute, at the
+        seller&apos;s price for you. Inside your own Yard you need none: the Yard shares by itself.
       </p>
       {links.links.length > 0 ? (
         <ul className="link-list">
@@ -377,27 +365,6 @@ export function LinksTab() {
         {laid} of {links.max} links
       </div>
       {/* Friends who live in other stations (after run 3, row 12: Ben was offered as a link with no word he was Ana's friend) */}
-      {crew !== null && elsewhere(crew).length > 0 && (
-        <section>
-          <h4>Your crew in other stations</h4>
-          <ul className="link-suggestions">
-            {elsewhere(crew).map((m) => (
-              <li key={m.id}>
-                <span className="dot" style={{ background: m.color }} /> <strong>{m.name}</strong>{" "}
-                <span className="muted small">· {m.station}</span>
-                <span className="button-row">
-                  <button className="small" onClick={() => void gameClient.visitFriend(m.id)}>
-                    👁 Visit
-                  </button>
-                  <button className="small" onClick={() => setDraft({ ...draft, partnerId: m.id })}>
-                    Link to {m.name} ▸
-                  </button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
       {links.suggestions.length > 0 && (
         <section>
           <h4>A link would suit</h4>
@@ -415,18 +382,15 @@ export function LinksTab() {
           </ul>
         </section>
       )}
-      {/* Trunks come with Era 2, or once something goes beyond the hub (run 4: jargon in the stranger's way in) */}
-      {(era >= 2 || links.trunks.sales.length > 0 || links.trunks.crew.length > 0) && (
-        <TrunksSection trunks={links.trunks} />
-      )}
       <section>
         <h4>New link</h4>
         {links.partners.length === 0 ? (
-          <p className="muted small">Nobody lives outside your station yet.</p>
+          <p className="muted small">Nobody lives outside your Yard yet.</p>
         ) : (
           <NewLink draft={draft} onChange={setDraft} content={content} />
         )}
       </section>
+      <TrunkLines />
     </>
   );
 }

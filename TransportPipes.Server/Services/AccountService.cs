@@ -188,9 +188,8 @@ public sealed class AccountService
         return user == null ? (0, []) : (user.Legacy, System.Text.Json.JsonSerializer.Deserialize<List<string>>(user.LegacyTitles) ?? []);
     }
 
-    /// <summary>Adds the results of a season to the players' Legacy</summary>
-    /// <summary>Adds the results to the accounts' Legacy; returns every account's new Legacy</summary>
-    public async Task<Dictionary<long, int>> AddLegacyAsync(IEnumerable<TransportPipes.Game.State.SeasonResult> results)
+    /// <summary>Adds Legacy (and a title) to accounts (1.4 §13: a town's Launch); returns every account's new Legacy</summary>
+    public async Task<Dictionary<long, int>> AddLegacyAsync(IEnumerable<(long UserId, int Legacy, string? Title)> results)
     {
         var totals = new Dictionary<long, int>();
         await using var db = _dbFactory.CreateDbContext();

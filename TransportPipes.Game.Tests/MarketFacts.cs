@@ -24,19 +24,19 @@ public class MarketFacts
     [TestMethod]
     public void TheHubPaysLessWhenItIsFloodedWithAResource()
     {
-        // Energy: the hub's order is 1,000 per minute; two trading posts sell 1,200 of the 1,500 made
+        // Energy: the Hub Order is 1,000 a minute; the trading posts sell all 1,500 made (1.4 §8: no unit limit)
         var (game, company, post) = SolarSeller(50, 'W');
         Assert.AreEqual(1, SalePrice(game, post), 1e-9);
 
         game.Pass(60 * 4);
 
         var multiplier = Multiplier(game, company, "energy");
-        Assert.IsLessThan(1.0, multiplier, "1,200 sold for an order of 1,000");
+        Assert.IsLessThan(1.0, multiplier, "1,500 sold for an order of 1,000");
         Assert.IsGreaterThan(0.25, multiplier);
-        // The next sales get the new price (within the 1% that triggers a new solution), plus the reputation the sales earned
+        // The next sales get the new price (within the 1% that triggers a new solution)
         game.World.SolveNetworks();
-        var reputation = 1 + (game.World.ReputationLevel(company) - 1) * 0.01;
-        Assert.AreEqual(multiplier * reputation, SalePrice(game, post), 0.011);
+        Assert.AreEqual(multiplier, SalePrice(game, post), 0.011);
+        Assert.AreEqual(Math.Sqrt(1000 / 1500.0), multiplier, 0.02, "the market pays base × √(order × sold): its average price is √(order ÷ sold)");
     }
 
     [TestMethod]
@@ -66,19 +66,18 @@ public class MarketFacts
     }
 
     [TestMethod]
-    public void OnAQuietServerTheOrderIsBigger()
+    public void TheOrderIsTheSameHoweverManyPlay()
     {
+        // 1.4 rule 2: no number depends on how many people play (v1.2's quiet grace made it four times as big alone)
         var (game, company, _) = SolarSeller(50, 'W');
-        Assert.AreEqual(1000, game.World.HubDemand(company.District, "energy"), 1e-6);
+        Assert.AreEqual(1000, game.World.HubOrder(company, "energy"), 1e-6);
 
-        game.World.QuietGraceEnabled = true;
-
-        Assert.AreEqual(4000, game.World.HubDemand(company.District, "energy"), 1e-6, "below 10 active players: four times");
         for (var i = 0; i < 12; i++)
         {
             game.NewCompany($"P{i}");
         }
-        Assert.AreEqual(2000, game.World.HubDemand(company.District, "energy"), 1e-6, "below 50: twice");
+
+        Assert.AreEqual(1000, game.World.HubOrder(company, "energy"), 1e-6);
     }
 
     [TestMethod]
@@ -93,6 +92,8 @@ public class MarketFacts
         Assert.IsLessThanOrEqualTo(selling * 8 * 60 + 10, order.Amount, "it fills within eight hours of its own selling");
         var price = SalePrice(game, post);
         game.World.TakeChanges();
+        var gold = company.Gold;
+        var market = company.EarnedLog.GetValueOrDefault("market")?.GetValueOrDefault("energy") ?? 0;
 
         var minutes = 0;
         while (!order.Done && minutes < 9 * 60)
@@ -103,7 +104,8 @@ public class MarketFacts
 
         Assert.IsTrue(order.Done, "it filled by itself, from the sales");
         Assert.AreEqual(order.Amount * (order.RewardGold / order.Amount - price), order.Premium, 1, "it paid twice the base price: the difference to the hub's on top");
-        Assert.AreEqual(order.RewardReputation, company.HubReputation, 1);
+        Assert.AreEqual(order.Premium, company.EarnedLog["orders"]["energy"], 1, "counted as gold earned");
+        Assert.AreEqual(company.EarnedLog["market"]["energy"] - market + order.Premium, company.Gold - gold, 1, "and paid (playtest: it was counted, never paid)");
         var events = game.World.TakeChanges().Events;
         Assert.IsTrue(events.Any(t => t.Company == company.Id && t.Text.StartsWith("Your energy filled a hub order")), string.Join(" | ", events.Select(t => t.Text)));
         Assert.AreEqual(1, company.Report.OrdersCompleted);
@@ -119,17 +121,68 @@ public class MarketFacts
 
         var value = company.DailyOrders.Sum(t => t.Amount * game.World.BasePrice(t.Resource));
 
-        Assert.IsGreaterThan(GameWorld.OrderIncomeMinutes * 6_000 * 0.75 - 30, value);
-        Assert.IsLessThan(GameWorld.OrderIncomeMinutes * 6_000 * 1.25 + 30, value, "about half an hour of income in all");
+        Assert.IsGreaterThan(GameWorld.OrderIncomeMinutes / GameWorld.OrdersPerDay * 6_000 * 0.75 - 30, value);
+        Assert.IsLessThan(GameWorld.OrderIncomeMinutes / GameWorld.OrdersPerDay * 6_000 * 1.25 + 30, value, "a third of half an hour of income: three together about half an hour");
+    }
+
+    [TestMethod]
+    public void AGoodThatStartsSellingDuringTheDayGetsItsOrder()
+    {
+        // Playtest: a new company got one energy order the moment it picked its plot, and no other that day
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany();
+        game.World.EnsureOrders(company);
+        Assert.AreEqual("energy", company.DailyOrders.Single().Resource, "nothing sells yet: energy");
+
+        game.Map(company, game.Local(company, 2, 2), "W+M\n + \n +T");
+        game.World.TakeChanges();
+        game.Pass(1);
+
+        Assert.IsGreaterThan(0, game.World.SellingPerMinute(company).GetValueOrDefault("ironOre"));
+        CollectionAssert.AreEquivalent(new[] { "energy", "ironOre" }, company.DailyOrders.Select(t => t.Resource).ToList(), "its ore got an order once it sold");
+        Assert.HasCount(2, company.DailyOrders.Select(t => t.Id).Distinct());
+        var events = game.World.TakeChanges().Events;
+        Assert.IsTrue(events.Any(t => t.Company == company.Id && t.Kind == WorldEventKind.OrderPosted && t.Text.Contains("iron ore")), string.Join(" | ", events.Select(t => t.Text)));
+        game.Pass(5);
+        Assert.HasCount(2, company.DailyOrders, "one a good");
+    }
+
+    [TestMethod]
+    public void AnOrderFillsFromTheStoragesAtOnce()
+    {
+        var (game, company, post) = SolarSeller(5);
+        game.World.EnsureOrders(company);
+        var order = company.DailyOrders.Single();
+        var storage = game.Build(company, "storage");
+        storage.Contents["energy"] = order.Amount / 2;
+        var gold = company.Gold;
+
+        Assert.IsTrue(game.World.DeliverOrder(company.Id, order.Id).Success);
+
+        Assert.AreEqual(order.Amount / 2, order.Delivered, 1e-6);
+        Assert.IsFalse(storage.Contents.ContainsKey("energy"), "it took what the Storage held");
+        Assert.AreEqual(order.RewardGold / 2, company.Gold - gold, 1, "at the order's price, at once");
+        Assert.AreEqual(order.RewardGold / 2, company.EarnedLog["orders"]["energy"], 1);
+        StringAssert.Contains(game.World.DeliverOrder(company.Id, order.Id).Error, "hold no energy");
+
+        storage.Contents["energy"] = order.Amount;
+        Assert.IsTrue(game.World.DeliverOrder(company.Id, order.Id).Success);
+        Assert.IsTrue(order.Done);
+        Assert.AreEqual(order.Amount / 2, storage.Contents["energy"], 1e-6, "only what the order still needed");
+        Assert.AreEqual(1, company.Report.OrdersCompleted);
+        StringAssert.Contains(game.World.DeliverOrder(company.Id, order.Id).Error, "filled");
     }
 
     [TestMethod]
     public void OrdersAskForWhatTheCompanyMakesAndTheNextStepOfItsChains()
     {
         var game = new TestGame(content: TestGame.PlainContent);
-        // A late era unlocks buildings for everyone: a new company still can't feed them
-        game.World.Era = 5;
+        // A late Era unlocks buildings for everyone in the town: a company new to it still can't feed them
         var company = game.NewCompany(level: 2);
+        for (var era = 1; era < 5; era++)
+        {
+            game.World.AdvanceEra(company.District);
+        }
         CollectionAssert.AreEqual(Array.Empty<string>(), game.World.OrderResources(company), "nothing made yet (the orders ask for energy)");
 
         game.Build(company, "windMoily");
@@ -155,14 +208,25 @@ public class MarketFacts
     }
 
     [TestMethod]
-    public void HubReputationRaisesTheHubPrice()
+    public void TheTradingPostsLevelRaisesEveryHubOrder()
     {
         var (game, company, post) = SolarSeller(2);
-        company.HubReputation = 1000;
+        var order = game.World.HubOrder(company, "planks");
 
-        Assert.AreEqual(5, game.World.ReputationLevel(company));
-        game.World.CompanyChanged(company);
-        game.World.SolveNetworks();
-        Assert.AreEqual(1.04, SalePrice(game, post), 1e-9, "+1% per level above 1");
+        post.Level = 11;
+
+        Assert.AreEqual(order * Math.Pow(1.1, 10), game.World.HubOrder(company, "planks"), 1e-6, "+10% a level");
+        Assert.AreEqual(1000 / 3.5 * 9.85, game.World.HubOrder(company, "planks") * Math.Pow(1.1, 14), 1000 / 3.5 * 0.01, "9.85× at level 25");
+    }
+
+    [TestMethod]
+    public void BeyondSixteenOrdersEveryUnitPaysAQuarter()
+    {
+        var market = TransportPipes.Game.Content.GameContent.Default.Progression.Market;
+
+        Assert.AreEqual(100 * 14, market.Pays(14, 100, 100), 1e-9, "within the order: the base price");
+        Assert.AreEqual(14 * Math.Sqrt(100 * 400), market.Pays(14, 100, 400), 1e-9, "four times the order pays twice as much");
+        Assert.AreEqual(14 * 400 + (2000 - 1600) * 14 * 0.25, market.Pays(14, 100, 2000), 1e-9, "beyond sixteen orders a quarter of the base a unit");
+        Assert.AreEqual(4060, market.Pays(14, 1000 / 14.0 * Math.Pow(1.1, 9), 500), 15, "Ben's ingots (1.4 §8): 4,060 gold a minute");
     }
 }

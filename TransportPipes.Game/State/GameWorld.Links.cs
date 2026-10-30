@@ -155,125 +155,81 @@ public sealed partial class GameWorld
             ? Math.Clamp(link.Tank + link.TankChange * (LastTick - last).TotalMinutes, 0, link.TankSize)
             : link.Tank;
 
-    /// <summary>What a link's pipe carries per minute (with the seller's pipe research)</summary>
-    public double LinkThroughput(Link link) => LinkPipe(link).Throughput * (1 + ThroughputBonus(link.Seller));
+    /// <summary>What a link's pipe carries per minute</summary>
+    public double LinkThroughput(Link link) => LinkPipe(link).Throughput;
 
     /// <summary>The share of what the seller sends that reaches the buyer's gate: the pipe's loss per tile over the route</summary>
-    public double LinkEfficiency(Link link) => LinkEfficiency(link.Tier, link.Length);
+    /// <summary>What reaches the buyer: the link's pipe over its length, and between towns the trunk line's loss over its part</summary>
+    public double LinkEfficiency(Link link) =>
+        LineOf(link) is { } line ? LinkEfficiency(link.Tier, Math.Max(0, link.Length - line.Length)) * LineEfficiency(line) : LinkEfficiency(link.Tier, link.Length);
 
     public double LinkEfficiency(int tier, int length) => Math.Pow(1 - Content.PipeTier(tier).LossPerTile, length);
 
     // ---------------------------------------------------------------- The route
 
-    /// <summary>Whether a world x lies on a vertical corridor line (its first tile; corridors are two wide)</summary>
-    private static bool OnXLine(int x)
-    {
-        var district = WorldLayout.DistrictOf(x, 0).X;
-        var local = x - WorldLayout.DistrictOriginX(district);
-        return local is >= 0 and < WorldLayout.DistrictSize && local % WorldLayout.BlockPitch == 0;
-    }
+    /// <summary>The line a link takes along a town's vertical road (world x) and its horizontal one (world y)</summary>
+    private static int RoadLineX(int districtX) => WorldLayout.DistrictOriginX(districtX) + WorldLayout.RoadX + 1;
 
-    private static bool OnYLine(int y)
-    {
-        var district = WorldLayout.DistrictOf(0, y).Y;
-        var local = y - WorldLayout.DistrictOriginY(district);
-        return local is >= 0 and < WorldLayout.DistrictSize && local % WorldLayout.BlockPitch == 0;
-    }
+    private static int RoadLineY(int districtY) => WorldLayout.DistrictOriginY(districtY) + WorldLayout.RoadY + 1;
 
-    /// <summary>The corridor lines (their first tiles) nearest below and above a coordinate, along one axis</summary>
-    private static IEnumerable<int> LinesAround(int v, Func<int, int> origin, Func<int, int> districtOf)
-    {
-        var district = districtOf(v);
-        foreach (var d in new[] { district - 1, district, district + 1 })
-        {
-            for (var k = 0; k <= WorldLayout.BlocksPerSide; k++)
-            {
-                yield return origin(d) + k * WorldLayout.BlockPitch;
-            }
-        }
-    }
-
-    /// <summary>The line to turn on between two coordinates: one between them when there is one (no detour), else the nearest</summary>
-    private static int TurnLine(int a, int b, Func<int, int> origin, Func<int, int> districtOf)
-    {
-        var (low, high) = (Math.Min(a, b), Math.Max(a, b));
-        var lines = LinesAround(low, origin, districtOf).Concat(LinesAround(high, origin, districtOf)).Distinct().ToList();
-        return lines.OrderBy(t => t >= low && t <= high ? 0 : Math.Min(Math.Abs(t - low), Math.Abs(t - high))).ThenBy(t => t).First();
-    }
-
-    /// <summary>Where a station's Yard meets the corridors: the crossing (or the corridor) in its middle</summary>
+    /// <summary>The middle of a Yard, where its links leave it (they run under the plots to the nearer road)</summary>
     public static TilePos YardAnchor(StationRef station)
     {
         var yard = WorldLayout.Yard(station);
-        var cx = (yard.X0 + yard.X1) / 2;
-        var cy = (yard.Y0 + yard.Y1) / 2;
-        // The first tile of the two-wide corridor through the Yard's middle
-        foreach (var x in new[] { cx - 1, cx, cx + 1 })
-        {
-            if (OnXLine(x))
-            {
-                cx = x;
-                break;
-            }
-        }
-        foreach (var y in new[] { cy - 1, cy, cy + 1 })
-        {
-            if (OnYLine(y))
-            {
-                cy = y;
-                break;
-            }
-        }
-        return new TilePos(cx, cy);
+        return new TilePos((yard.X0 + yard.X1) / 2, (yard.Y0 + yard.Y1) / 2);
+    }
+
+    /// <summary>Where a Yard's links meet its town's roads: straight from its middle to the nearer road</summary>
+    private static (TilePos At, bool Horizontal) RoadExit(StationRef station)
+    {
+        var anchor = YardAnchor(station);
+        var x = RoadLineX(station.District.X);
+        var y = RoadLineY(station.District.Y);
+        return Math.Abs(anchor.Y - y) <= Math.Abs(anchor.X - x) ? (new TilePos(anchor.X, y), true) : (new TilePos(x, anchor.Y), false);
     }
 
     /// <summary>
-    /// A link's route (v1.2 §7): from the seller's Yard gate under its Yard to the corridors, along them (turning at most
-    /// twice, through the wilderness between districts where it has to) to the buyer's Yard and its gate
+    /// A link's route (1.4 §8): from the seller's Yard gate into its Yard, under the plots to the nearer road, along the
+    /// roads (across the wilderness between towns, where the roads of a row or a column of towns line up) to the buyer's
+    /// road, and in to its Yard and its gate
     /// </summary>
     public static List<TilePos> LinkRoute(TilePos fromGate, StationRef fromStation, TilePos toGate, StationRef toStation)
     {
         var a = YardAnchor(fromStation);
         var b = YardAnchor(toStation);
-        // From a gate straight into its Yard, then under it to the corridor in its middle
-        TilePos Turn(TilePos gate, TilePos anchor, StationRef station) =>
-            WorldLayout.Yard(station).Contains(new TilePos(gate.X, anchor.Y)) ? new TilePos(gate.X, anchor.Y) : new TilePos(anchor.X, gate.Y);
-        var route = new List<TilePos> { fromGate, Turn(fromGate, a, fromStation), a };
-        bool AH(TilePos p) => OnYLine(p.Y);
-        bool AV(TilePos p) => OnXLine(p.X);
-        int XTurn(int x0, int x1) => TurnLine(x0, x1, WorldLayout.DistrictOriginX, x => WorldLayout.DistrictOf(x, 0).X);
-        int YTurn(int y0, int y1) => TurnLine(y0, y1, WorldLayout.DistrictOriginY, y => WorldLayout.DistrictOf(0, y).Y);
-        if (a == b)
+        var turnA = new TilePos(fromGate.X, a.Y);
+        var route = new List<TilePos> { fromGate, WorldLayout.Yard(fromStation).Contains(turnA) ? turnA : new TilePos(a.X, fromGate.Y), a };
+        if (fromStation != toStation)
         {
-        }
-        else if (AH(a) && AV(b))
-        {
-            route.Add(new TilePos(b.X, a.Y));
-        }
-        else if (AV(a) && AH(b))
-        {
-            route.Add(new TilePos(a.X, b.Y));
-        }
-        else if (AH(a) && AH(b))
-        {
-            if (a.Y != b.Y)
+            var (ea, horizontalA) = RoadExit(fromStation);
+            var (eb, horizontalB) = RoadExit(toStation);
+            route.Add(ea);
+            if (horizontalA && horizontalB && ea.Y != eb.Y)
             {
-                var x = XTurn(a.X, b.X);
-                route.Add(new TilePos(x, a.Y));
-                route.Add(new TilePos(x, b.Y));
+                // Two horizontal roads: along the first to the buyer's town's vertical road, along it to the second
+                var x = RoadLineX(toStation.District.X);
+                route.Add(new TilePos(x, ea.Y));
+                route.Add(new TilePos(x, eb.Y));
             }
-        }
-        else
-        {
-            if (a.X != b.X)
+            else if (!horizontalA && !horizontalB && ea.X != eb.X)
             {
-                var y = YTurn(a.Y, b.Y);
-                route.Add(new TilePos(a.X, y));
-                route.Add(new TilePos(b.X, y));
+                var y = RoadLineY(toStation.District.Y);
+                route.Add(new TilePos(ea.X, y));
+                route.Add(new TilePos(eb.X, y));
             }
+            else if (horizontalA && !horizontalB)
+            {
+                route.Add(new TilePos(eb.X, ea.Y));
+            }
+            else if (!horizontalA && horizontalB)
+            {
+                route.Add(new TilePos(ea.X, eb.Y));
+            }
+            route.Add(eb);
+            route.Add(b);
         }
-        route.Add(b);
-        route.Add(Turn(toGate, b, toStation));
+        var turnB = new TilePos(toGate.X, b.Y);
+        route.Add(WorldLayout.Yard(toStation).Contains(turnB) ? turnB : new TilePos(b.X, toGate.Y));
         route.Add(toGate);
         return route.Where((t, i) => i == 0 || t != route[i - 1]).ToList();
     }
@@ -320,27 +276,34 @@ public sealed partial class GameWorld
         {
             return Fail("Unknown pipe.");
         }
-        if (pipe.Era > Era || (pipe.Research != null && !HasResearch(company, pipe.Research)))
+        if (pipe.Era > YourEra(company) || (pipe.Research != null && !HasResearch(company, pipe.Research)))
         {
             return Fail($"Research {pipe.Name} first.");
-        }
-        if (partner.IsNpc)
-        {
-            return Fail("Houses trade through their Yard.");
         }
         if (EstateOf(company) is not { } mine || EstateOf(partner) is not { } theirs)
         {
             return Fail("One of you is on the way: link when you've landed.");
         }
-        if (BigStation(mine.Station)[0] == BigStation(theirs.Station)[0])
+        if (mine.Station == theirs.Station)
         {
-            return Fail($"{partner.Name} lives in your station: you trade through the Yard already.");
+            return Fail($"{partner.Name} lives at your Yard: you trade through the Yard already.");
         }
         var (seller, buyer) = selling ? (mine, theirs) : (theirs, mine);
+        // To another town only over a trunk line between the two (1.4 §20): the link pays its pipe up to the town gates
+        var line = mine.District == theirs.District ? null : LineBetween(mine.District, theirs.District);
+        if (mine.District != theirs.District && line == null)
+        {
+            return Fail(LineNeighbours(mine.District).Contains(theirs.District)
+                ? $"{partner.Name} lives in {WorldNames.District(theirs.District)}: a link there runs over a trunk line, and nobody built one yet (Era 3, Trunk Lines)."
+                : $"{partner.Name} lives in {WorldNames.District(theirs.District)}, too far: trunk lines join only neighbouring towns.");
+        }
         var route = LinkRoute(seller.YardGate, seller.Station, buyer.YardGate, buyer.Station);
         var length = RouteLength(route);
-        var materials = pipe.Materials.ToDictionary(t => t.Key, t => t.Value * length);
-        return new LinkPlan(route, length, LinkEfficiency(tier, length), pipe.Throughput, pipe.Gold * length, materials, null);
+        var piped = line == null ? length : Math.Max(0, length - line.Length);
+        var materials = pipe.Materials.ToDictionary(t => t.Key, t => t.Value * piped);
+        var efficiency = LinkEfficiency(tier, piped) * (line == null ? 1 : LineEfficiency(line));
+        var throughput = line == null ? pipe.Throughput : Math.Min(pipe.Throughput, LineThroughput(line));
+        return new LinkPlan(route, length, efficiency, throughput, pipe.Gold * piped, materials, null);
     }
 
     /// <summary>
@@ -363,7 +326,7 @@ public sealed partial class GameWorld
         }
         if (LinksOf(company.Id).Count() >= MaxLinksPerEstate)
         {
-            return (CommandResult.Fail($"An estate has at most {MaxLinksPerEstate} links."), null);
+            return (CommandResult.Fail($"A plot has at most {MaxLinksPerEstate} links."), null);
         }
         if (LinksOf(partner.Id).Count() >= MaxLinksPerEstate)
         {
@@ -418,7 +381,7 @@ public sealed partial class GameWorld
         }
         if (LinksOf(companyId).Count(t => t.State != LinkState.Offered) >= MaxLinksPerEstate)
         {
-            return CommandResult.Fail($"An estate has at most {MaxLinksPerEstate} links.");
+            return CommandResult.Fail($"A plot has at most {MaxLinksPerEstate} links.");
         }
         link.State = LinkState.Active;
         link.AcceptedAt = LastTick;
@@ -520,7 +483,7 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("Choose a better pipe.");
         }
-        if (pipe.Era > Era || (pipe.Research != null && !HasResearch(company, pipe.Research)))
+        if (pipe.Era > YourEra(company) || (pipe.Research != null && !HasResearch(company, pipe.Research)))
         {
             return CommandResult.Fail($"Research {pipe.Name} first.");
         }
@@ -628,6 +591,7 @@ public sealed partial class GameWorld
     {
         foreach (var link in _links.Values.Where(t => t.State != LinkState.Offered).OrderBy(t => t.Id))
         {
+            var previousRound = link.LastRound;
             // The tank since the last round
             if (link.LastRound is { } last && LastTick > last)
             {
@@ -671,25 +635,29 @@ public sealed partial class GameWorld
                 link.Rate = 0;
                 continue;
             }
-            var import = termsOf(KeyOf(buyerEstate)).Import;
-            if (!import.TryGetValue((link.Resource, 0), out var sources))
+            // Between towns the trunk line's carrier takes its fee from the seller (1.4 §20)
+            if (LineOf(link) is { } line && previousRound is { } then && LastTick > then)
             {
-                import[(link.Resource, 0)] = sources = new Dictionary<long, double>();
+                PayLineFee(line, seller, link.Resource, link.Rate * (LastTick - then).TotalMinutes);
+            }
+            var import = termsOf(KeyOf(buyerEstate)).Import;
+            var priceClass = GateClass(seller, buyer, link.Resource);
+            if (!import.TryGetValue((link.Resource, priceClass), out var sources))
+            {
+                import[(link.Resource, priceClass)] = sources = new Dictionary<long, double>();
             }
             sources[seller.Id] = sources.GetValueOrDefault(seller.Id) + link.Rate;
         }
     }
 
     /// <summary>
-    /// The links' share of this round, before the Yard (v1.2 §7: contracts, then links, then the Yard, then the hub): each
+    /// The links' share of this round, before the Yard (1.4 §8: links, then the Yard, then the market): each
     /// link takes what its buyer still lacks (as far as its pipe carries it) from what its seller still has spare, plus
     /// what fills the buyer's tank; what's left goes to the Yard and the hub
     /// </summary>
     private void MatchLinks(Dictionary<EstateKey, YardMember> members, Func<EstateKey, GateTerms> termsOf)
     {
-        var contracted = _contracts.Values.Where(t => t.State == ContractState.Active).Select(t => (t.Seller, t.Buyer, t.Resource)).ToHashSet();
-        foreach (var link in _links.Values.Where(t => t.State != LinkState.Offered)
-                     .OrderBy(t => contracted.Contains((t.Seller, t.Buyer, t.Resource)) ? 0 : 1).ThenBy(t => t.Id))
+        foreach (var link in _links.Values.Where(t => t.State != LinkState.Offered).OrderBy(t => t.Id))
         {
             link.Need = 0;
             link.Send = 0;
@@ -773,7 +741,7 @@ public sealed partial class GameWorld
         var stations = new Dictionary<StationRef, List<YardMember>>();
         YardMember? Member(Estate estate)
         {
-            var corner = BigStation(estate.Station)[0];
+            var corner = estate.Station;
             if (!stations.TryGetValue(corner, out var members))
             {
                 stations[corner] = members = YardMembers(corner);
@@ -791,11 +759,11 @@ public sealed partial class GameWorld
         {
             return [];
         }
-        var home = BigStation(mine.Station)[0];
+        var home = mine.Station;
         var suggestions = new List<LinkSuggestion>();
-        foreach (var other in _companies.Values.Where(t => !t.IsNpc && t.Id != company.Id && !t.Asleep && t.Packed == null && IsActive(t)))
+        foreach (var other in _companies.Values.Where(t => t.Id != company.Id && t.Packed == null && IsActive(t)))
         {
-            if (EstateOf(other) is not { } theirs || BigStation(theirs.Station)[0] == home || GateNetwork(theirs) is not { } theirNetwork
+            if (EstateOf(other) is not { } theirs || theirs.Station == home || GateNetwork(theirs) is not { } theirNetwork
                 || !TradesWith(company, other) || !TradesWith(other, company))
             {
                 continue;

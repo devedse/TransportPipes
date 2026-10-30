@@ -1,19 +1,20 @@
+using TransportPipes.Game.World;
 using TransportPipes.Game.Content;
 
 namespace TransportPipes.Game.State;
 
 /// <summary>
 /// The chain that would make a good nobody near makes (after run 4: "Bricks need stone + coal, I have neither", dev d14,
-/// while the Houses sold both through the Yard and Dev had 12M gold; the Dynamo waited 15 days for a Brickworks nobody
-/// built): the cheapest building that makes it, and where each of its inputs would come from.
+/// while stone and coal were to be had and Dev had 12M gold; the Dynamo waited 15 days for a Brickworks nobody built):
+/// the cheapest building that makes it, and where each of its inputs would come from.
 /// </summary>
 public sealed partial class GameWorld
 {
     /// <summary>
-    /// One input of a chain: who near makes it (you first), whether the Houses sell it through the Yard, and else the
-    /// building you could make it with yourself (an Iron Mine for iron ore)
+    /// One input of a chain: who near makes it (you first), the building you could make it with yourself (an Iron Mine
+    /// for iron ore), and whether it is a land good the market sells to a plot that lacks it (1.4 §5)
     /// </summary>
-    public sealed record ChainInput(string Good, List<Company> Makers, bool Houses, BuildingDefinition? YouCould);
+    public sealed record ChainInput(string Good, List<Company> Makers, bool Market, BuildingDefinition? YouCould);
 
     /// <summary>A building that makes a good, whether this company may build it now (else why not), and its inputs</summary>
     public sealed record Chain(BuildingDefinition Building, double Cost, string? Locked, List<ChainInput> Inputs);
@@ -22,7 +23,7 @@ public sealed partial class GameWorld
     public Chain? ChainFor(Company me, string good)
     {
         var choices = Content.BuildingList
-            .Where(t => t.Buildable && t.Out.ContainsKey(good) && t.Unlock.Era <= Era)
+            .Where(t => t.Buildable && t.Out.ContainsKey(good) && t.Unlock.Era <= TownEra(me.District))
             .Select(t => (Definition: t, Unlocked: IsUnlocked(me, t, out var reason), Reason: reason))
             .OrderBy(t => t.Unlocked ? 0 : 1)
             .ThenBy(t => t.Definition.Cost.Gold)
@@ -45,6 +46,9 @@ public sealed partial class GameWorld
         return new Chain(definition, BuildCost(me, definition), unlocked ? null : why, inputs);
     }
 
+    /// <summary>A good a plot may lack (copper ore, coal, sand, wood, stone): it comes from a neighbour or the market</summary>
+    public bool IsLandGood(string resource) => WorldGenerator.LandGoods.Contains(resource);
+
     /// <summary>A building that would make a good on this company's own land (not a land good dealt to another seat), cheapest first</summary>
     private BuildingDefinition? OwnMaker(Company me, string good)
     {
@@ -54,7 +58,7 @@ public sealed partial class GameWorld
             return null;
         }
         return Content.BuildingList
-            .Where(t => t.Buildable && t.Out.ContainsKey(good) && t.Unlock.Era <= Era && t.Unlock.Research == null)
+            .Where(t => t.Buildable && t.Out.ContainsKey(good) && t.Unlock.Era <= TownEra(me.District) && t.Unlock.Research == null)
             .OrderBy(t => t.Cost.Gold)
             .FirstOrDefault();
     }
@@ -69,14 +73,14 @@ public sealed partial class GameWorld
         var station = EstateOf(me) is { } estate ? StationPlayers(estate.Station) : [];
         var crew = me.CrewId is { } id && Crew(id) is { } c ? CrewMembers(c) : [];
         return station.Concat(crew).Append(me)
-            .Where(t => !t.IsNpc && (t.Id == me.Id || !activeOnly || (!t.Asleep && t.LastSeenAt >= since)))
+            .Where(t => (t.Id == me.Id || !activeOnly || (t.LastSeenAt >= since)))
             .DistinctBy(t => t.Id)
             .ToList();
     }
 
     /// <summary>
     /// "A Brickworks (1,400 g) makes bricks from stone and coal: Ana makes stone, Cleo makes coal; the Yard brings both",
-    /// "… stone and coal: the Houses sell both through the Yard"
+    /// "… stone and coal: the market sells both"
     /// </summary>
     public string ChainText(Chain chain, string good, Company viewer)
     {
@@ -95,22 +99,22 @@ public sealed partial class GameWorld
                 parts.Add(maker.Id == viewer.Id ? $"you make {Name(input.Good)}" : $"{NameFor(maker, viewer)} makes {Name(input.Good)}");
             }
         }
-        var bought = chain.Inputs.Where(t => t.Makers.Count == 0 && t.Houses).Select(t => Name(t.Good)).ToList();
-        if (bought.Count > 0)
-        {
-            parts.Add($"the Houses sell {Join(bought)} through the Yard");
-        }
-        foreach (var input in chain.Inputs.Where(t => t.Makers.Count == 0 && !t.Houses && t.YouCould != null))
+        foreach (var input in chain.Inputs.Where(t => t.Makers.Count == 0 && t.YouCould != null))
         {
             parts.Add($"you can make {Name(input.Good)} with {Article(input.YouCould!.Name)}");
         }
-        var missing = chain.Inputs.Where(t => t.Makers.Count == 0 && !t.Houses && t.YouCould == null).Select(t => Name(t.Good)).ToList();
+        var bought = chain.Inputs.Where(t => t.Makers.Count == 0 && t.YouCould == null && t.Market).Select(t => Name(t.Good)).ToList();
+        if (bought.Count > 0)
+        {
+            parts.Add($"the market sells {Join(bought)} at 2.5× until a neighbour makes {(bought.Count == 1 ? "it" : "them")}");
+        }
+        var missing = chain.Inputs.Where(t => t.Makers.Count == 0 && t.YouCould == null && !t.Market).Select(t => Name(t.Good)).ToList();
         if (missing.Count > 0)
         {
             parts.Add($"nobody near makes {Join(missing)} yet");
         }
         var text = parts.Count == 0 ? head : $"{head}: {string.Join("; ", parts)}";
-        if (chain.Inputs.Any(t => t.Makers.Any(m => m.Id != viewer.Id) || t.Houses) && missing.Count == 0)
+        if (chain.Inputs.Any(t => t.Makers.Any(m => m.Id != viewer.Id)) && missing.Count == 0 && bought.Count == 0)
         {
             text += chain.Inputs.Count > 1 ? "; the Yard brings them" : "; the Yard brings it";
         }
@@ -142,7 +146,7 @@ public sealed partial class GameWorld
             var maker = near.FirstOrDefault(c => c.Id != company.Id && BuildingsOf(c.Id).Any(b => !b.UnderConstruction && Content.Building(b.Type).Out.ContainsKey(t.Key)));
             return maker != null
                 ? $"{NameFor(maker, company)} makes {GoodsWord(t.Key)}: the Yard brings them"
-                : $"nobody near makes {GoodsWord(t.Key)}: order them at twice the price ({Gold(Math.Ceiling(t.Value * BasePrice(t.Key) * OrderPrice))})";
+                : $"nobody near makes {GoodsWord(t.Key)}: buy them from the market ({Gold(Math.Ceiling(t.Value * WantMarketPrice(company, t.Key)))})";
         }).ToList();
         return (shortOf, $"It waits for {all} before it stands: {string.Join("; ", parts)}.");
     }

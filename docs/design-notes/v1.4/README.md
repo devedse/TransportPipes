@@ -14,6 +14,14 @@
   Company Level, parcels, the outskirts, the Monument and the Wonder, a crew trading in its Yard (`crew.py`, also
   without trade), every Era-1 track mastered against the same plot played wide (`tracks.py`). `final_rules.txt` holds
   the numbers the document settles on.
+- `sim/eras.py` (phase C): one regular player through all five Eras, the town's Eras on the days the design aims at
+  (12, 33, 61, 89); later Eras' buildings take the land of older ones, the Deep Level and three outposts add room. Eight
+  times what it gives in an Era sized the Wonders of Eras 3 to 5, the first mission, the later Era tree and the outposts:
+
+  ```sh
+  base=$(cat sim/final_rules.txt); for l2 in bauxite oil rareEarth titaniumOre; do
+    python3 sim/eras.py "{\"rules\":{$base},\"days\":125,\"lacks2\":\"$l2\"}" sim/out/eras/$l2.json & done; wait
+  ```
 
 To rebuild:
 

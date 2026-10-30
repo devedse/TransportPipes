@@ -45,20 +45,14 @@ public class BalanceSimulation
             Assert.Inconclusive($"Only {only}.");
         }
         var days = int.TryParse(Environment.GetEnvironmentVariable("TP_BALANCE_DAYS"), out var d) ? d : 14;
-        // Like a real server: Loady, achievements, and the surveyors' starter kit on every estate
-        var game = new TestGame(seed: 4242, achievements: true, tutorial: true, surveys: true);
-        if (profile == "typical-together")
-        {
-            game.World.TenantsEnabled = true;
-            game.World.ProjectsEnabled = true;
-            game.World.TrunksEnabled = true;
-        }
+        // Like a real server: Loady and achievements
+        var game = new TestGame(seed: 4242, achievements: true, tutorial: true);
         var company = game.NewCompany("Bot", gold: game.World.StartingGold);
         var bot = new Bot(game, company);
         var report = new StringBuilder();
         var sessions = Profiles[profile];
         report.AppendLine($"## {profile}: sessions at {string.Join(", ", sessions.Select(t => $"{t.Start:0.#}h ({t.Minutes} min)"))}");
-        report.AppendLine($"XP for levels 5, 10, 22, 30, 40, 60: {string.Join(", ", new[] { 5, 10, 22, 30, 40, 60 }.Select(t => game.World.Content.Progression.XpForLevel(t).ToString("N0")))}");
+        report.AppendLine($"Gold earned for levels 5, 10, 20, 25, 30: {string.Join(", ", new[] { 5, 10, 20, 25, 30 }.Select(t => game.World.Content.Progression.EarnedForLevel(t).ToString("N0")))}");
         report.AppendLine();
         report.AppendLine("| Time | Level | Gold | Gold/min | Buildings | Parcels | What happened |");
         report.AppendLine("| --- | --- | --- | --- | --- | --- | --- |");
@@ -81,7 +75,7 @@ public class BalanceSimulation
             catch (KeyNotFoundException)
             {
                 var networks = game.World.Networks.Where(t => t.Solution.Flows.Any(f => game.World.Building(f.From) == null || game.World.Building(f.To) == null)).ToList();
-                TestContext.WriteLine($"minute {minute}, era {game.World.Era}, stale networks: {string.Join("; ", networks.Select(n => $"{n.Id} members {string.Join(",", n.Buildings)} needsSolve {n.NeedsSolve} flows {string.Join(",", n.Solution.Flows.Select(f => $"{f.From}->{f.To}"))}"))}");
+                TestContext.WriteLine($"minute {minute}, era {game.World.YourEra(company)}, stale networks: {string.Join("; ", networks.Select(n => $"{n.Id} members {string.Join(",", n.Buildings)} needsSolve {n.NeedsSolve} flows {string.Join(",", n.Solution.Flows.Select(f => $"{f.From}->{f.To}"))}"))}");
                 TestContext.WriteLine("notes: " + bot.TakeNotes());
                 throw;
             }
@@ -108,7 +102,7 @@ public class BalanceSimulation
         }
         var posts = game.World.BuildingsOf(company.Id).Where(t => game.World.Content.Building(t.Type).Kind == BuildingKind.TradingPost).ToList();
         report.AppendLine();
-        report.AppendLine($"Trading posts: {string.Join(", ", posts.Select(t => $"{t.Type} level {t.Level}, sells up to {game.World.TradingPostThroughput(t, game.World.Content.Building(t.Type)):N0}/min, full: {game.World.TradingPostFull(t)}"))}");
+        report.AppendLine($"Trading posts: {string.Join(", ", posts.Select(t => $"{t.Type} level {t.Level}, Hub Orders ×{Math.Pow(game.World.Content.Progression.Market.PostLevel, t.Level - 1):0.##}"))}");
         TestContext.WriteLine(report.ToString());
         var file = Path.Combine(AppContext.BaseDirectory, $"balance-{profile}.md");
         File.WriteAllText(file, report.ToString());
@@ -151,9 +145,8 @@ public class BalanceSimulation
         {
             Assert.Inconclusive("Set TP_BALANCE=1 to run the balance simulation.");
         }
-        // Like a real server: Loady, achievements, and the surveyors' starter kit on every estate
-        var game = new TestGame(seed: 4242, achievements: true, tutorial: true, surveys: true);
-        game.World.TenantsEnabled = true;
+        // Like a real server: Loady and achievements
+        var game = new TestGame(seed: 4242, achievements: true, tutorial: true);
         var company = game.NewCompany("Bot", gold: game.World.StartingGold);
         // The server gives a new company today's orders
         game.World.EnsureOrders(company);
@@ -310,6 +303,121 @@ public class BalanceSimulation
         /// <summary>One sensible thing to do, if there is one</summary>
         public bool Act() => TryPump() || TryResearch() || TryParcel() || TryChain() || TryUpgrade() || TryProducer();
 
+        /// <summary>
+        /// One thing the model's player of 1.4 §17 does: research when its Labs are idle, the next parcel as soon as the
+        /// level and the gold allow (waiting for it while it is a few hours of income away), then of the game's own next
+        /// steps the one that pays back soonest within five days (an upgrade is a Max, a building is placed and piped);
+        /// false when it waits
+        /// </summary>
+        /// <summary>
+        /// Up to this many things, as the model's player does them in a minute; the advisor is asked again after every
+        /// few (a big plot's network is solved again after every change, which made a bot's day take minutes)
+        /// </summary>
+        public int ModelSteps(int count)
+        {
+            var done = 0;
+            while (done < count && ModelStep(Math.Min(3, count - done)) is > 0 and var n)
+            {
+                done += n;
+            }
+            return done;
+        }
+
+        public bool ModelStep() => ModelStep(1) > 0;
+
+        /// <summary>One thing, or up to a batch of the advisor's steps from one list (the best payback first); how many it did</summary>
+        private int ModelStep(int batch)
+        {
+            company.LastSeenAt = game.Time;
+            if (TryResearch())
+            {
+                return 1;
+            }
+            if (SavesForResearch())
+            {
+                return 0;
+            }
+            var (cost, level) = World.NextParcel(company);
+            if (level <= company.Level && World.BestParcel(company) is { } parcel)
+            {
+                if (cost <= company.Gold && World.BuyParcel(company.Id, parcel.Parcel).Success)
+                {
+                    _notes.Add("bought a parcel");
+                    return 1;
+                }
+                if (Income > 0 && (cost - company.Gold) / Income <= GameWorld.SaveForParcelMinutes)
+                {
+                    return 0;
+                }
+            }
+            // Then the outskirts from Era 2, in the same way (1.4 §5)
+            if (World.OutskirtsBlocker(company) == null && game.EstateOf(company) is var home)
+            {
+                var price = World.NextOutskirtsCost(company);
+                var free = Enumerable.Range(0, WorldLayout.OutskirtsParcels(home.Slot).Count).First(t => !home.HasOutskirts(t));
+                if (price <= company.Gold && World.BuyOutskirts(company.Id, free).Success)
+                {
+                    _notes.Add("bought outskirts");
+                    return 1;
+                }
+                if (Income > 0 && (price - company.Gold) / Income <= GameWorld.SaveForParcelMinutes)
+                {
+                    return 0;
+                }
+            }
+            var steps = World.NextSteps(company, 12);
+            // A building nobody piped earns nothing: its pipe first
+            if (steps.Any(t => t.Action == AdvisorAction.Connect) && ConnectAll())
+            {
+                _notes.Add("piped what wasn't");
+                return 1;
+            }
+            var choices = steps
+                .Where(t => t.Action is AdvisorAction.Build or AdvisorAction.Upgrade or AdvisorAction.Climb && t.GainPerMinute > 0 && t.Cost <= company.Gold)
+                .Where(t => t.Cost / t.GainPerMinute <= GameWorld.GrowPaybackMinutes)
+                // Not a scaffold that would wait for materials nobody brings (the market brings them, unless that is off)
+                .Where(t => t.Action != AdvisorAction.Build || company.WantsFromMarket || World.MaterialsLine(company, World.Content.Building(t.BuildingType!)) is not { Short.Count: > 0 })
+                // Not what didn't work a moment ago (a spot it can't pipe): a player tries the next thing
+                .Where(t => !_failed.TryGetValue(t.Title, out var until) || until <= game.Time)
+                .OrderBy(t => t.Cost / t.GainPerMinute)
+                .ToList();
+            if (choices.Count == 0)
+            {
+                // Nothing pays back within five days: the gold beyond two hours of income goes half to the Yard's Monument,
+                // half to the town's Wonder (1.4 §17)
+                return GiveLateGold() ? 1 : 0;
+            }
+            var acted = 0;
+            var touched = new HashSet<long>();
+            foreach (var best in choices.Take(5 + batch))
+            {
+                // A batch never touches one building twice (its next step's price and gain changed), nor buys past the gold
+                if (acted >= batch || (best.Building is { } b && !touched.Add(b)) || best.Cost > company.Gold)
+                {
+                    continue;
+                }
+                var done = best.Action switch
+                {
+                    AdvisorAction.Upgrade when World.Building(best.Building!.Value) is { } building =>
+                        World.Upgrade(company.Id, building.Id, Math.Max(best.Levels, World.SmartMax(company, building).Levels)).Success,
+                    AdvisorAction.Build => PlaceAt(best.BuildingType!, best.At),
+                    AdvisorAction.Climb => World.ClimbPipe(company.Id, best.Building!.Value, order: true).Success,
+                    _ => false,
+                };
+                if (done)
+                {
+                    _notes.Add(best.Title);
+                    acted++;
+                    continue;
+                }
+                _failed[best.Title] = game.Time.AddHours(1);
+            }
+            return acted > 0 ? acted : GiveLateGold() ? 1 : 0;
+        }
+
+        /// <summary>Steps that didn't work, and until when they aren't tried again</summary>
+        private readonly Dictionary<string, DateTime> _failed = new();
+
         /// <summary>The first of the advisor's next steps the company can afford now, done</summary>
         private DateTime? _grownOn;
 
@@ -335,9 +443,8 @@ public class BalanceSimulation
                     AdvisorAction.Parcel => World.BuyParcel(company.Id, step.Parcel!.Value).Success,
                     AdvisorAction.Partner => ConnectNeighbour() != null,
                     AdvisorAction.Climb => World.ClimbPipe(company.Id, step.Building!.Value, order: true).Success,
-                    // The shared goals (after run 4): an hour of income to the storey, a day's order for the Era Wonder
-                    AdvisorAction.Storey => World.GiveToStorey(company.Id, 1).Success,
-                    AdvisorAction.Wonder => World.EraWonder is { } wonder && wonder.Required.Keys.ToList().Any(good => World.OrderForWonder(company.Id, good, step.Cost).Success),
+                    // The shared goal: buy and give a day's income to the town's Wonder
+                    AdvisorAction.Wonder => World.BuyAndGive(company.Id, null, step.Cost).Success,
                     AdvisorAction.Connect => ConnectAll(),
                     _ => false,
                 };
@@ -363,7 +470,8 @@ public class BalanceSimulation
                 {
                     return true;
                 }
-                World.Demolish(company.Id, building.Id);
+                // No way to pipe it: taken back, as a player would (Undo, not Demolish: the advisor still offers the type)
+                World.Undo(company.Id, building.Id);
             }
             return Place(type, preferMultiplier: true);
         }
@@ -429,8 +537,6 @@ public class BalanceSimulation
                     return ConnectNeighbour() is { } partner ? ($"piped to {partner}", 45) : (null, 0);
                 case "secondParcel":
                     return TryParcel() ? ("bought a parcel", 20) : (null, 0);
-                case "corporation":
-                    return World.FoundCorporation(company.Id, "Bot Guild", "BOT", "#3366cc").Success ? ("founded a corporation", 60) : (null, 0);
                 default:
                     return (null, 0);
             }
@@ -551,17 +657,6 @@ public class BalanceSimulation
         /// <summary>The upgrade with the quickest payback, if it pays back within two hours of current income</summary>
         private bool TryUpgrade()
         {
-            // A full trading post first: it caps everything else (a player sees "Sells all it can")
-            var post = World.BuildingsOf(company.Id).FirstOrDefault(World.TradingPostFull);
-            if (post != null && World.UpgradeCost(post, 1) <= company.Gold)
-            {
-                if (World.Content.Building(post.Type).EvolvesTo != null && World.EvolvePlan(company, post).Problem == null && World.Evolve(company.Id, post.Id).Success)
-                {
-                    _notes.Add("evolved the trading post");
-                    return true;
-                }
-                return World.Upgrade(company.Id, post.Id, 1).Success;
-            }
             var best = World.BuildingsOf(company.Id)
                 .Where(t => !t.UnderConstruction && World.Content.Building(t.Type).Out.Count > 0)
                 .Select(t => (Building: t, Cost: World.UpgradeCost(t, 1)))
@@ -620,20 +715,122 @@ public class BalanceSimulation
                 _notes.Add("built a lab");
                 return true;
             }
-            if (company.CurrentResearch != null)
+            var started = false;
+            // The second line: the Era tree, what holds the company back first (pumps for a big network), then the cheapest
+            if (company.CurrentResearch == null)
+            {
+                var wanted = World.Alerts(company).Any(t => t.Text.Contains("Pump Station")) ? "pumpStations" : null;
+                var tech = World.Content.ResearchList.Where(t => World.ResearchBlocker(company, t) == null)
+                    .OrderBy(t => t.Id == wanted ? 0 : 1).ThenBy(t => World.ResearchCost(company, t)).FirstOrDefault();
+                if (tech != null && company.Gold >= World.ResearchCost(company, tech) && World.StartResearch(company.Id, tech.Id).Success)
+                {
+                    _notes.Add($"researching {tech.Name}");
+                    started = true;
+                }
+            }
+            // The first line (1.4 §17): the first two tiers of every track of its Era, then its main track to the top
+            if (company.CurrentTrack == null && NextTrack(new()) is { } track)
+            {
+                var tier = World.NextTier(company, track)!.Value;
+                if (company.Gold >= World.TierCost(company, track, tier).Total && World.StartResearch(company.Id, track.Id).Success)
+                {
+                    _notes.Add($"researching {track.Name} {tier}");
+                    started = true;
+                }
+            }
+            QueuePlan();
+            return started;
+        }
+
+        /// <summary>The tracks it masters, in order (the model: Iron, then Steel once Era 2 opens)</summary>
+        public List<string> MainTracks { get; init; } = ["iron", "steel"];
+
+        /// <summary>The track of the plan's next tier, beyond what is researched, running and queued (and these extra)</summary>
+        private TrackDefinition? NextTrack(Dictionary<string, int> extra)
+        {
+            int Planned(TrackDefinition t) => World.TrackTier(company, t.Id) + (company.CurrentTrack == t.Id ? 1 : 0)
+                + company.TrackQueue.Count(q => q == t.Id) + extra.GetValueOrDefault(t.Id);
+            var tiers = World.Content.TrackRules.Tiers.Count;
+            var open = World.Content.TrackList.Where(t => t.Era <= World.YourEra(company) && t.Buildings.Count > 0 && Planned(t) < tiers).ToList();
+            return open.FirstOrDefault(t => Planned(t) < 2)
+                ?? MainTracks.Select(t => open.FirstOrDefault(o => o.Id == t)).OfType<TrackDefinition>().FirstOrDefault()
+                ?? open.OrderBy(Planned).FirstOrDefault();
+        }
+
+        /// <summary>
+        /// The plan's next tiers in the Lab's queue, as a player who knows what they master queues them: they start by
+        /// themselves while the bot is away (the model's next tier does), where the game's Keep researching would start
+        /// the cheapest tier of any track
+        /// </summary>
+        private void QueuePlan()
+        {
+            if (!HasLab)
+            {
+                return;
+            }
+            var extra = new Dictionary<string, int>();
+            while (company.TrackQueue.Count < GameWorld.ResearchQueueLength && NextTrack(extra) is { } next)
+            {
+                if (!World.QueueResearch(company.Id, next.Id, true).Success)
+                {
+                    break;
+                }
+            }
+        }
+
+        private bool HasLab => World.BuildingsOf(company.Id).Any(t => !t.UnderConstruction && World.Content.Building(t.Type).Kind == BuildingKind.Lab);
+
+        /// <summary>
+        /// Whether it saves for its next tier or Era tree item (the model: while it costs at most eight hours of
+        /// income, nothing else is bought)
+        /// </summary>
+        private bool SavesForResearch()
+        {
+            if (!HasLab || Income <= 0)
             {
                 return false;
             }
-            // What holds the company back first (pumps for a big network), then the cheapest
-            var wanted = World.Alerts(company).Any(t => t.Text.Contains("Pump Station")) ? "pumpStations" : null;
-            var tech = World.Content.ResearchList.Where(t => World.ResearchBlocker(company, t) == null)
-                .OrderBy(t => t.Id == wanted ? 0 : 1).ThenBy(t => World.ResearchCost(company, t)).FirstOrDefault();
-            if (tech != null && company.ResearchPoints >= World.ResearchCost(company, tech) && World.StartResearch(company.Id, tech.Id).Success)
+            var save = Income * 8 * 60;
+            if (company.CurrentTrack == null && company.TrackQueue.Count > 0 && World.Content.Tracks.GetValueOrDefault(company.TrackQueue[0]) is { } track
+                && World.NextTier(company, track) is { } tier && World.TierCost(company, track, tier).Total is var cost && cost > company.Gold && cost <= save)
             {
-                _notes.Add($"researching {tech.Name}");
                 return true;
             }
-            return false;
+            return company.CurrentResearch == null && World.Content.ResearchList.Where(t => World.ResearchBlocker(company, t) == null)
+                .Select(t => World.ResearchCost(company, t)).DefaultIfEmpty(double.MaxValue).Min() is var item && item > company.Gold && item <= save;
+        }
+
+        /// <summary>
+        /// Gold that buys nothing worth it any more: what is beyond two hours of income goes half to the Yard's Monument
+        /// (a Grand Fountain when nobody chose one), half to the town's Wonder
+        /// </summary>
+        private bool GiveLateGold()
+        {
+            var spare = company.Gold - Income * 120;
+            if (Income <= 0 || spare <= Income * 10)
+            {
+                return false;
+            }
+            var given = false;
+            if (World.CrewOf(company) is { } crew && company.Level >= World.Content.Monuments.Level)
+            {
+                var site = World.MonumentsOf(crew).LastOrDefault();
+                if (site is { Kind: null })
+                {
+                    World.ChooseMonument(company.Id, site.Era, World.Content.Monuments.Kinds.First(k => World.MonumentsOf(crew).All(s => s.Kind != k.Id)).Id);
+                }
+                if (site != null && !World.MonumentCapped(site) && World.PayMonument(company.Id, site.Era, spare / 2).Success)
+                {
+                    _notes.Add("paid into the Monument");
+                    given = true;
+                }
+            }
+            if (World.BuyAndGive(company.Id, null, given ? spare / 2 : spare).Success)
+            {
+                _notes.Add("gave to the Wonder");
+                given = true;
+            }
+            return given;
         }
 
         /// <summary>Places a building close to the trading post (or where it makes the most) and pipes it to the network</summary>
@@ -670,7 +867,7 @@ public class BalanceSimulation
                     return true;
                 }
                 // No way to pipe it: take it back
-                World.Demolish(company.Id, building.Id);
+                World.Undo(company.Id, building.Id);
             }
             return false;
         }

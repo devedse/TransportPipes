@@ -1,6 +1,7 @@
 import { Assets, Rectangle, Texture, type Spritesheet } from "pixi.js";
 import type { TerrainType } from "../../api/contracts";
 import { resolveFrames } from "../spriteFrames";
+import { gateInletContains } from "../connectors";
 import {
   drawBuilding,
   drawGate,
@@ -29,6 +30,8 @@ export const TERRAIN_VARIANTS = 4;
 
 export interface BuildingTextures {
   frames: Texture[];
+  /** A gate's ground pad, below its inlet and posts. */
+  ground?: Texture;
   size: number;
   /** Generated art: the sprite's anchor is the bottom corner of its ground plate, scaled down from its resolution */
   placement?: { anchorX: number; anchorY: number; scale: number };
@@ -135,6 +138,20 @@ export class TextureBank {
   private readonly cache = new Map<string, Texture>();
   private readonly buildingCache = new Map<string, BuildingTextures>();
   private readonly thumbnailCache = new Map<string, string>();
+  private readonly resourceIcons = new Map<string, Texture | null>();
+
+  /** Cargo on the little belts uses the same painted resource icons as the UI, loaded once when first visible. */
+  resourceIcon(resource: string): Texture | null {
+    if (!this.resourceIcons.has(resource)) {
+      this.resourceIcons.set(resource, null);
+      void Assets.load<Texture>(`/art/ui/res-${resource}.webp`)
+        .then((texture) => {
+          this.resourceIcons.set(resource, texture);
+        })
+        .catch(() => undefined);
+    }
+    return this.resourceIcons.get(resource) ?? null;
+  }
   private atlasImage: HTMLImageElement | null = null;
   private readonly artRequested = new Set<string>();
   private readonly artFailed = new Set<string>();
@@ -775,12 +792,54 @@ export class TextureBank {
     return this.art?.pipes?.z ?? 22;
   }
 
+  private readonly gateMasks = new Map<string, ImageData>();
+
+  /** Hit the inlet, posts and barrier above the ground. Coordinates use the sprite's bottom-left anchor. */
+  gateContains(alongU: boolean, x: number, y: number, tolerance: number): boolean {
+    if (gateInletContains(x, y, tolerance)) return true;
+    this.gate("open", alongU);
+    const mask = this.gateMasks.get(`gate:open:${alongU}`)!;
+    const px = Math.round(x);
+    const py = Math.round(y + mask.height);
+    const radius = Math.ceil(tolerance);
+    if (px < -radius || px >= mask.width + radius || py < -radius || py >= mask.height + radius) {
+      return false;
+    }
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const sx = px + dx;
+        const sy = py + dy;
+        if (
+          dx * dx + dy * dy <= radius * radius &&
+          sx >= 0 &&
+          sx < mask.width &&
+          sy >= 0 &&
+          sy < mask.height &&
+          mask.data[(sy * mask.width + sx) * 4 + 3]! > 128
+        ) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   gate(policy: "open" | "closed" | "contract" | "corporation", alongU: boolean): BuildingTextures {
     const key = `gate:${policy}:${alongU}`;
     let result = this.buildingCache.get(key);
     if (result === undefined) {
       const art = drawGate(policy, alongU);
-      result = { frames: [Texture.from(art.canvas)], size: 1, attachments: art.attachments, original: false };
+      this.gateMasks.set(
+        key,
+        art.canvas.getContext("2d")!.getImageData(0, 0, art.canvas.width, art.canvas.height),
+      );
+      result = {
+        frames: [Texture.from(art.canvas)],
+        ground: art.ground === undefined ? undefined : Texture.from(art.ground),
+        size: 1,
+        attachments: art.attachments,
+        original: false,
+      };
       this.buildingCache.set(key, result);
     }
     return result;
@@ -790,7 +849,9 @@ export class TextureBank {
     // Generated art: the hub's buildings, and the Wonders (they rise stage by stage, see Engine)
     const wonder =
       (type === "wonderSite" || type === "eraWonderSite") && look?.variant ? `wonder-${look.variant}` : null;
-    const generated = this.generatedBuilding(wonder ?? `hub-${type}`, size);
+    // A statue: one of three looks
+    const statue = type === "statue" && look?.variant ? `hub-statue-${look.variant}` : null;
+    const generated = this.generatedBuilding(wonder ?? statue ?? `hub-${type}`, size);
     if (generated !== null) {
       return generated;
     }

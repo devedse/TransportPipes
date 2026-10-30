@@ -15,7 +15,11 @@ public sealed class WorldSnapshot
     internal List<object> Deletes { get; } = new();
     internal List<DbTerrainOverride> TerrainOverrides { get; } = new();
 
-    public int Count => Upserts.Count + Deletes.Count;
+    /// <summary>The statistics' samples and key moments taken since the last save (docs/design-notes/statistics.md)</summary>
+    internal List<DbStatSample> Samples { get; } = new();
+    internal List<DbMoment> Moments { get; } = new();
+
+    public int Count => Upserts.Count + Deletes.Count + Samples.Count + Moments.Count;
 }
 
 /// <summary>
@@ -30,12 +34,15 @@ public sealed class WorldStore
     private readonly HashSet<long> _companies = new();
     private readonly HashSet<(int, int, int)> _estates = new();
     private readonly HashSet<long> _buildings = new();
-    private readonly HashSet<long> _contracts = new();
-    private readonly HashSet<long> _corporations = new();
     private readonly HashSet<TilePos> _conductors = new();
     private readonly Dictionary<TilePos, TerrainType> _terrainOverrides = new();
     private readonly List<object> _orphans = new();
     private bool _worldExists;
+
+    /// <summary>Samples and moments of a save that failed: they go with the next one</summary>
+    private readonly List<DbStatSample> _unsavedSamples = new();
+    private readonly List<DbMoment> _unsavedMoments = new();
+    private const int MaxUnsaved = 50_000;
 
     /// <summary>The rules the loaded world was made with (a new world: today's)</summary>
     private int _worldRules = CurrentRules;
@@ -47,12 +54,10 @@ public sealed class WorldStore
 
     /// <summary>
     /// The version of the rules: a world saved with older rules is thrown away when the server starts (v1.2 changed how
-    /// players play together so much that the owner chose a fresh world); accounts stay
+    /// players play together so much that the owner chose a fresh world, 1.4 changes the map, and 1.4's phase B the
+    /// economy); accounts stay
     /// </summary>
-    public const int CurrentRules = 3;
-
-    /// <summary>The first rules with dealt land (step 5 of the redesign): older worlds keep the land they were made with</summary>
-    public const int DealtLandRules = 3;
+    public const int CurrentRules = 5;
 
     /// <summary>Whether the last load threw an old world away</summary>
     public bool WorldReset { get; private set; }
@@ -72,7 +77,7 @@ public sealed class WorldStore
         dbWorld ??= new DbWorld { Seed = newWorldSeed, CreatedAt = clock(), LastTick = clock() };
 
         _worldRules = dbWorld.Rules == 0 ? CurrentRules : dbWorld.Rules;
-        var world = new GameWorld(content, dbWorld.Seed, clock, dealtLand: _worldRules >= DealtLandRules) { Era = dbWorld.Era };
+        var world = new GameWorld(content, dbWorld.Seed, clock);
 
         foreach (var row in await db.Companies.ToListAsync(cancellationToken))
         {
@@ -84,13 +89,10 @@ public sealed class WorldStore
                 Name = row.Name,
                 Color = row.Color,
                 Gold = row.Gold,
-                Xp = row.Xp,
                 Level = row.Level,
-                ResearchPoints = row.ResearchPoints,
                 LifetimeEarnings = row.LifetimeEarnings,
                 CreatedAt = row.CreatedAt,
                 LastSeenAt = row.LastSeenAt,
-                IsNpc = row.IsNpc,
                 District = new DistrictCoord(row.DistrictX, row.DistrictY),
                 Slot = row.Slot,
                 HubMarkets = settings.HubMarkets,
@@ -99,92 +101,69 @@ public sealed class WorldStore
                 TradeBlocked = settings.TradeBlocked,
                 PendingBlocks = settings.PendingBlocks,
                 CrewId = settings.CrewId,
-                LeftCrewAt = settings.LeftCrewAt,
+                Prices = settings.Prices ?? new Dictionary<string, PriceSetting>(),
+                NextToMeCode = settings.NextToMeCode,
+                NextToMeUntil = settings.NextToMeUntil,
+                NextToMeUsed = settings.NextToMeUsed,
                 IsGuest = settings.IsGuest,
-                House = settings.House,
-                StandIn = settings.StandIn,
-                StandInAnnounced = settings.StandInAnnounced,
-                KnownAs = settings.KnownAs,
-                SeatedNextDoor = settings.SeatedNextDoor,
                 YardSalesExplained = settings.YardSalesExplained,
                 KeepResearching = settings.KeepResearching,
-                HoldUntil = settings.HoldUntil,
-                KeepAsked = settings.KeepAsked,
-                TendedBy = settings.TendedBy ?? new Dictionary<long, int>(),
-                TendedUntil = settings.TendedUntil,
-                LastSeat = settings.LastSeat,
-                LoneDays = settings.LoneDays,
-                LoneCardAt = settings.LoneCardAt,
-                LoneCard = settings.LoneCard,
-                ProbationUntil = settings.ProbationUntil,
-                ProjectFirst = settings.ProjectFirst ?? new HashSet<string>(),
                 Purchases = settings.Purchases ?? new List<Purchase>(),
                 LastGrowth = settings.LastGrowth,
                 EraEnded = settings.EraEnded,
-                Refinements = settings.Refinements ?? new Dictionary<string, int>(),
                 TradeFalls = settings.TradeFalls ?? new Dictionary<string, TradeFall>(),
                 LastCardLines = settings.LastCardLines ?? new List<string>(),
-                RefineChoice = settings.RefineChoice,
-                Sends = settings.Sends ?? new List<GoodSend>(),
-                ThankedOn = settings.ThankedOn ?? new Dictionary<long, int>(),
                 GiftsAnnounced = settings.GiftsAnnounced ?? new HashSet<string>(),
                 PinMakes = settings.PinMakes ?? new HashSet<string>(),
                 PinNeeds = settings.PinNeeds ?? new HashSet<string>(),
                 Asks = settings.Asks ?? new List<CompanyAsk>(),
-                KitBuildings = settings.KitBuildings ?? new HashSet<long>(),
                 TutorialStepSince = settings.TutorialStepSince,
                 Devices = settings.Devices ?? new Dictionary<string, DateTime>(),
                 MeasuredIncome = settings.MeasuredIncome,
                 MeasuredEarned = settings.MeasuredEarned,
                 UsualTrades = settings.UsualTrades ?? new Dictionary<string, UsualTrade>(),
-                League = settings.League,
                 EraOutput = settings.EraOutput,
                 DistinctDays = settings.DistinctDays,
                 LastPlayedDay = settings.LastPlayedDay,
-                TradeWith = settings.TradeWith,
                 BuiltTypes = settings.BuiltTypes,
-                XpLog = settings.XpLog,
+                TradedWith = settings.TradedWith ?? new HashSet<long>(),
+                TradedWithUnknown = settings.TradedWith == null,
+                EarnedLog = settings.EarnedLog,
+                Era = Math.Max(1, settings.Era),
+                Give = settings.Give ?? new Dictionary<string, GiveMode>(),
+                WantsFromMarket = settings.WantsFromMarket,
                 Researched = settings.Researched,
                 CurrentResearch = settings.CurrentResearch,
                 ResearchQueue = settings.ResearchQueue ?? new List<string>(),
                 ResearchEndsAt = settings.ResearchEndsAt,
-                ContractScore = settings.ContractScore,
-                ContractsCompleted = settings.ContractsCompleted,
-                CorporationId = settings.CorporationId,
-                Role = settings.Role,
-                LeftCorporationAt = settings.LeftCorporationAt,
+                TrackTiers = settings.TrackTiers ?? new Dictionary<string, int>(),
+                CurrentTrack = settings.CurrentTrack,
+                TrackEndsAt = settings.TrackEndsAt,
+                TrackQueue = settings.TrackQueue ?? new List<string>(),
                 MentorId = settings.MentorId,
                 MentorRewards = settings.MentorRewards,
                 WeekStartEarnings = settings.WeekStartEarnings,
                 Likes = settings.Likes,
-                Shares = settings.Shares,
-                FranchiseAt = settings.FranchiseAt,
-                Branches = settings.Branches,
-                Franchises = settings.Franchises,
-                EarningsAtFranchise = settings.EarningsAtFranchise,
                 LegacyLevel = settings.LegacyLevel,
                 Packed = settings.Packed,
                 Crates = settings.Crates,
-                Asleep = settings.Asleep,
                 ArrivesAt = settings.ArrivesAt,
                 LastMovedAt = settings.LastMovedAt,
                 FreeMoves = settings.FreeMoves,
-                MergeBonus = settings.MergeBonus,
                 DeepParcels = settings.DeepParcels,
                 TutorialStep = settings.TutorialStep,
                 Expedition = settings.Expedition,
                 ExpeditionLog = settings.ExpeditionLog,
                 Relics = settings.Relics,
-                Mastery = settings.Mastery,
+                Explored = settings.Explored,
+                Exports = settings.Exports,
                 DigParcel = settings.DigParcel,
                 DigStartedAt = settings.DigStartedAt,
                 DigEndsAt = settings.DigEndsAt,
-                SwapWith = settings.SwapWith,
                 Titles = settings.Titles,
                 Managers = settings.Managers,
                 Achievements = settings.Achievements,
                 Stats = settings.Stats,
-                HubReputation = settings.HubReputation,
                 DailyOrders = settings.DailyOrders,
                 Report = JsonSerializer.Deserialize<CompanyReport>(row.Report, Json) ?? new CompanyReport { Since = row.LastSeenAt },
             });
@@ -201,8 +180,7 @@ public sealed class WorldStore
                 Origin = WorldLayout.EstateOrigin(district, row.Slot),
                 OwnerId = row.OwnerId,
                 UnlockedParcels = row.UnlockedParcels,
-                ReservedFor = row.ReservedFor,
-                ReservedUntil = row.ReservedUntil,
+                OutskirtsParcels = row.OutskirtsParcels,
             });
             _estates.Add((row.DistrictX, row.DistrictY, row.Slot));
         }
@@ -231,6 +209,7 @@ public sealed class WorldStore
                 Y = row.Y,
                 Size = row.Size,
                 Level = row.Level,
+                Price = row.Price,
                 ConstructionEndsAt = row.ConstructionEndsAt,
                 Contents = JsonSerializer.Deserialize<Dictionary<string, double>>(row.Contents, Json) ?? new(),
                 Imports = JsonSerializer.Deserialize<HashSet<string>>(row.Imports, Json) ?? new(),
@@ -248,55 +227,8 @@ public sealed class WorldStore
                 Kind = (ConductorKind)row.Kind,
                 Tier = row.Tier,
                 Owner = row.OwnerId,
-                Widen = Math.Max(1, row.Widen),
             });
             _conductors.Add(new TilePos(row.X, row.Y));
-        }
-
-        foreach (var row in await db.Corporations.ToListAsync(cancellationToken))
-        {
-            var data = JsonSerializer.Deserialize<CorporationData>(row.Data, Json);
-            world.LoadCorporation(new Corporation
-            {
-                Id = row.Id,
-                Name = row.Name,
-                Tag = row.Tag,
-                Color = row.Color,
-                District = new DistrictCoord(row.DistrictX, row.DistrictY),
-                CreatedAt = row.CreatedAt,
-                Treasury = row.Treasury,
-                Tax = row.Tax,
-                HqLevel = row.HqLevel,
-                PerkResource = row.PerkResource,
-                Description = row.Description,
-                Applications = data?.Applications ?? new(),
-                Invites = data?.Invites ?? new(),
-                Goal = data?.Goal,
-            });
-            _corporations.Add(row.Id);
-        }
-
-        foreach (var row in await db.Contracts.ToListAsync(cancellationToken))
-        {
-            world.LoadContract(new Contract
-            {
-                Id = row.Id,
-                Proposer = row.Proposer,
-                Seller = row.Seller,
-                Buyer = row.Buyer,
-                Resource = row.Resource,
-                Rate = row.Rate,
-                Price = row.Price,
-                Days = row.Days,
-                PenaltyRate = row.PenaltyRate,
-                CreatedAt = row.CreatedAt,
-                StartedAt = row.StartedAt,
-                EndsAt = row.EndsAt,
-                State = (ContractState)row.State,
-                Delivered = row.Delivered,
-                Expected = row.Expected,
-            });
-            _contracts.Add(row.Id);
         }
 
         if (JsonSerializer.Deserialize<ExchangeState>(dbWorld.Exchange, Json) is { Orders: not null } exchange)
@@ -309,16 +241,16 @@ public sealed class WorldStore
             world.LoadEvents(events.Events, events.PlannedDays ?? []);
         }
 
-        if (JsonSerializer.Deserialize<WondersState>(dbWorld.Wonders, Json) is { } wonders)
+        if (JsonSerializer.Deserialize<TownsState>(dbWorld.Wonders, Json) is { } towns)
         {
-            world.LoadWonders(wonders.EraStartedAt, wonders.EraWonder, wonders.DistrictWonders ?? []);
+            world.LoadTowns(towns.Towns ?? [], towns.WondersFinished);
         }
 
         if (JsonSerializer.Deserialize<OutpostsState>(dbWorld.Outposts, Json) is { } outposts)
         {
             world.LoadOutposts(outposts.Outposts ?? [], outposts.Discoveries ?? []);
             world.LoadSeeds((outposts.Seeds ?? []).Select(t => (new TilePos(t.X, t.Y), t.Deposit, t.Richness)));
-            world.LoadSurveyed((outposts.Surveyed ?? []).Select(t => (new DistrictCoord(t.X, t.Y), t.Slot)));
+            world.LoadTrunkLines(outposts.Lines ?? []);
         }
 
         world.LoadBlueprints(JsonSerializer.Deserialize<List<Blueprint>>(dbWorld.Blueprints, Json) ?? []);
@@ -330,20 +262,7 @@ public sealed class WorldStore
         {
             world.LoadLink(link);
         }
-        foreach (var project in JsonSerializer.Deserialize<List<StationProject>>(dbWorld.Projects, Json) ?? [])
-        {
-            world.LoadProject(project);
-        }
-        foreach (var trunk in JsonSerializer.Deserialize<List<Trunk>>(dbWorld.Trunks, Json) ?? [])
-        {
-            world.LoadTrunk(trunk);
-        }
 
-        if (JsonSerializer.Deserialize<SeasonState>(dbWorld.Season, Json) is { } season)
-        {
-            world.LoadSeason(season.Season, season.FinaleAt, season.EndedAt, season.Results ?? []);
-            ResultsSaved = season.ResultsSaved;
-        }
 
         world.LastTick = dbWorld.LastTick;
         world.TakeChanges();
@@ -355,11 +274,11 @@ public sealed class WorldStore
     private static async Task ResetWorldAsync(TransportPipesDbContext db, CancellationToken cancellationToken)
     {
         await db.Blocks.ExecuteDeleteAsync(cancellationToken);
+        await db.StatSamples.ExecuteDeleteAsync(cancellationToken);
+        await db.Moments.ExecuteDeleteAsync(cancellationToken);
         await db.GuestbookNotes.ExecuteDeleteAsync(cancellationToken);
         await db.InboxMessages.ExecuteDeleteAsync(cancellationToken);
         await db.ChatMessages.ExecuteDeleteAsync(cancellationToken);
-        await db.Contracts.ExecuteDeleteAsync(cancellationToken);
-        await db.Corporations.ExecuteDeleteAsync(cancellationToken);
         await db.TerrainOverrides.ExecuteDeleteAsync(cancellationToken);
         await db.Conductors.ExecuteDeleteAsync(cancellationToken);
         await db.Buildings.ExecuteDeleteAsync(cancellationToken);
@@ -376,22 +295,17 @@ public sealed class WorldStore
             World = new DbWorld
             {
                 Seed = world.Generator.Seed,
-                Era = world.Era,
                 LastTick = world.LastTick,
                 CreatedAt = world.Now,
                 Rules = _worldRules,
                 Exchange = JsonSerializer.Serialize(new ExchangeState(world.ExchangeOrders.ToList(), world.Shipments.ToList()), Json),
                 Events = JsonSerializer.Serialize(new EventsState(world.Events.ToList(), world.PlannedDays.ToList()), Json),
-                Wonders = JsonSerializer.Serialize(new WondersState(world.EraStartedAt, world.EraWonder, world.DistrictWonders.Values.ToList()), Json),
+                Wonders = JsonSerializer.Serialize(new TownsState(world.Towns.ToList(), world.WondersFinished), Json),
                 Outposts = JsonSerializer.Serialize(new OutpostsState(world.Outposts.ToList(), world.Discoveries.ToList(),
-                    world.Seeds.Select(t => new SeedRow(t.Key.X, t.Key.Y, t.Value.Deposit, t.Value.Richness)).ToList(),
-                    world.Surveyed.Select(t => new SurveyedRow(t.District.X, t.District.Y, t.Slot)).ToList()), Json),
-                Season = JsonSerializer.Serialize(new SeasonState(world.Season, world.FinaleAt, world.SeasonEndedAt, world.SeasonResults, ResultsSaved), Json),
+                    world.Seeds.Select(t => new SeedRow(t.Key.X, t.Key.Y, t.Value.Deposit, t.Value.Richness)).ToList(), [], world.TrunkLines.ToList()), Json),
                 Blueprints = JsonSerializer.Serialize(world.Blueprints.ToList(), Json),
                 Crews = JsonSerializer.Serialize(world.Crews.ToList(), Json),
                 Links = JsonSerializer.Serialize(world.Links.ToList(), Json),
-                Projects = JsonSerializer.Serialize(world.Projects.ToList(), Json),
-                Trunks = JsonSerializer.Serialize(world.Trunks.ToList(), Json),
             },
         };
 
@@ -404,13 +318,10 @@ public sealed class WorldStore
                 Name = company.Name,
                 Color = company.Color,
                 Gold = company.Gold,
-                Xp = company.Xp,
                 Level = company.Level,
-                ResearchPoints = company.ResearchPoints,
                 LifetimeEarnings = company.LifetimeEarnings,
                 CreatedAt = company.CreatedAt,
                 LastSeenAt = company.LastSeenAt,
-                IsNpc = company.IsNpc,
                 DistrictX = company.District.X,
                 DistrictY = company.District.Y,
                 Slot = company.Slot,
@@ -422,92 +333,68 @@ public sealed class WorldStore
                     TradeBlocked = company.TradeBlocked,
                     PendingBlocks = company.PendingBlocks,
                     CrewId = company.CrewId,
-                    LeftCrewAt = company.LeftCrewAt,
+                    Prices = company.Prices,
+                    NextToMeCode = company.NextToMeCode,
+                    NextToMeUntil = company.NextToMeUntil,
+                    NextToMeUsed = company.NextToMeUsed,
                     IsGuest = company.IsGuest,
-                    House = company.House,
-                    StandIn = company.StandIn,
-                    StandInAnnounced = company.StandInAnnounced,
-                    KnownAs = company.KnownAs,
-                    SeatedNextDoor = company.SeatedNextDoor,
                     YardSalesExplained = company.YardSalesExplained,
                     KeepResearching = company.KeepResearching,
-                    HoldUntil = company.HoldUntil,
-                    KeepAsked = company.KeepAsked,
-                    TendedBy = company.TendedBy,
-                    TendedUntil = company.TendedUntil,
-                    LastSeat = company.LastSeat,
-                    LoneDays = company.LoneDays,
-                    LoneCardAt = company.LoneCardAt,
-                    LoneCard = company.LoneCard,
-                    ProbationUntil = company.ProbationUntil,
-                    ProjectFirst = company.ProjectFirst,
                     Purchases = company.Purchases,
                     LastGrowth = company.LastGrowth,
                     EraEnded = company.EraEnded,
-                    Refinements = company.Refinements,
                     TradeFalls = company.TradeFalls,
                     LastCardLines = company.LastCardLines,
-                    RefineChoice = company.RefineChoice,
-                    Sends = company.Sends,
-                    ThankedOn = company.ThankedOn,
                     GiftsAnnounced = company.GiftsAnnounced,
                     PinMakes = company.PinMakes,
                     PinNeeds = company.PinNeeds,
                     Asks = company.Asks,
-                    KitBuildings = company.KitBuildings,
                     TutorialStepSince = company.TutorialStepSince,
                     Devices = company.Devices,
                     MeasuredIncome = company.MeasuredIncome,
                     MeasuredEarned = company.MeasuredEarned,
                     UsualTrades = company.UsualTrades,
-                    League = company.League,
                     EraOutput = company.EraOutput,
                     DistinctDays = company.DistinctDays,
                     LastPlayedDay = company.LastPlayedDay,
-                    TradeWith = company.TradeWith,
                     BuiltTypes = company.BuiltTypes,
-                    XpLog = company.XpLog,
+                    TradedWith = company.TradedWith,
+                    EarnedLog = company.EarnedLog,
+                    Era = company.Era,
+                    Give = company.Give,
+                    WantsFromMarket = company.WantsFromMarket,
                     Researched = company.Researched,
                     ResearchQueue = company.ResearchQueue,
                     CurrentResearch = company.CurrentResearch,
                     ResearchEndsAt = company.ResearchEndsAt,
-                    ContractScore = company.ContractScore,
-                    ContractsCompleted = company.ContractsCompleted,
-                    CorporationId = company.CorporationId,
-                    Role = company.Role,
-                    LeftCorporationAt = company.LeftCorporationAt,
+                    TrackTiers = company.TrackTiers,
+                    CurrentTrack = company.CurrentTrack,
+                    TrackEndsAt = company.TrackEndsAt,
+                    TrackQueue = company.TrackQueue,
                     MentorId = company.MentorId,
                     MentorRewards = company.MentorRewards,
                     WeekStartEarnings = company.WeekStartEarnings,
                     Likes = company.Likes,
-                    Shares = company.Shares,
-                    FranchiseAt = company.FranchiseAt,
-                    Branches = company.Branches,
-                    Franchises = company.Franchises,
-                    EarningsAtFranchise = company.EarningsAtFranchise,
                     LegacyLevel = company.LegacyLevel,
                     Packed = company.Packed,
                     Crates = company.Crates,
-                    Asleep = company.Asleep,
                     ArrivesAt = company.ArrivesAt,
                     LastMovedAt = company.LastMovedAt,
                     FreeMoves = company.FreeMoves,
-                    MergeBonus = company.MergeBonus,
                     DeepParcels = company.DeepParcels,
                     TutorialStep = company.TutorialStep,
                     Expedition = company.Expedition,
                     ExpeditionLog = company.ExpeditionLog,
                     Relics = company.Relics,
-                    Mastery = company.Mastery,
+                    Explored = company.Explored,
+                    Exports = company.Exports,
                     DigParcel = company.DigParcel,
                     DigStartedAt = company.DigStartedAt,
                     DigEndsAt = company.DigEndsAt,
-                    SwapWith = company.SwapWith,
                     Titles = company.Titles,
                     Managers = company.Managers,
                     Achievements = company.Achievements,
                     Stats = company.Stats,
-                    HubReputation = company.HubReputation,
                     DailyOrders = company.DailyOrders,
                 }, Json),
                 Report = JsonSerializer.Serialize(company.Report, Json),
@@ -523,8 +410,7 @@ public sealed class WorldStore
                 Slot = estate.Slot,
                 OwnerId = estate.OwnerId,
                 UnlockedParcels = estate.UnlockedParcels,
-                ReservedFor = estate.ReservedFor,
-                ReservedUntil = estate.ReservedUntil,
+                OutskirtsParcels = estate.OutskirtsParcels,
             }));
         }
 
@@ -539,6 +425,7 @@ public sealed class WorldStore
                 Y = building.Y,
                 Size = building.Size,
                 Level = building.Level,
+                Price = building.Price,
                 ConstructionEndsAt = building.ConstructionEndsAt,
                 Contents = JsonSerializer.Serialize(building.Contents, Json),
                 Imports = JsonSerializer.Serialize(building.Imports, Json),
@@ -557,49 +444,6 @@ public sealed class WorldStore
                 Kind = (int)conductor.Kind,
                 Tier = conductor.Tier,
                 OwnerId = conductor.Owner,
-                Widen = conductor.Widen,
-            }));
-        }
-
-        foreach (var corporation in world.Corporations.Where(t => t.Dirty))
-        {
-            snapshot.Upserts.Add((corporation, new DbCorporation
-            {
-                Id = corporation.Id,
-                Name = corporation.Name,
-                Tag = corporation.Tag,
-                Color = corporation.Color,
-                DistrictX = corporation.District.X,
-                DistrictY = corporation.District.Y,
-                CreatedAt = corporation.CreatedAt,
-                Treasury = corporation.Treasury,
-                Tax = corporation.Tax,
-                HqLevel = corporation.HqLevel,
-                PerkResource = corporation.PerkResource,
-                Description = corporation.Description,
-                Data = JsonSerializer.Serialize(new CorporationData(corporation.Applications, corporation.Invites, corporation.Goal), Json),
-            }));
-        }
-
-        foreach (var contract in world.Contracts.Where(t => t.Dirty))
-        {
-            snapshot.Upserts.Add((contract, new DbContract
-            {
-                Id = contract.Id,
-                Proposer = contract.Proposer,
-                Seller = contract.Seller,
-                Buyer = contract.Buyer,
-                Resource = contract.Resource,
-                Rate = contract.Rate,
-                Price = contract.Price,
-                Days = contract.Days,
-                PenaltyRate = contract.PenaltyRate,
-                CreatedAt = contract.CreatedAt,
-                StartedAt = contract.StartedAt,
-                EndsAt = contract.EndsAt,
-                State = (int)contract.State,
-                Delivered = contract.Delivered,
-                Expected = contract.Expected,
             }));
         }
 
@@ -623,9 +467,6 @@ public sealed class WorldStore
                 case Company company:
                     snapshot.Deletes.Add(new DbCompany { Id = company.Id });
                     break;
-                case Corporation corporation:
-                    snapshot.Deletes.Add(new DbCorporation { Id = corporation.Id });
-                    break;
                 // A pipe that was removed and laid again is just an update
                 case Conductor conductor when world.ConductorAt(conductor.Pos) == null:
                     snapshot.Deletes.Add(new DbConductor { X = conductor.Pos.X, Y = conductor.Pos.Y });
@@ -634,6 +475,29 @@ public sealed class WorldStore
         }
         world.Deleted.Clear();
 
+        snapshot.Samples.AddRange(_unsavedSamples);
+        snapshot.Moments.AddRange(_unsavedMoments);
+        _unsavedSamples.Clear();
+        _unsavedMoments.Clear();
+        snapshot.Samples.AddRange(world.PendingSamples.Select(t => new DbStatSample
+        {
+            Kind = (int)t.Kind,
+            Subject = t.Subject,
+            At = t.At,
+            Values = JsonSerializer.Serialize(t.Values, Json),
+        }));
+        snapshot.Moments.AddRange(world.PendingMoments.Select(t => new DbMoment
+        {
+            Company = t.Company,
+            At = t.At,
+            Kind = t.Kind,
+            Text = t.Text.Length > 200 ? t.Text[..200] : t.Text,
+            Big = t.Big,
+            Ref = t.Ref,
+        }));
+        world.PendingSamples.Clear();
+        world.PendingMoments.Clear();
+
         foreach (var (source, _) in snapshot.Upserts)
         {
             source.Dirty = false;
@@ -641,34 +505,32 @@ public sealed class WorldStore
         return snapshot;
     }
 
-    /// <summary>Writes a snapshot in one transaction. When it fails the entities are marked dirty again.</summary>
+    /// <summary>
+    /// Writes a snapshot in one transaction. When it fails the entities are marked dirty again, and its samples and moments
+    /// go with the next one.
+    /// </summary>
     public async Task SaveAsync(WorldSnapshot snapshot, CancellationToken cancellationToken = default)
     {
         await using var db = _dbFactory.CreateDbContext();
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var newCompanies = new List<long>();
         var newEstates = new List<(int, int, int)>();
         var newBuildings = new List<long>();
         var newConductors = new List<TilePos>();
-        var newContracts = new List<long>();
-        var newCorporations = new List<long>();
         try
         {
             if (_worldExists)
             {
                 db.Worlds.Attach(snapshot.World);
-                db.Entry(snapshot.World).Property(t => t.Era).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.LastTick).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Rules).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Exchange).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Events).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Wonders).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Outposts).IsModified = true;
-                db.Entry(snapshot.World).Property(t => t.Season).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Blueprints).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Crews).IsModified = true;
                 db.Entry(snapshot.World).Property(t => t.Links).IsModified = true;
-                db.Entry(snapshot.World).Property(t => t.Projects).IsModified = true;
-                db.Entry(snapshot.World).Property(t => t.Trunks).IsModified = true;
             }
             else
             {
@@ -684,9 +546,9 @@ public sealed class WorldStore
                         break;
                     case DbCompany company when _companies.Contains(company.Id):
                         db.Companies.Remove(company);
-                        break;
-                    case DbCorporation corporation when _corporations.Contains(corporation.Id):
-                        db.Corporations.Remove(corporation);
+                        // Its history goes with it (a later company may get its number)
+                        await db.StatSamples.Where(t => t.Kind == 0 && t.Subject == company.Id).ExecuteDeleteAsync(cancellationToken);
+                        await db.Moments.Where(t => t.Company == company.Id).ExecuteDeleteAsync(cancellationToken);
                         break;
                     case DbConductor conductor when _conductors.Contains(new TilePos(conductor.X, conductor.Y)):
                         db.Conductors.Remove(conductor);
@@ -712,12 +574,6 @@ public sealed class WorldStore
                         var pos = new TilePos(conductor.X, conductor.Y);
                         Upsert(db, conductor, _conductors.Contains(pos), () => newConductors.Add(pos));
                         break;
-                    case DbContract contract:
-                        Upsert(db, contract, _contracts.Contains(contract.Id), () => newContracts.Add(contract.Id));
-                        break;
-                    case DbCorporation corporation:
-                        Upsert(db, corporation, _corporations.Contains(corporation.Id), () => newCorporations.Add(corporation.Id));
-                        break;
                 }
             }
 
@@ -725,7 +581,10 @@ public sealed class WorldStore
             {
                 Upsert(db, row, _terrainOverrides.ContainsKey(new TilePos(row.X, row.Y)), () => { });
             }
+            db.Moments.AddRange(snapshot.Moments);
             await db.SaveChangesAsync(cancellationToken);
+            await InsertSamplesAsync(db, snapshot.Samples, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
         }
         catch
         {
@@ -733,6 +592,12 @@ public sealed class WorldStore
             {
                 source.Dirty = true;
             }
+            foreach (var moment in snapshot.Moments)
+            {
+                moment.Id = 0;
+            }
+            _unsavedSamples.AddRange(snapshot.Samples.TakeLast(MaxUnsaved));
+            _unsavedMoments.AddRange(snapshot.Moments.TakeLast(MaxUnsaved));
             throw;
         }
 
@@ -741,8 +606,6 @@ public sealed class WorldStore
         _estates.UnionWith(newEstates);
         _buildings.UnionWith(newBuildings);
         _conductors.UnionWith(newConductors);
-        _contracts.UnionWith(newContracts);
-        _corporations.UnionWith(newCorporations);
         foreach (var row in snapshot.Deletes)
         {
             switch (row)
@@ -753,9 +616,6 @@ public sealed class WorldStore
                 case DbCompany company:
                     _companies.Remove(company.Id);
                     break;
-                case DbCorporation corporation:
-                    _corporations.Remove(corporation.Id);
-                    break;
                 case DbConductor conductor:
                     _conductors.Remove(new TilePos(conductor.X, conductor.Y));
                     break;
@@ -764,6 +624,23 @@ public sealed class WorldStore
         foreach (var row in snapshot.TerrainOverrides)
         {
             _terrainOverrides[new TilePos(row.X, row.Y)] = (TerrainType)row.Terrain;
+        }
+    }
+
+    /// <summary>Samples, a thousand to a statement; one that is there already stays (the same moment can't be sampled twice)</summary>
+    private static async Task InsertSamplesAsync(TransportPipesDbContext db, List<DbStatSample> samples, CancellationToken cancellationToken)
+    {
+        foreach (var chunk in samples.Chunk(1000))
+        {
+            var sql = new System.Text.StringBuilder("INSERT INTO \"StatSamples\" (\"Kind\", \"Subject\", \"At\", \"Values\") VALUES ");
+            var parameters = new List<object>();
+            for (var i = 0; i < chunk.Length; i++)
+            {
+                sql.Append(i == 0 ? "" : ", ").Append($"({{{4 * i}}}, {{{4 * i + 1}}}, {{{4 * i + 2}}}, {{{4 * i + 3}}})");
+                parameters.AddRange([chunk[i].Kind, chunk[i].Subject, chunk[i].At, chunk[i].Values]);
+            }
+            sql.Append(" ON CONFLICT DO NOTHING");
+            await db.Database.ExecuteSqlRawAsync(sql.ToString(), parameters, cancellationToken);
         }
     }
 
@@ -785,10 +662,8 @@ public sealed class WorldStore
         public List<Purchase>? Purchases { get; init; }
         public GrowthPurchase? LastGrowth { get; init; }
         public string? EraEnded { get; init; }
-        public Dictionary<string, int>? Refinements { get; init; }
         public Dictionary<string, TradeFall>? TradeFalls { get; init; }
         public List<string>? LastCardLines { get; init; }
-        public string? RefineChoice { get; init; }
 
         public Dictionary<string, HubMarket> HubMarkets { get; init; } = new();
         public HashSet<string> NoTrade { get; init; } = new();
@@ -796,85 +671,63 @@ public sealed class WorldStore
         public HashSet<long> TradeBlocked { get; init; } = new();
         public Dictionary<long, DateTime> PendingBlocks { get; init; } = new();
         public long? CrewId { get; init; }
-        public DateTime? LeftCrewAt { get; init; }
+        public Dictionary<string, PriceSetting>? Prices { get; init; }
+        public string? NextToMeCode { get; init; }
+        public DateTime? NextToMeUntil { get; init; }
+        public bool NextToMeUsed { get; init; }
         public bool IsGuest { get; init; }
-        public HouseKind? House { get; init; }
-        public StandIn? StandIn { get; init; }
-        public bool StandInAnnounced { get; init; }
-        public string? KnownAs { get; init; }
-        public bool SeatedNextDoor { get; init; }
         public bool YardSalesExplained { get; init; }
         public bool KeepResearching { get; init; } = true;
-        public DateTime? HoldUntil { get; init; }
-        public bool KeepAsked { get; init; }
-        public Dictionary<long, int>? TendedBy { get; init; }
-        public DateTime? TendedUntil { get; init; }
-        public EstateKey? LastSeat { get; init; }
-        public int LoneDays { get; init; }
-        public DateTime? LoneCardAt { get; init; }
-        public bool LoneCard { get; init; }
-        public DateTime? ProbationUntil { get; init; }
-        public HashSet<string>? ProjectFirst { get; init; }
-        public List<GoodSend>? Sends { get; init; }
-        public Dictionary<long, int>? ThankedOn { get; init; }
         public HashSet<string>? GiftsAnnounced { get; init; }
         public HashSet<string>? PinMakes { get; init; }
         public HashSet<string>? PinNeeds { get; init; }
         public List<CompanyAsk>? Asks { get; init; }
-        public HashSet<long>? KitBuildings { get; init; }
         public DateTime? TutorialStepSince { get; init; }
         public Dictionary<string, DateTime>? Devices { get; init; }
         public double MeasuredIncome { get; init; }
         public double MeasuredEarned { get; init; }
         public Dictionary<string, UsualTrade>? UsualTrades { get; init; }
-        public int? League { get; init; }
         public double EraOutput { get; init; }
         public int DistinctDays { get; init; }
         public int LastPlayedDay { get; init; }
-        public TradeWith TradeWith { get; init; } = TradeWith.Everyone;
         public HashSet<string> BuiltTypes { get; init; } = new();
-        public Dictionary<string, Dictionary<string, double>> XpLog { get; init; } = new();
+        public HashSet<long>? TradedWith { get; init; }
+        public Dictionary<string, Dictionary<string, double>> EarnedLog { get; init; } = new();
+        public int Era { get; init; } = 1;
+        public Dictionary<string, GiveMode>? Give { get; init; }
+        public bool WantsFromMarket { get; init; } = true;
         public HashSet<string> Researched { get; init; } = new();
         public List<string>? ResearchQueue { get; init; }
         public string? CurrentResearch { get; init; }
         public DateTime? ResearchEndsAt { get; init; }
-        public double ContractScore { get; init; } = 1;
-        public int ContractsCompleted { get; init; }
-        public long? CorporationId { get; init; }
-        public CorporationRole Role { get; init; }
-        public DateTime? LeftCorporationAt { get; init; }
+        public Dictionary<string, int>? TrackTiers { get; init; }
+        public string? CurrentTrack { get; init; }
+        public DateTime? TrackEndsAt { get; init; }
+        public List<string>? TrackQueue { get; init; }
         public long? MentorId { get; init; }
         public HashSet<int> MentorRewards { get; init; } = new();
         public double WeekStartEarnings { get; init; }
         public int Likes { get; init; }
-        public int Shares { get; init; }
-        public DateTime? FranchiseAt { get; init; }
-        public List<EstateRef> Branches { get; init; } = new();
-        public int Franchises { get; init; }
-        public double EarningsAtFranchise { get; init; }
         public int LegacyLevel { get; init; }
         public PackedEstate? Packed { get; init; }
         public List<PackedBuilding> Crates { get; init; } = new();
-        public bool Asleep { get; init; }
         public DateTime? ArrivesAt { get; init; }
         public DateTime? LastMovedAt { get; init; }
         public int FreeMoves { get; init; }
-        public bool MergeBonus { get; init; }
         public int DeepParcels { get; init; }
         public int TutorialStep { get; init; }
         public Expedition? Expedition { get; init; }
         public List<string> ExpeditionLog { get; init; } = new();
         public HashSet<string> Relics { get; init; } = new();
-        public int Mastery { get; init; }
+        public HashSet<string> Explored { get; init; } = new();
+        public Dictionary<string, long> Exports { get; init; } = new();
         public int? DigParcel { get; init; }
         public DateTime? DigStartedAt { get; init; }
         public DateTime? DigEndsAt { get; init; }
-        public long? SwapWith { get; init; }
         public HashSet<string> Titles { get; init; } = new();
         public HashSet<string> Managers { get; init; } = new();
         public HashSet<string> Achievements { get; init; } = new();
         public Dictionary<string, double> Stats { get; init; } = new();
-        public double HubReputation { get; init; }
         public List<DailyOrder> DailyOrders { get; init; } = new();
     }
 
@@ -883,18 +736,13 @@ public sealed class WorldStore
 
     private sealed record EventsState(List<GameEvent> Events, List<string>? PlannedDays);
 
-    private sealed record WondersState(DateTime EraStartedAt, Wonder? EraWonder, List<Wonder>? DistrictWonders);
+    private sealed record TownsState(List<Town>? Towns, Dictionary<string, int>? WondersFinished);
 
-    private sealed record OutpostsState(List<Outpost>? Outposts, List<Discovery>? Discoveries, List<SeedRow>? Seeds = null, List<SurveyedRow>? Surveyed = null);
+    /// <summary>The wilderness: outposts, Discoveries, seeds, surveys, and the trunk lines through it (1.4 §20)</summary>
+    private sealed record OutpostsState(List<Outpost>? Outposts, List<Discovery>? Discoveries, List<SeedRow>? Seeds = null, List<SurveyedRow>? Surveyed = null, List<TrunkLine>? Lines = null);
 
     private sealed record SurveyedRow(int X, int Y, int Slot);
 
     private sealed record SeedRow(int X, int Y, string Deposit, int Richness);
 
-    private sealed record SeasonState(int Season, DateTime? FinaleAt, DateTime? EndedAt, List<SeasonResult>? Results, bool ResultsSaved);
-
-    /// <summary>Whether the results of the ended season went to the players' Legacy already</summary>
-    public bool ResultsSaved { get; set; }
-
-    private sealed record CorporationData(HashSet<long> Applications, HashSet<long> Invites, CorporationGoal? Goal);
 }

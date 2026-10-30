@@ -36,11 +36,14 @@ public sealed class WorldHost : BackgroundService
     private GameWorld? _world;
     private bool _saveSoon;
     private DateTime _lastSave;
+    private readonly HistoryStore _history;
+    private DateTime _lastPrune;
 
-    public WorldHost(WorldStore store, IHubContext<GameHub, IGameClient> hub, ConnectedUsers connectedUsers, SocialService social, AccountService accounts, IOptions<TransportPipesOptions> options, ILogger<WorldHost> logger, TimeProvider time, PlaytestLog? playtestLog = null)
+    public WorldHost(WorldStore store, HistoryStore history, IHubContext<GameHub, IGameClient> hub, ConnectedUsers connectedUsers, SocialService social, AccountService accounts, IOptions<TransportPipesOptions> options, ILogger<WorldHost> logger, TimeProvider time, PlaytestLog? playtestLog = null)
     {
         _playtestLog = playtestLog;
         _store = store;
+        _history = history;
         _hub = hub;
         _connectedUsers = connectedUsers;
         _social = social;
@@ -52,7 +55,7 @@ public sealed class WorldHost : BackgroundService
 
     public Task Ready => _ready.Task;
 
-    private DateTime Now => _time.GetUtcNow().UtcDateTime;
+    public DateTime Now => _time.GetUtcNow().UtcDateTime;
 
     private readonly PlaytestLog? _playtestLog;
 
@@ -109,12 +112,9 @@ public sealed class WorldHost : BackgroundService
         try
         {
             var stopwatch = Stopwatch.StartNew();
-            GameViews.SeasonBreak = TimeSpan.FromDays(_options.SeasonBreakDays);
             var world = await LoadWorldAsync(stoppingToken);
             var away = Now - world.LastTick;
             world.Tick();
-            // Estates from before the starter kit get it now (once), and their players a note
-            var surveyed = _options.Surveys ? world.SurveyEstates() : [];
             world.TakeChanges();
             _world = world;
             _lastSave = Now;
@@ -122,11 +122,6 @@ public sealed class WorldHost : BackgroundService
                 world.Generator.Seed, world.Companies.Count(), world.Buildings.Count(), away, stopwatch.ElapsedMilliseconds);
             await SaveAsync(force: true);
             _ready.SetResult();
-            if (surveyed.Count > 0)
-            {
-                _logger.LogInformation("Surveyed {Estates} estates for their starter kit", surveyed.Count);
-                await NotifyAsync(surveyed.Select(t => (t.Company, "survey", t.Text + " Look for the new deposits near your HQ.")).ToList());
-            }
         }
         catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
         {
@@ -144,7 +139,7 @@ public sealed class WorldHost : BackgroundService
                 {
                     await TickAsync();
                     await SaveAsync(force: false);
-                    await SeasonAsync();
+                    await PruneHistoryAsync();
                 }
                 catch (Exception ex)
                 {
@@ -168,95 +163,10 @@ public sealed class WorldHost : BackgroundService
         {
             _logger.LogWarning("The saved world was made with older rules: it was thrown away and a new world starts (accounts stay)");
         }
-        world.TenantsEnabled = _options.Tenants;
-        world.QuietGraceEnabled = true;
-        world.ProjectsEnabled = true;
-        world.TrunksEnabled = true;
+        world.WonderBuysEnabled = true;
         world.EventsEnabled = _options.Events;
         world.TutorialEnabled = _options.Tutorial;
-        world.SurveysEnabled = _options.Surveys;
-        if (_options.Tenants)
-        {
-            world.EnsureTenants();
-        }
         return world;
-    }
-
-    /// <summary>
-    /// The end of a season: the results go to the players' Legacy (once), and after the break the next world opens
-    /// </summary>
-    public async Task SeasonAsync()
-    {
-        List<SeasonResult>? results = null;
-        DateTime? ended = null;
-        var season = 1;
-        await _lock.WaitAsync();
-        try
-        {
-            if (_world!.SeasonEndedAt is { } endedAt)
-            {
-                ended = endedAt;
-                season = _world.Season;
-                if (!_store.ResultsSaved)
-                {
-                    // Claimed here, so the results go to Legacy only once
-                    results = _world.SeasonResults.ToList();
-                    _store.ResultsSaved = true;
-                }
-            }
-        }
-        finally
-        {
-            _lock.Release();
-        }
-        if (results != null)
-        {
-            Dictionary<long, int> legacy;
-            try
-            {
-                legacy = await _accounts.AddLegacyAsync(results);
-            }
-            catch
-            {
-                _store.ResultsSaved = false;
-                throw;
-            }
-            // In a persistent world the companies keep going: their Legacy level grows now
-            await RunAsync(world =>
-            {
-                foreach (var (user, total) in legacy)
-                {
-                    if (world.CompanyOfUser(user) is { } company)
-                    {
-                        company.LegacyLevel = GameWorld.LegacyLevelOf(total);
-                        company.Touch();
-                    }
-                }
-            });
-            _saveSoon = true;
-            _logger.LogInformation("Season {Season} ended: Legacy for {Players} players", season, results.Count);
-        }
-        if (ended is { } end && Now >= end + GameViews.SeasonBreak)
-        {
-            await _lock.WaitAsync();
-            try
-            {
-                // Someone else may have started the next chapter meanwhile
-                if (_world!.SeasonEndedAt != end)
-                {
-                    return;
-                }
-                _world.StartNextChapter();
-                _store.ResultsSaved = false;
-                _saveSoon = true;
-            }
-            finally
-            {
-                _lock.Release();
-            }
-            _logger.LogInformation("Chapter {Season} begins", season + 1);
-            await _hub.Clients.All.SeasonChanged();
-        }
     }
 
     /// <summary>Simulates the world up to now and sends what changed</summary>
@@ -280,6 +190,17 @@ public sealed class WorldHost : BackgroundService
             await SaveAsync(force: true);
             _logger.LogInformation("Saved the world");
         }
+    }
+
+    /// <summary>Thins the statistics' old samples once an hour (docs/design-notes/statistics.md)</summary>
+    private async Task PruneHistoryAsync()
+    {
+        if (Now - _lastPrune < TimeSpan.FromHours(1))
+        {
+            return;
+        }
+        _lastPrune = Now;
+        await _history.PruneAsync(Now);
     }
 
     /// <summary>Saves after commands (within a tick) and at least every SaveSeconds</summary>
@@ -392,18 +313,24 @@ public sealed class WorldHost : BackgroundService
         if (companies.Count != 0)
         {
             var gold = world.GoldPerMinute();
-            var research = world.ResearchPerMinute();
             foreach (var company in companies)
             {
-                var dto = GameViews.Company(world, company, gold.GetValueOrDefault(company.Id), research.GetValueOrDefault(company.Id));
+                var dto = GameViews.Company(world, company, gold.GetValueOrDefault(company.Id));
                 pushes.Add(() => _hub.Clients.Group(GameHub.UserGroup(company.UserId)).CompanyChanged(dto));
             }
+        }
+
+        // A town's Launch: Legacy for every player's account (1.4 §13)
+        if (changes.Legacy.Count > 0)
+        {
+            var legacy = changes.Legacy.ToList();
+            pushes.Add(() => _accounts.AddLegacyAsync(legacy));
         }
 
         var notifications = new List<(long Company, string Kind, string Text)>();
         foreach (var worldEvent in changes.Events)
         {
-            if (world.Company(worldEvent.Company) is not { IsNpc: false } company)
+            if (world.Company(worldEvent.Company) is not { } company)
             {
                 continue;
             }
@@ -423,24 +350,9 @@ public sealed class WorldHost : BackgroundService
             pushes.Add(() => NotifyAsync(notifications, users, online));
         }
 
-        var corporationUsers = changes.Corporations
-            .Select(world.Corporation).OfType<Corporation>()
-            .SelectMany(world.Members)
-            .Concat(changes.Corporations.SelectMany(id => world.Corporation(id) is { } corporation
-                ? corporation.Applications.Concat(corporation.Invites).Select(world.Company).OfType<Company>()
-                : []))
-            .Select(t => t.UserId)
-            .Where(online.Contains)
-            .Distinct()
-            .ToList();
-        foreach (var userId in corporationUsers)
-        {
-            pushes.Add(() => _hub.Clients.Group(GameHub.UserGroup(userId)).CorporationChanged());
-        }
-
-        // Crews: their members, and who asked to join
+        // Crews: their residents, and who asked to settle
         var crewUsers = changes.Crews
-            .SelectMany(id => world.Crew(id) is { } crew ? world.CrewMembers(crew).Concat(crew.JoinRequests.Select(world.Company).OfType<Company>()) : [])
+            .SelectMany(id => world.Crew(id) is { } crew ? world.CrewMembers(crew).Concat(crew.Requests.Select(t => world.Company(t.Company)).OfType<Company>()) : [])
             .Select(t => t.UserId)
             .Where(online.Contains)
             .Distinct()

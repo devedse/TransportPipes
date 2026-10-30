@@ -3,7 +3,8 @@
 // piece with the camera and the light of the generated art, then shades it once per tier (the material).
 //
 //   node pipes.mjs [shape]     → TransportPipes.Frontend/public/art/pipes/tier<N>.webp and manifest.json "pipes"
-//   (with a shape, e.g. "ur", only that piece, as scratch/pipe-<shape>.png for a quick look)
+//   (with a shape, e.g. "ur", only that piece, as scratch/pipe-<shape>.png for a quick look; "d+manifold-u+lane-solid-u-1"
+//   joins pieces into one scene)
 //
 // A tile is the ground square [0,1]×[0,1]; x runs to the bottom right of the screen, y to the bottom left, z up. A
 // shape is the sides a piece connects to: u (y-1), r (x+1), d (y+1), l (x-1); "socket-<side>" is the bulkhead where a
@@ -186,8 +187,125 @@ function occluder(prims, axis) {
   prims.push(axis === "x" ? { d: tubeX(0.5, Z, R, -EXT, 1 + EXT), m: "hidden" } : { d: tubeY(0.5, Z, R, -EXT, 1 + EXT), m: "hidden" });
 }
 
+/** Where a building's connectors leave the pipe, across the side (1, 2 or 3 of them: one per kind of good, §9) */
+const LANE_SLOTS = [0.27, 0.5, 0.73];
+
+/**
+ * The manifold where a pipe meets a building on a side: a short tube across the tile's middle, parallel to the
+ * building's edge, that the connectors leave from (a pipe running past the building is its own manifold)
+ */
+function manifold(prims, side, connections = "") {
+  const s = SIDES[side];
+  const [a, b] = [LANE_SLOTS[0] - 0.09, LANE_SLOTS[2] + 0.09];
+  const [low, high] = s.axis === "x" ? ["u", "d"] : ["l", "r"];
+  const start = connections.includes(low) ? -EXT : a;
+  const stop = connections.includes(high) ? 1 + EXT : b;
+  // This is the actual pipe, including its incoming arms. Never layer a capped end or a bend over it.
+  prims.push(s.axis === "x" ? { d: tubeY(0.5, Z, R, start, stop), m: "pipe", u: (_, y) => y } : { d: tubeX(0.5, Z, R, start, stop), m: "pipe", u: (x) => x });
+  for (const end of [connections.includes(low) ? null : a, connections.includes(high) ? null : b]) {
+    if (end === null) continue;
+    prims.push(s.axis === "x" ? { d: discY(0.5, end, Z, R * 1.05, 0.02), m: "cap" } : { d: discX(end, 0.5, Z, R * 1.05, 0.02), m: "cap" });
+  }
+  for (const incoming of connections) {
+    if (incoming !== low && incoming !== high) arm(prims, incoming, 0.5);
+  }
+  prims.push(s.axis === "x" ? { d: tubeY(0.5, Z, R * 1.12, 0.46, 0.54), m: "collar" } : { d: tubeX(0.5, Z, R * 1.12, 0.46, 0.54), m: "collar" });
+  support(prims, [0.5, 0.5], s.axis === "x" ? [0, 1, 0] : [1, 0, 0], false);
+}
+
+/**
+ * A connector from the pipe into a building on a side, at a slot across it: energy on two copper cables over a little
+ * post, solids on a short belt on legs, fluids in a slim pipe with a red valve wheel; a brass hatch on the pipe where
+ * it leaves (its trim is the tier's)
+ */
+function lane(prims, kind, side, slot) {
+  const s = SIDES[side];
+  const edge = s.axis === "x" ? s.mid[0] : s.mid[1];
+  const lat = LANE_SLOTS[slot];
+  // A point at a distance from the building's edge into the tile, across it at l
+  const pt = (t, l = lat) => (s.axis === "x" ? [edge - s.out * t, l] : [l, edge - s.out * t]);
+  const from = 0.5 - R * 0.8;
+  const end = 0.012;
+  const across = (half, alongHalf) => (s.axis === "x" ? [alongHalf, half] : [half, alongHalf]);
+  // The hatch on the pipe's side
+  const hatch = pt(from - 0.012);
+  const [hx, hy] = across(0.05, 0.022);
+  prims.push({ d: box(hatch[0], hatch[1], Z, hx, hy, 0.05, 0.01), m: "flange" });
+  if (kind === "power") {
+    for (const k of [-1, 1]) {
+      const l = lat + k * 0.024;
+      const a = pt(from - 0.02, l);
+      const m = pt(0.22, l);
+      const b = pt(end, l);
+      prims.push({ d: capsule([a[0], a[1], Z], [m[0], m[1], 0.2], 0.013), m: "cable" });
+      prims.push({ d: capsule([m[0], m[1], 0.2], [b[0], b[1], 0.15], 0.013), m: "cable" });
+    }
+    const p = pt(0.22);
+    prims.push({ d: post(p[0], p[1], 0.011, 0, 0.19, 0.004), m: "clamp" });
+    const [cx, cy] = across(0.04, 0.012);
+    prims.push({ d: box(p[0], p[1], 0.195, cx, cy, 0.01, 0.004), m: "clamp" });
+  } else if (kind === "solid") {
+    const mid = pt((from + end) / 2);
+    const half = (from - end) / 2;
+    const [bx, by] = across(0.075, half);
+    prims.push({ d: box(mid[0], mid[1], 0.105, bx, by, 0.012, 0.006), m: "rubber" });
+    for (const k of [-1, 1]) {
+      const r = pt((from + end) / 2, lat + k * 0.083);
+      const [rx, ry] = across(0.008, half);
+      prims.push({ d: box(r[0], r[1], 0.115, rx, ry, 0.018, 0.004), m: "collar" });
+    }
+    // Two narrow tracks share the frame: inbound and outbound goods never pass through each other.
+    const [mx, my] = across(0.004, half);
+    prims.push({ d: box(mid[0], mid[1], 0.119, mx, my, 0.006, 0.002), m: "clamp" });
+    for (const t of [end + 0.05, from - 0.04]) {
+      for (const k of [-1, 1]) {
+        const leg = pt(t, lat + k * 0.04);
+        prims.push({ d: post(leg[0], leg[1], 0.008, 0, 0.1, 0.003), m: "clamp" });
+      }
+    }
+  } else {
+    const a = pt(from - 0.01);
+    const b = pt(end);
+    const z = Z - 0.03;
+    prims.push({ d: capsule([a[0], a[1], z], [b[0], b[1], z], 0.032), m: "slim" });
+    const w = pt(0.2);
+    prims.push({ d: capsule([w[0], w[1], z], [w[0], w[1], z + 0.075], 0.009), m: "clamp" });
+    prims.push({ d: wheel(w[0], w[1], z + 0.08, 0.04, 0.009), m: "valve" });
+    for (const t of [end + 0.03, from - 0.03]) {
+      const c = pt(t);
+      prims.push({ d: ring([c[0], c[1], z], s.axis === "x" ? [1, 0, 0] : [0, 1, 0], 0.036, 0.008), m: "collar" });
+    }
+  }
+}
+
 function piece(shape) {
   const prims = [];
+  if (shape.startsWith("gate-")) {
+    const sides = shape.slice(5) === "none" ? "" : shape.slice(5);
+    for (const side of sides) arm(prims, side, 0.5);
+    // The pipe enters a receiving box here, where the Yard network takes over; no blind flange through the gate.
+    prims.push({ d: box(0.5, 0.5, 0.2, 0.185, 0.185, 0.2, 0.024), m: "hub" });
+    prims.push({ d: box(0.5, 0.5, 0.405, 0.2, 0.2, 0.02, 0.014), m: "collar" });
+    prims.push({ d: box(0.5, 0.5, 0.432, 0.105, 0.075, 0.01, 0.006), m: "gauge" });
+    for (const dx of [-0.145, 0.145]) for (const dy of [-0.145, 0.145]) {
+      prims.push({ d: post(0.5 + dx, 0.5 + dy, 0.012, 0.425, 0.444, 0.004), m: "bolt" });
+    }
+    return prims;
+  }
+  if (shape.startsWith("feed-")) {
+    const [, side, connections] = shape.split("-");
+    manifold(prims, side, connections === "none" ? "" : connections);
+    return prims;
+  }
+  if (shape.startsWith("manifold-")) {
+    manifold(prims, shape.slice(9));
+    return prims;
+  }
+  if (shape.startsWith("lane-")) {
+    const [, kind, side, slot] = shape.split("-");
+    lane(prims, kind, side, Number(slot));
+    return prims;
+  }
   // Overlays, drawn over a piece where the game wants them: a flange at an edge (every few tiles), a foot under a
   // straight tube (every other tile)
   if (shape.startsWith("flange-")) {
@@ -317,7 +435,7 @@ function piece(shape) {
 /** The core of a glass pipe: a thin glowing line along the tube's path */
 function core(shape) {
   const prims = [];
-  if (shape.includes("-") && !shape.startsWith("tee-")) {
+  if (shape.includes("-") && !shape.startsWith("tee-") && !shape.startsWith("feed-") && !shape.startsWith("gate-")) {
     return prims;
   }
   for (const p of piece(shape)) {
@@ -503,14 +621,19 @@ const IRON = { color: hex("#3f4248"), spec: 0.35, shine: 30 };
 const BRASS = { color: hex("#d2a24a"), spec: 0.75, shine: 50 };
 const BOLT_DARK = { color: hex("#5c5040"), spec: 0.4, shine: 30 };
 const RED = { color: hex("#c8402c"), spec: 0.55, shine: 40 };
+const RUBBER = { color: hex("#2f2c2a"), spec: 0.12, shine: 10 };
+const CABLE = { color: hex("#e08a45"), spec: 0.9, shine: 40 };
+const SLIM = { color: hex("#6fb7d9"), spec: 0.8, shine: 60, glass: true };
 
-/** The materials of each tier (pipe and hub follow the tier's colour, see PIPE_COLORS in the game) */
+/** The materials of each tier (pipe and hub follow the tier's colour, see PIPE_COLORS in the game): grey, copper, steel,
+ * composite (charcoal carbon fibre, orange fittings), glass, superconductor */
 const TIERS = {
   1: { pipe: { color: hex("#8e979f"), spec: 0.42, shine: 30 }, flange: BRASS, collar: { color: hex("#a5adb4"), spec: 0.45, shine: 30 }, bolt: BOLT_DARK, hub: { color: hex("#8a939b"), spec: 0.5, shine: 30 }, cap: BRASS, gauge: { color: hex("#f2ead8"), spec: 0.6, shine: 60 } },
   2: { pipe: { color: hex("#cf7d3e"), spec: 0.85, shine: 46 }, flange: { color: hex("#5b4636"), spec: 0.45, shine: 30 }, collar: { color: hex("#b8743e"), spec: 0.6, shine: 40 }, bolt: BRASS, hub: { color: hex("#b86a32"), spec: 0.8, shine: 44 }, cap: { color: hex("#5b4636"), spec: 0.45, shine: 30 }, gauge: { color: hex("#f2ead8"), spec: 0.6, shine: 60 } },
   3: { pipe: { color: hex("#5f7a92"), spec: 0.7, shine: 44 }, flange: BRASS, collar: { color: hex("#6f88a0"), spec: 0.55, shine: 40 }, bolt: BOLT_DARK, hub: { color: hex("#536b81"), spec: 0.65, shine: 40 }, cap: BRASS, gauge: { color: hex("#f2ead8"), spec: 0.6, shine: 60 } },
-  4: { pipe: { color: hex("#a9e7f7"), spec: 1.0, shine: 80, glass: true }, flange: { color: hex("#8a949c"), spec: 0.6, shine: 40 }, collar: { color: hex("#9aa4ac"), spec: 0.55, shine: 40 }, bolt: BRASS, hub: { color: hex("#7f8b94"), spec: 0.6, shine: 40 }, cap: BRASS, gauge: { color: hex("#f2ead8"), spec: 0.6, shine: 60 }, core: hex("#6ff0ff") },
-  5: { pipe: { color: hex("#3a2f5e"), spec: 0.9, shine: 60, bands: hex("#c49bff") }, flange: { color: hex("#c3ccd6"), spec: 0.9, shine: 70 }, collar: { color: hex("#4a3d78"), spec: 0.7, shine: 50 }, bolt: { color: hex("#2c2448"), spec: 0.5, shine: 30 }, hub: { color: hex("#2f2650"), spec: 0.85, shine: 60 }, cap: { color: hex("#c3ccd6"), spec: 0.9, shine: 70 }, gauge: { color: hex("#d9c8ff"), spec: 0.6, shine: 60 }, core: hex("#b98cff") },
+  4: { pipe: { color: hex("#3d4147"), spec: 0.7, shine: 55 }, flange: { color: hex("#e07b39"), spec: 0.55, shine: 40 }, collar: { color: hex("#4a4f56"), spec: 0.6, shine: 45 }, bolt: { color: hex("#2a2c30"), spec: 0.4, shine: 30 }, hub: { color: hex("#373a40"), spec: 0.65, shine: 50 }, cap: { color: hex("#e07b39"), spec: 0.55, shine: 40 }, gauge: { color: hex("#f2ead8"), spec: 0.6, shine: 60 } },
+  5: { pipe: { color: hex("#a9e7f7"), spec: 1.0, shine: 80, glass: true }, flange: { color: hex("#8a949c"), spec: 0.6, shine: 40 }, collar: { color: hex("#9aa4ac"), spec: 0.55, shine: 40 }, bolt: BRASS, hub: { color: hex("#7f8b94"), spec: 0.6, shine: 40 }, cap: BRASS, gauge: { color: hex("#f2ead8"), spec: 0.6, shine: 60 }, core: hex("#6ff0ff") },
+  6: { pipe: { color: hex("#3a2f5e"), spec: 0.9, shine: 60, bands: hex("#c49bff") }, flange: { color: hex("#c3ccd6"), spec: 0.9, shine: 70 }, collar: { color: hex("#4a3d78"), spec: 0.7, shine: 50 }, bolt: { color: hex("#2c2448"), spec: 0.5, shine: 30 }, hub: { color: hex("#2f2650"), spec: 0.85, shine: 60 }, cap: { color: hex("#c3ccd6"), spec: 0.9, shine: 70 }, gauge: { color: hex("#d9c8ff"), spec: 0.6, shine: 60 }, core: hex("#b98cff") },
 };
 
 function material(tier, name) {
@@ -524,6 +647,12 @@ function material(tier, name) {
       return IRON;
     case "valve":
       return RED;
+    case "rubber":
+      return RUBBER;
+    case "cable":
+      return CABLE;
+    case "slim":
+      return SLIM;
     default:
       return t[name] ?? t.pipe;
   }
@@ -694,10 +823,22 @@ function compose(geometry, coreGeometry, tier, overlay) {
 function shapes() {
   const list = [];
   for (let mask = 0; mask < 16; mask++) {
-    list.push(["u", "r", "d", "l"].filter((_, i) => mask & (1 << i)).join(""));
+    const sides = ["u", "r", "d", "l"].filter((_, i) => mask & (1 << i)).join("");
+    list.push(sides, `gate-${sides || "none"}`);
   }
   for (const side of ["u", "r", "d", "l"]) {
-    list.push(`flange-${side}`, `socket-${side}`, `tee-${side}`);
+    list.push(`flange-${side}`, `socket-${side}`, `tee-${side}`, `manifold-${side}`);
+    const other = ["u", "r", "d", "l"].filter((s) => s !== side);
+    for (let mask = 0; mask < 8; mask++) {
+      const connections = other.filter((_, i) => mask & (1 << i)).join("");
+      list.push(`feed-${side}-${connections || "none"}`);
+    }
+    // The lanes into a building (1.4 §9): each kind of good at each of the three places across the side
+    for (const kind of ["power", "solid", "fluid"]) {
+      for (const slot of [0, 1, 2]) {
+        list.push(`lane-${kind}-${side}-${slot}`);
+      }
+    }
   }
   return [...list, "foot-x", "foot-y"];
 }
@@ -728,18 +869,20 @@ async function main() {
   const rendered = [];
   for (const shape of list) {
     const started = Date.now();
-    const geometry = render(piece(shape === "none" ? "" : shape));
-    const coreGeometry = render(core(shape === "none" ? "" : shape));
+    // A scratch look may join pieces with "+" (a pipe end, its manifold and lanes), rendered as one scene
+    const parts = shape.split("+").map((t) => (t === "none" ? "" : t));
+    const geometry = render(parts.flatMap(piece));
+    const coreGeometry = render(parts.flatMap(core));
     const tiers = {};
-    for (const tier of [1, 2, 3, 4, 5]) {
-      tiers[tier] = compose(geometry, coreGeometry, tier, shape.includes("-") && !shape.startsWith("tee-"));
+    for (const tier of [1, 2, 3, 4, 5, 6]) {
+      tiers[tier] = compose(geometry, coreGeometry, tier, shape.includes("-") && !shape.startsWith("tee-") && !shape.startsWith("feed-") && !shape.startsWith("gate-"));
     }
     rendered.push({ shape, tiers });
     console.log(`${shape || "(none)"}: ${Date.now() - started} ms`);
   }
   if (only) {
     mkdirSync(new URL("./scratch/", import.meta.url).pathname, { recursive: true });
-    for (const tier of [1, 2, 3, 4, 5]) {
+    for (const tier of [1, 2, 3, 4, 5, 6]) {
       const file = new URL(`./scratch/pipe-${only}-${tier}.png`, import.meta.url).pathname;
       await sharp(rendered[0].tiers[tier], { raw: { width: W, height: H, channels: 4 } }).png().toFile(file);
       console.log(file);
@@ -747,7 +890,7 @@ async function main() {
     return;
   }
   // One atlas per tier, the frames trimmed to what all tiers show of them, in rows
-  const columns = 5;
+  const columns = 9;
   const boxes = rendered.map(({ tiers }) => {
     const all = Object.values(tiers).map(bounds);
     const x = Math.min(...all.map((t) => t.x));
@@ -769,7 +912,7 @@ async function main() {
     };
   });
   mkdirSync(join(OUT, "pipes"), { recursive: true });
-  for (const tier of [1, 2, 3, 4, 5]) {
+  for (const tier of [1, 2, 3, 4, 5, 6]) {
     const atlas = Buffer.alloc(columns * cellW * rows * cellH * 4);
     rendered.forEach(({ shape, tiers }) => {
       const f = frames[shape];
@@ -787,7 +930,7 @@ async function main() {
       .toFile(join(OUT, "pipes", `tier${tier}.webp`));
   }
   const m = manifest({});
-  m.pipes = { resolution: RES, top: TOP, z: Z * ZS, tiers: [1, 2, 3, 4, 5], frames };
+  m.pipes = { resolution: RES, top: TOP, z: Z * ZS, tiers: [1, 2, 3, 4, 5, 6], frames };
   save(m);
   console.log(`${rendered.length} pieces, atlas ${columns * cellW}×${rows * cellH} per tier`);
 }

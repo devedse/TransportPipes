@@ -32,6 +32,7 @@ public enum WorldEventKind
     Achievement,
     Crew,
     Link,
+    OrderPosted,
 }
 
 /// <summary>Something a player should hear about (a toast in the client)</summary>
@@ -54,9 +55,10 @@ public sealed class WorldChanges
     public HashSet<long> Storages { get; } = new();
     public HashSet<(DistrictCoord District, int Slot)> Estates { get; } = new();
     public HashSet<DistrictCoord> Markets { get; } = new();
-    public HashSet<long> Contracts { get; } = new();
-    public HashSet<long> Corporations { get; } = new();
     public HashSet<long> Crews { get; } = new();
+
+    /// <summary>Legacy for accounts (a town's Launch): the user, the points and a title</summary>
+    public List<(long UserId, int Legacy, string? Title)> Legacy { get; } = new();
     /// <summary>Companies whose links were offered, changed or ended</summary>
     public HashSet<long> Links { get; } = new();
 
@@ -69,7 +71,7 @@ public sealed class WorldChanges
     public bool Blueprints { get; set; }
     public List<WorldEvent> Events { get; } = new();
 
-    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Contracts.Count == 0 && Corporations.Count == 0 && Crews.Count == 0 && Links.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && !Outposts && !Blueprints && Events.Count == 0;
+    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Crews.Count == 0 && Legacy.Count == 0 && Links.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && !Outposts && !Blueprints && Events.Count == 0;
 }
 
 /// <summary>
@@ -82,7 +84,6 @@ public sealed partial class GameWorld
 
     public GameContent Content { get; }
     public WorldGenerator Generator { get; }
-    public int Era { get; set; } = 1;
     public DateTime LastTick { get; set; }
 
     private readonly Func<DateTime> _clock;
@@ -105,11 +106,10 @@ public sealed partial class GameWorld
     /// <summary>The gold a new company starts with (the content's value unless the server configures another)</summary>
     public double StartingGold { get; set; }
 
-    /// <param name="dealtLand">The land goods are dealt per station (step 5); old worlds keep their land</param>
-    public GameWorld(GameContent content, int seed, Func<DateTime> clock, bool dealtLand = false)
+    public GameWorld(GameContent content, int seed, Func<DateTime> clock)
     {
         Content = content;
-        Generator = new WorldGenerator(seed, dealtLand);
+        Generator = new WorldGenerator(seed);
         _clock = clock;
         LastTick = clock();
         StartingGold = content.Progression.StartingGold;
@@ -151,6 +151,13 @@ public sealed partial class GameWorld
 
     /// <summary>The company's estate; null while it is packed (asleep on the Quiet Isles, or moving)</summary>
     public Estate? EstateOf(Company company) => Estate(company.District, company.Slot) is { } estate && estate.OwnerId == company.Id ? estate : null;
+
+    /// <summary>A company's plots: its one plot (none while it moves)</summary>
+    public IEnumerable<Estate> EstatesOf(Company company) => EstateOf(company) is { } estate ? [estate] : [];
+
+    /// <summary>The company's plot a tile belongs to (the Deep Level under it counts), or null</summary>
+    public Estate? OwnEstateAt(Company company, TilePos pos) =>
+        EstateOf(company) is { } estate && estate.Contains(WorldLayout.Surface(pos)) ? estate : null;
 
     public Estate? EstateAt(TilePos pos)
     {
@@ -254,60 +261,6 @@ public sealed partial class GameWorld
         {
             _estates[(district, slot)] = new Estate { District = district, Slot = slot, Origin = WorldLayout.EstateOrigin(district, slot) };
         }
-        if (TenantsEnabled)
-        {
-            CreateTenants(district);
-        }
-    }
-
-    /// <summary>NPC tenants on free estates (off in most tests)</summary>
-    public bool TenantsEnabled { get; set; }
-
-    /// <summary>
-    /// The estate a new company gets: the first free estate in the oldest district with room; when only tenants are left
-    /// there, a tenant moves out
-    /// </summary>
-    private Estate FindFreeEstate(bool kit = false)
-    {
-        foreach (var district in WorldLayout.DistrictOrder())
-        {
-            OpenDistrict(district);
-            for (var slot = 0; slot < WorldLayout.EstatesPerDistrict; slot++)
-            {
-                var estate = _estates[(district, slot)];
-                // Corporation blocks are kept for their members, held seats for their crew's friends
-                if (estate.OwnerId == null && (estate.ReservedFor == null || estate.ReservedUntil <= LastTick) && SeatFree(KeyOf(estate)))
-                {
-                    return estate;
-                }
-            }
-            for (var slot = 0; slot < WorldLayout.EstatesPerDistrict; slot++)
-            {
-                var estate = _estates[(district, slot)];
-                if (estate.OwnerId is { } owner && Company(owner) is { IsNpc: true } && SeatFree(KeyOf(estate)))
-                {
-                    EvictTenant(estate, kit);
-                    return estate;
-                }
-            }
-        }
-        throw new InvalidOperationException("The world is infinite, this can't happen.");
-    }
-
-    /// <summary>A seat for a newcomer: free, or kept warm by a tenant who moves out (null when it isn't free for them)</summary>
-    private Estate? TakeSeat(EstateKey seat, string? code = null)
-    {
-        OpenDistrict(seat.District);
-        if (Estate(seat.District, seat.Slot) is not { } estate || !SeatFree(seat, null, code))
-        {
-            return null;
-        }
-        if (estate.OwnerId is { } owner && Company(owner) is { IsNpc: true })
-        {
-            // The House leaves the newcomer a starter kit
-            EvictTenant(estate, kit: true);
-        }
-        return estate.OwnerId == null ? estate : null;
     }
 
     public const int MinCompanyNameLength = 3;
@@ -358,28 +311,27 @@ public sealed partial class GameWorld
         }
     }
 
-    public static readonly (int X, int Y) HqLocal = (15, 15);
-    public static readonly (int X, int Y) TradingPostLocal = (18, 15);
 
     /// <summary>
-    /// A new company, on a seat it chose (when that is free, or a House keeps it warm) or the first free one; Legacy from
-    /// earlier seasons brings starting gold, titles and a manager slot
+    /// A new company (1.4 §6), on the plot it chose when that is free for it (an open Yard, or a closed one with a
+    /// resident's "Play next to me" link), else where Pick for me puts it; a plot it chose in a closed Yard becomes a
+    /// request. It starts from nothing: its HQ, its trading post next to the Yard gate and its starting gold. Legacy from
+    /// earlier seasons brings starting gold, titles and a manager slot.
     /// </summary>
     public Company CreateCompany(long userId, string name, string color, int legacyLevel = 0, IEnumerable<string>? titles = null, EstateKey? seat = null, string? code = null)
     {
-        // A seat code brings the newcomer to the seat its crew holds for it, a crew link next to the crew
-        var held = code != null ? HoldByCode(code) : null;
-        var linked = held == null && code != null ? CrewByInvite(code) : null;
-        if (held is { } invite)
+        if (seat is { } wanted)
         {
-            seat = invite.Hold.Seat;
+            OpenDistrict(wanted.District);
         }
-        else if (linked != null)
+        // A friend's link without a plot: a free one at their Yard, when there is one
+        if (seat == null && code != null && NextToMeOf(code) is { } friend && EstateOf(friend) is { } home)
         {
-            seat = SeatNearCrew(linked, code!);
+            seat = StationSeats(home.Station).Where(t => SeatFree(t, null, code)).Select(t => (EstateKey?)t).FirstOrDefault();
         }
-        _kit = null;
-        var estate = seat is { } chosen && TakeSeat(chosen, code) is { } free ? free : FindFreeEstate(kit: true);
+        // Newcomers start in an Era-1 town (1.4 §11)
+        var chosen = seat is { } s && SeatFree(s, null, code) && TownEra(s.District) == 1 ? s : PickForMe();
+        var estate = Estate(chosen.District, chosen.Slot)!;
         var now = Now;
         var company = new Company
         {
@@ -399,67 +351,34 @@ public sealed partial class GameWorld
         _companies[company.Id] = company;
 
         estate.OwnerId = company.Id;
-        estate.UnlockedParcels = Content.Progression.StartParcels.Aggregate(0, (mask, parcel) => mask | (1 << parcel));
+        estate.UnlockedParcels = WorldLayout.StartMask(estate.Slot);
         estate.Touch();
         Changes.Estates.Add((estate.District, estate.Slot));
 
         AddYardGate(company, estate);
-
-        // The stranger next door (step 6): alone, in the small station beside a crew's, it shares their Yard and project
-        if (code == null && SmallMode && estate.Station.IsSmall && CrewCornerNextTo(estate.Station) != null)
+        if (code != null && LinkOpens(code, estate.Station) && !YardOpen(estate.Station))
         {
-            company.SeatedNextDoor = true;
+            NextToMeOf(code)!.NextToMeUsed = true;
         }
-        // The first-comer: alone on an empty server, it reads once who comes next
-        if (!_companies.Values.Any(t => !t.IsNpc && t.Id != company.Id && IsActive(t)))
-        {
-            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.Neighbour,
-                $"You're the first in {WorldNames.District(estate.District)}. The next player who comes alone will live next to you."));
-        }
+        SettleInYard(company, estate);
 
-        // Newcomers named where they live: "next door" only in the same station (run 3: Ana read "Ben Co moved into my
-        // district" and looked for him beside her; he lived in Capital SW)
-        var home = BigStation(estate.Station);
-        foreach (var neighbour in _companies.Values.Where(t => t.District == company.District && t.Id != company.Id && !t.IsNpc))
+        // The town hears who moved in (the Yard's crew that it's next door, from SettleInYard)
+        foreach (var neighbour in _companies.Values.Where(t => t.District == company.District && t.Id != company.Id && t.CrewId != company.CrewId))
         {
-            var nextDoor = EstateOf(neighbour) is { } theirs && home.Contains(theirs.Station);
-            if (nextDoor)
-            {
-                neighbour.Report.NewNeighbours.Add(company.Name);
-            }
             neighbour.Touch();
-            Changes.Events.Add(new WorldEvent(neighbour.Id, WorldEventKind.Neighbour, nextDoor
-                ? $"{company.Name} moved in next door"
-                : $"{company.Name} moved into {WorldNames.Station(estate.Station)}, another station of your district"));
+            Changes.Events.Add(new WorldEvent(neighbour.Id, WorldEventKind.Neighbour, $"{company.Name} moved into {WorldNames.Station(estate.Station)}, another Yard of your town"));
         }
 
-        AddBuilding(company, "hq", estate.Origin.Offset(HqLocal.X, HqLocal.Y), finished: true);
-        AddBuilding(company, "tradingPost", estate.Origin.Offset(TradingPostLocal.X, TradingPostLocal.Y), finished: true);
-        if (Generator.DealtLand)
-        {
-            GiveLandKit(company);
-        }
-        else
-        {
-            HandOverKit(company);
-        }
+        var (hqX, hqY) = WorldLayout.HqLocal(estate.Slot);
+        var (postX, postY) = WorldLayout.TradingPostLocal(estate.Slot);
+        AddBuilding(company, "hq", estate.Origin.Offset(hqX, hqY), finished: true);
+        AddBuilding(company, "tradingPost", estate.Origin.Offset(postX, postY), finished: true);
         company.BuiltTypes.Clear();
-        if (held is { } joined && HoldOn(joined.Hold.Seat) is not null && KeyOf(estate) == joined.Hold.Seat && CrewMembers(joined.Crew).Count() < MaxCrewSize)
+        // A plot it chose in a closed Yard: it plays here and asks there
+        if (seat is { } asked && asked != chosen && Estate(asked.District, asked.Slot) is { OwnerId: null } && !YardOpen(WorldLayout.StationOf(asked.District, asked.Slot)))
         {
-            company.CrewId = joined.Crew.Id;
-            company.KnownAs = joined.Hold.FriendName;
-            RemoveHold(joined.Crew, joined.Hold);
-            AnnounceArrival(joined.Crew, company);
+            RequestPlot(company.Id, asked);
         }
-        else if (linked != null)
-        {
-            JoinCrew(company.Id, code!);
-        }
-        if (SurveysEnabled)
-        {
-            Survey(estate);
-        }
-        StartProbation(company);
         // Steel Pipes come with Era 2 to everyone, a newcomer too
         GrantResearch(company);
         Changes.Companies.Add(company.Id);
@@ -487,7 +406,8 @@ public sealed partial class GameWorld
         }
     }
 
-    private Building AddBuilding(Company company, string type, TilePos pos, bool finished)
+    /// <summary>A new building; price: what the copy cost (its levels cost from it), by default the next copy's price</summary>
+    private Building AddBuilding(Company company, string type, TilePos pos, bool finished, double? price = null)
     {
         var definition = Content.Building(type);
         var building = new Building
@@ -498,6 +418,7 @@ public sealed partial class GameWorld
             X = pos.X,
             Y = pos.Y,
             Size = definition.Size,
+            Price = price ?? BuildCost(company, definition),
             ConstructionEndsAt = finished || definition.BuildSeconds <= 0 ? null : Now.AddSeconds(definition.BuildSeconds),
         };
         _buildings[building.Id] = building;
@@ -524,7 +445,8 @@ public sealed partial class GameWorld
             reason = $"{definition.Name} can't be built.";
             return false;
         }
-        if (definition.Unlock.Era > Era)
+        // A town's Era opens its buildings (1.4 §11)
+        if (definition.Unlock.Era > TownEra(company.District))
         {
             reason = $"{definition.Name} needs Era {definition.Unlock.Era}.";
             return false;
@@ -557,7 +479,7 @@ public sealed partial class GameWorld
         var estate = EstateOf(company);
         if (estate == null)
         {
-            return CommandResult.Fail("You don't have an estate.");
+            return CommandResult.Fail("You don't have a plot.");
         }
         var footprint = new List<TilePos>();
         for (var dy = 0; dy < definition.Size; dy++)
@@ -597,11 +519,24 @@ public sealed partial class GameWorld
             }
             else if (WorldLayout.ZoneAt(tile.X, tile.Y).Kind == ZoneKind.Yard)
             {
-                return CommandResult.Fail("Nobody builds in the Yard.");
+                // Workshops and the Depot at the Yard's ends (1.4 §7)
+                if (WorkshopBlocker(company, definition, footprint) is { } blocker)
+                {
+                    return CommandResult.Fail(blocker);
+                }
+            }
+            else if (WorldLayout.ZoneAt(tile.X, tile.Y).Kind == ZoneKind.Outskirts)
+            {
+                if (!OwnsOutskirts(company, tile))
+                {
+                    return CommandResult.Fail(OutskirtsParcelAt(Estate, tile) is { } parcel && parcel.Plot == estate
+                        ? "This outskirts parcel is set aside for you: buy it first."
+                        : "These outskirts are set aside for another plot.");
+                }
             }
             else if (OwnEstateAt(company, tile) is not { } own)
             {
-                return CommandResult.Fail("You can only build on your own estates and your outposts.");
+                return CommandResult.Fail("You can only build on your own plots and your outposts.");
             }
             else if (!own.IsUnlocked(own.ParcelAt(tile)))
             {
@@ -632,7 +567,9 @@ public sealed partial class GameWorld
         {
             for (var dx = 0; dx < definition.Size; dx++)
             {
-                var terrain = Tile(pos.Offset(dx, dy)).Terrain;
+                var tile = pos.Offset(dx, dy);
+                // The Yard's ends are laid out like grass for its workshops (1.4 §7)
+                var terrain = Tile(tile).Terrain is TerrainType.Yard && InWorkshops(tile) ? TerrainType.Grass : Tile(tile).Terrain;
                 if (!definition.Placement.Terrain.Contains(terrain))
                 {
                     return CommandResult.Fail(definition.Placement.Shore && terrain == TerrainType.Water
@@ -660,7 +597,7 @@ public sealed partial class GameWorld
         }
         if (definition.Placement.Forest && ForestAround(pos, definition.Size) < 3)
         {
-            return CommandResult.Fail(Generator.DealtLand ? $"{definition.Name} needs the old forest nearby: its trees are marked on the Deposits map." : $"{definition.Name} needs a forest nearby.");
+            return CommandResult.Fail($"{definition.Name} needs a forest nearby.");
         }
         return CommandResult.Ok;
     }
@@ -676,7 +613,7 @@ public sealed partial class GameWorld
         {
             if (!InEstateOrBelow(estate, tile))
             {
-                return CommandResult.Fail("In the Deep Level you build only under your own estate.");
+                return CommandResult.Fail("In the Deep Level you build only under your own plot.");
             }
             if ((_buildingAt.TryGetValue(tile, out var other) && other != ignoreBuilding) || _conductors.ContainsKey(tile))
             {
@@ -708,6 +645,18 @@ public sealed partial class GameWorld
     private string DepositName(string deposit) =>
         deposit == "anyMetal" ? "metal" : Content.Resources.TryGetValue(deposit, out var resource) ? resource.Name.ToLowerInvariant() : deposit;
 
+    /// <summary>The tiles a building of a size covers from its corner</summary>
+    public static IEnumerable<TilePos> Footprint(TilePos pos, int size)
+    {
+        for (var dy = 0; dy < size; dy++)
+        {
+            for (var dx = 0; dx < size; dx++)
+            {
+                yield return pos.Offset(dx, dy);
+            }
+        }
+    }
+
     public static IEnumerable<TilePos> BorderTiles(TilePos pos, int size)
     {
         for (var i = 0; i < size; i++)
@@ -728,8 +677,7 @@ public sealed partial class GameWorld
             for (var x = pos.X - 2; x < pos.X + size + 2; x++)
             {
                 var tile = new TilePos(x, y);
-                // Dealt land: only the old forest's marked trees (the wood of a seat that was dealt it)
-                if (Tile(tile) is { Terrain: TerrainType.Forest } info && (!Generator.DealtLand || info.Deposit == "wood") && !_buildingAt.ContainsKey(tile))
+                if (Tile(tile) is { Terrain: TerrainType.Forest } && !_buildingAt.ContainsKey(tile))
                 {
                     count++;
                 }
@@ -740,8 +688,9 @@ public sealed partial class GameWorld
 
     // ---------------------------------------------------------------- Costs
 
+    /// <summary>What a company's next copy of a building costs (1.4 §9: 7% more for every copy it owns; the Workshop Monument)</summary>
     public double BuildCost(Company company, BuildingDefinition definition) =>
-        Content.Progression.BuildCost(definition, CopiesOwned(company.Id, definition.Id));
+        Math.Round(Content.Progression.BuildCost(definition, CopiesOwned(company.Id, definition.Id)) * CostFactor(company));
 
     /// <summary>
     /// Builds a building on every spot of a painted row or area, in order, until the gold runs out (spots where it can't
@@ -860,12 +809,11 @@ public sealed partial class GameWorld
         if (company.Gold >= cost - 1e-9 && definition.Cost.Materials.Count > 0
             && definition.Cost.Materials.Any(t => Materials(company.Id).GetValueOrDefault(t.Key) < t.Value - 1e-9))
         {
-            var xpAtSite = company.Xp;
             // Said as it is (after run 4: "Big Factory is being built", and it waited for its bricks to the end)
             var line = MaterialsLine(company, definition);
             var site = PlaceSite(company, definition, pos, cost);
-            GainXp(company, Content.Progression.XpReward("building") + (company.BuiltTypes.Add(type) ? Content.Progression.XpReward("firstBuildingOfType") : 0), "buildings", type);
-            RecordPurchase(company, PurchaseKind.Build, site, 0, cost, company.Xp - xpAtSite);
+            company.BuiltTypes.Add(type);
+            RecordPurchase(company, PurchaseKind.Build, site, 0, cost);
             return CommandResult.Done($"Your {definition.Name} stands as a scaffold. {line?.Text}".TrimEnd());
         }
         var payment = Pay(company, cost, definition.Cost.Materials);
@@ -874,10 +822,9 @@ public sealed partial class GameWorld
             return payment;
         }
 
-        var xpBefore = company.Xp;
-        var placed = AddBuilding(company, type, pos, finished: false);
-        GainXp(company, Content.Progression.XpReward("building") + (company.BuiltTypes.Add(type) ? Content.Progression.XpReward("firstBuildingOfType") : 0), "buildings", type);
-        RecordPurchase(company, PurchaseKind.Build, placed, 0, cost, company.Xp - xpBefore);
+        var placed = AddBuilding(company, type, pos, finished: false, cost);
+        company.BuiltTypes.Add(type);
+        RecordPurchase(company, PurchaseKind.Build, placed, 0, cost);
         if (definition.Kind == BuildingKind.Storage && StorageKeepsText(company) is { } keeps)
         {
             // Placing a Storage says what it holds back (after run 3, row 9: "Nobody warned me that storing means not selling")
@@ -890,7 +837,7 @@ public sealed partial class GameWorld
     public string? StorageKeepsText(Company company)
     {
         var made = BuildingsOf(company.Id).Where(t => !t.UnderConstruction).SelectMany(t => Content.Building(t.Type).Out.Keys).ToHashSet();
-        var keeps = made.Where(t => t != GameContent.ResearchPoints)
+        var keeps = made
             .Select(t => (Resource: t, Amount: StorageNeed(company, t)))
             .Where(t => t.Amount >= 1)
             .OrderByDescending(t => t.Amount * BasePrice(t.Resource))
@@ -930,9 +877,12 @@ public sealed partial class GameWorld
     public bool DemolishedRecently(Company company, string type, double days = 7) =>
         company.Stats.TryGetValue($"demolished:{type}", out var minute) && (LastTick - DateTime.UnixEpoch).TotalMinutes - minute < days * 24 * 60;
 
-    /// <summary>Half the gold back, all of it with a Recycler (rearranging and evolving the estate costs nothing then)</summary>
+    /// <summary>Half what the copy cost back, all of it with a Recycler (rearranging and evolving the estate costs nothing then)</summary>
     public double DemolishRefund(Building building) =>
-        Math.Round(Content.Building(building.Type).Cost.Gold * (HasBuilding(building.Owner, BuildingKind.Recycler) ? 1 : 0.5) * ComplexMembers(building));
+        Math.Round(CopyPrice(building) * (HasBuilding(building.Owner, BuildingKind.Recycler) ? 1 : 0.5) * ComplexMembers(building));
+
+    /// <summary>What a copy cost to build (1.4 §9: its levels cost from it); an old building without one, its type's price</summary>
+    public double CopyPrice(Building building) => building.Price > 0 ? building.Price : Content.Building(building.Type).Cost.Gold;
 
     private void RemoveBuilding(Building building)
     {
@@ -1011,28 +961,29 @@ public sealed partial class GameWorld
         return CommandResult.Ok;
     }
 
+    /// <summary>The gold of a building's next levels (from the level it was bought up to, its goods still coming or not)</summary>
     public double UpgradeCost(Building building, int levels)
     {
-        var definition = Content.Building(building.Type);
+        var from = BoughtLevel(building);
         double total = 0;
-        for (var level = building.Level; level < building.Level + levels; level++)
+        for (var level = from; level < from + levels; level++)
         {
-            total += Content.Progression.UpgradeCost(definition, level);
+            total += Content.Progression.UpgradeCost(CopyPrice(building), level);
         }
-        // A complex upgrades all its members; Foreman Rick
-        return Math.Round(total * ComplexMembers(building) * ManagerUpgradeFactor(Company(building.Owner)), 2);
+        // A complex upgrades all its members; Foreman Rick; the Workshop Monument
+        return Math.Round(total * ComplexMembers(building) * ManagerUpgradeFactor(Company(building.Owner)) * CostFactor(Company(building.Owner)), 2);
     }
 
     /// <summary>How many levels the company can afford right now, priced like the upgrade (a complex's members, Foreman Rick)</summary>
     public int AffordableLevels(Company company, Building building)
     {
-        var definition = Content.Building(building.Type);
-        var factor = ComplexMembers(building) * ManagerUpgradeFactor(company);
+        var factor = ComplexMembers(building) * ManagerUpgradeFactor(company) * CostFactor(company);
+        var from = BoughtLevel(building);
         var gold = company.Gold;
         var levels = 0;
-        while (building.Level + levels < Content.Progression.MaxBuildingLevel)
+        while (from + levels < Content.Progression.MaxBuildingLevel)
         {
-            var cost = Content.Progression.UpgradeCost(definition, building.Level + levels) * factor;
+            var cost = Content.Progression.UpgradeCost(CopyPrice(building), from + levels) * factor;
             if (cost > gold + 1e-6)
             {
                 break;
@@ -1062,30 +1013,29 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("Wait until it is built.");
         }
-        levels = Math.Min(levels, Content.Progression.MaxBuildingLevel - building.Level);
+        var from = BoughtLevel(building);
+        levels = Math.Min(levels, Content.Progression.MaxBuildingLevel - from);
         if (levels <= 0)
         {
             return CommandResult.Fail("This building is at its maximum level.");
         }
-        var payment = Pay(company, UpgradeCost(building, levels), new Dictionary<string, double>());
+        var cost = UpgradeCost(building, levels);
+        var payment = Pay(company, cost, new Dictionary<string, double>());
         if (!payment.Success)
         {
             return payment;
         }
 
-        var from = building.Level;
-        var xpBefore = company.Xp;
-        building.Level += levels;
         AddStat(company, "levelsBought", levels);
+        // From level 11 a step also takes goods (1.4 §9): the building works at its old level until they're in
+        AddLevelSteps(company, building, from, levels);
         building.Touch();
         MarkDirty(building);
         foreach (var tile in building.Footprint())
         {
             Changes.Tiles.Add(tile);
         }
-        var milestones = Content.Progression.Milestones.Count(t => t > from && t <= building.Level);
-        GainXp(company, levels * Content.Progression.XpReward("upgradeLevel") + milestones * Content.Progression.XpReward("milestone"), "upgrades", building.Type);
-        RecordPurchase(company, PurchaseKind.Upgrade, building, levels, UpgradeCostFrom(building, from, levels), company.Xp - xpBefore);
+        RecordPurchase(company, PurchaseKind.Upgrade, building, levels, cost);
         return CommandResult.Ok;
     }
 
@@ -1094,7 +1044,7 @@ public sealed partial class GameWorld
     {
         var definition = Content.Building(building.Type);
         return definition.Kind is not (BuildingKind.Hq or BuildingKind.Gate or BuildingKind.Decoration) && definition.Buildable
-            && !building.UnderConstruction && building.Level < Content.Progression.MaxBuildingLevel;
+            && !building.UnderConstruction && BoughtLevel(building) < Content.Progression.MaxBuildingLevel;
     }
 
     /// <summary>
@@ -1134,7 +1084,7 @@ public sealed partial class GameWorld
             // Cheapest first: when the gold doesn't reach for all, the most of them get their levels
             foreach (var building in buildings.OrderBy(t => UpgradeCost(t, 1)))
             {
-                var each = Math.Min(levelsEach, Content.Progression.MaxBuildingLevel - building.Level);
+                var each = Math.Min(levelsEach, Content.Progression.MaxBuildingLevel - BoughtLevel(building));
                 if (each > 0 && Upgrade(companyId, building.Id, each).Success)
                 {
                     levels += each;
@@ -1149,7 +1099,7 @@ public sealed partial class GameWorld
     {
         if (Company(companyId) is not { } company || EstatesOf(company).ElementAtOrDefault(estateIndex) is not { } estate)
         {
-            return CommandResult.Fail("You don't have that estate.");
+            return CommandResult.Fail("You don't have that plot.");
         }
         if (parcel is < 0 or >= WorldLayout.ParcelCount)
         {
@@ -1167,17 +1117,20 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("You can only buy a parcel next to land you own.");
         }
-        var extra = estate.UnlockedCount - Content.Progression.StartParcels.Count;
+        var extra = estate.UnlockedCount - WorldLayout.StartParcelCount;
         var levelNeeded = Content.Progression.ParcelLevels[Math.Min(extra, Content.Progression.ParcelLevels.Count - 1)];
         if (company.Level < levelNeeded)
         {
             return CommandResult.Fail($"Your next parcel needs Company Level {levelNeeded}.");
         }
-        var payment = Pay(company, Content.Progression.ParcelCost(extra), new Dictionary<string, double>());
+        var cost = Math.Round(Content.Progression.ParcelCost(extra) * CostFactor(company));
+        var payment = Pay(company, cost, new Dictionary<string, double>());
         if (!payment.Success)
         {
             return payment;
         }
+        AddStat(company, "landGold", cost);
+        AddMoment(company, "land", $"Bought parcel {extra + 1} of {Content.Progression.ParcelLevels.Count}", true);
 
         estate.UnlockedParcels |= 1 << parcel;
         estate.Touch();
@@ -1190,7 +1143,6 @@ public sealed partial class GameWorld
                 Changes.Tiles.Add(estate.Origin.Offset(ox + x, oy + y));
             }
         }
-        GainXp(company, Content.Progression.XpReward("parcel"), "parcels", "parcel");
         return CommandResult.Ok;
     }
 
@@ -1198,31 +1150,34 @@ public sealed partial class GameWorld
     public (double Cost, int Level) NextParcel(Company company, Estate? estate = null)
     {
         estate ??= EstateOf(company);
-        var extra = (estate?.UnlockedCount ?? 4) - Content.Progression.StartParcels.Count;
+        var extra = (estate?.UnlockedCount ?? WorldLayout.StartParcelCount) - WorldLayout.StartParcelCount;
         if (extra >= Content.Progression.ParcelLevels.Count)
         {
             return (0, int.MaxValue);
         }
-        return (Content.Progression.ParcelCost(extra), Content.Progression.ParcelLevels[extra]);
+        return (Math.Round(Content.Progression.ParcelCost(extra) * CostFactor(company)), Content.Progression.ParcelLevels[extra]);
     }
 
     public CommandResult PlacePipes(long companyId, IReadOnlyList<TilePos> tiles, int tier = 1)
     {
         if (Company(companyId) is not { } company || EstateOf(company) is not { } estate)
         {
-            return CommandResult.Fail("You don't have an estate.");
+            return CommandResult.Fail("You don't have a plot.");
         }
         var pipe = Content.PipeTiers.FirstOrDefault(t => t.Tier == tier);
         if (pipe == null)
         {
             return CommandResult.Fail("Unknown pipe.");
         }
-        if (pipe.Era > Era || (pipe.Research != null && !HasResearch(company, pipe.Research)))
+        if (pipe.Era > YourEra(company) || (pipe.Research != null && !HasResearch(company, pipe.Research)))
         {
             return CommandResult.Fail($"{pipe.Name}s are not unlocked yet.");
         }
 
-        var newTiles = tiles.Distinct().Where(t => !(_conductors.TryGetValue(t, out var existing) && existing.Owner == companyId && existing.Kind == ConductorKind.Pipe)).ToList();
+        // Your own pipes on the way are there already, and so is your Yard gate: a pipe runs on through it (1.4: the
+        // gate stands by the trading post, so a drag from a building to the post often crosses it)
+        var newTiles = tiles.Distinct().Where(t => !(_conductors.TryGetValue(t, out var existing) && existing.Owner == companyId
+            && existing.Kind is ConductorKind.Pipe or ConductorKind.Gate)).ToList();
         double cost = 0;
         foreach (var tile in newTiles)
         {
@@ -1231,7 +1186,7 @@ public sealed partial class GameWorld
                 // Down in the Deep Level: only in your own caverns
                 if (!estate.Contains(WorldLayout.Surface(tile)))
                 {
-                    return CommandResult.Fail("In the Deep Level pipes stay under your own estate.");
+                    return CommandResult.Fail("In the Deep Level pipes stay under your own plot.");
                 }
                 if (IsOccupied(tile))
                 {
@@ -1251,7 +1206,13 @@ public sealed partial class GameWorld
                     // Pipes may cross parcels you haven't bought yet, so the Yard gate can be reached from the start
                     if (OwnEstateAt(company, tile) == null)
                     {
-                        return CommandResult.Fail("You can't lay pipes on someone else's estate. Trade through your Yard gate.");
+                        return CommandResult.Fail("You can't lay pipes on someone else's plot. Trade through your Yard gate.");
+                    }
+                    break;
+                case ZoneKind.Outskirts:
+                    if (!OwnsOutskirts(company, tile))
+                    {
+                        return CommandResult.Fail("Only on your own outskirts.");
                     }
                     break;
                 case ZoneKind.Wilderness:
@@ -1264,7 +1225,7 @@ public sealed partial class GameWorld
                 case ZoneKind.Yard:
                     return CommandResult.Fail("The Yard is shared: pipe to your Yard gate, the game does the rest.");
                 default:
-                    return CommandResult.Fail("Pipes go on your estate (the corridors carry links, which the game lays).");
+                    return CommandResult.Fail("Pipes go on your plot (the roads carry links, which the game lays).");
             }
             if (IsOccupied(tile))
             {
@@ -1314,7 +1275,7 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("Unknown pipe.");
         }
-        if (pipe.Era > Era || (pipe.Research != null && !HasResearch(company, pipe.Research)))
+        if (pipe.Era > YourEra(company) || (pipe.Research != null && !HasResearch(company, pipe.Research)))
         {
             return CommandResult.Fail($"{pipe.Name}s are not unlocked yet.");
         }
@@ -1326,6 +1287,14 @@ public sealed partial class GameWorld
         if (upgrade.Count == 0)
         {
             return CommandResult.Fail($"Those pipes are already {pipe.Name}s or better.");
+        }
+        // Tiles that wait for this pipe already (playtest: every click on Upgrade asked again, five Copper Pipe wants on
+        // the same 13 tiles, each paid)
+        var waiting = PipeTilesWaiting(company, tier);
+        upgrade.RemoveAll(t => waiting.Contains(t.Pos));
+        if (upgrade.Count == 0)
+        {
+            return CommandResult.Fail($"Those pipes wait for their {pipe.Name} already: what it wants is on its way (Yard › What you're waiting for).");
         }
         var materials = pipe.Materials.ToDictionary(t => t.Key, t => t.Value * upgrade.Count);
         // Short of its materials (a Copper Pipe's ingots), not its gold: the pipe wants them (after run 3, step 3: Cleo's
@@ -1342,12 +1311,12 @@ public sealed partial class GameWorld
         foreach (var conductor in upgrade)
         {
             conductor.Tier = tier;
-            conductor.Widen = 1;
             conductor.Touch();
             MarkDirty(conductor.Pos);
             Changes.Tiles.Add(conductor.Pos);
         }
         AddStat(company, "pipeTiers", upgrade.Count);
+        TidyPipeWants(company);
         return CommandResult.Ok;
     }
 
@@ -1438,35 +1407,38 @@ public sealed partial class GameWorld
         MarkCompanyNetworksDirty(company.Id);
     }
 
-    // ---------------------------------------------------------------- Experience
+    // ---------------------------------------------------------------- Gold earned and the Company Level
 
-    /// <summary>XP for a company, recorded by where it came from (see Company.XpLog)</summary>
-    public void GainXp(Company company, double xp, string source, string item)
+    /// <summary>
+    /// Gold a company earned (1.4 §14): what the market and other players paid it, orders, rewards and expeditions, never
+    /// refunds, the start gold or buy-backs. The caller adds the gold; this counts it for the Company Level, recorded by
+    /// where it came from (see Company.EarnedLog).
+    /// </summary>
+    public void CountEarned(Company company, double gold, string source, string item)
     {
-        if (xp <= 0)
+        if (gold <= 0)
         {
             return;
         }
-        if (!company.XpLog.TryGetValue(source, out var items))
+        if (!company.EarnedLog.TryGetValue(source, out var items))
         {
-            company.XpLog[source] = items = new Dictionary<string, double>();
+            company.EarnedLog[source] = items = new Dictionary<string, double>();
         }
-        items[item] = items.GetValueOrDefault(item) + xp;
-        if (company.Tailwind > 1)
-        {
-            // Far behind the people you live with: the Tailwind's share is booked on its own
-            var tailwind = xp * (company.Tailwind - 1);
-            if (!company.XpLog.TryGetValue("tailwind", out var boost))
-            {
-                company.XpLog["tailwind"] = boost = new Dictionary<string, double>();
-            }
-            boost["Tailwind"] = boost.GetValueOrDefault("Tailwind") + tailwind;
-            xp += tailwind;
-        }
-        company.Xp += xp;
-        var level = Content.Progression.LevelForXp(company.Xp);
+        items[item] = items.GetValueOrDefault(item) + gold;
+        company.LifetimeEarnings += gold;
+        CheckCompanyLevel(company);
+    }
+
+    /// <summary>The Company Level follows the gold earned in all; it never goes down</summary>
+    public void CheckCompanyLevel(Company company)
+    {
+        var level = Content.Progression.LevelForEarned(company.LifetimeEarnings);
         if (level > company.Level)
         {
+            for (var reached = company.Level + 1; reached <= level; reached++)
+            {
+                AddMoment(company, "level", $"Company Level {reached}", reached % 5 == 0);
+            }
             company.Report.LevelsGained += level - company.Level;
             company.Level = level;
             Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.LevelUp, $"Company Level {level}!"));

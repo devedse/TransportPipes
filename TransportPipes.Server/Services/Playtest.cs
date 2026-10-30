@@ -144,21 +144,6 @@ public static class PlaytestEndpoints
 
         group.MapGet("/companies", (WorldHost host) => host.RunAsync(Companies, changesWorld: false));
 
-        // Run 2's Jo (docs/playtest-fixes.html §6): a scripted solo human, seated by placement like anyone who comes
-        // alone, whose factories lack the energy a neighbour's kit makes; no agent, never chats
-        group.MapPost("/jo", (WorldHost host) => host.RunAsync(world =>
-        {
-            if (world.Companies.FirstOrDefault(t => t.Name == "Jo's Works") is { } existing)
-            {
-                return new { id = existing.Id, created = false, buildings = world.BuildingsOf(existing.Id).Count() };
-            }
-            var seat = world.SuggestSeat(Placement.Neighbours);
-            var jo = world.CreateCompany(900_001, "Jo's Works", "#7d5ba6", seat: seat);
-            world.PlaceScripted(jo, "ironMine", 2);
-            world.PlaceScripted(jo, "smallFactory", 4);
-            return new { id = jo.Id, created = true, buildings = world.BuildingsOf(jo.Id).Count() };
-        }));
-
         // A scripted player was here, a session of its own (it stays an active neighbour and has seen what's new)
         group.MapPost("/seen/{companyId:long}", (long companyId, WorldHost host) => host.RunAsync(world =>
         {
@@ -170,8 +155,7 @@ public static class PlaytestEndpoints
             return new { seen = companyId };
         }));
 
-        // A company's station as its Yard sees it: every resident's spare and lacks at the gate, and the company's Sends
-        // with why each moves nothing (run 2: Dev's Sends moved nothing for 28 days)
+        // A company's Yard as it sees it: every resident's spare and lacks at the gate, and its trades
         group.MapGet("/yard/{companyId:long}", (long companyId, WorldHost host) => host.RunAsync(world =>
         {
             if (world.Company(companyId) is not { } company || world.EstateOf(company) is not { } estate)
@@ -180,7 +164,7 @@ public static class PlaytestEndpoints
             }
             return new
             {
-                residents = world.YardResidents(estate.Station).Select(t => new { id = t.Company.Id, name = t.Company.Name, house = t.Company.IsNpc, connected = t.Connected, spare = t.Spare, lacks = t.Lacks }),
+                residents = world.YardResidents(estate.Station).Select(t => new { id = t.Company.Id, name = t.Company.Name, connected = t.Connected, spare = t.Spare, lacks = t.Lacks }),
                 trades = world.YardTrades(estate).Select(t => new
                 {
                     partner = t.Partner, resource = t.Resource, perMinute = t.PerMinute, selling = t.Selling,
@@ -188,7 +172,6 @@ public static class PlaytestEndpoints
                     sameDevice = world.Company(t.Partner) is { } other && world.SameDevice(company, other),
                 }),
                 devices = company.Devices.Keys,
-                sends = company.Sends.Select(t => new { to = t.To, resource = t.Resource, building = t.Building, idle = world.SendIdleReason(company, t) }),
             };
         }, changesWorld: false));
 
@@ -199,15 +182,8 @@ public static class PlaytestEndpoints
             {
                 return null;
             }
-            var away = new GameViews.AwayFacts(world.Now - company.LastSeenAt, company.Report, company.StandIn?.Name, company.Asleep, company.Asleep && company.Packed != null);
+            var away = new GameViews.AwayFacts(world.Now - company.LastSeenAt, company.Report);
             return GameViews.ReturnCard(world, company, away, null);
-        }));
-
-        // Every station's project starts its stage again, by today's rules (old baskets in a replayed snapshot)
-        group.MapPost("/restage", (WorldHost host) => host.RunAsync(world =>
-        {
-            world.RestageProjects();
-            return new { restaged = true };
         }));
 
         // A company's networks as the solver sees them: what every building could make and needs, how fast it runs,
@@ -233,15 +209,14 @@ public static class PlaytestEndpoints
             }).ToList(), changesWorld: false));
     }
 
-    /// <summary>The players (and how many Houses), with what the report draws</summary>
+    /// <summary>The players, with what the report draws</summary>
     private static object Companies(GameWorld world)
     {
         var gold = world.GoldPerMinute();
-        var players = world.Companies.Where(t => !t.IsNpc).OrderBy(t => t.Id).Select(company =>
+        var players = world.Companies.OrderBy(t => t.Id).Select(company =>
         {
             var estate = world.EstateOf(company);
             var station = estate?.Station;
-            var project = station is { } s && world.ProjectsEnabled ? world.ProjectOf(s) : null;
             return new
             {
                 id = company.Id,
@@ -250,7 +225,7 @@ public static class PlaytestEndpoints
                 station = station is { } at ? WorldNames.Station(at) : null,
                 slot = company.Slot,
                 level = company.Level,
-                xp = company.Xp,
+                era = world.YourEra(company),
                 gold = company.Gold,
                 goldPerMinute = gold.GetValueOrDefault(company.Id),
                 neighbourIncome = world.NeighbourIncome(company),
@@ -265,8 +240,6 @@ public static class PlaytestEndpoints
                 yardSent = company.Stats.GetValueOrDefault("yardSent"),
                 yardUntaken = company.Stats.GetValueOrDefault("yardUntaken"),
                 hubGold = company.Stats.GetValueOrDefault("hubGold"),
-                npcGold = company.Stats.GetValueOrDefault("npcGold"),
-                projectGold = company.Stats.GetValueOrDefault("projectGold"),
                 // Every building that doesn't run fully, and why (IdleReason): the digest finds when each started
                 idle = world.BuildingsOf(company.Id).Select(b => (Building: b, Reason: world.IdleReasonOf(b)))
                     .Where(t => t.Reason.Cause != IdleCause.None)
@@ -275,25 +248,12 @@ public static class PlaytestEndpoints
                 buildings = world.BuildingsOf(company.Id).Count(),
                 parcels = estate?.UnlockedCount ?? 0,
                 tutorialStep = company.TutorialStep,
-                asleep = company.Asleep,
                 packed = company.Packed != null,
-                standIn = company.StandIn?.Name,
                 lastSeen = company.LastSeenAt,
                 links = world.LinksOf(company.Id).Count(),
-                asks = company.Asks.Count,
-                tailwind = world.TailwindFor(company),
-                projectStage = project?.Stage.ToString(),
-                projectFinished = project?.Finished.Keys.Select(t => t.ToString()).ToList(),
-                projectCredit = project?.Credit.GetValueOrDefault(company.Id) ?? 0,
-                // The stage's basket (good: delivered / target, the keystone marked) and the This week line
-                projectBasket = project?.Basket.ToDictionary(t => t.Key == project.Keystone ? $"{t.Key}*" : t.Key, t => $"{project.Delivered.GetValueOrDefault(t.Key):0} / {t.Value:0}"),
-                week = GameViews.Week(world, company)?.Text,
-                // Step 4's measures: its Sends, the first gifts it heard of, who thanked it
-                sends = company.Sends.Select(t => $"{t.Resource}>{t.To}").Concat(company.ProjectFirst.Select(t => $"{t}>project")).ToList(),
-                giftsAnnounced = company.GiftsAnnounced.ToList(),
-                thanks = company.Report.Thanks.Count,
+                wants = company.Asks.Count,
                 // Run 4's measures (docs/playtest-run3-design.html, "How run 4 will show it worked"): what gold bought, the
-                // wants' materials by where they came from, the Era wonder, Refinements and resting Labs
+                // wants' materials by where they came from, the Era wonder and resting Labs
                 spent = company.Stats.GetValueOrDefault("goldSpent"),
                 ordered = company.Stats.GetValueOrDefault("ordered"),
                 widened = company.Stats.GetValueOrDefault("widened"),
@@ -303,9 +263,11 @@ public static class PlaytestEndpoints
                 wantHub = company.Stats.GetValueOrDefault("wantHub"),
                 wonder = company.Stats.GetValueOrDefault("wonder"),
                 wonderGold = company.Stats.GetValueOrDefault("wonderGold"),
-                refinements = company.Refinements.Values.Sum(),
-                researchPoints = company.ResearchPoints,
-                labsRest = world.LabsRest(company),
+                tiers = new Dictionary<string, int>(company.TrackTiers),
+                researched = company.Researched.Count,
+                researchGold = company.Stats.GetValueOrDefault("researchGold"),
+                monumentGold = company.Stats.GetValueOrDefault("monumentGold"),
+                imported = company.Stats.GetValueOrDefault("imported"),
                 orders = company.Stats.GetValueOrDefault("orders"),
                 tradeFalls = company.TradeFalls.Count,
                 // After run 4: which doors were open at the sample, and what was pressed since the start ("doors logged
@@ -315,8 +277,8 @@ public static class PlaytestEndpoints
                 {
                     pipe = world.BuildingsOf(company.Id).Count(t => world.PipeDoorFor(company, t, preview: false) is { Kind: not PipeDoorKind.Locked }),
                     grow = world.PlanGrowth(company).Parts.Count,
-                    wonder = company.District == GameWorld.Capital && world.EraWonder is { } era ? era.Required.Keys.Count(t => world.WonderOrderOffer(t) != null) : 0,
-                    wants = world.WantsNear(company).Count(t => t.Want.Order == null),
+                    wonder = world.BuyAndGiveCost(company) > 0 ? 1 : 0,
+                    wants = world.WantsNear(company).Count,
                 },
                 pressed = company.Stats.Where(t => t.Key.StartsWith("pressed:", StringComparison.Ordinal)).ToDictionary(t => t.Key["pressed:".Length..], t => t.Value),
             };
@@ -324,10 +286,8 @@ public static class PlaytestEndpoints
         return new
         {
             now = world.Now,
-            era = world.Era,
-            smallMode = world.SmallMode,
+            towns = world.Towns.Select(t => new { x = t.X, y = t.Y, era = t.Era, wonder = t.Wonder?.Type, stage = t.Wonder?.Stage, full = t.Wonder?.FullAt }).ToList(),
             activePlayers = world.ActivePlayers(),
-            houses = world.Companies.Count(t => t.IsNpc),
             players,
         };
     }

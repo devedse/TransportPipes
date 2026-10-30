@@ -2,3 +2,5 @@ node_modules/
 dist/
 *.tsbuildinfo
 coverage/
+# Written by scripts/changes.mjs in CI (What's new)
+public/changes.json

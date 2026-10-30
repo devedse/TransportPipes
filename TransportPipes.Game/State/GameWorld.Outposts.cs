@@ -3,7 +3,7 @@ using TransportPipes.Game.World;
 
 namespace TransportPipes.Game.State;
 
-/// <summary>An 8×8 claim on a wilderness deposit (GDD §4.6), leased by the week</summary>
+/// <summary>An 8×8 claim on a wilderness deposit (1.4 §20), bought once and kept for good</summary>
 public sealed class Outpost
 {
     public long Id { get; init; }
@@ -11,10 +11,9 @@ public sealed class Outpost
     public int X { get; init; }
     public int Y { get; init; }
     public DateTime ClaimedAt { get; init; }
-    public DateTime PaidUntil { get; set; }
 
-    /// <summary>Gold per week</summary>
-    public double Lease { get; init; }
+    /// <summary>The gold it was bought for</summary>
+    public double Price { get; init; }
 
     public bool Contains(TilePos tile) => tile.X >= X && tile.X < X + GameWorld.OutpostSize && tile.Y >= Y && tile.Y < Y + GameWorld.OutpostSize;
 
@@ -41,18 +40,22 @@ public sealed record Discovery(int X, int Y, string Resource, DateTime FoundAt)
 }
 
 /// <summary>
-/// Outposts and the wilderness (GDD §4.6): claims on rare deposits between the districts, from Company Level 15, at most
-/// three per company, leased by the week. Goods come home by a long pipe through the wilderness or by Cargo Depots,
-/// which connect all the networks of their owner. Discovery events add rich deposits.
+/// Outposts and the wilderness (1.4 §20): from Era 4 and its research, claims of 8×8 on rich deposits in the wilderness
+/// you have mapped, at most three per company, bought once and yours for good (no rent: nothing runs out while you're
+/// away, rule 7). Goods come home by Cargo Depot or Quantum Link. Discovery events add rich deposits.
 /// </summary>
 public sealed partial class GameWorld
 {
     public const int OutpostSize = 8;
     public const int MaxOutposts = 3;
-    public const int OutpostLevel = 15;
     private const int OutpostMinDeposits = 4;
     private const int DiscoveryRadius = 2;
-    public static readonly TimeSpan LeasePeriod = TimeSpan.FromDays(7);
+
+    /// <summary>
+    /// The first outpost's price; every next one twice the last (the model, phase C: about five hours of a regular
+    /// player's income when Era 4 begins, so the outposts come early in Era 4)
+    /// </summary>
+    public const double OutpostFirstPrice = 4_000_000_000;
 
     private readonly Dictionary<long, Outpost> _outposts = new();
     private readonly List<Discovery> _discoveries = new();
@@ -75,8 +78,9 @@ public sealed partial class GameWorld
 
     public IEnumerable<Outpost> OutpostsOf(long companyId) => _outposts.Values.Where(t => t.Owner == companyId);
 
-    /// <summary>The weekly lease of an outpost: grows with the Era</summary>
-    public double OutpostLease() => 3000 * Era;
+    /// <summary>What a company's next outpost costs (the Workshop Monument counts)</summary>
+    public double OutpostPrice(Company company) =>
+        Math.Round(OutpostFirstPrice * Math.Pow(2, OutpostsOf(company.Id).Count()) * CostFactor(company));
 
     /// <summary>A discovered deposit on a tile (richness 5)</summary>
     private Discovery? DiscoveryAt(TilePos pos)
@@ -94,9 +98,9 @@ public sealed partial class GameWorld
     /// <summary>Why an 8×8 outpost can't be claimed here (null: it can)</summary>
     public string? OutpostBlocker(Company company, TilePos origin)
     {
-        if (company.Level < OutpostLevel)
+        if (!HasResearch(company, "outposts"))
         {
-            return $"Outposts come with Company Level {OutpostLevel}.";
+            return "Research Outposts (Era 4) first.";
         }
         if (OutpostsOf(company.Id).Count() >= MaxOutposts)
         {
@@ -108,7 +112,11 @@ public sealed partial class GameWorld
         {
             if (WorldLayout.ZoneAt(tile.X, tile.Y).Kind != ZoneKind.Wilderness)
             {
-                return "Outposts are claimed in the wilderness between the districts.";
+                return "Outposts are claimed in the wilderness between the towns.";
+            }
+            if (!IsExplored(company, tile))
+            {
+                return "Map this part of the wilderness first: an expedition does.";
             }
             if (OutpostAt(tile) != null)
             {
@@ -170,13 +178,16 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail(blocker);
         }
-        var lease = OutpostLease();
-        var payment = Pay(company, lease, new Dictionary<string, double>());
+        var price = OutpostPrice(company);
+        var payment = Pay(company, price, new Dictionary<string, double>());
         if (!payment.Success)
         {
             return payment;
         }
-        var outpost = new Outpost { Id = NextOutpostId++, Owner = companyId, X = origin.X, Y = origin.Y, ClaimedAt = Now, PaidUntil = Now + LeasePeriod, Lease = lease };
+        AddStat(company, "outpostGold", price);
+        AddStat(company, "landGold", price);
+        AddMoment(company, "land", $"Claimed outpost {_outposts.Values.Count(t => t.Owner == companyId) + 1}", true);
+        var outpost = new Outpost { Id = NextOutpostId++, Owner = companyId, X = origin.X, Y = origin.Y, ClaimedAt = Now, Price = price };
         _outposts[outpost.Id] = outpost;
         OutpostChanged(outpost);
         return CommandResult.Ok;
@@ -222,39 +233,6 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>Leases due in a span: paid automatically, or the outpost is given back</summary>
-    private IEnumerable<(DateTime At, Action Run)> LeaseMoments(DateTime from, DateTime to)
-    {
-        foreach (var outpost in _outposts.Values.Where(t => t.PaidUntil <= to).ToList())
-        {
-            yield return (outpost.PaidUntil > from ? outpost.PaidUntil : from, () => RenewLease(outpost));
-        }
-    }
-
-    private void RenewLease(Outpost outpost)
-    {
-        if (!_outposts.ContainsKey(outpost.Id) || outpost.PaidUntil > LastTick)
-        {
-            return;
-        }
-        if (Company(outpost.Owner) is { } company && company.Gold >= outpost.Lease)
-        {
-            company.Gold -= outpost.Lease;
-            company.Report.GoldSpent += outpost.Lease;
-            AddStat(company, "goldSpent", outpost.Lease);
-            outpost.PaidUntil += LeasePeriod;
-            company.Touch();
-            Changes.Companies.Add(company.Id);
-            Changes.Outposts = true;
-            return;
-        }
-        if (Company(outpost.Owner) is { } owner)
-        {
-            Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.Calendar, "You couldn't pay the lease of an outpost: the land went back to the wilderness"));
-        }
-        Release(outpost);
-    }
-
     // ---------------------------------------------------------------- Discoveries
 
     /// <summary>
@@ -273,7 +251,7 @@ public sealed partial class GameWorld
         var district = districts[random.Next(districts.Count)];
         if (WildSpotNear(district, random) is { } pos)
         {
-            var resources = Era >= 3 ? new[] { "oil", "rareEarth", "copperOre" } : ["copperOre", "coal", "ironOre"];
+            var resources = TownEra(district) >= 3 ? new[] { "oil", "rareEarth", "copperOre" } : ["copperOre", "coal", "ironOre"];
             var start = DateTime.SpecifyKind(day.AddHours(8 + random.Next(10)), DateTimeKind.Utc);
             if (start < LastTick + TimeSpan.FromHours(1))
             {
@@ -301,14 +279,14 @@ public sealed partial class GameWorld
         for (var attempt = 0; attempt < 50; attempt++)
         {
             var side = random.Next(4);
-            var along = random.Next(WorldLayout.DistrictSize);
+            var along = random.Next(side < 2 ? WorldLayout.DistrictWidth : WorldLayout.DistrictHeight);
             var depth = 4 + random.Next(WorldLayout.WildernessWidth - 8);
             var pos = side switch
             {
                 0 => new TilePos(x0 + along, y0 - depth),
-                1 => new TilePos(x0 + along, y0 + WorldLayout.DistrictSize + depth - 1),
+                1 => new TilePos(x0 + along, y0 + WorldLayout.DistrictHeight + depth - 1),
                 2 => new TilePos(x0 - depth, y0 + along),
-                _ => new TilePos(x0 + WorldLayout.DistrictSize + depth - 1, y0 + along),
+                _ => new TilePos(x0 + WorldLayout.DistrictWidth + depth - 1, y0 + along),
             };
             if (WorldLayout.ZoneAt(pos.X, pos.Y).Kind == ZoneKind.Wilderness && Generator.Tile(pos).IsBuildableTerrain && OutpostAt(pos) == null && DiscoveryAt(pos) == null)
             {
@@ -335,11 +313,11 @@ public sealed partial class GameWorld
             {
                 continue;
             }
-            if (Company(building.Owner) is not { IsNpc: false } owner || EstateOf(owner) is not { } estate)
+            if (Company(building.Owner) is not { } owner || EstateOf(owner) is not { } estate)
             {
                 continue;
             }
-            var station = ProjectKey(BigStation(estate.Station)[0]);
+            var station = $"{estate.Station.District.X},{estate.Station.District.Y},{estate.Station.Index}";
             discovery.Marks[station] = discovery.Marks.GetValueOrDefault(station) + units;
             discovery.ByCompany[owner.Id] = discovery.ByCompany.GetValueOrDefault(owner.Id) + units;
             Changes.Outposts = true;
@@ -348,7 +326,7 @@ public sealed partial class GameWorld
 
     /// <summary>A Discovery's markers: the stations that brought something out of it, and the three companies that brought most</summary>
     public (List<StationRef> Stations, List<Company> Top) DiscoveryMarks(Discovery discovery) =>
-        (discovery.Marks.Where(t => t.Value > 0).OrderByDescending(t => t.Value).Select(t => StationOfKey(t.Key)).ToList(),
+        (discovery.Marks.Where(t => t.Value > 0).OrderByDescending(t => t.Value).Select(t => t.Key.Split(',') is [var x, var y, var i] ? new StationRef(new DistrictCoord(int.Parse(x), int.Parse(y)), int.Parse(i)) : default).ToList(),
          discovery.ByCompany.OrderByDescending(t => t.Value).Select(t => Company(t.Key)).OfType<Company>().Take(3).ToList());
 
     /// <summary>A Discovery right now (for testing)</summary>

@@ -1,10 +1,12 @@
 // Words and numbers that agree (after run 4: "+2,547/min · hub +2,598" against a top bar of +2,574, a Yard "spare 13"
 // against a panel "18 spare", and a Next step that stayed after it was done): node numbers.mjs <outdir>
-import { start, newPlayer } from "./lib.mjs";
+import { start, newPlayer, kit } from "./lib.mjs";
 const [out = "shots/numbers"] = process.argv.slice(2);
 const { browser, page, errors, shot, cheat } = await start(out);
 await newPlayer(page, "n");
 for (const c of ["gold", "gold", "level", "level", "finish"]) await cheat(c);
+// 1.4: a plot starts empty: a small estate first
+await kit(page);
 await page.evaluate(() => tp.appStore.setState({ levelUp: null }));
 await page.waitForTimeout(3000);
 await cheat("yard");
@@ -43,7 +45,9 @@ const yard = await page.locator("aside").filter({ has: page.locator(".yard-resid
 check(/Spare: what each still sells to the hub/.test(yard), "the Yard says what Spare means");
 check(/Spare \(to the hub\)/.test(yard), "your own row says your spare goes to the hub");
 const income = (yard.match(/Here [^\n]*/) ?? [""])[0];
-check(/of your [+−][\d,.]+\/min/.test(income), "the Yard says what it pays of your income, and whom for", income);
+// (only when the Yard pays you something: a Yard nobody else piped to has no line)
+const quiet = /Nobody else here has piped to the Yard yet/.test(yard);
+check(quiet ? income === "" : /of your [+−][\d,.]+\/min/.test(income), "the Yard says what it pays of your income, and whom for", income || (quiet ? "a quiet Yard: no line" : ""));
 // What the Yard pays here is what the network's "the Yard and neighbours" said, give or take the project's round
 const paid = [...income.matchAll(/([\d,.]+) g\/min/g)].reduce((a, m) => a + Number(m[1].replace(/,/g, "")), 0);
 // The network's parts past the hub's: neighbours, the project (and what is bought, below zero)

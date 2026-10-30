@@ -130,7 +130,7 @@ function BlueprintCard({
           <button
             className="primary"
             disabled={!canBuild}
-            title={canBuild ? "Pick a spot on your estate" : "Needs a Blueprint Office"}
+            title={canBuild ? "Pick a spot on your plot" : "Needs a Blueprint Office"}
             onClick={() => gameClient.holdBlueprint(blueprint)}
           >
             Build ·{" "}
@@ -204,7 +204,7 @@ export function BlueprintPanel() {
               {blueprints.hasOffice ? (
                 <>
                   <p className="muted small">
-                    Save part of your estate and build it again anywhere in one go, at the normal costs.
+                    Save part of your plot and build it again anywhere in one go, at the normal costs.
                   </p>
                   <button
                     className="primary"
@@ -240,7 +240,7 @@ export function BlueprintPanel() {
               {list.length === 0 && (
                 <p className="muted">
                   {tab === "mine"
-                    ? "No blueprints yet. Save an area of your estate that works well."
+                    ? "No blueprints yet. Save an area of your plot that works well."
                     : tab === "corporation"
                       ? "Nobody in your corporation shared a blueprint yet."
                       : "The board is empty: share one of yours!"}

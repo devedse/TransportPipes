@@ -3,12 +3,20 @@ import { researchName } from "../app/research";
 import { gameClient } from "../app/client";
 import { formatAmount, formatDuration, possessive } from "../app/format";
 import { useNow } from "../app/useNow";
-import type { BuildingDetailsDto, BuildingFlowDto, BuildingTradeDto, SiteDto } from "../api/contracts";
+import type {
+  BuildingDetailsDto,
+  BuildingFlowDto,
+  BuildingTradeDto,
+  LevelWaitDto,
+  SiteDto,
+  SiteWantDto,
+} from "../api/contracts";
 import type { Content } from "../game/content";
 import type { TerraformAction } from "../game/Engine";
 import { currentGold, useAppStore } from "../state/store";
 import { levelTier, nextTier } from "../game/levels";
 import { NetworkSummary } from "./NetworkSummary";
+import { DepotSection } from "./DepotSection";
 
 /** A phone-sized screen when the panel opens: long blocks start folded */
 const PHONE = typeof window !== "undefined" && window.matchMedia?.("(max-width: 720px)").matches === true;
@@ -42,49 +50,26 @@ function partners(content: Content, flows: BuildingFlowDto[]): string {
 }
 
 /**
- * A building's trade with its neighbours (step 4), for its owner: who takes its goods and who sends it its inputs, both
- * ends named; who could use its goods and what the project wants of them, each with Send ▸ (the same tap lays the pipe
- * to the gate when its pipes don't reach it); 💛 Thanks to a neighbour who sends it something.
+ * The pipe to the Yard gate as a building's one fix (F2, step 4): when a neighbour could use its goods and its pipes
+ * don't reach the gate yet
  */
-/** The Send that is a building's one fix button (F2, step 4): the project's want, else the first bid, when its pipes don't reach the gate */
-function primarySend(trade: BuildingTradeDto | null) {
-  if (trade === null || trade.reachesGate || trade.gatePipe === null || trade.sends >= trade.maxSends) {
+function gatePipeFix(trade: BuildingTradeDto | null) {
+  if (trade === null || trade.reachesGate || trade.gatePipe === null || trade.bids.length === 0) {
     return null;
   }
-  const want = trade.project.find((t) => !t.sent);
-  if (want !== undefined) {
-    return {
-      resource: want.resource,
-      to: null,
-      name: `the ${want.stage}`,
-      building: null,
-      pipe: trade.gatePipe,
-    };
-  }
-  const bid = trade.bids[0];
-  return bid === undefined
-    ? null
-    : {
-        resource: bid.resource,
-        to: bid.buyer,
-        name: bid.buyerName,
-        building: bid.buildingId,
-        pipe: trade.gatePipe,
-      };
+  return { name: trade.bids[0]!.buyerName, pipe: trade.gatePipe };
 }
 
-function NeighbourTrade({ trade, content }: { trade: BuildingTradeDto; content: Content }) {
-  // The Send the panel's head offers already isn't offered twice
-  const primary = primarySend(trade);
+/**
+ * A building's trade with its neighbours (1.4 §8), for its owner: who takes its goods and who sends it its inputs, both
+ * ends named with the price; who could use its goods, and the pipe to the Yard gate when its pipes don't reach it
+ */
+function NeighbourTrade({ details, content }: { details: BuildingDetailsDto; content: Content }) {
+  const trade = details.trade!;
   const good = (resource: string) => content.resourceName(resource).toLowerCase();
-  const full = trade.sends >= trade.maxSends;
   const pipe = trade.reachesGate ? null : trade.gatePipe;
-  const sendLabel = (to: string) =>
-    pipe === null
-      ? `Send to ${to} ▸`
-      : `Lay the pipe and send to ${to} · ${pipe.newTiles} tiles · ${formatAmount(pipe.cost)} g`;
-  const send = (resource: string, to: number | null, name: string, building: number | null = null) =>
-    void gameClient.sendGood(resource, to, name, building, pipe?.tiles ?? null);
+  // The pipe the panel's head offers already isn't offered twice
+  const offered = gatePipeFix(trade) !== null && details.status?.pill != null;
   return (
     <section className="neighbour-trade">
       <h4>Neighbours</h4>
@@ -95,52 +80,8 @@ function NeighbourTrade({ trade, content }: { trade: BuildingTradeDto; content: 
             <span>
               to <strong>{t.partnerName}</strong>
               {t.partnerBuilding !== null && `${possessive(t.partnerName)} ${t.partnerBuilding}`} ·{" "}
-              {formatAmount(t.perMinute)}/min · {t.price.toFixed(2)} g{t.sent && " 💛"}
+              {formatAmount(t.perMinute)}/min · {t.price.toFixed(2)} g
             </span>
-            {!t.house &&
-              (t.sent ? (
-                <button
-                  className="link small"
-                  onClick={() => void gameClient.stopSend(t.resource, t.partner)}
-                >
-                  stop
-                </button>
-              ) : (
-                <button
-                  className="small"
-                  disabled={full}
-                  title="A standing promise: they come first when your spare gets short"
-                  onClick={() => send(t.resource, t.partner, t.partnerName, t.partnerBuildingId)}
-                >
-                  Keep {t.partnerName} first
-                </button>
-              ))}
-          </li>
-        ))}
-        {trade.project.map((p) => (
-          <li key={`project-${p.resource}`}>
-            <span aria-hidden="true">🏗</span>
-            <span>
-              The {p.stage} wants {formatAmount(p.wants)} {good(p.resource)}
-              {p.sent
-                ? p.perMinute > 0
-                  ? ` · yours goes there first: ${formatAmount(p.perMinute)}/min 💛`
-                  : ` · yours would go first, but nothing moves${p.nothingMoves !== null ? `: ${p.nothingMoves}` : ""}`
-                : " · you make it"}
-            </span>
-            {p.sent ? (
-              <button className="link small" onClick={() => void gameClient.stopSend(p.resource, null)}>
-                stop
-              </button>
-            ) : primary !== null && primary.to === null && primary.resource === p.resource ? null : (
-              <button
-                className="small"
-                disabled={full}
-                onClick={() => send(p.resource, null, `the ${p.stage}`)}
-              >
-                {pipe === null ? "Send ▸" : sendLabel(`the ${p.stage}`)}
-              </button>
-            )}
           </li>
         ))}
         {trade.bids.map((b) => (
@@ -149,42 +90,25 @@ function NeighbourTrade({ trade, content }: { trade: BuildingTradeDto; content: 
             <span>
               <strong>{b.buyerName}</strong>
               {b.building !== null && `${possessive(b.buyerName)} ${b.building}`} could use{" "}
-              {formatAmount(b.perMinute)}/min
-              {b.house !== null && <span className="muted"> · it buys from {b.house} ⚙ now</span>}
+              {formatAmount(b.perMinute)}/min of your {good(b.resource)}
             </span>
-            {(primary === null || primary.to !== b.buyer || primary.resource !== b.resource) && (
-              <button
-                className="small"
-                disabled={full}
-                onClick={() => send(b.resource, b.buyer, b.buyerName, b.buildingId)}
-              >
-                {sendLabel(b.buyerName)}
-              </button>
-            )}
           </li>
         ))}
         {trade.suppliers.map((t) => (
           <li key={`from-${t.partner}-${t.resource}`}>
             <ResourceIcon resource={t.resource} />
             <span>
-              {good(t.resource)} {formatAmount(t.perMinute)}/min from <strong>{t.partnerName}</strong>
-              {t.house ? " ⚙" : t.sent ? ", sent 💛" : ""} · {t.price.toFixed(2)} g
+              {good(t.resource)} {formatAmount(t.perMinute)}/min from <strong>{t.partnerName}</strong> ·{" "}
+              {t.price.toFixed(2)} g
             </span>
-            {t.canThank && (
-              <button
-                className="small"
-                onClick={() => void gameClient.thank(t.partner, t.resource, t.partnerName)}
-              >
-                💛 Thanks
-              </button>
-            )}
           </li>
         ))}
       </ul>
-      {(trade.sends > 0 || full) && (
-        <p className="muted small">
-          You send {trade.sends} of {trade.maxSends} things{full && ": stop one to send another"}.
-        </p>
+      {pipe !== null && trade.bids.length > 0 && !offered && (
+        <button className="small" onClick={() => void gameClient.fixBuilding(details, pipe)}>
+          Lay the pipe to your Yard gate · {pipe.newTiles} {pipe.newTiles === 1 ? "tile" : "tiles"} ·{" "}
+          {formatAmount(pipe.cost)} g
+        </button>
       )}
     </section>
   );
@@ -270,9 +194,79 @@ function Flows({ details, content }: { details: BuildingDetailsDto; content: Con
 }
 
 /**
- * A scaffold that wants its materials (after run 3, step 2): each one with what is in and what comes now, who brought
- * it, the chain when nobody near makes it, and Cancel with the gold it gives back
+ * What a scaffold or a level step still wants (after run 3, step 2): each good with what is in and what comes now, who
+ * brought it, the chain when nobody near makes it, and Buy the rest
  */
+function WantList({
+  wants,
+  content,
+  mine,
+  building,
+}: {
+  wants: SiteWantDto[];
+  content: Content;
+  mine: boolean;
+  building: number;
+}) {
+  return (
+    <ul className="site-list">
+      {wants.map((want) => {
+        const name = content.resourceName(want.resource).toLowerCase();
+        return (
+          <li key={want.resource}>
+            <span>
+              Wants {formatAmount(want.amount)} {name} · <strong>{formatAmount(want.got)} in</strong>
+              {want.perMinute > 0.005 && (
+                <span className="muted"> · {formatAmount(want.perMinute)}/min coming</span>
+              )}
+            </span>
+            <span className="goal-bar">
+              <span
+                style={{ width: `${Math.round(Math.min(1, want.got / Math.max(1, want.amount)) * 100)}%` }}
+              />
+            </span>
+            {want.from.length > 0 && <span className="muted small">from {want.from.join(" · ")}</span>}
+            {want.chain !== null && (
+              <span className="small">
+                {want.chain}
+                {want.chainBuilding !== null && (
+                  <button className="link small" onClick={() => gameClient.handBuilding(want.chainBuilding!)}>
+                    Show me
+                  </button>
+                )}
+              </span>
+            )}
+            {want.order !== null && <span className="small">{want.order}</span>}
+            {mine && want.orderCost !== null && (
+              <button
+                className="small"
+                onClick={() => void gameClient.orderRest(building, null, want.resource)}
+              >
+                Buy the rest · {formatAmount(want.orderCost)} g
+              </button>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Where a want's goods come from (1.4 §9), said once under the list */
+function WantsNote() {
+  const fromMarket = useAppStore((s) => s.company?.wantsFromMarket ?? true);
+  return (
+    <p className="muted small">
+      Your Storages give what they hold; your spare, your neighbours&apos; and the Depot&apos;s reach it
+      through the Yard by themselves.{" "}
+      {fromMarket
+        ? "What nobody has, the market brings within about ten minutes at 2.5× its price; Buy the rest brings it at once."
+        : "The market brings nothing (your trade settings): Buy the rest brings it at once at 2.5× its price."}
+    </p>
+  );
+}
+
+/** A scaffold that wants its materials, and Cancel with the gold it gives back */
 function SiteWants({
   site,
   content,
@@ -287,52 +281,8 @@ function SiteWants({
   return (
     <div className="site-wants">
       <p className="status building">🏗 A scaffold: it stands once its materials are in</p>
-      <ul className="site-list">
-        {site.wants.map((want) => {
-          const name = content.resourceName(want.resource).toLowerCase();
-          return (
-            <li key={want.resource}>
-              <span>
-                Wants {formatAmount(want.amount)} {name} · <strong>{formatAmount(want.got)} in</strong>
-                {want.perMinute > 0.005 && (
-                  <span className="muted"> · {formatAmount(want.perMinute)}/min coming</span>
-                )}
-              </span>
-              <span className="goal-bar">
-                <span
-                  style={{ width: `${Math.round(Math.min(1, want.got / Math.max(1, want.amount)) * 100)}%` }}
-                />
-              </span>
-              {want.from.length > 0 && <span className="muted small">from {want.from.join(" · ")}</span>}
-              {want.chain !== null && (
-                <span className="small">
-                  {want.chain}
-                  {want.chainBuilding !== null && (
-                    <button
-                      className="link small"
-                      onClick={() => gameClient.handBuilding(want.chainBuilding!)}
-                    >
-                      Show me
-                    </button>
-                  )}
-                </span>
-              )}
-              {want.order !== null && <span className="small">{want.order}</span>}
-              {mine && want.orderCost !== null && (
-                <button className="small" onClick={() => void gameClient.orderRest(building)}>
-                  Order the rest · {formatAmount(want.orderCost)} g
-                </button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      <p className="muted small">
-        Your Storages give it what they hold; your spare and your neighbours&apos; reach it through the Yard
-        by themselves; a neighbour can send theirs from their Storage. An order waits for the friends who make
-        it to have had their turn, then the hub brings the rest over six hours; what friends bring comes off
-        it.
-      </p>
+      <WantList wants={site.wants} content={content} mine={mine} building={building} />
+      <WantsNote />
       {mine && (
         <button className="small" onClick={() => void gameClient.cancelSite(building)}>
           Give it up · {formatAmount(site.refund)} g back
@@ -342,13 +292,38 @@ function SiteWants({
   );
 }
 
-/** Minutes of income as a short time: "27 min", "3 h", "2 days" */
-function formatTimeOfIncome(minutes: number): string {
-  return minutes < 90
-    ? `${Math.max(1, Math.round(minutes))} min`
-    : minutes < 48 * 60
-      ? `${Math.round(minutes / 60)} h`
-      : `${Math.round(minutes / 1440)} days`;
+/**
+ * Levels bought whose goods are still coming (1.4 §9): from level 11 a step takes goods as well as gold, and the
+ * building works at its old level under a little scaffolding until they are in
+ */
+function LevelWait({
+  wait,
+  level,
+  content,
+  mine,
+  building,
+}: {
+  wait: LevelWaitDto;
+  level: number;
+  content: Content;
+  mine: boolean;
+  building: number;
+}) {
+  return (
+    <div className="site-wants level-wait">
+      <p className="status building">
+        🏗 {wait.boughtLevel === level + 1 ? `Level ${level + 1}` : `Levels ${level + 1}–${wait.boughtLevel}`}{" "}
+        bought: it works at level {level} until the goods are in
+      </p>
+      <WantList wants={wait.wants} content={content} mine={mine} building={building} />
+      {mine && wait.buyRest !== null && wait.wants.length > 1 && (
+        <button className="small" onClick={() => void gameClient.orderRest(building)}>
+          Buy all the rest · {formatAmount(wait.buyRest)} g
+        </button>
+      )}
+      <WantsNote />
+    </div>
+  );
 }
 
 export function BuildingPanel() {
@@ -369,18 +344,16 @@ export function BuildingPanel() {
     return null;
   }
   const mine = company !== null && building.owner === company.id;
-  const send = mine ? primarySend(details.trade) : null;
+  const gatePipe = mine ? gatePipeFix(details.trade) : null;
   const gold = currentGold({ company, companyAt });
-  // A price also as time: " (27 min of income)", from about a minute of income up (after run 3, step 1)
   const income = company?.goldPerMinute ?? 0;
-  const asTime = (cost: number | null) =>
-    cost === null || income <= 0 || cost < income ? "" : ` (${formatTimeOfIncome(cost / income)})`;
   const underConstruction = building.constructionEndsAt !== null;
   const secondsLeft = underConstruction
     ? (new Date(building.constructionEndsAt!).getTime() - (now + serverOffset)) / 1000
     : 0;
-  const nextMilestone = content.nextMilestone(building.level);
-  const isProducer = details.inputs.length + details.outputs.length > 0 || details.researchPerMinute > 0;
+  // The levels bought whose goods are still coming count: the next one to buy comes after them (1.4 §9)
+  const bought = details.levelWait?.boughtLevel ?? building.level;
+  const isProducer = details.inputs.length + details.outputs.length > 0;
   const thumbnail = gameClient.textures?.thumbnail(definition.id, definition.size);
 
   return (
@@ -419,6 +392,10 @@ export function BuildingPanel() {
 
       {details.site !== null ? (
         <SiteWants site={details.site} content={content} mine={mine} building={building.id} />
+      ) : details.sleeping ? (
+        <p className="status idle">
+          💤 Asleep: it belongs to Era {definition.unlock.era}, and wakes when your town gets there
+        </p>
       ) : underConstruction ? (
         <p className="status building">
           🏗 Under construction · ready in {formatDuration(Math.max(0, secondsLeft))}
@@ -430,17 +407,15 @@ export function BuildingPanel() {
             {details.status.pill}
           </p>
           {details.status.reach !== null && <p className="muted small reach">{details.status.reach}</p>}
-          {mine && send !== null && details.status.fix?.ownNeed !== true ? (
-            // Step 4: a neighbour or the project wants its goods, so the one fix is the Send that lays the pipe too (your
-            // own short building comes first: run 2, Cleo's mines)
+          {mine && gatePipe !== null && details.status.fix?.ownNeed !== true ? (
+            // Step 4: a neighbour could use its goods, so the one fix is the pipe to the Yard gate (your own short
+            // building comes first: run 2, Cleo's mines)
             <button
               className="primary wide fix"
-              onClick={() =>
-                void gameClient.sendGood(send.resource, send.to, send.name, send.building, send.pipe.tiles)
-              }
+              onClick={() => void gameClient.fixBuilding(details, gatePipe.pipe)}
             >
-              Lay the pipe and send to {send.name} · {send.pipe.newTiles}{" "}
-              {send.pipe.newTiles === 1 ? "tile" : "tiles"} · {formatAmount(send.pipe.cost)} g
+              Lay the pipe to your Yard gate for {gatePipe.name} · {gatePipe.pipe.newTiles}{" "}
+              {gatePipe.pipe.newTiles === 1 ? "tile" : "tiles"} · {formatAmount(gatePipe.pipe.cost)} g
             </button>
           ) : (
             mine &&
@@ -466,12 +441,31 @@ export function BuildingPanel() {
           {details.rate > 0.005 && details.trade?.runsOn != null && ` · ${details.trade.runsOn}`}
         </p>
       ) : null}
+      {details.levelWait !== null && (
+        <LevelWait
+          wait={details.levelWait}
+          level={building.level}
+          content={content}
+          mine={mine}
+          building={building.id}
+        />
+      )}
+      {details.track !== null && (
+        <p className="muted small track-line">
+          🔬 {content.track(details.track)?.name ?? details.track} track · tier {details.trackTiers} of{" "}
+          {content.dto.trackTiers.length}
+          {mine && (
+            <button className="link small" onClick={() => void gameClient.openResearch()}>
+              Research
+            </button>
+          )}
+        </p>
+      )}
       {/* Upgrading at the top: it stays under the pointer while the rest of the panel refreshes */}
       {mine && details.upgradeCost !== null && !underConstruction && (
         <section className="upgrade">
           <h4>
-            Upgrade · output +10% per level
-            {nextMilestone !== null && <span className="muted"> · level {nextMilestone} doubles it</span>}
+            Upgrade · output +10% per level, up to level {content.progression.maxBuildingLevel}
             {nextTier(building.level) !== null && (
               <span className="muted">
                 {" "}
@@ -483,13 +477,13 @@ export function BuildingPanel() {
               </span>
             )}
           </h4>
-          <div className="button-row" title="The time in brackets is how long your income takes to pay it">
+          <div className="button-row">
             <button
               className="primary"
               disabled={gold < details.upgradeCost}
               onClick={() => void gameClient.upgrade(building.id, 1)}
             >
-              Level {building.level + 1} · {formatAmount(details.upgradeCost)} g{asTime(details.upgradeCost)}
+              Level {bought + 1} · {formatAmount(details.upgradeCost)} g
             </button>
             {details.upgradeCost10 !== null && (
               <button
@@ -502,10 +496,23 @@ export function BuildingPanel() {
             {details.maxAffordableLevels > 1 && details.upgradeCostMax !== null && (
               <button onClick={() => void gameClient.upgrade(building.id, details.maxAffordableLevels)}>
                 Max +{details.maxAffordableLevels} · {formatAmount(details.upgradeCostMax)} g
-                {asTime(details.upgradeCostMax)}
               </button>
             )}
           </div>
+          {/* 1.4 §9: every copy costs 7% more than the last, and its levels cost from what it cost */}
+          <p className="muted small">
+            This one cost {formatAmount(details.copyPrice)} g: its levels cost from that, 15% more each
+            {details.nextLevelGoods !== null && details.nextLevelGoods.length > 0 && (
+              <>
+                {" "}
+                · the next takes{" "}
+                {details.nextLevelGoods
+                  .map((t) => `${formatAmount(t.amount)} ${content.resourceName(t.resource).toLowerCase()}`)
+                  .join(" and ")}{" "}
+                as well
+              </>
+            )}
+          </p>
           {/* What it will do, before the click (after run 3: the Lab's Max cut Cleo's income from 783 to 285 g/min) */}
           {(details.upgradePreview !== null || details.maxPreview !== null) && (
             <p
@@ -513,7 +520,7 @@ export function BuildingPanel() {
             >
               {details.upgradePreview !== null && (
                 <>
-                  Level {building.level + 1}: {details.upgradePreview}
+                  Level {bought + 1}: {details.upgradePreview}
                 </>
               )}
               {details.maxPreview !== null && (
@@ -527,7 +534,7 @@ export function BuildingPanel() {
             <PipeDoor details={details} content={content} gold={gold} income={income} />
           ) : (
             details.maxMore !== null && (
-              <MaxMore details={details} content={content} gold={gold} level={building.level} />
+              <MaxMore details={details} content={content} gold={gold} level={bought} />
             )
           )}
         </section>
@@ -613,7 +620,7 @@ export function BuildingPanel() {
       )}
 
       {mine && details.trade !== null && !underConstruction && (
-        <NeighbourTrade trade={details.trade} content={content} />
+        <NeighbourTrade details={details} content={content} />
       )}
 
       {details.inputs.length > 0 && (
@@ -630,14 +637,6 @@ export function BuildingPanel() {
           ))}
         </section>
       )}
-      {details.refined !== null && (
-        <p
-          className="small refined-line"
-          title="Refinements: research after an Era's tree, for everyone in the station"
-        >
-          {details.refined.join(" · ")}
-        </p>
-      )}
       {details.outputs.length > 0 && (
         <section>
           <h4>Makes</h4>
@@ -652,16 +651,11 @@ export function BuildingPanel() {
           ))}
         </section>
       )}
-      {details.researchPerMinute > 0 && <p>🔬 {formatAmount(details.researchPerMinute)} research/min</p>}
       {definition.kind === "lab" && mine && company !== null && (
         <button className="primary wide" onClick={() => void gameClient.openResearch()}>
-          {company.currentResearch !== null
+          {researchName(company, content) !== null
             ? `Researching ${researchName(company, content) ?? ""} · open research`
-            : company.refine.resting
-              ? "Rests: nothing left to research · open research"
-              : company.refine.open
-                ? "🔬 Refinements · open research"
-                : "🔬 Pick a research"}
+            : "🔬 Pick a research"}
         </button>
       )}
 
@@ -688,10 +682,8 @@ export function BuildingPanel() {
           ))}
           {details.keep !== null &&
             Object.entries(details.contents).some(([r, a]) => a > (details.keep!.keeps[r] ?? 0) + 1) && (
-              <p className={details.keep.tradingPostFull ? "status idle" : "muted small"}>
-                {details.keep.tradingPostFull
-                  ? "It holds more than it keeps (the line): your trading post is full, so what it can't sell comes in here instead of going to waste. Upgrade the trading post or build another one to sell it."
-                  : "It holds more than it keeps (the line) from before: new surplus is sold, and it fills up again only when your trading post is full."}
+              <p className="muted small">
+                It holds more than it keeps (the line) from before: new surplus goes on to be sold.
               </p>
             )}
           {definition.kind === "storage" && (
@@ -757,30 +749,7 @@ export function BuildingPanel() {
         </section>
       )}
 
-      {definition.kind === "showroom" && details.filter !== null && (
-        <section>
-          <h4>Showroom · partners pay 10% more for</h4>
-          {mine ? (
-            <select
-              value={details.filter[0] ?? ""}
-              onChange={(e) => void gameClient.setShowroomProduct(building.id, e.target.value)}
-            >
-              <option value="">Choose a product…</option>
-              {content.resources
-                .filter((r) => r.id !== "energy")
-                .map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-            </select>
-          ) : (
-            <p className="small">
-              {details.filter[0] !== undefined ? content.resourceName(details.filter[0]) : "Nothing yet"}
-            </p>
-          )}
-        </section>
-      )}
+      {definition.kind === "depot" && <DepotSection />}
 
       {definition.kind === "valve" && details.filter !== null && (
         <section>
@@ -820,14 +789,15 @@ export function BuildingPanel() {
           <Meter
             label={`Company Level ${company.level}`}
             color="#c9963a"
-            amount={company.xp - company.levelXp}
-            max={company.nextLevelXp - company.levelXp}
-            unit=" XP"
+            amount={company.lifetimeEarnings - company.levelEarned}
+            max={company.nextLevelEarned - company.levelEarned}
+            unit=" g"
           />
           <p className="muted small">
-            Level {company.level + 1} in {formatAmount(company.nextLevelXp - company.xp)} XP. Your company
-            gains XP from the gold it earns, new kinds of buildings, upgrades, research, parcels and daily
-            orders.
+            Level {company.level + 1} once you have earned{" "}
+            {formatAmount(company.nextLevelEarned - company.lifetimeEarnings)} g more. The Company Level comes
+            from all the gold your company ever earned: at the market, from players, from orders and rewards.
+            Spending takes nothing away.
           </p>
         </section>
       )}
@@ -858,7 +828,12 @@ export function BuildingPanel() {
       {mine && definition.kind !== "hq" && (
         <div className="button-row footer-row">
           {details.complexMembers <= 1 && (
-            <button onClick={() => gameClient.setTool({ kind: "move", building: building.id })}>Move</button>
+            <button
+              title="Move it (E)"
+              onClick={() => gameClient.setTool({ kind: "move", building: building.id })}
+            >
+              Move <kbd>E</kbd>
+            </button>
           )}
           {confirmDemolish ? (
             <>
@@ -976,7 +951,7 @@ function MaxMore({
   const past = `Past level ${level + useful}`;
   const post = content.building(details.building.type)?.kind === "tradingPost";
   const reason = post
-    ? `${past} it would sell at ${Math.round(more.share * 100)}% of what it can: your buildings bring it ${formatAmount(more.have)} a minute`
+    ? `${past} all it sells would be within your Hub Orders: a level more pays nothing more until you sell more`
     : more.output
       ? details.status?.cause === "postFull"
         ? `${past} it would sell nothing more: your Trading Post sells all it can. Upgrade the Trading Post first.`
@@ -1109,8 +1084,9 @@ function ExpeditionSection() {
         </div>
       )}
       <p className="muted small">
-        Longer trips bring more luck: rich deposits in the wilderness, decorations, relics (
-        {expedition.relics.length} found).
+        Each trip maps the wilderness around your town (1, 3 or 8 pieces: the rest is fog on your map, and
+        outposts are claimed only where you mapped). Longer trips bring more luck: rich deposits, decorations,
+        relics ({expedition.relics.length} found). You have mapped {company.explored?.length ?? 0} pieces.
       </p>
       {expedition.log.length > 0 && (
         <ul className="facts">

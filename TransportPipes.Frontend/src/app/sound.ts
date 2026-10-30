@@ -55,6 +55,14 @@ function tone(
 }
 
 export const sounds = {
+  electric() {
+    tone(96, 0, 0.055, 0.007, "sawtooth");
+    tone(120, 0.1, 0.045, 0.006, "sawtooth");
+  },
+  water() {
+    tone(350, 0, 0.09, 0.01, "sine");
+    tone(220, 0.06, 0.12, 0.007, "sine");
+  },
   coin() {
     tone(1318, 0, 0.12, 0.05, "triangle");
     tone(1760, 0.06, 0.18, 0.04, "triangle");

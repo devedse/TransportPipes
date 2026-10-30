@@ -1,90 +1,88 @@
-# Wonders (GDD §9.3, §9.4). Everyone delivers to them from their storages.
-# Stage amounts are for 8 active companies (in the district, or on the server); when a stage begins they scale with the
-# number of active companies (at least 3).
-# District Wonders give everyone in the district a perk for the rest of the season when they are finished:
-#   hubDemand  the hub wants more of everything        production  more production for everyone
-#   research   labs make more research points          cargo       Exchange cargo arrives faster
-# The Era Wonder in the Capital starts the next Era when it is finished (at the latest on the Era's deadline).
-
-district:
-  - id: clockTower
-    name: Clock Tower
-    perk: { kind: hubDemand, amount: 0.1 }
-    description: The hub wants 10% more of everything.
-    stages:
-      - { bricks: 3000, planks: 3000 }
-      - { ironIngot: 2000, glass: 1000 }
-      - { bricks: 6000, glass: 3000, copperIngot: 1500 }
-
-  - id: grandFountain
-    name: Grand Fountain
-    perk: { kind: production, amount: 0.05 }
-    description: Everyone in the district makes 5% more.
-    stages:
-      - { stone: 4000, planks: 2000 }
-      - { bricks: 3000, glass: 1500 }
-      - { glass: 4000, copperIngot: 2000 }
-
-  - id: observatory
-    name: Observatory
-    perk: { kind: research, amount: 0.1 }
-    description: Labs make 10% more research points.
-    stages:
-      - { bricks: 3000, ironIngot: 1000 }
-      - { glass: 2000, copperIngot: 1000 }
-      - { glass: 4000, ironIngot: 3000, copperIngot: 2000 }
-
-  - id: lighthouse
-    name: Lighthouse
-    perk: { kind: cargo, amount: 0.5 }
-    description: Exchange cargo arrives twice as fast.
-    stages:
-      - { stone: 4000, bricks: 1500 }
-      - { bricks: 4000, glass: 1000 }
-      - { ironIngot: 3000, glass: 3000 }
-
+# The Era Wonders (1.4 §13): one per Era, built by everyone in the town with goods, in three stages of a sixth, a third
+# and a half. Their sizes are fixed (rule 2): gold's worth of goods at base prices, split evenly over the stage's goods,
+# the same in every town however many play there; every town that finished a Wonder before makes it 10% smaller for the
+# towns after it, down to half (the trail). A stage takes at least a day to build once it's full.
+# Each stage gives everyone in the town its perk for good; the last stage brings the next Era (the Space Elevator's, the
+# Launch). Perks: energy (energy buildings make more), hubOrders, factories (factories make more), research (faster),
+# everything (every building makes more).
+# Eras 3 to 5 were sized in phase C the same way as the first two: what a town of eight regular players gives in the Era
+# the design aims at (four weeks for Eras 3 and 4, a month for Era 5: the Launch about four months from an empty plot),
+# in the model of docs/design-notes/v1.4/sim (eras.py). Their incomes grow three to four times an Era, not twenty.
 era:
   - id: greatDynamo
     era: 1
     name: The Great Dynamo
-    description: The power plant of a new age. Finishing it starts Era 2.
+    description: The power plant of a new age. Its last stage brings Era 2.
+    worth: 4300000000
     stages:
-      - { bricks: 30000, ironIngot: 15000 }
-      - { glass: 20000, ironIngot: 25000 }
-      - { bricks: 60000, glass: 40000, copperIngot: 20000 }
+      - { share: 0.1667, goods: [bricks, planks, ironIngot], perk: { kind: energy, amount: 0.05 } }
+      - { share: 0.3333, goods: [copperIngot, ironIngot, glass], perk: { kind: energy, amount: 0.05 } }
+      - { share: 0.5, goods: [bricks, glass, copperIngot, planks] }
 
   - id: copperCathedral
     era: 2
     name: The Copper Cathedral
-    description: A cathedral of copper and steel. Finishing it starts Era 3.
+    description: A cathedral of copper and steel. Its last stage brings Era 3.
+    worth: 84000000000
     stages:
-      - { steel: 20000, concrete: 30000 }
-      - { copperWire: 20000, steel: 30000 }
-      - { concrete: 60000, copperWire: 40000, gears: 10000 }
+      - { share: 0.1667, goods: [steel, concrete], perk: { kind: hubOrders, amount: 0.1 } }
+      - { share: 0.3333, goods: [copperWire, aluminium, glass], perk: { kind: hubOrders, amount: 0.1 } }
+      - { share: 0.5, goods: [steel, concrete, copperWire, aluminium] }
 
   - id: refineryTower
     era: 3
     name: The Grand Refinery Tower
-    description: Oil becomes everything. Finishing it starts Era 4.
+    description: Oil becomes everything. Its last stage brings Era 4.
+    worth: 560000000000
     stages:
-      - { plastic: 20000, steel: 30000 }
-      - { gears: 20000, plastic: 30000 }
-      - { steel: 60000, plastic: 50000, gears: 30000 }
+      - { share: 0.1667, goods: [plastic, steel], perk: { kind: factories, amount: 0.05 } }
+      - { share: 0.3333, goods: [gears, motors, concrete], perk: { kind: factories, amount: 0.05 } }
+      - { share: 0.5, goods: [plastic, motors, aluminium, gears] }
 
   - id: thinkingMachine
     era: 4
     name: The Thinking Machine
-    description: A machine that thinks. Finishing it starts Era 5.
+    description: A machine that thinks. Its last stage brings Era 5.
+    worth: 1850000000000
     stages:
-      - { circuits: 10000, engines: 5000 }
-      - { circuits: 20000, robots: 3000 }
-      - { robots: 8000, circuits: 30000, engines: 10000 }
+      - { share: 0.1667, goods: [circuits, batteries], perk: { kind: research, amount: 0.05 } }
+      - { share: 0.3333, goods: [robots, circuits, copperWire], perk: { kind: research, amount: 0.05 } }
+      - { share: 0.5, goods: [robots, batteries, motors, circuits] }
 
   - id: spaceElevator
     era: 5
     name: The Space Elevator
-    description: The season finale. When it launches, the season ends.
+    description: The town's way to the stars. Its last stage is the Launch.
+    worth: 5000000000000
     stages:
-      - { superconductors: 5000, steel: 100000 }
-      - { robots: 10000, superconductors: 10000 }
-      - { superconductors: 20000, engines: 20000, circuits: 50000 }
+      - { share: 0.1667, goods: [titanium, superconductors, steel], perk: { kind: everything, amount: 0.05 } }
+      - { share: 0.3333, goods: [spaceframes, robots], perk: { kind: everything, amount: 0.05 } }
+      - { share: 0.5, goods: [spaceframes, superconductors, titanium] }
+
+# The Monuments (1.4 §13): every Era gives each Yard one Monument site; its crew picks which of these to build there (each
+# once). Built with gold by any resident from Company Level 5, in stages without end: a site's first stage costs
+# firstStage × 10^(site's Era − 1), every stage 40% more than the last. Every stage gives every resident the perk.
+# Perks: production, hubOrders, research (faster), cheaper (buildings, levels and parcels), yardSales (sellers in the Yard
+# and on links get this much on top, paid by the market). cap: the most stages it gives a perk for (0: none).
+monuments:
+  firstStage: 100000000
+  eraFactor: 10
+  stageFactor: 1.4
+  level: 5
+  kinds:
+    - { id: grandFountain, name: Grand Fountain, perk: production, amount: 0.03, cap: 0, description: "Every stage: +3% production for every resident." }
+    - { id: clockTower, name: Clock Tower, perk: hubOrders, amount: 0.05, cap: 0, description: "Every stage: every resident's Hub Orders +5%." }
+    - { id: observatory, name: Observatory, perk: research, amount: 0.03, cap: 10, description: "Every stage: research 3% faster for every resident (up to 30%)." }
+    - { id: workshop, name: Workshop, perk: cheaper, amount: 0.03, cap: 10, description: "Every stage: buildings, levels and parcels 3% cheaper for every resident (up to 30%)." }
+    - { id: lighthouse, name: Lighthouse, perk: yardSales, amount: 0.03, cap: 10, description: "Every stage: what residents sell in the Yard and on links pays 3% on top, paid by the market (up to 30%)." }
+
+# After a town's Launch (1.4 §13): missions without end, each a launch from the Space Elevator that asks for Era-5 goods
+# worth growth times the last (the first about three days of a town of eight's giving late in Era 5, in the model),
+# and gives everyone in the town +1% production for good and the town a star on the world map
+missions:
+  name: Mission
+  description: "A launch from your town's Space Elevator. Each one finished gives everyone in the town +1% production for good, and the town a star."
+  worth: 600000000000
+  growth: 1.1
+  perk: 0.01
+  goods: [spaceframes, robots, superconductors, titanium]

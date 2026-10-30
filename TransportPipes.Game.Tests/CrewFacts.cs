@@ -3,325 +3,163 @@ using TransportPipes.Game.World;
 
 namespace TransportPipes.Game.Tests;
 
+/// <summary>The Yard is the crew (1.4 §6–7): who lives around it, open or closed, requests, the link, Pick for me</summary>
 [TestClass]
 public class CrewFacts
 {
     private static readonly DistrictCoord Capital = new(0, 0);
 
-    private static (TestGame Game, Company Ana, Crew Crew) Founded(int holds = 3)
-    {
-        var game = new TestGame();
-        var ana = game.NewCompany("Ana");
-        var (result, crew) = game.World.FoundCrew(ana.Id, "Kettle & Co.", "kettle", "#236b69", "#c9963a", holds);
-        Assert.IsTrue(result.Success, result.Error);
-        return (game, ana, crew!);
-    }
+    private static EstateKey Plot(int slot) => new(Capital, slot);
+
+    private static StationRef Yard(int index) => new(Capital, index);
+
+    private static Company Settle(TestGame game, string name, EstateKey? seat = null, string? code = null) =>
+        game.World.CreateCompany(game.World.Companies.Count() + 1, name, "#3f8ae0", seat: seat, code: code);
 
     [TestMethod]
-    public void FoundingACrewHoldsTheStationsOtherSeatsForFriends()
+    public void TheFirstSettlerFoundsTheCrewAndEveryoneWhoMovesInJoinsIt()
     {
-        var (game, ana, crew) = Founded();
+        var game = new TestGame();
+        var ana = Settle(game, "Ana", Plot(0));
+        var ben = Settle(game, "Ben", Plot(1));
 
+        var crew = game.World.CrewAt(Yard(0))!;
+        Assert.AreEqual(ana.Id, crew.Founder);
         Assert.AreEqual(crew.Id, ana.CrewId);
-        CollectionAssert.AreEquivalent(new[] { 1, 5, 6 }, crew.Holds.Select(t => t.Slot).ToArray(), "the other three seats of its station");
-        Assert.AreEqual(3, crew.Holds.Select(t => t.Code).Distinct().Count(), "a code per seat");
-        var stranger = game.NewCompany("Stranger");
-        Assert.IsFalse(crew.Holds.Any(t => t.Slot == stranger.Slot), "held seats aren't given to strangers");
-    }
-
-    [TestMethod]
-    public void AFriendMovesInWithASeatCode()
-    {
-        var (game, ana, crew) = Founded();
-        var code = crew.Holds.Single(t => t.Slot == 6).Code;
-
-        var ben = game.World.CreateCompany(99, "Ben", "#2d6fb4", code: GameWorld.ShowCode(code).ToLowerInvariant());
-
-        Assert.AreEqual(6, ben.Slot, "on the seat the code holds");
         Assert.AreEqual(crew.Id, ben.CrewId);
-        Assert.HasCount(2, crew.Holds);
-        CollectionAssert.Contains(ana.Report.Notes, "Ben moved in next door");
-        Assert.IsNull(game.World.HoldByCode(code), "a code is used once");
+        Assert.IsTrue(crew.Open, "a Yard starts open");
+        Assert.IsFalse(crew.Named, "it keeps the game's name until a resident names it");
+        // Every resident is an owner: Ben names it
+        Assert.IsTrue(game.World.SetYard(ben.Id, "Kettle & Co", "kettle", "#c9963a", "#236b69").Success);
+        Assert.AreEqual("Kettle & Co", game.World.CrewAt(Yard(0))!.Name);
     }
 
     [TestMethod]
-    public void TheCrewCallsAFriendByTheNameTheSeatWasKeptFor()
-    {
-        // Run 1: Ana never learned that Riverside Co. was Ben (F9)
-        var (game, ana, crew) = Founded();
-        var hold = crew.Holds.Single(t => t.Slot == 6);
-        Assert.IsTrue(game.World.NameHold(ana.Id, GameWorld.ShowCode(hold.Code), " Ben ").Success);
-        Assert.AreEqual("Ben", hold.FriendName);
-
-        var ben = game.World.CreateCompany(99, "Riverside Co.", "#2d6fb4", code: GameWorld.ShowCode(hold.Code));
-
-        Assert.AreEqual("Ben", ben.KnownAs);
-        Assert.AreEqual("Riverside Co. (Ben)", game.World.NameFor(ben, ana), "to the crew");
-        Assert.AreEqual("Riverside Co.", game.World.NameFor(ben, ben), "not to himself");
-        var stranger = game.NewCompany("Stranger");
-        Assert.AreEqual("Riverside Co.", game.World.NameFor(ben, stranger), "nor to strangers");
-        StringAssert.Contains(game.World.NameHold(ana.Id, "NOPE-NOPE", "Cleo").Error, "No such");
-    }
-
-    [TestMethod]
-    public void AFriendWithTheCrewLinkSettlesNextToTheCrew()
-    {
-        var (game, ana, crew) = Founded(holds: 2);
-        var home = game.EstateOf(ana).Station;
-
-        var cleo = game.World.CreateCompany(98, "Cleo", "#2d6fb4", code: GameWorld.ShowCode(crew.InviteCode));
-        Assert.AreEqual(home, game.EstateOf(cleo).Station, "the free seat of the crew's own station, closed to strangers");
-        Assert.AreEqual(crew.Id, cleo.CrewId);
-
-        var dev = game.World.CreateCompany(97, "Dev", "#2d6fb4", code: crew.InviteCode);
-        var devStation = game.EstateOf(dev).Station;
-        Assert.AreNotEqual(home, devStation, "the crew's station is full");
-        Assert.IsTrue(devStation.IsSmall && devStation.District == home.District && WorldLayout.CornersNextTo(devStation.Index).Contains(home.Index), "the small station next door");
-        Assert.AreEqual(crew.Id, dev.CrewId);
-    }
-
-    [TestMethod]
-    public void AStationACrewHoldsIsClosedToStrangersUntilItOpensIt()
-    {
-        var (game, ana, crew) = Founded(holds: 2);
-        var station = game.EstateOf(ana).Station;
-        var free = GameWorld.StationSeats(station).Single(t => game.World.HoldOn(t) == null && t.Slot != ana.Slot);
-
-        Assert.IsFalse(game.World.StationOpenToStrangers(station), "a crew lives in or holds three seats");
-        Assert.IsFalse(game.World.SeatFree(free));
-
-        Assert.IsTrue(game.World.SetStationOpen(ana.Id, true).Success);
-        Assert.IsTrue(game.World.SeatFree(free));
-    }
-
-    [TestMethod]
-    public void TheInviteLinkLetsFriendsInForADayThenAMemberDoes()
-    {
-        var (game, ana, crew) = Founded(holds: 0);
-        var cleo = game.NewCompany("Cleo");
-        Assert.IsTrue(game.World.JoinCrew(cleo.Id, crew.InviteCode).Success);
-        Assert.AreEqual(crew.Id, cleo.CrewId);
-
-        game.Pass(25 * 60);
-        var dev = game.NewCompany("Dev");
-        Assert.IsTrue(game.World.JoinCrew(dev.Id, GameWorld.ShowCode(crew.InviteCode)).Success);
-        Assert.IsNull(dev.CrewId, "after a day the link asks a member first");
-        CollectionAssert.Contains(crew.JoinRequests.ToList(), dev.Id);
-
-        Assert.IsTrue(game.World.AcceptJoinRequest(ana.Id, dev.Id).Success);
-        Assert.AreEqual(crew.Id, dev.CrewId);
-    }
-
-    [TestMethod]
-    public void LeavingTakesOneTapAndGivesAFreeMoveOnceAMonth()
-    {
-        var (game, ana, crew) = Founded(holds: 0);
-        var ben = game.NewCompany("Ben");
-        game.World.JoinCrew(ben.Id, crew.InviteCode);
-        var moves = ben.FreeMoves;
-
-        Assert.IsTrue(game.World.LeaveCrew(ben.Id).Success);
-        Assert.IsNull(ben.CrewId);
-        Assert.AreEqual(moves + 1, ben.FreeMoves);
-        game.World.JoinCrew(ben.Id, crew.InviteCode);
-        game.World.LeaveCrew(ben.Id);
-        Assert.AreEqual(moves + 1, ben.FreeMoves, "once a month");
-
-        Assert.IsTrue(game.World.LeaveCrew(ana.Id).Success);
-        Assert.IsNull(game.World.Crew(crew.Id), "the last one out: the crew is gone");
-    }
-
-    [TestMethod]
-    public void HeldSeatsLapseWhenNobodyInTheCrewPlays()
-    {
-        var (game, ana, crew) = Founded();
-
-        game.Pass(15 * 24 * 60);
-
-        Assert.IsEmpty(crew.Holds, "nobody played for two weeks");
-        Assert.IsNotNull(game.World.Crew(crew.Id));
-    }
-
-    [TestMethod]
-    public void TheGameSuggestsASeatForEveryWayOfStarting()
+    public void AClosedYardTakesNobodyWithoutAYesAndANewcomerAsksWhilePlayingNearby()
     {
         var game = new TestGame();
-        var mo = game.NewCompany("Mo");
+        var ana = Settle(game, "Ana", Plot(0));
+        Assert.IsTrue(game.World.SetYardOpen(ana.Id, false).Success);
 
-        var neighbours = game.World.SuggestSeat(Placement.Neighbours);
-        Assert.AreEqual(game.EstateOf(mo).Station, WorldLayout.StationOf(neighbours.District, neighbours.Slot), "next to an active player");
+        Assert.IsFalse(game.World.SeatFree(Plot(1)));
+        var cleo = Settle(game, "Cleo", Plot(1));
 
-        var own = game.World.SuggestSeat(Placement.OwnStation);
-        var ownStation = WorldLayout.StationOf(own.District, own.Slot);
-        Assert.IsTrue(GameWorld.StationSeats(ownStation).All(t => game.World.Estate(t.District, t.Slot)?.OwnerId is null), "a station nobody lives in");
-
-        var friends = game.World.SuggestSeat(Placement.Friends, seats: 4);
-        var friendsStation = WorldLayout.StationOf(friends.District, friends.Slot);
-        Assert.IsFalse(friendsStation.IsSmall);
-        Assert.AreEqual(4, GameWorld.StationSeats(friendsStation).Count(t => game.World.SeatFree(t)), "room for four");
+        Assert.AreNotEqual(Yard(0), game.EstateOf(cleo).Station, "she plays elsewhere meanwhile");
+        Assert.IsTrue(game.World.CrewAt(Yard(0))!.Requests.Any(t => t.Company == cleo.Id), "and her request waits");
+        var pick = game.World.PickForMe();
+        Assert.AreNotEqual(Yard(0), WorldLayout.StationOf(pick.District, pick.Slot), "Pick for me never chooses a closed Yard");
     }
 
     [TestMethod]
-    public void FriendsAndAStrangerAreSuggestedDifferentStations()
-    {
-        // Run 1, a quiet server: Mia ("Find me neighbours") and Ana ("Start with friends") were sent to the same empty
-        // station 20 seconds apart, and the crew's claim refused Mia's seat
-        var game = new TestGame();
-
-        var stranger = game.World.SuggestSeat(Placement.Neighbours);
-        var friends = game.World.SuggestSeat(Placement.Friends, seats: 4);
-
-        Assert.AreNotEqual(WorldLayout.StationOf(stranger.District, stranger.Slot), WorldLayout.StationOf(friends.District, friends.Slot));
-    }
-
-    [TestMethod]
-    public void OwnStationPrefersFourSeats()
+    public void AYesMovesTheNewcomerInForFree()
     {
         var game = new TestGame();
+        var ana = Settle(game, "Ana", Plot(0));
+        game.World.SetYardOpen(ana.Id, false);
+        var cleo = Settle(game, "Cleo", Plot(1));
+        var gold = cleo.Gold;
+        game.Pass(1);
 
-        var own = game.World.SuggestSeat(Placement.OwnStation);
+        Assert.IsTrue(game.World.AnswerRequest(ana.Id, cleo.Id, yes: true).Success);
+        game.World.LandNow(cleo);
 
-        Assert.IsFalse(WorldLayout.StationOf(own.District, own.Slot).IsSmall, "room for whoever comes later");
+        Assert.AreEqual(Yard(0), game.EstateOf(cleo).Station);
+        Assert.AreEqual(game.World.CrewAt(Yard(0))!.Id, cleo.CrewId);
+        Assert.AreEqual(gold, cleo.Gold, 1e-9, "the move is free");
+        Assert.IsEmpty(game.World.CrewAt(Yard(0))!.Requests);
     }
 
     [TestMethod]
-    public void AnEstateMovesToAChosenSeatWithAFewMinutesBetweenMoves()
+    public void ARequestWaitsThreeDays()
     {
         var game = new TestGame();
-        var mo = game.NewCompany("Mo");
-        var seat = new EstateKey(Capital, 17);
+        var ana = Settle(game, "Ana", Plot(0));
+        game.World.SetYardOpen(ana.Id, false);
+        var cleo = Settle(game, "Cleo", Plot(1));
 
-        Assert.IsTrue(game.World.RelocateTo(mo.Id, seat).Success);
-        game.Pass(2);
-
-        Assert.AreEqual(17, mo.Slot);
-        StringAssert.Contains(game.World.RelocateTo(mo.Id, new EstateKey(Capital, 18)).Error, "minutes");
-        game.Pass(5);
-        Assert.IsTrue(game.World.RelocateTo(mo.Id, new EstateKey(Capital, 18)).Success);
+        game.Pass(2 * 24 * 60);
+        Assert.HasCount(1, game.World.CrewAt(Yard(0))!.Requests);
+        game.Pass(1.5 * 24 * 60);
+        Assert.IsEmpty(game.World.CrewAt(Yard(0))!.Requests);
+        Assert.IsFalse(game.World.AnswerRequest(ana.Id, cleo.Id, yes: true).Success, "a lapsed request can't be answered");
     }
 
     [TestMethod]
-    public void ACrewOfFiveSharesOneYardAcrossItsSmallStation()
+    public void ALinkLetsItsFirstUserIntoAClosedYardAndOnlyThem()
     {
-        var game = new TestGame(content: TestGame.PlainContent);
-        var ana = game.NewCompany("Ana", slot: 0);
-        game.World.FoundCrew(ana.Id, "Kettle & Co.", "kettle", "#236b69", "#c9963a", 3);
-        var crew = game.World.CrewOf(ana)!;
-        foreach (var hold in crew.Holds.ToList())
+        var game = new TestGame();
+        var ana = Settle(game, "Ana", Plot(0));
+        game.World.SetYardOpen(ana.Id, false);
+        var code = game.World.NextToMeLink(ana.Id);
+
+        var ben = Settle(game, "Ben", Plot(1), code);
+        Assert.AreEqual(Yard(0), game.EstateOf(ben).Station, "the link opens the closed Yard");
+
+        var cleo = Settle(game, "Cleo", Plot(2), code);
+        Assert.AreNotEqual(Yard(0), game.EstateOf(cleo).Station, "a used link lets nobody else in");
+    }
+
+    [TestMethod]
+    public void ALinkWithoutAPlotSettlesAtTheFriendsYard()
+    {
+        var game = new TestGame();
+        var ana = Settle(game, "Ana", Plot(4));
+        var code = game.World.NextToMeLink(ana.Id);
+
+        var ben = Settle(game, "Ben", code: code);
+
+        Assert.AreEqual(Yard(1), game.EstateOf(ben).Station);
+    }
+
+    [TestMethod]
+    public void PickForMeChoosesAYardWherePeoplePlayAndNeverOneWhereNobodyDoes()
+    {
+        var game = new TestGame();
+        var ana = Settle(game, "Ana", Plot(4));
+        var lively = game.World.PickForMe();
+        Assert.AreEqual(Yard(1), WorldLayout.StationOf(lively.District, lively.Slot), "next to someone who plays");
+
+        // Ana stops playing: her Yard is no place for a newcomer who wants company, an empty Yard is
+        ana.LastSeenAt = game.Time.AddDays(-10);
+        game.Pass(1);
+        var pick = game.World.PickForMe();
+        Assert.AreNotEqual(Yard(1), WorldLayout.StationOf(pick.District, pick.Slot));
+        Assert.IsNull(game.World.CrewAt(WorldLayout.StationOf(pick.District, pick.Slot)), "an empty Yard");
+    }
+
+    [TestMethod]
+    public void TheLastOneOutTakesTheCrewWithIt()
+    {
+        var game = new TestGame();
+        var ana = Settle(game, "Ana", Plot(0));
+        var ben = Settle(game, "Ben", Plot(1));
+        game.Pass(10);
+
+        Assert.IsTrue(game.World.RelocateTo(ben.Id, Plot(4)).Success);
+        game.World.LandNow(ben);
+        Assert.IsNotNull(game.World.CrewAt(Yard(0)), "Ana still lives there");
+        Assert.IsTrue(game.World.LastInYard(ana));
+
+        game.Pass(10);
+        Assert.IsTrue(game.World.RelocateTo(ana.Id, Plot(8)).Success);
+        game.World.LandNow(ana);
+        Assert.IsNull(game.World.CrewAt(Yard(0)), "nobody lives there: the crew is gone");
+        Assert.AreEqual(game.World.CrewAt(Yard(2))!.Id, ana.CrewId, "Ana founds the crew of her new Yard");
+    }
+
+    [TestMethod]
+    public void ANewTownOpensWhenEveryOpenTownHasFewerThanTwoFreePlots()
+    {
+        var game = new TestGame();
+        for (var slot = 0; slot < WorldLayout.EstatesPerDistrict - 2; slot++)
         {
-            game.World.CreateCompany(10 + hold.Slot, $"Friend {hold.Slot}", "#888888", code: hold.Code);
+            Settle(game, $"P{slot}", Plot(slot));
         }
-        // The fifth lives in the small station north of the hub, next to the crew's corner station
-        var eve = game.NewCompany("Eve", level: 2, slot: 2);
-        game.World.JoinCrew(eve.Id, crew.InviteCode);
-        var small = WorldLayout.StationOf(Capital, 2);
-        Assert.AreEqual(new StationRef(Capital, 0), game.World.JoinedTo(small), "one big station");
+        Assert.HasCount(1, game.World.OpenDistricts.ToList());
 
-        var moily = game.Build(ana, "windMoily");
-        game.ConnectToGate(ana, moily);
-        var mine = game.Build(eve, "ironMine", game.Spot(eve, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
-        game.ConnectToGate(eve, mine);
-        game.Connect(eve, mine, game.TradingPost(eve));
-        game.Pass(3);
+        Settle(game, "One more", Plot(WorldLayout.EstatesPerDistrict - 2));
+        game.World.PickForMe();
 
-        Assert.IsTrue(game.World.YardTrades(game.EstateOf(eve)).Any(t => !t.Selling && t.Partner == ana.Id), "Eve's mine gets Ana's energy across the big station");
-    }
-
-    [TestMethod]
-    public void AFriendMovingInGetsACompanyNameNobodyUses()
-    {
-        var (game, _, crew) = Founded();
-        var seat = crew.Holds[0].Seat;
-
-        var first = game.World.FreeCompanyName(seat);
-        game.World.CreateCompany(96, first, "#2d6fb4");
-
-        Assert.AreNotEqual(first, game.World.FreeCompanyName(seat));
-        Assert.IsNull(game.World.CompanyNameError(game.World.FreeCompanyName(seat)));
-        Assert.IsNull(game.World.CompanyNameError(game.World.FreeCompanyName()));
-    }
-
-    [TestMethod]
-    public void NamesNobodyShouldSeeAreRefused()
-    {
-        var game = new TestGame();
-        var ana = game.NewCompany("Ana");
-
-        Assert.IsFalse(game.World.FoundCrew(ana.Id, "Sh1t Pipes", "kettle", "#236b69", "#c9963a").Result.Success);
-        Assert.IsTrue(NameFilter.IsAllowed("Peacock Grapes of Sussex"), "no false alarms on ordinary words");
-    }
-
-    [TestMethod]
-    public void AFriendsInviteClosesACrewOfOne()
-    {
-        // Run 3: Ben started his own crew before Ana's link reached him; "Join and move" said "Leave your crew first"
-        var game = new TestGame();
-        var ana = game.NewCompany("Ana");
-        var (_, crew) = game.World.FoundCrew(ana.Id, "Teapot Four", "kettle", "#236b69", "#c9963a", 2);
-        var ben = game.NewCompany("Ben");
-        var (_, own) = game.World.FoundCrew(ben.Id, "Ana and Ben", "kettle", "#236b69", "#c9963a", 2);
-        var seat = crew!.Holds[0];
-
-        var result = game.World.JoinCrew(ben.Id, seat.Code);
-
-        Assert.IsTrue(result.Success, result.Error);
-        Assert.AreEqual(crew.Id, ben.CrewId);
-        Assert.IsNull(game.World.Crew(own!.Id), "his crew of one is closed, with its held seats");
-        game.Pass(24 * 60);
-        Assert.AreEqual(seat.Seat, new EstateKey(ben.District, ben.Slot), "and he lives in the seat Ana kept, once moved");
-
-        // A crew with others in it still has to be left first
-        var cleo = game.NewCompany("Cleo");
-        var (_, cleos) = game.World.FoundCrew(cleo.Id, "Cleo's", "kettle", "#236b69", "#c9963a", 1);
-        var dee = game.NewCompany("Dee");
-        Assert.IsTrue(game.World.JoinCrew(dee.Id, cleos!.Holds[0].Code).Success);
-        StringAssert.Contains(game.World.JoinCrew(cleo.Id, crew.Holds[0].Code).Error, "Leave your crew first");
-    }
-
-    [TestMethod]
-    public void AFriendWhoOpenedTheLinkAndStaysElsewhereKeepsSeeingTheSeat()
-    {
-        // Run 3: three of Ben's return cards said nothing of Ana's seat while he asked "which station am i in?"
-        var game = new TestGame();
-        var ana = game.NewCompany("Ana");
-        var (_, crew) = game.World.FoundCrew(ana.Id, "Teapot Four", "kettle", "#236b69", "#c9963a", 2);
-        var ben = game.NewCompany("Ben");
-        var seat = crew!.Holds[0];
-        Assert.IsNull(game.World.KeptSeatFor(ben), "nothing before he opens the link");
-
-        Assert.IsTrue(game.World.SawSeatCode(ben.Id, seat.Code, decline: false).Success);
-        Assert.AreEqual(seat.Code, game.World.KeptSeatFor(ben)?.Hold.Code, "the seat stays in front of him");
-        Assert.AreEqual(ben.Id, seat.OpenedBy, "and Ana's crew sees who opened it");
-        game.Pass(3 * 24 * 60);
-        Assert.IsNotNull(game.World.KeptSeatFor(ben), "on every return until he answers");
-
-        game.World.TakeChanges();
-        Assert.IsTrue(game.World.SawSeatCode(ben.Id, seat.Code, decline: true).Success);
-        Assert.IsNull(game.World.KeptSeatFor(ben), "\"Not with them\" ends it");
-        Assert.IsTrue(game.World.TakeChanges().Events.Any(t => t.Company == ana.Id && t.Text.StartsWith("Ben stays in")), "and Ana hears it");
-        Assert.IsTrue(crew.Holds.Contains(seat), "the seat is still kept");
-
-        // He changes his mind and joins: the seat is his, nothing waits any more
-        Assert.IsTrue(game.World.JoinCrew(ben.Id, seat.Code).Success);
-        Assert.IsNull(game.World.KeptSeatFor(ben));
-    }
-
-    [TestMethod]
-    public void ANewcomerIsNextDoorOnlyInTheSameStation()
-    {
-        // Run 3: Ana read "Ben Co moved into your district" and looked for him beside her; he lived in another station
-        var game = new TestGame();
-        var ana = game.NewCompany("Ana", slot: 0);
-        var near = WorldLayout.StationSlots(WorldLayout.StationOfSlot(0)).First(t => t != 0);
-        var far = Enumerable.Range(0, WorldLayout.EstatesPerDistrict).First(t => WorldLayout.StationOfSlot(t) != WorldLayout.StationOfSlot(0) && WorldLayout.StationOf(ana.District, t) is var st && !game.World.BigStation(st).Contains(WorldLayout.StationOf(ana.District, 0)));
-        game.World.TakeChanges();
-
-        game.NewCompany("Ben", slot: far);
-        game.NewCompany("Cleo", slot: near);
-
-        var texts = game.World.TakeChanges().Events.Where(t => t.Company == ana.Id).Select(t => t.Text).ToList();
-        Assert.IsTrue(texts.Any(t => t.StartsWith("Ben moved into ") && t.EndsWith("another station of your district")), string.Join(" | ", texts));
-        Assert.IsTrue(texts.Contains("Cleo moved in next door"), string.Join(" | ", texts));
-        CollectionAssert.AreEqual(new[] { "Cleo" }, ana.Report.NewNeighbours, "the card's people line names only the one next door");
+        Assert.HasCount(2, game.World.OpenDistricts.ToList(), "one free plot left: the next town opens");
     }
 }

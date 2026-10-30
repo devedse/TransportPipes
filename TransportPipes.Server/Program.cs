@@ -53,6 +53,7 @@ builder.Services.AddSingleton<AccountService>();
 builder.Services.AddSingleton<ConnectedUsers>();
 builder.Services.AddSingleton<SocialService>();
 builder.Services.AddSingleton<WorldStore>();
+builder.Services.AddSingleton<HistoryStore>();
 builder.Services.AddSingleton<WorldHost>();
 builder.Services.AddHostedService(services => services.GetRequiredService<WorldHost>());
 
@@ -203,9 +204,9 @@ auth.MapPost("/keep", async (KeepRequest request, ClaimsPrincipal principal, Acc
 })
     .RequireAuthorization();
 
-// What a seat code or crew link opens, for someone who isn't playing yet
+// What a "Play next to me" link opens, for someone who isn't playing yet (1.4 §6)
 app.MapGet("/api/invite/{code}", (string code, WorldHost world) =>
-    world.RunAsync(w => GameViews.Invite(w, code), changesWorld: false));
+    world.RunAsync(w => GameViews.NextToMe(w, code), changesWorld: false));
 
 auth.MapPost("/logout", async (HttpContext context) =>
 {

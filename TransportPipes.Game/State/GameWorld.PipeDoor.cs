@@ -4,11 +4,10 @@ using TransportPipes.Game.World;
 
 namespace TransportPipes.Game.State;
 
-/// <summary>What the pipe door does: lay the next tier, widen, wait for its goods (with an order), or nothing yet</summary>
+/// <summary>What the pipe door does: lay the next tier, wait for its goods (buy the rest), or nothing yet</summary>
 public enum PipeDoorKind
 {
     Tier,
-    Widen,
     Waits,
     Locked,
 }
@@ -17,16 +16,16 @@ public enum PipeDoorKind
 /// The way up a full pipe, as one button with one preview
 /// </summary>
 /// <param name="Text">What the button does, in words: "Copper Pipe on its 2 links (34 tiles), then Level 30"</param>
-/// <param name="Tiles">The pipe tiles it lays or widens</param>
-/// <param name="Tier">The tier it lays, or the widen factor</param>
-/// <param name="Gold">The pipe's (or the widening's) gold</param>
+/// <param name="Tiles">The pipe tiles it lays</param>
+/// <param name="Tier">The tier it lays</param>
+/// <param name="Gold">The pipe's gold</param>
 /// <param name="Materials">What the pipe takes (34 copper ingots), and of it what the Storages lack</param>
 /// <param name="ToLevel">The level the new pipe carries that the gold reaches (0: no levels with it)</param>
 /// <param name="LevelCost">Those levels' gold</param>
 /// <param name="Gain">Gold a minute after both, solved like the network will run</param>
-/// <param name="Source">Where the goods it lacks come from: a friend, or an order now ("Cleo makes copper ingots …")</param>
-/// <param name="OrderTarget">A waiting pipe want's target for Order the rest (minus its number)</param>
-/// <param name="OrderCost">What ordering the rest of the goods costs now</param>
+/// <param name="Source">Where the goods it lacks come from: a friend, or the market ("Cleo makes copper ingots …")</param>
+/// <param name="OrderTarget">A waiting pipe want's target for Buy the rest (minus its number)</param>
+/// <param name="OrderCost">What buying the rest of the goods costs now</param>
 public sealed record PipeDoor(PipeDoorKind Kind, string Text, List<TilePos> Tiles, int Tier, double Gold, Dictionary<string, double> Materials, Dictionary<string, double> Short,
     int ToLevel, double LevelCost, double Gain, string? Source, long? OrderTarget = null, double? OrderCost = null);
 
@@ -35,9 +34,9 @@ public sealed record PipeDoor(PipeDoorKind Kind, string Text, List<TilePos> Tile
 /// anything, so a level pays back within hours wherever the pipe carries it, but the upgrade panel said "+0 g/min: its
 /// pipes carry 205 iron ore a minute" with no button, the next tier showed only in a stuck building's status, and all
 /// 1,087 pipe tiles stayed grey for 36 days). On the panel of a building whose pipe is full, one button goes the whole
-/// way: the next tier on its full links (or Widen, when Copper or Steel is at its limit), then the levels the new pipe
-/// carries and its inputs feed, as far as the gold goes. Goods the pipe takes that the Storages lack become a want that
-/// friends fill through the Yard, or an order when nobody near makes them.
+/// way (1.4 §9): the next tier on its full links, then the levels the new pipe carries and its inputs feed, as far as
+/// the gold goes. Goods the pipe takes that the Storages lack become a want that friends fill through the Yard, or the
+/// market when nobody near makes them.
 /// </summary>
 public sealed partial class GameWorld
 {
@@ -67,30 +66,9 @@ public sealed partial class GameWorld
             var parts = company.Asks.Where(t => t.PipeTiles != null && t.WantId == waiting.WantId).ToList();
             var lacks = parts.Where(t => t.Left > 1e-6).ToDictionary(t => t.Resource, t => t.Left);
             var name = Content.PipeTier(waiting.PipeTier).Name;
-            var cost = parts.Any(t => t.Order != null) ? null : OrderCost(company, -waiting.WantId);
+            var cost = OrderCost(company, -waiting.WantId);
             return new PipeDoor(PipeDoorKind.Waits, $"Its {name} waits for {string.Join(" and ", lacks.Select(t => $"{Amount(t.Value)} {GoodsWord(t.Key)}"))}",
                 waiting.PipeTiles!, waiting.PipeTier, 0, lacks, lacks, 0, 0, 0, MaterialSource(company, lacks.Keys), -waiting.WantId, cost);
-        }
-
-        // Copper or Steel at its limit: widen it, ×2, or straight to ×4 when only that carries the next levels (a
-        // milestone level doubles the output: run 4's e2e moily at level 24 made 537 a minute, ×2 freed 37)
-        if (WidenOffer(building, good) is { } widen)
-        {
-            var links = LinksThrough(company.Id, widen.Tiles);
-            var options = (widen.From < 2 ? new[] { 2, MaxWiden } : [MaxWiden])
-                .Select(to =>
-                {
-                    var cost = WidenCost(company, widen.From, to, links);
-                    var (level, levelCost) = DoorLevels(company, building, network, node, full, (double)to / Math.Max(1, widen.From), company.Gold - cost);
-                    return (To: to, Cost: cost, Level: level, LevelCost: levelCost);
-                })
-                .ToList();
-            var pick = options.Count > 1 && options[0].Level <= building.Level && options[1].Level > building.Level ? options[1] : options[0];
-            var factor = (double)pick.To / Math.Max(1, widen.From);
-            var gain = preview ? DoorGain(company, building, network, full, factor, pick.Level) : 0;
-            return new PipeDoor(PipeDoorKind.Widen,
-                $"Widen {Links(full.Count)} ×{pick.To}{(pick.Level > building.Level ? $", then Level {pick.Level}" : "")}",
-                widen.Tiles, pick.To, pick.Cost, new(), new(), pick.Level > building.Level ? pick.Level : 0, pick.LevelCost, gain, null);
         }
 
         // The next tier on its full links
@@ -101,10 +79,10 @@ public sealed partial class GameWorld
         {
             return null;
         }
-        if (next.Era > Era || (next.Research != null && !HasResearch(company, next.Research)))
+        if (next.Era > YourEra(company) || (next.Research != null && !HasResearch(company, next.Research)))
         {
             var tech = next.Research != null ? Content.Research.GetValueOrDefault(next.Research) : null;
-            var when = next.Era > Era ? $"with Era {next.Era}"
+            var when = next.Era > YourEra(company) ? $"with Era {next.Era}"
                 : tech is { Grant: > 0 } ? $"at Company Level {tech.Grant} (you're {company.Level})"
                 : tech != null ? $"with the research {tech.Name}" : "later";
             return new PipeDoor(PipeDoorKind.Locked, $"{Plural(next.Name, 2)} carry {Amount(next.Throughput)} a minute: yours {when}",
@@ -154,8 +132,20 @@ public sealed partial class GameWorld
         var set = full.ToHashSet(ReferenceEqualityComparer.Instance);
         if (Estimated(network))
         {
-            // A large network: what the full links carry now, times what they would carry more (half of it found a taker)
-            return FullLinkValue(network, full) * Math.Min(factor - 1, 3) * 0.5;
+            // A large network: what the full links carry now, times what they would carry more (half of it found a taker),
+            // but no more than the building could make beyond what its pipes carry now, at its new level (the solo bot's
+            // Small Factory at level 25 could make 111 ingots and its pipe carried 100: the door said +1,697 g/min)
+            var room = 0.0;
+            if (network.Index.Nodes.GetValueOrDefault(building.Id) is { } node)
+            {
+                var scale = Content.Progression.OutputMultiplier(level) / Content.Progression.OutputMultiplier(building.Level);
+                foreach (var (resource, perRun) in node.Out)
+                {
+                    var carried = network.Index.FlowsFrom(building.Id).Where(t => t.Resource == resource).Sum(t => t.Sent);
+                    room += Math.Max(0, perRun * node.MaxRate * scale - carried) * BasePrice(resource);
+                }
+            }
+            return Math.Min(FullLinkValue(network, full) * Math.Min(factor - 1, 3) * 0.5, room);
         }
         var up = level > building.Level ? ToFlowNode(building, level) : null;
         var after = WhatIfGold(network, company.Id,
@@ -164,21 +154,33 @@ public sealed partial class GameWorld
         return Math.Max(0, after - WhatIfGold(network, company.Id));
     }
 
-    /// <summary>"Cleo makes copper ingots: the Yard brings them", "nobody near makes copper ingots: order them now"</summary>
+    /// <summary>The links a building's good leaves by that carry all they can</summary>
+    private List<FlowLink> FullLinks(Building building, string resource) =>
+        NetworkOf(building.Id) is not { } network ? []
+            : network.Links.Where(t => (t.A == building.Id || t.B == building.Id) && t.Allows(resource)
+                && network.Solution.Flows.Where(f => f.From == building.Id && f.Resource == resource && t.Connects(f.From, f.To)).Sum(f => f.Sent) >= t.Capacity * 0.98).ToList();
+
+    /// <summary>The owner's pipe tiles on the full links a building's good leaves by</summary>
+    private List<Conductor> FullLinkPipes(Building building, string resource) =>
+        FullLinks(building, resource).SelectMany(t => t.Path).Distinct()
+            .Select(t => _conductors.TryGetValue(t, out var c) ? c : null).OfType<Conductor>()
+            .Where(t => t.Kind == ConductorKind.Pipe && t.Owner == building.Owner).ToList();
+
+    /// <summary>"Cleo makes copper ingots: the Yard brings them", "nobody near makes copper ingots: buy them now"</summary>
     private string MaterialSource(Company company, IEnumerable<string> goods)
     {
         var parts = new List<string>();
         foreach (var good in goods)
         {
             var maker = NearPlayers(company).FirstOrDefault(c => c.Id != company.Id && BuildingsOf(c.Id).Any(b => !b.UnderConstruction && Content.Building(b.Type).Out.ContainsKey(good)));
-            parts.Add(maker != null ? $"{NameFor(maker, company)} makes {GoodsWord(good)}: the Yard brings them" : $"nobody near makes {GoodsWord(good)}: order them now");
+            parts.Add(maker != null ? $"{NameFor(maker, company)} makes {GoodsWord(good)}: the Yard brings them" : $"nobody near makes {GoodsWord(good)}: buy them now");
         }
         return string.Join("; ", parts);
     }
 
     /// <summary>
-    /// Goes through a building's pipe door: lays the next tier (or its want, when the Storages lack its goods, with an
-    /// order of them when asked or when nobody near makes them), or widens it, then buys the levels the new pipe carries
+    /// Goes through a building's pipe door: lays the next tier (or its want, when the Storages lack its goods, bought from
+    /// the market when asked or when nobody near makes them), then buys the levels the new pipe carries
     /// </summary>
     public CommandResult ClimbPipe(long companyId, long buildingId, bool order = false)
     {
@@ -196,16 +198,7 @@ public sealed partial class GameWorld
             case PipeDoorKind.Locked:
                 return CommandResult.Fail(door.Text + ".");
             case PipeDoorKind.Waits:
-                return door.OrderTarget is { } target ? OrderRest(companyId, target) : CommandResult.Fail("Its goods are ordered: the hub brings them.");
-            case PipeDoorKind.Widen:
-            {
-                var widened = WidenPipes(companyId, door.Tiles, door.Tier);
-                if (!widened.Success)
-                {
-                    return widened;
-                }
-                break;
-            }
+                return door.OrderTarget is { } target ? OrderRest(companyId, target) : CommandResult.Fail("Its goods are on their way.");
             default:
             {
                 var laid = UpgradePipes(companyId, door.Tiles, door.Tier);
@@ -222,14 +215,14 @@ public sealed partial class GameWorld
                     if (want > 0 && (order || door.Source?.StartsWith("nobody", StringComparison.Ordinal) == true) && OrderCost(company, -want) is { } cost && cost <= company.Gold
                         && OrderRest(companyId, -want).Success)
                     {
-                        return CommandResult.Done($"Your {name} waits for {goods}: ordered, the hub brings them over six hours, then it is laid");
+                        return CommandResult.Done($"Your {name} is laid: its {goods} bought from the market");
                     }
                     return CommandResult.Done($"Your {name} waits for {goods}: {door.Source}");
                 }
                 break;
             }
         }
-        var done = door.Kind == PipeDoorKind.Widen ? $"Widened ×{door.Tier}" : $"{Content.PipeTier(door.Tier).Name} laid";
+        var done = $"{Content.PipeTier(door.Tier).Name} laid";
         if (door.ToLevel > building.Level && Upgrade(companyId, buildingId, door.ToLevel - building.Level).Success)
         {
             return CommandResult.Done($"{done}, and your {Content.Building(building.Type).Name} is Level {door.ToLevel}: it carries more now");

@@ -2,6 +2,7 @@ import { formatAmount } from "../app/format";
 import { gameClient } from "../app/client";
 import { newPipeTiles, pipeGold, upgradablePipeTiles } from "../game/rules";
 import { isDeep, zoneAt } from "../game/layout";
+import { insidePipe, LANE_NAMES } from "../game/inside";
 import { useAppStore } from "../state/store";
 
 const TERRAIN_NAMES: Record<string, string> = {
@@ -92,7 +93,7 @@ export function HoverTip() {
     text = placement?.ok === false ? placement.reason : "Click where it should go · right-click to cancel";
     tone = placement?.ok === false ? "bad" : "";
   } else if (tool.kind === "blueprintArea") {
-    text = "Drag a rectangle over your estate to save it as a blueprint (right-click or Esc to stop)";
+    text = "Drag a rectangle over your plot to save it as a blueprint (right-click or Esc to stop)";
   } else if (tool.kind === "blueprint") {
     const blueprint = tool.blueprint;
     if (placement !== null && placement.ok && placement.reason === null) {
@@ -113,15 +114,49 @@ export function HoverTip() {
       forest: "Plant a forest",
       seedDeposit: `Seed ${tool.resource !== undefined ? content.resourceName(tool.resource).toLowerCase() : "a deposit"}`,
     };
-    text = `${names[tool.action] ?? tool.action}: click tiles of your estate (right-click or Esc to stop)`;
+    text = `${names[tool.action] ?? tool.action}: click tiles of your plot (right-click or Esc to stop)`;
+  }
+
+  // Look inside a pipe (1.4 §9): what runs in each lane, and how full the pipe between the two buildings is
+  if (text === null && tool.kind === "select" && world.buildingAt(tile.x, tile.y) === undefined) {
+    const conductor = world.conductorAt(tile.x, tile.y);
+    if (conductor?.kind === "pipe") {
+      // One line a good in each lane: what all its flows here carry, and the fullest pipe pair among them
+      const lanes = new Map<string, { lane: string; resource: string; perMinute: number; full: number }>();
+      for (const t of insidePipe(world, content, tile.x, tile.y)) {
+        const key = `${t.kind}:${t.flow.resource}`;
+        const line = lanes.get(key) ?? {
+          lane: LANE_NAMES[t.kind],
+          resource: t.flow.resource,
+          perMinute: 0,
+          full: 0,
+        };
+        line.perMinute += t.flow.delivered;
+        line.full = Math.max(line.full, t.full);
+        lanes.set(key, line);
+      }
+      const tier = content.pipeTiers.find((t) => t.tier === conductor.tier)?.name ?? "Pipe";
+      const lines = [...lanes.values()];
+      text =
+        lines.length === 0
+          ? `${tier}: nothing runs through here now`
+          : `${tier}, inside: ${lines
+              .slice(0, 4)
+              .map(
+                (t) =>
+                  `${t.lane}: ${content.resourceName(t.resource).toLowerCase()} ${formatAmount(t.perMinute)}/min (${Math.round(t.full * 100)}% full)`,
+              )
+              .join(
+                " · ",
+              )}${lines.length > 4 ? ` · ${lines.length - 4} more` : ""} · hold Alt to see every pipe`;
+    }
   }
 
   if (text === null && info !== null) {
     const zone = zoneAt(tile.x, tile.y);
     const parts = [TERRAIN_NAMES[info.terrain] ?? info.terrain];
-    if (info.terrain === "forest" && world.dealtLand && info.deposit !== "wood") {
-      // Trees around the estates are scenery (after run 4: Cleo paid 5,000 g for a "forest" parcel for its wood)
-      parts[0] = "Forest: trees only, no wood to cut here";
+    if (info.terrain === "forest") {
+      parts[0] = "Forest: wood for a Lumber Camp";
     }
     if (info.deposit !== null) {
       parts.push(`${content.resourceName(info.deposit)} ${"★".repeat(info.richness)}`);

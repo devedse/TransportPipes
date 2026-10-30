@@ -7,8 +7,9 @@ export const PIPE_COLORS: Record<number, string> = {
   1: "#8f969e",
   2: "#c8793c",
   3: "#5f7286",
-  4: "#8fd3f0",
-  5: "#a77bff",
+  4: "#3d4147",
+  5: "#8fd3f0",
+  6: "#a77bff",
 };
 
 const CENTRE: [number, number] = [TILE_W / 2, TILE_H / 2];
@@ -99,10 +100,10 @@ export function drawPipe(shape: string, tier: number): HTMLCanvasElement {
     g.fillStyle = "#c9963a";
     g.fill();
   }
-  if (tier >= 4) {
+  if (tier >= 5) {
     // Glass and superconductors glow a little
     g.globalCompositeOperation = "lighter";
-    stroke(10, tier === 5 ? "rgba(167,123,255,0.25)" : "rgba(143,211,240,0.25)", -2);
+    stroke(10, tier === 6 ? "rgba(167,123,255,0.25)" : "rgba(143,211,240,0.25)", -2);
   }
   return canvas;
 }

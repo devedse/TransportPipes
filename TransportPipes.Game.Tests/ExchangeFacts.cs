@@ -8,23 +8,23 @@ public class ExchangeFacts
     private static (TestGame Game, Company Seller, Company Buyer, Building SellerStorage, Building BuyerStorage) Traders()
     {
         var game = new TestGame(content: TestGame.PlainContent);
-        var seller = game.NewCompany("Seller");
-        var buyer = game.NewCompany("Buyer");
-        var sellerMap = game.Map(seller, game.Local(seller, 1, 1), "O E");
-        var buyerMap = game.Map(buyer, game.Local(buyer, 1, 1), "O E");
+        var seller = game.NewCompany("Seller", level: GameWorld.ExchangeLevel);
+        var buyer = game.NewCompany("Buyer", level: GameWorld.ExchangeLevel);
+        var sellerMap = game.Map(seller, game.Local(seller, 1, 1), "O");
+        var buyerMap = game.Map(buyer, game.Local(buyer, 1, 1), "O");
         return (game, seller, buyer, sellerMap[(0, 0)], buyerMap[(0, 0)]);
     }
 
     [TestMethod]
-    public void TheExchangeNeedsAnExchangeOffice()
+    public void TheExchangeOpensAtCompanyLevelTwelve()
     {
         var game = new TestGame();
-        var company = game.NewCompany();
-        StringAssert.Contains(game.World.PlaceExchangeOrder(company.Id, "energy", false, 10, 1).Error, "Exchange Office");
+        var company = game.NewCompany(level: 11);
+        StringAssert.Contains(game.World.PlaceExchangeOrder(company.Id, "energy", false, 10, 1).Error, "Level 12");
     }
 
     [TestMethod]
-    public void MatchingOrdersTradeAtThePlayerPriceAndShipByCargo()
+    public void MatchingOrdersTradeAtTheWaitingOrdersPriceAndShipByCargo()
     {
         var (game, seller, buyer, sellerStorage, buyerStorage) = Traders();
         sellerStorage.Contents["ironOre"] = 500;
@@ -34,13 +34,11 @@ public class ExchangeFacts
         var goldSeller = seller.Gold;
         var goldBuyer = buyer.Gold;
 
-        // Whatever prices they name, players trade at the one player price
+        // The buyer would pay 5: the order that waited asked 4
         Assert.IsTrue(game.World.PlaceExchangeOrder(buyer.Id, "ironOre", false, 300, 5).Success);
-        var price = game.World.PlayerPrice("ironOre");
-        Assert.AreEqual(3 * 1.3, price, 1e-9);
 
-        Assert.AreEqual(goldSeller + 300 * price * 0.95, seller.Gold, 1e-6, "5% fee");
-        Assert.AreEqual(goldBuyer - 300 * price, buyer.Gold, 1e-6);
+        Assert.AreEqual(goldSeller + 300 * 4 * 0.96, seller.Gold, 1e-6, "a 4% fee leaves the game (1.4 §8)");
+        Assert.AreEqual(goldBuyer - 300 * 4, buyer.Gold, 1e-6);
         Assert.AreEqual(100, game.World.ExchangeOrders.Single().Amount, "100 still for sale");
         var shipment = game.World.Shipments.Single();
         Assert.AreEqual(300, shipment.Amount);
@@ -53,17 +51,16 @@ public class ExchangeFacts
     }
 
     [TestMethod]
-    public void AnOrderSaysItsOnePriceWhatItHoldsAndWhenItCloses()
+    public void AnOrderSaysItsPriceWhatItHoldsAndWhenItCloses()
     {
-        // Run 4: Cleo typed 3 g and got 1.95 g without a word; her order expired a week later without a word either, and
-        // both friends read it as filled
+        // Run 4: Cleo typed a price and got another without a word; her order expired a week later without a word either,
+        // and both friends read it as filled
         var (game, _, buyer, _, _) = Traders();
-        var price = game.World.PlayerPrice("stone");
 
-        var placed = game.World.PlaceExchangeOrder(buyer.Id, "stone", false, 3000, 3);
+        var placed = game.World.PlaceExchangeOrder(buyer.Id, "stone", false, 3000, 1);
 
         Assert.IsTrue(placed.Success);
-        StringAssert.Contains(placed.Note, $"one price between players: {price:0.##} g, not the 3 g you typed");
+        StringAssert.Contains(placed.Note, "1× to 2.5× the base: 1.5 g, not the 1 g you typed");
         StringAssert.Contains(placed.Note, "waits up to 7 days for a seller");
         var gold = buyer.Gold;
         game.World.TakeChanges();
@@ -72,9 +69,17 @@ public class ExchangeFacts
         game.Pass(8 * 24 * 60);
 
         Assert.IsEmpty(game.World.ExchangeOrders);
-        Assert.AreEqual(gold + 3000 * price, buyer.Gold, 1, "the held gold is back");
+        Assert.AreEqual(gold + 3000 * 1.5, buyer.Gold, 1, "the held gold is back");
         var heard = game.World.TakeChanges().Events.Where(t => t.Company == buyer.Id).Select(t => t.Text).ToList();
         Assert.IsTrue(heard.Any(t => t.StartsWith("Your Exchange order to buy stone closed after 7 days: none came;")), string.Join(" | ", heard));
+    }
+
+    [TestMethod]
+    public void YouBuyOnlyGoodsOfYourEraOrOlder()
+    {
+        var (game, _, buyer, _, _) = Traders();
+
+        StringAssert.Contains(game.World.PlaceExchangeOrder(buyer.Id, "steel", false, 10, 100).Error, "your own Era or older");
     }
 
     [TestMethod]
@@ -98,7 +103,7 @@ public class ExchangeFacts
         game.World.PlaceExchangeOrder(seller.Id, "ironOre", true, 200, 4);
         var gold = buyer.Gold;
         game.World.PlaceExchangeOrder(buyer.Id, "coal", false, 100, 3);
-        Assert.AreEqual(gold - 100 * game.World.PlayerPrice("coal"), buyer.Gold);
+        Assert.AreEqual(gold - 100 * 3, buyer.Gold, "its own price, held");
 
         Assert.IsTrue(game.World.CancelExchangeOrder(buyer.Id, game.World.ExchangeOrders.Single(t => !t.Selling).Id).Success);
         Assert.AreEqual(gold, buyer.Gold);

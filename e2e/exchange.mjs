@@ -1,5 +1,6 @@
 // The Exchange honest (after run 4: a typed price silently became the one player price, an order expired without a
-// word, and a sell order was refused for goods that weren't stored): node exchange.mjs <outdir>
+// word, and a sell order was refused for goods that weren't stored). 1.4: the Exchange comes with Company Level 12 (no
+// office), at a price of your own between the market's two: node exchange.mjs <outdir>
 import { start, newPlayer } from "./lib.mjs";
 const [out = "shots/exchange"] = process.argv.slice(2);
 const { browser, page, errors, shot, cheat } = await start(out);
@@ -12,12 +13,12 @@ const check = (ok, what, detail = "") => {
   console.log(`${ok ? "ok  " : "FAIL"} ${what}${detail ? `  (${detail})` : ""}`);
 };
 
-// An Exchange Office and a Storage near the trading post
+// A Storage near the trading post
 const built = await page.evaluate(async () => {
   const s = () => tp.appStore.getState(); const co = () => s().company; const w = tp.gameClient.world;
   const post = [...w.buildings.values()].find((t) => t.owner === co().id && t.type === "tradingPost");
   const out = [];
-  for (const type of ["exchangeOffice", "storage"]) {
+  for (const type of ["storage"]) {
     const def = s().content.building(type);
     let done = false;
     for (let r = 2; r < 12 && !done; r++)
@@ -42,13 +43,15 @@ await page.waitForTimeout(1000);
 await page.selectOption(".exchange-form select >> nth=0", "sell");
 await page.selectOption(".exchange-form select >> nth=1", "stone");
 const terms = await page.locator(".exchange-terms").innerText();
-check(/one player price, [\d.]+ g each/.test(terms), "the one player price is said before the click", terms);
+check(/^[\d.]+ g each \(between [\d.]+ and [\d.]+\)/.test(terms), "your own price, between the market's two, is said before the click", terms);
 check(/in your Storages/.test(terms) && (await page.locator(".exchange-form button[type=submit]").isDisabled()), "selling what isn't stored: it says so, and Place waits");
 await shot("1-sell-terms");
 
-// Buying: placed, with what it holds and how long it waits
+// Buying at a price typed: placed at that price, with what it holds and how long it waits
 await page.selectOption(".exchange-form select >> nth=0", "buy");
-await page.fill(".exchange-form input[type=number]", "3000");
+await page.fill(".exchange-form input[type=number] >> nth=0", "3000");
+await page.fill(".exchange-form input[type=number] >> nth=1", "2");
+check(/^2\.00 g each/.test(await page.locator(".exchange-terms").innerText()), "a typed price stays what was typed");
 await page.click(".exchange-form button[type=submit]");
 await page.waitForTimeout(1200);
 const toasts = await page.locator(".toast").allInnerTexts();

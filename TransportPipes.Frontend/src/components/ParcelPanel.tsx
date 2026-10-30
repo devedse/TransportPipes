@@ -1,6 +1,12 @@
 import { gameClient } from "../app/client";
 import { formatAmount } from "../app/format";
-import { PARCEL_SIZE, PARCELS_PER_SIDE } from "../game/layout";
+import {
+  districtOriginX,
+  districtOriginY,
+  outskirtsParcels,
+  PARCEL_SIZE,
+  PARCELS_PER_SIDE,
+} from "../game/layout";
 import { ownEstates } from "../game/rules";
 import { ResourceIcon } from "./ResourceIcon";
 import { currentGold, setState, useAppStore } from "../state/store";
@@ -35,7 +41,7 @@ export function ParcelPanel() {
         </button>
       </div>
       <p className="muted">
-        8×8 tiles of your estate. You can already lay pipes over it; buy it to build on it.
+        8×8 tiles of your plot. You can already lay pipes over it; buy it to build on it.
       </p>
       <ParcelContents
         x={own.x + (parcel % PARCELS_PER_SIDE) * PARCEL_SIZE}
@@ -64,6 +70,62 @@ export function ParcelPanel() {
             Buy for {formatAmount(cost)} g
           </button>
           <p className="muted small">Every parcel costs twice as much as the one before.</p>
+        </>
+      )}
+    </aside>
+  );
+}
+
+/**
+ * One of the nine outskirts parcels set aside for your plot (1.4 §5): from Era 2, once you researched Survey the
+ * Outskirts, in any order; every one 40% dearer than the one before. On a move the market buys them back at half.
+ */
+export function OutskirtsPanel() {
+  const index = useAppStore((state) => state.selectedOutskirts);
+  const company = useAppStore((state) => state.company);
+  const companyAt = useAppStore((state) => state.companyAt);
+  if (index === null || company === null || company.outskirts === null) {
+    return null;
+  }
+  const corner = outskirtsParcels(company.slot)[index];
+  if (corner === undefined) {
+    return null;
+  }
+  const { nextCost, blocker } = company.outskirts;
+  const gold = currentGold({ company, companyAt });
+  const owned = [...Array(9).keys()].filter((t) => (company.outskirts!.parcels & (1 << t)) !== 0).length;
+  return (
+    <aside className="panel parcel-panel" aria-label="Outskirts parcel">
+      <div className="panel-header">
+        <h3>Outskirts parcel</h3>
+        <button
+          className="icon-button"
+          title="Close (Esc)"
+          onClick={() => setState({ selectedOutskirts: null })}
+        >
+          ×
+        </button>
+      </div>
+      <p className="muted">
+        8×8 tiles beyond your plot, set aside for you: one of nine. Build and pipe on it like on your own
+        land. If you move, the market buys it back for half its price.
+      </p>
+      <ParcelContents
+        x={districtOriginX(company.districtX) + corner.x}
+        y={districtOriginY(company.districtY) + corner.y}
+      />
+      {blocker !== null ? (
+        <p className="status idle">{blocker}</p>
+      ) : (
+        <>
+          <button
+            className="primary wide"
+            disabled={gold < nextCost}
+            onClick={() => void gameClient.buyOutskirts(index)}
+          >
+            Buy for {formatAmount(nextCost)} g
+          </button>
+          <p className="muted small">You own {owned} of 9. Every one costs 40% more than the one before.</p>
         </>
       )}
     </aside>
@@ -107,6 +169,7 @@ function ParcelContents({ x, y }: { x: number; y: number }) {
     (terrain.get("forest") ?? 0) >= 4 &&
       (yours("wood") ? "forest" : "forest (trees only: wood isn't your land's good)"),
     (terrain.get("hills") ?? 0) >= 6 && "windy hills",
+    (terrain.get("redHills") ?? 0) >= 6 && "red hills",
     (terrain.get("desert") ?? 0) >= 6 && "sunny desert",
   ].filter(Boolean);
   if (deposits.size === 0 && land.length === 0) {

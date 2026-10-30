@@ -9,18 +9,21 @@ for (let i = 0; i < 6; i++) await cheat("gold");
 await page.evaluate(() => tp.appStore.setState({ levelUp: null }));
 const placed = await page.evaluate(async () => {
   const c = tp.gameClient.connection; const s = tp.appStore.getState(); const co = s.company; const w = tp.gameClient.world;
+  // Four in a row, two tiles apart, on the plot's own land near the trading post (1.4: its four start parcels)
+  const post = [...w.buildings.values()].find((t) => t.owner === co.id && t.type === "tradingPost");
+  const ok = (x, y) => tp.rules.canPlace(s.content, w, tp.appStore.getState().company, s.era, s.content.building("windMoily"), x, y).ok;
+  let row = null;
+  for (let dy = 3; dy < 14 && row === null; dy++)
+    for (const y of [post.y + dy, post.y - dy])
+      for (let x = post.x - 12; x <= post.x + 6 && row === null; x++)
+        if ([0, 2, 4, 6].every((i) => ok(x + i, y))) row = { x, y };
   const ids = [];
-  for (let i = 0; i < 4; i++) {
-    for (let dy = 0; dy < 10; dy++) {
-      const x = co.estateX + 10 + i * 2, y = co.estateY + 19 + dy;
-      if (tp.rules.canPlace(s.content, w, tp.appStore.getState().company, s.era, s.content.building("windMoily"), x, y).ok) {
-        if ((await c.placeBuilding("windMoily", x, y)).success) { ids.push({ x, y }); break; }
-      }
-    }
+  for (let i = 0; row !== null && i < 4; i++) {
+    if ((await c.placeBuilding("windMoily", row.x + i * 2, row.y)).success) ids.push({ x: row.x + i * 2, y: row.y });
   }
   await c.cheat("finish");
   await new Promise((r) => setTimeout(r, 1200));
-  tp.gameClient.engine.lookAt(co.estateX + 13, co.estateY + 21, 0.9);
+  if (row !== null) tp.gameClient.engine.lookAt(row.x + 3, row.y, 0.9);
   return ids;
 });
 await page.waitForTimeout(1500);
@@ -61,7 +64,8 @@ expect("U: each +1", afterU.every((l, i) => l === after[i] + 1), `${after} → $
 await page.keyboard.press("Shift+U");
 await page.waitForTimeout(1000);
 const afterShiftU = await levels();
-expect("Shift+U: each +10", afterShiftU.every((l, i) => l === afterU[i] + 10), `${afterU} → ${afterShiftU}`);
+// (1.4: levels past 10 wait for their goods, so they stand at 10 until those come)
+expect("Shift+U: each +10", afterShiftU.every((l, i) => l === Math.min(10, afterU[i] + 10)), `${afterU} → ${afterShiftU}`);
 await shot("3-upgraded");
 
 // 4. A right-drag pans and keeps the selection (also under a level-up card)

@@ -1,61 +1,57 @@
-# Achievements (GDD §8.5): stat is what is counted, amount the goal. Rewards: XP, gold, a title, sometimes a small
-# permanent output bonus (targets as in research.yaml, quoted).
-# Stats: buildings, pipes, levelsBought, produced:<resource>, earned, partners, contracts, orders, reputation,
-#   researched, likes, corporation, mentees, wonder (gold value delivered), parcels, repairs, level, exchangeTrades,
-#   dug (Deep Level parcels dug out)
+# Achievements (GDD §8.5, 1.4 §19): stat is what is counted, amount the goal. Rewards: hours of your own income (1.4
+# §16: gold earned, so they count for your Company Level), gold at least, a title, sometimes a small permanent output
+# bonus (targets: modifier:x, building:x, category:x, resource:x, quoted).
+# Stats: buildings, pipes, levelsBought, produced:<resource>, earned, partners, orders, researched (tiers and Era tree
+#   items), likes, mentees, wonder (gold value given), parcels, repairs, level, exchangeTrades, dug (Deep Level parcels)
 achievements:
   # Building
-  - { id: firstSteps,    name: First Steps,     stat: buildings, amount: 1,    xp: 20,   description: "Build your first building." }
-  - { id: busyBuilder,   name: Busy Builder,    stat: buildings, amount: 10,   xp: 100,  description: "Build 10 buildings." }
-  - { id: industrialist, name: Industrialist,   stat: buildings, amount: 50,   xp: 500,  title: Industrialist, description: "Build 50 buildings." }
-  - { id: tycoon,        name: Tycoon,          stat: buildings, amount: 200,  xp: 2000, title: Tycoon, description: "Build 200 buildings." }
-  - { id: plumber,       name: Plumber,         stat: pipes,     amount: 100,  xp: 100,  description: "Lay 100 pipe tiles." }
-  - { id: pipeDreams,    name: Pipe Dreams,     stat: pipes,     amount: 1000, xp: 800,  title: Pipe Dreamer, description: "Lay 1,000 pipe tiles." }
-  - { id: pipeLord,      name: Pipe Lord,       stat: pipes,     amount: 5000, xp: 3000, title: Pipe Lord, description: "Lay 5,000 pipe tiles." }
-  - { id: fineTuning,    name: Fine Tuning,     stat: levelsBought, amount: 10,   xp: 100, description: "Buy 10 building levels." }
-  - { id: overclocked,   name: Overclocked,     stat: levelsBought, amount: 100,  xp: 800, description: "Buy 100 building levels." }
-  - { id: maxedOut,      name: Maxed Out,       stat: levelsBought, amount: 1000, xp: 4000, title: The Upgrader, description: "Buy 1,000 building levels." }
-  - { id: landowner,     name: Landowner,       stat: parcels,   amount: 8,    xp: 400,  description: "Own 8 parcels of your valley." }
-  - { id: valleyLord,    name: Lord of the Valley, stat: parcels, amount: 16,  xp: 3000, title: Lord of the Valley, description: "Own all 16 parcels." }
-  - { id: intoTheDeep,   name: Into the Deep,   stat: dug,       amount: 1,    xp: 500,  description: "Dig out a parcel of the Deep Level." }
-  - { id: molePeople,    name: Mole People,     stat: dug,       amount: 16,   xp: 5000, title: Lord of the Underworld, description: "Dig out the whole Deep Level." }
+  - { id: firstSteps,    name: First Steps,     stat: buildings, amount: 1,    hours: 0.01, gold: 100,   description: "Build your first building." }
+  - { id: busyBuilder,   name: Busy Builder,    stat: buildings, amount: 10,   hours: 0.05, gold: 500,  description: "Build 10 buildings." }
+  - { id: industrialist, name: Industrialist,   stat: buildings, amount: 50,   hours: 0.25, gold: 2500,  title: Industrialist, description: "Build 50 buildings." }
+  - { id: tycoon,        name: Tycoon,          stat: buildings, amount: 200,  hours: 1, gold: 10000, title: Tycoon, description: "Build 200 buildings." }
+  - { id: plumber,       name: Plumber,         stat: pipes,     amount: 100,  hours: 0.05, gold: 500,  description: "Lay 100 pipe tiles." }
+  - { id: pipeDreams,    name: Pipe Dreams,     stat: pipes,     amount: 1000, hours: 0.4, gold: 4000,  title: Pipe Dreamer, description: "Lay 1,000 pipe tiles." }
+  - { id: pipeLord,      name: Pipe Lord,       stat: pipes,     amount: 5000, hours: 1.5, gold: 15000, title: Pipe Lord, description: "Lay 5,000 pipe tiles." }
+  - { id: fineTuning,    name: Fine Tuning,     stat: levelsBought, amount: 10,   hours: 0.05, gold: 500, description: "Buy 10 building levels." }
+  - { id: overclocked,   name: Overclocked,     stat: levelsBought, amount: 100,  hours: 0.4, gold: 4000, description: "Buy 100 building levels." }
+  - { id: maxedOut,      name: Maxed Out,       stat: levelsBought, amount: 1000, hours: 2, gold: 20000, title: The Upgrader, description: "Buy 1,000 building levels." }
+  - { id: landowner,     name: Landowner,       stat: parcels,   amount: 8,    hours: 0.2, gold: 2000,  description: "Own 8 parcels of your valley." }
+  - { id: valleyLord,    name: Lord of the Valley, stat: parcels, amount: 16,  hours: 1.5, gold: 15000, title: Lord of the Valley, description: "Own all 16 parcels." }
+  - { id: intoTheDeep,   name: Into the Deep,   stat: dug,       amount: 1,    hours: 0.25, gold: 2500,  description: "Dig out a parcel of the Deep Level." }
+  - { id: molePeople,    name: Mole People,     stat: dug,       amount: 16,   hours: 2.5, gold: 25000, title: Lord of the Underworld, description: "Dig out the whole Deep Level." }
   # Production
-  - { id: powerUp,       name: Power Up,        stat: "produced:energy",     amount: 100000,   xp: 200, description: "Make 100,000 energy." }
-  - { id: powerPlant,    name: Power Plant,     stat: "produced:energy",     amount: 10000000, xp: 2000, title: Power Plant, output: { targets: ["resource:energy"], amount: 0.01 }, description: "Make 10 million energy. +1% energy." }
-  - { id: ironAge,       name: Iron Age,        stat: "produced:ironIngot",  amount: 10000,    xp: 300, description: "Make 10,000 iron ingots." }
-  - { id: brickByBrick,  name: Brick by Brick,  stat: "produced:bricks",     amount: 100000,   xp: 500, description: "Make 100,000 bricks." }
-  - { id: glassAct,      name: Glass Act,       stat: "produced:glass",      amount: 1000000,  xp: 3000, title: Glassmaker, output: { targets: ["resource:glass"], amount: 0.02 }, description: "Make a million glass. +2% glass." }
-  - { id: woodworker,    name: Woodworker,      stat: "produced:planks",     amount: 50000,    xp: 300, description: "Make 50,000 planks." }
-  - { id: steelNerves,   name: Nerves of Steel, stat: "produced:steel",      amount: 100000,   xp: 2000, title: Steelmaker, description: "Make 100,000 steel." }
+  - { id: powerUp,       name: Power Up,        stat: "produced:energy",     amount: 100000,   hours: 0.1, gold: 1000, description: "Make 100,000 energy." }
+  - { id: powerPlant,    name: Power Plant,     stat: "produced:energy",     amount: 10000000, hours: 1, gold: 10000, title: Power Plant, output: { targets: ["resource:energy"], amount: 0.01 }, description: "Make 10 million energy. +1% energy." }
+  - { id: ironAge,       name: Iron Age,        stat: "produced:ironIngot",  amount: 10000,    hours: 0.15, gold: 1500, description: "Make 10,000 iron ingots." }
+  - { id: brickByBrick,  name: Brick by Brick,  stat: "produced:bricks",     amount: 100000,   hours: 0.25, gold: 2500, description: "Make 100,000 bricks." }
+  - { id: glassAct,      name: Glass Act,       stat: "produced:glass",      amount: 1000000,  hours: 1.5, gold: 15000, title: Glassmaker, output: { targets: ["resource:glass"], amount: 0.02 }, description: "Make a million glass. +2% glass." }
+  - { id: woodworker,    name: Woodworker,      stat: "produced:planks",     amount: 50000,    hours: 0.15, gold: 1500, description: "Make 50,000 planks." }
+  - { id: steelNerves,   name: Nerves of Steel, stat: "produced:steel",      amount: 100000,   hours: 1, gold: 10000, title: Steelmaker, description: "Make 100,000 steel." }
   # Trade
-  - { id: pocketMoney,   name: Pocket Money,    stat: earned,    amount: 10000,     xp: 100, description: "Earn 10,000 gold." }
-  - { id: millionaire,   name: Millionaire,     stat: earned,    amount: 1000000,   xp: 1500, title: Millionaire, description: "Earn a million gold." }
-  - { id: magnate,       name: Magnate,         stat: earned,    amount: 100000000, xp: 8000, title: Magnate, description: "Earn 100 million gold." }
-  - { id: helloNeighbour, name: Hello Neighbour, stat: partners, amount: 1,  xp: 100, description: "Trade with another company." }
-  - { id: goodNeighbour, name: Good Neighbour,  stat: partners,  amount: 10, xp: 1500, title: Good Neighbour, description: "Trade with 10 companies at once." }
-  - { id: signedSealed,  name: Signed and Sealed, stat: contracts, amount: 1,  xp: 100, description: "Finish a contract." }
-  - { id: reliable,      name: Reliable Partner, stat: contracts, amount: 25, xp: 1500, title: Reliable, description: "Finish 25 contracts." }
-  - { id: orderTaker,    name: Order Taker,     stat: orders,    amount: 10,  xp: 200, description: "Complete 10 daily orders." }
-  - { id: hubHero,       name: Hub Hero,        stat: orders,    amount: 100, xp: 2000, title: Hub Hero, description: "Complete 100 daily orders." }
-  - { id: knownAtTheHub, name: Known at the Hub, stat: reputation, amount: 5,  xp: 500, description: "Reach hub reputation 5." }
-  - { id: hubLegend,     name: Hub Legend,      stat: reputation, amount: 10, xp: 3000, title: Hub Legend, description: "Reach hub reputation 10." }
-  - { id: trader,        name: Trader,          stat: exchangeTrades, amount: 10, xp: 300, description: "Trade 10 times on the Exchange." }
+  - { id: pocketMoney,   name: Pocket Money,    stat: earned,    amount: 10000,     hours: 0.05, gold: 500, description: "Earn 10,000 gold." }
+  - { id: millionaire,   name: Millionaire,     stat: earned,    amount: 1000000,   hours: 0.75, gold: 7500, title: Millionaire, description: "Earn a million gold." }
+  - { id: magnate,       name: Magnate,         stat: earned,    amount: 100000000, hours: 4, gold: 40000, title: Magnate, description: "Earn 100 million gold." }
+  - { id: billionaire,   name: Billionaire,     stat: earned,    amount: 1000000000, hours: 6, gold: 100000, title: Billionaire, description: "Earn a billion gold." }
+  - { id: helloNeighbour, name: Hello Neighbour, stat: partners, amount: 1,  hours: 0.05, gold: 500, description: "Trade with another company." }
+  - { id: goodNeighbour, name: Good Neighbour,  stat: partners,  amount: 10, hours: 0.75, gold: 7500, title: Good Neighbour, description: "Trade with 10 companies at once." }
+  - { id: orderTaker,    name: Order Taker,     stat: orders,    amount: 10,  hours: 0.1, gold: 1000, description: "Complete 10 daily orders." }
+  - { id: hubHero,       name: Hub Hero,        stat: orders,    amount: 100, hours: 1, gold: 10000, title: Hub Hero, description: "Complete 100 daily orders." }
+  - { id: trader,        name: Trader,          stat: exchangeTrades, amount: 10, hours: 0.15, gold: 1500, description: "Trade 10 times on the Exchange." }
   # Research
-  - { id: curious,       name: Curious,         stat: researched, amount: 5,  xp: 200, description: "Research 5 techs." }
-  - { id: scholar,       name: Scholar,         stat: researched, amount: 20, xp: 1500, title: Scholar, description: "Research 20 techs." }
-  - { id: knowItAll,     name: Know-it-all,     stat: researched, amount: 47, xp: 6000, title: Professor, description: "Research every tech." }
+  - { id: curious,       name: Curious,         stat: researched, amount: 5,  hours: 0.1, gold: 1000, description: "Research 5 tiers or Era tree items." }
+  - { id: scholar,       name: Scholar,         stat: researched, amount: 20, hours: 0.75, gold: 7500, title: Scholar, description: "Research 20 tiers or Era tree items." }
+  - { id: knowItAll,     name: Know-it-all,     stat: researched, amount: 100, hours: 3, gold: 30000, title: Professor, description: "Research 100 tiers and Era tree items." }
   # Society
-  - { id: prettyEstate,  name: Pretty Estate,   stat: likes,     amount: 10,  xp: 200, description: "Get 10 likes." }
-  - { id: landmark,      name: Landmark,        stat: likes,     amount: 100, xp: 2000, title: Landmark, description: "Get 100 likes." }
-  - { id: teamPlayer,    name: Team Player,     stat: corporation, amount: 1, xp: 200, description: "Join a corporation." }
-  - { id: mentor,        name: Mentor,          stat: mentees,   amount: 1,   xp: 500, title: Mentor, description: "Take a newcomer under your wing." }
-  - { id: wonderBuilder, name: Builder of Wonders, stat: wonder, amount: 10000,   xp: 300, description: "Deliver 10,000 gold worth to Wonders." }
-  - { id: wonderWorker,  name: Wonder Worker,   stat: wonder,    amount: 1000000, xp: 3000, title: Wonder Worker, description: "Deliver a million gold worth to Wonders." }
-  - { id: backInBusiness, name: Back in Business, stat: repairs, amount: 1, xp: 50, description: "Repair storm damage." }
+  - { id: prettyEstate,  name: Pretty Estate,   stat: likes,     amount: 10,  hours: 0.1, gold: 1000, description: "Get 10 likes." }
+  - { id: landmark,      name: Landmark,        stat: likes,     amount: 100, hours: 1, gold: 10000, title: Landmark, description: "Get 100 likes." }
+  - { id: mentor,        name: Mentor,          stat: mentees,   amount: 1,   hours: 0.25, gold: 2500, title: Mentor, description: "Take a newcomer under your wing." }
+  - { id: wonderBuilder, name: Builder of Wonders, stat: wonder, amount: 1000000,   hours: 0.5, gold: 5000, description: "Give a million gold worth to your town's Wonder." }
+  - { id: wonderWorker,  name: Wonder Worker,   stat: wonder,    amount: 100000000, hours: 3, gold: 30000, title: Wonder Worker, description: "Give 100 million gold worth to your town's Wonder." }
+  - { id: backInBusiness, name: Back in Business, stat: repairs, amount: 1, hours: 0.025, gold: 250, description: "Repair storm damage." }
   # Company Level
-  - { id: risingStar,    name: Rising Star,     stat: level, amount: 10, xp: 0, gold: 5000, description: "Reach Company Level 10." }
-  - { id: established,   name: Established,     stat: level, amount: 25, xp: 0, gold: 50000, title: Established, description: "Reach Company Level 25." }
-  - { id: veteran,       name: Veteran,         stat: level, amount: 50, xp: 0, gold: 500000, title: Veteran, description: "Reach Company Level 50." }
+  - { id: risingStar,    name: Rising Star,     stat: level, amount: 10, gold: 5000, description: "Reach Company Level 10." }
+  - { id: established,   name: Established,     stat: level, amount: 25, gold: 50000, title: Established, description: "Reach Company Level 25." }
+  - { id: veteran,       name: Veteran,         stat: level, amount: 50, gold: 500000, title: Veteran, description: "Reach Company Level 50." }
 
 # Collections: every building of the list at a level; the reward unlocks a decoration (unlock.collection in buildings.yaml)
 collections:
@@ -63,20 +59,20 @@ collections:
     name: Power of Era 1
     level: 10
     buildings: [solarPanel, windMoily, hydroWheel, coalPlant]
-    xp: 1500
+    hours: 1.5
     title: Power Collector
     description: Every Era 1 power building at level 10. Unlocks the Golden Moily.
   - id: diggingDeep
     name: Digging Deep
     level: 10
     buildings: [ironMine, copperMine, coalPit, quarry, sandDredger, lumberCamp, waterPump]
-    xp: 2000
+    hours: 2
     title: Prospector
     description: Every Era 1 extraction building at level 10. Unlocks the Crystal Obelisk.
   - id: factoryFloor
     name: Factory Floor
     level: 10
     buildings: [smallFactory, smelter, brickworks, glassworks, sawmill]
-    xp: 2000
+    hours: 2
     title: Factory Boss
     description: Every Era 1 factory at level 10. Unlocks the Golden Gear.

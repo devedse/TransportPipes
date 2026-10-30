@@ -55,7 +55,7 @@ public class SocietyFacts
     }
 
     [TestMethod]
-    public async Task APlayerAloneInAQuietStationFindsTheDistrictChatFirst()
+    public async Task APlayerAloneInAYardFindsTheTownChatFirst()
     {
         // Run 4: Mia's four greetings went to her station's channel, which held only a silent scripted Jo
         using var server = new GameServer();
@@ -65,7 +65,7 @@ public class SocietyFacts
         var chat = await mia.Invoke<ChatDto>("GetChat");
 
         Assert.AreEqual("district", chat.Channels[0].Kind, string.Join(", ", chat.Channels.Select(t => t.Kind)));
-        Assert.IsTrue(chat.Channels.Any(t => t.Kind == "station"), "the station is still there");
+        Assert.IsTrue(chat.Channels.Any(t => t.Kind == "crew"), "the Yard's chat is still there");
     }
 
     [TestMethod]
@@ -90,7 +90,7 @@ public class SocietyFacts
         // The owner hears about both in the inbox
         await TestClient.WaitFor(ann.Inbox, t => t >= 2);
         var inbox = await ann.Invoke<InboxDto>("GetInbox");
-        Assert.IsTrue(inbox.Messages.Any(t => t.Kind == "social" && t.Text.Contains("likes your estate")));
+        Assert.IsTrue(inbox.Messages.Any(t => t.Kind == "social" && t.Text.Contains("likes your plot")));
         Assert.IsTrue(inbox.Messages.Any(t => t.Kind == "guestbook" && t.Text.Contains("Lovely pipes!")));
         await ann.Invoke<object>("MarkInboxRead");
         Assert.AreEqual(0, (await ann.Invoke<InboxDto>("GetInbox")).Unread);
@@ -101,7 +101,7 @@ public class SocietyFacts
     }
 
     [TestMethod]
-    public async Task ACorporationIsFoundedJoinedAndHasItsOwnChat()
+    public async Task NeighboursAreAYardsCrewWithItsOwnChat()
     {
         using var server = new GameServer();
         var (ann, annCompany) = await PlayerAsync(server, "Annie");
@@ -109,86 +109,23 @@ public class SocietyFacts
         await using var _1 = ann;
         await using var _2 = bob;
 
-        Assert.IsFalse((await ann.Invoke<CommandResultDto>("FoundCorporation", "Pipe Guild", "PG", "#aa3355")).Success, "needs level 8");
-        await server.World.RunAsync(world =>
-        {
-            var company = world.Company(annCompany.Id)!;
-            world.GainXp(company, world.Content.Progression.XpForLevel(8) - company.Xp, "test", "test");
-            company.Gold += 20_000;
-        });
-        await ann.Command("FoundCorporation", "Pipe Guild", "pg", "#aa3355");
+        // Pick for me settles Bobby in Annie's Yard: its crew; any resident names it
+        var crew = (await bob.Invoke<CrewViewDto>("GetCrew")).Crew!;
+        Assert.HasCount(2, crew.Members);
+        Assert.IsFalse(crew.Named);
+        await bob.Command("SetYard", "Pipe Guild", "kettle", "#aa3355", "#f4ead3");
+        Assert.AreEqual("Pipe Guild", (await ann.Invoke<CompanyDto>("GetCompany")).Crew!.Name);
 
-        var corporations = await bob.Invoke<CorporationsDto>("GetCorporations");
-        var guild = corporations.District.Single();
-        Assert.AreEqual("PG", guild.Tag);
-        await bob.Command("ApplyToCorporation", guild.Id);
-        var mine = (await ann.Invoke<CorporationsDto>("GetCorporations")).Mine!;
-        Assert.AreEqual("leader", mine.YourRole);
-        Assert.AreEqual(bobCompany.Id, mine.Applications.Single().Id);
-        await ann.Command("InviteToCorporation", bobCompany.Id);
-
-        mine = (await bob.Invoke<CorporationsDto>("GetCorporations")).Mine!;
-        Assert.HasCount(2, mine.Members);
-        Assert.AreEqual("member", mine.YourRole);
-        Assert.IsNotNull(mine.Goal);
-        Assert.AreEqual("PG", (await bob.Invoke<CompanyDto>("GetCompany")).CorporationTag);
-
-        // The HQ stands in the corporation quarter of the hub
-        var district = await bob.Invoke<DistrictDto>("GetDistrict", bobCompany.DistrictX, bobCompany.DistrictY);
-        var hq = district.Hub.Single(t => t.Type == "corporationHq");
-        Assert.AreEqual("PG", hq.Label);
-        Assert.AreEqual(1, hq.Level);
-        Assert.IsTrue(district.Estates.Any(t => t.OwnerId == bobCompany.Id && t.CorporationTag == "PG"));
-
-        var channel = (await bob.Invoke<ChatDto>("GetChat")).Channels.Single(t => t.Kind == "corporation");
+        var channel = (await bob.Invoke<ChatDto>("GetChat")).Channels.Single(t => t.Kind == "crew");
         Assert.AreEqual("Pipe Guild", channel.Name);
         await bob.Command("SendChat", channel.Id, "Thanks for having me");
         Assert.AreEqual("Thanks for having me", (await TestClient.WaitFor(ann.Chat, t => t.Channel == channel.Id)).Text);
+        Assert.IsTrue((await bob.Invoke<ChatDto>("GetChat")).Channels.Any(t => t.Kind == "world"), "and the world chat");
 
         // Leaderboards list both, with you marked
         var board = await bob.Invoke<LeaderboardDto>("GetLeaderboard", LeaderboardKind.Level, true);
         Assert.AreEqual(annCompany.Id, board.Entries[0].Company);
         Assert.AreEqual(2, board.You!.Rank);
-
-        await bob.Command("LeaveCorporation");
-        Assert.IsFalse((await bob.Invoke<CommandResultDto>("SendChat", channel.Id, "still here?")).Success);
-    }
-}
-
-[TestClass]
-public class SeasonServerFacts
-{
-    [TestMethod]
-    public async Task AfterTheChapterTheNextOneStartsAndTheWorldStays()
-    {
-        using var server = new GameServer();
-        var cookie = await server.RegisterAsync("Veteran");
-        await using var client = await server.ConnectAsync(cookie);
-        await client.Command("CreateCompany", "Old Timer", "#3399ff", null, null, null, null);
-        await server.World.RunAsync(world =>
-        {
-            var company = world.Companies.Single(t => !t.IsNpc);
-            company.Gold = 5_000_000;
-            world.StartFinale();
-            world.EndSeason();
-        });
-        await server.World.SeasonAsync();
-        var season = await client.Invoke<SeasonDto>("GetSeason");
-        Assert.AreEqual(1, season.You!.Rank);
-        Assert.AreEqual("Season 1 Champion", season.You.Title);
-        var before = (await client.Invoke<HelloDto>("Hello")).Company!;
-
-        // A day later: the next chapter, in the same world
-        server.Time.Advance(TimeSpan.FromDays(1.1));
-        await server.World.SeasonAsync();
-
-        var company = (await client.Invoke<HelloDto>("Hello")).Company!;
-        Assert.AreEqual(before.Id, company.Id, "the company goes on");
-        Assert.AreEqual(before.EstateX, company.EstateX);
-        Assert.AreEqual(2, company.Season.Season);
-        Assert.IsNull(company.Season.EndedAt);
-        Assert.IsTrue(company.Titles.Contains("Season 1 Champion"));
-        Assert.IsGreaterThan(0, company.Franchise.LegacyLevel, "Legacy grows for the company that goes on");
     }
 }
 

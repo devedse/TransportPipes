@@ -6,6 +6,26 @@ namespace TransportPipes.Game.Tests;
 public class TutorialFacts
 {
     [TestMethod]
+    [DataRow(0)]
+    [DataRow(1)]
+    [DataRow(2)]
+    [DataRow(3)]
+    public void TheGateStepCompletesOnConnectionWithoutWaitingForATradeRound(int slot)
+    {
+        var game = new TestGame(content: TestGame.PlainContent, tutorial: true);
+        var company = game.NewCompany(slot: slot);
+        company.TutorialStep = game.World.Content.Tutorial.ToList().FindIndex(t => t.Id == "firstYard");
+        game.Pass(0.01);
+        Assert.AreEqual("firstYard", game.World.CurrentTutorialStep(company)!.Id);
+
+        game.ConnectToGate(company, game.TradingPost(company));
+        game.Pass(0.01);
+
+        Assert.AreEqual(0, game.World.StatValue(company, "yard"), "no trading round has run yet");
+        Assert.AreEqual("firstMine", game.World.CurrentTutorialStep(company)!.Id, "the connection itself completes the quest");
+    }
+
+    [TestMethod]
     public void LoadyGuidesStepByStepAndPaysALittleForEachStep()
     {
         var game = new TestGame(content: TestGame.PlainContent, tutorial: true);
@@ -26,35 +46,11 @@ public class TutorialFacts
     }
 
     [TestMethod]
-    public void TheStarterKitDoesntDoLoadysStepsForThePlayer()
-    {
-        // Found by the first-session run: the House's kit built the first panel, sold and built the Moily, so a newcomer
-        // never placed or piped anything before the Iron Mine
-        var game = new TestGame(tutorial: true);
-        game.World.TenantsEnabled = true;
-        game.World.OpenNextDistrict();
-        var company = game.NewCompany(gold: 2000, slot: 3);
-        Assert.IsTrue(company.KitBuildings.Count > 0, "a House left a kit");
-        game.Pass(2);
-        Assert.AreEqual("firstPanel", game.World.CurrentTutorialStep(company)!.Id, "the kit is not the player's panel");
-
-        var pipes = game.World.Conductors.Select(t => t.Pos).ToHashSet();
-        var panel = game.Build(company, "solarPanel", game.Spot(company, "solarPanel", t => !TestGame.Neighbours(t).Any(pipes.Contains)));
-        game.Pass(1);
-        Assert.AreEqual("firstSale", game.World.CurrentTutorialStep(company)!.Id, "although the kit sells already");
-
-        game.Connect(company, panel, game.TradingPost(company));
-        game.Pass(1);
-        Assert.AreEqual("firstUpgrade", game.World.CurrentTutorialStep(company)!.Id);
-    }
-
-    [TestMethod]
     public void LoadysUpgradeStepOpensABuildingWhereALevelPays()
     {
         // Run 4: "upgrade it" opened a Solar Panel whose preview said "adds nothing" (Mia-B: "a bit odd to be told to
         // upgrade something pointless")
         var game = new TestGame(tutorial: true);
-        game.World.TenantsEnabled = true;
         game.World.OpenNextDistrict();
         var company = game.NewCompany(gold: 2000, slot: 3);
         var pipes = game.World.Conductors.Select(t => t.Pos).ToHashSet();
@@ -100,6 +96,26 @@ public class TutorialFacts
     }
 
     [TestMethod]
+    public void LoadySaysHowFarTodaysOrderIs()
+    {
+        // Playtest: "I have no idea how much I'm contributing to this 2200 order now"
+        var game = new TestGame(content: TestGame.PlainContent, tutorial: true);
+        var company = game.NewCompany(gold: 100_000, level: 3);
+        company.TutorialStep = game.World.Content.Tutorial.ToList().FindIndex(t => t.Id == "firstOrder");
+        var step = game.World.CurrentTutorialStep(company)!;
+        game.Map(company, game.Local(company, 1, 1), " SSSSS\nT+++++T");
+        game.World.EnsureOrders(company);
+        var order = company.DailyOrders.Single();
+        order.Delivered = 3;
+
+        StringAssert.StartsWith(game.World.TutorialTip(company, step), $"Your energy order: 3 of {order.Amount:N0} delivered, full in about");
+
+        var storage = game.Build(company, "storage");
+        storage.Contents["energy"] = 100;
+        StringAssert.EndsWith(game.World.TutorialTip(company, step), "Your Storages have some: Deliver in the Hub's orders fills it now.");
+    }
+
+    [TestMethod]
     public void ChapterOneRetiresAtLevelTen()
     {
         var game = new TestGame(content: TestGame.PlainContent, tutorial: true);
@@ -110,7 +126,7 @@ public class TutorialFacts
 
         game.Pass(1);
         Assert.AreEqual(1, game.World.CurrentTutorialStep(climber)!.Chapter);
-        game.World.GainXp(climber, game.World.Content.Progression.XpForLevel(10) - climber.Xp, "test", "level");
+        game.ReachLevel(climber, 10);
         game.Pass(1);
 
         Assert.AreEqual(2, game.World.CurrentTutorialStep(veteran)!.Chapter, "a veteran starts with chapter 2");
@@ -119,30 +135,6 @@ public class TutorialFacts
         Assert.AreEqual(1, game.World.CurrentTutorialStep(newcomer)!.Chapter);
         Assert.IsTrue(game.World.SkipTutorial(newcomer.Id).Success);
         Assert.IsNull(game.World.CurrentTutorialStep(newcomer));
-    }
-
-    [TestMethod]
-    public void AStarterKitCountsFromStepThree()
-    {
-        var game = new TestGame(tutorial: true);
-        game.World.TenantsEnabled = true;
-        game.World.OpenNextDistrict();
-        var company = game.NewCompany(gold: 20_000, slot: 3);
-        var pipes = game.World.Conductors.Select(t => t.Pos).ToHashSet();
-        var panel = game.Build(company, "solarPanel", game.Spot(company, "solarPanel", t => !TestGame.Neighbours(t).Any(pipes.Contains)));
-        game.Connect(company, panel, game.TradingPost(company));
-        game.Pass(1);
-        Assert.AreEqual("firstUpgrade", game.World.CurrentTutorialStep(company)!.Id, "steps 1 and 2 are the player's own");
-        game.World.TakeChanges();
-
-        Assert.IsTrue(game.World.Upgrade(company.Id, panel.Id, 1).Success);
-        game.Pass(2);
-
-        Assert.AreEqual("firstMine", game.World.CurrentTutorialStep(company)!.Id, "the kit's moilies and its gate pipe do steps 4 and 5 (and the gift step passes on a world without projects)");
-        var loady = game.World.TakeChanges().Events.Where(t => t.Company == company.Id && t.Text.StartsWith("Loady")).Select(t => t.Text).ToList();
-        // The upgrade and the two steps the kit did come in the same check: one thank-you for all three
-        Assert.HasCount(1, loady, string.Join(" | ", loady));
-        StringAssert.Contains(loady[0], "starter kit already did steps 3–6");
     }
 
     [TestMethod]
@@ -167,16 +159,34 @@ public class TutorialFacts
         var tutorial = game.World.Content.Tutorial;
         var firstOfTwo = tutorial.First(t => t.Chapter == 2);
 
-        Assert.AreEqual(12, tutorial.Count(t => t.Chapter == 1), "chapter 1, with Loady's gift step (step 4 of the redesign)");
-        Assert.AreEqual(9, tutorial.Count(t => t.Chapter == 2), "with the first Copper Pipe (after run 4)");
-        Assert.AreEqual((2, 1, 9), game.World.TutorialChapter(firstOfTwo));
-        Assert.IsTrue(tutorial.SkipWhile(t => t.Chapter == 1).All(t => t.Chapter == 2), "chapter 2 comes after chapter 1");
+        Assert.AreEqual(11, tutorial.Count(t => t.Chapter == 1), "chapter 1, the first hour of 1.4 §6");
+        Assert.AreEqual(8, tutorial.Count(t => t.Chapter == 2), "with the first Copper Pipe (after run 4)");
+        Assert.AreEqual((2, 1, 8), game.World.TutorialChapter(firstOfTwo));
+        Assert.IsTrue(tutorial.Zip(tutorial.Skip(1)).All(t => t.Second.Chapter >= t.First.Chapter), "the chapters in order");
+        Assert.IsTrue(tutorial.Where(t => t.Chapter > 2).All(t => t.Era == t.Chapter - 1), "after chapter 2, a chapter for every Era (1.4 §11)");
+    }
+
+    [TestMethod]
+    public void AnErasChapterWaitsUntilYourTownGetsThere()
+    {
+        var game = new TestGame(content: TestGame.PlainContent, tutorial: true);
+        var company = game.NewCompany(level: 15);
+        var tutorial = game.World.Content.Tutorial;
+        company.TutorialStep = tutorial.ToList().FindIndex(t => t.Era == 2);
+        company.Stats["outskirtsGold"] = 1;
+
+        game.Pass(1);
+
+        Assert.AreEqual(2, game.World.TutorialWaitEra(company, game.World.CurrentTutorialStep(company)!));
+        Assert.AreEqual(tutorial.ToList().FindIndex(t => t.Era == 2), company.TutorialStep, "nothing of it counts before Era 2");
+        game.World.AdvanceEra(company.District);
+        Assert.IsNull(game.World.TutorialWaitEra(company, game.World.CurrentTutorialStep(company)!));
     }
 
     [TestMethod]
     public void AChainStepWaitsForTheLevelOfTheNextBuildingItNeeds()
     {
-        var game = new TestGame(content: TestGame.PlainContent, tutorial: true, surveys: true);
+        var game = new TestGame(content: TestGame.PlainContent, tutorial: true);
         var company = game.NewCompany(level: 4);
         var copper = game.World.Content.Tutorial.Single(t => t.Id == "copperIngots");
         CollectionAssert.AreEqual(new[] { "copperMine", "coalPit", "smelter" }, copper.HintBuildings.ToArray());
@@ -184,12 +194,9 @@ public class TutorialFacts
         Assert.AreEqual(5, game.World.TutorialWaitLevel(company, copper), "the Copper Mine comes at Level 5");
         company.Level = 5;
         Assert.IsNull(game.World.TutorialWaitLevel(company, copper));
-        game.Build(company, "copperMine");
-        game.Build(company, "coalPit");
+        game.Build(company, "copperMine", game.Seed(company, "copperOre"));
+        game.Build(company, "coalPit", game.Seed(company, "coal"));
         Assert.AreEqual(6, game.World.TutorialWaitLevel(company, copper), "then the Smelter, at Level 6");
-
-        var corporation = game.World.Content.Tutorial.Single(t => t.Id == "corporation");
-        Assert.AreEqual(GameWorld.CorporationFoundLevel, game.World.TutorialWaitLevel(company, corporation));
     }
 
     [TestMethod]

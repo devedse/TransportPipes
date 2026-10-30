@@ -13,15 +13,15 @@ public static partial class GameViews
     /// <summary>The order of the card's sections</summary>
     private static readonly string[] ReturnSections = ["people", "social", "crew", "project", "look", "invest", "orders", "today"];
 
-    /// <summary>What the card needs from before the Hello woke the company and started its next report</summary>
-    public sealed record AwayFacts(TimeSpan Away, CompanyReport Report, string? StandIn, bool WasAsleep, bool FromIsles);
+    /// <summary>What the card needs from before the Hello started the company's next report</summary>
+    public sealed record AwayFacts(TimeSpan Away, CompanyReport Report);
 
     /// <summary>
     /// The return card (F5): one card for every return with news, built on the server's clock. Gold and level, then at
-    /// most six lines in this order: your people (a stand-in, resting friends, who moved in, who took your goods, a
-    /// tend, who answered you in the district chat), what to look at (storm damage with Repair all, a stuck building,
-    /// crates, a full storage), the project, a social line, today in the district, and the Invest line. When there are
-    /// more, the lowest go first: the Invest line, then today.
+    /// most six lines in this order: your people (who moved in, who bought your goods, whose goods ran your buildings,
+    /// who answered you in the town chat), what to look at (storm damage with Repair all, a stuck building, crates, a
+    /// full storage), the Era, a social line, today in the town, and the Invest line. When there are more, the lowest go
+    /// first: the Invest line, then today.
     /// </summary>
     public static ReturnCardDto? ReturnCard(GameWorld world, Company me, AwayFacts away, string? chatLine)
     {
@@ -32,58 +32,22 @@ public static partial class GameViews
         string Kind(Building building) => world.Content.Building(building.Type).Name;
 
         // Your people
-        if (away.StandIn != null)
-        {
-            Add(1, "people", "⚙", $"{away.StandIn} stood in for you: your neighbours' trades with you went on");
-        }
-        // Friends and neighbours who rest: their seat is kept, and from day 30 a stand-in keeps your trades going
-        var mates = (world.CrewOf(me) is { } crew ? world.CrewMembers(crew) : [])
-            .Concat(world.EstateOf(me) is { } home ? world.StationPlayers(home.Station) : [])
-            .Where(t => t.Id != me.Id && !t.IsNpc && world.ActivityOf(t) != Activity.Active)
-            .DistinctBy(t => t.Id);
-        var resting = new List<string>();
-        foreach (var mate in mates)
-        {
-            if (mate.StandIn is { } standIn)
-            {
-                Add(2, "people", "⚙", $"{world.NameFor(mate, me)} is resting: {standIn.Name} stands in, so your trades go on");
-            }
-            else if (mate.StandInAnnounced)
-            {
-                Add(2, "people", "⚙", $"{world.NameFor(mate, me)} hasn't played for three weeks: from next week a stand-in House keeps your trades going");
-            }
-            else
-            {
-                resting.Add(world.NameFor(mate, me));
-            }
-        }
-        if (resting.Count > 0)
-        {
-            Add(4, "people", "💤", resting.Count == 1 ? $"{resting[0]} is resting: the seat is kept" : $"{And(resting)} are resting: their seats are kept");
-        }
         if (report.NewNeighbours.Count > 0)
         {
             Add(2, "people", "🏘", $"{And(report.NewNeighbours.Distinct().Take(3).ToList())} moved in next door");
         }
         // What your goods did for them, as a sale with its money (run 2: "X took N of your energy" read as taking without
-        // asking); the first time they ran a neighbour's building by themselves: make it yours, Send ▸. The first such
-        // line says once that the Yard sells your spare by itself.
+        // asking). The first such line says once that the Yard sells your spare by itself.
         var taken = report.SoldToUnits
             .Select(t => (Parts: t.Key.Split(':', 2), Units: t.Value, Gold: report.SoldToGold.GetValueOrDefault(t.Key)))
             .Where(t => t.Parts.Length == 2 && long.TryParse(t.Parts[0], out _) && t.Units > 1e-6)
             .Select(t => (Buyer: world.Company(long.Parse(t.Parts[0])), Resource: t.Parts[1], t.Units, t.Gold))
-            .Where(t => t.Buyer is { IsNpc: false })
+            .Where(t => t.Buyer is { })
             .OrderByDescending(t => t.Gold)
             .Take(2)
             .ToList();
-        var why = taken.Count > 0 && !me.YardSalesExplained ? " (the Yard sells your spare to neighbours who lack it, at the one price, by itself)" : "";
-        if (taken.FirstOrDefault(t => world.OfferSendOnce(me, t.Buyer!, t.Resource)) is { Buyer: not null } offer)
-        {
-            var building = world.TradeNeed(offer.Buyer, offer.Resource);
-            Add(2, "people", "💛", $"Your {world.GoodsWord(offer.Resource)} ran {world.PossessiveFor(offer.Buyer, me)} {building ?? "buildings"} while you were away: {Amount(offer.Units)} of it, +{Amount(offer.Gold)} g{why}. Make it yours:",
-                "send", null, null, offer.Buyer.Id, offer.Resource);
-        }
-        else if (taken.Count > 0)
+        var why = taken.Count > 0 && !me.YardSalesExplained ? " (the Yard sells your spare to neighbours who lack it, at your price, by itself)" : "";
+        if (taken.Count > 0)
         {
             Add(3, "people", "🤝", string.Join("; ", taken.Select((t, i) =>
             {
@@ -98,31 +62,19 @@ public static partial class GameViews
             me.YardSalesExplained = true;
             me.Touch();
         }
-        // What a neighbour's goods did for you: the biggest, with 💛 Thanks (run 2: Dev asked how to feed the Lab that Ana's
-        // ingots were feeding, and Thanks was never pressed)
+        // What a neighbour's goods did for you: the biggest (run 2: Dev asked how to feed the Lab that Ana's ingots were
+        // feeding)
         var got = report.BoughtFromUnits
             .Select(t => (Parts: t.Key.Split(':', 2), Units: t.Value))
             .Where(t => t.Parts.Length == 2 && long.TryParse(t.Parts[0], out _) && t.Units > 1e-6)
             .Select(t => (Seller: world.Company(long.Parse(t.Parts[0])), Resource: t.Parts[1], t.Units))
-            .Where(t => t.Seller is { IsNpc: false })
+            .Where(t => t.Seller is { })
             .OrderByDescending(t => t.Units * world.BasePrice(t.Resource))
             .FirstOrDefault();
         if (got.Seller is { } giver)
         {
             var building = world.TradeNeed(me, got.Resource);
-            Add(2, "people", "💛", $"{world.PossessiveFor(giver, me)} {world.GoodsWord(got.Resource)} ran your {building ?? "buildings"} while you were away: {Amount(got.Units)} of it",
-                world.ThankedToday(me, giver.Id) ? null : "thank", null, null, giver.Id, got.Resource, world.NameFor(giver, me));
-        }
-        // Goods that stood a stage, named at both ends (after run 4: Mia-B's wood finished the crew's Water Tower and Ben's
-        // sand filled a fifth of it, and no card said so): a neighbour's or a stranger's in yours, with Thanks, and yours
-        if (report.StageGifts.FirstOrDefault(t => t.Giver != me.Id) is { } stoodBy && world.Company(stoodBy.Giver) is { IsNpc: false } builder)
-        {
-            Add(2, "people", "💛", $"{world.PossessiveFor(builder, me)} {world.GoodsWord(stoodBy.Good)} built {GameWorld.ShareWords(stoodBy.Share)} of your {stoodBy.Stage}",
-                world.ThankedToday(me, builder.Id) ? null : "thank", null, null, builder.Id, stoodBy.Good, world.NameFor(builder, me));
-        }
-        if (report.StageGifts.Where(t => t.Giver == me.Id).OrderByDescending(t => t.Share).FirstOrDefault() is { } mine)
-        {
-            Add(3, "social", "💛", $"Your {world.GoodsWord(mine.Good)} built {GameWorld.ShareWords(mine.Share)} of the {mine.Stage}");
+            Add(2, "people", "🤝", $"{world.PossessiveFor(giver, me)} {world.GoodsWord(got.Resource)} ran your {building ?? "buildings"} while you were away: {Amount(got.Units)} of it");
         }
         // A running trade with a friend that fell to under half, on both cards with its cause (after run 3, row 9)
         if (world.FallsFor(me, report.Since).FirstOrDefault() is { Seller: not null } fall)
@@ -134,18 +86,6 @@ public static partial class GameViews
         {
             Add(3, "people", "💬", chatLine);
         }
-        // A friend's storm damage, with 💛 Tend (run 2: no tend happened, because nobody saw a friend's damage)
-        if ((world.CrewOf(me) is { } myCrew ? world.CrewMembers(myCrew) : []).FirstOrDefault(t => world.CanTend(me, t)) is { } hurt)
-        {
-            var count = world.TendRepairs(hurt).Count;
-            Add(3, "people", "💛", $"The storm damaged {world.PossessiveFor(hurt, me)} {(count == 1 ? Kind(world.TendRepairs(hurt)[0]) : $"{count} buildings")} while they're away",
-                "tend", null, null, hurt.Id, null, world.NameFor(hurt, me));
-        }
-        if (report.TendedDays > 0)
-        {
-            Add(4, "people", "💛", $"Your crew repaired your storm damage on {Days(report.TendedDays)}");
-        }
-
         // To look at
         var buildings = world.BuildingsOf(me.Id).Where(t => !t.UnderConstruction).ToList();
         var damaged = buildings.Where(t => t.Damaged).ToList();
@@ -201,26 +141,17 @@ public static partial class GameViews
                 "links");
         }
 
-        // A friend keeps a seat for you, and you opened its link while living elsewhere: on every return until you answer
-        // (run 3: three of Ben's cards said nothing of Ana's seat while he asked "which station am i in?")
-        if (world.KeptSeatFor(me) is { } seatKept)
-        {
-            var from = world.Company(seatKept.Crew.Founder) is { } founder ? world.NameFor(founder, me) : seatKept.Crew.Name;
-            var there = WorldNames.Station(WorldLayout.StationOf(seatKept.Hold.Seat.District, seatKept.Hold.Seat.Slot));
-            Add(1, "people", "🪑", $"{from} keeps a seat for you in {there}{(world.EstateOf(me) is { } myHome ? $" (you live in {WorldNames.Station(myHome.Station)})" : "")}: move in, free", "seat");
-        }
         // Your own scaffold, said as it is (after run 4: Dev's Big Factory and Ana's Cement Kiln read "is being built" and
         // waited to the end for bricks nobody made): what it waits for, from whom, or Order the rest
         if (world.OpenWants(me).Where(t => t.Want.Left > 1e-6).OrderByDescending(t => t.Want.Left * world.BasePrice(t.Want.Resource)).FirstOrDefault() is { Name: not null } waiting)
         {
             var good = world.GoodsWord(waiting.Want.Resource);
             var maker = world.NearPlayers(me).FirstOrDefault(c => c.Id != me.Id && world.BuildingsOf(c.Id).Any(b => !b.UnderConstruction && world.Content.Building(b.Type).Out.ContainsKey(waiting.Want.Resource)));
-            var how = waiting.Want.Order != null ? $"ordered, the hub brings them {world.OrderStartText(me, waiting.Want, me)}"
-                : maker != null ? $"{world.NameFor(maker, me)} makes {good}: the Yard brings them"
+            var how = maker != null ? $"{world.NameFor(maker, me)} makes {good}: the Yard brings them"
                 : $"nobody near makes {good}";
             Add(2, "look", "🏗", $"Your {waiting.Name} waits for {waiting.Want.Left:N0} {good}: {how}",
-                waiting.Want.Order == null && world.OrderCost(me, waiting.Target) is { } own && own <= me.Gold ? "orderWant" : "show",
-                waiting.Target > 0 ? waiting.Target : null, waiting.Want.Order == null ? world.OrderCost(me, waiting.Target) : null);
+                world.OrderCost(me, waiting.Target) is { } own && own <= me.Gold ? "orderWant" : "show",
+                waiting.Target > 0 ? waiting.Target : null, world.OrderCost(me, waiting.Target));
         }
         // A neighbour's scaffold you could help with (after run 3, step 2): your Storage at a tap, or your spare going there
         if (world.WantsNear(me).Where(t => t.Holds >= 1 || t.Makes).OrderByDescending(t => t.Holds).FirstOrDefault() is { Owner: not null } near)
@@ -237,7 +168,7 @@ public static partial class GameViews
         else
         {
             // Your station and your crew, a friend away for a month too (after run 4: crew mates elsewhere could only watch)
-            var orderable = world.WantsNear(me).Where(w => w.Want.Order == null)
+            var orderable = world.WantsNear(me)
                 .Select(w => (w.Owner, w.Target, w.Name, w.Want, Cost: world.OrderCost(me, w.Target)))
                 .Where(t => t.Cost is { } cost && cost <= me.Gold)
                 .OrderBy(t => t.Owner.CrewId != null && t.Owner.CrewId == me.CrewId ? 0 : 1)
@@ -257,50 +188,10 @@ public static partial class GameViews
         {
             Add(2, "crew", "👥", crewLine.Text, crewLine.Target != null ? "fillWant" : null, crewLine.Target);
         }
-        // The crew's side: a friend who opened your link but lives elsewhere, and where
-        if (world.CrewOf(me) is { } ownCrew)
-        {
-            foreach (var hold in ownCrew.Holds.Where(t => t.OpenedBy is { } who && who != me.Id && !t.Declined))
-            {
-                if (world.Company(hold.OpenedBy!.Value) is { } friend && friend.CrewId != ownCrew.Id)
-                {
-                    Add(2, "people", "🪑", $"{hold.FriendName ?? friend.Name} opened your link but lives in {(world.EstateOf(friend) is { } theirs ? WorldNames.Station(theirs.Station) : "another station")}: send it again from the Crew panel, or visit", "crew");
-                    break;
-                }
-            }
-        }
-
         // How the last Era ended, and your part (after run 3, step 5: "Era 1 ended without me knowing the Dynamo result")
-        if (me.EraEnded is { } ended && world.EraStartedAt >= report.Since)
+        if (me.EraEnded is { } ended && world.TownAt(me.District).EraStartedAt >= report.Since)
         {
             Add(1, "project", "🏛", ended);
-        }
-
-        // The project
-        if (world.ProjectsEnabled && world.EstateOf(me) is { } estate && world.ExistingProject(estate.Station) is { } project)
-        {
-            var stood = project.Finished.Where(t => t.Value >= report.Since && t.Key != ProjectStage.Storey).OrderBy(t => t.Value).Select(t => GameWorld.StageName(t.Key)).ToList();
-            // The Landmark's storeys (after run 4): one that rose while you were away, with its plaque; else the open one's purse
-            var rose = project.Plaques.Where(t => t.At >= report.Since).ToList();
-            if (rose.Count > 0)
-            {
-                var plaque = rose[^1].Hours.OrderByDescending(t => t.Value).Take(3)
-                    .Select(t => world.Company(t.Key) is { } who ? $"{(who.Id == me.Id ? "you" : world.NameFor(who, me))} {GameWorld.HoursWords(t.Value)}" : null).OfType<string>().ToList();
-                Add(1, "project", "🏗", $"Your Landmark rose to storey {rose[^1].Number}{(plaque.Count > 0 ? $" ({And(plaque)})" : "")} 💛: its pipes carry +{Math.Min(GameWorld.MaxStoreyPipeBonus, GameWorld.StoreyPipeBonus * project.Storeys) * 100:0}% now", "project");
-            }
-            else if (project.Stage == ProjectStage.Storey && GameWorld.PurseLeft(project) >= 1)
-            {
-                Add(2, "project", "🏗", $"Storey {project.Storeys + 1} of your Landmark: its purse wants {Amount(GameWorld.PurseLeft(project))} g more, given in hours of your income", "project");
-            }
-            if (stood.Count > 0)
-            {
-                Add(2, "project", "🏗", $"The {And(stood)} stood while you were away: every seat makes {world.ProjectBonus(project) * 100:0}% more now", "project");
-            }
-            else if (Week(world, me) is { } week)
-            {
-                // The shared goal's blocker leads when you can unblock it (after run 3, row 11), else it folds
-                Add(week.Step != null ? 2 : 5, "project", "🏗", week.Text.Replace("🏗", "").Trim(), "project");
-            }
         }
 
         // Hub orders show once they are filled, never as a task (after run 3, step 7)
@@ -310,18 +201,14 @@ public static partial class GameViews
             Add(4, "orders", "📋", $"Your {And(goods)} filled {Plural(report.OrdersCompleted, "hub order")} at twice the price: +{report.OrderGold:N0} g over the hub's");
         }
 
-        // The social line: who thanked you, who of your crew came to look, else who liked your estate
-        if (report.Thanks.Count > 0)
+        // The social line: who of your crew came to look, else who liked your plot
+        if (report.VisitedBy.Count > 0)
         {
-            Add(3, "social", "💛", report.Thanks.Count == 1 ? report.Thanks[0] : $"{report.Thanks[^1]}, and {report.Thanks.Count - 1} more thanks");
-        }
-        else if (report.VisitedBy.Count > 0)
-        {
-            Add(3, "social", "👁", $"{And(report.VisitedBy.Take(3).ToList())} visited your estate 💛");
+            Add(3, "social", "👁", $"{And(report.VisitedBy.Take(3).ToList())} visited your plot 💛");
         }
         else if (report.LikesReceived > 0)
         {
-            Add(5, "social", "♥", $"{Plural(report.LikesReceived, "visitor")} liked your estate");
+            Add(5, "social", "♥", $"{Plural(report.LikesReceived, "visitor")} liked your plot");
         }
 
         // Today here: what happened in the district since you left, for everybody to see
@@ -342,15 +229,18 @@ public static partial class GameViews
                 .OrderByDescending(t => world.Content.Building(t.Type).Out.Sum(o => o.Value * world.BasePrice(o.Key)) * world.Content.Progression.OutputMultiplier(t.Level))
                 .Take(6)
                 .ToList();
-            // Everything that pays back within a week, in one tap (after run 4: Ben came back to 13M and spent 3.4k one
+            // Everything that pays back within five days, in one tap (after run 4: Ben came back to 13M and spent 3.4k one
             // Max at a time); it leads the card's money line
             var plan = world.PlanGrowth(me);
             if (plan.Parts.Count > 0)
             {
-                Add(7, "invest", "💡", $"Grow everything that pays: about +{Amount(plan.Gain)} g/min for {Amount(plan.Cost)} g ({Math.Max(1, Math.Round(100 * plan.Cost / Math.Max(1, me.Gold))):0}% of your gold) · {Plural(plan.Parts.Count, "building")}",
+                var land = plan.Parts.Any(t => t.Parcel != null || t.Outskirts != null);
+                var grown = plan.Parts.Count(t => t.Parcel == null && t.Outskirts == null);
+                var what = string.Join(" and ", new[] { land ? "a new parcel" : null, grown > 0 ? Plural(grown, "building") : null }.OfType<string>());
+                Add(7, "invest", "💡", $"Grow everything that pays: about +{Amount(plan.Gain)} g/min for {Amount(plan.Cost)} g ({Math.Max(1, Math.Round(100 * plan.Cost / Math.Max(1, me.Gold))):0}% of your gold) · {what}",
                     "grow", null, plan.Cost);
             }
-            else if (producers.FirstOrDefault(t => world.IdleReasonOf(t).Cause is IdleCause.PipeFull or IdleCause.PostFull) is { } held)
+            else if (producers.FirstOrDefault(t => world.IdleReasonOf(t).Cause is IdleCause.PipeFull) is { } held)
             {
                 var reason = world.IdleReasonOf(held);
                 var good = reason.Resource ?? world.Content.Building(held.Type).Out.Keys.First();
@@ -365,7 +255,7 @@ public static partial class GameViews
         }
 
         // The card leads with what matters and folds the rest (after run 3, row 11, and the designers' rule): one line about
-        // people (a friend's want, a gift, a Thanks), the crew's line, the shared goal when it stood or you can unblock
+        // people (a friend's want, a sale), the crew's line, the shared goal when it stood or you can unblock
         // it, one-tap fixes, one "what stops you"
         var lead = lines.Where(t => t.Line.Kind is "people" or "social").OrderBy(t => t.Rank).Take(1)
             .Concat(lines.Where(t => t.Line.Kind == "crew").Take(1))
@@ -389,15 +279,11 @@ public static partial class GameViews
         var folded = lines.Select(t => t.Line).Where(t => !lead.Contains(t)).OrderBy(t => Array.IndexOf(ReturnSections, t.Kind)).ToList();
 
         var fine = new List<string>();
-        if (away.WasAsleep)
-        {
-            fine.Add("From day 30 your estate rested: it made nothing, and nothing was lost.");
-        }
         if (report.ResearchDone.Count > 0)
         {
             fine.Add($"Research done: {And(report.ResearchDone)}.");
         }
-        if (report.GoldEarned < 1 && report.LevelsGained == 0 && shown.Count == 0 && folded.Count == 0 && !away.FromIsles)
+        if (report.GoldEarned < 1 && report.LevelsGained == 0 && shown.Count == 0 && folded.Count == 0)
         {
             return null;
         }
@@ -409,17 +295,16 @@ public static partial class GameViews
             me.Level,
             fine,
             shown,
-            away.FromIsles ? Landing(world, me) : [],
             report.GoldEarned < 1 && away.Away >= GameWorld.RestingAfter
-                ? "Your estate waited for you. Pipe your buildings to your Trading Post (or your Yard gate) and they earn while you're away."
+                ? "Your plot waited for you. Pipe your buildings to your Trading Post (or your Yard gate) and they earn while you're away."
                 : null,
             folded);
     }
 
     /// <summary>
     /// The crew in one line, built from what it does now, not its chat (after run 3, row 11: Ben, "a wall of 30+ messages
-    /// … I understood little"): what friends bring to a shared goal, a friend's want, what the station's project waits on,
-    /// and what you could send ("Your crew: Cleo brings bricks to the Great Dynamo · Ana's Market Hall wants 100 bricks")
+    /// … I understood little"): what friends bring to a shared goal, a friend's want, and what you could send ("Your
+    /// crew: Cleo brings bricks to the Great Dynamo · Ana's Market Hall wants 100 bricks")
     /// </summary>
     private static (string Text, long? Target)? CrewLine(GameWorld world, Company me, IReadOnlySet<long?> offered)
     {
@@ -427,32 +312,23 @@ public static partial class GameViews
         {
             return null;
         }
-        var mates = world.CrewMembers(crew).Where(t => t.Id != me.Id && !t.IsNpc && world.IsActive(t)).ToList();
+        var mates = world.CrewMembers(crew).Where(t => t.Id != me.Id && world.IsActive(t)).ToList();
         if (mates.Count == 0)
         {
             return null;
         }
         var parts = new List<string>();
-        var project = world.EstateOf(me) is { } home ? world.ExistingProject(home.Station) : null;
         foreach (var mate in mates)
         {
-            if (world.EraWonder is { } wonder && wonder.Incoming.GetValueOrDefault(mate.Id)?.Where(t => t.Value > 1e-9).Select(t => t.Key).FirstOrDefault() is { } toWonder)
+            if (world.WonderOf(me.District) is { } wonder && wonder.Incoming.GetValueOrDefault(mate.Id)?.Where(t => t.Value > 1e-9).Select(t => t.Key).FirstOrDefault() is { } toWonder)
             {
                 parts.Add($"{world.NameFor(mate, me)} brings {world.GoodsWord(toWonder)} to the {world.WonderDefinition(wonder).Name.Replace("The ", "")}");
-            }
-            else if (project?.Incoming.GetValueOrDefault(mate.Id)?.Where(t => t.Value > 1e-9).Select(t => t.Key).FirstOrDefault() is { } toProject)
-            {
-                parts.Add($"{world.NameFor(mate, me)} brings {world.GoodsWord(toProject)} to the {GameWorld.StageName(project.Stage)}");
             }
         }
         if (mates.SelectMany(t => world.OpenWants(t).Where(w => !offered.Contains(w.Target)).Select(w => (Mate: t, w.Name, w.Want)))
                 .OrderByDescending(t => t.Want.Left * world.BasePrice(t.Want.Resource)).FirstOrDefault() is { Mate: not null } want)
         {
             parts.Add($"{world.PossessiveFor(want.Mate, me)} {want.Name} wants {Amount(want.Want.Left)} {world.GoodsWord(want.Want.Resource)}");
-        }
-        if (project is { Keystone: { } keystone } && project.Delivered.GetValueOrDefault(keystone) < project.Basket.GetValueOrDefault(keystone) * 0.995)
-        {
-            parts.Add($"the {GameWorld.StageName(project.Stage)} waits on {world.GoodsWord(keystone)}");
         }
         if (parts.Count == 0)
         {
@@ -462,7 +338,7 @@ public static partial class GameViews
         return ($"Your crew: {string.Join(" · ", parts.Take(3))}{(near.Owner != null ? $" · you could send your {world.GoodsWord(near.Want.Resource)}" : "")}", near.Owner != null ? near.Target : null);
     }
 
-    /// <summary>Up to three public things of a company's district since a moment: its events, the stations' finished stages, newcomers</summary>
+    /// <summary>Up to three public things of a company's town since a moment: its events</summary>
     private static List<string> TodayHere(GameWorld world, Company me, CompanyReport report)
     {
         var since = report.Since;
@@ -474,8 +350,6 @@ public static partial class GameViews
         // Only what you can act on (after run 3, row 11): other stations' stages and newcomers are no news for you
         return items.OrderByDescending(t => t.At).Take(3).Select(t => t.Text).ToList();
     }
-
-    private static string Days(int days) => days == 1 ? "1 day" : $"{days} days";
 
     private static string Plural(int count, string one) => count == 1 ? $"1 {one}" : $"{count} {one}s";
 

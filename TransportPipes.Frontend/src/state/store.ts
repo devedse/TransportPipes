@@ -1,22 +1,24 @@
 import { createStore } from "zustand/vanilla";
 import { useStore } from "zustand";
 import type {
+  NextToMeDto,
   BuildingDetailsDto,
   ChatDto,
   ChatMessageDto,
   NextStepDto,
   CompanyDetailsDto,
   OutpostCheckDto,
-  SeasonDto,
   CompanyDto,
-  ContractsDto,
-  CorporationsDto,
   EstateVisitDto,
   ExchangeDto,
   InboxDto,
   LeaderboardDto,
   LeaderboardKind,
-  WondersDto,
+  StatisticsDto,
+  StatsRange,
+  TownDto,
+  TrackStateDto,
+  LinesDto,
   GoldUsesDto,
   MarketDto,
   NeighbourDto,
@@ -28,10 +30,9 @@ import type {
   LinksDto,
   MapLinkDto,
   ReturnCardDto,
-  ProjectDto,
   CrewViewDto,
-  HeldSeatDto,
-  InviteDto,
+  SeatRefDto,
+  SeatState,
 } from "../api/contracts";
 import type { ConnectionStatus } from "../api/server";
 import type { Content } from "../game/content";
@@ -40,6 +41,20 @@ import type { TilePosition } from "../game/isometric";
 import type { Placement } from "../game/rules";
 
 export type Phase = "loading" | "login" | "found" | "playing" | "error";
+
+/**
+ * Picking a plot on the map (1.4 §6): to start, or to move. The map shows the plots of the towns the picker loaded (by
+ * "x,y,slot") as free, closed, taken or yours, and the chosen one; a tap on a plot chooses it.
+ */
+export interface PickerState {
+  mode: "start" | "move";
+  seats: Record<string, SeatState>;
+  chosen: SeatRefDto | null;
+}
+
+export function seatKey(seat: SeatRefDto): string {
+  return `${seat.districtX},${seat.districtY},${seat.slot}`;
+}
 
 export type HubTab = "orders" | "market" | "calendar" | "wonders" | "exchange";
 
@@ -75,17 +90,20 @@ export interface AppState {
   nextSteps: NextStepDto[];
   /** The list of mouse actions and keys */
   keysOpen: boolean;
+  /** What's new: the changes since the player last looked (after an update), or the latest (version badge) */
+  whatsNewOpen: false | "new" | "latest";
   buildingDetails: BuildingDetailsDto | null;
   selectedParcel: number | null;
   /** Which of the company's estates the selected parcel belongs to (0 is the first, then the branches) */
   selectedParcelEstate: number;
+  /** One of the nine outskirts parcels set aside for your plot (1.4 §5), to buy */
+  selectedOutskirts: number | null;
   selectedNetwork: number | null;
   /** The Yard panel: your station, its residents and your trades with them */
   yardOpen: boolean;
   yard: YardDto | null;
   /** The Yard panel's tab: your station, or your links to other stations */
-  yardTab: "yard" | "links" | "project";
-  project: ProjectDto | null;
+  yardTab: "yard" | "links";
   /** The return card (F5): what happened since the last session, until the player continues */
   returnCard: ReturnCardDto | null;
   /** When the player last left (the chat marks what came since) */
@@ -111,17 +129,21 @@ export interface AppState {
   helpOpen: boolean;
   researchOpen: boolean;
   research: ResearchStateDto[];
+  /** The Lab's tracks (1.4 §12), loaded with the research panel */
+  tracks: TrackStateDto[];
   hubOpen: boolean;
   hubTab: HubTab;
   market: MarketDto | null;
-  wonders: WondersDto | null;
+  /** Your town (1.4 §11, §13): its Era, its Wonder, your Yard's Monuments */
+  town: TownDto | null;
+  /** Your town's trunk lines (1.4 §20) */
+  lines: LinesDto | null;
   /** What your gold can do (after run 4), loaded when the top bar's gold is opened */
   goldUses: GoldUsesDto | null;
   exchange: ExchangeDto | null;
   neighboursOpen: boolean;
-  neighboursTab: "neighbours" | "contracts" | "board" | "trade";
+  neighboursTab: "neighbours" | "trade";
   neighbours: NeighbourDto[];
-  contracts: ContractsDto | null;
   /** A pipe route the player is looking at (Connect), drawn on the map until it is built or dropped */
   plannedRoute: TilePosition[] | null;
   plannedPartner: number | null;
@@ -131,19 +153,18 @@ export interface AppState {
   justBuilt: { x: number; y: number; size: number; name: string } | null;
   plannedDone: string | null;
 
-  corporationOpen: boolean;
-  /** Your crew (v1.2 §6): its members, held seats with their codes, its invite link */
+  /** Your Yard's crew (1.4 §7): its name and banner, open or closed, its residents, the requests, your link */
   crewOpen: boolean;
   crew: CrewViewDto | null;
-  /** The seat code or crew link this visit came with, and what it opens */
-  invite: { code: string; dto: InviteDto } | null;
-  /** The codes of the seats held for friends right after starting with them (the share screen) */
-  shareCodes: HeldSeatDto[] | null;
+  /** The "Play next to me" link this visit came with, and what it opens */
+  invite: { code: string; dto: NextToMeDto } | null;
+  picker: PickerState | null;
+  /** Counts up when the picker must load its town again (a plot taken a moment ago) */
+  pickerReload: number;
   /** The form that turns a guest into an account */
   keepOpen: boolean;
-  /** A guest reached a keep level: the top bar's "Keep my estate" glows until it is tapped */
+  /** A guest reached a keep level: the top bar's "Keep my plot" glows until it is tapped */
   keepNudge: boolean;
-  corporations: CorporationsDto | null;
   companyOpen: boolean;
   companyDetails: CompanyDetailsDto | null;
   blueprintsOpen: boolean;
@@ -166,14 +187,17 @@ export interface AppState {
   /** A Company Level just reached: the celebration shows */
   levelUp: number | null;
   outpostCheck: OutpostCheckDto | null;
-  /** The season results, shown when the season ended */
-  season: SeasonDto | null;
-  seasonOpen: boolean;
   moderationOpen: boolean;
   leaderboardOpen: boolean;
   leaderboardKind: LeaderboardKind;
   leaderboardDistrict: boolean;
   leaderboard: LeaderboardDto | null;
+  /** Statistics (docs/design-notes/statistics.md): whose (null: yours), the range, the graph shown, the numbers */
+  statsOpen: boolean;
+  statsCompany: number | null;
+  statsRange: StatsRange;
+  statsMetric: string;
+  stats: StatisticsDto | null;
   /** The company whose estate the player visits */
   visiting: number | null;
   visit: EstateVisitDto | null;
@@ -206,14 +230,15 @@ export const initialState: AppState = {
   selection: [],
   nextSteps: [],
   keysOpen: false,
+  whatsNewOpen: false,
   buildingDetails: null,
   selectedParcel: null,
   selectedParcelEstate: 0,
+  selectedOutskirts: null,
   selectedNetwork: null,
   yardOpen: false,
   yard: null,
   yardTab: "yard",
-  project: null,
   returnCard: null,
   leftAt: null,
   links: null,
@@ -232,29 +257,29 @@ export const initialState: AppState = {
   helpOpen: false,
   researchOpen: false,
   research: [],
+  tracks: [],
   hubOpen: false,
   hubTab: "orders",
   market: null,
-  wonders: null,
+  town: null,
+  lines: null,
   goldUses: null,
   exchange: null,
   neighboursOpen: false,
   neighboursTab: "neighbours",
   neighbours: [],
-  contracts: null,
   plannedRoute: null,
   plannedPartner: null,
   plannedTarget: null,
   justBuilt: null,
   plannedDone: null,
-  corporationOpen: false,
   crewOpen: false,
   crew: null,
   invite: null,
-  shareCodes: null,
+  picker: null,
+  pickerReload: 0,
   keepOpen: false,
   keepNudge: false,
-  corporations: null,
   companyOpen: false,
   companyDetails: null,
   blueprintsOpen: false,
@@ -269,13 +294,16 @@ export const initialState: AppState = {
   mapShown: false,
   timeOfDay: "day",
   outpostCheck: null,
-  season: null,
-  seasonOpen: false,
   moderationOpen: false,
   leaderboardOpen: false,
   leaderboardKind: "netWorth",
   leaderboardDistrict: true,
   leaderboard: null,
+  statsOpen: false,
+  statsCompany: null,
+  statsRange: "week",
+  statsMetric: "income",
+  stats: null,
   visiting: null,
   visit: null,
   inboxOpen: false,
@@ -293,9 +321,9 @@ export const MODALS = {
   researchOpen: false,
   hubOpen: false,
   neighboursOpen: false,
-  corporationOpen: false,
   crewOpen: false,
   leaderboardOpen: false,
+  statsOpen: false,
   companyOpen: false,
   blueprintsOpen: false,
   moderationOpen: false,
@@ -318,6 +346,7 @@ const SIDE_PANELS = {
   selectedNetwork: { selectedNetwork: null, networkDetails: null },
   yardOpen: { yardOpen: false },
   selectedParcel: { selectedParcel: null },
+  selectedOutskirts: { selectedOutskirts: null },
   selectedDeepParcel: { selectedDeepParcel: null },
   wildTile: { wildTile: null, outpostCheck: null },
   visiting: { visiting: null, visit: null },

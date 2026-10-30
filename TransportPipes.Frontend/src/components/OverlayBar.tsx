@@ -39,7 +39,7 @@ export function OverlayBar() {
         <OverlayChips overlay={overlay} />
       </div>
       {overlay === "deposits" && (
-        // After run 4: "the map is full of forest around my estate but Lumber Camp says no wood on my land"
+        // After run 4: "the map is full of forest around my plot but Lumber Camp says no wood on my land"
         <div className="overlay-legend small" aria-label="deposits legend">
           Coloured: what you can mine or cut, brighter is richer · green-grey trees are scenery, no wood
         </div>

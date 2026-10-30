@@ -79,14 +79,44 @@
 - { id: hub-contractBoard, size: 2, look: "a timber pavilion with a big notice board full of pinned contracts and a little bench" }
 - { id: hub-tradingHouse, size: 2, look: "a merchant's trading house: a warm brick building with a shop front, crates and sacks outside, an awning" }
 - { id: hub-park, size: 3, look: "a little town park: green lawn, a round fountain in the middle, trees, benches and flower beds, paths" }
+- { id: hub-gateTower, size: 2, look: "a town gate tower: a square gatehouse tower of warm grey stone, three storeys, crenellations on top with a tall pennant flag, a big arched niche with an iron lantern at the bottom, small arched windows; two of them flank the road where it enters the town" }
 - { id: town-house1, size: 1, look: "a narrow cozy townhouse of red brick with a dark roof and glowing windows" }
 - { id: town-house2, size: 1, look: "a narrow cozy townhouse painted cream with a teal roof and a flower box" }
 - { id: town-house3, size: 1, look: "a small corner shop with a striped awning and a bakery sign without letters" }
 - { id: town-stall, size: 1, look: "a small market stall with fruit and vegetables under a red awning" }
 - { id: town-tree, size: 1, look: "a round tree in a square stone planter on paving" }
+# A Diamond builder's statue in the hub (1.4 §13): three looks, the plinth's sash takes the builder's colour in the game
+- { id: hub-statue-1, size: 1, look: "a bronze statue of a proud engineer in a long coat holding up a rolled blueprint, on a tall square plinth of pale carved stone with a small laurel wreath, on a paved plate" }
+- { id: hub-statue-2, size: 1, look: "a bronze statue of a sturdy smith resting a big hammer on one shoulder, on a tall square plinth of pale carved stone with a small brass cogwheel emblem, on a paved plate" }
+- { id: hub-statue-3, size: 1, look: "a bronze statue of a cheerful pipe fitter holding a large wrench and a coil of pipe, on a tall square plinth of pale carved stone with a small brass valve wheel emblem, on a paved plate" }
 # A station's project (v1.2 §12): one shared building in the corner of the station's Yard, growing stage by stage
 - { id: hub-project-foundation, size: 4, look: "the first stage of a shared village building: a wide square stone foundation platform with a low wall, a few stacked stone blocks and timber beams, a small wooden crane and a surveyor's flag, the start of something big; warm and hopeful" }
 - { id: hub-project-waterTower, size: 4, look: "a charming village water tower on a square stone base: a round riveted copper tank on four sturdy brick legs, a ladder, a little pointed roof with a weather vane, pipes running down into the base, a small pump house beside it" }
 - { id: hub-project-workshop, size: 4, look: "a shared village workshop on a square stone base: a long brick hall with big arched wooden doors, a sawtooth roof with skylights, a chimney with a wisp of smoke, workbenches and crates of tools outside, beside the water tower's base" }
 - { id: hub-project-foundryHall, size: 4, look: "a grand foundry hall on a square stone base: a tall brick and iron hall with tall glowing windows, two brick chimneys with smoke, a big crane arm, molten-orange light from the open doors, stacks of ingots" }
 - { id: hub-project-landmark, size: 4, look: "a magnificent village landmark on a square stone base: an ornate clock tower of pale stone and brass with a copper dome, coloured banners, a fountain at its foot, arches and lanterns, the proud heart of the station" }
+# 1.4: the Era 2 pit and works, the Yard's Depot, and the later Eras' works
+- { id: bauxitePit, size: 1, look: "a bauxite pit: a small open pit in red-brown earth with terraced reddish bauxite rock, a little electric digger with a bucket arm and a heap of red-brown ore, a painted steel cable pole" }
+- { id: aluminiumWorks, size: 2, look: "an aluminium smelter of the electric age: a long low potline hall with a row of roof vents, thick electric cables from a transformer with porcelain insulators, a tall thin chimney, stacks of shiny silver aluminium ingots outside" }
+- { id: yardDepot, size: 2, look: "a shared depot for a group of neighbours: a sturdy brick warehouse with a wide open sliding timber door, a small wooden loading crane, crates, barrels and sacks of goods on pallets in front, a cheerful striped awning and a little flag on the roof" }
+- { id: motorWorks, size: 2, look: "a motor works of the oil and machine age: a factory hall with a sawtooth roof and big windows, a test stand with a large electric motor with copper windings in front, gears and drive shafts stacked beside it, a small oil tank" }
+- { id: batteryWorks, size: 2, look: "a battery works of the electronics age: a clean modern factory with white walls, blue glass panels and a flat roof with vents, rows of big green-and-white cylindrical battery cells on racks outside, a small humming transformer" }
+- { id: titaniumMine, size: 2, look: "a titanium mine of the space age at the foot of a mountain: a cut into dark grey rock with a sleek white headframe, a covered conveyor and a heap of dark metallic grey ore glinting in the light" }
+- { id: titaniumWorks, size: 2, look: "a titanium works of the space age: a futuristic refinery with tall white rounded reactor vessels, glowing pale blue windows and pipes, a loading pad with silvery titanium sponge blocks" }
+- { id: spaceframeWorks, size: 3, look: "a spaceframe works of the space age: a huge white assembly hall with a giant open gantry crane where a white lattice spaceframe truss segment is being built by orange robot arms, glowing blue light strips, very clean and futuristic" }
+# 1.4 §13: the Yard's Monuments, each in three sizes as its stages grow (1–2, 3–9, 10 and more)
+- { id: monument-grandFountain-1, size: 3, look: "a small town fountain on a round stone plaza: a low octagonal basin of pale stone with a single jet of sparkling water, two benches and flower tubs" }
+- { id: monument-grandFountain-2, size: 3, look: "a fine town fountain on a round stone plaza: a two-tier basin of pale carved stone with bronze dolphins spouting water, lanterns, benches and flower beds around it" }
+- { id: monument-grandFountain-3, size: 3, look: "a grand monumental fountain on a wide stone plaza: three tiers of carved marble basins, gilded statues and many sparkling jets, mosaic paving, ornate lanterns and colourful flower beds" }
+- { id: monument-clockTower-1, size: 3, look: "a small clock tower on a stone plaza: a slim brick tower with a white clock face and a little copper roof, a bench at its foot" }
+- { id: monument-clockTower-2, size: 3, look: "a handsome clock tower on a stone plaza: a tall brick and stone tower with four clock faces, a bell in an open belfry, a pointed copper roof with a weather vane" }
+- { id: monument-clockTower-3, size: 3, look: "a magnificent clock tower on a grand plaza: a very tall ornate stone tower with gilded clock faces, a carillon of bells, a verdigris spire and flags, arcades and lanterns at its base" }
+- { id: monument-observatory-1, size: 3, look: "a small observatory on a stone plaza: a round stone hut with a little white dome and a brass telescope peeking out" }
+- { id: monument-observatory-2, size: 3, look: "an observatory on a stone plaza: a round stone building with a big white dome open to the sky, a large brass telescope, an armillary sphere in front" }
+- { id: monument-observatory-3, size: 3, look: "a grand observatory on a plaza: a tall domed tower of pale stone with a huge brass telescope, two smaller domes, a giant golden armillary sphere and star-pattern mosaic paving" }
+- { id: monument-workshop-1, size: 3, look: "a small guild workshop on a stone plaza: a timber-framed shed with a big cogwheel sign, a workbench and tools outside" }
+- { id: monument-workshop-2, size: 3, look: "a guild workshop hall on a stone plaza: a brick hall with a sawtooth roof, a giant brass cogwheel monument in front, a crane arm and crates" }
+- { id: monument-workshop-3, size: 3, look: "a grand guild hall of makers on a plaza: an ornate brick and iron hall with huge interlocking golden cogwheels turning on its facade, a tall chimney, banners and a statue of a smith" }
+- { id: monument-lighthouse-1, size: 3, look: "a small beacon tower on a stone plaza: a short white and red striped tower with a lantern room on top" }
+- { id: monument-lighthouse-2, size: 3, look: "a lighthouse on a stone plaza: a tall white and red striped tower with a glowing lantern room and a gallery, a little keeper's cottage beside it" }
+- { id: monument-lighthouse-3, size: 3, look: "a grand lighthouse monument on a plaza: a very tall ornate stone lighthouse with a brilliant golden lantern sending beams, brass details, a keeper's house and anchors as decoration" }

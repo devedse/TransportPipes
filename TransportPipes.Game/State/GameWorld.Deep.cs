@@ -116,7 +116,7 @@ public sealed partial class GameWorld
     {
         if (Company(companyId) is not { } company || EstateOf(company) is not { } estate)
         {
-            return CommandResult.Fail("You don't have an estate.");
+            return CommandResult.Fail("You don't have a plot.");
         }
         if (!HasDeepLevel(company))
         {
@@ -144,6 +144,7 @@ public sealed partial class GameWorld
         {
             return payment;
         }
+        AddStat(company, "landGold", DigCost(dug));
         company.DigParcel = parcel;
         company.DigStartedAt = Now;
         company.DigEndsAt = Now + DigTime(dug);
@@ -197,6 +198,7 @@ public sealed partial class GameWorld
         var stone = StoreGoods(company, "stone", minutes * DigStonePerMinute);
         var ores = StoreGoods(company, ore, minutes * DigOrePerMinute);
         AddStat(company, "dug", 1);
+        AddMoment(company, "land", $"Dug out Deep parcel {DugCount(company)}", true);
         company.Touch();
         Changes.Companies.Add(company.Id);
         Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ConstructionFinished, stone + ores < 1

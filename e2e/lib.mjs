@@ -16,21 +16,79 @@ export async function start(out, { width = 1600, height = 1000, touch = false } 
   return { browser, page, errors, shot, cheat };
 }
 
-export async function newPlayer(page, prefix = "p", way = "Find me neighbours") {
+/** Registers a new player, who picks a plot on the map (1.4 §6: Pick for me, or the plot given) and plays */
+export async function newPlayer(page, prefix = "p", seat = null) {
   const user = `${prefix}${Date.now() % 100000}`;
   for (let i = 0; i < 40; i++) { try { await page.goto(`${process.env.BASE_URL ?? "http://localhost:5173"}/`); await page.waitForSelector(".auth-panel", { timeout: 15000 }); break; } catch { await page.waitForTimeout(1000); } }
   await page.click("text=New player");
   await page.fill("input[autocomplete=username]", user);
   await page.fill("input[type=password]", "secret123");
   await page.click("button[type=submit]");
-  await page.waitForSelector(".found-panel", { timeout: 30000 });
-  await page.click(`text=${way}`);
-  await page.waitForSelector(".seat-row.chosen", { timeout: 30000 });
-  await page.fill(".found-panel input[minlength='3']", `${user} Works`);
-  await page.click(".found-panel button[type=submit]");
+  await pickPlot(page, `${user} Works`, seat);
+  return user;
+}
+
+/** On the start map: chooses a plot (Pick for me's, or the one given), names the company and plays */
+export async function pickPlot(page, name, seat = null) {
+  await page.waitForSelector(".picker-top", { timeout: 30000 });
+  if (seat !== null) {
+    await page.evaluate((seat) => tp.appStore.setState({ picker: { ...tp.appStore.getState().picker, chosen: seat } }), seat);
+  } else {
+    await page.click("text=Pick for me");
+  }
+  await page.waitForSelector(".plot-card .start-form", { timeout: 30000 });
+  await page.fill(".start-form input[minlength='3']", name);
+  await page.click(".start-form button[type=submit]");
   await page.waitForSelector(".top-bar", { timeout: 30000 });
   await page.waitForTimeout(3000);
-  return user;
+}
+
+/**
+ * A small estate like the old starter kit (1.4: a plot starts empty): two Wind Moilys, a Solar Panel, an Iron Mine on iron
+ * ore, a Small Factory and a Storage near the trading post, a tile apart, finished, each piped to the post in a pipe tier
+ * (a better tier's goods come from a Storage: one is added and stocked); what isn't unlocked yet is left out. What was
+ * built, as type@x,y
+ */
+export async function kit(page, types = ["windMoily", "windMoily", "solarPanel", "ironMine", "smallFactory", "storage"], tier = 1) {
+  const built = await page.evaluate(async ({ types, tier }) => {
+    const c = tp.gameClient.connection;
+    const w = tp.gameClient.world;
+    const s = () => tp.appStore.getState();
+    const post = [...w.buildings.values()].find((t) => t.owner === s().company.id && t.type === "tradingPost");
+    const wanted = tier > 1 && !types.includes("storage") ? ["storage", ...types] : types;
+    const placed = [];
+    for (const type of wanted) {
+      const definition = s().content.building(type);
+      let spot = null;
+      // On even offsets from the post: a free tile between neighbours for the pipes
+      for (let r = 2; r < 18 && !spot; r += 2)
+        for (let dy = -r; dy <= r && !spot; dy += 2)
+          for (let dx = -r; dx <= r && !spot; dx += 2)
+            if (Math.max(Math.abs(dx), Math.abs(dy)) === r && tp.rules.canPlace(s().content, w, s().company, s().era, definition, post.x + dx, post.y + dy).ok)
+              spot = { x: post.x + dx, y: post.y + dy };
+      if (spot && (await c.placeBuilding(type, spot.x, spot.y)).success) placed.push({ type, ...spot, size: definition.size });
+    }
+    await c.cheat("finish");
+    if (tier > 1) await c.cheat("stock");
+    const sides = [[post.x - 1, post.y], [post.x + post.size, post.y], [post.x, post.y - 1], [post.x, post.y + post.size]];
+    const out = [];
+    for (const b of placed) {
+      const border = [];
+      for (let i = 0; i < b.size; i++) border.push([b.x + i, b.y - 1], [b.x + i, b.y + b.size], [b.x - 1, b.y + i], [b.x + b.size, b.y + i]);
+      let piped = false;
+      for (const [tx, ty] of sides) {
+        for (const [fx, fy] of border) {
+          const route = tp.rules.routePipe(w, s().company, { x: fx, y: fy }, { x: tx, y: ty }, s().content);
+          if (route && (await c.placePipes(route.flatMap((t) => [t.x, t.y]), tier)).success) { piped = true; break; }
+        }
+        if (piped) break;
+      }
+      out.push(`${b.type}@${b.x},${b.y}${piped ? "" : " (no pipe)"}`);
+    }
+    return out;
+  }, { types, tier });
+  await page.waitForTimeout(2500);
+  return built;
 }
 
 /** Builds a building near the trading post (or on a deposit), pipes it to the post and plans and lays the pipe to the Yard gate */
@@ -70,13 +128,21 @@ export async function settle(player, type, deposit) {
   }, { type, deposit });
 }
 
-/** Free seats of one station nobody lives in, in any open district (not in the stations given, as "x,y,index") */
+/** Free plots of one Yard nobody lives at, in any open town (not in the Yards given, as "x,y,index") */
 export async function emptySeats(page, count, notIn = []) {
+  const found = await findEmptySeats(page, count, notIn);
+  if (found.length > 0) return found;
+  // A busy test world: the next town (dev cheat, needs a company on the page)
+  await page.evaluate(() => tp.gameClient.connection.cheat("district"));
+  return findEmptySeats(page, count, notIn);
+}
+
+async function findEmptySeats(page, count, notIn) {
   return page.evaluate(async ({ count, notIn }) => {
     const c = tp.gameClient.connection;
     const first = await c.getStations(null, null);
-    const free = (t) => t.seats.every((s) => s.state === "free" || s.state === "house");
-    for (const d of [{ districtX: first.ownStation.districtX, districtY: first.ownStation.districtY }, ...first.districts]) {
+    const free = (t) => t.seats.every((s) => s.state === "free");
+    for (const d of [{ districtX: first.pickForMe.districtX, districtY: first.pickForMe.districtY }, ...first.districts]) {
       const dto = await c.getStations(d.districtX, d.districtY);
       const station = dto.stations.find((t) => free(t) && !notIn.includes(`${t.districtX},${t.districtY},${t.index}`) && t.seats.length >= count);
       if (station !== undefined) {
@@ -87,7 +153,7 @@ export async function emptySeats(page, count, notIn = []) {
   }, { count, notIn });
 }
 
-/** Moves a player's estate to a seat and lands it right away (the dev cheat), waiting for its buildings to load */
+/** Moves a player's plot to another one and lands it right away (the dev cheat), waiting for its buildings to load */
 export async function moveTo(player, seat) {
   return player.page.evaluate(async (seat) => {
     const c = tp.gameClient.connection;

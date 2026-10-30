@@ -2,13 +2,15 @@
 // set onto a tile of the starter kit's line is allowed, the pipe stays, and what was piped to the trading post still
 // reaches it.
 //   node pipeunder.mjs shots/pipeunder
-import { start, newPlayer } from "./lib.mjs";
+import { start, newPlayer, kit } from "./lib.mjs";
 
 const out = process.argv[2] ?? "shots/pipeunder";
 const { browser, page, errors, shot, cheat } = await start(out);
 await newPlayer(page, "under");
 await cheat("level");
 await cheat("gold");
+// 1.4: a plot starts empty: a small estate first
+await kit(page);
 await page.waitForTimeout(1500);
 
 const placed = await page.evaluate(async () => {

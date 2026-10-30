@@ -5,7 +5,7 @@ const { browser, page, errors, shot, cheat } = await start(out);
 await newPlayer(page, "p");
 for (const c of ["gold", "gold", "level", "level", "level", "level", "level", "research"]) await cheat(c);
 await page.waitForTimeout(1500);
-for (const [key, name] of [["r", "research"], ["n", "neighbours"], ["c", "corporation"], ["l", "leaderboard"], ["t", "chat"], ["y", "blueprints"]]) {
+for (const [key, name] of [["r", "research"], ["n", "neighbours"], ["k", "crew"], ["l", "leaderboard"], ["t", "chat"], ["y", "blueprints"]]) {
   await page.keyboard.press(key);
   await page.waitForTimeout(1500);
   await shot(name);

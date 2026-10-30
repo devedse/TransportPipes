@@ -12,24 +12,19 @@ namespace TransportPipes.Game.Tests;
 public class PipeDoorFacts
 {
     [TestMethod]
-    public void CopperPipesComeAtCompanyLevelEightAndSteelPipesWithEraTwo()
+    public void CopperPipesComeAtCompanyLevelEightAndSteelPipesAreResearchedInEraTwo()
     {
         var game = new TestGame(content: TestGame.PlainContent);
         var company = game.NewCompany(level: 7);
         Assert.IsFalse(game.World.HasResearch(company, "copperPipes"));
 
-        game.World.GainXp(company, game.World.Content.Progression.XpForLevel(8) - company.Xp + 1, "test", "level");
+        game.ReachLevel(company, 8);
 
         Assert.AreEqual(8, company.Level);
         Assert.IsTrue(game.World.HasResearch(company, "copperPipes"), "a level-up brings them");
         Assert.IsTrue(game.World.TakeChanges().Events.Any(t => t.Company == company.Id && t.Text.StartsWith("Copper Pipes are yours at Company Level 8")));
-        Assert.IsFalse(game.World.HasResearch(company, "steelPipes"), "Steel Pipes come with Era 2");
-
-        game.World.AdvanceEra();
-
-        Assert.IsTrue(game.World.HasResearch(company, "steelPipes"));
-        var newcomer = game.NewCompany("Newcomer");
-        Assert.IsFalse(game.World.HasResearch(newcomer, "steelPipes"), "never before Copper Pipes");
+        game.World.AdvanceEra(company.District);
+        Assert.IsFalse(game.World.HasResearch(company, "steelPipes"), "Steel Pipes are an Era-2 item of the Era tree (1.4 §12)");
     }
 
     /// <summary>A Wind Moily on a grey pipe to a trading post that sells all it gets: the pipe is the limit</summary>
@@ -38,8 +33,8 @@ public class PipeDoorFacts
         var game = new TestGame(content: TestGame.PlainContent);
         var company = game.NewCompany(gold: 10_000_000, level: 12);
         var map = game.Map(company, game.Local(company, 1, 1), "W+++T", pipeTier: 1);
-        game.World.UpgradeMany(company.Id, [map[(0, 0)].Id], 14);
-        game.World.UpgradeMany(company.Id, [map[(4, 0)].Id], 9);
+        game.UpgradeNow(company, [map[(0, 0)].Id], 14);
+        game.UpgradeNow(company, [map[(4, 0)].Id], 9);
         if (ingots > 0)
         {
             game.Build(company, "storage").Contents["copperIngot"] = ingots;
@@ -68,8 +63,32 @@ public class PipeDoorFacts
         game.Pass(2);
 
         Assert.IsTrue(game.World.Conductors.Where(t => t.Owner == company.Id && t.Kind == ConductorKind.Pipe).All(t => t.Tier == 2));
+        Assert.AreEqual(door.ToLevel, game.World.BoughtLevel(moily), "the levels are bought");
+        // Their goods come in (1.4 §9: from level 11 a step also takes goods)
+        game.World.FillSite(moily.Id);
+        game.World.SolveNetworks();
         Assert.AreEqual(door.ToLevel, moily.Level);
         Assert.AreEqual(before + door.Gain, game.World.GoldPerMinute()[company.Id], Math.Max(1, door.Gain * 0.05), "it brings what it said");
+    }
+
+    [TestMethod]
+    public void InALargeNetworkTheDoorPromisesNoMoreThanTheBuildingCouldMake()
+    {
+        // B13's bot: a Small Factory at level 25 could make 111 ingots and its pipe carried 100, and the door of its large
+        // network (estimated, not solved again) said +1,697 g/min
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(gold: 10_000_000, level: 12);
+        var map = game.Map(company, game.Local(company, 1, 1), new string('S', 32) + "\n" + new string('+', 32) + "T\nW+", pipeTier: 1);
+        var moily = map[(0, 2)];
+        game.UpgradeNow(company, [moily.Id], 14);
+        game.Pass(2);
+        Assert.AreEqual(IdleCause.PipeFull, game.World.IdleReasonOf(moily).Cause);
+        var (could, carried) = game.World.PipeCarry(moily, "energy");
+
+        var door = game.World.PipeDoorFor(company, moily)!;
+
+        Assert.IsLessThanOrEqualTo((could - carried) * game.World.BasePrice("energy") + 1e-6, door.Gain, $"could {could:N1}, carried {carried:N1}");
+        Assert.IsGreaterThan(0, door.Gain);
     }
 
     [TestMethod]
@@ -84,13 +103,12 @@ public class PipeDoorFacts
 
         Assert.IsTrue(game.World.ClimbPipe(company.Id, moily.Id).Success);
 
-        var want = company.Asks.Single(t => t.PipeTiles != null);
-        Assert.IsNull(want.Order, "a friend makes them: no order unless asked");
+        Assert.IsNotNull(company.Asks.SingleOrDefault(t => t.PipeTiles != null), "a friend makes them: the pipe waits for them, nothing bought unless asked");
         var waits = game.World.PipeDoorFor(company, moily)!;
         Assert.AreEqual(PipeDoorKind.Waits, waits.Kind);
         StringAssert.StartsWith(waits.Text, "Its Copper Pipe waits for 3 copper ingots");
         Assert.IsNotNull(waits.OrderCost);
-        Assert.IsTrue(game.World.ClimbPipe(company.Id, moily.Id).Success, "the door orders them now");
-        Assert.IsNotNull(company.Asks.Single(t => t.PipeTiles != null).Order);
+        Assert.IsTrue(game.World.ClimbPipe(company.Id, moily.Id).Success, "the door buys them now");
+        Assert.IsFalse(company.Asks.Any(t => t.PipeTiles != null), "bought: the pipe is laid");
     }
 }

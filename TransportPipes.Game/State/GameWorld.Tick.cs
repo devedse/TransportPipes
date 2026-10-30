@@ -22,10 +22,10 @@ public sealed partial class GameWorld
             return;
         }
         PlanEvents();
-        EnsureEraWonder();
         if (!_grantsChecked)
         {
             _grantsChecked = true;
+            TidyAllPipeWants();
             foreach (var company in _companies.Values.ToList())
             {
                 GrantResearch(company);
@@ -37,17 +37,9 @@ public sealed partial class GameWorld
         {
             events.Add((at, long.MinValue + 4, run));
         }
-        foreach (var (at, run) in EraMoments(LastTick, now).ToList())
+        foreach (var at in _towns.Values.Select(t => t.Wonder?.FullAt).OfType<DateTime>().Select(t => t + StageBuildTime).Where(t => t <= now).Distinct())
         {
-            events.Add((at, long.MinValue + 5, run));
-        }
-        foreach (var (at, run) in LeaseMoments(LastTick, now).ToList())
-        {
-            events.Add((at, long.MinValue + 6, run));
-        }
-        foreach (var (at, run) in SeasonMoments(LastTick, now).ToList())
-        {
-            events.Add((at, long.MinValue + 8, run));
+            events.Add((at > LastTick ? at : LastTick, long.MinValue + 5, CheckStagesBuilt));
         }
         foreach (var (at, run) in ArrivalMoments(LastTick, now).ToList())
         {
@@ -65,7 +57,7 @@ public sealed partial class GameWorld
         {
             events.Add((at, long.MinValue + 12, run));
         }
-        foreach (var (at, run) in AskMoments(LastTick, now).ToList())
+        foreach (var (at, run) in PriceMoments(LastTick, now).ToList())
         {
             events.Add((at, long.MinValue + 13, run));
         }
@@ -84,9 +76,12 @@ public sealed partial class GameWorld
         {
             events.Add((company.ResearchEndsAt!.Value, -company.Id, () => CompleteResearch(company)));
         }
-        // Banked points start research while the player is away, even with idle Labs (run 2: Ana's 64k points sat
-        // unspent in a Lab with no pipes)
-        foreach (var company in _companies.Values.Where(t => t.CurrentResearch == null && t.KeepResearching && t.ResearchQueue.Count == 0 && t.ResearchPoints > 0 && !t.IsNpc))
+        foreach (var company in _companies.Values.Where(t => t.TrackEndsAt is { } end && end <= now))
+        {
+            events.Add((company.TrackEndsAt!.Value, -company.Id, () => CompleteTier(company)));
+        }
+        // A free line with a queue (or a player away) starts what the gold now covers
+        foreach (var company in _companies.Values.Where(t => (t.CurrentResearch == null || t.CurrentTrack == null) && t.Level >= 4))
         {
             StartQueuedResearch(company);
         }
@@ -94,23 +89,29 @@ public sealed partial class GameWorld
         {
             events.Add((at, long.MinValue, () =>
             {
+                // What went over trunk lines to other towns' markets since the last update pays its carriers
+                PayExportFees(MarketInterval.TotalMinutes);
                 UpdateMarkets();
-                UpdateTailwinds();
                 RunManagers();
-                if (ProjectsEnabled)
+                // A free line whose player went away starts what the gold covers (KeepResearching)
+                foreach (var company in _companies.Values.Where(t => (t.CurrentResearch == null || t.CurrentTrack == null) && t.Level >= 4))
                 {
-                    CheckKeystones();
+                    StartQueuedResearch(company);
                 }
-                CheckRestingLabs();
                 CheckTradeFalls();
+                CheckStalls();
             }));
+        }
+        // The statistics' samples, the last thing at their moment (docs/design-notes/statistics.md)
+        for (var at = NextMarketUpdate(LastTick); at <= now; at = NextMarketUpdate(at))
+        {
+            events.Add((at, long.MaxValue, TakeSamples));
         }
         for (var at = NextDay(LastTick); at <= now; at = NextDay(at))
         {
             events.Add((at, long.MinValue + 1, () =>
             {
                 NewDay();
-                ExpireOffers();
                 ExpireOrders();
             }));
         }
@@ -122,10 +123,6 @@ public sealed partial class GameWorld
         {
             events.Add((at, long.MinValue + 2, DeliverShipments));
         }
-        foreach (var contract in _contracts.Values.Where(t => t.State == ContractState.Active && t.EndsAt <= now))
-        {
-            events.Add((contract.EndsAt!.Value, contract.Id, () => EndContract(contract)));
-        }
         foreach (var (at, _, run) in events.OrderBy(t => t.At).ThenBy(t => t.Order))
         {
             CoupleUntil(at);
@@ -135,10 +132,45 @@ public sealed partial class GameWorld
             }
             run();
         }
+        // Research that started in between and ends before now (a queue running through a long catch-up), in order
+        for (var step = 0; step < 1000 && NextResearchEnd(now) is { } next; step++)
+        {
+            CoupleUntil(next.At);
+            if (next.At > LastTick)
+            {
+                Advance(next.At);
+            }
+            if (next.Track)
+            {
+                CompleteTier(next.Company);
+            }
+            else
+            {
+                CompleteResearch(next.Company);
+            }
+        }
         CoupleUntil(now);
         Advance(now);
         CheckAchievements();
         CheckTutorial();
+    }
+
+    /// <summary>The first research of either line that ends by a moment (null: none)</summary>
+    private (DateTime At, Company Company, bool Track)? NextResearchEnd(DateTime by)
+    {
+        (DateTime At, Company Company, bool Track)? first = null;
+        foreach (var company in _companies.Values)
+        {
+            if (company.ResearchEndsAt is { } tree && tree <= by && (first == null || tree < first.Value.At))
+            {
+                first = (tree, company, false);
+            }
+            if (company.TrackEndsAt is { } track && track <= by && (first == null || track < first.Value.At))
+            {
+                first = (track, company, true);
+            }
+        }
+        return first;
     }
 
     /// <summary>The Yards' rounds up to a moment (v1.2 §7): once a minute while terms move, less often when they don't</summary>
@@ -198,13 +230,9 @@ public sealed partial class GameWorld
             return;
         }
         SolveNetworks();
-        ExpectContracts(minutes);
         CountLinkDeliveries(minutes);
-        SettleStandIns(minutes);
-        SettleProjects(minutes);
-        SettleEraWonder(minutes);
+        SettleWonderGifts(minutes);
         SettleAsks(minutes);
-        SettleTrunks(minutes);
         foreach (var network in _networks.Values.OrderBy(t => t.Id).ToList())
         {
             AdvanceNetwork(network, minutes);
@@ -226,7 +254,7 @@ public sealed partial class GameWorld
     /// <summary>Every company's measured income moves towards what it earned this step (a 24-hour average)</summary>
     private void MeasureIncome(double minutes)
     {
-        foreach (var company in _companies.Values.Where(t => !t.IsNpc))
+        foreach (var company in _companies.Values)
         {
             var earned = ProductionEarned(company);
             if (company.MeasuredEarned <= 0)
@@ -251,7 +279,7 @@ public sealed partial class GameWorld
                 Solve(network);
             }
             var solution = network.Solution;
-            if (solution.Flows.Count == 0 && solution.ResearchPerMinute.Count == 0 && network.GateFlows.Count == 0 && !HasGateImports(network))
+            if (solution.Flows.Count == 0 && network.GateFlows.Count == 0 && !HasGateImports(network))
             {
                 return;
             }
@@ -363,39 +391,46 @@ public sealed partial class GameWorld
             var from = _buildings[flow.From];
             switch (flow.Kind)
             {
-                case FlowKind.Trade or FlowKind.Contract or FlowKind.Sale:
+                case FlowKind.Trade or FlowKind.Sale:
                     var income = flow.Delivered * flow.PricePerUnit * minutes;
                     earnings[from.Owner] = (earnings.TryGetValue(from.Owner, out var e) ? e : 0) + income;
-                    if (flow.Kind == FlowKind.Sale && Company(from.Owner) is { } seller)
+                    if (Company(from.Owner) is not { } seller)
                     {
-                        // Today's hub orders buy at their own price as the goods pass (after run 3, step 7)
-                        if (seller.DailyOrders.Count > 0 && !seller.IsNpc)
-                        {
-                            earnings[from.Owner] += FillOrders(seller, flow.Resource, flow.Delivered * minutes, flow.PricePerUnit);
-                        }
-                        AddStat(seller, "hubGold", income);
-                        Add(seller.Report.Sold, flow.Resource, flow.Delivered * minutes);
-                        // The company's own order at the hub follows what it sells there
-                        HubMarketOf(seller, network.District).AddSold(flow.Resource, flow.Delivered * minutes);
-                        // Trading with your hub builds reputation: a point per 2,000 gold
-                        var level = ReputationLevel(seller);
-                        seller.HubReputation += income / 2000;
-                        if (ReputationLevel(seller) != level)
-                        {
-                            // Better hub prices from now on
-                            MarkCompanyNetworksDirty(seller.Id);
-                        }
+                        break;
                     }
+                    if (flow.Kind == FlowKind.Trade)
+                    {
+                        CountEarned(seller, income, "players", flow.Resource);
+                        break;
+                    }
+                    CountEarned(seller, income, "market", flow.Resource);
+                    // A good that starts selling during the day gets its order (playtest: one order on a first day)
+                    if (flow.Delivered > 1e-6 && WantsOrder(seller, flow.Resource, LastTick) && IsActive(seller))
+                    {
+                        TopUpOrders(seller);
+                    }
+                    // Today's hub orders buy at their own price as the goods pass (after run 3, step 7)
+                    if (seller.DailyOrders.Count > 0 && FillOrders(seller, flow.Resource, flow.Delivered * minutes, flow.PricePerUnit) is > 0 and var premium)
+                    {
+                        // Paid on top of the hub's price (playtest: it was counted, never paid)
+                        seller.Gold += premium;
+                        earnings[from.Owner] += premium;
+                        CountEarned(seller, premium, "orders", flow.Resource);
+                    }
+                    AddStat(seller, "hubGold", income);
+                    Add(seller.Report.Sold, flow.Resource, flow.Delivered * minutes);
+                    // The company's own order at the hub follows what it sells there
+                    HubMarketOf(seller, network.District).AddSold(flow.Resource, flow.Delivered * minutes);
                     break;
             }
-            if (flow.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.Contract or FlowKind.ToStorage or FlowKind.Sale
+            if (flow.Kind is FlowKind.Internal or FlowKind.Trade or FlowKind.ToStorage or FlowKind.Sale
                 && Content.Building(from.Type).Kind is not (BuildingKind.Storage or BuildingKind.TradingPost)
                 && Company(from.Owner) is { } producer)
             {
                 CountDiscovery(from, flow.Sent * minutes);
                 producer.EraOutput += flow.Sent * minutes * BasePrice(flow.Resource);
                 Add(producer.Report.Produced, flow.Resource, flow.Sent * minutes);
-                AddStat(producer, $"produced:{flow.Resource}", flow.Sent * minutes);
+                CountProduced(producer, flow.Resource, flow.Sent * minutes);
             }
         }
 
@@ -403,23 +438,7 @@ public sealed partial class GameWorld
         {
             if (Company(companyId) is { } company)
             {
-                // The Caretaker of a dormant company takes no fee: no sink is upkeep on a resting estate (the designers'
-                // rule after run 3)
-                TaxEarnings(company, earned);
-                company.LifetimeEarnings += earned;
                 company.Report.GoldEarned += earned;
-                GainXpFromEarnings(company, earned);
-            }
-        }
-
-        foreach (var (companyId, research) in solution.ResearchPerMinute)
-        {
-            if (Company(companyId) is { } company)
-            {
-                company.ResearchPoints += research * minutes;
-                company.Touch();
-                Changes.Companies.Add(companyId);
-                StartQueuedResearch(company);
             }
         }
 
@@ -449,7 +468,7 @@ public sealed partial class GameWorld
                     storage.Contents[resource] *= capacity / total;
                 }
             }
-            if (!wasFull && storage.StoredTotal >= capacity * StorageFullShare && Company(storage.Owner) is { IsNpc: false } owner
+            if (!wasFull && storage.StoredTotal >= capacity * StorageFullShare && Company(storage.Owner) is { } owner
                 && (!_storageFullNoticeAt.TryGetValue(storageId, out var noticed) || LastTick - noticed >= StorageFullNoticeEvery))
             {
                 _storageFullNoticeAt[storageId] = LastTick;
@@ -458,32 +477,6 @@ public sealed partial class GameWorld
             storage.Touch();
             Changes.Storages.Add(storageId);
         }
-    }
-
-    /// <summary>
-    /// One XP per (goldPerXp × Company Level) gold. A level reached halfway through counts from that moment, so a long
-    /// catch-up gives the same XP as many short ticks.
-    /// </summary>
-    private void GainXpFromEarnings(Company company, double gold)
-    {
-        var progression = Content.Progression;
-        var goldPerXp = progression.XpReward("goldPerXp");
-        var xp = 0.0;
-        var level = company.Level;
-        while (gold > 1e-12)
-        {
-            var rate = goldPerXp * level;
-            var toNext = level >= progression.MaxCompanyLevel ? double.MaxValue : progression.XpForLevel(level + 1) - (company.Xp + xp);
-            if (gold / rate < toNext)
-            {
-                xp += gold / rate;
-                break;
-            }
-            xp += toNext;
-            gold -= toNext * rate;
-            level++;
-        }
-        GainXp(company, xp, "earnings", "gold earned");
     }
 
     private static void Add(Dictionary<string, double> totals, string resource, double amount) =>

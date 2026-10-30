@@ -1,6 +1,16 @@
 import type { BuildingDefinition, BuildingDto, BuildingKind, CompanyDto, EstateDto } from "../api/contracts";
 import type { Content } from "./content";
-import { DEEP_OFFSET, ESTATE_SIZE, isDeep, isParcelUnlocked, parcelOf, zoneAt } from "./layout";
+import {
+  DEEP_OFFSET,
+  ESTATE_SIZE,
+  isDeep,
+  isParcelUnlocked,
+  outskirtsOwner,
+  parcelOf,
+  stationOfSlot,
+  YARD_WIDTH,
+  zoneAt,
+} from "./layout";
 import type { WorldModel } from "./world";
 
 // The placement rules of the server (GameWorld.CanPlace, PlacePipes), so the build ghost and the pipe tool can show
@@ -40,7 +50,7 @@ function insideEstate(company: CompanyDto, x: number, y: number): boolean {
   );
 }
 
-/** One of the company's estates: the first (index 0) or a branch */
+/** The company's plot */
 export interface OwnEstate {
   index: number;
   x: number;
@@ -60,14 +70,6 @@ export function ownEstates(company: CompanyDto): OwnEstate[] {
       nextParcelCost: company.nextParcelCost,
       nextParcelLevel: company.nextParcelLevel,
     },
-    ...(company.branches ?? []).map((t, i) => ({
-      index: i + 1,
-      x: t.x,
-      y: t.y,
-      unlockedParcels: t.unlockedParcels,
-      nextParcelCost: t.nextParcelCost,
-      nextParcelLevel: t.nextParcelLevel,
-    })),
   ];
 }
 
@@ -78,15 +80,62 @@ export function ownEstateAt(company: CompanyDto, x: number, y: number): OwnEstat
   );
 }
 
+/** Whether a tile is an outskirts parcel the company bought (1.4 §5) */
+export function ownsOutskirts(company: CompanyDto, x: number, y: number): boolean {
+  const zone = zoneAt(x, y);
+  if (
+    zone.kind !== "outskirts" ||
+    zone.districtX !== company.districtX ||
+    zone.districtY !== company.districtY
+  ) {
+    return false;
+  }
+  const owner = outskirtsOwner(zone.localX, zone.localY);
+  return (
+    owner !== null &&
+    owner.slot === company.slot &&
+    ((company.outskirts?.parcels ?? 0) & (1 << owner.index)) !== 0
+  );
+}
+
+/** How many columns at each end of a Yard are its workshops (1.4 §7) */
+export const WORKSHOP_COLUMNS = 8;
+
+/** Whether a tile is at one of the ends of the company's own Yard, where its workshops may stand */
+export function inOwnWorkshops(company: CompanyDto, x: number, y: number): boolean {
+  const zone = zoneAt(x, y);
+  return (
+    zone.kind === "yard" &&
+    zone.districtX === company.districtX &&
+    zone.districtY === company.districtY &&
+    zone.slot === stationOfSlot(company.slot) &&
+    (zone.localX < WORKSHOP_COLUMNS || zone.localX >= YARD_WIDTH - WORKSHOP_COLUMNS)
+  );
+}
+
+/** Why a building can't stand in the company's Yard, or null (the footprint's tiles are checked one by one) */
+function workshopBlocker(company: CompanyDto, definition: BuildingDefinition): string | null {
+  const workshops = company.workshops;
+  if (workshops === null || company.level < workshops.level) {
+    return `Workshops in the Yard come at Level ${workshops?.level ?? 10}`;
+  }
+  if (definition.kind === "depot") {
+    return workshops.depot !== null ? "Your Yard has its Depot" : null;
+  }
+  if (definition.kind !== "producer" && definition.kind !== "storage") {
+    return `A ${definition.name} doesn't stand in the Yard`;
+  }
+  return workshops.tilesUsed + definition.size * definition.size > workshops.tiles
+    ? `Your workshops cover ${workshops.tilesUsed} of your ${workshops.tiles} tiles of the Yard`
+    : null;
+}
+
 export function forestAround(world: WorldModel, x: number, y: number, size: number): number {
   let count = 0;
   for (let ty = y - 2; ty < y + size + 2; ty++) {
     for (let tx = x - 2; tx < x + size + 2; tx++) {
-      if (
-        world.terrain(tx, ty) === "forest" &&
-        (!world.dealtLand || world.tile(tx, ty)?.deposit === "wood") &&
-        world.buildingAt(tx, ty) === undefined
-      ) {
+      // Every plot's forest is wood (1.4: the server's ForestAround; the old forest's marked trees are gone)
+      if (world.terrain(tx, ty) === "forest" && world.buildingAt(tx, ty) === undefined) {
         count++;
       }
     }
@@ -145,7 +194,6 @@ const PART_OF_THE_PIPE: ReadonlySet<BuildingKind> = new Set<BuildingKind>([
   "gate",
   "valve",
   "priorityValve",
-  "tollMeter",
   "powerLine",
   "cargoDepot",
   "deepLift",
@@ -182,7 +230,7 @@ export function canPlace(
       if (deep) {
         // The caverns under your own estate
         if (!insideEstate(company, tx, ty - DEEP_OFFSET)) {
-          return fail("Only under your own estate");
+          return fail("Only under your own plot");
         }
         const building = world.buildingAt(tx, ty);
         if (
@@ -201,14 +249,36 @@ export function canPlace(
         continue;
       }
       const outpost = world.outpostAt(tx, ty);
+      const zone = zoneAt(tx, ty);
       if (outpost !== undefined) {
         if (outpost.owner !== company.id) {
           return fail("Someone else's outpost");
         }
+      } else if (zone.kind === "yard") {
+        // Workshops and the Depot at your own Yard's ends (1.4 §7)
+        if (!inOwnWorkshops(company, tx, ty)) {
+          return fail(
+            zone.slot === stationOfSlot(company.slot)
+              ? "Workshops stand at the Yard's ends: its middle holds the stalls and the Monuments"
+              : "Only in your own Yard",
+          );
+        }
+        const blocker = workshopBlocker(company, definition);
+        if (blocker !== null) {
+          return fail(blocker);
+        }
+      } else if (zone.kind === "outskirts") {
+        if (!ownsOutskirts(company, tx, ty)) {
+          return fail(
+            zone.slot === company.slot
+              ? "This outskirts parcel is set aside for you: buy it first"
+              : "Set aside for another plot",
+          );
+        }
       } else {
         const estate = ownEstateAt(company, tx, ty);
         if (estate === undefined) {
-          return fail("Only on your own estates and outposts");
+          return fail("Only on your own plots and outposts");
         }
         if (!isParcelUnlocked(estate.unlockedParcels, parcelOf(tx - estate.x, ty - estate.y))) {
           return fail("Buy this parcel first");
@@ -236,7 +306,10 @@ export function canPlace(
       if (terrain === null) {
         return fail("Loading…");
       }
-      if (!definition.placement.terrain.includes(terrain)) {
+      // The Yard's ends are laid out like grass for its workshops
+      if (
+        !definition.placement.terrain.includes(terrain === "yard" && zone.kind === "yard" ? "grass" : terrain)
+      ) {
         // Run 3: Ana clicked the pond three times for a Water Pump and read only "Not on water"
         return fail(
           definition.placement.shore && terrain === "water"
@@ -280,7 +353,7 @@ export function canPlace(
     }
   }
   if (definition.placement.forest && forestAround(world, x, y, definition.size) < 3) {
-    return fail(world.dealtLand ? "Needs the old forest's marked trees nearby" : "Needs a forest nearby");
+    return fail("Needs a forest nearby");
   }
   return { ok: true, reason: null, multiplier: locationMultiplier(content, world, definition, x, y) };
 }
@@ -330,7 +403,13 @@ export function pipeCost(
   }
   // Pipes stay on your own land (the corridors carry links, which the game lays); and around your outposts
   const zone = zoneAt(x, y);
-  if (zone.kind === "estate" ? ownEstateAt(company, x, y) === undefined : zone.kind !== "wilderness") {
+  if (
+    zone.kind === "estate"
+      ? ownEstateAt(company, x, y) === undefined
+      : zone.kind === "outskirts"
+        ? !ownsOutskirts(company, x, y)
+        : zone.kind !== "wilderness"
+  ) {
     return null;
   }
   // The wilderness is open to pipes, except someone else's outpost

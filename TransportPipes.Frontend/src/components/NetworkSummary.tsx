@@ -181,12 +181,6 @@ export function NetworkSummary({
                   {owner.neighbourSales > 0.05 && (
                     <span className="plus">the Yard +{formatAmount(owner.neighbourSales)}</span>
                   )}
-                  {owner.projectSales > 0.05 && (
-                    // The station's project pays for the goods it takes at the gate (after run 4)
-                    <span className="plus">
-                      the {owner.project ?? "project"} +{formatAmount(owner.projectSales)}
-                    </span>
-                  )}
                   {owner.neighbourPurchases > 0.05 && (
                     <span className="minus">
                       bought from neighbours −{formatAmount(owner.neighbourPurchases)}
@@ -205,7 +199,7 @@ export function NetworkSummary({
       {allMine !== null && here !== null && Math.abs(allMine - here) >= 1 && (
         <p className="muted small">
           This network&apos;s pipes now. Your top bar&apos;s {formatRate(allMine)} counts all your pipes, and
-          what the Yard&apos;s Houses, the project and Asks pay too.
+          what your neighbours and links pay too.
         </p>
       )}
       {details.owners.length > 1 && (

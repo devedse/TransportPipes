@@ -1,37 +1,37 @@
-# Managers (GDD §8.4): hired once with gold into a free slot. Each has one automation and one bonus (in the code, by id).
-# Slots: managerSlots in progression.yaml by Company Level, +1 with the Automation tech, +1 with an Engineer's Workshop,
-# +1 in a corporation with HQ level 4.
+# Managers (GDD §8.4, 1.4 §19): hired once with gold into a free slot. Each has one automation and one bonus (in the
+# code, by id). Slots: managerSlots in progression.yaml by Company Level (10, 20, 30, 45), +1 with the Automation tech,
+# +1 with an Engineer's Workshop. Prices are about an hour of income when the first slot comes (Level 10, day 2).
 - id: engineerJo
   name: Engineer Jo
-  cost: 5000
+  cost: 2000000
   color: "#2e86de"
   automation: "Repairs storm damage right away."
   bonus: "+5% wind power"
 
 - id: accountantBea
   name: Accountant Bea
-  cost: 8000
+  cost: 3000000
   color: "#c0392b"
   automation: "Sells what your full storages can't take to the hub, every 15 minutes."
   bonus: "+3% hub prices"
 
 - id: foremanRick
   name: Foreman Rick
-  cost: 12000
+  cost: 4000000
   color: "#e0a020"
   automation: "Upgrades a building every 15 minutes when it pays for itself within 2 hours (and you keep a reserve)."
   bonus: "-5% upgrade costs"
 
 - id: traderLin
   name: Trader Lin
-  cost: 10000
+  cost: 3000000
   color: "#16a085"
-  automation: "Offers your contracts again when they ended well."
-  bonus: "+10 hub reputation per finished contract"
+  automation: "Buys what your levels and new buildings still wait for from the market when nobody in your Yard has it for an hour."
+  bonus: "+5% Hub Orders"
 
 - id: plannerSam
   name: Planner Sam
-  cost: 15000
+  cost: 5000000
   color: "#8e44ad"
-  automation: "Starts the cheapest research you can afford when the last one is done."
+  automation: "Keeps both of your Lab's lines busy: the cheapest research you can afford starts when a line is free and its queue empty."
   bonus: "-10% research time"

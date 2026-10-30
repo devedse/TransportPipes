@@ -23,13 +23,20 @@ export function NetworkPanel() {
       }
     }
   }
-  const lowest = Math.min(...[...full.values()].map((t) => t.tier));
+  // Tiles that wait for a better pipe already are left out (playtest: every click asked for the same pipe again)
+  const waiting = new Set<string>();
+  for (let i = 0; i < (details.waiting?.length ?? 0); i += 2) {
+    waiting.add(`${details.waiting![i]},${details.waiting![i + 1]}`);
+  }
+  const open = [...full.values()].filter((t) => !waiting.has(`${t.x},${t.y}`));
+  const waits = full.size - open.length;
+  const lowest = Math.min(...open.map((t) => t.tier));
   const next = content.pipeTiers
     .filter((t) => t.tier > lowest && t.era <= era)
     .sort((a, b) => a.tier - b.tier)[0];
-  const weakest = [...full.values()].filter((t) => t.tier === lowest);
+  const weakest = open.filter((t) => t.tier === lowest);
   const nextUnlocked =
-    next !== undefined && (next.research === null || company?.researched.includes(next.research));
+    next !== undefined && (next.research === null || company?.research.researched.includes(next.research));
   return (
     <aside className="panel network-panel" aria-label="Network">
       <div className="panel-header">
@@ -63,6 +70,12 @@ export function NetworkPanel() {
             {details.bottlenecks.length} connection{details.bottlenecks.length === 1 ? " is" : "s are"} full
             (red on the map): a better pipe carries more.
           </p>
+          {waits > 0 && (
+            <p className="small">
+              {waits} of their tiles wait for a better pipe already: it is laid once its goods are in (Yard ›
+              What you&apos;re waiting for).
+            </p>
+          )}
           {weakest.length > 0 && next !== undefined && (
             <>
               <button

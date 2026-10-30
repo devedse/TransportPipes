@@ -12,7 +12,7 @@ public class SocialFacts
         var visitor = game.NewCompany("Visitor");
         var owner = game.NewCompany("Owner", gold: 0, level: 3);
 
-        StringAssert.Contains(game.World.LikeEstate(owner.Id, owner.Id).Error, "own estate");
+        StringAssert.Contains(game.World.LikeEstate(owner.Id, owner.Id).Error, "own plot");
         Assert.IsTrue(game.World.LikeEstate(visitor.Id, owner.Id).Success);
         StringAssert.Contains(game.World.LikeEstate(visitor.Id, owner.Id).Error, "today");
         Assert.AreEqual(1, owner.Likes);
@@ -32,12 +32,12 @@ public class SocialFacts
         StringAssert.Contains(game.World.ChooseMentor(mentor.Id, newcomer.Id).Error, "below Level");
         Assert.IsTrue(game.World.ChooseMentor(newcomer.Id, mentor.Id).Success);
 
-        game.World.GainXp(newcomer, game.World.Content.Progression.XpForLevel(10), "test", "test");
+        game.ReachLevel(newcomer, 10);
 
         Assert.AreEqual(10, newcomer.Level);
         Assert.AreEqual(10_000, mentor.Gold);
         Assert.AreEqual(10_000, newcomer.Gold);
-        game.World.GainXp(newcomer, 1, "test", "test");
+        game.World.CountEarned(newcomer, 1, "test", "test");
         Assert.AreEqual(10_000, mentor.Gold, "once per level");
     }
 

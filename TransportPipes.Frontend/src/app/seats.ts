@@ -1,28 +1,22 @@
 import type { SeatDto, SeatRefDto, StationDto, StationsDto } from "../api/contracts";
 
-/** The ways of starting (and moving) the station picker serves */
-export type PickMode = "neighbours" | "own" | "friends" | "move";
+/** The ways of using the plot picker: starting, or moving your plot */
+export type PickMode = "start" | "move";
 
-/** Whether a seat can be picked in this way of starting */
-export function pickable(seat: SeatDto, station: StationDto, mode: PickMode): boolean {
-  if (seat.state === "held") {
-    return seat.heldForYou;
-  }
-  if (seat.state !== "free" && seat.state !== "house") {
-    return false;
-  }
-  if (mode === "own" || mode === "friends") {
-    return station.seats.every((t) => t.state === "free" || t.state === "house" || t.state === "you");
-  }
-  return station.open;
+/**
+ * Whether a plot can be chosen (1.4 §6): a free one, or a free one in a closed Yard (that sends a request: a resident
+ * says yes). Moving, your own plot is where you are already.
+ */
+export function pickable(seat: SeatDto): boolean {
+  return seat.state === "free" || seat.state === "closed";
 }
 
-/** The seat of a station list, or null when it isn't in it */
+/** The plot of a town's Yards, with its Yard, or null when it isn't in them */
 export function findSeat(dto: StationsDto, ref: SeatRefDto): { seat: SeatDto; station: StationDto } | null {
+  if (dto.districtX !== ref.districtX || dto.districtY !== ref.districtY) {
+    return null;
+  }
   for (const station of dto.stations) {
-    if (station.districtX !== ref.districtX || station.districtY !== ref.districtY) {
-      continue;
-    }
     const seat = station.seats.find((t) => t.slot === ref.slot);
     if (seat !== undefined) {
       return { seat, station };
@@ -32,16 +26,41 @@ export function findSeat(dto: StationsDto, ref: SeatRefDto): { seat: SeatDto; st
 }
 
 /**
- * The seat the picker shows chosen after it loads a district (F7): the player's own choice while it is still pickable
- * there, else the game's suggestion for this way of starting (null: keep what there is, the suggestion is elsewhere)
+ * The plot the picker shows chosen after it loads a town: the player's own choice while it can still be chosen there,
+ * else the first free plot of the Yard it looks at (a friend's; in a closed Yard a request), else Pick for me's when it
+ * lies in this town, else the town's first free plot (at a Yard where people live first)
  */
-export function chooseSeat(dto: StationsDto, mode: PickMode, value: SeatRefDto | null): SeatRefDto | null {
-  const suggested = mode === "own" ? dto.ownStation : mode === "friends" ? dto.friends : dto.neighbours;
+export function chooseSeat(
+  dto: StationsDto,
+  value: SeatRefDto | null,
+  yard: number | null = null,
+): SeatRefDto | null {
   const found = value !== null ? findSeat(dto, value) : null;
-  if (found !== null && pickable(found.seat, found.station, mode)) {
+  if (found !== null && pickable(found.seat)) {
     return value;
   }
-  return suggested.districtX === dto.districtX && suggested.districtY === dto.districtY ? suggested : null;
+  // At a friend's Yard: a free plot, else one of a closed Yard (a request)
+  const station = yard !== null ? dto.stations.find((t) => t.index === yard) : undefined;
+  const free =
+    station?.seats.find((t) => t.state === "free") ?? station?.seats.find((t) => t.state === "closed");
+  if (station !== undefined && free !== undefined) {
+    return { districtX: station.districtX, districtY: station.districtY, slot: free.slot };
+  }
+  const pick = dto.pickForMe;
+  if (pick.districtX === dto.districtX && pick.districtY === dto.districtY) {
+    return pick;
+  }
+  // Another town: its first free plot, at a Yard where people live first
+  const lived = (t: StationDto) => t.seats.some((s) => s.state === "taken" || s.state === "you");
+  for (const town of [dto.stations.filter(lived), dto.stations.filter((t) => !lived(t))]) {
+    for (const station of town) {
+      const free = station.seats.find((t) => t.state === "free");
+      if (free !== undefined) {
+        return { districtX: station.districtX, districtY: station.districtY, slot: free.slot };
+      }
+    }
+  }
+  return null;
 }
 
 export function sameSeat(a: SeatRefDto | null, b: SeatRefDto | null): boolean {

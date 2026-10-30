@@ -4,7 +4,7 @@ import { formatAmount, formatDuration } from "../app/format";
 import { useNow } from "../app/useNow";
 import type { GameEventDto, MarketResourceDto } from "../api/contracts";
 import { setState, useAppStore, type HubTab } from "../state/store";
-import { WondersTab } from "./WondersTab";
+import { TownTab } from "./TownTab";
 import { EVENT_ICONS, eventTime } from "../app/events";
 import { ResourceIcon } from "./ResourceIcon";
 
@@ -12,14 +12,14 @@ function Trend({ row }: { row: MarketResourceDto }) {
   const ratio = row.buyPrice / row.basePrice;
   if (ratio < 0.98) {
     return (
-      <span className="trend down" title="Players sell more than the hub wants">
+      <span className="trend down" title="You sold more than your Hub Order over the last hour">
         ▼ {Math.round((1 - ratio) * 100)}%
       </span>
     );
   }
   if (ratio > 1.02) {
     return (
-      <span className="trend up" title="The hub wants more than players sell">
+      <span className="trend up" title="Above its base price">
         ▲ {Math.round((ratio - 1) * 100)}%
       </span>
     );
@@ -63,7 +63,7 @@ export function PriceInput({
   );
 }
 
-/** The hub of your district: today's orders, your reputation and the market with your prices for other players */
+/** Your town's market: today's orders, the prices with your Hub Orders, the calendar, the town and its Wonder, the Exchange */
 /** The event calendar of the district (GDD §15) */
 function CalendarTab({ serverNow }: { serverNow: number }) {
   const company = useAppStore((state) => state.company)!;
@@ -79,7 +79,7 @@ function CalendarTab({ serverNow }: { serverNow: number }) {
   return (
     <div className="calendar">
       <p className="muted small">
-        What is coming to your district in the next {company.forecastHours} hours.
+        What is coming to your town in the next {company.forecastHours} hours.
         {company.forecastHours < 72 && " A Weather Station sees three days ahead and halves storm damage."}
       </p>
       {company.events.length === 0 && <p className="muted">A quiet day: nothing planned.</p>}
@@ -130,29 +130,19 @@ export function HubPanel() {
   }
   const close = () => setState({ hubOpen: false });
   const serverNow = now + serverOffset;
-  const reputationSpan = company.nextReputation === null ? 1 : company.nextReputation;
-  const reputationProgress =
-    company.nextReputation === null ? 1 : Math.min(1, company.hubReputation / reputationSpan);
 
   return (
     <div className="modal-backdrop" onClick={close}>
       <div
         className="panel hub-panel"
         role="dialog"
-        aria-label="Hub"
+        aria-label="Market"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="panel-header">
-          <h2>{market?.district ?? "Hub"} market</h2>
-          <div className="reputation" title={`${formatAmount(company.hubReputation)} reputation points`}>
-            <span>
-              Hub reputation <strong>{company.reputationLevel}</strong>/10
-            </span>
-            <div className="xp-bar">
-              <div className="xp-fill gold" style={{ width: `${reputationProgress * 100}%` }} />
-            </div>
-            <span className="muted small">+{company.reputationLevel - 1}% on hub sales</span>
-          </div>
+          <h2>
+            {market?.district ?? "Town"} · Era {company.era}
+          </h2>
           <button className="icon-button" title="Close (Esc)" onClick={close}>
             ×
           </button>
@@ -171,7 +161,7 @@ export function HubPanel() {
             )}
           </button>
           <button className={tab === "wonders" ? "tab active" : "tab"} onClick={() => setTab("wonders")}>
-            Wonders
+            Town &amp; Wonder
           </button>
           <button className={tab === "exchange" ? "tab active" : "tab"} onClick={() => setTab("exchange")}>
             Exchange
@@ -179,7 +169,7 @@ export function HubPanel() {
         </div>
 
         {tab === "wonders" ? (
-          <WondersTab serverNow={serverNow} />
+          <TownTab serverNow={serverNow} />
         ) : tab === "calendar" ? (
           <CalendarTab serverNow={serverNow} />
         ) : tab === "exchange" ? (
@@ -187,8 +177,14 @@ export function HubPanel() {
         ) : tab === "orders" ? (
           <div className="orders">
             <p className="muted small">
-              The hub buys these today at twice the price, from what your trading posts sell: nothing to
-              deliver, they fill as your goods pass. New orders at midnight.
+              The hub buys these today at twice the price: one for each good your trading posts sell, up to
+              three, and a good that starts selling today gets its own. They fill by themselves as your goods
+              pass, or deliver what your Storages hold. New orders at{" "}
+              {new Date(new Date(company.serverTime).setUTCHours(24, 0, 0, 0)).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              .
             </p>
             {company.dailyOrders.map((order) => {
               const done = order.delivered >= order.amount - 1e-9;
@@ -206,6 +202,10 @@ export function HubPanel() {
                   (t.urgent !== order.urgent ? t.urgent : t.id < order.id),
               );
               const before = ahead.reduce((sum, t) => sum + t.amount - t.delivered, 0);
+              // Twice the base for every unit, the hub's price as the goods pass and the rest from the order
+              const unit = order.rewardGold / order.amount;
+              const bonus = order.rewardGold - order.amount * order.hubPrice;
+              const deliver = done || left <= 0 ? 0 : Math.min(order.stored, order.amount - order.delivered);
               const eta =
                 order.selling > 1e-6
                   ? ((before + order.amount - order.delivered) / order.selling) * 60
@@ -220,7 +220,7 @@ export function HubPanel() {
                       {order.urgent && <span className="urgent-tag">📢 Shortage</span>}
                       {formatAmount(order.amount)} {good}
                     </div>
-                    <div className="meter-bar">
+                    <div className="meter-bar order-bar">
                       <div
                         className="meter-fill"
                         style={{
@@ -229,9 +229,21 @@ export function HubPanel() {
                         }}
                       />
                     </div>
+                    <div className="small order-progress">
+                      <strong>
+                        {formatAmount(order.delivered)} / {formatAmount(order.amount)}
+                      </strong>{" "}
+                      delivered
+                      {order.delivered > 0 && (
+                        <>
+                          {" "}
+                          · <span className="gold-text">{formatAmount(order.delivered * unit)} g</span> paid
+                        </>
+                      )}
+                    </div>
                     <div className="small muted">
-                      Pays <span className="gold-text">{formatAmount(order.rewardGold)} g</span> in all ·{" "}
-                      {formatAmount(order.rewardXp)} XP · {formatAmount(order.rewardReputation)} reputation
+                      Pays <span className="gold-text">{formatAmount(order.rewardGold)} g</span> in all
+                      {bonus > 0.5 && `, ${formatAmount(bonus)} g more than the hub would`}
                       {!done && ` · ${formatDuration(Math.max(0, left))} left`}
                     </div>
                     <div className="small order-stock">
@@ -241,6 +253,18 @@ export function HubPanel() {
                           ? `Your trading posts sell ${formatAmount(order.selling)} a minute${ahead.length > 0 ? `, which fill ${ahead.some((t) => t.urgent) ? "the shortage order" : "the order above"} first` : ""}: full in about ${formatDuration(eta)}${eta > left ? `, after it closes: only ${formatAmount(Math.max(0, order.selling * (left / 60) - before))} of it at this rate` : ""}`
                           : `Your trading posts sell no ${good} now: pipe a building that makes it to one`}
                     </div>
+                    {deliver >= 1 && (
+                      <div className="order-deliver">
+                        <button
+                          className="small"
+                          title="Your Storages kept these for your next buildings and pipes: they go to the hub now"
+                          onClick={() => void gameClient.deliverOrder(order.id)}
+                        >
+                          Deliver {formatAmount(deliver)} from your Storages · +{formatAmount(deliver * unit)}{" "}
+                          g
+                        </button>
+                      </div>
+                    )}
                   </div>
                   {done && <span className="order-check">✔</span>}
                 </div>
@@ -252,17 +276,19 @@ export function HubPanel() {
         ) : (
           <div className="market">
             <p className="muted small">
-              The hub buys everything from you. Up to your Hub Order it pays the full price; beyond it, less
-              for every extra unit (nobody else's sales move your price). Players pay each other one price,
-              through the Yard, contracts and the Exchange.
+              The market buys everything your trading post brings it. Up to your Hub Order a minute it pays
+              the full price; sell more and the price falls with the square root (over the last hour, nobody
+              else&apos;s sales count). Your trading post&apos;s levels, research from tier 5, your
+              town&apos;s Wonder and a Market Monument raise your Hub Orders. Goods of a later Era than your
+              town&apos;s pay a quarter. Players set their own prices, between the market&apos;s two.
             </p>
             <table className="market-table">
               <thead>
                 <tr>
-                  <th>Resource</th>
-                  <th>Hub pays you</th>
-                  <th>Hub sells</th>
-                  <th>You sell / your order</th>
+                  <th>Good</th>
+                  <th>Pays you</th>
+                  <th>Sells</th>
+                  <th>You sell / Hub Order a minute</th>
                   <th>Between players</th>
                   <th>Trade</th>
                 </tr>
@@ -279,19 +305,11 @@ export function HubPanel() {
                     </td>
                     <td>
                       {row.buyPrice.toFixed(2)} <Trend row={row} />
-                      {row.heading !== null && Math.abs(row.heading - row.buyPrice) > 0.005 && (
-                        <span
-                          className={row.heading > row.buyPrice ? "trend up" : "trend down"}
-                          title="Market Insight: where the hub price is heading"
-                        >
-                          {" "}
-                          → {row.heading.toFixed(2)}
-                        </span>
-                      )}
                     </td>
                     <td>{row.sellPrice.toFixed(2)}</td>
-                    <td className={row.soldPerMinute > row.demand ? "warning-text" : "muted"}>
-                      {formatAmount(row.soldPerMinute)} / {formatAmount(row.demand)}
+                    <td className={row.soldPerMinute > row.hubOrder ? "warning-text" : "muted"}>
+                      {formatAmount(row.soldPerMinute)} /{" "}
+                      {row.hubOrder > 0 ? formatAmount(row.hubOrder) : "a later Era"}
                     </td>
                     <td>{row.playerPrice.toFixed(2)}</td>
                     <td>
@@ -321,13 +339,18 @@ function ExchangeTab({ serverNow }: { serverNow: number }) {
   const [selling, setSelling] = useState(true);
   const [resource, setResource] = useState("ironOre");
   const [amount, setAmount] = useState(100);
+  const [typed, setTyped] = useState<number | null>(null);
   const gold = useAppStore((state) => state.company?.gold ?? 0);
+  const yourEra = useAppStore((state) => state.company?.yourEra ?? 1);
   if (exchange === null) {
     return <p className="muted">Loading…</p>;
   }
-  // One price between players, said before the click; what a sell order needs in your Storages (after run 4: Cleo's
-  // typed 3 g became 1.95 without a word, and Ana's sell order was refused for stone she didn't have stored)
-  const price = exchange.prices?.[resource] ?? content.resource(resource)?.price ?? 1;
+  // Your own price, between the market's two (1.4 §8; the default player price until you type one), said before the
+  // click with what a sell order needs in your Storages (after run 4: Cleo's typed 3 g became 1.95 without a word, and
+  // Ana's sell order was refused for stone she didn't have stored)
+  const base = content.resource(resource)?.price ?? 1;
+  const high = base * content.progression.hubSpread;
+  const price = Math.min(high, Math.max(base, typed ?? exchange.prices?.[resource] ?? base));
   const stored = exchange.stored?.[resource] ?? 0;
   const good = content.resourceName(resource).toLowerCase();
   const blocked = selling
@@ -340,14 +363,14 @@ function ExchangeTab({ serverNow }: { serverNow: number }) {
   return (
     <div className="exchange">
       <p className="muted small">
-        Trade with anyone {exchange.global ? "at every hub (Global Exchange)" : "in the district"} without a
-        pipe. Sell orders hold their goods from your storages, buy orders hold their gold. Goods go by cargo
-        (faster with a Cargo Depot and Trains); the seller pays a {Math.round(exchange.fee * 100)}% fee that
-        disappears. <strong>Your station&apos;s neighbours and its project need no Exchange:</strong> what you
-        pipe to your Yard gate goes to them by itself.
+        Trade with anyone {exchange.global ? "in every town" : "in the town"} without a pipe, at your own
+        price. Sell orders hold their goods from your Storages, buy orders hold their gold; you buy goods of
+        your own Era or older. Goods go by cargo; the seller pays a {Math.round(exchange.fee * 100)}% fee that
+        disappears. <strong>Your Yard&apos;s neighbours need no Exchange:</strong> what you pipe to your Yard
+        gate goes to them by itself.
       </p>
-      {!exchange.hasOffice ? (
-        <p className="status idle">Build an Exchange Office (Company Level 12) to place orders.</p>
+      {exchange.opens !== null ? (
+        <p className="status idle">The Exchange opens at Company Level {exchange.opens}.</p>
       ) : (
         <form
           className="form-row exchange-form"
@@ -365,9 +388,15 @@ function ExchangeTab({ serverNow }: { serverNow: number }) {
           </label>
           <label>
             Resource
-            <select value={resource} onChange={(e) => setResource(e.target.value)}>
+            <select
+              value={resource}
+              onChange={(e) => {
+                setResource(e.target.value);
+                setTyped(null);
+              }}
+            >
               {content.resources
-                .filter((r) => r.era <= 2)
+                .filter((r) => r.era <= yourEra + (selling ? 1 : 0))
                 .map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name}
@@ -379,12 +408,22 @@ function ExchangeTab({ serverNow }: { serverNow: number }) {
             Amount
             <input type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
           </label>
+          <label>
+            Price
+            <input
+              type="number"
+              min={base}
+              max={high}
+              step={0.01}
+              value={Number(price.toFixed(2))}
+              onChange={(e) => setTyped(Number(e.target.value))}
+            />
+          </label>
           <button className="primary" type="submit" disabled={blocked !== null}>
             Place order
           </button>
           <p className="small exchange-terms">
-            At the one player price, <strong>{price.toFixed(2)} g</strong> each (every player pays and gets
-            the same here) ·{" "}
+            <strong>{price.toFixed(2)} g</strong> each (between {base.toFixed(2)} and {high.toFixed(2)}) ·{" "}
             {selling
               ? `${formatAmount(stored)} ${good} in your Storages`
               : `holds ${formatAmount(amount * price)} g till it fills`}{" "}

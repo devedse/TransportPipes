@@ -7,31 +7,28 @@ import type { Content } from "../game/content";
 import { useAppStore } from "../state/store";
 
 const SOURCE_NAMES: Record<string, string> = {
-  earnings: "Gold earned",
-  buildings: "Buildings",
-  upgrades: "Upgrades",
-  parcels: "Parcels",
-  research: "Research",
+  market: "The market",
+  players: "Other players",
   orders: "Daily orders",
-  contracts: "Contracts",
   achievements: "Achievements",
-  corporation: "Corporation goals",
-  likes: "Likes",
+  rewards: "Rewards",
   cheats: "Cheats",
 };
 
-/** An item of a source: a building type or a resource by its name, else as it is (a tech, an achievement) */
+/** An item of a source: a good by its name, else as it is (an achievement, a reward) */
 function itemName(content: Content, source: string, item: string): string {
-  if (source === "buildings" || source === "upgrades") {
-    return content.building(item)?.name ?? item;
+  if (item === "storages") {
+    return "What your Storages sold";
   }
-  if (source === "orders" || source === "contracts" || source === "corporation") {
-    return content.resourceName(item);
-  }
-  return item;
+  return source === "market" || source === "players" || source === "orders"
+    ? content.resourceName(item)
+    : item;
 }
 
-/** Where a company's XP came from, per source (open one for its items), and what gives XP */
+/**
+ * The Company Level (1.4 §14): it comes from all the gold the company ever earned, so this is where the gold came from,
+ * per source (open one for its goods), and what the next levels bring
+ */
 export function ExperiencePanel({
   company,
   content,
@@ -41,7 +38,7 @@ export function ExperiencePanel({
   content: Content;
   onClose: () => void;
 }) {
-  const sources = Object.entries(company.experience.log)
+  const sources = Object.entries(company.earned.log)
     .map(([source, items]) => ({
       source,
       total: Object.values(items).reduce((a, b) => a + b, 0),
@@ -50,11 +47,11 @@ export function ExperiencePanel({
     .filter((t) => t.total > 0.05)
     .sort((a, b) => b.total - a.total);
   const era = useAppStore((s) => s.era);
-  const left = Math.max(0, company.nextLevelXp - company.xp);
+  const left = Math.max(0, company.nextLevelEarned - company.lifetimeEarnings);
   const eta = levelEta(company);
   const roadmap = levelRoadmap(content, company, gameClient.world, era);
   return (
-    <div className="panel xp-panel" role="dialog" aria-label="Experience">
+    <div className="panel xp-panel" role="dialog" aria-label="Company Level">
       <div className="panel-header">
         <h3>Company Level {company.level}</h3>
         <button className="icon-button" title="Close (Esc)" onClick={onClose}>
@@ -62,17 +59,17 @@ export function ExperiencePanel({
         </button>
       </div>
       <p>
-        <strong>{formatAmount(left)} XP</strong> to Level {company.level + 1}
+        <strong>{formatAmount(left)} g</strong> more to earn for Level {company.level + 1}
         {eta !== null && (
           <>
             {" "}
-            · about <strong>{formatDuration(eta)}</strong> at +{formatAmount(company.experience.perMinute)}{" "}
-            XP/min
+            · about <strong>{formatDuration(eta)}</strong> at {formatAmount(company.earned.perMinute)} g/min
           </>
         )}
       </p>
       <p className="muted small">
-        The XP per minute is what your earnings bring now; building, upgrading and research add more on top.
+        Your Company Level comes from all the gold you ever earned ({formatAmount(company.lifetimeEarnings)} g
+        so far): spending it takes nothing away.
       </p>
 
       {roadmap.length > 0 && (
@@ -99,7 +96,18 @@ export function ExperiencePanel({
         </>
       )}
 
-      <h4>Where your XP came from</h4>
+      <h4>
+        Where your gold came from{" "}
+        <button
+          className="link small"
+          onClick={() => {
+            onClose();
+            void gameClient.openStatistics(null, "earnedBy");
+          }}
+        >
+          Over time 📈
+        </button>
+      </h4>
       {sources.length === 0 ? (
         <p className="muted small">Nothing yet: build something!</p>
       ) : (
@@ -109,13 +117,13 @@ export function ExperiencePanel({
               <details>
                 <summary>
                   <span>{SOURCE_NAMES[s.source] ?? s.source}</span>
-                  <span className="xp-amount">{formatAmount(s.total)} XP</span>
+                  <span className="xp-amount">{formatAmount(s.total)} g</span>
                 </summary>
                 <ul className="xp-items">
-                  {s.items.map(([item, xp]) => (
+                  {s.items.map(([item, gold]) => (
                     <li key={item}>
                       <span>{itemName(content, s.source, item)}</span>
-                      <span className="xp-amount">{formatAmount(xp)} XP</span>
+                      <span className="xp-amount">{formatAmount(gold)} g</span>
                     </li>
                   ))}
                 </ul>
@@ -124,15 +132,6 @@ export function ExperiencePanel({
           ))}
         </ul>
       )}
-
-      <h4>What gives XP</h4>
-      <ul className="xp-rules small">
-        {company.experience.rules.map((rule) => (
-          <li key={rule.source}>
-            <strong>{SOURCE_NAMES[rule.source] ?? rule.source}:</strong> {rule.text}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

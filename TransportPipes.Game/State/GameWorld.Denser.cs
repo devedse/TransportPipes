@@ -15,7 +15,8 @@ public enum TerraformAction
 
 /// <summary>
 /// Denser (GDD §11.1): complexes, tile efficiency and terraforming. A complex is a 1×1 building type standing as one
-/// 2×2 (or 3×3) building: four (nine) merged buildings with the output of five (twelve), sharing one level.
+/// 2×2 (or 3×3) building: four (nine) merged buildings with the output of five (twelve), sharing one level. They come
+/// with a track's tier 4 (8) for its buildings (1.4 §12).
 /// </summary>
 public sealed partial class GameWorld
 {
@@ -49,8 +50,8 @@ public sealed partial class GameWorld
         _ => 1,
     };
 
-    private bool CanBeComplex(BuildingDefinition definition) =>
-        definition.Size == 1 && definition.Kind is BuildingKind.Producer or BuildingKind.Lab && (definition.Out.Count != 0 || definition.ResearchPerMinute > 0);
+    private static bool CanBeComplex(BuildingDefinition definition) =>
+        definition.Size == 1 && definition.Kind is BuildingKind.Producer && definition.Out.Count != 0;
 
     /// <summary>Merges a finished building with its identical neighbours into a complex when they form a square</summary>
     private void TryMergeComplex(Building building)
@@ -62,7 +63,8 @@ public sealed partial class GameWorld
         }
         foreach (var size in new[] { 3, 2 })
         {
-            if (!HasResearch(owner, size == 3 ? "megaComplexes" : "complexes"))
+            // The building's track: complexes from tier 4, mega complexes from tier 8 (1.4 §12)
+            if (ComplexSizeFor(building) < size)
             {
                 continue;
             }
@@ -104,7 +106,8 @@ public sealed partial class GameWorld
         {
             RemoveBuilding(member);
         }
-        var complex = new Building { Id = NextBuildingId++, Type = type, Owner = owner.Id, X = origin.X, Y = origin.Y, Size = size, Level = level };
+        var price = members.Average(CopyPrice);
+        var complex = new Building { Id = NextBuildingId++, Type = type, Owner = owner.Id, X = origin.X, Y = origin.Y, Size = size, Level = level, Price = price };
         _buildings[complex.Id] = complex;
         foreach (var tile in complex.Footprint())
         {
@@ -116,17 +119,7 @@ public sealed partial class GameWorld
             $"{size * size} {Content.Building(type).Name}s merged into a {(size == 3 ? "mega complex" : "complex")}: the output of {ComplexFactor(size * size)}", complex.Id));
     }
 
-    /// <summary>For testing: every tech at once</summary>
-    public void GrantAllResearch(Company company, bool thisEra = false)
-    {
-        company.Researched.UnionWith(Content.ResearchList.Where(t => !thisEra || t.Era <= Era).Select(t => t.Id));
-        company.Touch();
-        Changes.Companies.Add(company.Id);
-        MarkCompanyNetworksDirty(company.Id);
-        MergeAllComplexes(company);
-    }
-
-    /// <summary>After Complexes research: every square of identical buildings merges</summary>
+    /// <summary>After a Complexes tier: every square of identical buildings merges</summary>
     private void MergeAllComplexes(Company company)
     {
         foreach (var building in BuildingsOf(company.Id).Where(t => t.Size == 1).OrderBy(t => t.Y).ThenBy(t => t.X).ToList())
@@ -236,16 +229,15 @@ public sealed partial class GameWorld
 
     // ---------------------------------------------------------------- Evolve in place
 
-    /// <summary>What a building is worth when it evolves: its gold and every upgrade bought for it</summary>
+    /// <summary>What a building is worth when it evolves: what the copy cost and every level bought for it</summary>
     public double EvolveCredit(Building building)
     {
-        var definition = Content.Building(building.Type);
         var upgrades = 0.0;
         for (var level = 1; level < building.Level; level++)
         {
-            upgrades += Content.Progression.UpgradeCost(definition, level);
+            upgrades += Content.Progression.UpgradeCost(CopyPrice(building), level);
         }
-        return (definition.Cost.Gold + upgrades) * ComplexMembers(building);
+        return (CopyPrice(building) + upgrades) * ComplexMembers(building);
     }
 
     /// <summary>Where a building's successor would stand (covering the old footprint), or null with the reason</summary>
@@ -305,9 +297,13 @@ public sealed partial class GameWorld
         {
             return payment;
         }
+        var price = BuildCost(company, target);
+        // A trading post keeps its levels as a Market Hall: its Hub Orders stay (1.4 §8)
+        var keeps = target.Kind == BuildingKind.TradingPost ? building.Level : 1;
         RemoveBuilding(building);
-        AddBuilding(company, target.Id, origin, finished: false);
-        GainXp(company, Content.Progression.XpReward("building") + (company.BuiltTypes.Add(target.Id) ? Content.Progression.XpReward("firstBuildingOfType") : 0), "buildings", target.Id);
+        var evolved = AddBuilding(company, target.Id, origin, finished: false, price);
+        evolved.Level = keeps;
+        company.BuiltTypes.Add(target.Id);
         AddStat(company, "evolved", 1);
         company.Touch();
         Changes.Companies.Add(company.Id);

@@ -1,6 +1,6 @@
-// The middle game's chores explain themselves (run 2's recommendation 5): the Build menu's Processing tab lists the
-// Lab with what it uses ("Uses 2 iron ingots a minute: you make none yet, a Small Factory does"), and the Hub's daily
-// orders say how fast the trading posts fill them (since run 3 they need no Storage).
+// The middle game's chores explain themselves (run 2's recommendation 5): the Build menu's Processing tab lists a
+// factory with what it uses ("Uses 12 iron ore a minute: you make none yet, an Iron Mine does"; 1.4's Lab uses
+// nothing), and the Hub's daily orders say how fast the trading posts fill them (since run 3 they need no Storage).
 //   node chores.mjs shots/chores
 import { start, newPlayer } from "./lib.mjs";
 
@@ -14,10 +14,10 @@ await page.waitForTimeout(1500);
 await page.evaluate(() => tp.appStore.setState({ buildMenuOpen: true, buildCategory: "processing" }));
 await page.waitForTimeout(800);
 const lab = await page.evaluate(() => {
-  const item = [...document.querySelectorAll(".build-item")].find((t) => t.querySelector(".build-name")?.textContent?.startsWith("Lab"));
+  const item = [...document.querySelectorAll(".build-item")].find((t) => t.querySelector(".build-name")?.textContent?.startsWith("Small Factory"));
   return item ? (item.querySelector(".supply-line")?.textContent ?? "(no supply line)") : null;
 });
-console.log("Lab under Processing:", lab);
+console.log("Small Factory under Processing:", lab);
 await shot("1-processing");
 await page.evaluate(() => tp.appStore.setState({ buildMenuOpen: false }));
 
@@ -31,7 +31,7 @@ console.log("orders", JSON.stringify(orders));
 await shot("2-orders");
 
 // Since run 3 the orders fill from what the trading posts sell: each says how fast, or what to pipe
-const pass = lab !== null && lab.startsWith("Uses 2 iron ingots a minute") && orders.length > 0
+const pass = lab !== null && lab.startsWith("Uses 12 iron ore a minute: you make none yet, an Iron Mine does") && orders.length > 0
   && orders.every((t) => t.stock?.startsWith("Filled") || t.stock?.startsWith("Your trading posts sell"));
 console.log(pass ? "PASS" : "FAIL", "errors:", errors.length ? errors.join(" | ") : "none");
 await browser.close();

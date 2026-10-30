@@ -1,6 +1,6 @@
 // A building that waits says so (after run 4: Dev's Big Factory and Ana's Cement Kiln read "is being built" and waited
 // to the end for bricks nobody near made): placing a Market Hall without bricks says "stands as a scaffold. It waits for
-// 500 bricks…"; the goal tracker has a Waits row with Order the rest; its panel names the chain that would make bricks,
+// 500 bricks…"; the goal tracker has a Waits row with Buy the rest; its panel names the chain that would make bricks,
 // with Show me, which puts that building in hand.
 //   node waits.mjs shots/waits
 import { start, newPlayer } from "./lib.mjs";
@@ -44,7 +44,8 @@ await page.keyboard.press("Escape");
 await page.evaluate(() => tp.gameClient.refreshCompany());
 await page.waitForTimeout(2000);
 const row = await page.locator(".goal-tracker li", { hasText: "Your Market Hall waits" }).first().innerText().catch(() => "");
-expect("the tracker has a Waits row with Order the rest", /🏗 Your Market Hall waits for 500 bricks/.test(row) && /Order the rest · [\d.,k]+ g/.test(row), row.replace(/\s+/g, " "));
+// (1.4: the market brings a little meanwhile, and the button is Buy the rest)
+expect("the tracker has a Waits row with Buy the rest", /🏗 Your Market Hall waits for \d+ bricks/.test(row) && /Buy the rest · [\d.,k]+ g/.test(row), row.replace(/\s+/g, " "));
 await shot("1-waits");
 
 const site = await page.evaluate(() => {

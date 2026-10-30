@@ -12,18 +12,16 @@ internal sealed class TestGame
     public DateTime Time { get; set; } = Start;
     public GameWorld World { get; }
 
-    public TestGame(int seed = 1234, GameContent? content = null, bool events = false, bool achievements = false, bool tutorial = false, bool surveys = false, bool dealtLand = false)
+    public TestGame(int seed = 1234, GameContent? content = null, bool events = false, bool achievements = false, bool tutorial = false)
     {
-        World = new GameWorld(content ?? GameContent.Default, seed, () => Time, dealtLand) { EventsEnabled = events, AchievementsEnabled = achievements, TutorialEnabled = tutorial, SurveysEnabled = surveys };
+        World = new GameWorld(content ?? GameContent.Default, seed, () => Time) { EventsEnabled = events, AchievementsEnabled = achievements, TutorialEnabled = tutorial };
     }
 
     /// <summary>The game content without location modifiers (wind, sun, richness), so every building makes its listed amount</summary>
     public static GameContent PlainContent { get; } = CreatePlainContent();
 
     /// <summary>PlainContent whose pipes lose nothing (so how long a pipe is doesn't matter)</summary>
-    public static GameContent LosslessContent { get; } = new(PlainContent.ResourceList, PlainContent.BuildingList, PlainContent.PipeTiers.Select(t => t with { LossPerTile = 0 }).ToList(),
-        PlainContent.Progression, PlainContent.ResearchList, [.. PlainContent.DistrictWonders, .. PlainContent.EraWonders], PlainContent.Managers, PlainContent.Achievements,
-        PlainContent.Collections, PlainContent.Tutorial, PlainContent.Relics);
+    public static GameContent LosslessContent { get; } = PlainContent.With(pipeTiers: PlainContent.PipeTiers.Select(t => t with { LossPerTile = 0 }).ToList());
 
     private static GameContent CreatePlainContent()
     {
@@ -42,7 +40,6 @@ internal sealed class TestGame
             In = t.In,
             Out = t.Out,
             OutFromDeposit = t.OutFromDeposit,
-            ResearchPerMinute = t.ResearchPerMinute,
             Placement = t.Placement,
             Modifier = ProductionModifier.None,
             Capacity = t.Capacity,
@@ -55,7 +52,7 @@ internal sealed class TestGame
             Sprite = t.Sprite,
             Description = t.Description,
         }).ToList();
-        return new GameContent(content.ResourceList, buildings, content.PipeTiers, content.Progression, content.ResearchList, [.. content.DistrictWonders, .. content.EraWonders], content.Managers, content.Achievements, content.Collections, content.Tutorial, content.Relics);
+        return content.With(buildings: buildings);
     }
 
     private static readonly Dictionary<char, string> MapLetters = new()
@@ -69,22 +66,20 @@ internal sealed class TestGame
         ['V'] = "valve",
         ['P'] = "priorityValve",
         ['U'] = "pumpStation",
-        ['E'] = "exchangeOffice",
         ['C'] = "cargoDepot",
         ['L'] = "powerLinePylon",
-        ['H'] = "showroom",
         ['B'] = "blueprintOffice",
-        ['Q'] = "pneumaticPost",
+        ['K'] = "quantumLink",
         ['R'] = "lab",
     };
 
     /// <summary>
     /// Puts a map like the original game's tests on the world, without any placement rules: W wind moily, S solar panel,
-    /// M iron mine, F small factory, O storage, T trading post, V valve, P priority valve, U pump station, L power line pylon, H showroom, B blueprint office, Q pneumatic post, R lab, + pipe
+    /// M iron mine, F small factory, O storage, T trading post, V valve, P priority valve, U pump station, C cargo depot, L power line pylon, B blueprint office, K quantum link (2×2), R lab, + pipe
     /// (lossless by default, like the original game).
     /// Returns the buildings by their map position.
     /// </summary>
-    public Dictionary<(int X, int Y), Building> Map(Company company, TilePos origin, string map, int pipeTier = 5)
+    public Dictionary<(int X, int Y), Building> Map(Company company, TilePos origin, string map, int pipeTier = 6)
     {
         var buildings = new Dictionary<(int X, int Y), Building>();
         var rows = map.Replace("\r", "").Split('\n');
@@ -100,7 +95,7 @@ internal sealed class TestGame
                 }
                 else if (MapLetters.TryGetValue(c, out var type))
                 {
-                    var building = new Building { Id = World.NextBuildingId, Type = type, Owner = company.Id, X = pos.X, Y = pos.Y };
+                    var building = new Building { Id = World.NextBuildingId, Type = type, Owner = company.Id, X = pos.X, Y = pos.Y, Size = World.Content.Building(type).Size };
                     World.LoadBuilding(building);
                     buildings[(x, y)] = building;
                 }
@@ -126,9 +121,52 @@ internal sealed class TestGame
         return company;
     }
 
+    /// <summary>A building at a level, as if it had been bought (its networks are solved again)</summary>
+    public void SetLevel(Building building, int level)
+    {
+        building.Level = level;
+        World.MarkCompanyNetworksDirty(building.Owner);
+        World.SolveNetworks();
+    }
+
+    /// <summary>Buys levels and has their goods come at once (level goods have tests of their own)</summary>
+    public void UpgradeNow(Company company, IReadOnlyCollection<long> ids, int levels)
+    {
+        World.UpgradeMany(company.Id, ids, levels);
+        foreach (var id in ids)
+        {
+            World.FillSite(id);
+        }
+    }
+
+    /// <summary>The first town (where new companies settle) moves up to an Era</summary>
+    public void TownToEra(int era)
+    {
+        var town = new DistrictCoord(0, 0);
+        while (World.TownEra(town) < era)
+        {
+            World.AdvanceEra(town);
+        }
+    }
+
+    /// <summary>The gold earned a Company Level needs (1.4 §14), as earned: the company reaches it like a player would</summary>
+    public void ReachLevel(Company company, int level)
+    {
+        var gold = World.Content.Progression.EarnedForLevel(level) - company.LifetimeEarnings;
+        World.CountEarned(company, Math.Max(0, gold), "test", "level");
+    }
+
     public Estate EstateOf(Company company) => World.EstateOf(company)!;
 
     public TilePos Local(Company company, int x, int y) => EstateOf(company).Origin.Offset(x, y);
+
+    /// <summary>A tile of the start area (16×16, against the Yard): its corner plus (x, y)</summary>
+    public TilePos InStart(Company company, int x, int y)
+    {
+        var estate = EstateOf(company);
+        var corner = WorldLayout.StartParcels(estate.Slot).Select(WorldLayout.ParcelOrigin).Aggregate((a, b) => (Math.Min(a.X, b.X), Math.Min(a.Y, b.Y)));
+        return estate.Origin.Offset(corner.X + x, corner.Y + y);
+    }
 
     public Building TradingPost(Company company) => World.BuildingsOf(company.Id).Single(t => t.Type == "tradingPost");
 
@@ -136,12 +174,11 @@ internal sealed class TestGame
     public TilePos Spot(Company company, string type, Func<TilePos, bool>? where = null)
     {
         var definition = World.Content.Building(type);
-        var estate = EstateOf(company);
-        for (var y = 8; y < 24; y++)
+        for (var y = 0; y < 16; y++)
         {
-            for (var x = 8; x < 24; x++)
+            for (var x = 0; x < 16; x++)
             {
-                var pos = estate.Origin.Offset(x, y);
+                var pos = InStart(company, x, y);
                 if ((where == null || where(pos)) && World.CanPlace(company, definition, pos).Success
                     && GameWorld.BorderTiles(pos, definition.Size).Any(t => !World.IsOccupied(t) && World.Tile(t).Terrain is not (TerrainType.Mountain or TerrainType.Water)))
                 {
@@ -150,6 +187,26 @@ internal sealed class TestGame
             }
         }
         throw new AssertFailedException($"No spot for {type}");
+    }
+
+    /// <summary>A 2×2 deposit of a resource on free open land of the start area (the land's own deposits vary by plot)</summary>
+    public TilePos Seed(Company company, string resource, int richness = 2)
+    {
+        for (var y = 0; y < 15; y++)
+        {
+            for (var x = 0; x < 15; x++)
+            {
+                var pos = InStart(company, x, y);
+                var square = new[] { pos, pos.Offset(1, 0), pos.Offset(0, 1), pos.Offset(1, 1) };
+                if (square.All(t => !World.IsOccupied(t) && World.Tile(t).Terrain is TerrainType.Grass or TerrainType.Hills && World.Tile(t).Deposit == null)
+                    && GameWorld.BorderTiles(pos, 2).Any(t => !World.IsOccupied(t) && World.Tile(t).Terrain is not (TerrainType.Mountain or TerrainType.Water)))
+                {
+                    World.LoadSeeds(square.Select(t => (t, resource, richness)));
+                    return pos;
+                }
+            }
+        }
+        throw new AssertFailedException($"No room for a {resource} deposit");
     }
 
     public Building Build(Company company, string type, TilePos? pos = null, bool finish = true)

@@ -1,4 +1,4 @@
-// Crew emblems, the colours to pick from, and what an estate's land is good for (the picker and the crew panel)
+// Crew emblems, the colours to pick from, and what a plot's land is good for (the picker and the crew panel)
 import type { SeatDto } from "../api/contracts";
 
 export const EMBLEM_ICONS: Record<string, string> = {
@@ -61,7 +61,7 @@ export const CREW_COLORS = [
   "#34495e",
 ];
 
-/** What an estate's specialty means for a player: its name and what its land is rich in */
+/** A plot's strength (1.4 §5): its name and the good its ★4 deposit holds */
 export const SPECIALTIES: Record<string, { name: string; icon: string; good: string }> = {
   windyHeights: { name: "Windy Heights", icon: "🌬️", good: "wind" },
   sunnyFlats: { name: "Sunny Flats", icon: "☀️", good: "sun" },
@@ -70,39 +70,34 @@ export const SPECIALTIES: Record<string, { name: string; icon: string; good: str
   coalValley: { name: "Coal Valley", icon: "⚫", good: "coal" },
   oldForest: { name: "Old Forest", icon: "🌲", good: "wood" },
   stoneQuarry: { name: "Stone Quarry", icon: "🪨", good: "stone" },
+  ironHills: { name: "Iron Hills", icon: "⛰️", good: "iron" },
 };
 
-/** The building a dealt seat's kit makes its good with, and the word for the good */
-const LAND_KITS: Record<string, { good: string; kit: string }> = {
-  copperOre: { good: "copper", kit: "a Copper Mine" },
-  coal: { good: "coal", kit: "a Coal Pit" },
-  sand: { good: "sand", kit: "a Sand Dredger" },
-  wood: { good: "wood", kit: "a Lumber Camp" },
-  stone: { good: "stone", kit: "a Quarry" },
+/** The plain word for a land good */
+const GOOD_WORDS: Record<string, string> = {
+  copperOre: "copper",
+  ironOre: "iron",
+  titaniumOre: "titanium",
+  rareEarth: "rare earth",
 };
 
-/**
- * What a seat's land holds, as its card says it. Dealt land (step 5) says what's really there: "Riverside: sand (kit:
- * a Sand Dredger) · stone at Level 5"
- */
-export function landText(primary: string, secondary: string | null, goods: string[] | null = null): string {
-  if (goods !== null && goods.length > 0) {
-    const name = SPECIALTIES[primary]?.name ?? primary;
-    const first = LAND_KITS[goods[0]!];
-    const later = goods.slice(1).map((t, i) => `${LAND_KITS[t]?.good ?? t} at Level ${i === 0 ? 5 : 7}`);
-    return [
-      `${name}: ${first?.good ?? goods[0]}${first !== undefined ? ` (kit: ${first.kit})` : ""}`,
-      ...later,
-    ].join(" · ");
+export function goodWord(good: string): string {
+  return GOOD_WORDS[good] ?? good;
+}
+
+/** "copper and oil", "copper, coal and oil" */
+export function andList(items: string[]): string {
+  return items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+}
+
+/** A plot's land in one line (1.4 §5): its strength and what it lacks ("Coal Valley · no copper or oil") */
+export function landText(primary: string, lacks: string[] | null = null): string {
+  const name = SPECIALTIES[primary]?.name ?? primary;
+  if (lacks === null || lacks.length === 0) {
+    return name;
   }
-  const first = SPECIALTIES[primary];
-  const second = secondary !== null ? SPECIALTIES[secondary] : undefined;
-  if (first === undefined) {
-    return primary;
-  }
-  return second !== undefined
-    ? `${first.name}: ${first.good}, ${second.good}`
-    : `${first.name}: ${first.good}`;
+  const words = lacks.map(goodWord);
+  return `${name} · no ${words.length <= 1 ? words[0] : `${words.slice(0, -1).join(", ")} or ${words.at(-1)}`}`;
 }
 
 export function landIcon(primary: string): string {
@@ -141,7 +136,7 @@ export function nameIdea(): string {
   return NAME_IDEAS[Math.floor(Math.random() * NAME_IDEAS.length)]!;
 }
 
-/** Whether a player lives on a seat (a House keeping it warm doesn't count) */
+/** Whether a player lives on a plot */
 export function lived(seat: SeatDto): boolean {
   return seat.state === "taken" || seat.state === "you";
 }

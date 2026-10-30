@@ -21,18 +21,18 @@ public sealed partial class GameWorld
         var now = new Dictionary<(long Seller, long Buyer, string Resource), double>();
         foreach (var network in _networks.Values)
         {
-            foreach (var payment in GatePayments(network).Where(t => !t.Floor && !t.Seller.IsNpc && !t.Buyer.IsNpc))
+            foreach (var payment in GatePayments(network).Where(t => !t.Floor))
             {
                 var key = (payment.Seller.Id, payment.Buyer.Id, payment.Resource);
                 now[key] = now.GetValueOrDefault(key) + payment.Units;
             }
         }
-        foreach (var seller in _companies.Values.Where(t => !t.IsNpc && (t.UsualTrades.Count > 0 || t.TradeFalls.Count > 0)))
+        foreach (var seller in _companies.Values.Where(t => (t.UsualTrades.Count > 0 || t.TradeFalls.Count > 0)))
         {
             foreach (var key in seller.UsualTrades.Keys.Union(seller.TradeFalls.Keys).ToList())
             {
                 var parts = key.Split(':', 2);
-                if (parts.Length != 2 || !long.TryParse(parts[0], out var buyerId) || Company(buyerId) is not { IsNpc: false } buyer)
+                if (parts.Length != 2 || !long.TryParse(parts[0], out var buyerId) || Company(buyerId) is not { } buyer)
                 {
                     continue;
                 }
@@ -48,7 +48,7 @@ public sealed partial class GameWorld
                     continue;
                 }
                 var usual = UsualRate(seller, buyer, resource);
-                if (usual < FallWatchedRate || rate >= 0.5 * usual || seller.Asleep || buyer.Asleep)
+                if (usual < FallWatchedRate || rate >= 0.5 * usual)
                 {
                     continue;
                 }
@@ -84,7 +84,7 @@ public sealed partial class GameWorld
             // Short of the very good it bought is the fall itself: what holds it back is where its own goods go (run 3's
             // test: a mine whose pipe to its post was cut takes no energy, and read "energy short")
             if (reason.Cause is IdleCause.InputShort or IdleCause.InputMissing && reason.Resource == resource
-                && Content.Building(taker.Type).Out.Keys.FirstOrDefault(t => t != GameContent.ResearchPoints) is { } made
+                && Content.Building(taker.Type).Out.Keys.FirstOrDefault() is { } made
                 && !PipeReach(taker).Any(t => t.Owner == taker.Owner && Content.Building(t.Type).Kind is BuildingKind.TradingPost or BuildingKind.Storage))
             {
                 var word = GoodsWord(made);

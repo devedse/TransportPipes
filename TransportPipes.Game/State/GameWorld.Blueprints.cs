@@ -49,11 +49,11 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>The blueprints a company may use: its own, its corporation's shared ones and the board's</summary>
+    /// <summary>The blueprints a company may use: its own, its crew's shared ones and the board's</summary>
     public IEnumerable<Blueprint> BlueprintsFor(Company company) => _blueprints.Values.Where(t =>
         t.Owner == company.Id
         || t.Sharing == BlueprintSharing.Board
-        || (t.Sharing == BlueprintSharing.Corporation && company.CorporationId != null && Company(t.Owner)?.CorporationId == company.CorporationId));
+        || (t.Sharing == BlueprintSharing.Corporation && company.CrewId != null && Company(t.Owner)?.CrewId == company.CrewId));
 
     /// <summary>Saves the buildings and pipes of a rectangle of the estate</summary>
     public CommandResult SaveBlueprint(long companyId, string name, TilePos from, int width, int height)
@@ -157,7 +157,7 @@ public sealed partial class GameWorld
 
     /// <summary>The best pipe up to a tier that the company has (a shared blueprint may use better pipes)</summary>
     private int BestPipeTier(Company company, int tier) =>
-        Content.PipeTiers.Where(t => t.Tier <= tier && t.Era <= Era && (t.Research == null || HasResearch(company, t.Research)))
+        Content.PipeTiers.Where(t => t.Tier <= tier && t.Era <= YourEra(company) && (t.Research == null || HasResearch(company, t.Research)))
             .Select(t => t.Tier).DefaultIfEmpty(1).Max();
 
     /// <summary>What building the blueprint costs a company now (gold; land, no bridges)</summary>

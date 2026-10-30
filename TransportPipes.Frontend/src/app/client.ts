@@ -7,8 +7,9 @@ import type {
   ChatMessageDto,
   CommandResult,
   CompanyDto,
-  CorporationRole,
+  GiveMode,
   LeaderboardKind,
+  StatsRange,
   NextStepDto,
   ReturnLineDto,
   SeatRefDto,
@@ -21,12 +22,19 @@ import type { TilePosition } from "../game/isometric";
 import {
   buyableParcels,
   DEEP_OFFSET,
+  DISTRICT_HEIGHT,
+  DISTRICT_WIDTH,
   ESTATE_SIZE,
+  districtOriginX,
+  districtOriginY,
+  estateOrigin,
   PARCEL_SIZE,
   PARCELS_PER_SIDE,
   isDeep,
   isParcelUnlocked,
+  outskirtsOwner,
   parcelOf,
+  startCentre,
   yardGate,
   zoneAt,
 } from "../game/layout";
@@ -39,7 +47,7 @@ import {
   upgradablePipeTiles,
 } from "../game/rules";
 import { WorldModel } from "../game/world";
-import { formatAmount, possessive } from "./format";
+import { formatAmount } from "./format";
 import { notify } from "./notifications";
 import { sounds } from "./sound";
 import { appStore, dismissToast, initialState, MODALS, setState, toast, type HubTab } from "../state/store";
@@ -59,8 +67,9 @@ function readGuest(): { userName: string; password: string } | null {
 }
 
 /** The address a friend opens to move into a seat (or join the crew) */
-export function inviteLink(code: string, seat: boolean): string {
-  return `${location.origin}/?${seat ? "seat" : "crew"}=${encodeURIComponent(code)}`;
+/** A "Play next to me" link (1.4 §6): it opens the map at your Yard */
+export function inviteLink(code: string): string {
+  return `${location.origin}/?near=${encodeURIComponent(code)}`;
 }
 
 /** Connects the server, the world model, the map engine and the UI state */
@@ -101,10 +110,10 @@ export class GameClient {
     await this.connect();
   }
 
-  /** A seat code (?seat=) or crew link (?crew=) in the address: what it opens */
+  /** A friend's "Play next to me" link (?near=) in the address: what it opens */
   private async readInvite() {
     const params = new URLSearchParams(location.search);
-    const code = params.get("seat") ?? params.get("crew") ?? sessionStorage.getItem(INVITE_KEY);
+    const code = params.get("near") ?? sessionStorage.getItem(INVITE_KEY);
     if (code === null || code.trim() === "") {
       return;
     }
@@ -126,7 +135,7 @@ export class GameClient {
     let code = trimmed;
     try {
       const params = new URL(trimmed).searchParams;
-      code = params.get("seat") ?? params.get("crew") ?? trimmed;
+      code = params.get("near") ?? trimmed;
     } catch {
       // Not a link: the code itself
     }
@@ -135,7 +144,7 @@ export class GameClient {
     }
     const dto = await fetchInvite(code).catch(() => null);
     if (dto?.valid !== true) {
-      return "That link or code doesn't open any seat or crew (it may have lapsed): ask your friend for a new one.";
+      return "That link or code doesn't open anyone's Yard (it works for seven days): ask your friend for a new one.";
     }
     sessionStorage.setItem(INVITE_KEY, code);
     setState({ invite: { code, dto } });
@@ -182,7 +191,7 @@ export class GameClient {
       // Nothing kept
     }
     setState({ user: result.user, keepOpen: false });
-    toast(`Your estate is yours: log in as ${result.user.userName} anywhere.`, "success", 7000);
+    toast(`Your plot is yours: log in as ${result.user.userName} anywhere.`, "success", 7000);
     return null;
   }
 
@@ -263,11 +272,9 @@ export class GameClient {
         void this.refreshInbox();
       }
     });
-    // A new season: a new world, everything starts again
-    c.on("seasonChanged", () => location.reload());
     c.on("wondersChanged", () => {
       if (appStore.getState().hubOpen && appStore.getState().hubTab === "wonders") {
-        void this.refreshWonders();
+        void this.refreshTown();
       }
     });
     c.on("crewChanged", () => {
@@ -281,14 +288,6 @@ export class GameClient {
       }
     });
     c.on("mapLinksChanged", () => void this.loadMapLinks());
-    c.on("corporationChanged", () => {
-      if (appStore.getState().corporationOpen) {
-        void this.refreshCorporations();
-      }
-      if (appStore.getState().chat !== null) {
-        void this.refreshChat();
-      }
-    });
     c.on("toast", (t: ToastDto) => {
       notify(t);
       if (t.kind === "constructionFinished" && t.building !== null) {
@@ -372,15 +371,9 @@ export class GameClient {
     if (this.homedCompany !== hello.company.id) {
       this.goHome();
     }
-    if (hello.company.season.endedAt !== null) {
-      void this.openSeason();
-    }
   }
 
   private setCompany(company: CompanyDto) {
-    if (this.world !== null) {
-      this.world.dealtLand = company.land !== null;
-    }
     const previous = appStore.getState().company;
     setState({ company, companyAt: Date.now(), era: company.era });
     this.releaseWaiting();
@@ -391,10 +384,6 @@ export class GameClient {
       this.hintOverlay = null;
     }
     this.world?.setDeepLevel(company.estateX, company.estateY, company.deep.parcels);
-    if (company.season.endedAt !== null && previous?.season.endedAt === null) {
-      // The ceremony
-      void this.openSeason();
-    }
     if (
       previous !== null &&
       previous.id === company.id &&
@@ -404,9 +393,14 @@ export class GameClient {
       this.engine?.invalidate();
       this.goHome();
     }
+    // A new Era or Level changes what the advisor says (the town's next Era comes from everyone's gifts)
+    if (previous !== null && (previous.era !== company.era || previous.level !== company.level)) {
+      this.scheduleNextSteps(1000);
+    }
     if (
       previous !== null &&
-      (previous.unlockedParcels !== company.unlockedParcels ||
+      ((previous.explored ?? []).length !== (company.explored ?? []).length ||
+        previous.unlockedParcels !== company.unlockedParcels ||
         previous.level !== company.level ||
         previous.era !== company.era ||
         previous.deep.open !== company.deep.open ||
@@ -423,9 +417,11 @@ export class GameClient {
     }
     if (
       appStore.getState().researchOpen &&
-      (previous?.currentResearch !== company.currentResearch ||
-        previous?.researched.length !== company.researched.length ||
-        Math.floor((previous?.researchPoints ?? 0) / 10) !== Math.floor(company.researchPoints / 10))
+      (previous?.research.currentResearch !== company.research.currentResearch ||
+        previous?.research.researched.length !== company.research.researched.length ||
+        previous?.research.currentTrack !== company.research.currentTrack ||
+        previous?.research.trackQueue.length !== company.research.trackQueue.length ||
+        Math.floor((previous?.gold ?? 0) / 1000) !== Math.floor(company.gold / 1000))
     ) {
       void this.refreshResearch();
     }
@@ -437,14 +433,10 @@ export class GameClient {
   }
 
   async refreshNeighbours() {
-    const [neighbours, contracts] = await Promise.all([
-      this.connection.getNeighbourhood().catch(() => null),
-      this.connection.getContracts().catch(() => null),
-    ]);
-    setState({
-      ...(neighbours !== null ? { neighbours } : {}),
-      ...(contracts !== null ? { contracts } : {}),
-    });
+    const neighbours = await this.connection.getNeighbourhood().catch(() => null);
+    if (neighbours !== null) {
+      setState({ neighbours });
+    }
   }
 
   /**
@@ -460,67 +452,41 @@ export class GameClient {
     const gate = yardGate(company.estateX, company.estateY, company.slot);
     setState({ neighboursOpen: false, yardOpen: false, tool: { kind: "select" } });
     this.engine?.lookAt(gate.x, gate.y, 0.6);
-    const steps: Array<[number, number]> = [
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1],
-    ];
     for (let attempt = 0; attempt < 10; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 250));
       const current = appStore.getState().company;
       if (current === null) {
         return;
       }
-      // From the gate to the nearest of your own pipes (or the trading post's side)
-      const own: Array<{ x: number; y: number }> = [];
-      for (let dy = 0; dy < ESTATE_SIZE; dy++) {
-        for (let dx = 0; dx < ESTATE_SIZE; dx++) {
-          const x = current.estateX + dx;
-          const y = current.estateY + dy;
-          const conductor = this.world.conductorAt(x, y);
-          if (conductor?.kind === "pipe" && conductor.owner === current.id) {
-            own.push({ x, y });
-          }
-        }
-      }
-      if (own.length === 0) {
-        // No pipe yet: start next to the trading post
-        for (let dy = 0; dy < ESTATE_SIZE && own.length === 0; dy++) {
-          for (let dx = 0; dx < ESTATE_SIZE && own.length === 0; dx++) {
-            const building = this.world.buildingAt(current.estateX + dx, current.estateY + dy);
-            if (building?.owner === current.id && building.type === "tradingPost") {
-              for (const [sx, sy] of steps) {
-                own.push({ x: building.x + sx, y: building.y + sy });
-              }
-            }
-          }
-        }
-      }
-      const targets = own
+      // A loose pipe beside the gate is not a connected network. Aim for a pipe that serves a building, or the
+      // Trading Post itself, and include the gate tile in the preview so the destination is unambiguous.
+      const buildings = [...this.world.buildings.values()].filter((b) => b.owner === current.id);
+      const networks = new Set(buildings.map((b) => b.network).filter((id) => id !== null));
+      const targets = [...this.world.conductors.values()]
+        .filter(
+          (c) => c.kind === "pipe" && c.owner === current.id && c.network !== null && networks.has(c.network),
+        )
         .sort(
           (a, b) =>
-            Math.abs(a.x - gate.x) +
-            Math.abs(a.y - gate.y) -
-            (Math.abs(b.x - gate.x) + Math.abs(b.y - gate.y)),
+            Math.abs(a.x - gate.x) + Math.abs(a.y - gate.y) - Math.abs(b.x - gate.x) - Math.abs(b.y - gate.y),
         )
         .slice(0, 6);
-      for (const [dx, dy] of steps) {
-        const start = { x: gate.x + dx, y: gate.y + dy };
-        if (zoneAt(start.x, start.y).kind !== "estate") {
-          continue;
-        }
-        for (const target of targets) {
-          const route = routePipe(this.world, current, start, target, state.content ?? undefined, 4000);
-          if (route !== null) {
-            setState({
-              plannedRoute: route,
-              plannedPartner: null,
-              plannedTarget: "your Yard gate (G)",
-              plannedDone: null,
-            });
-            return;
-          }
+      const post = buildings.find((b) => b.type === "tradingPost");
+      const destinations: Array<{ x: number; y: number }> = [
+        ...targets,
+        ...(post === undefined ? [] : [post]),
+      ];
+      for (const target of destinations) {
+        const route = routePipe(this.world, current, gate, target, state.content ?? undefined, 4000);
+        if (route !== null) {
+          setState({
+            plannedRoute: route,
+            plannedPartner: null,
+            plannedTarget: "your Yard gate",
+            plannedDone: "Connected to your Yard gate",
+            hintTile: { ...gate, size: 1 },
+          });
+          return;
         }
       }
     }
@@ -542,7 +508,13 @@ export class GameClient {
         state.plannedDone ?? "Connected! Trade starts right away.",
       )
     ) {
-      setState({ plannedRoute: null, plannedPartner: null, plannedTarget: null, plannedDone: null });
+      setState({
+        plannedRoute: null,
+        plannedPartner: null,
+        plannedTarget: null,
+        plannedDone: null,
+        hintTile: null,
+      });
     }
   }
 
@@ -672,62 +644,89 @@ export class GameClient {
     this.engine?.lookAt(middle.x, middle.y, 0.8);
   }
 
-  async proposeContract(
-    partner: number | null,
-    selling: boolean,
-    resource: string,
-    rate: number,
-    price: number,
-    days: number,
-  ) {
-    const ok = await this.command(
-      this.connection.proposeContract(partner, selling, resource, rate, price, days),
-      partner === null ? "Your offer is on the contract board" : "Offer sent",
-    );
-    if (ok) {
-      await this.refreshNeighbours();
-    }
-    return ok;
-  }
-
-  async acceptContract(contract: number) {
-    if (await this.command(this.connection.acceptContract(contract), "Contract signed")) {
-      await this.refreshNeighbours();
-    }
-  }
-
-  async declineContract(contract: number) {
-    if (await this.command(this.connection.declineContract(contract))) {
-      await this.refreshNeighbours();
-    }
-  }
-
   async openHub(tab?: HubTab) {
     setState({ ...MODALS, hubOpen: true, ...(tab !== undefined ? { hubTab: tab } : {}) });
-    await Promise.all([this.refreshMarket(), this.refreshWonders()]);
+    await Promise.all([this.refreshMarket(), this.refreshTown()]);
   }
 
-  async refreshWonders() {
-    const wonders = await this.connection.getWonders().catch(() => null);
-    if (wonders !== null) {
-      setState({ wonders });
+  async refreshTown() {
+    const town = await this.connection.getTown().catch(() => null);
+    if (town !== null) {
+      setState({ town });
     }
   }
 
-  async deliverToWonder(eraWonder: boolean) {
-    if (await this.command(this.connection.deliverToWonder(eraWonder), "Delivered: thank you, builder!")) {
-      await this.refreshWonders();
+  /** Your give switch for a good (1.4 §13): what the Yard round sends the Wonder by itself */
+  async setGive(resource: string, mode: GiveMode) {
+    if (await this.command(this.connection.setGive(resource, mode))) {
+      await this.refreshTown();
     }
   }
 
-  /** The line the Labs refine next (null: the walls first, then your best-earning good) */
-  async chooseRefinement(line: string | null) {
-    if (await this.command(this.connection.chooseRefinement(line))) {
+  /** Gives the Wonder what your Storages (and your goods in the Depot) hold of what it lacks */
+  async giveFromStorages() {
+    if (await this.command(this.connection.giveFromStorages(), "Given: thank you, builder!")) {
+      await this.refreshTown();
+    }
+  }
+
+  /** Buys what the stage lacks at the market's 2.5× and gives it: one good, or all; at most this much gold */
+  async buyAndGive(resource: string | null, gold: number | null = null) {
+    if (
+      await this.command(this.connection.buyAndGive(resource, gold), "Bought and given: thank you, builder!")
+    ) {
+      if (appStore.getState().goldUses !== null) {
+        void this.loadGoldUses();
+      }
+      await this.refreshTown();
       void this.refreshCompany();
     }
   }
 
-  /** Orders part of the Era Wonder from the hub: it ships over six hours and counts a quarter for your tier */
+  /** Builds a Monument of a kind on its Era's site in your Yard */
+  async chooseMonument(era: number, kind: string) {
+    if (await this.command(this.connection.chooseMonument(era, kind))) {
+      await this.refreshTown();
+    }
+  }
+
+  /** Pays gold into a Monument's next stage */
+  async payMonument(era: number, gold: number) {
+    if (await this.command(this.connection.payMonument(era, gold), "Paid into the Monument")) {
+      await this.refreshTown();
+      void this.refreshCompany();
+    }
+  }
+
+  async putInDepot(resource: string, amount: number) {
+    if (await this.command(this.connection.putInDepot(resource, amount), "In the Depot, for the crew")) {
+      void this.refreshCompany();
+    }
+  }
+
+  async takeFromDepot(resource: string, amount: number) {
+    if (await this.command(this.connection.takeFromDepot(resource, amount), "Back in your Storages")) {
+      void this.refreshCompany();
+    }
+  }
+
+  async buyOutskirts(index: number) {
+    if (
+      await this.command(this.connection.buyOutskirts(index), "The parcel is yours: build and pipe on it")
+    ) {
+      setState({ selectedOutskirts: null });
+      void this.refreshCompany();
+      this.engine?.invalidate();
+    }
+  }
+
+  /** Whether the market brings what your levels and buildings still lack (1.4 §9) */
+  async setWantsFromMarket(on: boolean) {
+    if (await this.command(this.connection.setWantsFromMarket(on))) {
+      void this.refreshCompany();
+    }
+  }
+
   /** What your gold can do: the shared goal, a want, and "Grow everything that pays" (after run 4) */
   async loadGoldUses() {
     setState({ goldUses: await this.connection.getGoldUses() });
@@ -742,37 +741,10 @@ export class GameClient {
     }
   }
 
-  /** Gives hours of your income (1, 6 or 24) to your station's Landmark storey (after run 4) */
-  async giveToStorey(hours: number) {
-    if (await this.command(this.connection.giveToStorey(hours))) {
-      void this.refreshCompany();
-      void this.refreshProject();
-      if (appStore.getState().goldUses !== null) {
-        void this.loadGoldUses();
-      }
-    }
-  }
-
   async undoGrowth() {
     if (await this.command(this.connection.undoGrowth())) {
       void this.refreshCompany();
       void this.loadGoldUses();
-    }
-  }
-
-  /** Orders an Era Wonder good: all that may be ordered, or as much as some gold buys (an hour of your income) */
-  async orderForWonder(resource: string, gold: number | null = null) {
-    if (
-      await this.command(
-        this.connection.orderForWonder(resource, gold),
-        "Ordered: the hub ships it over six hours",
-      )
-    ) {
-      if (appStore.getState().goldUses !== null) {
-        void this.loadGoldUses();
-      }
-      await this.refreshWonders();
-      void this.refreshCompany();
     }
   }
 
@@ -812,8 +784,14 @@ export class GameClient {
     }
   }
 
-  async setTradeWith(tradeWith: "everyone" | "corporation" | "contracts") {
-    await this.command(this.connection.setTradeWith(tradeWith));
+  /** One of your prices (1.4 §8; null: back to its default): a cut counts at once, a rise waits an hour */
+  async setPrice(key: string, value: number | null) {
+    return this.command(this.connection.setPrice(key, value));
+  }
+
+  /** Fills a hub order from what your Storages hold of its good */
+  async deliverOrder(orderId: number) {
+    return this.command(this.connection.deliverOrder(orderId));
   }
 
   /** Who you trade with and at what prices: the Neighbours panel's trade settings */
@@ -836,14 +814,17 @@ export class GameClient {
   }
 
   async refreshResearch() {
-    const research = await this.connection.getResearch().catch(() => null);
-    if (research !== null) {
-      setState({ research });
-    }
+    const [research, tracks] = await Promise.all([
+      this.connection.getResearch().catch(() => null),
+      this.connection.getTracks().catch(() => null),
+    ]);
+    setState({ ...(research !== null ? { research } : {}), ...(tracks !== null ? { tracks } : {}) });
   }
 
+  /** An Era tree item, or a track's next tier */
   async startResearch(tech: string) {
-    const name = appStore.getState().content?.research(tech)?.name ?? tech;
+    const content = appStore.getState().content;
+    const name = content?.research(tech)?.name ?? content?.track(tech)?.name ?? tech;
     if (await this.command(this.connection.startResearch(tech), `Researching ${name}`)) {
       await this.refreshCompany();
       await this.refreshResearch();
@@ -866,36 +847,7 @@ export class GameClient {
       this.forgetInvite();
     }
     await this.hello();
-    toast(`Welcome, ${name}! Your estate is ready.`, "success", 7000);
-    return null;
-  }
-
-  /** Start with friends: your company and a crew, with the station's other seats held for them */
-  async startWithFriends(
-    name: string,
-    color: string,
-    crewName: string,
-    emblem: string,
-    crewColor: string,
-    crewColor2: string,
-    seat: SeatRefDto,
-    holdSeats: number,
-  ): Promise<{ error: string; code: string | null } | null> {
-    const result = await this.connection.startWithFriends(
-      name,
-      color,
-      crewName,
-      emblem,
-      crewColor,
-      crewColor2,
-      seat,
-      holdSeats,
-    );
-    if (!result.success) {
-      return { error: result.error ?? "That didn't work.", code: result.code ?? null };
-    }
-    setState({ shareCodes: result.holds });
-    await this.hello();
+    toast(`Welcome, ${name}! This plot is yours.`, "success", 7000);
     return null;
   }
 
@@ -918,21 +870,55 @@ export class GameClient {
     return ok;
   }
 
-  async foundCrew(name: string, emblem: string, color: string, color2: string, holdSeats: number) {
-    const result = await this.connection.foundCrew(name, emblem, color, color2, holdSeats);
-    if (!result.success) {
-      toast(result.error ?? "That didn't work.", "error");
-      return;
+  /** Moves your plot to a free one (into a friend's closed Yard with their "Play next to me" code) */
+  async relocateTo(seat: SeatRefDto, code: string | null = null): Promise<boolean> {
+    if (
+      await this.command(this.connection.relocateTo(seat, code), "Up, up and away: your plot is on its way")
+    ) {
+      setState({ companyOpen: false });
+      return true;
     }
-    setState({ shareCodes: result.holds.length > 0 ? result.holds : null });
-    await this.refreshCrew();
+    return false;
   }
 
-  /** Moves to another seat (a free one, or one your crew holds for you) */
-  async relocateTo(seat: SeatRefDto) {
-    if (await this.command(this.connection.relocateTo(seat), "Up, up and away: your estate is on its way")) {
-      setState({ companyOpen: false });
+  /** Moving your plot: the map picker (1.4 §6), the panels out of the way */
+  openPicker() {
+    setState({ ...MODALS, picker: { mode: "move", seats: {}, chosen: null } });
+  }
+
+  /** Back from the picker to your plot */
+  closePicker() {
+    setState({ picker: null });
+    this.goHome();
+  }
+
+  /** The picker's camera: a whole town, zoomed out (1.4 §6: the start is the real map) */
+  lookAtTown(districtX: number, districtY: number) {
+    const x = districtOriginX(districtX);
+    const y = districtOriginY(districtY);
+    this.engine?.lookAtArea(x, y, x + DISTRICT_WIDTH, y + DISTRICT_HEIGHT);
+  }
+
+  /**
+   * The picker's camera: a plot close enough to see its land, beside the plot card (left of it on a desktop, above it on
+   * a phone: a step along x and y moves the view down the screen, a step along x against y to the side)
+   */
+  lookAtPlot(seat: SeatRefDto) {
+    const origin = estateOrigin(seat.districtX, seat.districtY, seat.slot);
+    const x = origin.x + ESTATE_SIZE / 2;
+    const y = origin.y + ESTATE_SIZE / 2;
+    if (PHONE()) {
+      this.engine?.lookAt(x + 17, y + 17, 0.06);
+    } else {
+      this.engine?.lookAt(x + 5, y - 5, 0.17);
     }
+  }
+
+  /** Your "Play next to me" link (it shows in the Yard panel's crew part) */
+  async nextToMeLink(): Promise<string | null> {
+    const code = await this.connection.getNextToMeLink().catch(() => null);
+    await this.refreshCrew();
+    return code === null ? null : inviteLink(code);
   }
 
   // ---------------------------------------------------------------- Engine
@@ -984,7 +970,9 @@ export class GameClient {
     const company = appStore.getState().company;
     if (company !== null && this.engine !== null) {
       this.homedCompany = company.id;
-      this.engine?.lookAt(company.estateX + ESTATE_SIZE / 2, company.estateY + ESTATE_SIZE / 2, 0.42);
+      // The start area against the Yard, where the HQ and the trading post stand
+      const centre = startCentre(company.slot);
+      this.engine?.lookAt(company.estateX + centre.x, company.estateY + centre.y, 0.42);
     }
   }
 
@@ -1018,9 +1006,13 @@ export class GameClient {
         outpostCheck: state.outpostCheck,
         mapLinks: state.mapLinks,
         focusLink: state.focusLink,
+        picker: state.picker,
       };
     },
-    canRequest: () => this.connection.status === "connected" && appStore.getState().phase === "playing",
+    // The map loads while you pick your spot too (1.4 §6: the start is the real map)
+    canRequest: () =>
+      this.connection.status === "connected" &&
+      (appStore.getState().phase === "playing" || appStore.getState().phase === "found"),
     requestChunks: (pairs) => {
       this.connection.getChunks(pairs).then(
         (chunks) => {
@@ -1040,7 +1032,7 @@ export class GameClient {
     requestDistrict: (x, y) => {
       void this.connection.getDistrict(x, y).then(
         (district) => this.world?.setDistrict(district),
-        (error: unknown) => console.warn("Could not load a district", error),
+        (error: unknown) => console.warn("Could not load a town", error),
       );
     },
     onHover: (tile, placement) => {
@@ -1247,6 +1239,19 @@ export class GameClient {
 
   private clickTile(tile: TilePosition, building: BuildingDto | undefined, modifiers?: ClickModifiers) {
     const state = appStore.getState();
+    if (state.picker !== null) {
+      // Picking a plot: a tap on one chooses it (the picker loads its town when it is another)
+      const zone = zoneAt(tile.x, tile.y);
+      if (zone.kind === "estate") {
+        setState({
+          picker: {
+            ...state.picker,
+            chosen: { districtX: zone.districtX, districtY: zone.districtY, slot: zone.slot },
+          },
+        });
+      }
+      return;
+    }
     // Shift adds a building to the selection (or takes it out), Ctrl takes all of its type, a double click all of
     // its type in its network
     const company = state.company;
@@ -1338,8 +1343,22 @@ export class GameClient {
           return;
         }
       }
+      // An outskirts parcel set aside for your plot that you don't own yet (1.4 §5): buy it
+      const zone = zoneAt(tile.x, tile.y);
+      const outskirts = zone.kind === "outskirts" ? outskirtsOwner(zone.localX, zone.localY) : null;
+      if (
+        outskirts !== null &&
+        zone.districtX === company.districtX &&
+        zone.districtY === company.districtY &&
+        outskirts.slot === company.slot &&
+        ((company.outskirts?.parcels ?? 0) & (1 << outskirts.index)) === 0
+      ) {
+        this.stopDetails();
+        setState({ selectedOutskirts: outskirts.index, selectedBuilding: null, buildingDetails: null });
+        return;
+      }
       // The wilderness: an outpost, or a claim
-      if (zoneAt(tile.x, tile.y).kind === "wilderness") {
+      if (zone.kind === "wilderness") {
         this.select(null);
         void this.selectWild(tile);
         return;
@@ -1419,14 +1438,18 @@ export class GameClient {
    */
   back() {
     const state = appStore.getState();
-    if (state.keysOpen) {
+    if (state.picker?.mode === "move") {
+      this.closePicker();
+    } else if (state.whatsNewOpen !== false) {
+      setState({ whatsNewOpen: false });
+    } else if (state.keysOpen) {
       setState({ keysOpen: false });
     } else if (
       state.researchOpen ||
       state.hubOpen ||
       state.neighboursOpen ||
-      state.corporationOpen ||
       state.leaderboardOpen ||
+      state.statsOpen ||
       state.companyOpen ||
       state.blueprintsOpen ||
       state.moderationOpen
@@ -1436,6 +1459,8 @@ export class GameClient {
       this.setPhotoMode(false);
     } else if (state.selectedDeepParcel !== null) {
       setState({ selectedDeepParcel: null });
+    } else if (state.selectedOutskirts !== null) {
+      setState({ selectedOutskirts: null });
     } else if (state.blueprintDraft !== null) {
       setState({ blueprintDraft: null });
     } else if (state.inboxOpen) {
@@ -1450,7 +1475,13 @@ export class GameClient {
     } else if (state.wildTile !== null) {
       this.closeWild();
     } else if (state.plannedRoute !== null) {
-      setState({ plannedRoute: null, plannedPartner: null, plannedTarget: null, plannedDone: null });
+      setState({
+        plannedRoute: null,
+        plannedPartner: null,
+        plannedTarget: null,
+        plannedDone: null,
+        hintTile: null,
+      });
     } else if (state.tool.kind !== "select") {
       this.setTool({ kind: "select" });
     } else if (state.buildMenuOpen) {
@@ -1471,6 +1502,7 @@ export class GameClient {
       buildingDetails: null,
       buildingNetwork: null,
       selectedParcel: null,
+      selectedOutskirts: null,
       selectedNetwork: null,
       networkDetails: null,
     });
@@ -1563,13 +1595,6 @@ export class GameClient {
     await this.visitEstate(owner, true);
   }
 
-  /** The Yard panel on its Project tab: the station's project, its basket and who helped */
-  async openProject() {
-    this.selectNetwork(null);
-    setState({ yardOpen: true, yardTab: "project" });
-    await this.refreshProject();
-  }
-
   /** A Yard command (pins, Asks); the panel follows */
   async yardCommand(promise: Promise<CommandResult>, success?: string): Promise<boolean> {
     const ok = await this.command(promise, success);
@@ -1577,14 +1602,39 @@ export class GameClient {
     return ok;
   }
 
-  async refreshProject() {
-    const project = await this.connection.getProject().catch(() => null);
-    setState({ project });
+  async refreshLinks() {
+    const [links, lines] = await Promise.all([
+      this.connection.getLinks().catch(() => null),
+      this.connection.getLines().catch(() => null),
+    ]);
+    setState({ links, lines });
   }
 
-  async refreshLinks() {
-    const links = await this.connection.getLinks().catch(() => null);
-    setState({ links });
+  /** Builds a trunk line to a neighbouring town (1.4 §20): you are its carrier */
+  async buildLine(toX: number, toY: number, tier: number) {
+    if (
+      await this.command(
+        this.connection.buildLine(toX, toY, tier),
+        "Your trunk line stands: you are its carrier",
+      )
+    ) {
+      await this.refreshLinks();
+      void this.refreshCompany();
+    }
+  }
+
+  /** A carrier's fee: "public", "crew" or a player's id (null: their special fee goes) */
+  async setLineFee(line: number, who: string, fee: number | null) {
+    if (await this.command(this.connection.setLineFee(line, who, fee))) {
+      await this.refreshLinks();
+    }
+  }
+
+  /** Sends a good over a line to the other town's market (null: stops) */
+  async setExport(resource: string, line: number | null) {
+    if (await this.command(this.connection.setExport(resource, line))) {
+      await this.refreshLinks();
+    }
   }
 
   /** A link command; the panel and the map follow */
@@ -1743,9 +1793,6 @@ export class GameClient {
       case "wonder":
         await this.openHub("wonders");
         break;
-      case "storey":
-        await this.openProject();
-        break;
       case "climb":
         // Its panel shows the door with its preview
         if (step.building !== null) {
@@ -1811,11 +1858,11 @@ export class GameClient {
       setState({ overlay: hint.overlay as Overlay });
       this.hintOverlay = { step: step.id, overlay: hint.overlay as Overlay };
     }
-    if (hint.panel === "project") {
-      void this.openProject();
-      return;
-    }
     if (hint.panel === "yard") {
+      if (step.id === "firstYard") {
+        void this.planYardPipe();
+        return;
+      }
       void this.openYard();
       return;
     }
@@ -1829,10 +1876,6 @@ export class GameClient {
     }
     if (hint.panel === "research") {
       void this.openResearch();
-      return;
-    }
-    if (hint.panel === "corporation") {
-      void this.openCorporation();
       return;
     }
     if (hint.panel === "parcel") {
@@ -1931,7 +1974,7 @@ export class GameClient {
       }
     }
     if (best === null) {
-      toast(`${definition.name} in hand, but no free spot on your estate fits it: buy a parcel first`);
+      toast(`${definition.name} in hand, but no free spot on your plot fits it: buy a parcel first`);
       return false;
     }
     this.engine?.lookAt(best.x, best.y, 0.8);
@@ -1955,12 +1998,6 @@ export class GameClient {
 
   async unlinkTeleporter(station: number) {
     if (await this.command(this.connection.unlinkTeleporter(station))) {
-      await this.refreshDetails();
-    }
-  }
-
-  async setShowroomProduct(building: number, resource: string) {
-    if (await this.command(this.connection.setShowroomProduct(building, resource))) {
       await this.refreshDetails();
     }
   }
@@ -2092,10 +2129,14 @@ export class GameClient {
     return ok;
   }
 
-  /** Orders the rest of a want from the hub (yours, or a neighbour's for them) */
-  async orderRest(target: number, forName: string | null = null): Promise<boolean> {
+  /** Orders the rest of a want from the hub (yours, or a neighbour's for them), of one good or of all */
+  async orderRest(
+    target: number,
+    forName: string | null = null,
+    resource: string | null = null,
+  ): Promise<boolean> {
     const ok = await this.command(
-      this.connection.orderRest(target),
+      this.connection.orderRest(target, resource),
       forName === null
         ? "Ordered: the hub brings the rest after your friends' turn"
         : `💛 Ordered for ${forName}`,
@@ -2170,67 +2211,6 @@ export class GameClient {
     }
   }
 
-  async openFranchise() {
-    if (await this.command(this.connection.openFranchise(null, null))) {
-      // Off to the new estate
-      const company = appStore.getState().company;
-      await this.refreshCompany();
-      const after = appStore.getState().company;
-      if (after !== null && company !== null && after.branches.length > company.branches.length) {
-        this.goToEstate(after.branches.length);
-      }
-    }
-  }
-
-  /**
-   * Send ▸ (step 4): a good's spare goes to a neighbour (to: null, the station's project) first, from now on. When the
-   * building's pipes don't reach the gate, the same tap lays the pipe to it (gatePipe: x, y pairs).
-   */
-  async sendGood(
-    resource: string,
-    to: number | null,
-    toName: string,
-    building: number | null = null,
-    gatePipe: number[] | null = null,
-  ) {
-    const state = appStore.getState();
-    if (gatePipe !== null && gatePipe.length > 0 && this.world !== null && state.company !== null) {
-      const route: TilePosition[] = [];
-      for (let i = 0; i + 1 < gatePipe.length; i += 2) {
-        route.push({ x: gatePipe[i]!, y: gatePipe[i + 1]! });
-      }
-      const tiles = newPipeTiles(this.world, state.company, route, state.content ?? undefined);
-      if (
-        tiles.length > 0 &&
-        !(await this.command(
-          this.connection.placePipes(
-            tiles.flatMap((t) => [t.x, t.y]),
-            1,
-          ),
-        ))
-      ) {
-        return false;
-      }
-    }
-    const good = state.content?.resourceName(resource).toLowerCase() ?? resource;
-    const ok = await this.command(
-      this.connection.sendGood(resource, to, building),
-      `💛 Your ${good} goes to ${toName} first`,
-    );
-    if (ok) {
-      void this.refreshDetails();
-      void this.refreshYard();
-    }
-    return ok;
-  }
-
-  async stopSend(resource: string, to: number | null) {
-    if (await this.command(this.connection.stopSend(resource, to))) {
-      void this.refreshDetails();
-      void this.refreshYard();
-    }
-  }
-
   /** The research queue (F11): a tech in or out; it starts by itself when the Labs are free and the points are there */
   async queueResearch(tech: string, queued: boolean, name: string) {
     await this.command(
@@ -2246,14 +2226,6 @@ export class GameClient {
     }
   }
 
-  /** 💛 Thanks: once a day per neighbour, no gold, no XP; they hear it */
-  async thank(giver: number, resource: string, name: string) {
-    if (await this.command(this.connection.thank(giver, resource), `💛 ${name} hears your thanks`)) {
-      void this.refreshDetails();
-      void this.refreshYard();
-    }
-  }
-
   /** Repairs every storm-damaged building (the goal tracker's alert keeps it while damage lasts) */
   async repairAll() {
     if (await this.command(this.connection.repairAll(), "Repaired: full speed again")) {
@@ -2261,26 +2233,9 @@ export class GameClient {
     }
   }
 
-  /** The return card's buttons: each closes the card on what it shows, Repair all, Send, Thanks and Tend keep it open */
+  /** The return card's buttons: each closes the card on what it shows, Repair all keeps it open */
   async returnAction(line: ReturnLineDto): Promise<boolean> {
     switch (line.action) {
-      case "send":
-        return line.resource !== null && line.partner !== null
-          ? await this.sendGood(line.resource, line.partner, "them")
-          : false;
-      case "thank":
-        if (line.partner === null || line.resource === null) {
-          return false;
-        }
-        await this.thank(line.partner, line.resource, line.partnerName ?? "They");
-        return true;
-      case "tend":
-        return line.partner !== null
-          ? await this.command(
-              this.connection.tend(line.partner),
-              `💛 You repaired ${line.partnerName === null ? "their" : line.partnerName + possessive(line.partnerName)} storm damage`,
-            )
-          : false;
       case "repairAll":
         return await this.command(this.connection.repairAll(), "Repaired: full speed again");
       case "show":
@@ -2290,26 +2245,9 @@ export class GameClient {
           this.showBuilding(line.building);
         }
         return true;
-      case "project":
-        setState({ returnCard: null });
-        await this.openProject();
-        return true;
       case "links":
         setState({ returnCard: null });
         await this.openLinks();
-        return true;
-      case "seat": {
-        // A friend's kept seat: the invite dialog again, to move in or say "Not with them"
-        const code = appStore.getState().company?.keptSeat?.code;
-        setState({ returnCard: null });
-        if (code != null) {
-          await this.openInviteCode(code);
-        }
-        return true;
-      }
-      case "crew":
-        setState({ returnCard: null });
-        await this.openCrew();
         return true;
       case "fillWant":
         return line.building !== null ? await this.sendToSite(line.building) : false;
@@ -2332,23 +2270,6 @@ export class GameClient {
   placeCrate(crate: number, type: string) {
     setState({ companyOpen: false });
     this.setTool({ kind: "build", type, crate });
-  }
-
-  async proposeSwap(other: number) {
-    if (await this.command(this.connection.proposeSwap(other), "Swap proposed")) {
-      await this.refreshVisit();
-    }
-  }
-
-  async reserveBlock(x: number, y: number) {
-    await this.command(this.connection.reserveBlock(x, y), "Block reserved for 72 hours");
-  }
-
-  // ---------------------------------------------------------------- Franchise and season
-
-  async openSeason() {
-    const season = await this.connection.getSeason().catch(() => null);
-    setState({ season, seasonOpen: season !== null });
   }
 
   // ---------------------------------------------------------------- Outposts
@@ -2488,45 +2409,33 @@ export class GameClient {
     }
   }
 
-  // ---------------------------------------------------------------- Corporations
+  // ---------------------------------------------------------------- Statistics (docs/design-notes/statistics.md)
 
-  async openCorporation() {
-    setState({ ...MODALS, corporationOpen: true });
-    await this.refreshCorporations();
+  /** Opens a company's statistics (null or your own: yours) at a graph */
+  async openStatistics(company: number | null = null, metric?: string) {
+    const state = appStore.getState();
+    const whose = company === state.company?.id ? null : company;
+    setState({
+      ...MODALS,
+      statsOpen: true,
+      statsCompany: whose,
+      statsMetric: metric ?? state.statsMetric,
+      stats: state.statsCompany === whose ? state.stats : null,
+    });
+    await this.refreshStatistics();
   }
 
-  async refreshCorporations() {
-    const corporations = await this.connection.getCorporations().catch(() => null);
-    if (corporations !== null) {
-      setState({ corporations });
+  /** Loads the statistics shown again, for a range */
+  async refreshStatistics(range?: StatsRange) {
+    const whose = appStore.getState().statsCompany;
+    const r = range ?? appStore.getState().statsRange;
+    setState({ statsRange: r });
+    const stats = await this.connection.getStatistics(whose, r).catch(() => null);
+    const now = appStore.getState();
+    if (now.statsOpen && now.statsCompany === whose && now.statsRange === r) {
+      setState({ stats });
     }
   }
-
-  /** Runs a corporation command and shows the result */
-  async corporation(run: (c: GameConnection) => Promise<CommandResult>, success?: string) {
-    const ok = await this.command(run(this.connection), success);
-    if (ok) {
-      await this.refreshCorporations();
-    }
-    return ok;
-  }
-
-  foundCorporation = (name: string, tag: string, color: string) =>
-    this.corporation((c) => c.foundCorporation(name, tag, color), `${name} is founded!`);
-  applyToCorporation = (id: number) => this.corporation((c) => c.applyToCorporation(id), "Application sent");
-  inviteToCorporation = (company: number) => this.corporation((c) => c.inviteToCorporation(company));
-  declineCorporation = (id: number) => this.corporation((c) => c.declineCorporation(id));
-  declineApplication = (company: number) => this.corporation((c) => c.declineApplication(company));
-  leaveCorporation = () => this.corporation((c) => c.leaveCorporation(), "You left the corporation");
-  kickFromCorporation = (member: number) => this.corporation((c) => c.kickFromCorporation(member));
-  setCorporationRole = (member: number, role: CorporationRole) =>
-    this.corporation((c) => c.setCorporationRole(member, role));
-  donateToCorporation = (gold: number) =>
-    this.corporation((c) => c.donateToCorporation(gold), "Thanks for the donation");
-  setCorporationSettings = (tax: number, perkResource: string | null, description: string) =>
-    this.corporation((c) => c.setCorporationSettings(tax, perkResource, description), "Saved");
-  upgradeCorporationHq = () => this.corporation((c) => c.upgradeCorporationHq(), "The HQ grows!");
-  deliverToCorporationGoal = () => this.corporation((c) => c.deliverToCorporationGoal(), "Delivered");
 
   // ---------------------------------------------------------------- Leaderboards and visits
 
@@ -2629,18 +2538,6 @@ export class GameClient {
     const channel = state.chatChannel ?? state.chat?.channels[0]?.id ?? null;
     if (channel !== null) {
       await this.openChannel(channel);
-    }
-  }
-
-  async openCorporationChat() {
-    setState({ corporationOpen: false });
-    if (!appStore.getState().chatOpen) {
-      setState({ chatOpen: true });
-    }
-    await this.refreshChat();
-    const channel = appStore.getState().chat?.channels.find((t) => t.kind === "corporation");
-    if (channel !== undefined) {
-      await this.openChannel(channel.id);
     }
   }
 

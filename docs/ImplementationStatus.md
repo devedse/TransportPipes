@@ -41,7 +41,7 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 - ✅ Player prices in the fair band (wider with Haggling), buyer maximum price, no-trade, one hour notice for partners; gate policies (open, contract, corporation, closed), public corridor pipes, toll meters
 - ✅ Contracts (offers to a company or on the contract board, served before open trade, penalties) and contract reputation (stars)
 - ✅ Exchange (order book per hub, reserved goods and gold, cargo with travel time, Cargo Depot halves it, fee as gold sink)
-- ✅ Daily orders (three a day), hub reputation (+1% hub price per level)
+- ✅ Daily orders (one a good the trading posts sell, up to three, a good that starts selling during the day gets its own; they fill from the sales or from the Storages), hub reputation (+1% hub price per level)
 - ✅ NPC tenants (producers and works on free estates, they answer contract offers, move out for new players), Neighbourhood panel with spare capacity, needs and one-click Connect
 
 ### M4 · Society
@@ -454,6 +454,180 @@ is the design's call (yes).
   every world operation that takes over half a second with where its time went (waiting, running, collecting,
   sending). Friends on one Wi-Fi were one device to the Yard (hub price, no Sends or orders for each other, one
   keystone resident): the same IP the same day now only sizes a project's baskets, as v1.2 §3 says
+
+### 1.4 · Your own place (branch `feature/own-place`, design `docs/v1.4-design.html`)
+
+The design is `docs/v1.4-design.html` (built from `docs/design-notes/v1.4`, with the economy model in its `sim/`). It
+is built in four phases (§23); each lands on the test server when it's done, and the test world starts again at phase
+A (rules 4: accounts stay).
+
+**Phase A · Your own place** (2026-10-25, 02ed076 … 1b63b16):
+- Only people, one balance: Houses and stand-ins, starter kits, small mode, quiet grace and every size taken from
+  the number of active players are gone; so are the station's project and Asks, corporations, trunks, leagues, sleep
+  and the Quiet Isles, tending, Sends and Thanks, Refinements, knowledge diffusion and the Franchise (game, server and
+  every panel). Wonder stages have fixed baskets.
+- The map (§4): towns of four Yard groups (a Yard of 32×16 with a plot on each side), two roads crossing at the hub,
+  the outskirts set aside for each plot, 128 tiles of wilderness and a town gate where each road leaves the town;
+  plots turn to face their new Yard when they move; links run along the roads. The map draws square plots, the
+  Yards with their crews' banners and names, the gates and the outskirts.
+- The land (§5): every plot has water, iron ore, wood, wind and sun, and lacks one basic and one later good, dealt
+  so a Yard's four plots lack different ones; a ★4 deposit next to the start area; later-Era deposits sleep. Red
+  hills (bauxite) are the hills' texture on red earth (`node art/process.mjs derived`).
+- Starting from scratch (an HQ and a trading post by the Yard gate) and picking your spot on the real map (§6): free
+  plots glow, a plot card says what the land has and lacks and who lives at the Yard, Pick for me (a Yard where
+  people played in the last three days, else an empty one; never a closed Yard), Find a player, a friend's "Play
+  next to me" link (seven days, the first user may enter a closed Yard; without a plot it settles at the friend's
+  Yard), requests to closed Yards. Moving uses the same picker.
+- Yard = crew (§7): the first settler founds it, every resident is an owner, any of them names it, opens or closes
+  it and answers requests (three days); the last one out takes the crew with it; a new town opens when every open
+  town has fewer than two free plots. The Crew panel (K) and the top bar show it.
+- Your own prices (§8): a public price (1.3×), a crew price (1.15×), per good and special prices for named players,
+  1×–2.5× the base; the lowest that applies is paid; a rise waits an hour and the buyers are told. Each connected
+  resident has a stall at its Yard gate with what it sells, its crew price and what it wants.
+- Max and Grow keep spending up with income (§17): Grow buys the next parcel first as soon as the level and the gold
+  allow (and saves for it while it is at most eight hours of income away), then every pipe door and Max that pays
+  back within five days. The advice suggests another generator while the trading post sells all it is given.
+- The model's player (`BalanceSimulation.Bot.ModelStep`): research when the Labs are idle, land first, then of the
+  game's own next steps the one that pays back soonest within five days (nothing that waits for missing materials),
+  the Era Wonder when nothing pays.
+- The words of §3 in what players read: plot, Yard, town, crew.
+
+Checks: 350 game tests (CrewFacts, PriceFacts, WorldLayoutFacts, WorldGeneratorFacts new), 22 server tests;
+`e2e/four-friends.mjs` (four browsers, Ben on a phone: a Yard named and its link opened as a guest, Find a player, a
+closed Yard's plot asked for and answered yes), `e2e/start-map.mjs` (desktop and phone), `e2e/big-estate.mjs` on the
+new layout (a build into a 76-building network on the map in about 100 ms); the bots' first hour from nothing
+(`ModelBotSimulation`: 15 buildings and 459 g/min after an hour, about four minutes of income in hand). The model's
+days (`TP_BALANCE=1`) show where today's economy stops: income flat from day 3 with factories short of inputs and
+the gold piling up; Company Level reaches 3 in the first hour where the model's reaches 5. Both are phase B's
+economy (levels per copy with goods, Company Level from gold earned, the Monuments).
+
+Not in phase A: the Yard's workshops and Depot, Monuments (phase B), art for the town gates (a paved apron for now),
+towns in later Eras greyed out on the map (per-town Eras come with phase B).
+
+**Phase B · The economy** (2026-10-25, ec3264f …; the test world starts again: rules 5):
+- The Company Level comes from all the gold ever earned (§14: at the market, from players, orders and rewards), with
+  where it came from in the top bar's panel; XP, its log and its rules are gone.
+- Levels to 25 priced per copy (§9): every copy costs 7% more than the last and its levels cost from it, 15% more each;
+  from level 11 a step also takes goods worth 30% of its gold, which come like a scaffold's materials (Storages, own
+  spare, the Yard, the Depot, then the market at 2.5× within about ten minutes, which a switch in the trade settings
+  turns off); the building works at its old level until they are in, "Buy the rest" brings them at once, Undo takes
+  the waiting steps back. Max, Grow and the advisor count the goods.
+- The market (§8): a fixed Hub Order per good and player (1,000 g a minute of an Era-1 good, ×4 per Era) raised by the
+  trading post's levels, research, the Wonder, Trader Lin and the Market Monument; the square-root curve over the
+  hour's average; later-Era goods pay a quarter; trading posts have no unit limit. The Exchange opens at Level 12 with
+  your own price between the market's two and a 4% fee.
+- Pipes carry per building pair: 100 / 5,000 / 50,000 / 500k / 5M / no limit, six tiers (the composite pipe is new);
+  Widen is gone.
+- Research (§12): two lines in the Lab, each with a queue of five and Keep researching: 21 tracks of nine tiers
+  (faster, leaner, complexes, mega complexes, master; from tier 3 the track's own good, from tier 5 bigger Hub Orders;
+  Power at half strength; a Coal Pit follows the better of Copper and Stone), and the Era tree that opens pipes,
+  buildings and systems (Copper Pipes for everyone at Level 8). Research points, Labs that eat ingots and mastery
+  are gone.
+- Per-town Eras (§11, §13): each town has its Era and its Era Wonder at a fixed size (the Great Dynamo 4.3 billion g of
+  goods, smaller for each town that built it before); give switches per good (beyond my Hub Order, all), give from
+  your Storages and the Depot, buy and give at 2.5×; a full stage stands a day later and pays Bronze to Diamond in
+  hours of income; perks per stage; the last brings the next Era with a day's +10% launch party. A building of a
+  later Era than its town sleeps; you may move to towns of your Era or one below. The season and the finale are gone.
+- Monuments (§13): one site per Era in each Yard, five kinds, endless stages 40% dearer each, caps and perks, paid in
+  gold from Level 5 by any resident.
+- The outskirts (§5): nine 8×8 parcels per plot from Era 2 with Survey the Outskirts, 100M × 1.4ⁿ, built and piped like
+  the plot, bought back at half on a move; Grow, the advisor and the bots use them.
+- The Yard's ends (§7): from Level 10 each resident builds producers and Storages on up to 64 tiles there, joined to
+  its own Yard gate without pipes; the crew's Depot keeps goods for the neighbours' levels and buildings (at the
+  depositor's crew price) and for the Wonder; a move takes the workshops and your Depot goods along.
+- Retired with it: contracts, corporations, TradeWith, hub reputation, the Showroom, Exchange Office, Bank, Pneumatic
+  Post, Assembly Plant and engines, district Wonders, the EraLaunch event.
+- The frontend follows: the research panel's two lines, Hub › Town & Wonder (give switches, buy and give, tiers,
+  Monuments), the market's Hub Orders, the Exchange at your own price, level waits with Buy the rest, the copy price
+  and track on a building, the Depot in the Yard panel, outskirts on the map with their buy panel, the Company Level
+  bar from gold earned. Art: the six pipe tiers, and Codex drew the Bauxite Pit, the Aluminium Works, the Yard Depot
+  and the Motor, Battery, Titanium and Spaceframe Works for phase C.
+
+Checks: game tests (LevelFacts, ResearchFacts, WonderFacts, OutskirtsFacts, WorkshopFacts new), server tests,
+`e2e/economy.mjs` (the Level from gold earned, a Lab's two lines, Hub Orders, a give switch, a level that waits for its
+goods, a workshop and the Depot, an outskirts parcel bought, a Monument's first stage in the Yard's square).
+
+The bots against the model (§17): the advisor now values a good its network doesn't make at what the market's Hub Order
+still takes, offers more extractors while their goods' Hub Orders have room, and counts materials the market brings in
+a building's price; the bot buys outskirts, tries the next step when one fails and takes a few steps per list.
+Big plots: wants are filled from the Storages once a settle (they scanned every building for every want, every tick)
+and the solver's sharing loop allocates nothing per consumer.
+
+**Phase C · Eras 3 to 5** (2026-10-25, pushed with phase B as d2dcde1; the test server starts a fresh world):
+- Art: the Motor, Battery, Titanium (mine and works) and Spaceframe Works (Codex, processed and fit-checked); the five
+  Monuments in three sizes each, standing on five sites in the Yard's square as their stages grow.
+- The pipe's three lanes (§9): where a pipe meets a building, a manifold and one connector per kind of good (a belt, a
+  slim pipe with a valve wheel, cables over a post), rendered pieces in the tier's trim; the pellets ride their lane.
+  A Storage or a trading post shows the kinds moving through it.
+- The wilderness (§20): fog over what your expeditions haven't mapped (1, 3 or 8 pieces a trip); outposts bought once
+  with the Era-4 research, only on mapped land; the Deep Level stays at Era 3.
+- Trunk lines (§20): from Era 3 to a neighbouring town, the right of way bought once, the builder its carrier with
+  public, crew and special fees; links between towns need one and pay its fee; a good can be sent to the other town's
+  market against half its Hub Order there; the Lines track makes lines cheaper and lose less, its master builds
+  superconductor lines. On the map, and in the Links tab.
+- The Launch and missions (§13): the Space Elevator launches (titles, Legacy written to every player's account) and
+  missions follow without end, each a star and +1% production for the town; the race (Era, Launch, stars) on the map
+  and in the picker.
+- Loady opens a chapter for each Era (waiting until the town gets there).
+- The model plays Eras 3 to 5 (`sim/eras.py`): a regular player's income grows three to four times an Era (2.8M, 13M,
+  35M and 90M g a minute at the ends of Eras 2 to 5; Hub Orders cap it), not twenty. So the Grand Refinery Tower is 560
+  billion, the Thinking Machine 1.85 trillion, the Space Elevator 5 trillion (what a town of eight gives in four, four
+  and four and a half weeks: the Launch about day 120), the first mission 600 billion; the Era tree of Eras 3 to 5 costs
+  an hour or two of income when its Era begins, and the first outpost 4 billion.
+- Statues (§13): a Diamond builder of a stage gets a statue in the town's hub (three looks by Codex, the plinth's sash
+  in their colour, their name on a plaque, more Diamonds on the same statue); nine stand where the hub's corner park was.
+  Every town now shows its own Era Wonder in its hub (only the capital did: the other towns' site was a bare plot).
+- Look inside a pipe: hovering it (or holding Alt for every pipe) cuts it open, each flow a core in its good's colour at
+  its lane's height, thicker the fuller the pipe; the tip says what runs in which lane. The connectors fade zoomed out.
+- A trunk line's carrier sets fees of their own for players of the two towns (the Links tab).
+
+**Phase D · Balance and polish** (started 2026-10-25):
+- Every e2e script was run on 1.4 (60 of them): 21 failed, mostly on 1.4's empty plots and new wording. A `kit` helper
+  lays a small estate; the scripts follow 1.4 (era-wonder rewritten for the town's Wonder). Their runs found real bugs:
+  the phone's top bar ran 120 px past the screen and hid Chat; a trading post's level preview and Max read "adds
+  nothing" for an hour after a plot grew (they used the market's hour average only); a pipe from a building to the
+  post was refused where it crossed the Yard gate beside the post.
+- The bots against the model (§17): the game's Keep researching started the cheapest tier while a bot was away, so its
+  research went wide (Power 5, Stone 5 on day 7) where the model masters Iron (tier 7): the bot queues its plan's tiers
+  and saves for the next, as the model's player does. It played a plot lacking copper ore, the most valuable basic;
+  it now plays the model's plot (seed 4, slot 15: lacking sand and oil, rich in iron ore, copper ore in its start
+  area). The advisor it follows had three faults the players share: it never tried a Smelter (it ranked factories by
+  their inputs at the market's 2.5×, so eight extractors always came first, while the plot sold 900 copper ore a minute
+  at a quarter of its price); its spot search put factories and Solar Panels on ore (13 Iron Mines where the model has
+  36); a large network's pipe door promised eleven times what the building could add (+1,697 g/min for a Copper
+  Pipe worth +151); and on a full plot every spot it offered had a free tile beside it but no way for a pipe to get
+  there, so the bot built, couldn't pipe and took it back for days with five hours of income banked. All four are
+  fixed, for the players' Show me too. Now (7 days, the model's plot): day 1 6% under the model, day 2 26%, day 5 34%,
+  day 7 38% (149k against 240k g a minute). The rest is land: by day 7 its eleven parcels are full at 388 buildings
+  (the model's 501; each of its pipes is laid to the nearest network tile, where the model leaves a fifth of the land
+  to pipes), and half its factories wait for inputs. Not within a fifth yet: open.
+- A whole town of bots for 120 days is out of reach at today's speed (a bot's day takes about six minutes of a CPU
+  core, so a town of eight for 120 days would take days); the model of §17, checked against the bots' first week, sets
+  the pacing of all five Eras instead.
+
+- Pipe connections (2026-10-27): building inlets render their manifold and incoming arms as one joined piece, with
+  caps only at real ends; this removes overlapping bends and caps across continuous pipes. Dragging onto a Yard
+  gate's raised post or barrier targets the gate tile. Loady's gate step counts the connection immediately, and
+  Show me highlights the gate and plans its pipe (also on a phone).
+- Building connector motion (2026-10-27, design `docs/design-notes/connector-motion.md`): actual network traffic
+  drives painted goods on separate inbound and outbound belt tracks, travelling electrical arcs and coloured fluid
+  glints. Pooled sprites stop when idle, fade with distance and respect reduced motion; quiet inspection sounds use
+  the existing mute control. The Yard gate now has a receiving box above its ground pad and behind its posts, so
+  the pipe visibly ends at the transfer point. Browser checks cover movement, idle, distance, reduced motion, the
+  sprite budget and touch connections at all four gate orientations.
+
+**Statistics** (2026-10-26, design `docs/design-notes/statistics.md`): the game kept only today's totals, so nobody could
+look back. Now every 15 minutes, with the market update, it samples every company (also while away) and every town:
+income, value, bank, gold earned and spent by kind, what it made and sold per good, its plot, research, trade and
+the minutes played, about 30 series. The samples are kept in full for 2 days, on the hour for 30 days and at midnight
+for good, written in the world's own transaction. Key moments are recorded where they happen: the levels, the first
+unit of every good, land, Eras, Wonder stages with your builder tier, crews and neighbours, moves, research, achievements,
+new trading partners and the town's calendar. The Statistics panel (J, the top bar's easel, the Company panel's
+numbers, the Company Level, a visit, a leaderboard row) has a card per graph, a range of 24 hours to all, graphs with
+the stretches away shaded and the moments as flags, a few sentences about the range, a journal, and compare with your
+crew and town. Someone else's statistics show only what the leaderboards show and their big moments. The return card
+draws your income while you were away. The admin's Pace puts every company's gold earned by days since founding next to
+the model's regular player: the check of the balance against real players that the bots couldn't give.
 
 ### After v1
 

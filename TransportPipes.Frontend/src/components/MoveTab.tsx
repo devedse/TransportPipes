@@ -1,33 +1,28 @@
-import { useState } from "react";
 import { gameClient } from "../app/client";
 import { formatAmount, formatDuration } from "../app/format";
 import { useNow } from "../app/useNow";
-import type { SeatRefDto } from "../api/contracts";
 import { useAppStore } from "../state/store";
-import { StationPicker } from "./StationPicker";
 
 const ACTIVITY: Record<string, string> = {
   active: "Active",
   resting: "Resting (3+ days away): everything keeps running",
   dormant: "Dormant (14+ days away): a Caretaker keeps your trades going, free",
-  asleep: "Asleep on the Quiet Isles",
 };
 
-/** Moving the estate to another seat (v1.2 §4), and the crates of buildings that didn't fit */
+/** Moving your plot to another one (1.4 §6), picked on the map, and the crates of buildings that didn't fit */
 export function MoveTab() {
   const company = useAppStore((s) => s.company)!;
   const content = useAppStore((s) => s.content)!;
   const serverOffset = useAppStore((s) => s.serverOffsetMs);
   const now = useNow(1000) + serverOffset;
-  const [seat, setSeat] = useState<SeatRefDto | null>(null);
   const moving = company.moving;
   const waitMs = moving.canMoveAt === null ? 0 : new Date(moving.canMoveAt).getTime() - now;
   return (
     <div className="move-tab">
       <p className="small">
-        <strong>{ACTIVITY[moving.activity] ?? moving.activity}.</strong> Your whole estate can move to another
-        seat: it lifts off on balloons and lands with its layout, next to new neighbours. Buildings that
-        don&apos;t fit the new land wait in crates.
+        <strong>{ACTIVITY[moving.activity] ?? moving.activity}.</strong> Your whole plot can move to another
+        one: it lifts off on balloons and lands with its layout, turned to face its new Yard, next to new
+        neighbours. Buildings that don&apos;t fit the new land wait in crates.
       </p>
       {moving.arrivesAt !== null ? (
         <p className="status">
@@ -43,13 +38,8 @@ export function MoveTab() {
               : `${formatAmount(moving.moveCost)} gold`}
             {waitMs > 0 && ` · next move in ${formatDuration(waitMs / 1000)}`}
           </p>
-          <StationPicker mode="move" value={seat} onChange={setSeat} />
-          <button
-            className="primary"
-            disabled={seat === null || waitMs > 0 || company.gold < moving.moveCost}
-            onClick={() => seat !== null && void gameClient.relocateTo(seat)}
-          >
-            {seat === null ? "Pick a free seat" : "Move to this seat"}
+          <button className="primary" disabled={waitMs > 0} onClick={() => gameClient.openPicker()}>
+            Choose a plot on the map
           </button>
         </>
       )}

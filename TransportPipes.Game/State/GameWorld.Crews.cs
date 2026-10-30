@@ -3,39 +3,22 @@ using TransportPipes.Game.World;
 
 namespace TransportPipes.Game.State;
 
-/// <summary>A seat a crew keeps for a friend who hasn't moved in yet; the friend moves in with its code</summary>
-public sealed class SeatHold
+/// <summary>A request to settle in a closed Yard (1.4 §7): it waits three days for a resident's yes</summary>
+public sealed class YardRequest
 {
-    public required string Code { get; init; }
-    public int DistrictX { get; init; }
-    public int DistrictY { get; init; }
+    public long Company { get; init; }
+
+    /// <summary>The plot asked for (when it's taken by the time a resident says yes, another free plot of the Yard)</summary>
     public int Slot { get; init; }
-    public DateTime HeldAt { get; init; }
 
-    /// <summary>Held for 28 days at most (and only while a member played in the last 14 days)</summary>
-    public DateTime Until { get; set; }
-
-    /// <summary>A seat kept for a member (a crew move, or an asleep friend's seat after the crew moved): only they take it</summary>
-    public long? For { get; init; }
-
-    /// <summary>Who the seat is for, as the crew calls them ("Ben", F9): the link says it, and the crew sees "Riverside Co. (Ben)"</summary>
-    public string? FriendName { get; set; }
-
-    /// <summary>
-    /// Who opened its link while living elsewhere (run 3: Ben founded his own crew 33 seconds before Ana's link came and
-    /// was never found again): their return card keeps the seat in front of them, and the crew sees where they live
-    /// </summary>
-    public long? OpenedBy { get; set; }
-
-    /// <summary>They answered "Not with them": the seat stops asking</summary>
-    public bool Declined { get; set; }
-
-    public EstateKey Seat => new(new DistrictCoord(DistrictX, DistrictY), Slot);
+    public DateTime At { get; init; }
 }
 
 /// <summary>
-/// A crew (v1.2 §6): 1–8 companies that chose each other, with a name, an emblem and two colours. No shared wallet, no
-/// votes: anyone leaves in one tap, nobody can be removed.
+/// A Yard's crew (1.4 §7): the one to four people who live around a Yard. Moving in makes you a member, moving away
+/// ends it; there are no codes or invites to manage. The first resident names the Yard, picks its banner and chooses
+/// open (anyone may settle on a free plot) or closed (a newcomer asks, and a resident says yes); open is the default.
+/// Every resident is an owner, and nobody can be thrown out.
 /// </summary>
 public sealed class Crew : Entity
 {
@@ -47,57 +30,48 @@ public sealed class Crew : Entity
     public long Founder { get; init; }
     public DateTime CreatedAt { get; init; }
 
-    /// <summary>The crew's link for friends without a held seat: for a day anyone with it joins, after that a member has to let them in</summary>
-    public required string InviteCode { get; set; }
-    public DateTime InviteCodeAt { get; set; }
+    /// <summary>The Yard it lives around: its town and its index there</summary>
+    public int DistrictX { get; init; }
+    public int DistrictY { get; init; }
+    public int Station { get; init; }
 
-    /// <summary>Companies that asked to join with an old invite link</summary>
-    public HashSet<long> JoinRequests { get; init; } = new();
+    /// <summary>Open: anyone may settle on a free plot; closed: a newcomer asks first</summary>
+    public bool Open { get; set; } = true;
 
-    /// <summary>Seats kept for friends who haven't moved in yet</summary>
-    public List<SeatHold> Holds { get; init; } = new();
+    /// <summary>Whether a resident named the Yard yet (until then it carries the name the game gave it)</summary>
+    public bool Named { get; set; }
 
-    /// <summary>Stations ("x,y,index") where the crew lets strangers settle although it lives in or holds 3+ seats there</summary>
-    public HashSet<string> OpenStations { get; init; } = new();
+    /// <summary>Newcomers who asked to settle while the Yard is closed</summary>
+    public List<YardRequest> Requests { get; init; } = new();
 
-    /// <summary>Asleep members whose seat's hold ends within a week: the keep card every active member sees</summary>
-    public HashSet<long> KeepCards { get; init; } = new();
+    /// <summary>The Yard's Monument sites, one per Era of its town (1.4 §13)</summary>
+    public List<Monument> Monuments { get; init; } = new();
 
-    /// <summary>The consolidation card (v1.2 §4): asked once, and whether its members still see it</summary>
-    public bool ConsolidationAsked { get; set; }
-    public bool ConsolidationOpen { get; set; }
+    /// <summary>What every resident put in the Yard's Depot, per good (1.4 §7)</summary>
+    public Dictionary<long, Dictionary<string, double>> Depot { get; init; } = new();
 
     /// <summary>Hidden after reports until a moderator looks at it (it shows as "Crew 12")</summary>
     public bool NameHidden { get; set; }
     public HashSet<long> NameReports { get; init; } = new();
 
-    public override string ToString() => $"{Name} (crew #{Id})";
-}
+    public StationRef Yard => new(new DistrictCoord(DistrictX, DistrictY), Station);
 
-/// <summary>How a newcomer wants to live (v1.2 §4): next to people, on a station of its own, or with friends</summary>
-public enum Placement
-{
-    Neighbours,
-    OwnStation,
-    Friends,
+    public override string ToString() => $"{Name} (crew #{Id})";
 }
 
 public sealed partial class GameWorld
 {
-    public const int MaxCrewSize = 8;
-    public static readonly TimeSpan HoldTime = TimeSpan.FromDays(28);
-    public static readonly TimeSpan HoldNeedsActivity = TimeSpan.FromDays(14);
-    public static readonly TimeSpan InviteOpenFor = TimeSpan.FromDays(1);
-    public static readonly TimeSpan LeaveMoveEvery = TimeSpan.FromDays(30);
+    /// <summary>A request to a closed Yard waits this long for a yes</summary>
+    public static readonly TimeSpan RequestWaits = TimeSpan.FromDays(3);
 
-    /// <summary>A station where one crew lives in or holds this many seats is closed to strangers (unless the crew opens it)</summary>
-    public const int CrewClosesStationAt = 3;
+    /// <summary>A "Play next to me" link works this long</summary>
+    public static readonly TimeSpan NextToMeFor = TimeSpan.FromDays(7);
 
-    /// <summary>Districts open when this share of the open ones' seats is lit or held, so groups always find room</summary>
-    public const double OpenNextDistrictAt = 0.6;
+    /// <summary>A new town opens when every open town has fewer free plots than this</summary>
+    public const int OpenNextTownBelow = 2;
 
     private readonly Dictionary<long, Crew> _crews = new();
-    private readonly Dictionary<EstateKey, (Crew Crew, SeatHold Hold)> _holds = new();
+    private readonly Dictionary<StationRef, Crew> _crewAt = new();
     public long NextCrewId { get; set; } = 1;
 
     public IEnumerable<Crew> Crews => _crews.Values;
@@ -106,70 +80,32 @@ public sealed partial class GameWorld
 
     public Crew? CrewOf(Company company) => company.CrewId is { } id ? Crew(id) : null;
 
+    /// <summary>The crew of a Yard (null: nobody lives there)</summary>
+    public Crew? CrewAt(StationRef yard) => _crewAt.GetValueOrDefault(yard);
+
     public IEnumerable<Company> CrewMembers(Crew crew) => _companies.Values.Where(t => t.CrewId == crew.Id).OrderBy(t => t.Id);
 
     public void LoadCrew(Crew crew)
     {
         _crews[crew.Id] = crew;
+        _crewAt[crew.Yard] = crew;
         NextCrewId = Math.Max(NextCrewId, crew.Id + 1);
-        foreach (var hold in crew.Holds)
-        {
-            _holds[hold.Seat] = (crew, hold);
-        }
         crew.Dirty = false;
     }
-
-    /// <summary>The crew a seat is held for (and the hold), when a friend is expected there</summary>
-    public (Crew Crew, SeatHold Hold)? HoldOn(EstateKey seat) =>
-        _holds.TryGetValue(seat, out var hold) && hold.Hold.Until > LastTick ? hold : null;
-
-    public (Crew Crew, SeatHold Hold)? HoldByCode(string code)
-    {
-        code = NormalizeCode(code);
-        foreach (var (_, (crew, hold)) in _holds)
-        {
-            if (hold.Code == code && hold.Until > LastTick)
-            {
-                return (crew, hold);
-            }
-        }
-        return null;
-    }
-
-    public Crew? CrewByInvite(string code)
-    {
-        code = NormalizeCode(code);
-        return _crews.Values.FirstOrDefault(t => t.InviteCode == code);
-    }
-
-    private static string NormalizeCode(string code) => new(code.Trim().ToUpperInvariant().Where(char.IsLetterOrDigit).ToArray());
-
-    /// <summary>A new code nobody uses: 8 letters and digits without the ones that look alike</summary>
-    private string NewCode()
-    {
-        const string alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-        while (true)
-        {
-            var code = new string(Enumerable.Range(0, 8).Select(_ => alphabet[RandomNumberGenerator.GetInt32(alphabet.Length)]).ToArray());
-            if (HoldByCode(code) == null && CrewByInvite(code) == null)
-            {
-                return code;
-            }
-        }
-    }
-
-    /// <summary>How a code is shown: two groups of four</summary>
-    public static string ShowCode(string code) => code.Length == 8 ? $"{code[..4]}-{code[4..]}" : code;
 
     private void CrewChanged(Crew crew)
     {
         crew.Touch();
         Changes.Crews.Add(crew.Id);
+        Changes.Districts.Add(crew.Yard.District);
         foreach (var member in CrewMembers(crew))
         {
             Changes.Companies.Add(member.Id);
         }
     }
+
+    /// <summary>Whether a Yard lets anyone settle (an empty Yard is open)</summary>
+    public bool YardOpen(StationRef yard) => CrewAt(yard)?.Open ?? true;
 
     // ---------------------------------------------------------------- Names
 
@@ -179,11 +115,11 @@ public sealed partial class GameWorld
         name = name.Trim();
         if (name.Length is < 3 or > 24)
         {
-            return "A crew name has 3 to 24 characters.";
+            return "A Yard's name has 3 to 24 characters.";
         }
         if (!name.All(t => char.IsLetterOrDigit(t) || t is ' ' or '-' or '_' or '.' or '&' or '\''))
         {
-            return "Use letters, digits, spaces and - _ . & ' in a crew name.";
+            return "Use letters, digits, spaces and - _ . & ' in a Yard's name.";
         }
         if (!NameFilter.IsAllowed(name))
         {
@@ -191,7 +127,7 @@ public sealed partial class GameWorld
         }
         if (_crews.Values.Any(t => t.Id != except && string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)))
         {
-            return "That crew name is already taken.";
+            return "That name is already taken.";
         }
         return null;
     }
@@ -207,581 +143,353 @@ public sealed partial class GameWorld
     private static bool IsColor(string color) =>
         color.Length == 7 && color[0] == '#' && color.Skip(1).All(Uri.IsHexDigit);
 
-    // ---------------------------------------------------------------- Founding, joining, leaving
+    /// <summary>A company as others see it</summary>
+    public string NameFor(Company company, Company viewer) => company.Name;
 
-    /// <summary>
-    /// Founds a crew (from Level 1): a name, an emblem, two colours. The founder's free neighbours' seats in its station
-    /// are held for friends (as many as asked, up to the crew's size), each with its own code.
-    /// </summary>
-    public (CommandResult Result, Crew? Crew) FoundCrew(long companyId, string name, string emblem, string color, string color2, int holdSeats = 0)
-    {
-        if (Company(companyId) is not { } company || EstateOf(company) is not { } estate)
-        {
-            return (CommandResult.Fail("You need an estate first."), null);
-        }
-        if (company.CrewId != null)
-        {
-            return (CommandResult.Fail("You are in a crew already: leave it first."), null);
-        }
-        if (CrewNameError(name) is { } error)
-        {
-            return (CommandResult.Fail(error), null);
-        }
-        if (!CrewEmblems.Contains(emblem))
-        {
-            return (CommandResult.Fail("Pick an emblem."), null);
-        }
-        if (!IsColor(color) || !IsColor(color2))
-        {
-            return (CommandResult.Fail("Pick two colours."), null);
-        }
-        var crew = new Crew
-        {
-            Id = NextCrewId++,
-            Name = name.Trim(),
-            Emblem = emblem,
-            Color = color,
-            Color2 = color2,
-            Founder = company.Id,
-            CreatedAt = LastTick,
-            InviteCode = NewCode(),
-            InviteCodeAt = LastTick,
-        };
-        _crews[crew.Id] = crew;
-        company.CrewId = crew.Id;
-        company.Touch();
-        HoldSeats(crew, estate.Station, Math.Clamp(holdSeats, 0, MaxCrewSize - 1));
-        CrewChanged(crew);
-        return (CommandResult.Ok, crew);
-    }
+    /// <summary>Whose something is, as a line says it: "ana_pm Pipes'" for a name ending in s, else "Jo's Works's"</summary>
+    public string PossessiveFor(Company company, Company viewer) =>
+        company.Name.EndsWith('s') ? $"{company.Name}'" : $"{company.Name}'s";
 
-    /// <summary>Holds up to <paramref name="count"/> free seats of a station (and its joined small stations) for the crew's friends</summary>
-    private List<SeatHold> HoldSeats(Crew crew, StationRef station, int count)
-    {
-        var held = new List<SeatHold>();
-        var room = MaxCrewSize - CrewMembers(crew).Count() - crew.Holds.Count;
-        foreach (var seat in StationSeats(station))
-        {
-            if (held.Count >= Math.Min(count, room))
-            {
-                break;
-            }
-            if (Estate(seat.District, seat.Slot) is not { } estate || HoldOn(seat) != null)
-            {
-                continue;
-            }
-            if (estate.OwnerId is { } owner && Company(owner) is not { IsNpc: true })
-            {
-                continue;
-            }
-            var hold = new SeatHold { Code = NewCode(), DistrictX = seat.District.X, DistrictY = seat.District.Y, Slot = seat.Slot, HeldAt = LastTick, Until = LastTick + HoldTime };
-            crew.Holds.Add(hold);
-            _holds[seat] = (crew, hold);
-            held.Add(hold);
-            Changes.Estates.Add((seat.District, seat.Slot));
-        }
-        CrewChanged(crew);
-        return held;
-    }
-
-    /// <summary>Holds more seats in the crew's station for friends (the crew grows to 8 at most)</summary>
-    public CommandResult HoldSeatsFor(long companyId, int count)
-    {
-        if (Company(companyId) is not { } company || CrewOf(company) is not { } crew || EstateOf(company) is not { } estate)
-        {
-            return CommandResult.Fail("You are not in a crew.");
-        }
-        return HoldSeats(crew, estate.Station, count).Count > 0
-            ? CommandResult.Ok
-            : CommandResult.Fail("There is no free seat left in your station (or your crew is full).");
-    }
-
-    /// <summary>Who a held seat is for (F9): the crew calls the friend by that name once they move in</summary>
-    public CommandResult NameHold(long companyId, string code, string? name)
-    {
-        if (Company(companyId) is not { } company || CrewOf(company) is not { } crew || crew.Holds.FirstOrDefault(t => t.Code == NormalizeCode(code)) is not { } hold)
-        {
-            return CommandResult.Fail("No such held seat.");
-        }
-        var trimmed = name?.Trim();
-        if (trimmed is { Length: > 20 })
-        {
-            return CommandResult.Fail("A name of 20 letters at most.");
-        }
-        hold.FriendName = string.IsNullOrEmpty(trimmed) ? null : trimmed;
-        CrewChanged(crew);
-        return CommandResult.Ok;
-    }
-
-    /// <summary>
-    /// A company that plays opened a seat link while living elsewhere: the seat is kept in front of it on every return
-    /// until it answers (moves in, or "Not with them"). A decline is remembered so it stops asking.
-    /// </summary>
-    public CommandResult SawSeatCode(long companyId, string code, bool decline)
-    {
-        if (Company(companyId) is not { } company || HoldByCode(code) is not { } held)
-        {
-            return CommandResult.Fail("That seat isn't kept any more.");
-        }
-        if (held.Hold.For is { } only && only != company.Id)
-        {
-            return CommandResult.Fail("That seat is kept for someone else.");
-        }
-        held.Hold.OpenedBy = company.Id;
-        held.Hold.Declined = decline;
-        CrewChanged(held.Crew);
-        if (decline)
-        {
-            foreach (var member in CrewMembers(held.Crew))
-            {
-                Changes.Events.Add(new WorldEvent(member.Id, WorldEventKind.Crew, $"{company.Name} stays in {(EstateOf(company) is { } home ? WorldNames.Station(home.Station) : "their station")} for now: your seat for them is still kept"));
-            }
-        }
-        return CommandResult.Ok;
-    }
-
-    /// <summary>The seat a friend keeps for a company that opened its link and lives elsewhere, and hasn't answered (null: none)</summary>
-    public (Crew Crew, SeatHold Hold)? KeptSeatFor(Company company) =>
-        _crews.Values.SelectMany(c => c.Holds.Select(h => (Crew: c, Hold: h)))
-            .Where(t => t.Hold.OpenedBy == company.Id && !t.Hold.Declined && t.Crew.Id != company.CrewId)
-            .Select(t => ((Crew Crew, SeatHold Hold)?)t)
-            .FirstOrDefault();
-
-    /// <summary>A company as its crew mates see it: "Riverside Co. (Ben)" when the seat it took was kept for "Ben" (F9)</summary>
-    public string NameFor(Company company, Company viewer) =>
-        company.KnownAs is { } name && viewer.Id != company.Id && viewer.CrewId != null && viewer.CrewId == company.CrewId && !company.Name.Contains(name, StringComparison.OrdinalIgnoreCase)
-            ? $"{company.Name} ({name})"
-            : company.Name;
-
-    /// <summary>A crew mate looks at your estate: your next card says so (after run 3, row 12: six promised visits, none seen)</summary>
+    /// <summary>A neighbour looks at your plot: your next card says so (after run 3, row 12: six promised visits, none seen)</summary>
     public void RecordVisit(Company owner, Company visitor)
     {
         if (owner.Id == visitor.Id || owner.CrewId == null || owner.CrewId != visitor.CrewId)
         {
             return;
         }
-        var name = NameFor(visitor, owner);
-        if (!owner.Report.VisitedBy.Contains(name))
+        if (!owner.Report.VisitedBy.Contains(visitor.Name))
         {
-            owner.Report.VisitedBy.Add(name);
+            owner.Report.VisitedBy.Add(visitor.Name);
             owner.Touch();
         }
     }
 
+    // ---------------------------------------------------------------- Living around a Yard
+
     /// <summary>
-    /// Whose something is, as a line says it: "Ben's" for a crew mate the crew calls Ben (not "Riverside Co. (Ben)'s"),
-    /// "ana_pm Pipes'" for a name ending in s, else "Jo's Works's"
+    /// A company settles on a plot: it joins the Yard's crew, or founds it as the Yard's first resident (with the name
+    /// the game gives the Yard until a resident names it, open)
     /// </summary>
-    public string PossessiveFor(Company company, Company viewer)
+    private void SettleInYard(Company company, Estate estate)
     {
-        var name = NameFor(company, viewer) == company.Name ? company.Name : company.KnownAs!;
-        return name.EndsWith('s') ? $"{name}'" : $"{name}'s";
-    }
-
-    /// <summary>Gives a held seat free again</summary>
-    public CommandResult ReleaseHold(long companyId, string code)
-    {
-        if (Company(companyId) is not { } company || CrewOf(company) is not { } crew || crew.Holds.FirstOrDefault(t => t.Code == NormalizeCode(code)) is not { } hold)
+        var yard = estate.Station;
+        if (CrewAt(yard) is { } crew)
         {
-            return CommandResult.Fail("No such held seat.");
+            AddMoment(company, "crew", $"Moved in at the Yard of {crew.Name}", true);
+            company.CrewId = crew.Id;
+            crew.Requests.RemoveAll(t => t.Company == company.Id);
+            company.Touch();
+            AnnounceArrival(crew, company);
+            CrewChanged(crew);
+            return;
         }
-        RemoveHold(crew, hold);
-        return CommandResult.Ok;
-    }
-
-    private void RemoveHold(Crew crew, SeatHold hold)
-    {
-        crew.Holds.Remove(hold);
-        _holds.Remove(hold.Seat);
-        Changes.Estates.Add((hold.Seat.District, hold.Seat.Slot));
+        crew = new Crew
+        {
+            Id = NextCrewId++,
+            Name = FreeYardName(yard),
+            Emblem = "cog",
+            Color = IsColor(company.Color) ? company.Color : "#2f7d6d",
+            Color2 = "#f4ead3",
+            Founder = company.Id,
+            CreatedAt = LastTick,
+            DistrictX = yard.District.X,
+            DistrictY = yard.District.Y,
+            Station = yard.Index,
+        };
+        _crews[crew.Id] = crew;
+        _crewAt[yard] = crew;
+        company.CrewId = crew.Id;
+        company.Touch();
         CrewChanged(crew);
     }
 
-    /// <summary>
-    /// Joins a crew with a code: a seat code (the company moves to that seat, for free) or the crew's invite link
-    /// (for a day anyone joins with it, after that a member lets them in)
-    /// </summary>
-    public CommandResult JoinCrew(long companyId, string code)
+    /// <summary>The name the game gives a Yard until a resident names it: its town and where it lies ("Capital NW")</summary>
+    private string FreeYardName(StationRef yard)
     {
-        if (Company(companyId) is not { } company)
+        var name = WorldNames.Station(yard);
+        for (var n = 2; CrewNameError(name) != null; n++)
         {
-            return CommandResult.Fail("Unknown company.");
+            name = $"{WorldNames.Station(yard)} {n}";
         }
-        if (HoldByCode(code) is { } held)
-        {
-            if (company.CrewId is { } current && current != held.Crew.Id && !CloseCrewOfOne(company))
-            {
-                return CommandResult.Fail("Leave your crew first.");
-            }
-            if (CrewMembers(held.Crew).Count() >= MaxCrewSize)
-            {
-                return CommandResult.Fail("That crew is full.");
-            }
-            company.CrewId = held.Crew.Id;
-            company.KnownAs = held.Hold.FriendName ?? company.KnownAs;
-            company.Touch();
-            var seat = held.Hold.Seat;
-            RemoveHold(held.Crew, held.Hold);
-            if (EstateOf(company) is not { } estate || KeyOf(estate) != seat)
-            {
-                company.FreeMoves++;
-                var moved = RelocateTo(company, seat);
-                if (!moved.Success)
-                {
-                    company.FreeMoves--;
-                    return moved;
-                }
-            }
-            AnnounceArrival(held.Crew, company);
-            return CommandResult.Ok;
-        }
-        if (CrewByInvite(code) is not { } crew)
-        {
-            return CommandResult.Fail("That code doesn't open any crew or seat.");
-        }
-        if (company.CrewId == crew.Id)
-        {
-            return CommandResult.Fail("You are in this crew already.");
-        }
-        if (company.CrewId != null && !CloseCrewOfOne(company))
-        {
-            return CommandResult.Fail("Leave your crew first.");
-        }
-        if (CrewMembers(crew).Count() + crew.Holds.Count >= MaxCrewSize)
-        {
-            return CommandResult.Fail("That crew is full.");
-        }
-        if (LastTick - crew.InviteCodeAt > InviteOpenFor)
-        {
-            crew.JoinRequests.Add(company.Id);
-            CrewChanged(crew);
-            foreach (var member in CrewMembers(crew))
-            {
-                Changes.Events.Add(new WorldEvent(member.Id, WorldEventKind.Crew, $"{company.Name} would like to join {crew.Name}: let them in from the Crew panel"));
-            }
-            return CommandResult.Ok;
-        }
-        AddToCrew(crew, company);
-        return CommandResult.Ok;
+        return name;
     }
 
     /// <summary>
-    /// A friend's invite closes a crew the company is alone in, with its held seats (run 3: Ben started his own crew
-    /// before Ana's link reached him, and "Join and move" said only "Leave your crew first"). False when others are in it.
+    /// A company leaves its Yard (it moves away): its crew membership ends. The last one out takes the crew with it, and
+    /// the Yard's own things go (they belonged to the crew); a Yard of people who stopped playing stays as it is.
     /// </summary>
-    private bool CloseCrewOfOne(Company company)
+    private void LeaveYard(Company company)
     {
-        if (CrewOf(company) is not { } crew || CrewMembers(crew).Any(t => t.Id != company.Id))
+        if (CrewOf(company) is not { } crew)
         {
-            return false;
+            return;
         }
         company.CrewId = null;
         company.Touch();
-        foreach (var hold in crew.Holds.ToList())
-        {
-            RemoveHold(crew, hold);
-        }
-        _crews.Remove(crew.Id);
-        Deleted.Add(crew);
-        Changes.Crews.Add(crew.Id);
         Changes.Companies.Add(company.Id);
-        return true;
-    }
-
-    private void AddToCrew(Crew crew, Company company)
-    {
-        company.CrewId = crew.Id;
-        crew.JoinRequests.Remove(company.Id);
-        company.Touch();
-        AnnounceArrival(crew, company);
+        AddMoment(company, "crew", $"Left the Yard of {crew.Name}", false);
+        foreach (var member in CrewMembers(crew))
+        {
+            AddMoment(member, "crew", $"{company.Name} moved away", false);
+        }
+        // What it put in the Depot and its Storages didn't hold (see Pack) stays for the crew; so does the Depot it built
+        if (crew.Depot.Remove(company.Id, out var mine) && CrewMembers(crew).FirstOrDefault() is { } heir)
+        {
+            if (!crew.Depot.TryGetValue(heir.Id, out var theirs))
+            {
+                crew.Depot[heir.Id] = theirs = new Dictionary<string, double>();
+            }
+            foreach (var (resource, amount) in mine)
+            {
+                theirs[resource] = theirs.GetValueOrDefault(resource) + amount;
+            }
+        }
+        if (DepotOf(crew.Yard) is { } built && built.Owner == company.Id && CrewMembers(crew).FirstOrDefault() is { } keeper)
+        {
+            built.Owner = keeper.Id;
+            built.Touch();
+            foreach (var tile in built.Footprint())
+            {
+                Changes.Tiles.Add(tile);
+            }
+        }
+        if (!CrewMembers(crew).Any())
+        {
+            // The last one out (1.4 §7): the Yard's own buildings (the Depot) go with the crew; its Monuments with it
+            if (DepotOf(crew.Yard) is { } depot)
+            {
+                RemoveBuilding(depot);
+            }
+            _crews.Remove(crew.Id);
+            _crewAt.Remove(crew.Yard);
+            Deleted.Add(crew);
+            Changes.Crews.Add(crew.Id);
+            return;
+        }
+        foreach (var member in CrewMembers(crew))
+        {
+            Changes.Events.Add(new WorldEvent(member.Id, WorldEventKind.Crew, $"{company.Name} moved away from {crew.Name}"));
+        }
         CrewChanged(crew);
     }
 
-    /// <summary>A member lets in a company that asked with an old invite link</summary>
-    public CommandResult AcceptJoinRequest(long memberId, long applicantId)
-    {
-        if (Company(memberId) is not { } member || CrewOf(member) is not { } crew || !crew.JoinRequests.Contains(applicantId) || Company(applicantId) is not { } applicant)
-        {
-            return CommandResult.Fail("No such request.");
-        }
-        if (applicant.CrewId != null)
-        {
-            crew.JoinRequests.Remove(applicantId);
-            CrewChanged(crew);
-            return CommandResult.Fail($"{applicant.Name} joined another crew.");
-        }
-        if (CrewMembers(crew).Count() + crew.Holds.Count >= MaxCrewSize)
-        {
-            return CommandResult.Fail("Your crew is full.");
-        }
-        AddToCrew(crew, applicant);
-        return CommandResult.Ok;
-    }
+    /// <summary>Whether a company would be the last one out of its Yard if it moved (the move asks first)</summary>
+    public bool LastInYard(Company company) => CrewOf(company) is { } crew && CrewMembers(crew).All(t => t.Id == company.Id);
 
-    /// <summary>A fresh invite link: for a day anyone with it joins</summary>
-    public CommandResult RenewInvite(long memberId)
-    {
-        if (Company(memberId) is not { } member || CrewOf(member) is not { } crew)
-        {
-            return CommandResult.Fail("You are not in a crew.");
-        }
-        crew.InviteCode = NewCode();
-        crew.InviteCodeAt = LastTick;
-        CrewChanged(crew);
-        return CommandResult.Ok;
-    }
-
-    /// <summary>Leaves the crew in one tap: no price changes, the estate stays; one extra free move (once a month)</summary>
-    public CommandResult LeaveCrew(long companyId)
+    /// <summary>Any resident names the Yard and picks its banner</summary>
+    public CommandResult SetYard(long companyId, string name, string emblem, string color, string color2)
     {
         if (Company(companyId) is not { } company || CrewOf(company) is not { } crew)
         {
-            return CommandResult.Fail("You are not in a crew.");
+            return CommandResult.Fail("You don't live at a Yard yet.");
         }
-        company.CrewId = null;
-        if (company.LeftCrewAt is not { } left || LastTick - left >= LeaveMoveEvery)
+        if (CrewNameError(name, crew.Id) is { } error)
         {
-            company.FreeMoves++;
+            return CommandResult.Fail(error);
         }
-        company.LeftCrewAt = LastTick;
-        company.Touch();
-        Changes.Companies.Add(company.Id);
-        if (!CrewMembers(crew).Any())
+        if (!CrewEmblems.Contains(emblem))
         {
-            // The last one out: the crew and its held seats are gone
-            foreach (var hold in crew.Holds.ToList())
-            {
-                RemoveHold(crew, hold);
-            }
-            _crews.Remove(crew.Id);
-            Deleted.Add(crew);
-            Changes.Crews.Add(crew.Id);
-            return CommandResult.Ok;
+            return CommandResult.Fail("Pick an emblem.");
         }
+        if (!IsColor(color) || !IsColor(color2))
+        {
+            return CommandResult.Fail("Pick two colours.");
+        }
+        crew.Name = name.Trim();
+        crew.Emblem = emblem;
+        crew.Color = color;
+        crew.Color2 = color2;
+        crew.Named = true;
+        crew.NameHidden = false;
+        crew.NameReports.Clear();
         CrewChanged(crew);
         return CommandResult.Ok;
     }
 
-    /// <summary>Whether strangers may settle in a station: closed where one crew lives in or holds 3+ seats, unless it opened it</summary>
-    public bool StationOpenToStrangers(StationRef station, Company? newcomer = null, Crew? joining = null)
+    /// <summary>Any resident opens or closes the Yard; a closed Yard stays closed, also when everyone in it stopped playing</summary>
+    public CommandResult SetYardOpen(long companyId, bool open)
     {
-        foreach (var (crew, seats) in CrewSeats(station))
+        if (Company(companyId) is not { } company || CrewOf(company) is not { } crew)
         {
-            if (seats >= CrewClosesStationAt && !crew.OpenStations.Contains(StationKey(station)) && newcomer?.CrewId != crew.Id && joining != crew)
-            {
-                return false;
-            }
+            return CommandResult.Fail("You don't live at a Yard yet.");
         }
-        return true;
-    }
-
-    private static string StationKey(StationRef station) => $"{station.District.X},{station.District.Y},{station.Index}";
-
-    /// <summary>Per crew, how many seats of a station it lives in or holds</summary>
-    private IEnumerable<(Crew Crew, int Seats)> CrewSeats(StationRef station)
-    {
-        var counts = new Dictionary<long, int>();
-        foreach (var slot in WorldLayout.StationSlots(station.Index))
-        {
-            var seat = new EstateKey(station.District, slot);
-            var crewId = HoldOn(seat)?.Crew.Id ?? (Estate(station.District, slot)?.OwnerId is { } owner ? Company(owner)?.CrewId : null);
-            if (crewId is { } id)
-            {
-                counts[id] = counts.GetValueOrDefault(id) + 1;
-            }
-        }
-        return counts.Select(t => (Crew(t.Key)!, t.Value)).Where(t => t.Item1 != null);
-    }
-
-    /// <summary>
-    /// The corner station a small station is joined to (v1.2 §6): a crew that lives in or holds three or more seats of
-    /// the corner station and seats of the small one next to it makes them one big station, with one Yard
-    /// </summary>
-    /// <summary>The corner station beside a small one where a crew lives (it fills three seats or more), if any</summary>
-    public StationRef? CrewCornerNextTo(StationRef small) =>
-        !small.IsSmall ? null
-        : WorldLayout.CornersNextTo(small.Index).Select(t => new StationRef(small.District, t))
-            .Where(t => CrewSeats(t).Any(c => c.Seats >= CrewClosesStationAt))
-            .Select(t => (StationRef?)t)
-            .FirstOrDefault();
-
-    public StationRef? JoinedTo(StationRef small)
-    {
-        if (!small.IsSmall)
-        {
-            return null;
-        }
-        // The stranger next door (step 6): a small station with a player the game seated beside a crew shares its Yard
-        if (StationSeats(small).Any(t => Estate(t.District, t.Slot)?.OwnerId is { } id && Company(id) is { SeatedNextDoor: true })
-            && CrewCornerNextTo(small) is { } crewCorner)
-        {
-            return crewCorner;
-        }
-        var here = CrewSeats(small).Select(t => t.Crew.Id).ToHashSet();
-        if (here.Count == 0)
-        {
-            return null;
-        }
-        foreach (var corner in WorldLayout.CornersNextTo(small.Index).Select(t => new StationRef(small.District, t)))
-        {
-            if (CrewSeats(corner).Any(t => here.Contains(t.Crew.Id) && t.Seats >= CrewClosesStationAt))
-            {
-                return corner;
-            }
-        }
-        return null;
-    }
-
-    /// <summary>The stations whose residents share a Yard: a station and the small stations joined to it</summary>
-    public IReadOnlyList<StationRef> BigStation(StationRef station)
-    {
-        if (JoinedTo(station) is { } corner)
-        {
-            station = corner;
-        }
-        if (station.IsSmall)
-        {
-            return [station];
-        }
-        var stations = new List<StationRef> { station };
-        foreach (var small in Enumerable.Range(WorldLayout.CornerStations, WorldLayout.StationsPerDistrict - WorldLayout.CornerStations).Select(t => new StationRef(station.District, t)))
-        {
-            if (JoinedTo(small) == station)
-            {
-                stations.Add(small);
-            }
-        }
-        return stations;
-    }
-
-    /// <summary>A member opens (or closes again) their station to strangers</summary>
-    public CommandResult SetStationOpen(long memberId, bool open)
-    {
-        if (Company(memberId) is not { } member || CrewOf(member) is not { } crew || EstateOf(member) is not { } estate)
-        {
-            return CommandResult.Fail("You are not in a crew.");
-        }
-        var key = StationKey(estate.Station);
-        if (open)
-        {
-            crew.OpenStations.Add(key);
-        }
-        else
-        {
-            crew.OpenStations.Remove(key);
-        }
+        crew.Open = open;
         CrewChanged(crew);
-        return CommandResult.Ok;
-    }
-
-    /// <summary>The crew hears that a friend moved in; the next first screen says so</summary>
-    private void AnnounceArrival(Crew crew, Company company)
-    {
-        var home = EstateOf(company) is { } estate ? BigStation(estate.Station) : [];
         foreach (var member in CrewMembers(crew).Where(t => t.Id != company.Id))
         {
-            // "Next door" only in the same station (run 3: Ben's card said Dev "moved in next door"; Dev lived elsewhere)
-            var nextDoor = EstateOf(member) is { } theirs && home.Contains(theirs.Station);
-            var text = nextDoor ? $"{company.Name} moved in next door"
-                : $"{company.Name} joined {crew.Name}{(EstateOf(company) is { } at ? $", in {WorldNames.Station(at.Station)}" : "")}";
-            if (nextDoor)
+            Changes.Events.Add(new WorldEvent(member.Id, WorldEventKind.Crew, open ? $"{company.Name} opened {crew.Name}: anyone may settle on its free plots" : $"{company.Name} closed {crew.Name}: newcomers ask first"));
+        }
+        return CommandResult.Ok;
+    }
+
+    // ---------------------------------------------------------------- Requests to closed Yards
+
+    /// <summary>
+    /// Asks to settle on a free plot of a closed Yard: the request waits three days; the company plays where it is
+    /// meanwhile and moves in for free when a resident says yes
+    /// </summary>
+    public CommandResult RequestPlot(long companyId, EstateKey seat)
+    {
+        if (Company(companyId) is not { } company || Estate(seat.District, seat.Slot) is not { } estate)
+        {
+            return CommandResult.Fail("Unknown plot.");
+        }
+        if (estate.OwnerId != null)
+        {
+            return CommandResult.Fail("That plot isn't free.");
+        }
+        if (CrewAt(estate.Station) is not { Open: false } crew)
+        {
+            return CommandResult.Fail("That Yard is open: settle there right away.");
+        }
+        if (company.CrewId == crew.Id)
+        {
+            return CommandResult.Fail("You live there already.");
+        }
+        crew.Requests.RemoveAll(t => t.Company == company.Id);
+        crew.Requests.Add(new YardRequest { Company = company.Id, Slot = seat.Slot, At = LastTick });
+        CrewChanged(crew);
+        foreach (var member in CrewMembers(crew))
+        {
+            Changes.Events.Add(new WorldEvent(member.Id, WorldEventKind.Crew, $"{company.Name} asks to settle at {crew.Name}: say yes or no in the Crew panel (K)", Bell: true));
+        }
+        return CommandResult.Ok;
+    }
+
+    /// <summary>A resident answers a request: yes moves the newcomer in for free (onto the plot asked for, or another free one)</summary>
+    public CommandResult AnswerRequest(long residentId, long requesterId, bool yes)
+    {
+        if (Company(residentId) is not { } resident || CrewOf(resident) is not { } crew || crew.Requests.FirstOrDefault(t => t.Company == requesterId) is not { } request)
+        {
+            return CommandResult.Fail("That request is gone.");
+        }
+        crew.Requests.Remove(request);
+        CrewChanged(crew);
+        if (Company(requesterId) is not { } requester)
+        {
+            return CommandResult.Ok;
+        }
+        if (!yes)
+        {
+            Changes.Events.Add(new WorldEvent(requester.Id, WorldEventKind.Crew, $"{crew.Name} stays as it is for now: your plot is still yours"));
+            return CommandResult.Ok;
+        }
+        var seat = new EstateKey(crew.Yard.District, request.Slot);
+        if (Estate(seat.District, seat.Slot)?.OwnerId != null)
+        {
+            seat = StationSeats(crew.Yard).FirstOrDefault(t => Estate(t.District, t.Slot) is { OwnerId: null }, seat);
+        }
+        if (Estate(seat.District, seat.Slot)?.OwnerId != null)
+        {
+            return CommandResult.Fail($"{crew.Name} has no free plot left.");
+        }
+        requester.FreeMoves++;
+        var moved = RelocateTo(requester, seat, invitedBy: crew);
+        if (!moved.Success)
+        {
+            requester.FreeMoves--;
+            return moved;
+        }
+        Changes.Events.Add(new WorldEvent(requester.Id, WorldEventKind.Crew, $"{resident.Name} said yes: your plot moves to {crew.Name}", Bell: true));
+        return CommandResult.Ok;
+    }
+
+    /// <summary>Once a day: requests older than three days lapse</summary>
+    private void CheckRequests()
+    {
+        foreach (var crew in _crews.Values.Where(t => t.Requests.Count > 0).ToList())
+        {
+            if (crew.Requests.RemoveAll(t => LastTick - t.At >= RequestWaits || Company(t.Company) == null) > 0)
             {
-                member.Report.NewNeighbours.Add(company.Name);
+                CrewChanged(crew);
             }
+        }
+    }
+
+    // ---------------------------------------------------------------- "Play next to me"
+
+    /// <summary>
+    /// A company's "Play next to me" link (1.4 §6): it opens the map at its Yard and lets the first player who uses it
+    /// settle there even when the Yard is closed, for seven days. Nothing is held. Asking again renews it.
+    /// </summary>
+    public string NextToMeLink(long companyId)
+    {
+        var company = Company(companyId) ?? throw new ArgumentException("Unknown company.", nameof(companyId));
+        if (company.NextToMeCode == null || company.NextToMeUntil <= LastTick || company.NextToMeUsed)
+        {
+            company.NextToMeCode = NewCode();
+            company.NextToMeUsed = false;
+        }
+        company.NextToMeUntil = LastTick + NextToMeFor;
+        company.Touch();
+        return company.NextToMeCode;
+    }
+
+    /// <summary>The company whose "Play next to me" link this is (null: no such link, or it ran out)</summary>
+    public Company? NextToMeOf(string code)
+    {
+        code = NormalizeCode(code);
+        return _companies.Values.FirstOrDefault(t => t.NextToMeCode == code && t.NextToMeUntil > LastTick);
+    }
+
+    /// <summary>Whether a link still lets its first user into its owner's Yard while the Yard is closed</summary>
+    private bool LinkOpens(string? code, StationRef yard) =>
+        code != null && NextToMeOf(code) is { NextToMeUsed: false } owner && EstateOf(owner)?.Station == yard;
+
+    private static string NormalizeCode(string code) => new(code.Trim().ToUpperInvariant().Where(char.IsLetterOrDigit).ToArray());
+
+    /// <summary>A new code nobody uses: 8 letters and digits without the ones that look alike</summary>
+    private string NewCode()
+    {
+        const string alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+        while (true)
+        {
+            var code = new string(Enumerable.Range(0, 8).Select(_ => alphabet[RandomNumberGenerator.GetInt32(alphabet.Length)]).ToArray());
+            if (_companies.Values.All(t => t.NextToMeCode != code))
+            {
+                return code;
+            }
+        }
+    }
+
+    /// <summary>How a code is shown: two groups of four</summary>
+    public static string ShowCode(string code) => code.Length == 8 ? $"{code[..4]}-{code[4..]}" : code;
+
+    /// <summary>The crew hears that someone moved in</summary>
+    private void AnnounceArrival(Crew crew, Company company)
+    {
+        foreach (var member in CrewMembers(crew).Where(t => t.Id != company.Id))
+        {
+            var text = $"{company.Name} moved in next door";
+            AddMoment(member, "crew", text, true);
+            member.Report.NewNeighbours.Add(company.Name);
             member.Report.Notes.Add(text);
             member.Touch();
-            Changes.Events.Add(new WorldEvent(member.Id, WorldEventKind.Crew, text));
+            Changes.Events.Add(new WorldEvent(member.Id, WorldEventKind.Neighbour, text));
         }
     }
 
-    /// <summary>Once a day: held seats lapse after 28 days, or when no member played in the last 14 days</summary>
-    private void CheckHolds()
-    {
-        foreach (var crew in _crews.Values.ToList())
-        {
-            var active = CrewMembers(crew).Any(t => LastTick - t.LastSeenAt < HoldNeedsActivity);
-            foreach (var hold in crew.Holds.ToList())
-            {
-                if (hold.Until <= LastTick || !active)
-                {
-                    RemoveHold(crew, hold);
-                }
-            }
-        }
-    }
+    // ---------------------------------------------------------------- Plots and placement
 
-    // ---------------------------------------------------------------- Seats and placement
-
-    /// <summary>The seats of a station</summary>
+    /// <summary>The plots of a Yard</summary>
     public static IEnumerable<EstateKey> StationSeats(StationRef station) =>
         WorldLayout.StationSlots(station.Index).Select(t => new EstateKey(station.District, t));
 
-    /// <summary>Whether a newcomer may take this seat: free (or kept warm by a tenant), not held for someone else, not in a closed station</summary>
-    public bool SeatFree(EstateKey seat, Company? newcomer = null, string? code = null)
-    {
-        if (Estate(seat.District, seat.Slot) is not { } estate)
-        {
-            return false;
-        }
-        if (estate.OwnerId is { } owner && Company(owner) is not { IsNpc: true })
-        {
-            return false;
-        }
-        if (estate.ReservedFor is { } corporation && estate.ReservedUntil > LastTick && corporation != newcomer?.CorporationId)
-        {
-            return false;
-        }
-        if (HoldOn(seat) is { } hold)
-        {
-            return (code != null && hold.Hold.Code == NormalizeCode(code)) || (newcomer != null && hold.Hold.For == newcomer.Id);
-        }
-        // A crew's link (while anyone may join with it) opens the crew's own stations
-        var joining = code != null && CrewByInvite(code) is { } crew && LastTick - crew.InviteCodeAt <= InviteOpenFor ? crew : null;
-        return StationOpenToStrangers(estate.Station, newcomer, joining);
-    }
-
     /// <summary>
-    /// Where a friend with the crew link settles: a free seat in a station the crew lives in (the one with the most
-    /// members first), else the free seat nearest to the crew's Yard
+    /// Whether a newcomer may settle on a plot: it is free, and its Yard is open, or the newcomer's request was
+    /// answered yes (invitedBy), or the newcomer has a resident's unused "Play next to me" link
     /// </summary>
-    public EstateKey SeatNearCrew(Crew crew, string? code)
+    public bool SeatFree(EstateKey seat, Company? newcomer = null, string? code = null, Crew? invitedBy = null)
     {
-        var homes = CrewMembers(crew)
-            .Select(EstateOf)
-            .OfType<Estate>()
-            .GroupBy(t => t.Station)
-            .OrderByDescending(t => t.Count())
-            .Select(t => t.Key)
-            .ToList();
-        if (homes.Count == 0)
+        if (Estate(seat.District, seat.Slot) is not { OwnerId: null } estate)
         {
-            return SuggestSeat(Placement.Neighbours);
+            return false;
         }
-        var home = WorldLayout.Yard(homes[0]);
-        var best = _openDistricts
-            .Append(homes[0].District)
-            .Distinct()
-            .SelectMany(WorldLayout.Stations)
-            .SelectMany(StationSeats)
-            .Where(t => SeatFree(t, null, code))
-            .OrderBy(t => homes.Contains(WorldLayout.StationOf(t.District, t.Slot)) ? 0 : 1)
-            .ThenBy(t => Distance(WorldLayout.Yard(WorldLayout.StationOf(t.District, t.Slot)), home))
-            .ThenBy(t => t.Slot)
-            .Select(t => (EstateKey?)t)
-            .FirstOrDefault();
-        return best ?? SuggestSeat(Placement.Neighbours);
-
-        static int Distance(TileRect a, TileRect b) => Math.Abs(a.X0 + a.X1 - b.X0 - b.X1) + Math.Abs(a.Y0 + a.Y1 - b.Y0 - b.Y1);
+        var crew = CrewAt(estate.Station);
+        return crew == null || crew.Open || crew == invitedBy || LinkOpens(code, estate.Station);
     }
 
-    /// <summary>How many members of the crew that fills a corner station played there in the last three days</summary>
-    private int CrewPlayingIn(StationRef corner) =>
-        CrewSeats(corner).Where(t => t.Seats >= CrewClosesStationAt)
-            .Select(t => ActiveResidents(corner).Count(c => c.CrewId == t.Crew.Id))
-            .DefaultIfEmpty(0)
-            .Max();
-
-    /// <summary>Players who opened the game in the last three days living in a station, with their levels</summary>
+    /// <summary>Players who opened the game in the last three days living around a Yard</summary>
     private List<Company> ActiveResidents(StationRef station) =>
         StationSeats(station)
             .Select(t => Estate(t.District, t.Slot)?.OwnerId is { } owner ? Company(owner) : null)
@@ -789,7 +497,7 @@ public sealed partial class GameWorld
             .Where(IsActive)
             .ToList();
 
-    /// <summary>Where a district is in the order districts open (the Capital first)</summary>
+    /// <summary>Where a town is in the order towns open (the Capital first)</summary>
     private int DistrictRank(DistrictCoord district)
     {
         var rank = 0;
@@ -808,96 +516,79 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// The seat the game suggests (v1.2 §4): next to active players within 10 levels (the most first, then the fullest
-    /// station, then the oldest district; never a station of Houses only while one with an active player has room), a
-    /// station of one's own (nobody but Houses there), or a station with room for a group of friends. A new district
-    /// opens when the open ones are 60% lit or held, or when nothing fits.
+    /// Pick for me (1.4 §6): a free plot in an open Yard whose residents played in the last three days (the Yard where
+    /// most of them did first, then the oldest town), else a plot in an empty Yard of the oldest town with room. Never a
+    /// closed Yard, never a Yard whose residents all stopped playing.
     /// </summary>
-    public EstateKey SuggestSeat(Placement placement, int level = 1, int seats = 1, Company? newcomer = null)
+    public EstateKey PickForMe(Company? newcomer = null)
     {
-        OpenRoomForGroups();
+        OpenRoom();
         for (var attempt = 0; attempt < 200; attempt++)
         {
-            var candidates = new List<(EstateKey Seat, int Near, int Residents, int Free, int Rank, bool Small)>();
-            foreach (var district in _openDistricts)
+            var lively = new List<(EstateKey Seat, int Active, int Rank)>();
+            var empty = new List<(EstateKey Seat, int Rank)>();
+            // A town of the company's Era or one below (a newcomer: Era 1)
+            var era = newcomer?.Era ?? 1;
+            foreach (var district in _openDistricts.Where(t => TownEra(t) == era || TownEra(t) == era - 1))
             {
                 var rank = DistrictRank(district);
                 foreach (var station in WorldLayout.Stations(district))
                 {
-                    var free = StationSeats(station).Where(t => SeatFree(t, newcomer)).ToList();
-                    if (free.Count == 0)
+                    if (StationSeats(station).Where(t => SeatFree(t, newcomer)).Select(t => (EstateKey?)t).FirstOrDefault() is not { } free)
                     {
                         continue;
                     }
-                    var residents = StationSeats(station).Count(t => Estate(t.District, t.Slot)?.OwnerId is { } o && Company(o) is { IsNpc: false });
-                    var near = ActiveResidents(station).Count(t => Math.Abs(t.Level - level) <= 10);
-                    // The stranger next door (step 6): on a small server, someone who comes alone lives beside a crew that
-                    // plays, the one with the most members who played in the last three days first, held seats not
-                    // counted (run 3: Mia-B was seated beside Ben's crew of one and its three held seats while Ana and Cleo
-                    // played next door to another small station; Ben stopped on day 3)
-                    var crewPlaying = placement == Placement.Neighbours && SmallMode && newcomer?.CrewId == null && CrewCornerNextTo(station) is { } crewCorner
-                        ? CrewPlayingIn(crewCorner) : 0;
-                    var nextDoor = crewPlaying >= 1;
-                    var fits = placement switch
+                    if (CrewAt(station) is null)
                     {
-                        Placement.OwnStation => residents == 0,
-                        Placement.Friends => residents == 0 && free.Count >= Math.Min(seats, WorldLayout.StationSlots(station.Index).Count) && station.IsSmall == seats <= 2,
-                        _ => true,
-                    };
-                    if (fits)
+                        empty.Add((free, rank));
+                        continue;
+                    }
+                    var active = ActiveResidents(station).Count(t => t.Id != newcomer?.Id);
+                    if (active > 0)
                     {
-                        candidates.Add((free[0], near + (nextDoor ? 1000 + 10 * crewPlaying : 0), residents, free.Count, rank, station.IsSmall));
+                        lively.Add((free, active, rank));
                     }
                 }
             }
-            if (candidates.Count > 0)
+            if (lively.Count > 0)
             {
-                return placement switch
-                {
-                    // Next to people: where the most active players of about your level live, in a station of four
-                    // (more partners than a small one) in the oldest district
-                    Placement.Neighbours => candidates.OrderByDescending(t => t.Near).ThenByDescending(t => t.Residents).ThenBy(t => t.Small).ThenBy(t => t.Rank).ThenBy(t => t.Seat.Slot).First().Seat,
-                    // Friends from the other end of the district, so a crew and a stranger who start the same evening
-                    // aren't sent to the same empty station (run 1: Mia and Ana, 20 seconds apart)
-                    Placement.Friends => candidates.OrderBy(t => t.Rank).ThenByDescending(t => t.Seat.Slot).First().Seat,
-                    // A station of your own: one of four seats (room for whoever comes) first
-                    _ => candidates.OrderBy(t => t.Small).ThenBy(t => t.Rank).ThenBy(t => t.Seat.Slot).First().Seat,
-                };
+                return lively.OrderByDescending(t => t.Active).ThenBy(t => t.Rank).ThenBy(t => t.Seat.Slot).First().Seat;
+            }
+            if (empty.Count > 0)
+            {
+                return empty.OrderBy(t => t.Rank).ThenBy(t => t.Seat.Slot).First().Seat;
             }
             OpenNextDistrict();
         }
         throw new InvalidOperationException("The world is infinite, this can't happen.");
     }
 
-    /// <summary>A new district opens once the open ones are 60% lit or held, so a group of any size finds room</summary>
-    private void OpenRoomForGroups()
+    /// <summary>A new town opens when every open town has fewer than two free plots, so newcomers always find room</summary>
+    private void OpenRoom()
     {
         if (_openDistricts.Count == 0)
         {
             OpenNextDistrict();
             return;
         }
-        var seats = _openDistricts.Count * WorldLayout.EstatesPerDistrict;
-        var taken = _estates.Values.Count(t => _openDistricts.Contains(t.District)
-            && (HoldOn(KeyOf(t)) != null || t.OwnerId is { } owner && Company(owner) is { IsNpc: false } c && IsActive(c)));
-        if (taken >= seats * OpenNextDistrictAt)
+        if (_openDistricts.All(district => Enumerable.Range(0, WorldLayout.EstatesPerDistrict).Count(t => _estates[(district, t)].OwnerId == null) < OpenNextTownBelow))
         {
             OpenNextDistrict();
         }
     }
 
     /// <summary>
-    /// Moves a company's estate to a seat (a free one, or one its crew holds for it): balloons lift it, a moment later it
-    /// lands. Free and quick (content: together), with a few minutes between moves.
+    /// Moves a company's plot to a free plot (1.4 §18): balloons lift it, a moment later it lands. Free and quick
+    /// (content: together), with a few minutes between moves; into a closed Yard only with a resident's yes or link.
     /// </summary>
-    public CommandResult RelocateTo(long companyId, EstateKey seat) =>
-        Company(companyId) is { } company ? RelocateTo(company, seat) : CommandResult.Fail("Unknown company.");
+    public CommandResult RelocateTo(long companyId, EstateKey seat, string? code = null) =>
+        Company(companyId) is { } company ? RelocateTo(company, seat, code) : CommandResult.Fail("Unknown company.");
 
-    private CommandResult RelocateTo(Company company, EstateKey seat, string? code = null)
+    private CommandResult RelocateTo(Company company, EstateKey seat, string? code = null, Crew? invitedBy = null)
     {
         if (company.Packed != null)
         {
-            return CommandResult.Fail("Your estate is on its way already.");
+            return CommandResult.Fail("Your plot is on its way already.");
         }
         if (EstateOf(company) is { } current && KeyOf(current) == seat)
         {
@@ -908,23 +599,26 @@ public sealed partial class GameWorld
             return CommandResult.Fail($"You can move again in {Math.Ceiling((last + MoveEvery - LastTick).TotalMinutes):N0} minutes.");
         }
         OpenDistrict(seat.District);
-        var heldForMe = HoldOn(seat) is { } hold && hold.Crew.Id == company.CrewId;
-        if (!heldForMe && !SeatFree(seat, company, code))
+        if (Estate(seat.District, seat.Slot) is not { OwnerId: null } target)
         {
-            return CommandResult.Fail("That seat isn't free.");
+            return CommandResult.Fail("That plot isn't free.");
+        }
+        if (EraMoveBlocker(company, seat.District) is { } era)
+        {
+            return CommandResult.Fail(era);
+        }
+        if (!SeatFree(seat, company, code, invitedBy))
+        {
+            return CommandResult.Fail("That Yard is closed: ask to settle there, and a resident says yes.");
         }
         var cost = MoveCost(company);
         if (company.Gold < cost)
         {
             return CommandResult.Fail($"A move costs {cost:N0} gold.");
         }
-        if (heldForMe)
+        if (LinkOpens(code, target.Station) && CrewAt(target.Station) is { Open: false })
         {
-            RemoveHold(Crew(company.CrewId!.Value)!, HoldOn(seat)!.Value.Hold);
-        }
-        if (Estate(seat.District, seat.Slot) is { OwnerId: { } tenant } && Company(tenant) is { IsNpc: true })
-        {
-            EvictTenant(Estate(seat.District, seat.Slot)!);
+            NextToMeOf(code!)!.NextToMeUsed = true;
         }
         if (company.FreeMoves > 0)
         {
@@ -938,7 +632,6 @@ public sealed partial class GameWorld
         }
         EndTradeOf(company);
         Pack(company);
-        var target = Estate(seat.District, seat.Slot)!;
         // The new spot is kept for the company while it travels
         target.OwnerId = company.Id;
         target.Touch();

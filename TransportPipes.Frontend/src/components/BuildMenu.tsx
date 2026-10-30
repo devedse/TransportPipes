@@ -16,18 +16,11 @@ function Recipe({ definition, content }: { definition: BuildingDefinition; conte
     ));
   const inputs = part(definition.in);
   const outputs = part(definition.out);
-  if (definition.researchPerMinute > 0) {
-    outputs.push(
-      <span key="research" className="amount research">
-        {definition.researchPerMinute} 🔬
-      </span>,
-    );
-  }
   if (definition.kind === "storage") {
     outputs.push(<span key="capacity">holds {formatAmount(definition.capacity)}</span>);
   }
   if (definition.kind === "tradingPost") {
-    outputs.push(<span key="throughput">sells {formatAmount(definition.throughput)}/min</span>);
+    outputs.push(<span key="throughput">sells everything at your town's market</span>);
   }
   return (
     <div className="recipe">
@@ -49,46 +42,30 @@ function names(items: string[]): string {
 }
 
 /**
- * Dealt land (step 5): where a land good is missing, who makes it and which House sells it, and the building that gets
- * it by itself ("there's no copper on your land. Cleo makes it, and Bertha ⚙ sells it: build a Smelter, and its copper
- * comes by itself"); null when it lies on your land, or on old land
+ * Your land (1.4 §5): where a good your land lacks is what a building makes, who in your Yard makes it, and the building
+ * that gets it by itself ("there's no copper on your land. Cleo makes it: a Smelter uses it, and the Yard brings it to
+ * one by itself"); null when it lies on your land
  */
 function landLine(definition: BuildingDefinition, land: LandDto | null, content: Content): string | null {
   if (land === null) {
     return null;
   }
-  const good = Object.keys(definition.out).find((t) =>
-    ["copperOre", "coal", "sand", "wood", "stone"].includes(t),
-  );
-  if (
-    good === undefined ||
-    land.goods.includes(good) ||
-    Object.keys(definition.in).some((t) => t !== "energy")
-  ) {
+  const good = Object.keys(definition.out).find((t) => land.lacks.includes(t));
+  if (good === undefined || Object.keys(definition.in).some((t) => t !== "energy")) {
     return null;
   }
   const word = content.resourceName(good).toLowerCase().replace(" ore", "");
-  const seats = land.station.filter((t) => t.goods.includes(good));
+  const seats = land.station.filter((t) => !t.you && !t.lacks.includes(good));
   // "Makes" only when someone does (run 2: Mia was told Jo makes coal, and Jo never built a Coal Pit)
-  const makers = seats
-    .filter((t) => t.owner !== null && !t.house && t.makes.includes(good))
-    .map((t) => t.owner!);
-  const holders = seats
-    .filter((t) => t.owner !== null && !t.house && !t.makes.includes(good))
-    .map((t) => t.owner!);
-  const houses = seats.filter((t) => t.owner !== null && t.house).map((t) => `${t.owner} ⚙`);
+  const makers = seats.filter((t) => t.owner !== null && t.makes.includes(good)).map((t) => t.owner!);
+  const holders = seats.filter((t) => t.owner !== null && !t.makes.includes(good)).map((t) => t.owner!);
   const free = seats.some((t) => t.owner === null);
   const who = [
     makers.length > 0 && `${names(makers)} ${makers.length === 1 ? "makes" : "make"} it`,
-    houses.length > 0 && `${names(houses)} ${houses.length === 1 ? "sells" : "sell"} it`,
     makers.length === 0 &&
       holders.length > 0 &&
       `it lies on ${names(holders)}${possessive(names(holders))} land, but nobody makes it yet`,
-    makers.length === 0 &&
-      holders.length === 0 &&
-      houses.length === 0 &&
-      free &&
-      "a free seat of your station holds it",
+    makers.length === 0 && holders.length === 0 && free && "a free plot of your Yard holds it",
   ]
     .filter(Boolean)
     .join(", and ");
@@ -97,7 +74,7 @@ function landLine(definition: BuildingDefinition, land: LandDto | null, content:
     .sort((a, b) => a.unlock.level - b.unlock.level)[0];
   // Plainly: the user building uses the good, and the Yard brings it (Mia: "I don't understand how a smelter gives me coal")
   const use =
-    user !== undefined && (makers.length > 0 || houses.length > 0)
+    user !== undefined && makers.length > 0
       ? `: ${/^[aeiou]/i.test(user.name) ? "an" : "a"} ${user.name} uses it, and the Yard brings it to one by itself`
       : "";
   return `There's no ${word} on your land.${who === "" ? "" : ` ${who.charAt(0).toUpperCase()}${who.slice(1)}`}${use}.`;

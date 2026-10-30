@@ -6,30 +6,29 @@ import { BuildMenu } from "./components/BuildMenu";
 import { ChatPanel } from "./components/ChatPanel";
 import { EventBar } from "./components/EventBar";
 import { CompanyPanel } from "./components/CompanyPanel";
-import { CorporationPanel } from "./components/CorporationPanel";
 import { InboxPanel } from "./components/InboxPanel";
 import { LeaderboardPanel } from "./components/LeaderboardPanel";
+import { StatisticsPanel } from "./components/StatisticsPanel";
 import { VisitPanel } from "./components/VisitPanel";
 import { WildernessPanel } from "./components/WildernessPanel";
 import { ConnectionOverlay } from "./components/ConnectionOverlay";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { FoundCompany } from "./components/FoundCompany";
+import { PlotPicker } from "./components/PlotPicker";
 import { GameCanvas } from "./components/GameCanvas";
 import { MapLoading } from "./components/MapLoading";
 import { YardPanel } from "./components/YardPanel";
-import { CrewPanel, ShareCodes } from "./components/CrewPanel";
+import { CrewPanel } from "./components/CrewPanel";
 import { InviteInGame, KeepEstate } from "./components/KeepEstate";
 import { HoverTip } from "./components/HoverTip";
 import { HubPanel } from "./components/HubPanel";
 import { NeighboursPanel, PlannedRouteBanner } from "./components/NeighboursPanel";
 import { NetworkPanel } from "./components/NetworkPanel";
 import { OverlayBar } from "./components/OverlayBar";
-import { ParcelPanel } from "./components/ParcelPanel";
+import { OutskirtsPanel, ParcelPanel } from "./components/ParcelPanel";
 import { SelectionPanel } from "./components/SelectionPanel";
 import { KeysHelp } from "./components/KeysHelp";
 import { PipeTierBar } from "./components/PipeTierBar";
 import { ReturnCard } from "./components/ReturnCard";
-import { LoneCard } from "./components/LoneCard";
 import { BlueprintPanel, BlueprintSaveDialog } from "./components/BlueprintPanel";
 import { DeepParcelPanel, DeepVignette, LayerSwitch } from "./components/DeepPanel";
 import { GoalTracker } from "./components/GoalTracker";
@@ -37,11 +36,11 @@ import { LevelUp } from "./components/LevelUp";
 import { PhotoBar } from "./components/PhotoBar";
 import { ModerationPanel } from "./components/ModerationPanel";
 import { ResearchPanel } from "./components/ResearchPanel";
-import { SeasonPanel } from "./components/SeasonPanel";
 import { Toasts } from "./components/Toasts";
 import { Toolbar } from "./components/Toolbar";
 import { TopBar } from "./components/TopBar";
 import { VersionBadge } from "./components/VersionBadge";
+import { WhatsNew } from "./components/WhatsNew";
 import { UpdateOverlay } from "./components/UpdateOverlay";
 import { appStore, setState, useAppStore } from "./state/store";
 
@@ -129,13 +128,25 @@ function useShortcuts() {
         case "v":
           gameClient.setTool({ kind: "select" });
           break;
-        case "c":
-          if (state.corporationOpen) {
-            setState({ corporationOpen: false });
-          } else {
-            void gameClient.openCorporation();
+        case "e": {
+          // Move: the selected building of yours, as its panel's Move does; E again puts it back
+          if (state.tool.kind === "move") {
+            gameClient.setTool({ kind: "select" });
+            break;
           }
+          const id = state.selectedBuilding;
+          const building = id === null ? undefined : gameClient.world?.buildings.get(id);
+          if (
+            building === undefined ||
+            building.owner !== state.company?.id ||
+            building.type === "hq" ||
+            (state.buildingDetails?.complexMembers ?? 1) > 1
+          ) {
+            return;
+          }
+          gameClient.setTool({ kind: "move", building: building.id });
           break;
+        }
         case "i":
           if (state.companyOpen) {
             setState({ companyOpen: false });
@@ -174,6 +185,13 @@ function useShortcuts() {
             void gameClient.openLeaderboard();
           }
           break;
+        case "j":
+          if (state.statsOpen) {
+            setState({ statsOpen: false });
+          } else {
+            void gameClient.openStatistics();
+          }
+          break;
         case "t":
           void gameClient.toggleChat();
           break;
@@ -209,6 +227,8 @@ export function App() {
   const content = useAppStore((state) => state.content);
   const photoMode = useAppStore((state) => state.photoMode);
   const mapShown = useAppStore((state) => state.mapShown);
+  const movePicker = useAppStore((state) => state.picker?.mode === "move");
+  const invite = useAppStore((state) => state.invite);
 
   return (
     <div className="app">
@@ -238,7 +258,6 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="CrewPanel">
             <CrewPanel />
-            <ShareCodes />
             <KeepEstate />
             <InviteInGame />
           </ErrorBoundary>
@@ -262,6 +281,7 @@ export function App() {
           </ErrorBoundary>
           <ErrorBoundary name="ParcelPanel">
             <ParcelPanel />
+            <OutskirtsPanel />
             <DeepParcelPanel />
             <LayerSwitch />
           </ErrorBoundary>
@@ -288,11 +308,11 @@ export function App() {
             <BlueprintPanel />
             <BlueprintSaveDialog />
           </ErrorBoundary>
-          <ErrorBoundary name="CorporationPanel">
-            <CorporationPanel />
-          </ErrorBoundary>
           <ErrorBoundary name="LeaderboardPanel">
             <LeaderboardPanel />
+          </ErrorBoundary>
+          <ErrorBoundary name="StatisticsPanel">
+            <StatisticsPanel />
           </ErrorBoundary>
           <ErrorBoundary name="VisitPanel">
             <VisitPanel />
@@ -309,21 +329,25 @@ export function App() {
           <ErrorBoundary name="ModerationPanel">
             <ModerationPanel />
           </ErrorBoundary>
-          <ErrorBoundary name="SeasonPanel">
-            <SeasonPanel />
-          </ErrorBoundary>
+          {movePicker && (
+            <ErrorBoundary name="PlotPicker">
+              <PlotPicker key={invite?.code ?? ""} mode="move" />
+            </ErrorBoundary>
+          )}
           <ErrorBoundary name="ReturnCard">
             {/* Over the drawn map, not a dark screen (run 2) */}
             {mapShown && <ReturnCard />}
-          </ErrorBoundary>
-          <ErrorBoundary name="LoneCard">
-            <LoneCard />
           </ErrorBoundary>
           <ConnectionOverlay />
         </>
       )}
       {phase === "login" && <AuthScreen />}
-      {phase === "found" && <FoundCompany />}
+      {phase === "found" && (
+        <ErrorBoundary name="PlotPicker">
+          {/* A friend's link opened on the way starts the picker again at their Yard */}
+          <PlotPicker key={invite?.code ?? ""} mode="start" />
+        </ErrorBoundary>
+      )}
       {phase === "loading" && <MapLoading text="Loading the world…" />}
       {phase === "error" && (
         <div className="screen">
@@ -332,6 +356,7 @@ export function App() {
       )}
       <Toasts />
       <VersionBadge />
+      <WhatsNew />
       <UpdateOverlay />
     </div>
   );

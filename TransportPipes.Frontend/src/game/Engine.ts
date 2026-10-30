@@ -16,8 +16,11 @@ import type {
   CompanyDto,
   ConductorDto,
   DistrictDto,
+  FlowDto,
   MapLinkDto,
   OutpostDto,
+  SeatState,
+  StallDto,
   TerrainType,
 } from "../api/contracts";
 import { createCanvas, hash01 } from "./art/iso";
@@ -30,28 +33,52 @@ import { diagonalToScreen, worldToTile, type TilePosition } from "./isometric";
 import {
   CHUNK_SIZE,
   DEEP_OFFSET,
-  DISTRICT_SIZE,
+  DISTRICT_HEIGHT,
+  DISTRICT_WIDTH,
   ESTATE_SIZE,
+  HUB_LOCAL,
   PARCEL_SIZE,
   PARCELS_PER_SIDE,
+  ROAD_WIDTH,
+  ROAD_X,
+  ROAD_Y,
+  TOWN_GATES_LOCAL,
   chunkOf,
   districtOf,
   districtOriginX,
   districtOriginY,
-  estateOutline,
+  estateOrigin,
   isDeep,
   isParcelUnlocked,
-  stationOfSlot,
+  outskirtsParcels,
+  sideOf,
+  stallLocal,
   tileKey,
   yardRect,
+  yardGate,
   zoneAt,
+  MONUMENT_SITES,
 } from "./layout";
 import { BuildingEffects, pelletTexture } from "./render/effects";
+import { PIPE_COLORS } from "./art/pipes";
 import { Juice } from "./render/juice";
 import { levelTier, LEVEL_TIERS, tierIndex } from "./levels";
+import { emblemIcon } from "../app/crews";
 import { sounds } from "../app/sound";
 import { canPlace, footprintOrigin, routePipe, type Placement } from "./rules";
 import { chunkKey, type WorldModel } from "./world";
+import { fullness, insidePipe, laneOf, type InsideFlow, type LaneKind } from "./inside";
+import {
+  connectorKey,
+  connectorPath,
+  connectorTraffic,
+  LANE_KINDS,
+  LANE_SLOTS,
+  PIPE_SIDES,
+  type ConnectorFlow,
+  type PipeSide,
+} from "./connectors";
+import { ConnectorAnimation } from "./render/connectors";
 
 export type Tool =
   | { kind: "select" }
@@ -100,6 +127,11 @@ export interface EngineState {
   /** Links between stations (v1.2 §7), drawn as covered channels along the corridors, and the one the Links tab shows */
   mapLinks: MapLinkDto[];
   focusLink: number | null;
+  /** Picking a plot (1.4 §6): the plots it shows, by "x,y,slot", and the chosen one */
+  picker: {
+    seats: Record<string, SeatState>;
+    chosen: { districtX: number; districtY: number; slot: number } | null;
+  } | null;
 }
 
 export interface EngineCallbacks {
@@ -193,23 +225,21 @@ export function takesPipes(definition: BuildingDefinition | undefined): boolean 
     definition !== undefined &&
     (PIPE_KINDS.has(definition.kind) ||
       Object.keys(definition.in).length > 0 ||
-      Object.keys(definition.out).length > 0 ||
-      definition.researchPerMinute > 0)
+      Object.keys(definition.out).length > 0)
   );
 }
-
-const PIPE_SIDES: Array<[string, number, number]> = [
-  ["u", 0, -1],
-  ["r", 1, 0],
-  ["d", 0, 1],
-  ["l", -1, 0],
-];
 
 /** How a pipe looks at a tile: the sides it joins (in u, r, d, l order) and the ones where it plugs into a building */
 export interface PipeLook {
   shape: string;
   sockets: string[];
 }
+
+/** How high each lane carries its goods, as a share of the big pipe's height */
+const LANE_HEIGHT: Record<LaneKind, number> = { solid: 0.7, fluid: 0.83, power: 1.05 };
+
+const PIPE_DX: Record<string, number> = { u: 0, r: 1, d: 0, l: -1 };
+const PIPE_DY: Record<string, number> = { u: -1, r: 0, d: 1, l: 0 };
 
 function pipeLookOf(
   x: number,
@@ -240,50 +270,6 @@ function placeArt(sprite: Sprite, art: BuildingTextures, anchor: { x: number; y:
     sprite.anchor.set(0, 1);
     sprite.position.set(anchor.x, anchor.y);
   }
-}
-
-/**
- * A station Landmark with storeys (after run 4): its own picture cut at the tower's banner band (as fractions of the
- * picture: the band 268–330 of 632, the tower's column 190–390 of 578), the band once more for every storey, and the
- * clock and dome lifted on top. Each part keeps the full picture's anchor, so the tower stands where the Landmark did.
- */
-const LANDMARK_BAND = { top: 268 / 632, bottom: 330 / 632, left: 190 / 578, right: 390 / 578 };
-
-function landmarkStoreys(
-  texture: Texture,
-  anchorX: number,
-  anchorY: number,
-  scale: number,
-  storeys: number,
-): Sprite[] {
-  const frame = texture.frame;
-  const width = frame.width;
-  const height = frame.height;
-  const top = Math.round(LANDMARK_BAND.top * height);
-  const bottom = Math.round(LANDMARK_BAND.bottom * height);
-  const left = Math.round(LANDMARK_BAND.left * width);
-  const right = Math.round(LANDMARK_BAND.right * width);
-  const band = bottom - top;
-  const ax = anchorX * width;
-  const ay = anchorY * height;
-  // A part of the picture (x0..x1, y0..y1), drawn lifted by some pixels of the picture
-  const part = (x0: number, y0: number, x1: number, y1: number, lift: number) => {
-    const sprite = new Sprite(
-      new Texture({
-        source: texture.source,
-        frame: new Rectangle(frame.x + x0, frame.y + y0, x1 - x0, y1 - y0),
-      }),
-    );
-    sprite.anchor.set((ax - x0) / (x1 - x0), (ay - (y0 - lift)) / (y1 - y0));
-    sprite.scale.set(scale);
-    return sprite;
-  };
-  const parts = [part(0, top, width, height, 0)];
-  for (let k = 1; k <= storeys; k++) {
-    parts.push(part(left, top, right, bottom, k * band));
-  }
-  parts.push(part(left, 0, right, top, storeys * band));
-  return parts;
 }
 
 /** Which terrain bleeds over which at a border (man-made ground keeps a crisp edge) */
@@ -388,19 +374,6 @@ function traceFootprint(g: Graphics, x: number, y: number, size: number, height 
   g.closePath();
 }
 
-/** A polygon of tile-grid corners (relative to x, y), like an estate's border around its part of the Yard */
-function traceOutline(g: Graphics, x: number, y: number, points: Array<[number, number]>) {
-  points.forEach(([px, py], i) => {
-    const corner = diagonalToScreen(x + px, y + py);
-    if (i === 0) {
-      g.moveTo(corner.x + TILE_WIDTH, corner.y - TILE_HEIGHT);
-    } else {
-      g.lineTo(corner.x + TILE_WIDTH, corner.y - TILE_HEIGHT);
-    }
-  });
-  g.closePath();
-}
-
 /** A footprint grown outwards by a share of a tile on every side: a ring that shows around a building's plate */
 function traceRing(g: Graphics, x: number, y: number, size: number, grow: number) {
   const top = diagonalToScreen(x, y);
@@ -452,6 +425,8 @@ interface ObjectView {
 
 interface DistrictView {
   graphics: Graphics;
+  /** Its trunk lines, over the fog of the wilderness they cross */
+  lines: Graphics;
   labels: Container;
   hub: ObjectView[];
 }
@@ -464,6 +439,8 @@ class ChunkView {
   overlay: Container | null = null;
   /** The Deposits overlay's seat labels, over the buildings */
   overlayLabels: Container | null = null;
+  /** The fog over wilderness the player hasn't mapped (1.4 §20) */
+  fog: Graphics | null = null;
   mini: Sprite | null = null;
   objects: ObjectView[] = [];
   loaded = false;
@@ -490,8 +467,16 @@ export class Engine {
   private readonly deepLabels = new Container();
   private deep = false;
   private readonly overlayLayer = new Container();
+  /** The fog over the wilderness nobody of yours mapped yet, over its trees and deposits */
+  private readonly fogLayer = new Container();
+  /** Trunk lines: over the fog they cross */
+  private readonly lineLayer = new Container();
   private overlay: Overlay = "none";
   private readonly highlightLayer = new Graphics();
+  /** Picking a plot: the free plots glow (pulsing), the closed ones are amber, the chosen one has a gold border */
+  private readonly pickGlow = new Graphics();
+  private readonly pickMarks = new Graphics();
+  private pickKey = "";
   /** Links: their channels (drawn when they change) and the goods moving along the flowing ones */
   private readonly linkLayer = new Graphics();
   private readonly linkPulse = new Graphics();
@@ -533,6 +518,12 @@ export class Engine {
   /** Building pictures that were still loading have arrived */
   private artArrived = false;
   private lastArtRedraw = 0;
+  /** Every flow's way along its pipes as drawn (look inside draws over it) */
+  private flowPaths: Array<{ flow: FlowDto; network: number; points: Array<{ x: number; y: number }> }> = [];
+  /** Look inside (1.4 §9): the pipe under the pointer, or every pipe while Alt is held, cut open */
+  private readonly insideLayer = new Graphics();
+  private insideKey = "";
+  private flowsVersion = 0;
   private flowDots: Array<{
     sprite: Sprite;
     points: Array<{ x: number; y: number }>;
@@ -570,6 +561,14 @@ export class Engine {
   private hovered: TilePosition | null = null;
   private lastToolKey = "";
   private readonly keys = new Set<string>();
+  /** The pipes' lane connectors: they fade as the map zooms out (1.4 §9: the map stays calm) */
+  private readonly laneSprites = new Set<Sprite>();
+  private laneScale = 0;
+  private readonly connectorViews = new Set<ConnectorAnimation>();
+  private connectorFlows = new Map<string, ConnectorFlow[]>();
+  private readonly dynamicLanes = new Map<number, string>();
+  private readonly reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+  private connectorSoundAt = 0;
   private readonly removeListeners: Array<() => void> = [];
   private destroyed = false;
 
@@ -597,6 +596,11 @@ export class Engine {
       this.linkPulse,
       this.highlightLayer,
       this.objectLayer,
+      this.fogLayer,
+      this.lineLayer,
+      this.pickGlow,
+      this.pickMarks,
+      this.insideLayer,
       this.flowLayer,
       this.ghostLayer,
       this.juice.layer,
@@ -771,7 +775,7 @@ export class Engine {
       canvas.setPointerCapture(event.pointerId);
       const tool = this.callbacks.getState().tool;
       if (event.button === 0 && tool.kind === "pipe") {
-        this.pipeStart = this.camera.screenToTile(local.x, local.y);
+        this.pipeStart = this.pipeTargetAt(local.x, local.y);
         this.updatePipeRoute();
       }
       if (event.button === 0 && tool.kind === "bulldoze") {
@@ -849,6 +853,9 @@ export class Engine {
         this.cancelToolDrag();
         return;
       }
+      const local = toLocal(event);
+      this.pointerX = local.x;
+      this.pointerY = local.y;
       if (wasToolDrag && this.isBoxDrag()) {
         if (this.movedBeyondClick) {
           this.finishBox();
@@ -883,6 +890,10 @@ export class Engine {
         return;
       }
       this.keys.add(event.key.toLowerCase());
+      // Alt looks inside the pipes: it doesn't open the browser's menu
+      if (event.key === "Alt") {
+        event.preventDefault();
+      }
     };
     const onKeyUp = (event: KeyboardEvent) => this.keys.delete(event.key.toLowerCase());
     const onBlur = () => this.keys.clear();
@@ -1115,8 +1126,11 @@ export class Engine {
         this.callbacks.onPlaceBuildings(tool.type, paint.spots);
       }
     }
-    if (tool.kind === "pipe" && this.pipeRoute !== null && this.pipeRoute.length > 0) {
-      this.callbacks.onPlacePipes(this.pipeRoute);
+    if (tool.kind === "pipe") {
+      this.updatePipeRoute();
+      if (this.pipeRoute !== null && this.pipeRoute.length > 0) {
+        this.callbacks.onPlacePipes(this.pipeRoute);
+      }
     }
     if (tool.kind === "bulldoze" && this.bulldozeTiles.size > 0) {
       const tiles = [...this.bulldozeTiles.values()];
@@ -1181,10 +1195,29 @@ export class Engine {
     if (this.pipeStart === null || state.company === null) {
       return;
     }
-    const end = this.camera.screenToTile(this.pointerX, this.pointerY);
+    const end = this.pipeTargetAt(this.pointerX, this.pointerY);
     const route = routePipe(this.world, state.company, this.pipeStart, end, state.content);
     this.pipeRoute = route;
     this.callbacks.onPipeRoute(route);
+  }
+
+  /** The inlet box, posts and barrier all belong to the gate tile. */
+  private pipeTargetAt(screenX: number, screenY: number): TilePosition {
+    const company = this.callbacks.getState().company;
+    if (company !== null) {
+      const gate = yardGate(company.estateX, company.estateY, company.slot);
+      if (this.world.conductorAt(gate.x, gate.y)?.kind === "gate") {
+        const anchor = diagonalToScreen(gate.x, gate.y);
+        const point = this.camera.screenToWorld(screenX, screenY);
+        const side = sideOf(company.slot);
+        const alongU = side === "north" || side === "south";
+        const tolerance = Math.min(16, (this.dragPointerType === "touch" ? 8 : 3) / this.camera.scale);
+        if (this.textures.gateContains(alongU, point.x - anchor.x, point.y - anchor.y, tolerance)) {
+          return gate;
+        }
+      }
+    }
+    return this.camera.screenToTile(screenX, screenY);
   }
 
   // ---------------------------------------------------------------- Frame
@@ -1274,8 +1307,11 @@ export class Engine {
       this.callbacks.onLayer(this.deep);
     }
 
-    const tile = this.camera.screenToTile(this.pointerX, this.pointerY);
     const tool = this.callbacks.getState().tool;
+    const tile =
+      tool.kind === "pipe"
+        ? this.pipeTargetAt(this.pointerX, this.pointerY)
+        : this.camera.screenToTile(this.pointerX, this.pointerY);
     // A blueprint tool carries its whole layout: its id is enough
     const toolKey =
       (tool.kind === "blueprint" ? `blueprint:${tool.blueprint.id}` : JSON.stringify(tool)) +
@@ -1300,6 +1336,9 @@ export class Engine {
       this.drawGhost();
     }
     this.drawHighlights();
+    this.fadeLanes();
+    this.drawInside();
+    this.drawPicker();
     this.drawLinks(deltaSeconds);
     this.animate(deltaSeconds);
     this.juice.update(deltaSeconds);
@@ -1383,7 +1422,12 @@ export class Engine {
     for (const key of districts) {
       if (canRequest && !this.districtViews.has(key)) {
         const [x, y] = key.split(",").map(Number) as [number, number];
-        this.districtViews.set(key, { graphics: new Graphics(), labels: new Container(), hub: [] });
+        this.districtViews.set(key, {
+          graphics: new Graphics(),
+          lines: new Graphics(),
+          labels: new Container(),
+          hub: [],
+        });
         this.callbacks.requestDistrict(x, y);
       }
     }
@@ -1396,6 +1440,7 @@ export class Engine {
     }
     for (const view of this.districtViews.values()) {
       view.graphics.destroy();
+      view.lines.destroy();
       view.labels.destroy({ children: true });
       for (const hub of view.hub) {
         this.effects.delete(hub);
@@ -1412,6 +1457,8 @@ export class Engine {
     chunk.overlay = null;
     chunk.overlayLabels?.destroy({ children: true });
     chunk.overlayLabels = null;
+    chunk.fog?.destroy();
+    chunk.fog = null;
     if (chunk.mini !== null) {
       chunk.mini.texture.destroy(true);
       chunk.mini.destroy();
@@ -1441,6 +1488,7 @@ export class Engine {
     this.drawMini(chunk);
     this.drawOverlay(chunk);
     this.drawObjects(chunk);
+    this.drawFog(chunk);
     if (firstTime) {
       // Pipes on the edge of the neighbours connect to this chunk's objects
       for (const [dx, dy] of [
@@ -1456,6 +1504,57 @@ export class Engine {
         }
       }
     }
+  }
+
+  /**
+   * Fog over the wilderness of a chunk the player's expeditions haven't mapped (1.4 §20): its runs of wilderness tiles
+   * row by row, the same runs merged into rectangles
+   */
+  private drawFog(chunk: ChunkView) {
+    chunk.fog?.destroy();
+    chunk.fog = null;
+    const company = this.callbacks.getState().company;
+    const x0 = chunk.cx * CHUNK_SIZE;
+    const y0 = chunk.cy * CHUNK_SIZE;
+    if (company === null || isDeep(y0) || (company.explored ?? []).includes(`${chunk.cx},${chunk.cy}`)) {
+      return;
+    }
+    const rects: Array<{ x: number; y: number; w: number; h: number }> = [];
+    let open: Array<{ x: number; y: number; w: number; h: number }> = [];
+    let previous = "";
+    for (let y = y0; y < y0 + CHUNK_SIZE; y++) {
+      const runs: Array<[number, number]> = [];
+      for (let x = x0; x < x0 + CHUNK_SIZE; x++) {
+        if (zoneAt(x, y).kind !== "wilderness") {
+          continue;
+        }
+        const last = runs[runs.length - 1];
+        if (last !== undefined && last[1] === x) {
+          last[1] = x + 1;
+        } else {
+          runs.push([x, x + 1]);
+        }
+      }
+      const key = runs.map((t) => t.join("-")).join(",");
+      if (key === previous) {
+        open.forEach((t) => t.h++);
+        continue;
+      }
+      rects.push(...open);
+      open = runs.map(([a, b]) => ({ x: a, y, w: b - a, h: 1 }));
+      previous = key;
+    }
+    rects.push(...open);
+    if (rects.length === 0) {
+      return;
+    }
+    const g = new Graphics();
+    for (const rect of rects) {
+      traceFootprint(g, rect.x, rect.y, rect.w, rect.h);
+      g.fill({ color: 0xdfe4e2, alpha: 0.82 });
+    }
+    this.fogLayer.addChild(g);
+    chunk.fog = g;
   }
 
   private drawGround(chunk: ChunkView) {
@@ -1592,10 +1691,10 @@ export class Engine {
               // A beach is sand: the Sand Dredger's ground
               color = content.resourceColor("sand");
               alpha = 0.7;
-            } else if (tile.terrain === "forest" && this.world.dealtLand) {
-              // Scenery trees: not wood (after run 4), and not quite the bare ground either
-              color = 0x31463a;
-              alpha = 0.72;
+            } else if (tile.terrain === "forest") {
+              // Wood: a Lumber Camp's ground
+              color = content.resourceColor("wood");
+              alpha = 0.55;
             } else {
               color = 0x0b1d24;
               alpha = 0.6;
@@ -1802,7 +1901,8 @@ export class Engine {
           tileSprite(this.textures.rocks(variant))
         );
       case "grass":
-      case "hills": {
+      case "hills":
+      case "redHills": {
         const wild = zoneAt(x, y).kind === "wilderness";
         if (wild && roll < 0.05) {
           return propSprite(
@@ -1851,7 +1951,8 @@ export class Engine {
 
   /**
    * A free hub tile for the town around the structures: "street" when it lies along one of the streets (every 8
-   * tiles), "inner" inside a block, null when it is a street, next to a structure or outside the hub
+   * tiles, and the two roads that cross the hub), "inner" inside a block, null when it is a street, next to a structure
+   * or outside the hub
    */
   private freeHubTile(x: number, y: number): "street" | "inner" | null {
     const d = districtOf(x, y);
@@ -1859,9 +1960,20 @@ export class Engine {
     if (district === undefined) {
       return null;
     }
-    const lx = x - (district.originX + 2 + 2 * 34);
-    const ly = y - (district.originY + 2 + 2 * 34);
-    if (lx < 1 || ly < 1 || lx > 30 || ly > 30 || lx % 8 === 0 || ly % 8 === 0) {
+    const lx = x - (district.originX + HUB_LOCAL.x0);
+    const ly = y - (district.originY + HUB_LOCAL.y0);
+    const roadX = ROAD_X - HUB_LOCAL.x0;
+    const roadY = ROAD_Y - HUB_LOCAL.y0;
+    const onRoad = (lx >= roadX && lx < roadX + ROAD_WIDTH) || (ly >= roadY && ly < roadY + ROAD_WIDTH);
+    if (
+      lx < 1 ||
+      ly < 1 ||
+      lx > HUB_LOCAL.x1 - HUB_LOCAL.x0 - 1 ||
+      ly > HUB_LOCAL.y1 - HUB_LOCAL.y0 - 1 ||
+      lx % 8 === 0 ||
+      ly % 8 === 0 ||
+      onRoad
+    ) {
       return null;
     }
     if (
@@ -2056,6 +2168,28 @@ export class Engine {
     return g;
   }
 
+  /**
+   * The kinds of goods a building at a tile takes or makes, in the order its lanes stand (a belt, a slim pipe, cables);
+   * a Storage or a trading post shows the kinds moving through it now
+   */
+  private laneKinds(x: number, y: number): LaneKind[] {
+    const building = this.world.buildingAt(x, y);
+    const content = this.callbacks.getState().content;
+    const definition = building !== undefined ? content.building(building.type) : undefined;
+    if (definition === undefined) {
+      return [];
+    }
+    let goods = [...Object.keys(definition.in), ...Object.keys(definition.out)];
+    if (goods.length === 0 && building !== undefined && building.network !== null) {
+      // A Storage or a trading post: the kinds of goods moving through it right now (none: the inlet box)
+      goods = (this.world.flows.get(building.network)?.flows ?? [])
+        .filter((t) => (t.from === building.id || t.to === building.id) && t.delivered > 1e-6)
+        .map((t) => t.resource);
+    }
+    const kinds = new Set(goods.map((t) => content.resource(t)?.kind ?? "solid"));
+    return LANE_KINDS.filter((t) => kinds.has(t));
+  }
+
   /** Whether the building at a tile takes pipes */
   private pipeBuildingAt(x: number, y: number): boolean {
     const building = this.world.buildingAt(x, y);
@@ -2111,6 +2245,41 @@ export class Engine {
         overlays.push(`flange-${side}`);
       }
     }
+    // A building inlet is one connected piece: its crossbar extends into the neighbouring pipes. Layering a bend or
+    // a capped end beneath a separate manifold leaves overlapping tubes and false caps across a continuous run.
+    const side = look.sockets.length === 1 ? look.sockets[0]! : null;
+    const lanes = side !== null ? this.laneKinds(x + PIPE_DX[side]!, y + PIPE_DY[side]!) : [];
+    const feed = side !== null ? `feed-${side}-${look.shape.replace(side, "") || "none"}` : null;
+    if (side !== null && lanes.length > 0 && feed !== null && this.textures.pipePiece(feed, tier) !== null) {
+      // The lanes, and the goods moving on them (conductorView), share one layer. On the far sides (u, l) the
+      // building stands behind the pipe and the whole tube is in front of its connectors: they go under it.
+      const lanesLayer = new Container({ label: "lanes" });
+      const body: Sprite[] = [];
+      for (const shape of [feed, ...overlays.filter((s) => !s.startsWith("foot-"))]) {
+        const art = this.textures.pipePiece(shape, tier);
+        if (art !== null) {
+          const sprite = new Sprite(art.texture);
+          sprite.position.set(art.x, art.y);
+          sprite.scale.set(art.scale);
+          if (shape === feed) sprite.label = "pipe-body";
+          body.push(sprite);
+        }
+      }
+      lanes.forEach((kind, i) => {
+        const art = this.textures.pipePiece(`lane-${kind}-${side}-${LANE_SLOTS[lanes.length]![i]}`, tier);
+        if (art !== null) {
+          const sprite = new Sprite(art.texture);
+          sprite.position.set(art.x, art.y);
+          sprite.scale.set(art.scale);
+          sprite.alpha = this.laneAlpha();
+          this.laneSprites.add(sprite);
+          lanesLayer.addChild(sprite);
+        }
+      });
+      if (side === "u" || side === "l") container.addChild(lanesLayer, ...body);
+      else container.addChild(...body, lanesLayer);
+      return container;
+    }
     // A straight run past a building taps into it with a tee (a hub is for pipes meeting)
     const through = look.shape.replace(look.sockets[0] ?? "", "");
     const tee =
@@ -2131,24 +2300,29 @@ export class Engine {
   private conductorView(conductor: ConductorDto): ObjectView {
     const anchor = diagonalToScreen(conductor.x, conductor.y);
     if (conductor.kind === "gate") {
-      // The Yard gate: its barrier faces the Yard (the pipe runs on towards it)
+      // The Yard gate: its barrier faces the Yard (the pipe runs on towards it); the plots above and below a Yard face it
+      // along y
       const zone = zoneAt(conductor.x, conductor.y);
-      const yard =
-        zone.kind === "estate" ? yardRect(zone.districtX, zone.districtY, stationOfSlot(zone.slot)) : null;
-      const towardsY =
-        yard !== null &&
-        Math.abs((yard.y0 + yard.y1) / 2 - conductor.y) > Math.abs((yard.x0 + yard.x1) / 2 - conductor.x);
+      const side = zone.kind === "estate" ? sideOf(zone.slot) : null;
+      const towardsY = side === "north" || side === "south";
       const art = this.textures.gate("open", towardsY);
       const sprite = new Sprite(art.frames[0]);
       sprite.anchor.set(0, 1);
       const container = new Container();
       container.position.set(anchor.x, anchor.y);
-      // The pipe runs on through the gate, under its barrier
+      // The pad is ground. The pipes enter a receiving box above it; the posts stand in front.
+      if (art.ground !== undefined) {
+        const base = new Sprite(art.ground);
+        base.anchor.set(0, 1);
+        container.addChild(base);
+      }
       const look = this.pipeLook(conductor.x, conductor.y);
-      if (look.shape.length > 0) {
-        const pipe = this.pipeDisplay(conductor.x, conductor.y, conductor.tier, look);
-        pipe.position.set(0, 0);
-        container.addChild(pipe);
+      const inlet = this.textures.pipePiece(`gate-${look.shape || "none"}`, conductor.tier);
+      if (inlet !== null) {
+        const intake = new Sprite(inlet.texture);
+        intake.position.set(inlet.x, inlet.y);
+        intake.scale.set(inlet.scale);
+        container.addChild(intake);
       }
       container.addChild(sprite);
       const effects = new BuildingEffects(art.attachments, "#ffffff");
@@ -2172,6 +2346,28 @@ export class Engine {
       conductor.tier,
       this.pipeLook(conductor.x, conductor.y),
     );
+    const look = this.pipeLook(conductor.x, conductor.y);
+    if (look.sockets.length === 1) {
+      const side = look.sockets[0] as PipeSide;
+      const building = this.world.buildingAt(conductor.x + PIPE_DX[side]!, conductor.y + PIPE_DY[side]!);
+      const kinds = this.laneKinds(conductor.x + PIPE_DX[side]!, conductor.y + PIPE_DY[side]!);
+      if (building !== undefined && kinds.length > 0) {
+        const key = connectorKey(conductor.x, conductor.y, building.id);
+        const animation = new ConnectorAnimation(
+          key,
+          conductor.x,
+          conductor.y,
+          side,
+          kinds,
+          this.callbacks.getState().content,
+          this.textures,
+          hash01(conductor.x * 73856093 + conductor.y * 19349663 + building.id),
+        );
+        animation.setFlows(this.connectorFlows.get(key) ?? []);
+        (pipe.getChildByLabel("lanes") ?? pipe).addChild(animation.container);
+        this.connectorViews.add(animation);
+      }
+    }
     pipe.zIndex = (conductor.x + conductor.y) * 4 + 2;
     this.objectLayer.addChild(pipe);
     return { display: pipe, effects: null, building: null, machine: null, idle: null, progress: null };
@@ -2493,6 +2689,37 @@ export class Engine {
     if (this.far) {
       return;
     }
+    const area = this.camera.viewRect(this.app.screen.width, this.app.screen.height);
+    const alpha = this.laneAlpha() * (this.overlay === "none" ? 1 : 0.35);
+    let audible: ConnectorAnimation | undefined;
+    for (const connector of this.connectorViews) {
+      const point = tileCenter(connector.x, connector.y);
+      const visible =
+        point.x >= area.left - 192 &&
+        point.x <= area.right + 192 &&
+        point.y >= area.top - 150 &&
+        point.y <= area.bottom + 100;
+      connector.update(this.time, visible ? alpha : 0, this.reducedMotion?.matches === true);
+      if (visible && connector.active && this.hovered?.x === connector.x && this.hovered.y === connector.y)
+        audible = connector;
+    }
+    // A quiet inspection sound, bounded for the whole map and governed by the existing mute control.
+    if (
+      audible !== undefined &&
+      this.pointerInside &&
+      !this.dragging &&
+      this.callbacks.getState().tool.kind === "select" &&
+      this.camera.scale > 0.75 &&
+      this.time > this.connectorSoundAt &&
+      !this.reducedMotion?.matches &&
+      document.visibilityState === "visible"
+    ) {
+      const kinds = audible.activeKinds;
+      if (kinds.includes("fluid") && (!kinds.includes("power") || Math.floor(this.time / 3) % 2 === 1))
+        sounds.water();
+      else if (kinds.includes("power")) sounds.electric();
+      this.connectorSoundAt = this.time + 3;
+    }
     const now = Date.now() + this.callbacks.getState().serverOffsetMs;
     const content = this.callbacks.getState().content;
     for (const view of this.effects) {
@@ -2541,6 +2768,126 @@ export class Engine {
     }
   }
 
+  /** How much of the lane connectors shows at this zoom: all of them close up, none far out */
+  private laneAlpha(): number {
+    return Math.max(0, Math.min(1, (this.camera.scale - 0.22) / 0.18));
+  }
+
+  private fadeLanes() {
+    for (const connector of this.connectorViews)
+      if (connector.container.destroyed) this.connectorViews.delete(connector);
+    if (Math.abs(this.camera.scale - this.laneScale) < 0.005) {
+      return;
+    }
+    this.laneScale = this.camera.scale;
+    const alpha = this.laneAlpha();
+    for (const sprite of this.laneSprites) {
+      if (sprite.destroyed) {
+        this.laneSprites.delete(sprite);
+      } else {
+        sprite.alpha = alpha;
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------- Look inside
+
+  /**
+   * Look inside (1.4 §9): hovering a pipe with the select tool, or holding Alt, turns it see-through like the cutaway:
+   * a glass tube along the way of each flow in it, and in it a core in the good's colour at its lane's height (a belt
+   * low, the slim pipe in the middle, the cables high), thicker the fuller the pair's pipe is
+   */
+  private drawInside() {
+    const state = this.callbacks.getState();
+    const alt = this.keys.has("alt");
+    const tile = this.hovered;
+    const onPipe =
+      !alt &&
+      tile !== null &&
+      state.tool.kind === "select" &&
+      this.world.conductorAt(tile.x, tile.y)?.kind === "pipe" &&
+      this.world.buildingAt(tile.x, tile.y) === undefined;
+    const key = this.far
+      ? ""
+      : alt
+        ? `alt:${this.flowsVersion}`
+        : onPipe
+          ? `${tile.x},${tile.y}:${this.flowsVersion}`
+          : "";
+    if (key === this.insideKey) {
+      return;
+    }
+    this.insideKey = key;
+    const g = this.insideLayer;
+    g.clear();
+    if (key === "" || state.content === null) {
+      return;
+    }
+    const content = state.content;
+    let shown: Array<{
+      points: Array<{ x: number; y: number }>;
+      flow: FlowDto;
+      kind: LaneKind;
+      full: number;
+    }>;
+    if (alt) {
+      const full = new Map<number, (flow: FlowDto) => number>();
+      shown = this.flowPaths.slice(0, 600).map(({ flow, network, points }) => {
+        let of = full.get(network);
+        if (of === undefined) {
+          const flows = this.world.flows.get(network);
+          of = flows !== undefined ? fullness(this.world, content, flows) : () => 0;
+          full.set(network, of);
+        }
+        return { points, flow, kind: laneOf(content, flow.resource), full: of(flow) };
+      });
+    } else {
+      const inside = new Map<FlowDto, InsideFlow>(
+        insidePipe(this.world, content, tile!.x, tile!.y).map((t) => [t.flow, t]),
+      );
+      shown = this.flowPaths
+        .filter((t) => inside.has(t.flow))
+        .map((t) => ({
+          points: t.points,
+          flow: t.flow,
+          kind: inside.get(t.flow)!.kind,
+          full: inside.get(t.flow)!.full,
+        }));
+    }
+    const lift = this.textures.pipeHeight;
+    const trace = (points: Array<{ x: number; y: number }>, dy: number) => {
+      g.moveTo(points[0]!.x, points[0]!.y + dy);
+      for (const point of points.slice(1)) {
+        g.lineTo(point.x, point.y + dy);
+      }
+    };
+    // The tube cut open: its glass rim, then the dark inside the lanes run in
+    for (const { points } of shown) {
+      if (points.length >= 2) {
+        trace(points, 0);
+        g.stroke({ width: lift * 0.95, color: 0xe8f7ff, alpha: 0.4, cap: "round", join: "round" });
+      }
+    }
+    for (const { points } of shown) {
+      if (points.length >= 2) {
+        trace(points, 0);
+        g.stroke({ width: lift * 0.72, color: 0x1f2b33, alpha: 0.62, cap: "round", join: "round" });
+      }
+    }
+    for (const { points, flow, kind, full } of shown) {
+      if (points.length >= 2) {
+        trace(points, (0.86 - LANE_HEIGHT[kind]) * lift * 0.6);
+        g.stroke({
+          width: 3 + 9 * full,
+          color: content.resourceColor(flow.resource),
+          alpha: 0.9,
+          cap: "round",
+          join: "round",
+        });
+      }
+    }
+  }
+
   // ---------------------------------------------------------------- Flows
 
   private buildFlows() {
@@ -2548,7 +2895,32 @@ export class Engine {
       dot.sprite.destroy();
     }
     this.flowDots = [];
+    this.flowPaths = [];
+    this.flowsVersion++;
     const content = this.callbacks.getState().content;
+    this.connectorFlows = connectorTraffic(this.world.flows.values());
+    for (const id of this.dynamicLanes.keys())
+      if (!this.world.buildings.has(id)) this.dynamicLanes.delete(id);
+    for (const connector of this.connectorViews) {
+      if (!connector.container.destroyed) connector.setFlows(this.connectorFlows.get(connector.key) ?? []);
+    }
+    // Storage and Trading Post ports reflect their actual traffic, including its first arrival and last departure.
+    for (const building of this.world.buildings.values()) {
+      if (building.type !== "storage" && building.type !== "tradingPost") continue;
+      const kinds = this.laneKinds(building.x, building.y).join(",");
+      if (this.dynamicLanes.get(building.id) === kinds) continue;
+      this.dynamicLanes.set(building.id, kinds);
+      for (let i = 0; i < building.size; i++)
+        for (const [x, y] of [
+          [building.x + i, building.y - 1],
+          [building.x + i, building.y + building.size],
+          [building.x - 1, building.y + i],
+          [building.x + building.size, building.y + i],
+        ]) {
+          const chunk = chunkOf(x!, y!);
+          this.dirtyChunks.add(chunkKey(chunk.x, chunk.y));
+        }
+    }
     for (const network of this.world.flows.values()) {
       const sharing = Math.max(1, network.flows.filter((t) => t.path.length >= 2 && t.delivered > 0).length);
       for (const flow of network.flows) {
@@ -2568,10 +2940,16 @@ export class Engine {
         const from = this.world.buildings.get(flow.from);
         const to = this.world.buildings.get(flow.to);
         const pieces = tiles.map((run, index) =>
-          this.flowPoints(run, index === 0 ? from : undefined, index === tiles.length - 1 ? to : undefined),
+          this.flowPoints(
+            run,
+            index === 0 ? from : undefined,
+            index === tiles.length - 1 ? to : undefined,
+            flow.resource,
+          ),
         );
         const color = content.resourceColor(flow.resource);
         for (const points of pieces) {
+          this.flowPaths.push({ flow, network: network.id, points });
           let length = 0;
           for (let i = 1; i < points.length; i++) {
             length += Math.hypot(points[i]!.x - points[i - 1]!.x, points[i]!.y - points[i - 1]!.y);
@@ -2707,21 +3085,27 @@ export class Engine {
 
   /**
    * Where the dots of a flow run along pipe tiles (ground coordinates: a tile's centre is x + 0.5): through the
-   * middle of straight pieces, around the bends like the pipes, from and to the socket of a building next to the ends
+   * middle of straight pieces, around the bends like the pipes, from and to the socket of a building next to the ends;
+   * into a building with lanes along its good's lane (1.4 §9: on the belt, through the slim pipe, along the cables)
    */
   private flowPoints(
     run: Array<{ x: number; y: number }>,
     from: BuildingDto | undefined,
     to: BuildingDto | undefined,
+    resource?: string,
   ): Array<{ x: number; y: number }> {
     const lift = this.textures.pipeHeight;
-    const screen = (gx: number, gy: number) => {
+    const screen = (gx: number, gy: number, height = 1) => {
       const c = tileCenter(gx - 0.5, gy - 0.5);
-      return { x: c.x, y: c.y - lift };
+      return { x: c.x, y: c.y - lift * height };
     };
-    // The edge of the end tile toward the building (its socket), or the building's middle when it isn't next to it
+    const content = this.callbacks.getState().content;
+    const kind = (resource !== undefined ? content.resource(resource)?.kind : undefined) as
+      LaneKind | undefined;
+    // The edge of the end tile toward the building (its socket, or its good's lane and the manifold it leaves from,
+    // building first), or the building's middle when it isn't next to it
     const socket = (tile: { x: number; y: number }, building: BuildingDto) => {
-      for (const [, dx, dy] of PIPE_SIDES) {
+      for (const [side, dx, dy] of PIPE_SIDES) {
         const nx = tile.x + dx;
         const ny = tile.y + dy;
         if (
@@ -2730,19 +3114,35 @@ export class Engine {
           nx < building.x + building.size &&
           ny < building.y + building.size
         ) {
-          return screen(tile.x + 0.5 + dx / 2, tile.y + 0.5 + dy / 2);
+          const lanes = this.laneKinds(nx, ny);
+          const sockets = this.pipeLook(tile.x, tile.y).sockets;
+          const index =
+            kind !== undefined && sockets.length === 1 && sockets[0] === side ? lanes.indexOf(kind) : -1;
+          if (index >= 0) {
+            // The short lane has its own cargo / sparks / fluid animation. Pipe pellets stay inside the big pipe.
+            const start = connectorPath(side, LANE_SLOTS[lanes.length]![index]!, kind!)[0]!;
+            const anchor = diagonalToScreen(tile.x, tile.y);
+            return [{ x: anchor.x + start.x, y: anchor.y + start.y }];
+          }
+          return [screen(tile.x + 0.5 + dx / 2, tile.y + 0.5 + dy / 2)];
         }
       }
-      return this.buildingCenter(building);
+      return [this.buildingCenter(building)];
     };
     const points: Array<{ x: number; y: number }> = [];
     if (from !== undefined && run.length > 0) {
-      points.push(socket(run[0]!, from));
+      points.push(...socket(run[0]!, from));
     }
     run.forEach((tile, i) => {
       const before = run[i - 1];
       const after = run[i + 1];
-      if (before !== undefined && after !== undefined && before.x !== after.x && before.y !== after.y) {
+      if (
+        before !== undefined &&
+        after !== undefined &&
+        before.x !== after.x &&
+        before.y !== after.y &&
+        this.pipeLook(tile.x, tile.y).shape.length === 2
+      ) {
         // A bend: around the corner between the two edges, a quarter circle of half a tile
         const cx = tile.x + 0.5 + (before.x - tile.x + after.x - tile.x) / 2;
         const cy = tile.y + 0.5 + (before.y - tile.y + after.y - tile.y) / 2;
@@ -2758,11 +3158,12 @@ export class Engine {
           points.push(screen(cx + 0.5 * Math.cos(a), cy + 0.5 * Math.sin(a)));
         }
       } else {
+        // Inlet manifolds and junctions meet at the middle, even when this flow turns there.
         points.push(screen(tile.x + 0.5, tile.y + 0.5));
       }
     });
     if (to !== undefined && run.length > 0) {
-      points.push(socket(run[run.length - 1]!, to));
+      points.push(...socket(run[run.length - 1]!, to).reverse());
     }
     return points;
   }
@@ -2781,6 +3182,7 @@ export class Engine {
       const [dx, dy] = key.split(",").map(Number) as [number, number];
       const district = this.world.district(dx, dy);
       view.graphics.clear();
+      view.lines.clear();
       view.labels.removeChildren().forEach((child) => child.destroy());
       for (const hub of view.hub) {
         this.effects.delete(hub);
@@ -2793,6 +3195,7 @@ export class Engine {
       }
       if (view.graphics.parent === null) {
         this.estateLayer.addChild(view.graphics);
+        this.lineLayer.addChild(view.lines);
         this.labelLayer.addChild(view.labels);
       }
       this.drawDistrict(view, district, state.company);
@@ -2865,17 +3268,15 @@ export class Engine {
     for (const estate of district.estates) {
       const mine = company !== null && estate.ownerId === company.id;
       const color = estate.ownerColor ?? "#ffffff";
-      // The border goes around the estate's part of its station's Yard
-      const outline = estateOutline(estate.slot);
       if (estate.ownerId !== null) {
         if (far) {
-          traceOutline(g, estate.x, estate.y, outline);
+          traceFootprint(g, estate.x, estate.y, ESTATE_SIZE);
           g.fill({ color, alpha: 0.12 });
         }
-        traceOutline(g, estate.x, estate.y, outline);
+        traceFootprint(g, estate.x, estate.y, ESTATE_SIZE);
         g.stroke({ color, width: far ? (mine ? 40 : 26) : mine ? 7 : 5, alpha: far ? 0.85 : 0.75 });
       } else {
-        traceOutline(g, estate.x, estate.y, outline);
+        traceFootprint(g, estate.x, estate.y, ESTATE_SIZE);
         g.stroke({ color: 0xffffff, width: far ? 14 : 3, alpha: 0.22 });
       }
 
@@ -2895,9 +3296,9 @@ export class Engine {
       }
 
       // The name of the company at the top of its estate
-      // Free estates are only named up close, far away the map would be full of labels
+      // Free plots are only named up close, far away the map would be full of labels
       if (estate.ownerName !== null || (!far && this.camera.scale < 0.3)) {
-        const text = estate.ownerName ?? "Free estate";
+        const text = estate.ownerName ?? "Free plot";
         const label = new Text({
           text: estate.ownerName !== null ? `${text}  ·  Lv ${estate.ownerLevel}` : text,
           style: {
@@ -2917,10 +3318,12 @@ export class Engine {
       }
     }
     if (far) {
+      // The race between towns (1.4 §13): its Era, its Launch, its stars
       const name = new Text({
-        text: district.name,
+        text: `${district.name}\nEra ${district.era ?? 1}${district.launched ? ` · 🚀${district.stars > 0 ? ` ${district.stars} ★` : ""}` : ""}`,
         style: {
           fontFamily: "Georgia, serif",
+          align: "center",
           fontSize: 44,
           fontWeight: "700",
           fill: "#f6c744",
@@ -2929,17 +3332,17 @@ export class Engine {
       });
       name.anchor.set(0.5);
       const center = tileCenter(
-        districtOriginX(district.x) + DISTRICT_SIZE / 2,
-        districtOriginY(district.y) + DISTRICT_SIZE / 2,
+        districtOriginX(district.x) + DISTRICT_WIDTH / 2,
+        districtOriginY(district.y) + DISTRICT_HEIGHT / 2,
       );
       name.position.set(center.x, center.y);
       name.label = "district";
       labels.addChild(name);
     } else {
       // The hub city
-      const hubX = district.originX + 2 + 2 * 34;
-      const hubY = district.originY + 2 + 2 * 34;
-      for (const structure of district.hub) {
+      const hubX = district.originX + HUB_LOCAL.x0;
+      const hubY = district.originY + HUB_LOCAL.y0;
+      for (const structure of district.hub.filter((t) => t.type !== "townGate")) {
         const art = this.textures.hub(structure.type, structure.size, structure);
         const sprite = new Sprite(art.frames[0]);
         const x = hubX + structure.x;
@@ -2949,24 +3352,27 @@ export class Engine {
         container.position.set(anchor.x, anchor.y);
         placeArt(sprite, art, { x: 0, y: 0 }, structure.size);
         container.addChild(sprite);
-        // A Landmark's storeys: its tower rises a band a storey (after run 4)
-        if (
-          structure.type === "project-landmark" &&
-          structure.storeys > 0 &&
-          art.placement !== undefined &&
-          structure.level >= structure.stages
-        ) {
-          sprite.visible = false;
-          for (const piece of landmarkStoreys(
-            sprite.texture,
-            art.placement.anchorX,
-            art.placement.anchorY,
-            art.placement.scale,
-            Math.min(structure.storeys, 12),
-          )) {
-            piece.position.copyFrom(sprite.position);
-            container.addChild(piece);
-          }
+        if (structure.type === "statue" && structure.label !== null) {
+          // A Diamond builder's statue (1.4 §13): a sash in their colour on the plinth, their name on a plaque
+          const sash = new Graphics()
+            .roundRect(TILE_WIDTH - 26, -TILE_HEIGHT * 0.9, 52, 12, 4)
+            .fill({ color: structure.color ?? "#c9a227" })
+            .stroke({ color: 0x2a1c10, width: 2 });
+          const plaque = new Text({
+            text: structure.label,
+            style: {
+              fontFamily: "Georgia, serif",
+              fontSize: 18,
+              fontWeight: "700",
+              fill: "#fff4d6",
+              stroke: { color: "#2a1c10", width: 5 },
+            },
+          });
+          // Over the trees and houses in front of it
+          plaque.anchor.set(0.5, 0);
+          plaque.position.set(anchor.x + TILE_WIDTH, anchor.y + 4);
+          container.addChild(sash);
+          labels.addChild(plaque);
         }
         // Wonders and the stations' projects rise stage by stage
         const wonder =
@@ -3032,15 +3438,208 @@ export class Engine {
           container.addChild(hub.effects.container);
           this.effects.add(hub);
         }
-        // The corporation quarter is a flat plaza under the HQs that stand on it
-        container.zIndex =
-          structure.type === "corporationQuarter"
-            ? (x + y) * 4 - 8
-            : (x + y + 2 * (structure.size - 1)) * 4 + 3;
+        container.zIndex = (x + y + 2 * (structure.size - 1)) * 4 + 3;
         this.objectLayer.addChild(container);
         view.hub.push(hub);
       }
     }
+    this.drawTownParts(view, district);
+  }
+
+  /**
+   * A town's own places (1.4 §4): each Yard with its crew's banner and name (a lock when it's closed), the town gates
+   * where the roads leave the town, and up close the outskirts set aside for the plots (they open with Era 2)
+   */
+  private drawTownParts(view: DistrictView, district: DistrictDto) {
+    const g = view.graphics;
+    const far = this.far;
+    const ox = districtOriginX(district.x);
+    const oy = districtOriginY(district.y);
+    for (const yard of district.yards ?? []) {
+      const rect = yardRect(district.x, district.y, yard.index);
+      const width = rect.x1 - rect.x0 + 1;
+      const height = rect.y1 - rect.y0 + 1;
+      if (yard.color !== null) {
+        // The crew's banner colours around its Yard
+        traceFootprint(g, rect.x0, rect.y0, width, height);
+        g.stroke({ color: yard.color, width: far ? 22 : 6, alpha: 0.85 });
+        traceFootprint(g, rect.x0 + 1, rect.y0 + 1, width - 2, height - 2);
+        g.stroke({ color: yard.color2 ?? yard.color, width: far ? 12 : 4, alpha: 0.7 });
+      }
+      if (yard.emblem === null && !far) {
+        continue;
+      }
+      const label = new Text({
+        text: `${yard.emblem !== null ? `${emblemIcon(yard.emblem)} ` : ""}${yard.name}${yard.open ? "" : "  🔒"}`,
+        style: {
+          fontFamily: "Georgia, serif",
+          fontSize: 32,
+          fontWeight: "700",
+          fill: yard.emblem !== null ? "#fff4d6" : "#e8dcc0",
+          stroke: { color: "#2a1c10", width: 8 },
+        },
+      });
+      label.anchor.set(0.5);
+      const center = tileCenter(rect.x0 + width / 2 - 0.5, rect.y0 + height / 2 - 0.5);
+      label.position.set(center.x, center.y);
+      label.label = "yard";
+      view.labels.addChild(label);
+    }
+    if (!far) {
+      for (const yard of district.yards ?? []) {
+        for (const stall of yard.stalls) {
+          this.drawStall(view, district, stall);
+        }
+        // The Yard's Monuments on their sites, bigger as their stages grow (1.4 §13)
+        const rect = yardRect(district.x, district.y, yard.index);
+        for (const monument of yard.monuments ?? []) {
+          const site = MONUMENT_SITES[monument.era - 1];
+          const look = monument.stages >= 10 ? 3 : monument.stages >= 3 ? 2 : 1;
+          const art = this.textures.generated(`monument-${monument.kind}-${look}`, 3);
+          if (site === undefined || art === null) {
+            continue;
+          }
+          const sprite = new Sprite(art.frames[0]);
+          placeArt(sprite, art, footprintAnchor(rect.x0 + site.x, rect.y0 + site.y, 3), 3);
+          sprite.zIndex = (rect.x0 + site.x + rect.y0 + site.y + 3) * 4 + 3;
+          this.objectLayer.addChild(sprite);
+          view.hub.push({
+            display: sprite,
+            effects: null,
+            building: null,
+            machine: null,
+            idle: null,
+            progress: null,
+          });
+        }
+      }
+    }
+    // The trunk lines that leave the town (1.4 §20): a big pipe through the wilderness in its tier's colour, its
+    // carrier's colour down the middle
+    const lines = view.lines;
+    for (const line of district.lines ?? []) {
+      const points: Array<{ x: number; y: number }> = [];
+      for (let i = 0; i + 1 < line.route.length; i += 2) {
+        points.push(tileCenter(line.route[i]!, line.route[i + 1]!));
+      }
+      if (points.length < 2) {
+        continue;
+      }
+      lines.moveTo(points[0]!.x, points[0]!.y);
+      points.slice(1).forEach((p) => lines.lineTo(p.x, p.y));
+      lines.stroke({ color: PIPE_COLORS[line.tier] ?? "#8f969e", width: far ? 40 : 28, alpha: 0.95 });
+      lines.moveTo(points[0]!.x, points[0]!.y);
+      points.slice(1).forEach((p) => lines.lineTo(p.x, p.y));
+      lines.stroke({ color: line.color, width: far ? 10 : 6, alpha: 0.9 });
+    }
+    const tower = this.textures.generated("hub-gateTower", 2);
+    for (const gate of TOWN_GATES_LOCAL) {
+      // The town gate: a paved apron where the road leaves the town, a gate tower on each side of the road
+      traceFootprint(g, ox + gate.x0, oy + gate.y0, gate.x1 - gate.x0 + 1, gate.y1 - gate.y0 + 1);
+      g.fill({ color: 0xcdb48a, alpha: far ? 0.6 : 0.45 });
+      traceFootprint(g, ox + gate.x0, oy + gate.y0, gate.x1 - gate.x0 + 1, gate.y1 - gate.y0 + 1);
+      g.stroke({ color: 0x5a4630, width: far ? 10 : 4, alpha: 0.8 });
+      if (far || tower === null) {
+        continue;
+      }
+      const across = gate.x1 - gate.x0 > gate.y1 - gate.y0;
+      for (const [x, y] of across
+        ? [
+            [gate.x0, gate.y0],
+            [gate.x1 - 1, gate.y0],
+          ]
+        : [
+            [gate.x0, gate.y0],
+            [gate.x0, gate.y1 - 1],
+          ]) {
+        const sprite = new Sprite(tower.frames[0]);
+        placeArt(sprite, tower, footprintAnchor(ox + x!, oy + y!, 2), 2);
+        sprite.zIndex = (ox + x! + oy + y! + 2) * 4 + 3;
+        this.objectLayer.addChild(sprite);
+        view.hub.push({
+          display: sprite,
+          effects: null,
+          building: null,
+          machine: null,
+          idle: null,
+          progress: null,
+        });
+      }
+    }
+    if (far) {
+      return;
+    }
+    for (const estate of district.estates) {
+      outskirtsParcels(estate.slot).forEach((parcel, index) => {
+        // A bought one is the owner's land: drawn like it (1.4 §5)
+        const bought = (estate.outskirtsParcels & (1 << index)) !== 0;
+        traceFootprint(g, ox + parcel.x, oy + parcel.y, PARCEL_SIZE);
+        g.stroke({
+          color: estate.ownerColor ?? 0xfff2c8,
+          width: bought ? 3 : 2,
+          alpha: bought ? 0.85 : estate.ownerId !== null ? 0.3 : 0.14,
+        });
+      });
+    }
+  }
+
+  /**
+   * A resident's stall at its Yard gate (1.4 §7): a market stall, and over it a sign with what it sells the crew (a dot in
+   * each good's colour), its crew price and a red ring for each good it wants
+   */
+  private drawStall(view: DistrictView, district: DistrictDto, stall: StallDto) {
+    const content = this.callbacks.getState().content;
+    const origin = estateOrigin(district.x, district.y, stall.slot);
+    const local = stallLocal(stall.slot);
+    const x = origin.x + local.x;
+    const y = origin.y + local.y;
+    const art = this.textures.generated("town-stall", 1);
+    if (art !== null) {
+      const sprite = new Sprite(art.frames[0]);
+      placeArt(sprite, art, footprintAnchor(x, y, 1), 1);
+      sprite.zIndex = (x + y) * 4 + 3;
+      this.objectLayer.addChild(sprite);
+      view.hub.push({
+        display: sprite,
+        effects: null,
+        building: null,
+        machine: null,
+        idle: null,
+        progress: null,
+      });
+    }
+    const sign = new Container();
+    const price = new Text({
+      text: `${stall.crewPrice.toFixed(2).replace(/0$/, "")}×`,
+      style: { fontFamily: "system-ui", fontSize: 34, fontWeight: "800", fill: "#3b2a14" },
+    });
+    const dots = stall.sells.length + stall.wants.length;
+    const width = 24 + dots * 32 + (dots > 0 ? 8 : 0) + price.width;
+    const board = new Graphics()
+      .roundRect(-width / 2, -27, width, 54, 14)
+      .fill({ color: 0xfff4d6, alpha: 0.95 })
+      .stroke({ color: 0x5a4630, width: 4 });
+    sign.addChild(board);
+    let cursor = -width / 2 + 24;
+    for (const good of stall.sells) {
+      board
+        .circle(cursor, 0, 12)
+        .fill({ color: content.resourceColor(good) })
+        .stroke({ color: 0x2b1d0e, width: 3 });
+      cursor += 32;
+    }
+    for (let i = 0; i < stall.wants.length; i++) {
+      // A good it wants: a hollow ring
+      board.circle(cursor, 0, 10).stroke({ color: 0xc0392b, width: 5 });
+      cursor += 32;
+    }
+    price.anchor.set(0, 0.5);
+    price.position.set(cursor + (dots > 0 ? 8 : 0) - 12, 0);
+    sign.addChild(price);
+    const top = tileCenter(x, y);
+    sign.position.set(top.x, top.y - 170);
+    sign.label = "stall";
+    view.labels.addChild(sign);
   }
 
   /** Labels keep a readable size on screen at every zoom */
@@ -3048,8 +3647,15 @@ export class Engine {
     const scale = this.camera.scale;
     for (const view of this.districtViews.values()) {
       for (const label of view.labels.children) {
+        // A town's name, its Yards' names and its companies' names stay readable when the whole town is in view
         const factor =
-          label.label === "district" ? Math.min(6, 0.9 / scale) : Math.min(5, Math.max(1, 0.55 / scale));
+          label.label === "district"
+            ? Math.min(16, 0.9 / scale)
+            : label.label === "stall"
+              ? Math.min(2.5, Math.max(1, 0.5 / scale))
+              : label.label === "yard"
+                ? Math.min(14, Math.max(1, 0.6 / scale))
+                : Math.min(9, Math.max(1, 0.55 / scale));
         label.scale.set(factor);
       }
     }
@@ -3403,46 +4009,6 @@ export class Engine {
         const mine = link.seller === myId || link.buyer === myId;
         const focus = link.id === state.focusLink;
         const color = state.content.resourceColor(link.resource);
-        if (link.kind === "trunk") {
-          // A crew's trunk: a wide steel channel, each paid segment in its payer's colour
-          const trace = () => points.forEach((p, i) => (i === 0 ? g.moveTo(p.x, p.y) : g.lineTo(p.x, p.y)));
-          trace();
-          g.stroke({
-            color: 0x3c4148,
-            width: 46 * w,
-            alpha: link.flowing ? 0.9 : 0.45,
-            cap: "round",
-            join: "round",
-          });
-          const total = length;
-          const colors = link.colors ?? [];
-          colors.forEach((c, i) => {
-            const from = (i / Math.max(1, link.needed)) * total;
-            const to = ((i + 1) / Math.max(1, link.needed)) * total;
-            let walked = 0;
-            for (let k = 1; k < points.length; k++) {
-              const a = points[k - 1]!;
-              const b = points[k]!;
-              const segment = Math.hypot(b.x - a.x, b.y - a.y);
-              const s0 = Math.max(from, walked);
-              const s1 = Math.min(to, walked + segment);
-              if (s1 > s0 && segment > 0) {
-                g.moveTo(
-                  a.x + ((b.x - a.x) * (s0 - walked)) / segment,
-                  a.y + ((b.y - a.y) * (s0 - walked)) / segment,
-                );
-                g.lineTo(
-                  a.x + ((b.x - a.x) * (s1 - walked)) / segment,
-                  a.y + ((b.y - a.y) * (s1 - walked)) / segment,
-                );
-              }
-              walked += segment;
-            }
-            g.stroke({ color: c, width: 18 * w, alpha: 0.95, cap: "butt" });
-          });
-          this.linkPaths.push({ points, length, color: "#c9d3dc", mine: mine && link.flowing });
-          continue;
-        }
         this.linkPaths.push({ points, length, color, mine: mine && link.flowing });
         const trace = () => points.forEach((p, i) => (i === 0 ? g.moveTo(p.x, p.y) : g.lineTo(p.x, p.y)));
         if (focus) {
@@ -3493,6 +4059,62 @@ export class Engine {
     }
   }
 
+  /**
+   * The plots a picker shows: drawn again when they change or the zoom does (the lines keep their width on screen), the
+   * free ones' glow pulses
+   */
+  private drawPicker() {
+    const picker = this.callbacks.getState().picker;
+    const zoom = Math.round(Math.log(this.camera.scale) * 6);
+    const key = picker === null ? "" : `${JSON.stringify(picker)}|${zoom}`;
+    if (key !== this.pickKey) {
+      this.pickKey = key;
+      const glow = this.pickGlow;
+      const marks = this.pickMarks;
+      glow.clear();
+      marks.clear();
+      // Pixels on screen, whatever the zoom
+      const px = (pixels: number) => pixels / this.camera.scale;
+      if (picker !== null) {
+        for (const [seat, state] of Object.entries(picker.seats)) {
+          const [dx, dy, slot] = seat.split(",").map(Number) as [number, number, number];
+          const origin = estateOrigin(dx, dy, slot);
+          if (state === "free") {
+            // A soft halo, wide and faint, around a bright line, over a light veil
+            traceFootprint(glow, origin.x, origin.y, ESTATE_SIZE);
+            glow.fill({ color: 0xfffbe0, alpha: 0.16 });
+            for (const [width, alpha] of [
+              [22, 0.12],
+              [12, 0.22],
+              [6, 0.45],
+            ] as const) {
+              traceFootprint(glow, origin.x, origin.y, ESTATE_SIZE);
+              glow.stroke({ color: 0xeaffc8, width: px(width), alpha });
+            }
+            traceFootprint(glow, origin.x, origin.y, ESTATE_SIZE);
+            glow.stroke({ color: 0xffffff, width: px(2.5), alpha: 1 });
+          } else if (state === "closed") {
+            traceFootprint(marks, origin.x, origin.y, ESTATE_SIZE);
+            marks.fill({ color: 0xf2b134, alpha: 0.18 });
+            traceFootprint(marks, origin.x, origin.y, ESTATE_SIZE);
+            marks.stroke({ color: 0xf2b134, width: px(3), alpha: 0.9 });
+          }
+        }
+        const chosen = picker.chosen;
+        if (chosen !== null) {
+          const origin = estateOrigin(chosen.districtX, chosen.districtY, chosen.slot);
+          traceFootprint(marks, origin.x, origin.y, ESTATE_SIZE);
+          marks.stroke({ color: 0x2b1d0e, width: px(8), alpha: 0.6 });
+          traceFootprint(marks, origin.x, origin.y, ESTATE_SIZE);
+          marks.stroke({ color: 0xffd34d, width: px(4), alpha: 1 });
+        }
+      }
+    }
+    if (picker !== null) {
+      this.pickGlow.alpha = 0.6 + 0.4 * Math.sin(performance.now() / 380);
+    }
+  }
+
   private drawHighlights() {
     const g = this.highlightLayer;
     g.clear();
@@ -3500,6 +4122,15 @@ export class Engine {
       return;
     }
     const state = this.callbacks.getState();
+    if (
+      state.tool.kind === "pipe" &&
+      this.hovered !== null &&
+      this.world.conductorAt(this.hovered.x, this.hovered.y)?.kind === "gate"
+    ) {
+      traceFootprint(g, this.hovered.x, this.hovered.y, 1);
+      g.fill({ color: 0x2ec4a6, alpha: 0.3 });
+      g.stroke({ color: 0x2ec4a6, width: 5 });
+    }
     if (state.hintTile !== null) {
       // Loady's suggestion: a pulsing golden footprint
       const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);

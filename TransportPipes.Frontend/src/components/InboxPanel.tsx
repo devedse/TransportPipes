@@ -8,6 +8,7 @@ const KIND_ICONS: Record<string, string> = {
   researchFinished: "🔬",
   priceChanged: "🏷",
   orderCompleted: "✅",
+  orderPosted: "📋",
   contractChanged: "📜",
   exchangeTrade: "📦",
   corporation: "🏢",

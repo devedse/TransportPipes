@@ -17,6 +17,8 @@ export const TERRAIN_COLORS: Record<TerrainType, string> = {
   yard: "#c9a978",
   rock: "#3d342d",
   cavern: "#8a6a48",
+  redHills: "#a8573a",
+  outskirts: "#1f8a2a",
 };
 
 /** Colours for the small overview map and far zoom */
@@ -33,6 +35,8 @@ export const TERRAIN_MAP_COLORS: Record<TerrainType, string> = {
   yard: "#d8b680",
   rock: "#3a312a",
   cavern: "#9a7650",
+  redHills: "#b4643f",
+  outskirts: "#2f9a35",
 };
 
 function diamond(g: CanvasRenderingContext2D) {
@@ -72,7 +76,8 @@ export function drawTerrainTile(type: TerrainType, variant: number): HTMLCanvasE
   const seed = variant * 97 + type.length * 13;
 
   switch (type) {
-    case "hills": {
+    case "hills":
+    case "redHills": {
       speckle(g, seed, 160, [shade(base, 0.85), shade(base, 1.15)], [2, 5]);
       g.strokeStyle = shade(base, 1.35);
       g.lineWidth = 3;

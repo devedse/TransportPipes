@@ -99,7 +99,7 @@ public sealed partial class GameWorld
         {
             _dirtyTiles.Add(tile);
         }
-        foreach (var tile in building.Border())
+        foreach (var tile in ConnectionTiles(building))
         {
             _dirtyTiles.Add(tile);
         }
@@ -143,8 +143,10 @@ public sealed partial class GameWorld
 
     private static readonly (int X, int Y)[] Directions = [(1, 0), (-1, 0), (0, 1), (0, -1)];
 
-    /// <summary>The company whose estate a tile is in (its Deep Level too), or null: a corridor, the wilderness, the hub</summary>
-    public long? EstateOwnerAt(TilePos pos) => EstateAt(WorldLayout.Surface(pos))?.OwnerId;
+    /// <summary>The company whose estate (or bought outskirts) a tile is in (its Deep Level too), or null: a road, the wilderness, the hub</summary>
+    public long? EstateOwnerAt(TilePos pos) =>
+        EstateAt(WorldLayout.Surface(pos))?.OwnerId
+        ?? (OutskirtsParcelAt(Estate, WorldLayout.Surface(pos)) is { } parcel && parcel.Plot.HasOutskirts(parcel.Index) ? parcel.Plot.OwnerId : null);
 
     /// <summary>Buildings a network may have per pump station (plus one free batch)</summary>
     public const int BuildingsPerPump = 50;
@@ -365,6 +367,14 @@ public sealed partial class GameWorld
                         VisitBuilding(other.Id);
                     }
                 }
+                // A Yard gate joins its owner's workshops (1.4 §7)
+                if (_conductors.TryGetValue(tile, out var gate) && gate.Kind == ConductorKind.Gate)
+                {
+                    foreach (var workshop in WorkshopsAt(tile))
+                    {
+                        VisitBuilding(workshop.Id);
+                    }
+                }
                 foreach (var (dx, dy) in Directions)
                 {
                     var next = tile.Offset(dx, dy);
@@ -381,7 +391,7 @@ public sealed partial class GameWorld
             }
             while (buildings.TryDequeue(out var id))
             {
-                foreach (var border in _buildings[id].Border())
+                foreach (var border in ConnectionTiles(_buildings[id]))
                 {
                     if (_buildingAt.TryGetValue(border, out var other) && IsConductorBuilding(_buildings[other]))
                     {
@@ -442,7 +452,7 @@ public sealed partial class GameWorld
         }
         var tier = Content.PipeTier(conductor.Tier);
         // Stable temperatures down in the Deep Level: no losses
-        return (WorldLayout.IsDeep(conductor.Pos) ? 0 : tier.LossPerTile, tier.Throughput * Math.Max(1, conductor.Widen) * (1 + ThroughputBonus(conductor.Owner)));
+        return (WorldLayout.IsDeep(conductor.Pos) ? 0 : tier.LossPerTile, tier.Throughput);
     }
 
     private readonly record struct TileStats(double Loss, double Throughput, IReadOnlySet<string>? Filter, bool Priority);
@@ -500,7 +510,7 @@ public sealed partial class GameWorld
         var touching = new Dictionary<TilePos, List<long>>();
         foreach (var id in members)
         {
-            foreach (var border in _buildings[id].Border())
+            foreach (var border in ConnectionTiles(_buildings[id]))
             {
                 if (network.Conductors.Contains(border))
                 {
@@ -523,7 +533,6 @@ public sealed partial class GameWorld
             resources = members
                 .Select(t => Content.Building(_buildings[t].Type))
                 .SelectMany(t => t.In.Keys.Concat(t.Out.Keys).Concat(t.OutFromDeposit))
-                .Where(t => t != GameContent.ResearchPoints)
                 .Distinct()
                 .Order(StringComparer.Ordinal)
                 .Cast<string?>()
@@ -548,7 +557,7 @@ public sealed partial class GameWorld
             return (cables.TryGetValue(tile, out var cable) ? next.Concat(cable) : next).Select(t => numberOf[t]).ToArray();
         }).ToArray();
         var touchingTiles = touching.Select(t => (Tile: numberOf[t.Key], Buildings: t.Value)).ToList();
-        var borders = members.ToDictionary(t => t, t => _buildings[t].Border().Where(network.Conductors.Contains).Distinct().Select(b => numberOf[b]).ToArray());
+        var borders = members.ToDictionary(t => t, t => ConnectionTiles(_buildings[t]).Where(network.Conductors.Contains).Distinct().Select(b => numberOf[b]).ToArray());
 
         var best = new Dictionary<(long, long, string?), FlowLink>();
         var bestToGate = new Dictionary<(long, TilePos, string?), GateLink>();
@@ -700,17 +709,20 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>The outputs of a building at level 1 at its spot (the Deep Mine produces what its deposit holds)</summary>
+    /// <summary>
+    /// The outputs of a building at level 1 at its spot: the Deep Mine produces what its deposit holds, the same worth a
+    /// minute whatever it digs (160 iron ore, 137 copper ore or 192 coal)
+    /// </summary>
     private IReadOnlyDictionary<string, double> BaseOutputs(Building building, BuildingDefinition definition)
     {
         if (definition.OutFromDeposit.Count == 0)
         {
             return definition.Out;
         }
-        var amount = definition.Out.Values.FirstOrDefault();
+        var (made, amount) = definition.Out.First();
         var deposit = building.Footprint().Select(Tile).Where(t => t.Deposit != null && definition.OutFromDeposit.Contains(t.Deposit))
             .OrderByDescending(t => t.Richness).Select(t => t.Deposit).FirstOrDefault() ?? definition.OutFromDeposit[0];
-        return new Dictionary<string, double> { [deposit] = amount };
+        return new Dictionary<string, double> { [deposit] = Math.Round(amount * BasePrice(made) / Math.Max(0.01, BasePrice(deposit))) };
     }
 
     public double StorageCapacity(Building building, BuildingDefinition definition) =>
@@ -737,31 +749,25 @@ public sealed partial class GameWorld
     public const int PipeMaterialReserve = 100;
 
     /// <summary>
-    /// What a company needs of a resource in its storages: what its corporation's weekly goal still need, enough to build the building it can build that needs the most of it, and the materials for a stretch of
+    /// What a company needs of a resource in its storages: enough to build the building it can build that needs the most of it, and the materials for a stretch of
     /// the pipes it can lay (copper ingots for Copper Pipes)
     /// </summary>
     public double StorageNeed(Company company, string resource)
     {
         var need = 0.0;
-        if (CorporationOf(company)?.Goal is { Rewarded: false } goal && goal.Resource == resource)
-        {
-            need += Math.Max(0, goal.Amount - goal.Delivered);
-        }
         var materials = Content.BuildingList
-            .Where(t => t.Buildable && t.Cost.Materials.ContainsKey(resource) && IsUnlocked(company, t, out _))
+            // Not for the Yard's one Depot: its materials come in as wants
+            .Where(t => t.Buildable && t.Kind != BuildingKind.Depot && t.Cost.Materials.ContainsKey(resource) && IsUnlocked(company, t, out _))
             .Select(t => t.Cost.Materials[resource])
             .DefaultIfEmpty(0)
             .Max();
         var pipes = Content.PipeTiers
-            .Where(t => t.Materials.ContainsKey(resource) && t.Era <= Era && (t.Research == null || HasResearch(company, t.Research)))
+            .Where(t => t.Materials.ContainsKey(resource) && t.Era <= YourEra(company) && (t.Research == null || HasResearch(company, t.Research)))
             .Select(t => t.Materials[resource] * PipeMaterialReserve)
             .DefaultIfEmpty(0)
             .Max();
         return Math.Max(need, Math.Max(materials, pipes));
     }
-
-    public double TradingPostThroughput(Building building, BuildingDefinition definition) =>
-        definition.Throughput * Content.Progression.OutputMultiplier(building.Level) * (1 + Refined(Company(building.Owner), "trading"));
 
     /// <summary>
     /// What holds a company back right now, for the goal tracker: networks short of pump stations, full trading posts,
@@ -776,10 +782,6 @@ public sealed partial class GameWorld
             var count = network.Buildings.Count(b => _buildings[b].Owner == company.Id);
             alerts.Add(($"Your network of {count} buildings runs at {network.PumpFactorOf(company.Id):P0}: a long network loses pressure, and every {BuildingsPerPump} buildings in one network need a Pump Station to keep it up. Build one anywhere on its pipes.",
                 network.Buildings.FirstOrDefault(b => _buildings[b].Owner == company.Id), "pumps"));
-        }
-        foreach (var post in BuildingsOf(company.Id).Where(TradingPostFull))
-        {
-            alerts.Add(($"Your {Content.Building(post.Type).Name} sells all it can: upgrade it to sell more.", post.Id, "post"));
         }
         if (FullStorages(company.Id).FirstOrDefault() is { } storage)
         {
@@ -796,18 +798,6 @@ public sealed partial class GameWorld
                 : $"The storm damaged {damaged.Count} of your buildings: half speed until they're repaired.", damaged[0].Id, "damage"));
         }
         return alerts;
-    }
-
-    /// <summary>Whether a trading post sells as much as it can (its throughput is the bottleneck)</summary>
-    public bool TradingPostFull(Building building)
-    {
-        var definition = Content.Building(building.Type);
-        if (definition.Kind != BuildingKind.TradingPost || NetworkOf(building.Id) is not { } network)
-        {
-            return false;
-        }
-        var sold = network.Solution.Flows.Where(t => t.To == building.Id && t.Kind == FlowKind.Sale).Sum(t => t.Sent);
-        return sold >= TradingPostThroughput(building, definition) * 0.98;
     }
 
     /// <summary>
@@ -839,40 +829,39 @@ public sealed partial class GameWorld
                         .ToHashSet(),
                 };
             case BuildingKind.TradingPost:
+                // No limit (1.4 §8): it sells everything that reaches it; its level raises the Hub Orders instead
                 var company = Company(building.Owner);
-                // A tenant's works buy from the hub what no neighbour brings, so they always run: any one of their
-                // inputs sells to them (a works short of ore would otherwise buy no one's energy either)
-                var tenant = company is { IsNpc: true };
                 return new FlowNode
                 {
                     Id = building.Id,
                     Owner = building.Owner,
                     Kind = FlowNodeKind.TradingPost,
-                    Throughput = tenant ? TenantThroughput : definition.Throughput * level * (1 + Refined(company, "trading")),
-                    // Hub reputation: +1% per level above 1
-                    PriceBonus = definition.PriceBonus + (company == null ? 0 : (ReputationLevel(company) - 1) * 0.01) + ManagerPriceBonus(company),
+                    PriceBonus = definition.PriceBonus + ManagerPriceBonus(company),
                     // Imports cost gold: a company without gold can't import
-                    Imports = tenant ? TenantInputs(company!) : company is { Gold: > 0 } ? building.Imports : new HashSet<string>(),
+                    Imports = company is { Gold: > 0 } ? building.Imports : new HashSet<string>(),
                 };
         }
-        if ((definition.In.Count == 0 && definition.Out.Count == 0 && definition.ResearchPerMinute <= 0) || LabResting(building))
+        // A building from a later Era than its town's sleeps: it makes and uses nothing (1.4 §9)
+        if ((definition.In.Count == 0 && definition.Out.Count == 0) || Sleeps(building))
         {
             return null;
         }
-        var location = LocationMultiplier(building, definition) * EventOutputFactor(building, definition) * WonderOutputFactor(building) * ProjectOutputFactor(building, definition);
-        // A complex works like five (twelve) buildings
-        var complex = ComplexFactor(ComplexMembers(building));
+        // Its track (1.4 §12): faster (all it takes and makes), leaner (its inputs), more from wind, sun and water instead
+        var (faster, leaner, powerFree, big) = TrackFactors(building);
+        var location = LocationMultiplier(building, definition) * EventOutputFactor(building, definition);
+        // A complex works like five (twelve) buildings; a big building of a track with complexes gets its bonus instead
+        var complex = ComplexFactor(ComplexMembers(building)) * big;
         var owner = Company(building.Owner);
+        var speed = level * complex * faster;
+        var perks = MonumentProductionFactor(owner);
         return new FlowNode
         {
             Id = building.Id,
             Owner = building.Owner,
             Kind = FlowNodeKind.Building,
-            In = definition.In.Where(t => t.Key != GameContent.ResearchPoints).ToDictionary(t => t.Key, t => t.Value * level * complex),
+            In = definition.In.ToDictionary(t => t.Key, t => t.Value * speed * leaner),
             Out = BaseOutputs(building, definition)
-                .Where(t => t.Key != GameContent.ResearchPoints)
-                .ToDictionary(t => t.Key, t => t.Value * level * complex * location * (1 + OutputBonus(owner, definition, t.Key))),
-            ResearchPerMinute = definition.ResearchPerMinute * level * complex * WonderResearchFactor(building),
+                .ToDictionary(t => t.Key, t => t.Value * speed * powerFree * location * perks * WonderOutputFactor(building, definition, t.Key) * (1 + OutputBonus(owner, definition, t.Key))),
         };
     }
 
@@ -887,7 +876,8 @@ public sealed partial class GameWorld
         {
             HubBuyPrice = resource => HubBuyPrice(owner, network.District, resource),
             HubSellPrice = resource => HubSellPrice(network.District, resource),
-            SellerPrice = (seller, resource) => seller < 0 ? GateSellerPrice(seller, resource) : PlayerPrice(resource),
+            // A gate node sells at its price class; a company's buildings at its public price (what the gate pays is settled apart)
+            SellerPrice = (seller, resource) => PriceClassPrice(seller, resource) ?? PlayerPrice(resource),
             BuyerMaxPrice = (_, _) => double.MaxValue,
             TradeAllowed = (seller, buyer, resource) =>
                 seller < 0 || buyer < 0
@@ -898,16 +888,6 @@ public sealed partial class GameWorld
 
     private void Solve(Network network)
     {
-        // An asleep estate makes and earns nothing (v1.2 §10): its stand-in keeps its trades
-        if (Company(network.Owner) is { Asleep: true })
-        {
-            network.Nodes = [];
-            network.GateFlows = [];
-            network.Solution = FlowSolution.Empty;
-            network.NeedsSolve = false;
-            Changes.Networks.Add(network.Id);
-            return;
-        }
         var nodes = network.Buildings.Select(t => ToFlowNode(_buildings[t])).OfType<FlowNode>().ToList();
 
         // Every 50 buildings need a pump station; without enough of them everything runs slower
@@ -915,7 +895,7 @@ public sealed partial class GameWorld
         var pumpDefinition = Content.Buildings.GetValueOrDefault("pumpStation");
         var needsPumps = new Dictionary<long, bool>();
         bool NeedsPumps(long owner) => needsPumps.TryGetValue(owner, out var v) ? v
-            : needsPumps[owner] = Company(owner) is { IsNpc: false } company && pumpDefinition != null && IsUnlocked(company, pumpDefinition, out _);
+            : needsPumps[owner] = Company(owner) is { } company && pumpDefinition != null && IsUnlocked(company, pumpDefinition, out _);
         // Per company: its own buildings against its own pump stations (a neighbour's buildings never slow it down)
         network.PumpFactors = nodes
             .Where(t => t.Kind == FlowNodeKind.Building && NeedsPumps(t.Owner))
@@ -978,21 +958,6 @@ public sealed partial class GameWorld
             }
         }
         AddTradeIncome(total);
-        return total;
-    }
-
-    /// <summary>Research points per minute of every company (solved first)</summary>
-    public Dictionary<long, double> ResearchPerMinute()
-    {
-        SolveNetworks();
-        var total = new Dictionary<long, double>();
-        foreach (var network in Networks)
-        {
-            foreach (var (company, research) in network.Solution.ResearchPerMinute)
-            {
-                total[company] = (total.TryGetValue(company, out var v) ? v : 0) + research;
-            }
-        }
         return total;
     }
 

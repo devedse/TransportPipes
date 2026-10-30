@@ -19,7 +19,11 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
   const now = useNow(30000) + useAppStore((s) => s.serverOffsetMs);
   const undoLeft = uses?.grow?.undoUntil != null ? (new Date(uses.grow.undoUntil).getTime() - now) / 1000 : 0;
   const empty =
-    uses !== null && uses.shared === null && uses.want === null && (uses.grow?.parts.length ?? 0) === 0;
+    uses !== null &&
+    uses.shared === null &&
+    uses.want === null &&
+    (uses.grow?.parts.length ?? 0) === 0 &&
+    uses.grow?.saving == null;
   return (
     <div className="panel gold-uses" role="dialog" aria-label="What your gold can do">
       <div className="gold-uses-head">
@@ -35,31 +39,6 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
         {uses !== null && ` · an hour of it is ${formatAmount(uses.hour)} g`}
       </p>
       {uses === null && <p className="muted small">Looking…</p>}
-      {uses?.shared != null && uses.shared.action === "storey" && uses.shared.allCost !== null && (
-        // The station's storey: hours of your income, as often as you like (after run 4)
-        <div className="gold-use shared">
-          <span>🏗 {uses.shared.text}</span>
-          <span className="gold-use-buttons">
-            {[
-              { hours: 1, label: "an hour" },
-              { hours: 6, label: "6 hours" },
-              { hours: 24, label: "a day" },
-            ].map((t) => {
-              const cost = Math.min(t.hours * uses.hour, uses.shared!.allCost!);
-              return (
-                <button
-                  key={t.hours}
-                  className="small"
-                  disabled={gold < cost}
-                  onClick={() => void gameClient.giveToStorey(t.hours)}
-                >
-                  Give {t.label} · {formatAmount(cost)} g
-                </button>
-              );
-            })}
-          </span>
-        </div>
-      )}
       {uses?.shared != null && uses.shared.action === "wonder" && (
         <div className="gold-use shared">
           <span>🏛 {uses.shared.text}</span>
@@ -68,19 +47,19 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
               <button
                 className="small"
                 disabled={gold < uses.shared.cost}
-                title="As much as a day of your income buys, at twice the price; it counts a quarter for your tier"
-                onClick={() => void gameClient.orderForWonder(uses.shared!.resource!, uses.shared!.cost)}
+                title="As much as a day of your income buys, at the market's 2.5×; it counts for your tier"
+                onClick={() => void gameClient.buyAndGive(null, uses.shared!.cost)}
               >
-                Order a day&apos;s worth · {formatAmount(uses.shared.cost)} g
+                Buy and give a day&apos;s worth · {formatAmount(uses.shared.cost)} g
               </button>
             )}
             {uses.shared.allCost !== null && (
               <button
                 className="small"
                 disabled={gold < uses.shared.allCost}
-                onClick={() => void gameClient.orderForWonder(uses.shared!.resource!)}
+                onClick={() => void gameClient.buyAndGive(null)}
               >
-                Order all of it · {formatAmount(uses.shared.allCost)} g
+                Buy and give all of it · {formatAmount(uses.shared.allCost)} g
               </button>
             )}
           </span>
@@ -94,11 +73,11 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
             disabled={gold < uses.want.cost}
             onClick={() =>
               void gameClient
-                .orderRest(uses.want!.target!, uses.want!.forName)
+                .orderRest(uses.want!.target!, uses.want!.forName, uses.want!.resource)
                 .then(() => gameClient.loadGoldUses())
             }
           >
-            {uses.want.forName !== null ? `Order it for ${uses.want.forName}` : "Order the rest"} ·{" "}
+            {uses.want.forName !== null ? `Buy it for ${uses.want.forName}` : "Buy the rest"} ·{" "}
             {formatAmount(uses.want.cost)} g
           </button>
         </div>
@@ -108,12 +87,12 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
           <span>
             💡 <strong>Grow everything that pays</strong>: about +{formatAmount(uses.grow.gain)} g/min for{" "}
             {formatAmount(uses.grow.cost)} g (
-            {Math.max(1, Math.round((100 * uses.grow.cost) / Math.max(1, gold)))}% of your gold), each part
-            back within a week
+            {Math.max(1, Math.round((100 * uses.grow.cost) / Math.max(1, gold)))}% of your gold): your next
+            parcel first, then each level back within five days
           </span>
           <details>
             <summary className="small">
-              {uses.grow.parts.length} {uses.grow.parts.length === 1 ? "building" : "buildings"}
+              {uses.grow.parts.length} {uses.grow.parts.length === 1 ? "part" : "parts"}
             </summary>
             <ul className="small">
               {uses.grow.parts.map((part) => (
@@ -132,6 +111,10 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
           </button>
         </div>
       )}
+      {uses?.grow?.saving != null && (
+        // Land first, as the model plays (1.4 §17): Grow keeps the gold while the next parcel is a few hours away
+        <p className="gold-use grow small">💡 {uses.grow.saving}</p>
+      )}
       {undoLeft > 0 && (
         <p className="small">
           <button className="small" onClick={() => void gameClient.undoGrowth()}>
@@ -144,21 +127,16 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
       )}
       {empty && (
         <p className="small">
-          Nothing pays back within a week now: your buildings are at what their pipes and inputs carry, and
-          nobody near waits for anything gold can bring. New chains, parcels and your station&apos;s next goal
-          are in Next steps.
+          Nothing pays back within five days now: your buildings are at what their pipes and inputs carry, and
+          nobody near waits for anything gold can bring. New chains, the next parcel and the Era Wonder are in
+          Next steps.
         </p>
       )}
       {(uses?.shared != null || uses?.want != null) && (
         <p className="muted small">
           {uses?.shared?.action === "wonder" && (
             <button className="link small" onClick={() => void gameClient.openHub("wonders")}>
-              Hub › Wonders
-            </button>
-          )}
-          {uses?.shared?.action === "storey" && (
-            <button className="link small" onClick={() => void gameClient.openProject()}>
-              The station&apos;s project
+              Hub › Town &amp; Wonder
             </button>
           )}
         </p>

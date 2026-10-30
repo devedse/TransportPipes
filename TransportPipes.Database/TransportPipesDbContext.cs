@@ -19,12 +19,12 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<DbBuilding> Buildings => Set<DbBuilding>();
     public DbSet<DbConductor> Conductors => Set<DbConductor>();
     public DbSet<DbTerrainOverride> TerrainOverrides => Set<DbTerrainOverride>();
-    public DbSet<DbContract> Contracts => Set<DbContract>();
-    public DbSet<DbCorporation> Corporations => Set<DbCorporation>();
     public DbSet<DbChatMessage> ChatMessages => Set<DbChatMessage>();
     public DbSet<DbInboxMessage> InboxMessages => Set<DbInboxMessage>();
     public DbSet<DbGuestbookNote> GuestbookNotes => Set<DbGuestbookNote>();
     public DbSet<DbBlock> Blocks => Set<DbBlock>();
+    public DbSet<DbStatSample> StatSamples => Set<DbStatSample>();
+    public DbSet<DbMoment> Moments => Set<DbMoment>();
 
     /// <summary>The keys that protect the login cookies, so logins survive a restart</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
@@ -54,12 +54,9 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
             world.Property(t => t.Events).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
             world.Property(t => t.Wonders).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
             world.Property(t => t.Outposts).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
-            world.Property(t => t.Season).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
             world.Property(t => t.Blueprints).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
             world.Property(t => t.Crews).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
             world.Property(t => t.Links).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
-            world.Property(t => t.Projects).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
-            world.Property(t => t.Trunks).HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb");
         });
 
         modelBuilder.Entity<DbCompany>(company =>
@@ -97,27 +94,6 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
             conductor.HasKey(t => new { t.X, t.Y });
         });
 
-        modelBuilder.Entity<DbContract>(contract =>
-        {
-            contract.ToTable("Contracts");
-            contract.Property(t => t.Id).ValueGeneratedNever();
-            contract.Property(t => t.Resource).HasMaxLength(40);
-            contract.HasIndex(t => t.State);
-        });
-
-        modelBuilder.Entity<DbCorporation>(corporation =>
-        {
-            corporation.ToTable("Corporations");
-            corporation.Property(t => t.Id).ValueGeneratedNever();
-            corporation.Property(t => t.Name).HasMaxLength(40);
-            corporation.Property(t => t.Tag).HasMaxLength(8);
-            corporation.Property(t => t.Color).HasMaxLength(16);
-            corporation.Property(t => t.PerkResource).HasMaxLength(40);
-            corporation.Property(t => t.Description).HasMaxLength(400);
-            corporation.Property(t => t.Data).HasColumnType("jsonb");
-            corporation.HasIndex(t => t.Tag).IsUnique();
-        });
-
         modelBuilder.Entity<DbChatMessage>(message =>
         {
             message.ToTable("ChatMessages");
@@ -153,6 +129,21 @@ public class TransportPipesDbContext : DbContext, IDataProtectionKeyContext
         {
             terrain.ToTable("TerrainOverrides");
             terrain.HasKey(t => new { t.X, t.Y });
+        });
+
+        modelBuilder.Entity<DbStatSample>(sample =>
+        {
+            sample.ToTable("StatSamples");
+            sample.HasKey(t => new { t.Kind, t.Subject, t.At });
+        });
+
+        modelBuilder.Entity<DbMoment>(moment =>
+        {
+            moment.ToTable("Moments");
+            moment.Property(t => t.Kind).HasMaxLength(20);
+            moment.Property(t => t.Text).HasMaxLength(200);
+            moment.Property(t => t.Ref).HasMaxLength(40);
+            moment.HasIndex(t => new { t.Company, t.At });
         });
     }
 }

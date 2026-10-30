@@ -830,6 +830,21 @@ kbd {
   margin-top: 2px;
 }
 
+/* A hub order's bar on the light panel: its empty part shows too */
+.order-bar {
+  height: 8px;
+  margin: 4px 0 2px;
+  background: rgba(60, 40, 20, 0.14);
+}
+
+.order-progress {
+  font-variant-numeric: tabular-nums;
+}
+
+.order-deliver {
+  margin-top: 6px;
+}
+
 .meter-fill {
   height: 100%;
   transition: width 0.4s;
@@ -1107,6 +1122,51 @@ kbd {
 
 .partner.blocked {
   opacity: 0.55;
+}
+
+/* Your prices (1.4 §8): a row of a name, the stepper and its reset */
+.price-list .partner {
+  grid-template-columns: 1fr auto auto;
+}
+
+.price-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.price-stepper button {
+  min-width: 28px;
+  padding: 2px 6px;
+}
+
+.price-stepper strong {
+  min-width: 3.2em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* What a price is while its rise waits, under its stepper */
+.price-waiting {
+  display: block;
+}
+
+.add-special {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.add-special input {
+  flex: 1 1 14em;
+  min-width: 0;
+}
+
+.table-scroll {
+  overflow-x: auto;
 }
 
 .partner-name {
@@ -1473,7 +1533,37 @@ kbd {
   font-size: 0.72rem;
   color: rgba(255, 255, 255, 0.55);
   text-shadow: 0 1px 2px #000;
-  pointer-events: none;
+  background: none;
+  border: none;
+  padding: 0;
+  min-height: 0;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.version-badge:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+/* What's new after an update (playtest): a short list a day, above the panels */
+.whats-new-backdrop {
+  z-index: 40;
+}
+
+.whats-new {
+  position: relative;
+  width: min(520px, calc(100vw - 24px));
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding: 14px 18px;
+}
+
+.whats-new-list {
+  margin: 0 0 10px;
+  padding-left: 1.2em;
+  display: grid;
+  gap: 4px;
 }
 
 /* ---------- Report ---------- */
@@ -1637,8 +1727,7 @@ kbd {
   font-size: 1.5rem;
 }
 
-.neighbour-list,
-.contract-list {
+.neighbour-list {
   display: grid;
   gap: 8px;
 }
@@ -1657,20 +1746,6 @@ kbd {
 
 .contract {
   grid-template-columns: 1fr auto;
-}
-
-.contract.active {
-  border-color: rgba(46, 196, 166, 0.5);
-}
-
-.contract.offered {
-  border-color: rgba(246, 199, 68, 0.5);
-}
-
-.contract.ended,
-.contract.declined,
-.contract.cancelled {
-  opacity: 0.6;
 }
 
 .neighbour-body {
@@ -1697,12 +1772,6 @@ kbd {
   background: rgba(255, 255, 255, 0.05);
 }
 
-.stars {
-  color: var(--gold);
-  font-size: 0.8rem;
-  letter-spacing: -1px;
-}
-
 .badge {
   display: inline-block;
   margin-left: 6px;
@@ -1721,15 +1790,6 @@ kbd {
 
 .badge.connected {
   background: var(--info);
-}
-
-.contract-form {
-  display: grid;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid var(--accent);
-  background: rgba(46, 196, 166, 0.08);
 }
 
 .form-row {
@@ -1755,9 +1815,28 @@ select {
   left: 50%;
   translate: -50% 0;
   display: flex;
+  width: max-content;
+  max-width: calc(100vw - 24px);
   align-items: center;
   gap: 10px;
   border-color: var(--accent);
+}
+
+.route-banner > button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .route-banner {
+    width: calc(100vw - 24px);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .route-banner > span {
+    grid-column: 1 / -1;
+  }
 }
 
 /* ---------- The Yard ---------- */
@@ -2068,20 +2147,61 @@ button.link {
   font-size: 1.5rem;
 }
 
-.research-points {
-  flex: 1;
-  text-align: right;
-  margin-right: 10px;
+/* The Lab's two lines (1.4 §12): an Era's tracks or tree items in a row of cards */
+.research-panel h3 {
+  margin: 6px 0 0;
+  font-family: var(--font-title);
 }
 
-.research-grid {
+.research-era {
   display: grid;
-  grid-template-columns: 110px repeat(5, minmax(170px, 1fr));
+  grid-template-columns: 64px 1fr;
   gap: 6px;
+  align-items: start;
 }
 
-.branch-row {
-  display: contents;
+.research-era .era-head {
+  padding-top: 8px;
+}
+
+.research-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.track-pips {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.track-pips .pip {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.track-pips .pip.done {
+  background: var(--gold);
+}
+
+.track-pips .pip.now {
+  background: var(--info);
+  box-shadow: 0 0 5px var(--info);
+}
+
+@media (max-width: 600px) {
+  .research-era {
+    grid-template-columns: 1fr;
+  }
+  .research-era .era-head {
+    text-align: left;
+    padding-top: 0;
+  }
 }
 
 .era-head {
@@ -2089,30 +2209,6 @@ button.link {
   font-weight: 700;
   color: var(--gold);
   font-family: var(--font-title);
-}
-
-.branch-head {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  font-weight: 700;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.branch-icon {
-  font-size: 1.5rem;
-}
-
-.era-cell {
-  display: grid;
-  gap: 6px;
-  align-content: start;
-  padding: 6px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
 }
 
 .tech {
@@ -2981,7 +3077,7 @@ button.liked {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(128, 112, 88, 0.3);
 }
 
 .stage-dots .dot.done {
@@ -3072,6 +3168,34 @@ button.liked {
 
 .wonder-order-buttons {
   display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.segmented.small button {
+  padding: 3px 9px;
+  font-size: 0.78rem;
+}
+
+/* Your Yard's Monuments (1.4 §13): one site per Era of the town */
+.monument-sites {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+}
+
+.monument-site {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.15);
+  min-width: 0;
+}
+
+.monument-kinds {
+  display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
@@ -3970,7 +4094,8 @@ select option {
     display: none;
   }
 
-  .top-actions .phone-only {
+  .top-actions .phone-only,
+  .company-panel .phone-only {
     display: inline-flex;
   }
 
@@ -4539,16 +4664,6 @@ kbd {
   font-size: 0.85rem;
 }
 
-.mastery {
-  display: grid;
-  gap: 6px;
-  padding: 10px 12px;
-  margin-bottom: 10px;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #fff3cf, #f3dfa5);
-  border: 2px solid var(--brass);
-}
-
 .opportunity.alert {
   border-color: #a8561a;
   box-shadow:
@@ -4721,6 +4836,26 @@ kbd {
   .top-gold {
     flex: 1 0 auto;
     min-width: max-content;
+  }
+
+  /* Room for every action on a phone (1.4's bar ran 120 px past the screen and hid Chat): the bank's days show in its
+     panel, the dot stays; the crew is in the toolbar */
+  .top-gold .gold-days {
+    font-size: 0;
+    margin-left: 2px;
+  }
+
+  .top-crew {
+    display: none;
+  }
+
+  .top-bar .top-actions {
+    padding: 3px;
+  }
+
+  .top-actions .icon-button {
+    width: 26px;
+    height: 26px;
   }
 
   .top-gold .gold-amount {
@@ -5657,6 +5792,19 @@ button.link.danger {
   gap: 8px;
 }
 
+/* A trunk line carrier's fees of their own for players */
+.line-players {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0;
+  display: grid;
+  gap: 3px;
+}
+
+.line-players input {
+  width: 4.5em;
+}
+
 .link-card {
   display: grid;
   gap: 6px;
@@ -6062,6 +6210,11 @@ button.link.danger {
   justify-self: start;
 }
 
+/* The tracker's bar stands in its second column: here it is a line of its own (1.4's level wait read word by word) */
+.site-wants .site-list .goal-bar {
+  grid-column: 1;
+}
+
 /* The pipe door (after run 4): the way up a full pipe, where a player looks to spend */
 .pipe-door {
   margin-top: 8px;
@@ -6255,6 +6408,29 @@ button.top-gold {
   color: var(--muted, #6b5a3e);
 }
 
+/* The Yard's "what happens when" (playtest): one line a moment, its mark in front */
+.yard-how-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.yard-how-list li {
+  display: grid;
+  grid-template-columns: 1.6em 1fr;
+  align-items: start;
+}
+
+.yard-how-list li.locked {
+  opacity: 0.6;
+}
+
+.yard-how-mark {
+  text-align: center;
+}
+
 .yard-fold > summary {
   cursor: pointer;
   padding: 6px 0;
@@ -6265,4 +6441,816 @@ button.top-gold {
 h5.chat-day {
   font-family: inherit;
   letter-spacing: normal;
+}
+
+/* ---------- Picking your spot on the map (1.4 §6) ---------- */
+
+/* The bar over the map: the title, Pick for me, the town, Find a player and a friend's link */
+.picker-top {
+  position: absolute;
+  top: max(var(--gap), env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(720px, calc(100vw - 24px));
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px;
+  z-index: 20;
+}
+
+.picker-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.picker-title h2 {
+  font-family: var(--font-title);
+  font-size: 1.5rem;
+}
+
+.picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.find-player {
+  position: relative;
+  display: flex;
+  flex: 1 1 14em;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.find-player input {
+  flex: 1 1 8em;
+  min-width: 0;
+}
+
+.find-results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+}
+
+.picker-friend .dot,
+.plot-residents .dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* The chosen plot's card: on the right on a desktop, a sheet at the bottom on a phone */
+.plot-card {
+  position: absolute;
+  top: calc(var(--gap) + 150px);
+  right: var(--gap);
+  width: min(380px, calc(100vw - 24px));
+  max-height: calc(100vh - 170px);
+  overflow-y: auto;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 14px 16px;
+  z-index: 20;
+  scrollbar-width: thin;
+}
+
+.plot-card h3 {
+  font-family: var(--font-title);
+  font-size: 1.25rem;
+}
+
+.plot-card h4 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.crew-banner.empty {
+  background: repeating-linear-gradient(135deg, #6e6250 0 10px, #7c6f5b 10px 20px);
+}
+
+.plot-land {
+  display: grid;
+  gap: 6px;
+}
+
+.plot-strength .icon {
+  font-size: 1.2rem;
+}
+
+.plot-goods {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.plot-goods > .muted:first-child {
+  min-width: 3.4em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.plot-good {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.plot-goods.later .plot-good {
+  opacity: 0.6;
+}
+
+.plot-goods.lacks .plot-good {
+  color: var(--warning);
+  text-decoration: line-through;
+  text-decoration-color: rgba(244, 162, 97, 0.6);
+}
+
+.plot-residents {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.plot-residents li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.plot-residents li.chosen {
+  background: rgba(246, 199, 68, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(246, 199, 68, 0.5);
+}
+
+.plot-residents .side {
+  min-width: 3.2em;
+  text-transform: capitalize;
+}
+
+.start-form,
+.plot-yard {
+  display: grid;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .picker-top {
+    padding: 10px 12px;
+  }
+
+  .picker-top > p.muted {
+    display: none;
+  }
+
+  .picker-title h2 {
+    font-size: 1.2rem;
+  }
+
+  /* On a phone the name and Play come before the Yard's residents, so Play is in view */
+  .plot-card .plot-yard {
+    order: 2;
+  }
+
+  .plot-card .start-form {
+    order: 1;
+  }
+
+  .plot-card {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: auto;
+    max-height: 55vh;
+    border-radius: var(--panel-radius) var(--panel-radius) 0 0;
+    padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* ---------------------------------------------------------------- Statistics (docs/design-notes/statistics.md) */
+
+.stats-panel {
+  width: min(1180px, calc(100vw - 24px));
+  height: min(820px, calc(100vh - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.stats-panel > * {
+  flex: none;
+}
+
+.stats-panel > .stats-body,
+.stats-panel > .stats-pace {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.stats-panel .panel-header {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.stats-panel .panel-header h2 {
+  margin-right: auto;
+}
+
+.stats-ranges .tab,
+.stats-views .tab {
+  padding: 4px 12px;
+}
+
+.stats-views {
+  align-self: flex-start;
+}
+
+.stats-body {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.stats-cards {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.stats-group {
+  display: grid;
+  gap: 6px;
+}
+
+.stats-group h4 {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+button.stats-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 84px;
+  grid-template-areas:
+    "name spark"
+    "value spark";
+  align-items: center;
+  gap: 0 8px;
+  padding: 6px 8px;
+  text-align: left;
+  font-weight: 500;
+  border-width: 1.5px;
+  border-color: rgba(120, 95, 55, 0.35);
+  background: rgba(255, 250, 238, 0.7);
+  box-shadow: none;
+}
+
+button.stats-card.active {
+  border-color: var(--brass);
+  background: #fffaf0;
+  box-shadow: 0 0 0 2px rgba(201, 150, 58, 0.35);
+}
+
+.stats-card-name {
+  grid-area: name;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stats-card-name .resource-icon,
+.stats-title .resource-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.stats-card-value {
+  grid-area: value;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.stats-card-value strong {
+  font-size: 1rem;
+}
+
+.stats-change {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #2f6b1d;
+}
+
+.stats-change.down {
+  color: var(--error);
+}
+
+.sparkline {
+  grid-area: spark;
+  width: 84px;
+  height: 28px;
+}
+
+.sparkline-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.sparkline-area {
+  fill: rgba(35, 107, 105, 0.14);
+}
+
+.stats-main {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  overflow-y: auto;
+  min-width: 0;
+  padding-right: 4px;
+}
+
+.stats-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 2px 14px;
+}
+
+.stats-head p {
+  grid-column: 1 / -1;
+}
+
+.stats-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stats-title h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1.3rem;
+  color: var(--frame);
+}
+
+.stats-title .icon-button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 999px;
+}
+
+.stats-now {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stats-now strong {
+  font-size: 1.5rem;
+  color: var(--frame-dark);
+}
+
+.stats-chart {
+  position: relative;
+  min-width: 0;
+  border-radius: 12px;
+  background: #fffaf0;
+  border: 1.5px solid rgba(120, 95, 55, 0.25);
+  touch-action: pan-y;
+}
+
+.stats-chart svg {
+  display: block;
+  font-size: 11px;
+}
+
+.stats-chart .away-fill {
+  fill: rgba(107, 92, 67, 0.06);
+}
+
+.stats-chart .away-hatch {
+  stroke: rgba(107, 92, 67, 0.12);
+  stroke-width: 2;
+}
+
+.stats-away text {
+  fill: var(--text-muted);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stats-grid line {
+  stroke: rgba(107, 92, 67, 0.15);
+}
+
+.stats-grid text,
+.stats-time text {
+  fill: var(--text-muted);
+}
+
+.stats-time line {
+  stroke: rgba(107, 92, 67, 0.08);
+}
+
+.stats-axis {
+  stroke: rgba(107, 92, 67, 0.4);
+}
+
+.stats-big-moment {
+  stroke: var(--brass);
+  stroke-width: 1.2;
+  stroke-dasharray: 3 3;
+  opacity: 0.8;
+}
+
+.stats-band {
+  fill-opacity: 0.75;
+  stroke-width: 1;
+}
+
+.stats-area {
+  fill-opacity: 0.12;
+}
+
+.stats-line {
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.stats-line.compare {
+  stroke-width: 1.8;
+  opacity: 0.85;
+}
+
+.stats-line.dashed {
+  stroke-dasharray: 6 4;
+}
+
+.stats-flag circle {
+  fill: #fff7e4;
+  stroke: rgba(120, 95, 55, 0.5);
+}
+
+.stats-flag.big circle {
+  fill: #fdf0c8;
+  stroke: var(--brass);
+  stroke-width: 1.6;
+}
+
+.stats-flag text {
+  font-size: 11px;
+}
+
+.stats-flag.big text {
+  font-size: 13px;
+}
+
+.stats-flag-count {
+  font-size: 9px !important;
+  font-weight: 800;
+  fill: var(--wood);
+}
+
+.stats-pointed {
+  stroke: var(--wood);
+  stroke-width: 2;
+}
+
+.stats-hover line {
+  stroke: rgba(43, 36, 24, 0.45);
+  stroke-dasharray: 2 3;
+}
+
+.stats-hover circle {
+  stroke: #fffaf0;
+  stroke-width: 2;
+}
+
+.stats-tip {
+  position: absolute;
+  top: 10px;
+  z-index: 2;
+  display: grid;
+  gap: 2px;
+  max-width: 280px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  pointer-events: none;
+  background: rgba(255, 250, 238, 0.97);
+  border: 1.5px solid var(--brass);
+  box-shadow: 0 4px 12px rgba(16, 12, 6, 0.2);
+}
+
+.stats-tip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.stats-tip-row strong {
+  margin-left: auto;
+}
+
+.stats-tip-moment {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.stats-tip-moment.big {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.stats-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.stats-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  font-size: 0.8rem;
+}
+
+.stats-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.stats-log {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.stats-log input {
+  width: auto;
+  margin: 0;
+  padding: 0;
+}
+
+.stats-compare {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+button.stats-peer {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border-width: 1.5px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+button.stats-peer.on {
+  border-color: var(--frame);
+  background: #e3efe9;
+}
+
+.stats-lower {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.stats-insights,
+.stats-journal {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 250, 238, 0.6);
+  border: 1px solid rgba(120, 95, 55, 0.2);
+}
+
+.stats-insights h4,
+.stats-journal h4 {
+  font-family: var(--font-title);
+  color: var(--frame);
+}
+
+.stats-insights p {
+  font-size: 0.88rem;
+}
+
+.stats-journal header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stats-journal .tab {
+  padding: 2px 10px;
+  font-size: 0.75rem;
+}
+
+.journal-day h5 {
+  font-size: 0.8rem;
+  margin: 4px 0 2px;
+}
+
+.journal-day ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.journal-day li button.link {
+  display: grid;
+  grid-template-columns: 3.2em 1.5em minmax(0, 1fr);
+  align-items: baseline;
+  gap: 4px;
+  width: 100%;
+  padding: 2px 4px;
+  text-align: left;
+  text-decoration: none;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+.journal-day li.big button.link {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.journal-day li button.link:hover {
+  background: rgba(201, 150, 58, 0.15);
+}
+
+.journal-time {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+}
+
+.stats-pace {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.stats-swatch.dashed {
+  height: 3px;
+  width: 14px;
+}
+
+.company-stats-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+button.stat {
+  text-align: left;
+  font-weight: 500;
+  border-width: 1.5px;
+  box-shadow: none;
+}
+
+button.link.stats-link {
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+button.return-graph {
+  display: grid;
+  gap: 2px;
+  padding: 6px 10px;
+  text-align: left;
+  font-weight: 500;
+  box-shadow: none;
+}
+
+button.return-graph .sparkline {
+  grid-area: auto;
+  width: 100%;
+  height: 40px;
+}
+
+@media (max-width: 720px) {
+  .stats-panel {
+    width: calc(100vw - 16px);
+    height: calc(100vh - 90px);
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .stats-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  /* The cards are a strip you swipe */
+  .stats-cards {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 0 4px;
+    scroll-snap-type: x proximity;
+  }
+
+  .stats-group {
+    display: flex;
+    gap: 6px;
+  }
+
+  .stats-group h4 {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 0.62rem;
+  }
+
+  button.stats-card {
+    width: 150px;
+    flex: none;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "name" "value" "spark";
+    scroll-snap-align: start;
+  }
+
+  .sparkline {
+    width: 100%;
+    height: 22px;
+  }
+
+  .stats-lower {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stats-now strong {
+    font-size: 1.2rem;
+  }
+
+  .stats-title h3 {
+    font-size: 1.1rem;
+  }
+
+  .stats-ranges .tab {
+    padding: 3px 8px;
+  }
+
+  .app:has(.stats-panel) :is(.goal-tracker, .chat-toggle, .overlay-bar) {
+    display: none;
+  }
 }

@@ -40,7 +40,10 @@ public sealed class Shipment
 /// </summary>
 public sealed partial class GameWorld
 {
-    public const double ExchangeFee = 0.05;
+    public const double ExchangeFee = 0.04;
+
+    /// <summary>The Exchange opens through the trading post at this Company Level (1.4 §8)</summary>
+    public const int ExchangeLevel = 12;
     public static readonly TimeSpan OrderLifetime = TimeSpan.FromDays(7);
 
     private readonly List<ExchangeOrder> _orders = new();
@@ -75,8 +78,7 @@ public sealed partial class GameWorld
         {
             minutes /= 2;
         }
-        // A Lighthouse in the buyer's district
-        return TimeSpan.FromMinutes(minutes * WonderCargoFactor(to));
+        return TimeSpan.FromMinutes(minutes);
     }
 
     public CommandResult PlaceExchangeOrder(long companyId, string resource, bool selling, double amount, double price)
@@ -85,26 +87,32 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("Unknown company.");
         }
-        if (!HasBuilding(companyId, BuildingKind.ExchangeOffice))
+        // Through the trading post from Level 12 (1.4 §8)
+        if (company.Level < ExchangeLevel)
         {
-            return CommandResult.Fail("You need an Exchange Office to trade on the Exchange.");
+            return CommandResult.Fail($"The Exchange opens at Company Level {ExchangeLevel}.");
         }
-        if (!Content.Resources.ContainsKey(resource))
+        if (!Content.Resources.TryGetValue(resource, out var good))
         {
             return CommandResult.Fail("Unknown resource.");
+        }
+        if (!selling && good.Era > YourEra(company))
+        {
+            return CommandResult.Fail($"You can only buy goods of your own Era or older: {good.Name} is from Era {good.Era}.");
         }
         amount = Math.Floor(amount);
         if (amount < 1)
         {
             return CommandResult.Fail("Choose an amount.");
         }
-        // One price between players (v1.2 §8), and it says so (after run 4: Cleo typed 3 g and got 1.95 without a word)
+        // A price within the band between the market's two prices (1.4 §8), and it says so (after run 4: Cleo typed 3 g and
+        // got 1.95 without a word); no price: the public default
         var typed = price;
-        price = PlayerPrice(resource);
-        var good = GoodsWord(resource);
+        price = Math.Round(typed > 0 ? Math.Clamp(typed, BasePrice(resource), BasePrice(resource) * Content.Progression.HubSpread) : PlayerPrice(resource), 4);
+        var word = GoodsWord(resource);
         if (selling && StoredOf(companyId, resource) < amount - 1e-9)
         {
-            return CommandResult.Fail($"A sell order holds its goods in your Storages: you have {Amount(StoredOf(companyId, resource))} {good} there, not {Amount(amount)}.");
+            return CommandResult.Fail($"A sell order holds its goods in your Storages: you have {Amount(StoredOf(companyId, resource))} {word} there, not {Amount(amount)}.");
         }
         // Reserve what the order needs
         var reserve = selling
@@ -119,7 +127,8 @@ public sealed partial class GameWorld
             Id = NextOrderId++,
             Company = companyId,
             District = company.District,
-            Global = HasResearch(company, "globalExchange"),
+            // Every town's Exchange: it is how towns trade (1.4 §8)
+            Global = true,
             Resource = resource,
             Selling = selling,
             Amount = amount,
@@ -134,11 +143,11 @@ public sealed partial class GameWorld
         }
         Changes.Exchange = true;
         Changes.Companies.Add(companyId);
-        var capped = typed > 0 && Math.Abs(typed - price) >= 0.005 ? $"The Exchange has one price between players: {price:0.##} g, not the {typed:0.##} g you typed. " : "";
+        var capped = typed > 0 && Math.Abs(typed - price) >= 0.005 ? $"Prices on the Exchange are 1× to {Content.Progression.HubSpread:0.#}× the base: {price:0.##} g, not the {typed:0.##} g you typed. " : "";
         var traded = amount - order.Amount;
-        var now = traded > 1e-9 ? $"{(selling ? "Sold" : "Bought")} {Amount(traded)} {good} at once{(selling ? "" : ": on its way by cargo")}" : null;
+        var now = traded > 1e-9 ? $"{(selling ? "Sold" : "Bought")} {Amount(traded)} {word} at once{(selling ? "" : ": on its way by cargo")}" : null;
         var waits = order.Amount > 1e-9
-            ? $"{(selling ? "selling" : "buying")} {Amount(order.Amount)} {good} at {price:0.##} g waits up to {OrderLifetime.TotalDays:0} days for a {(selling ? "buyer" : "seller")} ({(selling ? "the goods" : $"{Gold(order.Amount * price)}")} held till then)"
+            ? $"{(selling ? "selling" : "buying")} {Amount(order.Amount)} {word} at {price:0.##} g waits up to {OrderLifetime.TotalDays:0} days for a {(selling ? "buyer" : "seller")} ({(selling ? "the goods" : $"{Gold(order.Amount * price)}")} held till then)"
             : null;
         return CommandResult.Done(capped + string.Join("; ", new[] { now, waits is null ? null : now is null ? char.ToUpperInvariant(waits[0]) + waits[1..] : waits }.OfType<string>()));
     }
@@ -180,11 +189,10 @@ public sealed partial class GameWorld
         var value = amount * price;
         var fee = value * ExchangeFee;
         seller.Gold += value - fee;
-        seller.LifetimeEarnings += value - fee;
+        CountEarned(seller, value - fee, "players", sell.Resource);
         seller.Report.GoldEarned += value - fee;
         AddStat(seller, "exchangeTrades", 1);
         AddStat(buyer, "exchangeTrades", 1);
-        GainXpFromEarnings(seller, value - fee);
         // The buyer reserved its own limit price: the difference comes back
         buyer.Gold += amount * (buy.Price - price);
         seller.Touch();

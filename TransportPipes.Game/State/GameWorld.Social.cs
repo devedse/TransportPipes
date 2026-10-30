@@ -15,7 +15,6 @@ public enum LeaderboardKind
     Efficiency,
 
     /// <summary>Your league (v1.2 §13): about 25 companies at a similar stage, by what they earned this week</summary>
-    League,
 }
 
 public sealed record LeaderboardEntry(long Company, string Name, string Color, double Value, int Rank);
@@ -33,27 +32,28 @@ public sealed partial class GameWorld
     /// <summary>One like per estate per day: the owner gets a little gold and XP</summary>
     public CommandResult LikeEstate(long likerId, long ownerId)
     {
-        if (Company(likerId) is not { } liker || Company(ownerId) is not { } owner || owner.IsNpc)
+        if (Company(likerId) is not { } liker || Company(ownerId) is not { } owner)
         {
             return CommandResult.Fail("Unknown company.");
         }
         if (likerId == ownerId)
         {
-            return CommandResult.Fail("You can't like your own estate.");
+            return CommandResult.Fail("You can't like your own plot.");
         }
         if (!_likesToday.Add((likerId, ownerId)))
         {
-            return CommandResult.Fail("You liked this estate today already.");
+            return CommandResult.Fail("You liked this plot today already.");
         }
         // Festivals: likes count double
         var factor = LikeFactor(owner.District);
         owner.Likes += factor;
         owner.Report.LikesReceived += factor;
-        owner.Gold += 20 * owner.Level * factor;
-        GainXp(owner, 10 * factor, "likes", "likes");
+        var gold = 20 * owner.Level * factor;
+        owner.Gold += gold;
+        CountEarned(owner, gold, "rewards", "likes");
         owner.Touch();
         Changes.Companies.Add(owner.Id);
-        Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.Social, $"{liker.Name} likes your estate!"));
+        Changes.Events.Add(new WorldEvent(owner.Id, WorldEventKind.Social, $"{liker.Name} likes your plot!"));
         return CommandResult.Ok;
     }
 
@@ -62,7 +62,7 @@ public sealed partial class GameWorld
     /// <summary>A newcomer chooses a mentor (Company Level 30+); both are rewarded at levels 10, 15 and 20</summary>
     public CommandResult ChooseMentor(long newcomerId, long mentorId)
     {
-        if (Company(newcomerId) is not { } newcomer || Company(mentorId) is not { IsNpc: false } mentor)
+        if (Company(newcomerId) is not { } newcomer || Company(mentorId) is not { } mentor)
         {
             return CommandResult.Fail("Unknown company.");
         }
@@ -115,16 +115,11 @@ public sealed partial class GameWorld
         var value = company.Gold;
         foreach (var building in BuildingsOf(company.Id))
         {
-            var definition = Content.Building(building.Type);
-            value += definition.Cost.Gold;
-            for (var level = 1; level < building.Level; level++)
-            {
-                value += Content.Progression.UpgradeCost(definition, level);
-            }
+            value += EvolveCredit(building);
         }
         if (EstateOf(company) is { } estate)
         {
-            var extra = estate.UnlockedCount - Content.Progression.StartParcels.Count;
+            var extra = estate.UnlockedCount - WorldLayout.StartParcelCount;
             for (var i = 0; i < extra; i++)
             {
                 value += Content.Progression.ParcelCost(i);
@@ -210,6 +205,17 @@ public sealed partial class GameWorld
     /// <summary>The number of companies each company trades with right now (through the Yards)</summary>
     public Dictionary<long, int> PartnerCounts()
     {
+        var partners = new Dictionary<long, int>();
+        foreach (var (a, _) in PartnerPairs())
+        {
+            partners[a] = partners.GetValueOrDefault(a) + 1;
+        }
+        return partners;
+    }
+
+    /// <summary>Who trades with whom right now (through the Yards), both ways round</summary>
+    public HashSet<(long, long)> PartnerPairs()
+    {
         var pairs = new HashSet<(long, long)>();
         foreach (var (key, terms) in _gateTerms)
         {
@@ -226,18 +232,13 @@ public sealed partial class GameWorld
                 }
             }
         }
-        var partners = new Dictionary<long, int>();
-        foreach (var (a, _) in pairs)
-        {
-            partners[a] = partners.GetValueOrDefault(a) + 1;
-        }
-        return partners;
+        return pairs;
     }
 
     public int Mentees(long mentorId) => _companies.Values.Count(t => t.MentorId == mentorId);
 
     /// <summary>The top companies (players only), of one district or of the whole world</summary>
-    public List<LeaderboardEntry> Leaderboard(LeaderboardKind kind, DistrictCoord? district, int count = 50, int? league = null)
+    public List<LeaderboardEntry> Leaderboard(LeaderboardKind kind, DistrictCoord? district, int count = 50)
     {
         Dictionary<long, double>? income = kind == LeaderboardKind.Income ? GoldPerMinute() : null;
         var partners = kind == LeaderboardKind.Partners ? PartnerCounts() : null;
@@ -245,14 +246,14 @@ public sealed partial class GameWorld
         {
             LeaderboardKind.NetWorth => NetWorth(company),
             LeaderboardKind.Income => (income!.GetValueOrDefault(company.Id)) * 60,
-            LeaderboardKind.WeeklyEarnings or LeaderboardKind.League => company.LifetimeEarnings - company.WeekStartEarnings,
-            LeaderboardKind.Level => company.Xp,
+            LeaderboardKind.WeeklyEarnings => company.LifetimeEarnings - company.WeekStartEarnings,
+            LeaderboardKind.Level => company.LifetimeEarnings,
             LeaderboardKind.Partners => partners!.GetValueOrDefault(company.Id),
             LeaderboardKind.Efficiency => TileEfficiency(company, income ??= GoldPerMinute()),
             _ => company.Likes,
         };
         return _companies.Values
-            .Where(t => !t.IsNpc && (district == null || t.District == district) && (kind != LeaderboardKind.League || (league != null && t.League == league)))
+            .Where(t => district == null || t.District == district)
             .Select(t => (Company: t, Value: Value(t)))
             .OrderByDescending(t => t.Value).ThenBy(t => t.Company.Id)
             .Take(count)

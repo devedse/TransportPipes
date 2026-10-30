@@ -30,14 +30,14 @@ public class TradeFallFacts
             game.ConnectToGate(a, moily);
         }
         var mine = game.Build(b, "ironMine", game.Spot(b, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"));
-        game.ConnectToGate(b, mine);
+        var toGate = game.ConnectToGate(b, mine);
         var toPost = game.Connect(b, mine, game.TradingPost(b));
         Minutes(game, 60);
         Assert.IsGreaterThanOrEqualTo(3, game.World.UsualRate(a, b, "energy"), "Ana's energy runs Ben's mine");
         game.World.TakeChanges();
 
         // Ben's mine loses its way to the post: its ore can't leave, it takes no energy
-        Assert.IsTrue(game.World.RemovePipes(b.Id, toPost.Skip(1).Take(1).ToList()).Success);
+        Assert.IsTrue(game.World.RemovePipes(b.Id, [toPost.Last(t => !toGate.Contains(t) && game.World.ConductorAt(t)?.Kind == ConductorKind.Pipe)]).Success);
         Minutes(game, 31);
 
         var fall = a.TradeFalls.GetValueOrDefault($"{b.Id}:energy");
@@ -76,6 +76,5 @@ public class TradeFallFacts
         Assert.IsGreaterThan(1, units);
         Assert.AreEqual(units, b.Report.BoughtFromUnits.GetValueOrDefault($"{a.Id}:energy"), 1e-6);
         Assert.AreEqual(a.Gold - gold, a.Report.SoldToGold.GetValueOrDefault($"{b.Id}:energy"), 1, "what Ana was paid, no more");
-        Assert.AreEqual(GameWorld.Capital, a.District);
     }
 }
