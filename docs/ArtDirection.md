@@ -32,7 +32,7 @@ come alive).
   picture. `art/process.mjs buildings` measures the plate's top surface, scales the sprite so it matches the footprint at
   1.5× world resolution, anchors it at the top surface's bottom corner and cuts off what sticks out below the
   footprint's front edges (the plate's side), so every building sits flush on its tiles. `art/fit.mjs` draws every
-  sprite on its footprint diamond to check it; do that for every new or changed picture (see `CLAUDE.md`). Moving parts are
+  sprite on its footprint diamond to check it; do that for every new or changed picture (see `AGENTS.md`). Moving parts are
   separate pictures (`-rotor.png`, spun by the game); chimneys and rotor hubs are listed in `art/attachments.yaml`.
 - **Terrain** (`art/terrain.yaml`): seamless top-down textures. The script tones them (the ground stays calmer than the
   buildings) and makes them seamless; the game maps a texture over 4×4 tiles, each tile its own cell projected onto its
