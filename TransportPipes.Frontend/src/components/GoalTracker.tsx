@@ -226,9 +226,13 @@ export function GoalTracker() {
         )}
         {(company.wants ?? []).length > 0 &&
           (() => {
-            // Your own scaffold, said as it is (after run 4: "is being built", and it waited for bricks to the end)
-            const want = company.wants![0]!;
+            // Your own scaffold, said as it is (after run 4: "is being built", and it waited for bricks to the end); more
+            // than one: Buy all the rest (playtest: "again we need a complete all button somewhere")
+            const wants = company.wants!;
+            const want = wants[0]!;
             const left = Math.max(0, want.amount - want.got);
+            const buyable = wants.filter((t) => t.orderCost !== null);
+            const all = buyable.reduce((sum, t) => sum + (t.orderCost ?? 0), 0);
             return (
               <li>
                 <span className="goal-label">Waits</span>
@@ -240,15 +244,32 @@ export function GoalTracker() {
                     : want.perMinute > 0.005
                       ? ` · ${formatAmount(want.perMinute)}/min coming`
                       : ""}
+                  {wants.length > 1 && ` · and ${wants.length - 1} more`}
                 </span>
-                {want.order === null && want.orderCost !== null && (
+                {buyable.length > 1 ? (
                   <button
-                    className="small goal-show"
-                    disabled={company.gold < want.orderCost}
-                    onClick={() => void gameClient.orderRest(want.target, null, want.resource)}
+                    className="small goal-show goal-buy-all"
+                    disabled={company.gold < all}
+                    title={
+                      company.gold < all
+                        ? `All of it costs ${formatAmount(all)} g`
+                        : "Buy the rest of everything you wait for"
+                    }
+                    onClick={() => void gameClient.orderAll()}
                   >
-                    Buy the rest · {formatAmount(want.orderCost)} g
+                    Buy all the rest · {formatAmount(all)} g
                   </button>
+                ) : (
+                  want.order === null &&
+                  want.orderCost !== null && (
+                    <button
+                      className="small goal-show"
+                      disabled={company.gold < want.orderCost}
+                      onClick={() => void gameClient.orderRest(want.target, null, want.resource)}
+                    >
+                      Buy the rest · {formatAmount(want.orderCost)} g
+                    </button>
+                  )
                 )}
                 <span className="goal-bar">
                   <span

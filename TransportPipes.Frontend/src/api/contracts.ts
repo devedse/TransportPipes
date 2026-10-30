@@ -1788,6 +1788,9 @@ export interface OwnWantDto {
   orderCost: number | null;
   /** The level its goods are for (null: a new building's materials or a pipe's) */
   toLevel?: number | null;
+  /** A pipe's tiles (x, y, x, y, …) and the tier they become, for the map */
+  pipeAt?: number[] | null;
+  pipeTier?: number | null;
 }
 
 /** A neighbour's scaffold this player could help with */

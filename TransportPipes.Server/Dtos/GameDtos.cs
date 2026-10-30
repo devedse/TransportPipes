@@ -170,10 +170,11 @@ public record PipesLineDto(string Text, long Building, int Full, string Ladder);
 
 /// <summary>
 /// An own want: its target (a building's id, or minus a pipe want's number), what it wants, what is in and coming; Tiles
-/// for a pipe; ToLevel: the level its goods are for (null: a new building's materials or a pipe's)
+/// for a pipe; ToLevel: the level its goods are for (null: a new building's materials or a pipe's); a pipe's tiles (x, y,
+/// x, y, …) and the tier they become, for the map
 /// </summary>
 public record OwnWantDto(long Target, string Name, string Resource, double Amount, double Got, double PerMinute, int? Tiles, string? Order = null, double? OrderCost = null,
-    int? ToLevel = null);
+    int? ToLevel = null, IReadOnlyList<int>? PipeAt = null, int? PipeTier = null);
 
 /// <summary>
 /// Your plot's land (1.4 §5): what it has and lacks (one basic, one later resource), its strength (a ★4 deposit), and

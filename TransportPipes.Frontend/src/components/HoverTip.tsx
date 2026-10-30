@@ -137,18 +137,35 @@ export function HoverTip() {
       }
       const tier = content.pipeTiers.find((t) => t.tier === conductor.tier)?.name ?? "Pipe";
       const lines = [...lanes.values()];
+      // A pipe that waits for a better one's goods says so first
+      const waiting = (company?.wants ?? []).filter((w) => {
+        const at = w.pipeAt ?? [];
+        for (let i = 0; i < at.length; i += 2) {
+          if (at[i] === tile.x && at[i + 1] === tile.y) {
+            return true;
+          }
+        }
+        return false;
+      });
       text =
-        lines.length === 0
-          ? `${tier}: nothing runs through here now`
-          : `${tier}, inside: ${lines
-              .slice(0, 4)
+        waiting.length > 0
+          ? `Becomes a ${waiting[0]!.name} once its goods are in: ${waiting
               .map(
-                (t) =>
-                  `${t.lane}: ${content.resourceName(t.resource).toLowerCase()} ${formatAmount(t.perMinute)}/min (${Math.round(t.full * 100)}% full)`,
+                (w) =>
+                  `${formatAmount(w.got)} of ${formatAmount(w.amount)} ${content.resourceName(w.resource).toLowerCase()}`,
               )
-              .join(
-                " · ",
-              )}${lines.length > 4 ? ` · ${lines.length - 4} more` : ""} · hold Alt to see every pipe`;
+              .join(", ")} (Yard › What you're waiting for)`
+          : lines.length === 0
+            ? `${tier}: nothing runs through here now`
+            : `${tier}, inside: ${lines
+                .slice(0, 4)
+                .map(
+                  (t) =>
+                    `${t.lane}: ${content.resourceName(t.resource).toLowerCase()} ${formatAmount(t.perMinute)}/min (${Math.round(t.full * 100)}% full)`,
+                )
+                .join(
+                  " · ",
+                )}${lines.length > 4 ? ` · ${lines.length - 4} more` : ""} · hold Alt to see every pipe`;
     }
   }
 

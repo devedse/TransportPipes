@@ -19,6 +19,7 @@ import type {
   FlowDto,
   MapLinkDto,
   OutpostDto,
+  OwnWantDto,
   SeatState,
   StallDto,
   TerrainType,
@@ -473,6 +474,8 @@ export class Engine {
   private readonly lineLayer = new Container();
   private overlay: Overlay = "none";
   private readonly highlightLayer = new Graphics();
+  /** Pipes on their way to a better pipe: over them, tinted in its colour */
+  private readonly pipeWaitLayer = new Graphics();
   /** Picking a plot: the free plots glow (pulsing), the closed ones are amber, the chosen one has a gold border */
   private readonly pickGlow = new Graphics();
   private readonly pickMarks = new Graphics();
@@ -596,6 +599,7 @@ export class Engine {
       this.linkPulse,
       this.highlightLayer,
       this.objectLayer,
+      this.pipeWaitLayer,
       this.fogLayer,
       this.lineLayer,
       this.pickGlow,
@@ -4115,13 +4119,52 @@ export class Engine {
     }
   }
 
+  /**
+   * Pipes that wait for a better pipe's goods (playtest: "show some kind of thing so that it's clear it's being
+   * upgraded"): over the pipes, tinted in the new pipe's colour and pulsing, an arrow bobbing over each stretch
+   */
+  private drawPipeWaits(wants: OwnWantDto[]) {
+    const g = this.pipeWaitLayer;
+    const pulse = 0.5 + 0.5 * Math.sin(this.time * 2.5);
+    for (const want of wants) {
+      const at = want.pipeAt;
+      if (at == null || at.length < 2 || want.pipeTier == null) {
+        continue;
+      }
+      const color = PIPE_COLORS[want.pipeTier] ?? "#f2b134";
+      for (let i = 0; i < at.length; i += 2) {
+        traceFootprint(g, at[i]!, at[i + 1]!, 1);
+      }
+      g.fill({ color, alpha: 0.25 + 0.25 * pulse });
+      for (let i = 0; i < at.length; i += 2) {
+        traceFootprint(g, at[i]!, at[i + 1]!, 1);
+      }
+      g.stroke({ color: 0x2b1d0e, width: 7, alpha: 0.45 });
+      for (let i = 0; i < at.length; i += 2) {
+        traceFootprint(g, at[i]!, at[i + 1]!, 1);
+      }
+      g.stroke({ color, width: 4, alpha: 0.95 });
+      const middle = Math.floor(at.length / 4) * 2;
+      const top = tileCenter(at[middle]!, at[middle + 1]!);
+      const lift = 50 + 10 * pulse;
+      g.poly([top.x - 20, top.y - lift, top.x + 20, top.y - lift, top.x, top.y - lift - 26])
+        .fill({ color, alpha: 1 })
+        .stroke({ color: 0x2b1d0e, width: 4, alpha: 0.8 });
+      g.rect(top.x - 8, top.y - lift, 16, 18)
+        .fill({ color, alpha: 1 })
+        .stroke({ color: 0x2b1d0e, width: 4, alpha: 0.8 });
+    }
+  }
+
   private drawHighlights() {
     const g = this.highlightLayer;
     g.clear();
+    this.pipeWaitLayer.clear();
     if (this.far) {
       return;
     }
     const state = this.callbacks.getState();
+    this.drawPipeWaits(state.company?.wants ?? []);
     if (
       state.tool.kind === "pipe" &&
       this.hovered !== null &&
