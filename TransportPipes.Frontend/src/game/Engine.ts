@@ -516,6 +516,8 @@ export class Engine {
   private dragShift = false;
   private dragCtrl = false;
   private lastClick: { x: number; y: number; at: number } | null = null;
+  /** Whether each building ran when its network's flows were last here */
+  private readonly lastRunning = new Map<number, boolean>();
   /** The level tier each building was last drawn with: an upgrade into a new one flashes */
   private readonly shownTiers = new Map<number, number>();
   /** Building pictures that were still loading have arrived */
@@ -2657,7 +2659,13 @@ export class Engine {
       return;
     }
     const rate = this.world.rate(building);
-    const running = rate !== null && rate > 0.005;
+    // Its network rebuilt under a new id, the new flows not here yet: as it was (playtest: after Grow, every building
+    // showed ZZ for a moment each time a level came in)
+    const known = building.network === null || this.world.flows.has(building.network);
+    const running = known ? rate !== null && rate > 0.005 : (this.lastRunning.get(building.id) ?? false);
+    if (known) {
+      this.lastRunning.set(building.id, running);
+    }
     view.effects?.setRunning(running);
     for (const machine of [view.machine, ...(view.machines ?? [])]) {
       if (machine === null) {

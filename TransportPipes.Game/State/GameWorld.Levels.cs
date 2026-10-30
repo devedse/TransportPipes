@@ -96,7 +96,7 @@ public sealed partial class GameWorld
             return;
         }
         building.Touch();
-        MarkDirty(building);
+        MarkFlowsChanged(building);
         foreach (var tile in building.Footprint())
         {
             Changes.Tiles.Add(tile);

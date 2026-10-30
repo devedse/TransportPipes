@@ -23,7 +23,7 @@ public sealed partial class GameWorld
                 return CommandResult.Fail("This building has no setting.");
         }
         building.Touch();
-        MarkDirty(building);
+        MarkFlowsChanged(building);
         return CommandResult.Ok;
     }
 }

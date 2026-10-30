@@ -172,7 +172,7 @@ public sealed partial class GameWorld
             DropWants(company, building.Id, back);
             building.Level = Math.Min(building.Level, back);
             building.Touch();
-            MarkDirty(building);
+            MarkFlowsChanged(building);
             foreach (var tile in building.Footprint())
             {
                 Changes.Tiles.Add(tile);

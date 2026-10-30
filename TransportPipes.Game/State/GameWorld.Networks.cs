@@ -116,6 +116,24 @@ public sealed partial class GameWorld
         }
     }
 
+    /// <summary>
+    /// What a building makes, keeps or buys changed, not its pipes (a level, a Storage's line, a trading post's imports):
+    /// its network solves again and keeps its id (playtest: after Grow, every level that came in rebuilt the network
+    /// under a new id, and its buildings showed ZZ until the new id's flows arrived). Other kinds rebuild: their level
+    /// can change what their links carry (a lift, a teleporter, a cargo depot).
+    /// </summary>
+    private void MarkFlowsChanged(Building building)
+    {
+        if (Content.Building(building.Type).Kind is BuildingKind.Producer or BuildingKind.Storage or BuildingKind.TradingPost)
+        {
+            MarkNeedsSolve(building.Id);
+        }
+        else
+        {
+            MarkDirty(building);
+        }
+    }
+
     /// <summary>Only the flows changed (prices, storage full or empty, construction finished)</summary>
     internal void MarkNeedsSolve(long buildingId)
     {

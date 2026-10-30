@@ -1037,7 +1037,7 @@ public sealed partial class GameWorld
         // From level 11 a step also takes goods (1.4 §9): the building works at its old level until they're in
         AddLevelSteps(company, building, from, levels);
         building.Touch();
-        MarkDirty(building);
+        MarkFlowsChanged(building);
         foreach (var tile in building.Footprint())
         {
             Changes.Tiles.Add(tile);
@@ -1378,7 +1378,7 @@ public sealed partial class GameWorld
             building.Imports.Remove(resource);
         }
         building.Touch();
-        MarkDirty(building);
+        MarkFlowsChanged(building);
         return CommandResult.Ok;
     }
 

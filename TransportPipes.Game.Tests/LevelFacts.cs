@@ -189,6 +189,26 @@ public class LevelFacts
     }
 
     [TestMethod]
+    public void ALevelKeepsItsNetwork()
+    {
+        // Playtest: after Grow, every level that came in rebuilt the network under a new id, and its buildings showed ZZ
+        // until the new id's flows arrived
+        var (game, company, moily, _) = MoilyAtTen();
+        Assert.IsTrue(game.World.SetWantsFromMarket(company.Id, false).Success);
+        var network = game.World.NetworkOf(moily.Id)!.Id;
+        var output = game.World.NetworkOf(moily.Id)!.Solution.Rates[moily.Id];
+
+        Assert.IsTrue(game.World.Upgrade(company.Id, moily.Id, 1).Success);
+        Assert.IsTrue(game.World.OrderRest(company.Id, moily.Id).Success);
+        game.Pass(1);
+
+        Assert.AreEqual(11, moily.Level);
+        Assert.AreEqual(network, game.World.NetworkOf(moily.Id)!.Id, "the same network, solved again");
+        Assert.IsGreaterThan(game.World.ToFlowNode(moily, 10)!.Out["energy"], game.World.ToFlowNode(moily)!.Out["energy"], "at its new level");
+        Assert.AreEqual(output, game.World.NetworkOf(moily.Id)!.Solution.Rates[moily.Id], 1e-9, "running as before");
+    }
+
+    [TestMethod]
     public void UndoTakesBackTheStepsWhoseGoodsAreStillComing()
     {
         var (game, company, moily, storage) = MoilyAtTen();
