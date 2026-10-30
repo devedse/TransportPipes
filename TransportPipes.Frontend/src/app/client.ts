@@ -2147,6 +2147,13 @@ export class GameClient {
     return ok;
   }
 
+  /** Buys the rest of everything you wait for (the Yard's "What you're waiting for") */
+  async orderAll() {
+    if (await this.command(this.connection.orderAll())) {
+      void this.refreshCompany();
+    }
+  }
+
   /** Gives up a scaffold: its gold comes back */
   async cancelSite(site: number) {
     if (await this.command(this.connection.cancelSite(site), "Given up: the gold is yours again")) {

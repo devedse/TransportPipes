@@ -104,6 +104,8 @@ public sealed partial class GameWorld
         var level = members.Min(t => t.Level);
         foreach (var member in members)
         {
+            // The complex has the lowest level: a level's goods still coming go back
+            DropWants(owner, member.Id);
             RemoveBuilding(member);
         }
         var price = members.Average(CopyPrice);
@@ -300,6 +302,7 @@ public sealed partial class GameWorld
         var price = BuildCost(company, target);
         // A trading post keeps its levels as a Market Hall: its Hub Orders stay (1.4 §8)
         var keeps = target.Kind == BuildingKind.TradingPost ? building.Level : 1;
+        DropWants(company, building.Id);
         RemoveBuilding(building);
         var evolved = AddBuilding(company, target.Id, origin, finished: false, price);
         evolved.Level = keeps;

@@ -86,11 +86,13 @@ public static partial class GameViews
                 ? new CrewBadgeDto(crew.Id, crew.NameHidden ? WorldNames.Station(crew.Yard) : crew.Name, crew.Emblem, crew.Color, crew.Color2, world.CrewMembers(crew).Count(), crew.Requests.Count)
                 : null,
             Land(world, company),
-            world.WantsNear(company).Select(t => new WantNearDto(t.Target, world.NameFor(t.Owner, company), t.Name, t.Want.Resource,
-                Math.Round(t.Want.Left), Math.Floor(t.Holds), t.Makes, Math.Ceiling(t.Want.Left * world.WantMarketPrice(t.Owner, t.Want.Resource)))).ToList(),
-            world.OpenWants(company).Select(t => new OwnWantDto(t.Target, t.Name, t.Want.Resource, t.Want.Amount, Math.Round(t.Want.Got, 1),
-                Math.Round(t.Want.Incoming.Values.Sum(), 2), t.Want.PipeTiles?.Count, null,
-                Math.Ceiling(t.Want.Left * world.WantMarketPrice(company, t.Want.Resource)))).ToList(),
+            WantsNear(world, company),
+            // Levels bought together wait for a step's goods each: one line per good of a building, as its panel shows it
+            // (playtest: a Solar Panel bought up to 13 had three planks lines; each one's Buy the rest bought all three)
+            world.OpenWants(company).GroupBy(t => (t.Target, t.Want.Resource)).Select(g => new OwnWantDto(g.Key.Target, g.First().Name, g.Key.Resource,
+                g.Sum(t => t.Want.Amount), Math.Round(g.Sum(t => t.Want.Got), 1), Math.Round(g.Sum(t => t.Want.Incoming.Values.Sum()), 2),
+                g.First().Want.PipeTiles?.Count, null, world.OrderCost(company, g.Key.Target, g.Key.Resource),
+                g.Max(t => t.Want.ToLevel) is > 0 and var level ? level : null)).ToList(),
             EraWonderLine(world, company),
             PipesLine(world, company),
             company.Prices.OrderBy(t => t.Key, StringComparer.Ordinal).Select(t => new PriceDto(t.Key, t.Value.Value, t.Value.Pending, t.Value.Back, t.Value.PendingAt,
@@ -341,6 +343,14 @@ public static partial class GameViews
         var refund = wants.Sum(t => t.Paid) + (owner.Purchases.FirstOrDefault(p => p.Building == site.Id)?.Cost ?? world.BuildCost(owner, world.Content.Building(site.Type)));
         return new SiteDto(WantViews(world, owner, wants, viewer), Math.Round(refund));
     }
+
+    /// <summary>Your neighbours' wants (all of them, or one neighbour's): one line per good of a building, its level steps together</summary>
+    private static List<WantNearDto> WantsNear(GameWorld world, Company viewer, Company? of = null) =>
+        world.WantsNear(viewer).Where(t => of == null || t.Owner.Id == of.Id)
+            .GroupBy(t => (t.Owner.Id, t.Target, t.Want.Resource))
+            .Select(g => new WantNearDto(g.Key.Target, world.NameFor(g.First().Owner, viewer), g.First().Name, g.Key.Resource, Math.Round(g.Sum(t => t.Want.Left)),
+                Math.Floor(g.First().Holds), g.First().Makes, world.OrderCost(viewer, g.Key.Target, g.Key.Resource)))
+            .ToList();
 
     /// <summary>A level's goods still coming (1.4 §9): the wants, and what buying the rest costs</summary>
     private static LevelWaitDto? LevelWait(GameWorld world, Building building, Company? viewer)
@@ -777,9 +787,7 @@ public static partial class GameViews
             world.Mentees(owner.Id),
             guestbook,
             owner.Id == viewer.Id ? null
-                : world.WantsNear(viewer).Where(t => t.Owner.Id == owner.Id)
-                    .Select(t => new WantNearDto(t.Target, world.NameFor(t.Owner, viewer), t.Name, t.Want.Resource, Math.Round(t.Want.Left), Math.Floor(t.Holds), t.Makes,
-                        world.OrderCost(viewer, t.Target, t.Want.Resource)))
+                : WantsNear(world, viewer, owner)
                     .ToList());
     }
 

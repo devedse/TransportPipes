@@ -169,7 +169,7 @@ public sealed partial class GameWorld
                 return CommandResult.Fail("Nothing to undo here any more.");
             }
             // The steps whose goods are still coming go too, their goods back where they came from
-            DropLevelSteps(company, building, back);
+            DropWants(company, building.Id, back);
             building.Level = Math.Min(building.Level, back);
             building.Touch();
             MarkDirty(building);

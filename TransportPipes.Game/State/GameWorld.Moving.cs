@@ -89,6 +89,7 @@ public sealed partial class GameWorld
         Level = building.Level,
         Price = building.Price,
         OldId = building.Id,
+        Site = IsSite(building),
         Contents = new(building.Contents),
         Imports = new(building.Imports),
         Filter = new(building.Filter),
@@ -173,8 +174,13 @@ public sealed partial class GameWorld
     {
         var building = AddBuilding(company, item.Type, pos, finished: true, item.Price > 0 ? item.Price : null);
         building.Level = item.Level;
-        // The goods its levels still wait for follow it
-        foreach (var ask in company.Asks.Where(t => t.Site == item.OldId && t.ToLevel > 0))
+        // A scaffold comes back as one (playtest: it came up built, without its materials); what it and its levels still
+        // wait for follows it
+        if (item.Site)
+        {
+            building.ConstructionEndsAt = SiteWaiting;
+        }
+        foreach (var ask in company.Asks.Where(t => t.Site == item.OldId))
         {
             ask.Site = building.Id;
         }
@@ -354,6 +360,8 @@ public sealed partial class GameWorld
         var item = company.Crates[crate];
         company.Crates.RemoveAt(crate);
         company.Gold += Math.Round(Content.Building(item.Type).Cost.Gold * 0.75);
+        // What it still waited for goes back
+        DropWants(company, item.OldId);
         company.Touch();
         Changes.Companies.Add(company.Id);
         return CommandResult.Ok;

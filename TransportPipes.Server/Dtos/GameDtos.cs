@@ -168,8 +168,12 @@ public record GrowPartDto(long Building, string Text, double Cost, double Gain);
 /// <summary>"Your Iron Mine's Grey Pipe is full: Copper Pipe on its link, then Level 30": the building to open, and the ladder ("Grey · Copper · Steel with Era 2")</summary>
 public record PipesLineDto(string Text, long Building, int Full, string Ladder);
 
-/// <summary>An own want: its target (a building's id, or minus a pipe want's number), what it wants, what is in and coming; Tiles for a pipe</summary>
-public record OwnWantDto(long Target, string Name, string Resource, double Amount, double Got, double PerMinute, int? Tiles, string? Order = null, double? OrderCost = null);
+/// <summary>
+/// An own want: its target (a building's id, or minus a pipe want's number), what it wants, what is in and coming; Tiles
+/// for a pipe; ToLevel: the level its goods are for (null: a new building's materials or a pipe's)
+/// </summary>
+public record OwnWantDto(long Target, string Name, string Resource, double Amount, double Got, double PerMinute, int? Tiles, string? Order = null, double? OrderCost = null,
+    int? ToLevel = null);
 
 /// <summary>
 /// Your plot's land (1.4 §5): what it has and lacks (one basic, one later resource), its strength (a ★4 deposit), and

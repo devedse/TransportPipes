@@ -185,19 +185,65 @@ public sealed partial class GameWorld
         owner.Touch();
     }
 
-    /// <summary>Level steps given up (Undo): their goods' gold back, the owner's own goods back into its Storages</summary>
-    private void DropLevelSteps(Company owner, Building building, int aboveLevel)
+    /// <summary>
+    /// A building's wants given up (Undo, or the building goes: demolished, evolved, merged into a complex): their goods'
+    /// gold back, the owner's own goods back into its Storages; above a level, only the steps above it. The gold back.
+    /// </summary>
+    private double DropWants(Company owner, long site, int aboveLevel = -1) =>
+        GiveBack(owner, owner.Asks.Where(t => t.Site == site && t.ToLevel > aboveLevel).ToList());
+
+    private double GiveBack(Company owner, List<CompanyAsk> asks)
     {
-        var dropped = owner.Asks.Where(t => t.Site == building.Id && t.ToLevel > aboveLevel).ToList();
-        foreach (var ask in dropped)
+        var gold = 0.0;
+        foreach (var ask in asks)
         {
-            owner.Gold += ask.Paid;
-            AddStat(owner, "goldSpent", -ask.Paid);
+            gold += ask.Paid;
             if (ask.From.GetValueOrDefault(owner.Id) is > 1e-6 and var own)
             {
                 PutInStorages(owner.Id, ask.Resource, own);
             }
         }
-        owner.Asks.RemoveAll(dropped.Contains);
+        owner.Gold += gold;
+        AddStat(owner, "goldSpent", -gold);
+        owner.Asks.RemoveAll(asks.Contains);
+        owner.Touch();
+        Changes.Companies.Add(owner.Id);
+        return gold;
+    }
+
+    /// <summary>
+    /// Wants left behind by a building that went or changed are given back (playtest: "Buy the rest" on them said "That has
+    /// what it needs."): a gone building's (not one waiting in a crate or a packed plot), a scaffold's materials on one
+    /// that isn't a scaffold any more (it was moved: it came up without them), the goods of a level it has already
+    /// </summary>
+    private void TidyWants(Company company)
+    {
+        var waiting = company.Crates.Concat(company.Packed?.Buildings ?? []).Select(t => t.OldId).ToHashSet();
+        foreach (var site in company.Asks.Where(t => t.Site != null).Select(t => t.Site!.Value).Distinct().ToList())
+        {
+            if (waiting.Contains(site))
+            {
+                continue;
+            }
+            var building = Building(site) is { } b && b.Owner == company.Id ? b : null;
+            var stale = company.Asks.Where(t => t.Site == site
+                && (building == null || (t.ToLevel == 0 ? !IsSite(building) : t.ToLevel <= building.Level))).ToList();
+            if (stale.Count == 0)
+            {
+                continue;
+            }
+            var gold = GiveBack(company, stale);
+            Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ConstructionFinished,
+                $"Your {(building != null ? Content.Building(building.Type).Name : "building")}'s wants had nothing left to do{(gold >= 1 ? $": +{gold:N0} g back" : "")}", building?.Id, Bell: false));
+        }
+    }
+
+    /// <summary>The wants of every company, tidied once after a load (wants left behind before the playtest's fix)</summary>
+    internal void TidyAllWants()
+    {
+        foreach (var company in _companies.Values.Where(t => t.Asks.Any(a => a.Site != null)).ToList())
+        {
+            TidyWants(company);
+        }
     }
 }

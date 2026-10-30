@@ -131,6 +131,9 @@ export function YardPanel() {
     return null;
   }
   const waiting = links?.links.filter((t) => t.state === "offered" && !t.youOffered).length ?? 0;
+  // Buy all the rest (playtest: "there should be a button to finish all at the top"): when more than one line can be bought
+  const buyable = (company.wants ?? []).filter((t) => t.orderCost !== null);
+  const waitingCost = buyable.length > 1 ? buyable.reduce((sum, t) => sum + (t.orderCost ?? 0), 0) : null;
   return (
     <aside className="panel yard-panel" aria-label="Yard">
       <div className="panel-header">
@@ -202,15 +205,26 @@ export function YardPanel() {
           )}
           {/* Your own wants (after run 3, steps 2 and 3): what each waits for, what is in and coming, and Give it up */}
           {company !== null && (company.wants ?? []).length > 0 && (
-            <section>
-              <h4>What you&apos;re waiting for</h4>
+            <section className="yard-waiting">
+              <div className="yard-waiting-head">
+                <h4>What you&apos;re waiting for</h4>
+                {waitingCost !== null && (
+                  <button
+                    className="small primary yard-waiting-all"
+                    onClick={() => void gameClient.orderAll()}
+                  >
+                    Buy all the rest · {formatAmount(waitingCost)} g
+                  </button>
+                )}
+              </div>
               <ul className="yard-trades">
                 {(company.wants ?? []).map((w) => (
                   <li key={`${w.target}-${w.resource}`}>
                     <span>
                       <ResourceIcon resource={w.resource} /> Your <strong>{w.name}</strong>
                       {w.tiles !== null && ` on ${w.tiles} tiles`} wants {formatAmount(w.amount)}{" "}
-                      {content.resourceName(w.resource).toLowerCase()} ·{" "}
+                      {content.resourceName(w.resource).toLowerCase()}
+                      {w.toLevel != null && ` for level ${w.toLevel}`} ·{" "}
                       <strong>{formatAmount(w.got)} in</strong>
                       {w.perMinute > 0.005 && (
                         <span className="muted"> · {formatAmount(w.perMinute)}/min coming</span>

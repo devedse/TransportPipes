@@ -284,4 +284,60 @@ public class WantFacts
         Assert.AreEqual(gold, ana.Gold, 1e-6, "with all the gold: the building's and the bricks'");
         Assert.IsEmpty(ana.Asks);
     }
+
+    [TestMethod]
+    public void AMovedScaffoldStillWaitsForItsMaterials()
+    {
+        // Playtest: moved, it came up built without them, and its wants stayed behind ("That has what it needs.")
+        var (game, ana, _) = Station();
+        Assert.IsTrue(game.World.SetWantsFromMarket(ana.Id, false).Success);
+        game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
+        var site = MarketHall(game, ana);
+        var to = game.Spot(ana, "marketHall", t => t != site.Position);
+
+        Assert.IsTrue(game.World.Move(ana.Id, site.Id, to).Success);
+        game.Pass(5);
+
+        Assert.IsTrue(GameWorld.IsSite(site), "still a scaffold");
+        Assert.AreEqual(500, game.World.WantsOf(site).Single().Left, 1e-6, "that wants its bricks");
+        Assert.IsTrue(game.World.OrderRest(ana.Id, site.Id).Success, "which can still be bought");
+    }
+
+    [TestMethod]
+    public void DemolishingAScaffoldGivesItUp()
+    {
+        var (game, ana, ben) = Station();
+        var gold = ana.Gold;
+        game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
+        var site = MarketHall(game, ana);
+        Store(game, ben, "bricks", 100);
+        game.World.SendToSite(ben.Id, site.Id);
+
+        Assert.IsTrue(game.World.Demolish(ana.Id, site.Id).Success);
+
+        Assert.IsNull(game.World.Building(site.Id));
+        Assert.AreEqual(gold, ana.Gold, 1e-6, "all its gold back, as Give it up does");
+        Assert.IsEmpty(ana.Asks, "no wants left behind");
+    }
+
+    [TestMethod]
+    public void WantsLeftBehindAreGivenBack()
+    {
+        // A scaffold moved before the fix: it stands built, its wants still there with what was paid for its goods
+        var (game, ana, ben) = Station();
+        game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
+        var site = MarketHall(game, ana);
+        Store(game, ben, "bricks", 100);
+        game.World.SendToSite(ben.Id, site.Id);
+        var paid = game.World.WantsOf(site).Single().Paid;
+        Assert.IsGreaterThan(0, paid);
+        site.ConstructionEndsAt = null;
+        var gold = ana.Gold;
+
+        game.World.TidyAllWants();
+
+        Assert.IsEmpty(ana.Asks);
+        Assert.AreEqual(gold + paid, ana.Gold, 1e-6, "what it paid for Ben's bricks comes back");
+        Assert.IsNotNull(game.World.Building(site.Id), "the building stays");
+    }
 }

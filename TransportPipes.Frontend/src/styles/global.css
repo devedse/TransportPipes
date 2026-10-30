@@ -1898,6 +1898,20 @@ select {
   max-width: 100%;
 }
 
+/* What you're waiting for: its heading with Buy all the rest beside it */
+.yard-waiting-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+  margin-bottom: 6px;
+}
+
+.yard-waiting-head h4 {
+  margin: 0;
+}
+
 .trade-lines {
   list-style: none;
   margin: 0;

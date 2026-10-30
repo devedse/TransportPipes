@@ -26,6 +26,7 @@ public sealed partial class GameWorld
         {
             _grantsChecked = true;
             TidyAllPipeWants();
+            TidyAllWants();
             foreach (var company in _companies.Values.ToList())
             {
                 GrantResearch(company);

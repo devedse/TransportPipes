@@ -110,6 +110,30 @@ public sealed partial class GameWorld
         return CommandResult.Done($"Bought: your {name} has its goods");
     }
 
+    /// <summary>What buying the rest of all your own wants costs now, as their lines add up (null: nothing left)</summary>
+    public double? OrderAllCost(Company payer) =>
+        OpenWants(payer).Select(t => (t.Target, t.Want.Resource)).Distinct().Sum(t => OrderCost(payer, t.Target, t.Resource) ?? 0) is > 0 and var cost ? cost : null;
+
+    /// <summary>
+    /// Buys the rest of all your own wants at once (playtest: "there should be a button to finish all at the top" of the
+    /// Yard's "What you're waiting for"): every building's and every pipe's, or none when the gold doesn't reach
+    /// </summary>
+    public CommandResult OrderAll(long payerId)
+    {
+        if (Company(payerId) is not { } payer || OrderAllCost(payer) is not { } cost)
+        {
+            return CommandResult.Fail("Nothing waits for goods.");
+        }
+        if (payer.Gold < cost)
+        {
+            return CommandResult.Fail($"All of it costs {cost:N0} gold.");
+        }
+        var targets = OpenWants(payer).Select(t => t.Target).Distinct().Where(t => OrderCost(payer, t) != null).ToList();
+        var names = targets.Select(t => WantByTarget(payer, t) is { } want ? WantName(want.Parts[0]) : null).ToList();
+        var bought = targets.Count(t => OrderRest(payerId, t).Success);
+        return CommandResult.Done(bought == 1 ? $"Bought: your {names[0]} has its goods" : $"Bought: all {bought} have their goods");
+    }
+
     private string WantName(CompanyAsk ask) =>
         ask.Site is { } id && Building(id) is { } b ? Content.Building(b.Type).Name : ask.PipeTiles != null ? Content.PipeTier(ask.PipeTier).Name : "want";
 }

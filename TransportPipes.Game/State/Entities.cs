@@ -430,6 +430,9 @@ public sealed class PackedBuilding
     /// <summary>What the copy cost (its levels cost from it), and its id before it was packed (its level goods follow it)</summary>
     public double Price { get; init; }
     public long OldId { get; init; }
+
+    /// <summary>A scaffold that still waited for its materials: it comes back as one</summary>
+    public bool Site { get; init; }
     public Dictionary<string, double> Contents { get; init; } = new();
     public HashSet<string> Imports { get; init; } = new();
     public HashSet<string> Filter { get; init; } = new();

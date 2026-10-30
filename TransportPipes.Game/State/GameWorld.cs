@@ -863,7 +863,12 @@ public sealed partial class GameWorld
             return CommandResult.Fail("Demolish the Deep Lift on the surface.");
         }
 
+        if (IsSite(building))
+        {
+            return CancelSite(companyId, buildingId);
+        }
         var refund = DemolishRefund(building);
+        DropWants(company, building.Id);
         RemoveBuilding(building);
         company.Gold += refund;
         // The advisor doesn't suggest it again for a week (F3): the minute of the world it went
@@ -952,7 +957,9 @@ public sealed partial class GameWorld
             }
             Changes.Tiles.Add(tile);
         }
-        if (definition.BuildSeconds > 0)
+        // A scaffold stays one: it still waits for its materials (playtest: moved, it came up without them, and its wants
+        // stayed behind)
+        if (definition.BuildSeconds > 0 && !IsSite(building))
         {
             building.ConstructionEndsAt = Now.AddSeconds(Math.Max(5, definition.BuildSeconds * 0.1));
         }

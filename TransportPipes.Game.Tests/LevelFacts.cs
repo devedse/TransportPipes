@@ -145,6 +145,50 @@ public class LevelFacts
     }
 
     [TestMethod]
+    public void BuyAllTheRestBuysEveryWantAtOnce()
+    {
+        // Playtest: "there should be a button to finish all at the top" of the Yard's "What you're waiting for"
+        var (game, company, moily, _) = MoilyAtTen();
+        var other = game.Build(company, "windMoily");
+        game.SetLevel(other, 10);
+        Assert.IsTrue(game.World.SetWantsFromMarket(company.Id, false).Success);
+        Assert.IsTrue(game.World.Upgrade(company.Id, moily.Id, 3).Success);
+        Assert.IsTrue(game.World.Upgrade(company.Id, other.Id, 2).Success);
+        var cost = game.World.OrderAllCost(company)!.Value;
+        Assert.AreEqual(game.World.OrderCost(company, moily.Id)!.Value + game.World.OrderCost(company, other.Id)!.Value, cost, 2.0, "what both cost");
+        var gold = company.Gold;
+        company.Gold = cost - 1;
+
+        Assert.IsFalse(game.World.OrderAll(company.Id).Success, "not when the gold doesn't reach");
+        Assert.AreEqual(10, moily.Level);
+        company.Gold = gold;
+        Assert.IsTrue(game.World.OrderAll(company.Id).Success);
+
+        Assert.AreEqual(13, moily.Level);
+        Assert.AreEqual(12, other.Level);
+        Assert.IsGreaterThan(gold - cost - 1e-6, company.Gold, "at most what it said");
+        Assert.IsNull(game.World.OrderAllCost(company), "nothing waits any more");
+    }
+
+    [TestMethod]
+    public void ABuildingThatGoesGivesBackItsLevelsGoods()
+    {
+        var (game, company, moily, _) = MoilyAtTen();
+        Assert.IsTrue(game.World.SetWantsFromMarket(company.Id, false).Success);
+        Assert.IsTrue(game.World.Upgrade(company.Id, moily.Id, 1).Success);
+        var goods = game.World.LevelGoods(moily, 11).Keys.First();
+        Assert.IsTrue(game.World.OrderRest(company.Id, moily.Id, goods).Success);
+        var paid = game.World.WantsOf(moily).Sum(t => t.Paid);
+        Assert.IsGreaterThan(0, paid);
+        var gold = company.Gold;
+
+        Assert.IsTrue(game.World.Demolish(company.Id, moily.Id).Success);
+
+        Assert.IsEmpty(company.Asks, "no wants left behind");
+        Assert.AreEqual(gold + paid + game.World.DemolishRefund(moily), company.Gold, 1, "the goods' gold back too");
+    }
+
+    [TestMethod]
     public void UndoTakesBackTheStepsWhoseGoodsAreStillComing()
     {
         var (game, company, moily, storage) = MoilyAtTen();

@@ -291,6 +291,8 @@ export class GameConnection {
   /** Orders the rest of a want, one's own or a neighbour's: 2 × base, after the friends' window, over 6 hours */
   orderRest = (target: number, resource: string | null = null) =>
     this.invoke<CommandResult>("OrderRest", target, resource);
+  /** Buys the rest of all your own wants at once */
+  orderAll = () => this.invoke<CommandResult>("OrderAll");
   /** Gives up a scaffold that still waits for its materials: its gold comes back */
   cancelSite = (site: number) => this.invoke<CommandResult>("CancelSite", site);
   /** Takes a building's last purchase back within the hour */
