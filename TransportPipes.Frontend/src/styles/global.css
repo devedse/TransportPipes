@@ -6378,6 +6378,29 @@ button.top-gold {
   color: var(--muted, #6b5a3e);
 }
 
+/* The Yard's "what happens when" (playtest): one line a moment, its mark in front */
+.yard-how-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.yard-how-list li {
+  display: grid;
+  grid-template-columns: 1.6em 1fr;
+  align-items: start;
+}
+
+.yard-how-list li.locked {
+  opacity: 0.6;
+}
+
+.yard-how-mark {
+  text-align: center;
+}
+
 .yard-fold > summary {
   cursor: pointer;
   padding: 6px 0;

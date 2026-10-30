@@ -50,6 +50,7 @@ and piped to the post (`kit(page, types, 2)` in Copper Pipe, its ingots stocked)
 | `prices.mjs` | Your prices in the trade settings: a cut counts at once, a rise waits an hour; the steppers step from where a price is going (the playtest's crew price stuck at 1.0×), say what it is until then and step back to what it inherits |
 | `lumber.mjs` | Lumber Camps next to a plot's forest: the client allows them and the server builds one (playtest: the client still asked for the old forest's marked trees) |
 | `buy-rest.mjs` | A level's goods bought one good at a time: each good's Buy the rest buys that good at its price, the level waits for the rest |
+| `yard-how.mjs` | The Yard panel's "How your Yard works: what happens when": open until you are piped to the gate, then folded, the pipe step ticked; Monument and workshops at their Company Level |
 | `juice.mjs` | A finished building, coin pops and the level-up |
 | `ui-check.mjs`, `title.mjs` | The panels, the title screen and the managers |
 | `mobile.mjs` | The phone layout (390×844) |

@@ -1596,7 +1596,8 @@ public static partial class GameViews
             world.TradesThisWeek(me).Take(8)
                 .Select(t => new WeekTradeDto(t.Partner.Id, world.NameFor(t.Partner, me), t.Resource, Math.Round(t.Given), Math.Round(t.Received)))
                 .ToList(),
-            YardIncomeLine(world, me, yours));
+            YardIncomeLine(world, me, yours),
+            world.Content.Monuments.Level);
     }
 
     /// <summary>

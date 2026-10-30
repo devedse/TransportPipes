@@ -1,7 +1,7 @@
 import { gameClient } from "../app/client";
 import { useNow } from "../app/useNow";
 import { formatAmount, possessive } from "../app/format";
-import type { ResourceRateDto } from "../api/contracts";
+import type { CompanyDto, ResourceRateDto, YardDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import { setState, useAppStore } from "../state/store";
 import { LinksTab } from "./LinksTab";
@@ -38,6 +38,79 @@ const ACTIVITY: Record<string, string> = {
 /** "1.15×" */
 function times(value: number): string {
   return `${value.toFixed(2).replace(/0$/, "")}×`;
+}
+
+/**
+ * What the Yard does, and when (playtest: "can we clearly explain if you click the yard what happens when?"): the
+ * pipe first, then every minute, a build, a Wonder switch, and what comes at which Company Level. Folded once you are
+ * piped (after run 4, Mia: "Yard panel is a lot of words").
+ */
+function YardHow({ yard, company }: { yard: YardDto; company: CompanyDto }) {
+  const crew = company.prices?.find((t) => t.key === "crew")?.value ?? 1.15;
+  const workshops = company.workshops;
+  const level = (at: number) => (company.level >= at ? "✓" : "🔒");
+  const rows: Array<{ mark: string; when: string; text: string }> = [
+    {
+      mark: yard.connected ? "✓" : "→",
+      when: "First",
+      text: "Lay a pipe from your network to your Yard gate (the yellow posts, G). Nothing goes through the Yard before.",
+    },
+    {
+      mark: "↻",
+      when: "Every minute, also while you're away",
+      text: `What your buildings don't use goes to a neighbour here whose buildings lack it, at your crew price (${times(crew)} the base price); what a neighbour has spare comes to your buildings that lack it, at their price. What nobody here needs goes on to your Trading Post, which sells it to the town's market (the hub).`,
+    },
+    {
+      mark: "🏗",
+      when: "When you build or level up",
+      text: `Its planks, bricks and other goods come from your Storages first, then from your own spare and your neighbours' through the Yard. ${
+        company.wantsFromMarket
+          ? "What nobody has, the market brings within about ten minutes at 2.5× its price."
+          : "The market brings nothing (your trade settings): Buy the rest brings it at 2.5× its price."
+      }`,
+    },
+    {
+      mark: "🏛",
+      when: "A give switch in Town & Wonder",
+      text: "From the Yard's next round, within a minute or two, your spare of that good goes through your gate to the town's Wonder: a gift, so it no longer sells.",
+    },
+    {
+      mark: level(yard.monumentLevel),
+      when: `From Company Level ${yard.monumentLevel}`,
+      text: "The Yard's Monument: everyone here pays gold into it, and every stage helps everyone here.",
+    },
+    ...(workshops === null
+      ? []
+      : [
+          {
+            mark: level(workshops.level),
+            when: `From Company Level ${workshops.level}`,
+            text: `Workshops: up to ${workshops.tiles} tiles at the Yard's ends for your own producers and Storages, joined to your gate without pipes, and the crew's Depot to keep goods for each other.`,
+          },
+        ]),
+    {
+      mark: "🔗",
+      when: "Any time",
+      text: "Links (the tab above): one good to a company in another Yard, by a pipe the game lays along the roads.",
+    },
+  ];
+  return (
+    <details className="yard-fold yard-how" open={!yard.connected}>
+      <summary className="small">How your Yard works: what happens when ▸</summary>
+      <ol className="yard-how-list small">
+        {rows.map((r) => (
+          <li key={r.when} className={r.mark === "🔒" ? "locked" : undefined}>
+            <span className="yard-how-mark" aria-hidden="true">
+              {r.mark}
+            </span>
+            <span>
+              <strong>{r.when}:</strong> {r.text}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
 }
 
 /**
@@ -110,10 +183,7 @@ export function YardPanel() {
               Plan the pipe to my Yard gate
             </button>
           )}
-          <p className="muted small">
-            Pipe a building to your Yard gate (G): what it has spare goes to whoever here lacks it, at your
-            crew price. You set your prices in the trade settings.
-          </p>
+          <YardHow yard={yard} company={company} />
           {yard.yours.length > 0 && (
             <section>
               <h4>Your trades</h4>

@@ -1645,6 +1645,8 @@ export interface YardDto {
   trades: WeekTradeDto[];
   /** What the Yard pays you of your income, and whom for it (null: nothing yet) */
   incomeLine: string | null;
+  /** The Company Level from which you pay into the Yard's Monuments */
+  monumentLevel: number;
 }
 
 // ---------------------------------------------------------------- Yards and plots (1.4 §6–7)
