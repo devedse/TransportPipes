@@ -1133,6 +1133,8 @@ export interface NetworkDetailsDto {
   bottlenecks: Array<{ a: number; b: number; capacity: number; used: number; path: number[] }>;
   /** The buildings whose goods can't leave (F2): the card names them first */
   stuck: Array<{ building: number; type: string; line: string }> | null;
+  /** Your pipe tiles that wait for a better pipe already (x, y pairs): Upgrade leaves them out */
+  waiting: number[] | null;
 }
 
 export interface ResourceRateDto {

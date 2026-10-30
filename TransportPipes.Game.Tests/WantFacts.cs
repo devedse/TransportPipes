@@ -141,6 +141,68 @@ public class WantFacts
     }
 
     [TestMethod]
+    public void UpgradeClickedAgainDoesNotAskTwice()
+    {
+        // Playtest: every click on the network card's Upgrade made another Copper Pipe want on the same 13 tiles, each paid
+        var (game, ana, _, pipe) = GreyPipe();
+        var gold = ana.Gold;
+        Assert.IsTrue(game.World.UpgradePipes(ana.Id, pipe, 2).Success);
+
+        var again = game.World.UpgradePipes(ana.Id, pipe, 2);
+
+        Assert.IsFalse(again.Success);
+        StringAssert.Contains(again.Error, "wait for their Copper Pipe already");
+        Assert.HasCount(1, ana.Asks.Where(t => t.PipeTiles != null).Select(t => t.WantId).Distinct());
+        Assert.AreEqual(gold - 10 * pipe.Count, ana.Gold, 1e-6, "paid once");
+        CollectionAssert.AreEquivalent(pipe, game.World.PipeTilesWaiting(ana, 2).ToList());
+    }
+
+    [TestMethod]
+    public void PipeWantsWithNothingLeftToDoAreGivenBack()
+    {
+        // Wants made twice before the fix: once one is laid, the other gives its gold back
+        var (game, ana, ben, pipe) = GreyPipe();
+        Assert.IsTrue(game.World.UpgradePipes(ana.Id, pipe, 2).Success);
+        var first = ana.Asks.Single(t => t.PipeTiles != null);
+        ana.Asks.Add(new CompanyAsk
+        {
+            Resource = first.Resource, Amount = first.Amount, PipeTiles = [.. first.PipeTiles!], PipeTier = 2, WantId = first.WantId + 1, Raised = game.Time,
+        });
+        ana.Gold -= 10 * pipe.Count;
+        var gold = ana.Gold;
+
+        Store(game, ben, "copperIngot", 100);
+        var benGold = ben.Gold;
+        var target = game.World.WantsNear(ben).First().Target;
+        Assert.IsTrue(game.World.SendToSite(ben.Id, target).Success);
+        var paid = ben.Gold - benGold;
+
+        Assert.IsTrue(pipe.All(t => game.World.Conductors.First(c => c.Pos == t).Tier == 2), "copper now");
+        Assert.IsEmpty(ana.Asks, "the other want had nothing left to do");
+        Assert.AreEqual(gold - paid + 10 * pipe.Count, ana.Gold, 1e-6, "its gold came back (Ben's ingots paid)");
+        var events = game.World.TakeChanges().Events;
+        Assert.IsTrue(events.Any(t => t.Company == ana.Id && t.Text.Contains("had nothing left to do")), string.Join(" | ", events.Select(t => t.Text)));
+    }
+
+    [TestMethod]
+    public void TwoWantsForTheSamePipesKeepTheOneThatGotFurthest()
+    {
+        var (game, ana, _, pipe) = GreyPipe();
+        Assert.IsTrue(game.World.UpgradePipes(ana.Id, pipe, 2).Success);
+        var first = ana.Asks.Single(t => t.PipeTiles != null);
+        ana.Asks.Add(new CompanyAsk
+        {
+            Resource = first.Resource, Amount = first.Amount, Got = 2, PipeTiles = [.. first.PipeTiles!], PipeTier = 2, WantId = first.WantId + 1, Raised = game.Time,
+        });
+        var gold = ana.Gold;
+
+        game.World.TidyAllPipeWants();
+
+        Assert.AreEqual(first.WantId + 1, ana.Asks.Single(t => t.PipeTiles != null).WantId, "the one with 2 ingots in stays");
+        Assert.AreEqual(gold + 10 * pipe.Count, ana.Gold, 1e-6, "the other's gold came back");
+    }
+
+    [TestMethod]
     public void AFullGreyPipeOffersCopper()
     {
         // A moily that makes more than its grey pipe carries: its fix is the Copper Pipe on that link

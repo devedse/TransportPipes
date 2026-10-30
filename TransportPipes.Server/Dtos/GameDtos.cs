@@ -526,7 +526,9 @@ public record NetworkDetailsDto(
     IReadOnlyList<NetworkOwnerDto> Owners,
     IReadOnlyList<NetworkResourceDto> Resources,
     IReadOnlyList<BottleneckDto> Bottlenecks,
-    IReadOnlyList<StuckBuildingDto>? Stuck = null);
+    IReadOnlyList<StuckBuildingDto>? Stuck = null,
+    /// <summary>The viewer's pipe tiles that wait for a better pipe already (x, y pairs): Upgrade leaves them out</summary>
+    IReadOnlyList<int>? Waiting = null);
 
 /// <summary>A building of the network whose goods can't leave (F2): the network card names it first</summary>
 public record StuckBuildingDto(long Building, string Type, string Line);

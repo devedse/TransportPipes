@@ -53,6 +53,7 @@ and piped to the post (`kit(page, types, 2)` in Copper Pipe, its ingots stocked)
 | `yard-how.mjs` | The Yard panel's "How your Yard works: what happens when": open until you are piped to the gate, then folded, the pipe step ticked; Monument and workshops at their Company Level |
 | `block.mjs` | Blocking a neighbour in the trade settings: the switch goes off at once and says when the block counts (an hour's notice); on again calls it off |
 | `move-key.mjs` | The Move key: E with one of your buildings selected picks it up, E again puts it back; nothing selected or someone else's: nothing |
+| `pipe-wants.mjs` | A better pipe asked for twice: the second ask is refused and says why, one want waits, paid once |
 | `juice.mjs` | A finished building, coin pops and the level-up |
 | `ui-check.mjs`, `title.mjs` | The panels, the title screen and the managers |
 | `mobile.mjs` | The phone layout (390×844) |

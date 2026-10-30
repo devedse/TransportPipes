@@ -63,6 +63,7 @@ public sealed partial class GameWorld
             }
         }
         owner.Asks.RemoveAll(t => t.PipeTiles != null && t.WantId == ask.WantId);
+        TidyPipeWants(owner);
         AddStat(owner, "pipeTiers", laid);
         var tier = Content.PipeTier(ask.PipeTier);
         var givers = parts.SelectMany(t => t.From.Where(f => f.Key != owner.Id && f.Key != HubSource && f.Value > 0.5).Select(f => (Who: f.Key, t.Resource, Units: f.Value))).ToList();
@@ -83,6 +84,51 @@ public sealed partial class GameWorld
                 ? (site, Building(site) is { } b ? Content.Building(b.Type).Name : "building", t)
                 : (-t.WantId, Content.PipeTier(t.PipeTier).Name, t))
             .ToList();
+
+    /// <summary>A company's pipe tiles that wait for a pipe of a tier or better (an open pipe want's)</summary>
+    public HashSet<TilePos> PipeTilesWaiting(Company company, int tier = 0) =>
+        company.Asks.Where(t => t.PipeTiles != null && t.PipeTier >= tier).SelectMany(t => t.PipeTiles!).ToHashSet();
+
+    /// <summary>
+    /// Pipe wants with nothing left to do are given back (playtest: Upgrade clicked five times made five Copper Pipe wants
+    /// on the same 13 tiles; once one was laid the others still wanted their ingots): one whose tiles are all that pipe or
+    /// better already, and one whose tiles another wants for the same pipe or better (the one that got furthest stays).
+    /// Its gold and what was paid for its goods come back, its owner's own goods go back into the Storages.
+    /// </summary>
+    private void TidyPipeWants(Company company)
+    {
+        var wants = company.Asks.Where(t => t.PipeTiles != null).GroupBy(t => t.WantId)
+            .Select(g => (Id: g.Key, Tier: g.First().PipeTier, Tiles: g.First().PipeTiles!, Done: g.Sum(t => t.Got) / Math.Max(1e-9, g.Sum(t => t.Amount))))
+            .OrderByDescending(t => t.Tier).ThenByDescending(t => t.Done).ThenBy(t => t.Id)
+            .ToList();
+        var kept = new HashSet<TilePos>();
+        foreach (var want in wants)
+        {
+            var open = want.Tiles
+                .Where(p => _conductors.TryGetValue(p, out var conductor) && conductor.Kind == ConductorKind.Pipe && conductor.Owner == company.Id && conductor.Tier < want.Tier)
+                .ToList();
+            if (open.Count > 0 && !open.All(kept.Contains))
+            {
+                kept.UnionWith(open);
+                continue;
+            }
+            var gold = company.Gold;
+            if (CancelPipeWant(company.Id, want.Id).Success)
+            {
+                Changes.Events.Add(new WorldEvent(company.Id, WorldEventKind.ConstructionFinished,
+                    $"Your {Content.PipeTier(want.Tier).Name} on {want.Tiles.Count} tiles had nothing left to do ({(open.Count == 0 ? "those pipes are better already" : "another wants the same pipes")}): +{company.Gold - gold:N0} g back", Bell: false));
+            }
+        }
+    }
+
+    /// <summary>The pipe wants of every company, tidied once after a load (wants made twice before the playtest's fix)</summary>
+    internal void TidyAllPipeWants()
+    {
+        foreach (var company in _companies.Values.Where(t => t.Asks.Any(a => a.PipeTiles != null)).ToList())
+        {
+            TidyPipeWants(company);
+        }
+    }
 
     /// <summary>A pipe want given up: the pipes stay as they were, and the gold (the pipes' and what was paid for goods) comes back</summary>
     public CommandResult CancelPipeWant(long companyId, long wantId)

@@ -1288,6 +1288,14 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail($"Those pipes are already {pipe.Name}s or better.");
         }
+        // Tiles that wait for this pipe already (playtest: every click on Upgrade asked again, five Copper Pipe wants on
+        // the same 13 tiles, each paid)
+        var waiting = PipeTilesWaiting(company, tier);
+        upgrade.RemoveAll(t => waiting.Contains(t.Pos));
+        if (upgrade.Count == 0)
+        {
+            return CommandResult.Fail($"Those pipes wait for their {pipe.Name} already: what it wants is on its way (Yard › What you're waiting for).");
+        }
         var materials = pipe.Materials.ToDictionary(t => t.Key, t => t.Value * upgrade.Count);
         // Short of its materials (a Copper Pipe's ingots), not its gold: the pipe wants them (after run 3, step 3: Cleo's
         // Copper Pipe click did nothing, its 28 ingots had to come from her own Storage)
@@ -1308,6 +1316,7 @@ public sealed partial class GameWorld
             Changes.Tiles.Add(conductor.Pos);
         }
         AddStat(company, "pipeTiers", upgrade.Count);
+        TidyPipeWants(company);
         return CommandResult.Ok;
     }
 

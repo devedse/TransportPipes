@@ -1213,7 +1213,10 @@ public static partial class GameViews
             network.Buildings.Select(world.Building).OfType<Building>()
                 .Where(t => (viewer == null || t.Owner == viewer) && world.IdleReasonOf(t).Cause == IdleCause.Stuck)
                 .Select(t => new StuckBuildingDto(t.Id, t.Type, $"{world.Content.Building(t.Type).Name} is stuck: {world.GoodsWord(world.IdleReasonOf(t).Resource!)} can't leave"))
-                .ToList());
+                .ToList(),
+            viewer is { } waiter && world.Company(waiter) is { } company
+                ? world.PipeTilesWaiting(company).Where(network.Conductors.Contains).SelectMany(p => new[] { p.X, p.Y }).ToList()
+                : null);
     }
 
     /// <summary>The companies of a district as one of them sees them: surplus, needs, trade with you</summary>
