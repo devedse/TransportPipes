@@ -37,13 +37,16 @@ public sealed class GameServer : WebApplicationFactory<Program>
 
     /// <summary>
     /// A minute after the next quarter hour: hub markets update every 15 minutes, so tests that check exact earnings
-    /// over a few minutes don't depend on the time they run
+    /// over a few minutes don't depend on the time they run. Late in the day, a minute after the next midnight instead:
+    /// the hub's daily orders change at midnight (UTC), and a test that lets an hour pass then lost the day's orders
+    /// (CI at 22:46: the restart test counted their premium as income)
     /// </summary>
     public static DateTimeOffset StartTime()
     {
         var now = DateTimeOffset.UtcNow;
         var quarter = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute / 15 * 15, 0, TimeSpan.Zero);
-        return quarter.AddMinutes(16);
+        var start = quarter.AddMinutes(16);
+        return start.Hour >= 21 ? new DateTimeOffset(start.Date.AddDays(1), TimeSpan.Zero).AddMinutes(1) : start;
     }
 
     private static JsonSerializerOptions CreateJson()
