@@ -81,6 +81,7 @@ python3 make-prompts.py <batch> buildings|terrain|props <ids...>   # writes prom
 node process.mjs buildings|terrain|props <source dir>              # → TransportPipes.Frontend/public/art
 node pipes.mjs [shape]                                             # the pipe atlases (a shape: a quick look in scratch/)
 node sheet.mjs <out.png> 360 <images...>                           # a contact sheet to review a batch
+node logo.mjs                                                      # the logo (logo/), favicon.ico, apple-touch-icon.png
 ```
 
 Every run stamps a content hash of each sprite into the manifest (`node process.mjs hashes` does only that): the game
@@ -91,3 +92,11 @@ meanwhile), and once the map is up the rest goes quietly into the browser's cach
 The generated originals live outside the repository (`../transportpipes-art`, 1–4 MB each); only the processed WebP
 sprites and `manifest.json` are committed. Every batch is reviewed before it goes in: angle and plate, style next to
 the other art, readability at game size; anything off is generated again with a better prompt.
+
+## Logo
+
+The logo is not in the game's painted style but in the MS Paint style of the owner's other projects: flat fills, thick
+black outlines, aliased stair-stepped edges, a plain bold dark red title. `art/logo.mjs` draws it (a factory, a pipe
+with a window of goods, goods flying out into a gold coin) and writes `art/logo/`. The favicon (16, 32, 48 px in
+`favicon.ico`) is a bolder mark with fewer parts: the factory, the pipe bend and the coin, painted at 4x and reduced
+per block so its outlines stay whole. The home screen icon (`apple-touch-icon.png`, 180 px) is the full drawing on white.
