@@ -1048,7 +1048,7 @@ public sealed partial class GameWorld
         }
         // What the company sells to the hub, per network: inputs a factory could turn into something worth more
         var spare = networks.ToDictionary(t => t, t => t.Solution.Flows
-            .Where(f => f.Kind == FlowKind.Sale && _buildings.TryGetValue(f.From, out var b) && b.Owner == company.Id)
+            .Where(f => f.Kind == FlowKind.Sale && _buildings.TryGetValue(f.From, out var b) && b.Owner == company.Id && Content.Building(b.Type).Kind != BuildingKind.Storage)
             .GroupBy(f => f.Resource).ToDictionary(g => g.Key, g => g.Sum(f => f.Sent)));
         var made = networks.ToDictionary(t => t, t => t.Solution.Flows
             .Where(f => _buildings.TryGetValue(f.From, out var b) && b.Owner == company.Id && Content.Building(b.Type).Kind == BuildingKind.Producer)
@@ -1187,7 +1187,7 @@ public sealed partial class GameWorld
         var spare = new Dictionary<string, double>();
         foreach (var network in _networks.Values.Where(t => t.Owner == company.Id))
         {
-            foreach (var flow in network.Solution.Flows.Where(t => t.Kind == FlowKind.Sale))
+            foreach (var flow in network.Solution.Flows.Where(t => t.Kind == FlowKind.Sale && Content.Building(_buildings[t.From].Type).Kind != BuildingKind.Storage))
             {
                 spare[flow.Resource] = spare.GetValueOrDefault(flow.Resource) + flow.Sent;
             }

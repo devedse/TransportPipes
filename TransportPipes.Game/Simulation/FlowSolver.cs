@@ -359,6 +359,14 @@ public sealed class FlowSolver
 
         var offerLeft = new Dictionary<(long, string), double>(offers);
         var demandLeft = new Dictionary<(long, string), double>(demands);
+        // What storages hold above what they keep goes on to be sold, like a building's surplus
+        foreach (var storage in _nodes.Values.Where(t => t.Kind == FlowNodeKind.Storage))
+        {
+            foreach (var (resource, rate) in storage.StorageExcess)
+            {
+                offerLeft[(storage.Id, resource)] = rate;
+            }
+        }
 
         foreach (var resource in _resources)
         {
@@ -617,11 +625,11 @@ public sealed class FlowSolver
                 foreach (var other in _neighbours[post.Id].Select(t => t.Other).Distinct())
                 {
                     var node = _nodes[other];
-                    if (node.Owner != post.Owner || node.Kind != FlowNodeKind.Building)
+                    if (node.Owner != post.Owner || node.Kind is not (FlowNodeKind.Building or FlowNodeKind.Storage))
                     {
                         continue;
                     }
-                    foreach (var resource in node.Out.Keys)
+                    foreach (var resource in node.Kind == FlowNodeKind.Storage ? node.StorageExcess.Keys : node.Out.Keys)
                     {
                         var left = offerLeft[(other, resource)];
                         var link = Neighbours(post.Id, resource).FirstOrDefault(t => t.Other == other).Link;
@@ -708,6 +716,10 @@ public sealed class FlowSolver
                     break;
                 case FlowKind.Sale:
                     AddGold(from.Owner, flow.Delivered * flow.PricePerUnit);
+                    if (from.Kind == FlowNodeKind.Storage)
+                    {
+                        AddStorage(flow.From, flow.Resource, -flow.Sent);
+                    }
                     break;
                 case FlowKind.Import:
                     AddGold(to.Owner, -flow.Sent * flow.PricePerUnit);

@@ -41,6 +41,12 @@ public sealed class FlowNode
     /// <summary>Storage: whether it takes more of a resource</summary>
     public bool StorageTakes(string resource) => StorageCanAccept && (StorageWants == null || StorageWants.Contains(resource));
 
+    /// <summary>
+    /// Storage: per minute, what it holds above what it keeps and lets its trading posts sell (playtest: its line lowered,
+    /// the old energy filled it, and nothing more fitted)
+    /// </summary>
+    public IReadOnlyDictionary<string, double> StorageExcess { get; init; } = new Dictionary<string, double>();
+
     /// <summary>Trading post: extra on the hub buy price (0.05 = 5%)</summary>
     public double PriceBonus { get; init; }
 
@@ -58,6 +64,7 @@ public sealed class FlowNode
         StorageCanAccept = StorageCanAccept,
         StorageContents = StorageContents,
         StorageWants = StorageWants,
+        StorageExcess = StorageExcess,
         PriceBonus = PriceBonus,
         Imports = Imports,
     };

@@ -496,7 +496,8 @@ public sealed partial class GameWorld
             {
                 continue;
             }
-            if (flow.Kind == FlowKind.Sale)
+            // A Storage selling what it held above its line is no spare it makes
+            if (flow.Kind == FlowKind.Sale && !(nodes.TryGetValue(flow.From, out var seller) && seller.Kind == FlowNodeKind.Storage))
             {
                 Add(member.Spare, flow.Resource, flow.Sent * toGate);
                 Add(member.HubSpare, flow.Resource, flow.Sent * toGate);

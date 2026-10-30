@@ -683,7 +683,8 @@ export function BuildingPanel() {
           {details.keep !== null &&
             Object.entries(details.contents).some(([r, a]) => a > (details.keep!.keeps[r] ?? 0) + 1) && (
               <p className="muted small">
-                It holds more than it keeps (the line) from before: new surplus goes on to be sold.
+                It holds more than it keeps (the line): what&apos;s above it goes on to your Trading Post and
+                is sold, as fast as its pipe there carries it (about a tenth of it a minute at most).
               </p>
             )}
           {definition.kind === "storage" && (

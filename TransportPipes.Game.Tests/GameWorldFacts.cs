@@ -206,6 +206,52 @@ public class GameWorldFacts
     }
 
     [TestMethod]
+    public void WhatAStorageHoldsAboveItsLineIsSoldDownToTheLine()
+    {
+        // Playtest: its line lowered to 805 each, the 3,891 energy from before stayed, and nothing more fitted
+        var game = new TestGame();
+        var company = game.NewCompany();
+        var storage = game.Build(company, "storage");
+        var post = game.TradingPost(company);
+        game.Connect(company, storage, post);
+        storage.Setting = 0.1;
+        var keep = game.World.StorageKeep(storage, game.World.Content.Building("storage"), "energy");
+        storage.Contents["energy"] = keep + 2000;
+        game.World.MarkNeedsSolve(storage.Id);
+        var gold = company.Gold;
+
+        game.Pass(1);
+        var flow = game.World.NetworkOf(storage.Id)!.Solution.Flows.Single();
+        Assert.AreEqual(FlowKind.Sale, flow.Kind, "what's above the line goes on to be sold");
+        Assert.AreEqual(storage.Id, flow.From);
+        game.Pass(20);
+
+        Assert.AreEqual(keep, storage.Contents["energy"], 1e-3, "down to the line, no further");
+        Assert.AreEqual(2000 * game.World.BasePrice("energy"), company.Gold - gold, 2000 * game.World.BasePrice("energy") * 0.3, "sold at the market's price");
+        Assert.IsEmpty(game.World.NetworkOf(storage.Id)!.Solution.Flows, "then it keeps the rest");
+    }
+
+    [TestMethod]
+    public void AStorageTakenBelowItsLineWhileItSellsStopsSelling()
+    {
+        var game = new TestGame();
+        var company = game.NewCompany();
+        var storage = game.Build(company, "storage");
+        game.Connect(company, storage, game.TradingPost(company));
+        storage.Setting = 0.1;
+        var keep = game.World.StorageKeep(storage, game.World.Content.Building("storage"), "energy");
+        storage.Contents["energy"] = keep + 2000;
+        game.World.MarkNeedsSolve(storage.Id);
+        game.Pass(1);
+
+        // A want or an order took from it meanwhile
+        storage.Contents["energy"] = keep - 100;
+        game.Pass(5);
+
+        Assert.AreEqual(keep - 100, storage.Contents["energy"], 1, "it sells no further");
+    }
+
+    [TestMethod]
     public void TheChangesOfANewPipeCarryTheIdOfTheNetworkItRebuilt()
     {
         var game = new TestGame();

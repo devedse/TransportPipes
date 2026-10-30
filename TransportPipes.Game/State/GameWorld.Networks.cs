@@ -117,7 +117,7 @@ public sealed partial class GameWorld
     }
 
     /// <summary>Only the flows changed (prices, storage full or empty, construction finished)</summary>
-    private void MarkNeedsSolve(long buildingId)
+    internal void MarkNeedsSolve(long buildingId)
     {
         if (_networkOfBuilding.TryGetValue(buildingId, out var id))
         {
@@ -745,6 +745,20 @@ public sealed partial class GameWorld
         return Company(storage.Owner) is { } owner ? Math.Max(keep, StorageNeed(owner, resource)) : keep;
     }
 
+    /// <summary>What a storage holds above what it keeps goes on to be sold within about this many minutes at the quickest (its pipe to the trading post may carry less)</summary>
+    public const double StorageDrainMinutes = 10;
+
+    /// <summary>
+    /// Per minute, what a storage lets its trading posts sell of what it holds above what it keeps (playtest: its line
+    /// lowered to 805 each, the 3,891 energy from before stayed and nothing more fitted): a tenth of it a minute (as far
+    /// as its pipe to the trading post carries it), at least a unit a minute so the last of it goes too; it stops at the line
+    /// </summary>
+    private Dictionary<string, double> StorageExcess(Building storage, BuildingDefinition definition) =>
+        storage.Contents
+            .Select(t => (Resource: t.Key, Above: t.Value - StorageKeep(storage, definition, t.Key)))
+            .Where(t => t.Above > 0.5)
+            .ToDictionary(t => t.Resource, t => Math.Max(1, t.Above / StorageDrainMinutes));
+
     /// <summary>How many tiles of the best pipe a company can lay its storages keep the materials for</summary>
     public const int PipeMaterialReserve = 100;
 
@@ -827,6 +841,7 @@ public sealed partial class GameWorld
                     StorageWants = Content.Resources.Keys
                         .Where(t => (building.Contents.TryGetValue(t, out var have) ? have : 0) < StorageKeep(building, definition, t) - StorageEpsilon)
                         .ToHashSet(),
+                    StorageExcess = StorageExcess(building, definition),
                 };
             case BuildingKind.TradingPost:
                 // No limit (1.4 §8): it sells everything that reaches it; its level raises the Hub Orders instead

@@ -315,6 +315,17 @@ public sealed partial class GameWorld
                 if (change < -1e-9)
                 {
                     time = Math.Min(time, amount / -change);
+                    // What it held above what it keeps is sold down to the line, no further; at the line already (a want or
+                    // an order took from it meanwhile), it stops selling now
+                    var above = amount - StorageKeep(storage, Content.Building(storage.Type), resource);
+                    if (above > StorageEpsilon)
+                    {
+                        time = Math.Min(time, above / -change);
+                    }
+                    else if (solution.Flows.Any(t => t.From == storageId && t.Resource == resource && t.Kind == FlowKind.Sale))
+                    {
+                        return 0;
+                    }
                 }
                 else if (change > 1e-9 && StorageKeep(storage, Content.Building(storage.Type), resource) - amount is > StorageEpsilon and var toKeep)
                 {
