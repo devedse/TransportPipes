@@ -1,5 +1,5 @@
 // Spending is safe (after run 3, the design team's step 1): a building's panel says what the next level and Max will do
-// to your income before the click, with the price as time of income; after buying, Undo gives the gold back for an hour.
+// to your income before the click (the price in gold only: the owner, 2026-10-30); after buying, Undo gives the gold back for an hour.
 //   node spending.mjs shots/spending
 import { start, newPlayer, kit } from "./lib.mjs";
 

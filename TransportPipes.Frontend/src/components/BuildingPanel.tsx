@@ -323,15 +323,6 @@ function LevelWait({
   );
 }
 
-/** Minutes of income as a short time: "27 min", "3 h", "2 days" */
-function formatTimeOfIncome(minutes: number): string {
-  return minutes < 90
-    ? `${Math.max(1, Math.round(minutes))} min`
-    : minutes < 48 * 60
-      ? `${Math.round(minutes / 60)} h`
-      : `${Math.round(minutes / 1440)} days`;
-}
-
 export function BuildingPanel() {
   const details = useAppStore((state) => state.buildingDetails);
   const content = useAppStore((state) => state.content);
@@ -352,10 +343,7 @@ export function BuildingPanel() {
   const mine = company !== null && building.owner === company.id;
   const gatePipe = mine ? gatePipeFix(details.trade) : null;
   const gold = currentGold({ company, companyAt });
-  // A price also as time: " (27 min of income)", from about a minute of income up (after run 3, step 1)
   const income = company?.goldPerMinute ?? 0;
-  const asTime = (cost: number | null) =>
-    cost === null || income <= 0 || cost < income ? "" : ` (${formatTimeOfIncome(cost / income)})`;
   const underConstruction = building.constructionEndsAt !== null;
   const secondsLeft = underConstruction
     ? (new Date(building.constructionEndsAt!).getTime() - (now + serverOffset)) / 1000
@@ -486,13 +474,13 @@ export function BuildingPanel() {
               </span>
             )}
           </h4>
-          <div className="button-row" title="The time in brackets is how long your income takes to pay it">
+          <div className="button-row">
             <button
               className="primary"
               disabled={gold < details.upgradeCost}
               onClick={() => void gameClient.upgrade(building.id, 1)}
             >
-              Level {bought + 1} · {formatAmount(details.upgradeCost)} g{asTime(details.upgradeCost)}
+              Level {bought + 1} · {formatAmount(details.upgradeCost)} g
             </button>
             {details.upgradeCost10 !== null && (
               <button
@@ -505,7 +493,6 @@ export function BuildingPanel() {
             {details.maxAffordableLevels > 1 && details.upgradeCostMax !== null && (
               <button onClick={() => void gameClient.upgrade(building.id, details.maxAffordableLevels)}>
                 Max +{details.maxAffordableLevels} · {formatAmount(details.upgradeCostMax)} g
-                {asTime(details.upgradeCostMax)}
               </button>
             )}
           </div>
