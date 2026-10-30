@@ -1,5 +1,5 @@
 // Spending is safe (after run 3, the design team's step 1): a building's panel says what the next level and Max will do
-// to your income before the click (the price in gold only: the owner, 2026-10-30); after buying, Undo gives the gold back for an hour.
+// to your income before the click (the price in gold only: the owner, 2026-10-30); no Undo after buying (the owner, 2026-10-31).
 //   node spending.mjs shots/spending
 import { start, newPlayer, kit } from "./lib.mjs";
 
@@ -35,26 +35,11 @@ console.log("before:", JSON.stringify(before));
 await shot("1-preview");
 
 await page.click(".building-panel .upgrade button.primary");
-await page.waitForSelector(".building-panel .undo-line button", { timeout: 15000 });
-await page.waitForTimeout(1000);
-const undo = await page.evaluate(() => document.querySelector(".building-panel .undo-line button")?.textContent ?? null);
-console.log("undo:", undo);
-await shot("2-bought");
-await page.click(".building-panel .undo-line button");
 await page.waitForTimeout(2500);
-// Undo takes back the building's purchase of the hour: the levels, or (built within the hour, as the kit's are) the
-// building with its levels, all of the price back
-const after = await page.evaluate((id) => ({
-  exists: tp.gameClient.world.buildings.has(id),
-  level: tp.appStore.getState().buildingDetails?.building.level ?? null,
-  undo: document.querySelector(".building-panel .undo-line") !== null,
-  gold: tp.appStore.getState().company.gold,
-}), id);
-console.log("after undo:", JSON.stringify(after));
-await shot("3-undone");
-
-const undone = after.exists ? after.level === before.level && !after.undo : after.gold >= before.gold - 1;
-const pass = /Level \d+: [+−]/.test(before.preview ?? "") && /^Undo · .* g back$/.test(undo ?? "") && undone;
+// No Undo (the owner, 2026-10-31: "let's remove it for all for now")
+const undo = await page.evaluate(() => document.querySelector(".building-panel .undo-line") !== null);
+await shot("2-bought");
+const pass = /Level \d+: [+−]/.test(before.preview ?? "") && !undo;
 console.log(pass ? "PASS" : "FAIL", "errors:", errors.length ? errors.join(" | ") : "none", "building", id);
 await browser.close();
 process.exit(pass ? 0 : 1);

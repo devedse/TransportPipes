@@ -141,7 +141,7 @@ public sealed partial class GameWorld
         company.Touch();
         Changes.Companies.Add(company.Id);
         var what = string.Join(" and ", new[] { land > 0 ? "a new parcel" : null, done.Count > 0 ? $"{done.Count} {(done.Count == 1 ? "building" : "buildings")}" : null }.OfType<string>());
-        return CommandResult.Done($"Grown: {what} for {Gold(gold - company.Gold)}, about +{Gold(plan.Gain)}/min" + (done.Count > 0 ? " · Undo for an hour takes the levels back" : ""));
+        return CommandResult.Done($"Grown: {what} for {Gold(gold - company.Gold)}, about +{Gold(plan.Gain)}/min");
     }
 
     /// <summary>The last "Grow everything" within the hour: its levels back, as each building's Undo gives them</summary>

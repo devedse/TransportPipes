@@ -1,13 +1,12 @@
 import { useEffect } from "react";
 import { gameClient } from "../app/client";
-import { formatAmount, formatDuration } from "../app/format";
-import { useNow } from "../app/useNow";
+import { formatAmount } from "../app/format";
 import { setState, useAppStore } from "../state/store";
 
 /**
  * What your gold can do (after run 4: the players spent 0.2% of what they earned, and five offers of gold in the group
  * chat had no door): at most three lines, shared first: the shared goal, a want gold can fill, and "Grow everything that
- * pays" with one preview, one tap and an hour's Undo
+ * pays" with one preview and one tap
  */
 export function GoldPanel({ days, onClose }: { days: number; onClose: () => void }) {
   const uses = useAppStore((s) => s.goldUses);
@@ -16,8 +15,6 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
     void gameClient.loadGoldUses();
     return () => setState({ goldUses: null });
   }, []);
-  const now = useNow(30000) + useAppStore((s) => s.serverOffsetMs);
-  const undoLeft = uses?.grow?.undoUntil != null ? (new Date(uses.grow.undoUntil).getTime() - now) / 1000 : 0;
   const empty =
     uses !== null &&
     uses.shared === null &&
@@ -114,16 +111,6 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
       {uses?.grow?.saving != null && (
         // Land first, as the model plays (1.4 §17): Grow keeps the gold while the next parcel is a few hours away
         <p className="gold-use grow small">💡 {uses.grow.saving}</p>
-      )}
-      {undoLeft > 0 && (
-        <p className="small">
-          <button className="small" onClick={() => void gameClient.undoGrowth()}>
-            Undo the last Grow
-          </button>{" "}
-          <span className="muted">
-            for {formatDuration(undoLeft)} more: the levels back, less what they earned since
-          </span>
-        </p>
       )}
       {empty && (
         <p className="small">

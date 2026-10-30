@@ -539,14 +539,6 @@ export function BuildingPanel() {
           )}
         </section>
       )}
-      {mine && details.undoRefund !== null && details.site === null && (
-        <p className="small undo-line">
-          <button className="small" onClick={() => void gameClient.undo(building.id)}>
-            Undo · {formatAmount(details.undoRefund)} g back
-          </button>{" "}
-          <span className="muted">for an hour after you buy: the price less what it earned since</span>
-        </p>
-      )}
 
       {details.issues.length > 0 && (
         <ul className="issues">

@@ -1,6 +1,6 @@
 // Your gold can (after run 4: the players spent 0.2% of what they earned and banked 24–29 days of income): the top bar's
 // gold reads "· N days ▸"; tapping it lists, shared first, the town's Era Wonder's stage to buy and give, and "Grow
-// everything that pays" with its parts; Grow buys them in one tap and says so; Undo is there for an hour. (1.4: a plot
+// everything that pays" with its parts; Grow buys them in one tap and says so (no Undo: the owner, 2026-10-31). (1.4: a plot
 // starts empty, so two Wind Moilys on the trading post earn first.)
 //   node gold.mjs shots/gold
 import { start, newPlayer } from "./lib.mjs";
@@ -70,7 +70,7 @@ const after = await page.evaluate(() => ({
 // (not the gold: achievements may pay out at the same moment)
 expect("one tap grew them and said so", /Grown: .+ for [\d.,kM]+ g/.test(after.toast), after.toast);
 const undo = await page.locator(".gold-uses button", { hasText: "Undo the last Grow" }).count();
-expect("Undo is there for an hour", undo > 0);
+expect("no Undo (the owner: \"let's remove it for all for now\")", undo === 0);
 await shot("2-grown");
 
 console.log(results.every(Boolean) ? "PASS" : "FAIL", "errors:", errors.length ? errors.join(" | ") : "none");
