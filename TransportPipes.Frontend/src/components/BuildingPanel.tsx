@@ -461,11 +461,183 @@ export function BuildingPanel() {
           )}
         </p>
       )}
+      {/* What it does now, at the top for every building (playtest: "those kind of stats should be at the top") */}
+      {details.inputs.length > 0 && (
+        <section>
+          <h4>Needs</h4>
+          {details.inputs.map((input) => (
+            <Meter
+              key={input.resource}
+              label={content.resourceName(input.resource)}
+              color={content.resourceColor(input.resource)}
+              amount={input.amount}
+              max={input.max}
+            />
+          ))}
+        </section>
+      )}
+      {details.outputs.length > 0 && (
+        <section>
+          <h4>Makes</h4>
+          {details.outputs.map((output) => (
+            <Meter
+              key={output.resource}
+              label={content.resourceName(output.resource)}
+              color={content.resourceColor(output.resource)}
+              amount={output.amount}
+              max={output.max}
+            />
+          ))}
+        </section>
+      )}
+      {definition.kind === "lab" && mine && company !== null && (
+        <button className="primary wide" onClick={() => void gameClient.openResearch()}>
+          {researchName(company, content) !== null
+            ? `Researching ${researchName(company, content) ?? ""} · open research`
+            : "🔬 Pick a research"}
+        </button>
+      )}
+      {details.contents !== null && details.capacity !== null && (
+        <section>
+          <h4>
+            Stored · {formatAmount(Object.values(details.contents).reduce((a, b) => a + b, 0))} /{" "}
+            {formatAmount(details.capacity)}
+          </h4>
+          {Object.keys(details.contents).length === 0 && (
+            <p className="muted small">Empty. Surplus of your buildings on the same pipe goes in here.</p>
+          )}
+          {Object.entries(details.contents).map(([resource, amount]) => (
+            <Meter
+              key={resource}
+              label={content.resourceName(resource)}
+              color={content.resourceColor(resource)}
+              amount={amount}
+              max={details.capacity!}
+              unit=""
+              mark={details.keep?.keeps[resource]}
+              markTitle={`It keeps ${formatAmount(details.keep?.keeps[resource] ?? 0)}`}
+            />
+          ))}
+          {details.keep !== null &&
+            Object.entries(details.contents).some(([r, a]) => a > (details.keep!.keeps[r] ?? 0) + 1) && (
+              <p className="muted small">
+                It holds more than it keeps (the line): what&apos;s above it goes on to your Trading Post and
+                is sold, as fast as its pipe there carries it (about a tenth of it a minute at most).
+              </p>
+            )}
+          {definition.kind === "storage" && (
+            <>
+              <p className="muted small">
+                It keeps what your daily orders and your next buildings need; the rest goes on to be sold.
+                {mine && " Keep more of each resource:"}
+              </p>
+              {mine && (
+                <div className="chips">
+                  {(
+                    [
+                      [0, "What's needed"],
+                      [0.1, `${formatAmount(details.capacity * 0.1)} each`],
+                      [0.5, `${formatAmount(details.capacity * 0.5)} each`],
+                      [1, "Everything"],
+                    ] as const
+                  ).map(([share, label]) => (
+                    <button
+                      key={share}
+                      className={details.setting === share ? "chip active" : "chip"}
+                      onClick={() => void gameClient.setBuildingSetting(building.id, share)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </section>
+      )}
+
+      {details.sales != null && (
+        // What it sells against your Hub Orders (playtest: "wouldn't it make sense to show in a bar how much the trading
+        // building is being used?"): full price up to the line, less for each unit beyond it
+        <section className="post-sales">
+          <h4>Sells to the hub · {formatAmount(details.sales.reduce((sum, t) => sum + t.gold, 0))} g/min</h4>
+          {details.sales.length === 0 ? (
+            <p className="muted small">
+              Nothing yet: pipe your buildings to it, and what nobody uses is sold here.
+            </p>
+          ) : (
+            <>
+              {details.sales.map((sale) => (
+                <Meter
+                  key={sale.resource}
+                  label={`${content.resourceName(sale.resource)} · ${formatAmount(sale.gold)} g/min`}
+                  color={sale.perMinute > sale.hubOrder ? "#e07a3f" : content.resourceColor(sale.resource)}
+                  amount={sale.perMinute}
+                  max={Math.max(sale.perMinute, sale.hubOrder)}
+                  mark={sale.hubOrder}
+                  markTitle={`Your Hub Order: the market pays the full price for ${formatAmount(sale.hubOrder)} a minute`}
+                />
+              ))}
+              <p className="muted small">
+                The line is your Hub Order: the market pays the full price up to it, and less for each unit
+                beyond it.
+                {details.sales.some((t) => t.perMinute > t.hubOrder) &&
+                  " Orange: you sell more than it; every level of your Trading Post raises every Hub Order by 10%."}
+              </p>
+            </>
+          )}
+          {mine && (
+            <details className="imports">
+              <summary>Buy from the hub ({details.imports?.length ?? 0})</summary>
+              <div className="import-grid">
+                {content.resources
+                  .filter((r) => r.era <= 2)
+                  .map((resource) => {
+                    const enabled = details.imports?.includes(resource.id) ?? false;
+                    return (
+                      <label key={resource.id} className="check">
+                        <input
+                          type="checkbox"
+                          checked={enabled}
+                          onChange={() => void gameClient.setImport(building.id, resource.id, !enabled)}
+                        />
+                        {resource.name}{" "}
+                        <span className="muted">
+                          {(resource.price * content.progression.hubSpread).toFixed(2)} g
+                        </span>
+                      </label>
+                    );
+                  })}
+              </div>
+            </details>
+          )}
+        </section>
+      )}
+      {definition.kind === "depot" && <DepotSection />}
+
+      {definition.kind === "hq" && mine && company !== null && (
+        <section>
+          <Meter
+            label={`Company Level ${company.level}`}
+            color="#c9963a"
+            amount={company.lifetimeEarnings - company.levelEarned}
+            max={company.nextLevelEarned - company.levelEarned}
+            unit=" g"
+          />
+          <p className="muted small">
+            Level {company.level + 1} once you have earned{" "}
+            {formatAmount(company.nextLevelEarned - company.lifetimeEarnings)} g more. The Company Level comes
+            from all the gold your company ever earned: at the market, from players, from orders and rewards.
+            Spending takes nothing away.
+          </p>
+        </section>
+      )}
+
       {/* Upgrading at the top: it stays under the pointer while the rest of the panel refreshes */}
       {mine && details.upgradeCost !== null && !underConstruction && (
         <section className="upgrade">
           <h4>
-            Upgrade · output +10% per level, up to level {content.progression.maxBuildingLevel}
+            Upgrade · {levelEffect(definition.kind)}, up to level {content.progression.maxBuildingLevel}
             {nextTier(building.level) !== null && (
               <span className="muted">
                 {" "}
@@ -615,135 +787,6 @@ export function BuildingPanel() {
         <NeighbourTrade details={details} content={content} />
       )}
 
-      {details.inputs.length > 0 && (
-        <section>
-          <h4>Needs</h4>
-          {details.inputs.map((input) => (
-            <Meter
-              key={input.resource}
-              label={content.resourceName(input.resource)}
-              color={content.resourceColor(input.resource)}
-              amount={input.amount}
-              max={input.max}
-            />
-          ))}
-        </section>
-      )}
-      {details.outputs.length > 0 && (
-        <section>
-          <h4>Makes</h4>
-          {details.outputs.map((output) => (
-            <Meter
-              key={output.resource}
-              label={content.resourceName(output.resource)}
-              color={content.resourceColor(output.resource)}
-              amount={output.amount}
-              max={output.max}
-            />
-          ))}
-        </section>
-      )}
-      {definition.kind === "lab" && mine && company !== null && (
-        <button className="primary wide" onClick={() => void gameClient.openResearch()}>
-          {researchName(company, content) !== null
-            ? `Researching ${researchName(company, content) ?? ""} · open research`
-            : "🔬 Pick a research"}
-        </button>
-      )}
-
-      {details.contents !== null && details.capacity !== null && (
-        <section>
-          <h4>
-            Stored · {formatAmount(Object.values(details.contents).reduce((a, b) => a + b, 0))} /{" "}
-            {formatAmount(details.capacity)}
-          </h4>
-          {Object.keys(details.contents).length === 0 && (
-            <p className="muted small">Empty. Surplus of your buildings on the same pipe goes in here.</p>
-          )}
-          {Object.entries(details.contents).map(([resource, amount]) => (
-            <Meter
-              key={resource}
-              label={content.resourceName(resource)}
-              color={content.resourceColor(resource)}
-              amount={amount}
-              max={details.capacity!}
-              unit=""
-              mark={details.keep?.keeps[resource]}
-              markTitle={`It keeps ${formatAmount(details.keep?.keeps[resource] ?? 0)}`}
-            />
-          ))}
-          {details.keep !== null &&
-            Object.entries(details.contents).some(([r, a]) => a > (details.keep!.keeps[r] ?? 0) + 1) && (
-              <p className="muted small">
-                It holds more than it keeps (the line): what&apos;s above it goes on to your Trading Post and
-                is sold, as fast as its pipe there carries it (about a tenth of it a minute at most).
-              </p>
-            )}
-          {definition.kind === "storage" && (
-            <>
-              <p className="muted small">
-                It keeps what your daily orders and your next buildings need; the rest goes on to be sold.
-                {mine && " Keep more of each resource:"}
-              </p>
-              {mine && (
-                <div className="chips">
-                  {(
-                    [
-                      [0, "What's needed"],
-                      [0.1, `${formatAmount(details.capacity * 0.1)} each`],
-                      [0.5, `${formatAmount(details.capacity * 0.5)} each`],
-                      [1, "Everything"],
-                    ] as const
-                  ).map(([share, label]) => (
-                    <button
-                      key={share}
-                      className={details.setting === share ? "chip active" : "chip"}
-                      onClick={() => void gameClient.setBuildingSetting(building.id, share)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </section>
-      )}
-
-      {details.throughput !== null && (
-        <section>
-          <h4>Trading · up to {formatAmount(details.throughput)}/min</h4>
-          <p className="muted small">Everything your buildings on its pipe can't use is sold to the hub.</p>
-          {mine && (
-            <details className="imports">
-              <summary>Buy from the hub ({details.imports?.length ?? 0})</summary>
-              <div className="import-grid">
-                {content.resources
-                  .filter((r) => r.era <= 2)
-                  .map((resource) => {
-                    const enabled = details.imports?.includes(resource.id) ?? false;
-                    return (
-                      <label key={resource.id} className="check">
-                        <input
-                          type="checkbox"
-                          checked={enabled}
-                          onChange={() => void gameClient.setImport(building.id, resource.id, !enabled)}
-                        />
-                        {resource.name}{" "}
-                        <span className="muted">
-                          {(resource.price * content.progression.hubSpread).toFixed(2)} g
-                        </span>
-                      </label>
-                    );
-                  })}
-              </div>
-            </details>
-          )}
-        </section>
-      )}
-
-      {definition.kind === "depot" && <DepotSection />}
-
       {definition.kind === "valve" && details.filter !== null && (
         <section>
           <h4>Valve · {details.filter.length === 0 ? "everything passes" : "only these pass"}</h4>
@@ -775,24 +818,6 @@ export function BuildingPanel() {
           network need a pump to keep it up. Until then everything in it runs at{" "}
           {Math.round(details.pumpFactor * 100)}%.
         </p>
-      )}
-
-      {definition.kind === "hq" && mine && company !== null && (
-        <section>
-          <Meter
-            label={`Company Level ${company.level}`}
-            color="#c9963a"
-            amount={company.lifetimeEarnings - company.levelEarned}
-            max={company.nextLevelEarned - company.levelEarned}
-            unit=" g"
-          />
-          <p className="muted small">
-            Level {company.level + 1} once you have earned{" "}
-            {formatAmount(company.nextLevelEarned - company.lifetimeEarnings)} g more. The Company Level comes
-            from all the gold your company ever earned: at the market, from players, from orders and rewards.
-            Spending takes nothing away.
-          </p>
-        </section>
       )}
 
       <Flows details={details} content={content} />
@@ -993,6 +1018,24 @@ function MaxMore({
       )}
     </div>
   );
+}
+
+/** What a level does, by kind (playtest: a Storage's and a Trading Post's said "output +10% per level") */
+function levelEffect(kind: string): string {
+  switch (kind) {
+    case "storage":
+    case "depot":
+      return "room +10% per level";
+    case "tradingPost":
+      return "every Hub Order +10% per level";
+    case "teleporter":
+      return "carries 10% more per level";
+    case "deepLift":
+    case "cargoDepot":
+      return "carries more with every level";
+    default:
+      return "output +10% per level";
+  }
 }
 
 function Meter({

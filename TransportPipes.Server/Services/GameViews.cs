@@ -915,7 +915,8 @@ public static partial class GameViews
             upgradable ? world.LevelGoods(building, bought + 1).Select(t => new ResourceAmountDto(t.Key, t.Value, t.Value)).ToList() : null,
             track?.Name,
             tiers,
-            world.Sleeps(building));
+            world.Sleeps(building),
+            PostSales(world, building, owner));
     }
 
     private static PipeDoorDto Door(GameWorld world, PipeDoor door) => new(
@@ -932,6 +933,25 @@ public static partial class GameViews
         door.OrderCost);
 
     private static string? NullIfEmpty(string text) => text.Length == 0 ? null : text;
+
+    /// <summary>
+    /// A trading post's sales by good (playtest: "wouldn't it make sense to show in a bar how much the trading building is
+    /// being used?"): what your posts sell a minute against your Hub Order, and what this one gets for it
+    /// </summary>
+    private static List<PostSaleDto>? PostSales(GameWorld world, Building post, Company? owner)
+    {
+        if (owner == null || world.Content.Building(post.Type).Kind != BuildingKind.TradingPost)
+        {
+            return null;
+        }
+        var flows = world.NetworkOf(post.Id)?.Solution.Flows.Where(t => t.To == post.Id && t.Kind == FlowKind.Sale).ToList() ?? [];
+        var selling = world.SellingNow(owner);
+        return flows.Select(t => t.Resource).Distinct()
+            .Select(t => new PostSaleDto(t, Math.Round(selling.GetValueOrDefault(t), 1), Math.Round(world.HubOrder(owner, t), 1),
+                Math.Round(flows.Where(f => f.Resource == t).Sum(f => f.Delivered * f.PricePerUnit), 1)))
+            .OrderByDescending(t => t.Gold)
+            .ToList();
+    }
 
     /// <summary>Why a building's good reaches nobody at its Yard gate; null when some of it reaches the gate</summary>
     private static string? NothingMoves(GameWorld world, Building building, string good)

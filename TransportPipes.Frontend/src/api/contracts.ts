@@ -633,6 +633,17 @@ export interface BuildingFlowDto {
   price: number;
 }
 
+/**
+ * A good a trading post sells: what all your posts sell of it a minute, your Hub Order for it (what the market pays the
+ * full price for: beyond it each unit pays less), and the gold a minute this post gets for it
+ */
+export interface PostSaleDto {
+  resource: string;
+  perMinute: number;
+  hubOrder: number;
+  gold: number;
+}
+
 export interface BuildingDetailsDto {
   building: BuildingDto;
   ownerName: string;
@@ -691,6 +702,8 @@ export interface BuildingDetailsDto {
   trackTiers: number;
   /** A building of a later Era than its town's: it sleeps until the town gets there */
   sleeping: boolean;
+  /** A trading post: what it sells by good against your Hub Orders (null: not a trading post) */
+  sales?: PostSaleDto[] | null;
 }
 
 /** A building that works at its old level until the goods of the levels bought are in (1.4 §9) */

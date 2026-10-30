@@ -51,6 +51,7 @@ and piped to the post (`kit(page, types, 2)` in Copper Pipe, its ingots stocked)
 | `lumber.mjs` | Lumber Camps next to a plot's forest: the client allows them and the server builds one (playtest: the client still asked for the old forest's marked trees) |
 | `buy-rest.mjs` | A level's goods bought one good at a time: each good's Buy the rest buys that good at its price, the level waits for the rest |
 | `level-flicker.mjs` | A level's goods coming in: the building steps up in its own network (same id), and the running buildings on its pipes never show ZZ meanwhile |
+| `panel-tops.mjs` | What a building does at the top of its panel, above Upgrade: a producer's Needs and Makes, a Storage's Stored, the Trading Post's sales against your Hub Orders with Buy from the hub |
 | `pipe-sign.mjs` | A pipe on its way to a better one glows in the new pipe's colour with an arrow, the hover says what it waits for; the corner's Waits line offers Buy all the rest |
 | `storage-drain.mjs` | A Storage's line lowered below what it holds: what's above goes on to the Trading Post and is sold, as fast as its pipe carries it; the panel says so |
 | `finish-all.mjs` | The Yard's What you're waiting for: levels bought together are one line per good that costs what it says, no "has what it needs"; Buy all the rest at the top buys every want's rest |

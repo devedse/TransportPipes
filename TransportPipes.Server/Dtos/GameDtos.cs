@@ -392,7 +392,15 @@ public record BuildingDetailsDto(
     string? Track = null,
     int TrackTiers = 0,
     /// <summary>A building of a later Era than its town's: it sleeps until the town gets there</summary>
-    bool Sleeping = false);
+    bool Sleeping = false,
+    /// <summary>A trading post: what it sells by good against your Hub Orders (null: not a trading post)</summary>
+    IReadOnlyList<PostSaleDto>? Sales = null);
+
+/// <summary>
+/// A good a trading post sells: what all your posts sell of it a minute, your Hub Order for it (what the market pays the
+/// full price for: beyond it each unit pays less), and the gold a minute this post gets for it
+/// </summary>
+public record PostSaleDto(string Resource, double PerMinute, double HubOrder, double Gold);
 
 /// <summary>A building that works at its old level until the goods of the levels bought are in (1.4 §9)</summary>
 public record LevelWaitDto(int BoughtLevel, IReadOnlyList<SiteWantDto> Wants, double? BuyRest);
