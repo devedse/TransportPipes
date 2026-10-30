@@ -67,7 +67,8 @@ light of the generated art (top left), soft shadows and the same dark outlines.
   capped end or bend underneath, and the crossbar has caps only on ends that do not continue into another pipe.
 - The short connectors animate from actual network traffic (`docs/design-notes/connector-motion.md`): painted goods
   on two belt tracks, travelling arcs on cables, coloured slugs in a glassy fluid tube. They stop when idle and fade
-  at a distance. Sprites and textures are reused; reduced motion holds them still.
+  at a distance. Sprites and textures are reused; reduced motion holds them still. Behind the pipe (a building on its
+  u or l side) the lanes and their goods go under the tube; in front of it, over it.
 - The pieces are rendered once per shape and shaded per tier into one atlas per tier (`public/art/pipes/`); the first
   tier loads with the map, the others when they are first needed.
 

@@ -2251,24 +2251,33 @@ export class Engine {
     const lanes = side !== null ? this.laneKinds(x + PIPE_DX[side]!, y + PIPE_DY[side]!) : [];
     const feed = side !== null ? `feed-${side}-${look.shape.replace(side, "") || "none"}` : null;
     if (side !== null && lanes.length > 0 && feed !== null && this.textures.pipePiece(feed, tier) !== null) {
-      const shapes = [
-        feed,
-        ...overlays.filter((s) => !s.startsWith("foot-")),
-        ...lanes.map((kind, i) => `lane-${kind}-${side}-${LANE_SLOTS[lanes.length]![i]}`),
-      ];
-      for (const shape of shapes) {
+      // The lanes, and the goods moving on them (conductorView), share one layer. On the far sides (u, l) the
+      // building stands behind the pipe and the whole tube is in front of its connectors: they go under it.
+      const lanesLayer = new Container({ label: "lanes" });
+      const body: Sprite[] = [];
+      for (const shape of [feed, ...overlays.filter((s) => !s.startsWith("foot-"))]) {
         const art = this.textures.pipePiece(shape, tier);
         if (art !== null) {
           const sprite = new Sprite(art.texture);
           sprite.position.set(art.x, art.y);
           sprite.scale.set(art.scale);
-          if (shape.startsWith("lane-")) {
-            sprite.alpha = this.laneAlpha();
-            this.laneSprites.add(sprite);
-          }
-          container.addChild(sprite);
+          if (shape === feed) sprite.label = "pipe-body";
+          body.push(sprite);
         }
       }
+      lanes.forEach((kind, i) => {
+        const art = this.textures.pipePiece(`lane-${kind}-${side}-${LANE_SLOTS[lanes.length]![i]}`, tier);
+        if (art !== null) {
+          const sprite = new Sprite(art.texture);
+          sprite.position.set(art.x, art.y);
+          sprite.scale.set(art.scale);
+          sprite.alpha = this.laneAlpha();
+          this.laneSprites.add(sprite);
+          lanesLayer.addChild(sprite);
+        }
+      });
+      if (side === "u" || side === "l") container.addChild(lanesLayer, ...body);
+      else container.addChild(...body, lanesLayer);
       return container;
     }
     // A straight run past a building taps into it with a tee (a hub is for pipes meeting)
@@ -2355,7 +2364,7 @@ export class Engine {
           hash01(conductor.x * 73856093 + conductor.y * 19349663 + building.id),
         );
         animation.setFlows(this.connectorFlows.get(key) ?? []);
-        pipe.addChild(animation.container);
+        (pipe.getChildByLabel("lanes") ?? pipe).addChild(animation.container);
         this.connectorViews.add(animation);
       }
     }

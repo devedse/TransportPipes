@@ -18,8 +18,10 @@ When several goods share a track, busier goods appear more often. Displayed pack
 individual inventory units. Density increases with flow and stops at three packets per direction and kind.
 
 Animations use pooled sprites and cached textures, with no additional server requests or per-frame simulation.
-They draw with their pipe so foreground buildings occlude them. Only visible connectors update; motion fades with
-the connectors when zooming out, stops when traffic stops, and stays still with reduced motion. The full three-kind,
+They draw with their pipe so foreground buildings occlude them. The lane art and its goods share one layer in the
+pipe: on the far sides (u, l: the building stands behind the pipe) the whole tube is in front of the connector, so
+the layer goes under the pipe piece; on the near sides (r, d) it goes over it. Only visible connectors update; motion
+fades with the connectors when zooming out, stops when traffic stops, and stays still with reduced motion. The full three-kind,
 two-direction connector needs at most 28 sprites. Quiet electricity / water inspection sounds share the existing
 mute control and are limited to one sound every three seconds for the whole map.
 
