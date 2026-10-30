@@ -289,7 +289,8 @@ export class GameConnection {
   /** A friend's tap: what your Storages hold of what a neighbour's scaffold wants goes into it */
   sendToSite = (site: number) => this.invoke<CommandResult>("SendToSite", site);
   /** Orders the rest of a want, one's own or a neighbour's: 2 × base, after the friends' window, over 6 hours */
-  orderRest = (target: number) => this.invoke<CommandResult>("OrderRest", target);
+  orderRest = (target: number, resource: string | null = null) =>
+    this.invoke<CommandResult>("OrderRest", target, resource);
   /** Gives up a scaffold that still waits for its materials: its gold comes back */
   cancelSite = (site: number) => this.invoke<CommandResult>("CancelSite", site);
   /** Takes a building's last purchase back within the hour */

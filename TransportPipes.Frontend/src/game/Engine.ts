@@ -1691,10 +1691,10 @@ export class Engine {
               // A beach is sand: the Sand Dredger's ground
               color = content.resourceColor("sand");
               alpha = 0.7;
-            } else if (tile.terrain === "forest" && this.world.dealtLand) {
-              // Scenery trees: not wood (after run 4), and not quite the bare ground either
-              color = 0x31463a;
-              alpha = 0.72;
+            } else if (tile.terrain === "forest") {
+              // Wood: a Lumber Camp's ground
+              color = content.resourceColor("wood");
+              alpha = 0.55;
             } else {
               color = 0x0b1d24;
               alpha = 0.6;

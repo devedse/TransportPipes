@@ -245,7 +245,7 @@ export function GoalTracker() {
                   <button
                     className="small goal-show"
                     disabled={company.gold < want.orderCost}
-                    onClick={() => void gameClient.orderRest(want.target)}
+                    onClick={() => void gameClient.orderRest(want.target, null, want.resource)}
                   >
                     Buy the rest · {formatAmount(want.orderCost)} g
                   </button>

@@ -139,7 +139,7 @@ public static partial class GameViews
         }
         GoldLineDto? want = null;
         if (world.WantsNear(me).Where(t => !t.Makes && t.Holds < 1)
-                .Select(t => (t.Owner, t.Target, t.Name, t.Want, Cost: world.OrderCost(me, t.Target)))
+                .Select(t => (t.Owner, t.Target, t.Name, t.Want, Cost: world.OrderCost(me, t.Target, t.Want.Resource)))
                 .Where(t => t.Cost is { } cost && cost <= me.Gold)
                 .OrderBy(t => t.Owner.CrewId != null && t.Owner.CrewId == me.CrewId ? 0 : 1)
                 .FirstOrDefault() is { Owner: not null } friend)
@@ -148,7 +148,7 @@ public static partial class GameViews
             want = new GoldLineDto($"{world.PossessiveFor(friend.Owner, me)} {friend.Name} waits for {friend.Want.Left:N0} {world.GoodsWord(friend.Want.Resource)}", "want", friend.Cost, friend.Want.Resource, friend.Target, name);
         }
         else if (world.OpenWants(me).Where(t => t.Want.Left > 1e-6)
-                     .Select(t => (t.Target, t.Name, t.Want, Cost: world.OrderCost(me, t.Target)))
+                     .Select(t => (t.Target, t.Name, t.Want, Cost: world.OrderCost(me, t.Target, t.Want.Resource)))
                      .FirstOrDefault(t => t.Cost is { } cost && cost <= me.Gold) is { Name: not null } own)
         {
             want = new GoldLineDto($"Your {own.Name} waits for {own.Want.Left:N0} {world.GoodsWord(own.Want.Resource)}", "want", own.Cost, own.Want.Resource, own.Target);
@@ -779,7 +779,7 @@ public static partial class GameViews
             owner.Id == viewer.Id ? null
                 : world.WantsNear(viewer).Where(t => t.Owner.Id == owner.Id)
                     .Select(t => new WantNearDto(t.Target, world.NameFor(t.Owner, viewer), t.Name, t.Want.Resource, Math.Round(t.Want.Left), Math.Floor(t.Holds), t.Makes,
-                        world.OrderCost(viewer, t.Target)))
+                        world.OrderCost(viewer, t.Target, t.Want.Resource)))
                     .ToList());
     }
 
@@ -1555,7 +1555,7 @@ public static partial class GameViews
         var line = !connected
             ? "Lay a pipe from your network to your Yard gate: your neighbours buy what you have spare, and sell you what you lack."
             : residents.Count(t => t.Connected) < 2
-                ? "Nobody else here has piped to the Yard yet: the hub takes your spare until they do."
+                ? "Nobody else here has piped to the Yard yet: your spare goes on to your Trading Post, which sells it to the town's market (the hub), until they do."
                 : yours.FirstOrDefault(t => t.Selling) is { } sale
                     ? $"{sale.PartnerName} buys your {Name(sale.Resource)} at {sale.Price:0.##} g."
                     : yours.FirstOrDefault() is { } purchase
@@ -1566,8 +1566,8 @@ public static partial class GameViews
                             ? residents.FirstOrDefault(t => t.Company.Id != me.Id && t.Connected && t.Lacks.GetValueOrDefault(spare) > 0.01) is { } needs
                                 ? $"{world.NameFor(needs.Company, me)} lacks {Name(spare)} you have spare: the Yard's next round brings it to them, in a few minutes."
                             : HubTakes(world, me, spare)
-                                    ? $"Nobody here needs {Name(spare)} yet: the hub takes it."
-                                    : $"Nobody here needs {Name(spare)} yet: pipe it to your Trading Post and the hub buys it."
+                                    ? $"Nobody here needs your {Name(spare)} yet: it goes on to your Trading Post, which sells it to the town's market (the hub)."
+                                    : $"Nobody here needs your {Name(spare)} yet: pipe it to your Trading Post and the town's market (the hub) buys it there."
                             : "Nothing to trade yet: what you make your own buildings use.";
         return new YardDto(
             world.CrewAt(station) is { NameHidden: false } crew ? crew.Name : WorldNames.Station(station),

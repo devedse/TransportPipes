@@ -48,6 +48,8 @@ and piped to the post (`kit(page, types, 2)` in Copper Pipe, its ingots stocked)
 | `connector-motion.mjs` | A gate receiving box and real ore / ingot, electricity and water traffic on building connectors. Records frames for the factory and water pump, then checks motion, reduced motion, idle connectors, distance fading and the sprite limit |
 | `connector-depth.mjs` | Connectors on all four sides of a pipe: on the far sides (the building behind the pipe) the belt, cables and goods are drawn under the tube, on the near sides over it; close-ups of each (`BEFORE=1` for the old layering) |
 | `prices.mjs` | Your prices in the trade settings: a cut counts at once, a rise waits an hour; the steppers step from where a price is going (the playtest's crew price stuck at 1.0×), say what it is until then and step back to what it inherits |
+| `lumber.mjs` | Lumber Camps next to a plot's forest: the client allows them and the server builds one (playtest: the client still asked for the old forest's marked trees) |
+| `buy-rest.mjs` | A level's goods bought one good at a time: each good's Buy the rest buys that good at its price, the level waits for the rest |
 | `juice.mjs` | A finished building, coin pops and the level-up |
 | `ui-check.mjs`, `title.mjs` | The panels, the title screen and the managers |
 | `mobile.mjs` | The phone layout (390×844) |

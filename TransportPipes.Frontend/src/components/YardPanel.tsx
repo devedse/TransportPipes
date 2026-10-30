@@ -148,7 +148,10 @@ export function YardPanel() {
                       {w.order !== null && <span className="muted"> · {w.order}</span>}
                     </span>
                     {w.orderCost !== null && (
-                      <button className="small" onClick={() => void gameClient.orderRest(w.target)}>
+                      <button
+                        className="small"
+                        onClick={() => void gameClient.orderRest(w.target, null, w.resource)}
+                      >
                         Buy the rest · {formatAmount(w.orderCost)} g
                       </button>
                     )}
@@ -187,7 +190,7 @@ export function YardPanel() {
                     {w.orderCost !== null && (
                       <button
                         className="link small"
-                        onClick={() => void gameClient.orderRest(w.site, w.owner)}
+                        onClick={() => void gameClient.orderRest(w.site, w.owner, w.resource)}
                       >
                         order it for {w.owner} · {formatAmount(w.orderCost)} g
                       </button>
@@ -238,7 +241,8 @@ export function YardPanel() {
           <section>
             <h4>Who lives here</h4>
             <p className="muted small">
-              Spare: what each still sells to the hub, so a neighbour who lacks it gets it first. Lacks: what
+              Spare: what each has left over and sells at its Trading Post to the town&apos;s market (the
+              hub); a neighbour here who lacks it gets it first, at the seller&apos;s price. Lacks: what
               nobody here brings them yet.
             </p>
             <ul className="yard-residents">
@@ -276,7 +280,9 @@ export function YardPanel() {
                   )}
                   {r.connected && (
                     <div className="resident-rates small">
-                      <span className="muted">{r.id === company.id ? "Spare (to the hub)" : "Spare"}</span>{" "}
+                      <span className="muted">
+                        {r.id === company.id ? "Spare (sold at your Trading Post)" : "Spare"}
+                      </span>{" "}
                       <Rates rates={r.spare} content={content} kind="surplus" />
                       {r.id === company.id && yard.yours.some((t) => t.selling) && (
                         <>

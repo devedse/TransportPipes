@@ -124,6 +124,27 @@ public class LevelFacts
     }
 
     [TestMethod]
+    public void BuyTheRestOfOneGoodBuysOnlyThatGood()
+    {
+        // Playtest: the planks' "Buy the rest · 302 g" bought the bricks as well, for 609 g, and finished the level
+        var (game, company, moily, _) = MoilyAtTen();
+        Assert.IsTrue(game.World.SetWantsFromMarket(company.Id, false).Success);
+        Assert.IsTrue(game.World.Upgrade(company.Id, moily.Id, 1).Success);
+        var goods = game.World.LevelGoods(moily, 11).Keys.Order(StringComparer.Ordinal).ToList();
+        Assert.IsGreaterThanOrEqualTo(2, goods.Count, "a step that takes two goods");
+        var cost = game.World.OrderCost(company, moily.Id, goods[0])!.Value;
+        Assert.IsLessThan(game.World.OrderCost(company, moily.Id)!.Value, cost);
+        var gold = company.Gold;
+
+        Assert.IsTrue(game.World.OrderRest(company.Id, moily.Id, goods[0]).Success);
+
+        Assert.AreEqual(gold - cost, company.Gold, 1, "that good's price only");
+        Assert.IsNull(game.World.OrderCost(company, moily.Id, goods[0]), "it is in");
+        Assert.IsNotNull(game.World.OrderCost(company, moily.Id, goods[1]), "the other still waits");
+        Assert.AreEqual(10, moily.Level, "the level waits for the other good");
+    }
+
+    [TestMethod]
     public void UndoTakesBackTheStepsWhoseGoodsAreStillComing()
     {
         var (game, company, moily, storage) = MoilyAtTen();

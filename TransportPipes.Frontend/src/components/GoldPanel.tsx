@@ -73,7 +73,7 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
             disabled={gold < uses.want.cost}
             onClick={() =>
               void gameClient
-                .orderRest(uses.want!.target!, uses.want!.forName)
+                .orderRest(uses.want!.target!, uses.want!.forName, uses.want!.resource)
                 .then(() => gameClient.loadGoldUses())
             }
           >

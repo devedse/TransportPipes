@@ -256,8 +256,8 @@ public sealed class GameHub : Hub<IGameClient>
         Command((world, company) => world.SendToSite(company, siteId));
 
     /// <summary>Buys the rest of a want, one's own or a neighbour's, at once from the market (1.4 §9)</summary>
-    public Task<CommandResultDto> OrderRest(long target) =>
-        Command((world, company) => world.OrderRest(company, target));
+    public Task<CommandResultDto> OrderRest(long target, string? resource) =>
+        Command((world, company) => world.OrderRest(company, target, resource));
 
     /// <summary>Gives up a scaffold that still waits for its materials (minus a number: a pipe want): its gold comes back</summary>
     public Task<CommandResultDto> CancelSite(long siteId) =>

@@ -374,9 +374,6 @@ export class GameClient {
   }
 
   private setCompany(company: CompanyDto) {
-    if (this.world !== null) {
-      this.world.dealtLand = company.land !== null;
-    }
     const previous = appStore.getState().company;
     setState({ company, companyAt: Date.now(), era: company.era });
     this.releaseWaiting();
@@ -2130,10 +2127,14 @@ export class GameClient {
     return ok;
   }
 
-  /** Orders the rest of a want from the hub (yours, or a neighbour's for them) */
-  async orderRest(target: number, forName: string | null = null): Promise<boolean> {
+  /** Orders the rest of a want from the hub (yours, or a neighbour's for them), of one good or of all */
+  async orderRest(
+    target: number,
+    forName: string | null = null,
+    resource: string | null = null,
+  ): Promise<boolean> {
     const ok = await this.command(
-      this.connection.orderRest(target),
+      this.connection.orderRest(target, resource),
       forName === null
         ? "Ordered: the hub brings the rest after your friends' turn"
         : `💛 Ordered for ${forName}`,

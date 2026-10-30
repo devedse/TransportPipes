@@ -27,7 +27,12 @@ const GIVE_MODES: Array<{ mode: GiveMode; name: string; title: string }> = [
     title:
       "What you make of it beyond your Hub Order goes to the Wonder through your Yard gate, at its base price",
   },
-  { mode: "all", name: "All", title: "Everything of it that reaches your Yard gate goes to the Wonder" },
+  {
+    mode: "all",
+    name: "All",
+    title:
+      "All your spare of it goes to the Wonder through your Yard gate: it no longer sells at your Trading Post",
+  },
 ];
 
 /** A good the stage wants: what is in, your switch, and buy and give */
@@ -191,7 +196,9 @@ function WonderCard({
           ` (${Math.round((1 - wonder.trail) * 100)}% smaller: other towns built it before)`}
         . Once its goods are in it stands a day later, and everyone who gave gets hours of their own income by
         their share of the stage: Bronze from 1% (1 h), Silver from 3% (3 h), Gold from 7% (6 h), Diamond from
-        15% (12 h). The last stage brings the town into the next Era.
+        15% (12 h). The last stage brings the town into the next Era. A switch works from your Yard&apos;s
+        next round, within a minute or two: your spare of the good goes to your Yard gate and on to the
+        Wonder, a gift, so it no longer sells at your Trading Post.
         {wonder.perks.length > 0 && <> Built so far: {wonder.perks.join(" · ")}.</>}
       </div>
       {wonder.topBuilders.length > 0 && (

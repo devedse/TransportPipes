@@ -134,11 +134,8 @@ export function forestAround(world: WorldModel, x: number, y: number, size: numb
   let count = 0;
   for (let ty = y - 2; ty < y + size + 2; ty++) {
     for (let tx = x - 2; tx < x + size + 2; tx++) {
-      if (
-        world.terrain(tx, ty) === "forest" &&
-        (!world.dealtLand || world.tile(tx, ty)?.deposit === "wood") &&
-        world.buildingAt(tx, ty) === undefined
-      ) {
+      // Every plot's forest is wood (1.4: the server's ForestAround; the old forest's marked trees are gone)
+      if (world.terrain(tx, ty) === "forest" && world.buildingAt(tx, ty) === undefined) {
         count++;
       }
     }
@@ -356,7 +353,7 @@ export function canPlace(
     }
   }
   if (definition.placement.forest && forestAround(world, x, y, definition.size) < 3) {
-    return fail(world.dealtLand ? "Needs the old forest's marked trees nearby" : "Needs a forest nearby");
+    return fail("Needs a forest nearby");
   }
   return { ok: true, reason: null, multiplier: locationMultiplier(content, world, definition, x, y) };
 }

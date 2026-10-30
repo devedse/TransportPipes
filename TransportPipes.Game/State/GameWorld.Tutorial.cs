@@ -209,7 +209,7 @@ public sealed partial class GameWorld
         var others = residents.Where(t => t.Company.Id != company.Id && t.Connected).ToList();
         if (others.Count == 0)
         {
-            return "You're piped to the Yard, but nobody else at your Yard is yet: the hub takes your spare until they are.";
+            return "You're piped to the Yard, but nobody else at your Yard is yet: your spare sells at your Trading Post until they are.";
         }
         var spare = me.Spare.Where(t => t.Value > 0.01).Select(t => t.Key).ToHashSet();
         if (spare.Count == 0)

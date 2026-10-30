@@ -58,7 +58,7 @@ await page.waitForTimeout(2000);
 await shot("3-yard");
 const yardLine = await page.locator(".yard-line").innerText().catch(() => "");
 const lacks = await page.locator(".yard-residents").innerText().catch(() => "");
-check(!(/Nobody here needs (\w+)/.test(yardLine) && new RegExp(`Lacks[^\n]*${yardLine.match(/needs (\w+)/)?.[1]}`).test(lacks)), "the Yard's line doesn't say nobody needs what a neighbour lacks", yardLine);
+check(!(/Nobody here needs (?:your )?(\w+)/.test(yardLine) && new RegExp(`Lacks[^\n]*${yardLine.match(/needs (?:your )?(\w+)/)?.[1]}`).test(lacks)), "the Yard's line doesn't say nobody needs what a neighbour lacks", yardLine);
 await page.evaluate(() => tp.gameClient.openLinks());
 await page.waitForTimeout(2000);
 await shot("4-links");

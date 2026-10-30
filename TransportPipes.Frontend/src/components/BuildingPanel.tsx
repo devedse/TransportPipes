@@ -238,7 +238,10 @@ function WantList({
             )}
             {want.order !== null && <span className="small">{want.order}</span>}
             {mine && want.orderCost !== null && (
-              <button className="small" onClick={() => void gameClient.orderRest(building)}>
+              <button
+                className="small"
+                onClick={() => void gameClient.orderRest(building, null, want.resource)}
+              >
                 Buy the rest · {formatAmount(want.orderCost)} g
               </button>
             )}

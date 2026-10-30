@@ -31,14 +31,17 @@ public sealed partial class GameWorld
     /// <summary>What a good costs to buy for a want: the market's price</summary>
     public double WantMarketPrice(Company owner, string resource) => HubSellPrice(owner.District, resource);
 
-    /// <summary>What buying the rest of a want costs now (null: nothing left)</summary>
-    public double? OrderCost(Company payer, long target) =>
-        WantByTarget(payer, target) is { } want && want.Parts.Where(t => t.Left > 1e-6).ToList() is { Count: > 0 } open
+    /// <summary>What buying the rest of a want costs now, of one good or all (null: nothing left)</summary>
+    public double? OrderCost(Company payer, long target, string? resource = null) =>
+        WantByTarget(payer, target) is { } want && want.Parts.Where(t => t.Left > 1e-6 && (resource == null || t.Resource == resource)).ToList() is { Count: > 0 } open
             ? Math.Ceiling(open.Sum(t => t.Left * WantMarketPrice(want.Owner, t.Resource)))
             : null;
 
-    /// <summary>Buys the rest of a want, its owner's or a neighbour's ("Buy the rest for Ana ▸")</summary>
-    public CommandResult OrderRest(long payerId, long target)
+    /// <summary>
+    /// Buys the rest of a want, its owner's or a neighbour's ("Buy the rest for Ana ▸"): of one good, or of all (playtest:
+    /// the planks' "Buy the rest · 302 g" bought the bricks as well, for 609 g)
+    /// </summary>
+    public CommandResult OrderRest(long payerId, long target, string? resource = null)
     {
         if (Company(payerId) is not { } payer || WantByTarget(payer, target) is not { } want)
         {
@@ -57,7 +60,7 @@ public sealed partial class GameWorld
                 return CommandResult.Fail("Not between two accounts on one device.");
             }
         }
-        var open = want.Parts.Where(t => t.Left > 1e-6).ToList();
+        var open = want.Parts.Where(t => t.Left > 1e-6 && (resource == null || t.Resource == resource)).ToList();
         if (open.Count == 0)
         {
             return CommandResult.Fail("It has what it needs.");
