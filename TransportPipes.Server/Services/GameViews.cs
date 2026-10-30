@@ -1253,7 +1253,8 @@ public static partial class GameViews
                     pay.GetValueOrDefault(t.Id),
                     links.TryGetValue(t.Id, out var link) ? Math.Round(link.Efficiency, 3) : null,
                     links.TryGetValue(t.Id, out var tiles) ? tiles.Tiles : null,
-                    me.TradeBlocked.Contains(t.Id));
+                    me.TradeBlocked.Contains(t.Id),
+                    me.PendingBlocks.TryGetValue(t.Id, out var blockAt) ? blockAt : null);
             })
             .OrderBy(t => Math.Abs(t.EstateX - home.Origin.X) + Math.Abs(t.EstateY - home.Origin.Y))
             .ToList();

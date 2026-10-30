@@ -552,7 +552,9 @@ public record NeighbourDto(
     double? LinkEfficiency,
     int? PipeTiles,
     /// <summary>You don't trade with them (trade settings)</summary>
-    bool Blocked);
+    bool Blocked,
+    /// <summary>A block you set that waits its hour's notice: when it counts (playtest: the switch snapped back)</summary>
+    DateTime? BlockAt = null);
 
 public record ExchangeOrderDto(long Id, string Resource, bool Selling, double Amount, double Price, DateTime CreatedAt, bool Mine, bool Global,
     /// <summary>What was placed (0: not kept), and when it closes</summary>

@@ -230,16 +230,18 @@ export function TradeSettings() {
       <section>
         <h4>Your prices</h4>
         <p className="muted small">
-          Multiples of each good&apos;s base price, between what the market pays ({times(MIN_PRICE)}) and what
-          it charges ({times(MAX_PRICE)}): trading with a friend is never worse than the market for either
-          side. A cut counts at once; a rise waits an hour, and your buyers are told.
+          What another player pays you for a unit of your goods, as a multiple of its base price: from{" "}
+          {times(MIN_PRICE)}, what the hub pays you for it anyway, to {times(MAX_PRICE)}, what the market
+          would charge them. So trading with a player is never worse than the market for either side; higher
+          earns you more a unit, lower keeps your neighbours buying from you. A cut counts at once; a rise
+          waits an hour, and your buyers are told.
         </p>
         <ul className="partner-list price-list">
           <li className="partner">
             <span className="partner-name">
               <strong>Public price</strong>
               <span className="muted small" title={pub.pending !== null ? RISE_WAITS : undefined}>
-                {pub.pending ?? "for everyone"}
+                {pub.pending ?? "for players outside your Yard (on links)"}
               </span>
             </span>
             <PriceStepper
@@ -263,7 +265,7 @@ export function TradeSettings() {
             <span className="partner-name">
               <strong>Crew price</strong>
               <span className="muted small" title={crew.pending !== null ? RISE_WAITS : undefined}>
-                {crew.pending ?? "for your Yard"}
+                {crew.pending ?? "for your Yard's neighbours"}
               </span>
             </span>
             <PriceStepper
@@ -312,34 +314,44 @@ export function TradeSettings() {
           <p className="muted small">Nobody else lives around your Yard yet.</p>
         ) : (
           <ul className="partner-list">
-            {residents.map((n) => (
-              <li key={n.id} className={n.blocked ? "partner blocked" : "partner"}>
-                <span className="company-dot" style={{ background: n.color }} />
-                <span className="partner-name">
-                  <strong>{n.name}</strong>
-                  <span className="muted small">
-                    {n.connected ? "piped to the Yard" : "not piped to the Yard yet"}
-                    {n.youEarn > 0.05 && ` · you earn ${formatAmount(n.youEarn)} g/min`}
-                    {n.youPay > 0.05 && ` · you pay ${formatAmount(n.youPay)} g/min`}
+            {residents.map((n) => {
+              // A block waits an hour's notice: the switch is off from the click (playtest: it snapped back)
+              const off = n.blocked || n.blockAt !== null;
+              return (
+                <li key={n.id} className={off ? "partner blocked" : "partner"}>
+                  <span className="company-dot" style={{ background: n.color }} />
+                  <span className="partner-name">
+                    <strong>{n.name}</strong>
+                    <span className="muted small">
+                      {n.connected ? "piped to the Yard" : "not piped to the Yard yet"}
+                      {n.youEarn > 0.05 && ` · you earn ${formatAmount(n.youEarn)} g/min`}
+                      {n.youPay > 0.05 && ` · you pay ${formatAmount(n.youPay)} g/min`}
+                      {n.blockAt !== null &&
+                        ` · trading stops at ${clock(n.blockAt)} (an hour's notice): switch it on to call it off`}
+                      {n.blocked && " · you don't trade with them"}
+                    </span>
                   </span>
-                </span>
-                <label
-                  className="switch"
-                  title={n.blocked ? "Trade with them again" : "Block: don't trade with them"}
-                >
-                  <input
-                    type="checkbox"
-                    checked={!n.blocked}
-                    onChange={() => void gameClient.setTradeBlocked(n.id, !n.blocked)}
-                  />
-                  <span className="switch-track" />
-                </label>
-              </li>
-            ))}
+                  <label
+                    className="switch"
+                    title={
+                      off ? "Trade with them again" : "Block: don't trade with them (after an hour's notice)"
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!off}
+                      onChange={() => void gameClient.setTradeBlocked(n.id, !off)}
+                    />
+                    <span className="switch-track" />
+                  </label>
+                </li>
+              );
+            })}
           </ul>
         )}
         <p className="muted small">
-          Blocking is private: they only read that you trade your spare with others.
+          Blocking is private: they only read that you trade your spare with others. It counts after an
+          hour&apos;s notice; trading again counts at once.
         </p>
       </section>
 
@@ -356,8 +368,8 @@ export function TradeSettings() {
                 <tr>
                   <th />
                   <th title="What the market pays you for it, within your Hub Order">Market pays</th>
-                  <th title="Your price for everyone">Public</th>
-                  <th title="Your price for your Yard">Crew</th>
+                  <th title="Your price for players outside your Yard (on links)">Public</th>
+                  <th title="Your price for your Yard's neighbours">Crew</th>
                   <th>Sell to players</th>
                   <th>Buy from players</th>
                 </tr>

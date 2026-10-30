@@ -1161,6 +1161,8 @@ export interface NeighbourDto {
   pipeTiles: number | null;
   /** You don't trade with them */
   blocked: boolean;
+  /** A block you set that waits its hour's notice: when it counts */
+  blockAt: string | null;
 }
 
 export interface ExchangeOrderDto {
