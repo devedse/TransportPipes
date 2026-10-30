@@ -74,8 +74,11 @@ public class PriceFacts
         var events = game.World.TakeChanges().Events;
         Assert.IsTrue(events.Any(t => t.Company == ben.Id && t.Text == "Ana's price for goods rises to 1.25× in an hour"), string.Join(" | ", events.Select(t => t.Text)));
         Assert.AreEqual(1.15, game.World.PriceFactor(ana, ben, "energy"));
-        game.Pass(61);
-        Assert.AreEqual(1.25, game.World.PriceFactor(ana, ben, "energy"), "an hour later");
+        game.Pass(30);
+        Assert.IsTrue(game.World.SetPrice(ana.Id, GameWorld.CrewKey(), 1.25).Success);
+        Assert.IsEmpty(game.World.TakeChanges().Events.Where(t => t.Company == ben.Id), "the same rise asked again: Ben heard of it");
+        game.Pass(31);
+        Assert.AreEqual(1.25, game.World.PriceFactor(ana, ben, "energy"), "an hour after it was first asked");
         Assert.IsTrue(game.World.SetPrice(ana.Id, GameWorld.CrewKey(), 1.6).Success);
         game.Pass(61);
         Assert.AreEqual(1.3, game.World.PriceFactor(ana, ben, "energy"), "the public price is lower: a buyer pays the lowest that applies");

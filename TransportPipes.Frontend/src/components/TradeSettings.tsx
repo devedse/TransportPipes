@@ -11,34 +11,61 @@ const MAX_PRICE = 2.5;
 const DEFAULT_PUBLIC = 1.3;
 const DEFAULT_CREW = 1.15;
 const STEP = 0.05;
+const RISE_WAITS = "A rise waits an hour, and your buyers are told";
 
 function find(prices: PriceDto[], key: string): PriceDto | undefined {
   return prices.find((t) => t.key === key);
 }
 
+/** A price as it goes: what it comes to (a rise that waits counted), and what it is until then */
+interface Price {
+  value: number;
+  now: number;
+  /** When the rise counts (null: nothing waits) */
+  at: string | null;
+}
+
+/** A setting of its own as it goes, else what it inherits */
+function resolve(setting: PriceDto | undefined, inherited: Price): Price {
+  if (setting === undefined) {
+    return inherited;
+  }
+  if (setting.pendingAt == null) {
+    return { value: setting.value, now: setting.value, at: null };
+  }
+  // A rise back (the setting goes) comes to what it inherits
+  return {
+    value: setting.back ? inherited.value : (setting.pending ?? setting.value),
+    now: setting.value,
+    at: setting.pendingAt,
+  };
+}
+
 /** What a price key comes to: its own setting, else the general one for its kind, else the default */
-function priceOf(prices: PriceDto[], kind: "public" | "crew", good?: string): number {
+function priceOf(prices: PriceDto[], kind: "public" | "crew", good?: string): Price {
   const fallback = kind === "public" ? DEFAULT_PUBLIC : DEFAULT_CREW;
-  return (
-    (good !== undefined ? find(prices, `${kind}:${good}`)?.value : undefined) ??
-    find(prices, kind)?.value ??
-    fallback
-  );
+  const general = resolve(find(prices, kind), { value: fallback, now: fallback, at: null });
+  return good === undefined ? general : resolve(find(prices, `${kind}:${good}`), general);
 }
 
 function times(value: number): string {
   return `${value.toFixed(2).replace(/0$/, "")}×`;
 }
 
-/** "rises to 1.6× at 15:42", "back to 1.3× at 15:42" */
-function pendingText(setting: PriceDto | undefined, fallback: number): string | null {
-  if (setting?.pendingAt == null) {
-    return null;
-  }
-  const at = new Date(setting.pendingAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  return setting.back
-    ? `back to ${times(fallback)} at ${at}`
-    : `rises to ${times(setting.pending ?? fallback)} at ${at}`;
+function clock(at: string): string {
+  return new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+/** "1.0× until 15:42": what a price is while its rise waits */
+function waiting(price: Price): string | null {
+  return price.at === null || Math.abs(price.now - price.value) < 1e-9
+    ? null
+    : `${times(price.now)} until ${clock(price.at)}`;
+}
+
+/** Sets a price; one that comes to what it would inherit goes back to inheriting it */
+function setPrice(key: string, value: number, inherited: number | null) {
+  void gameClient.setPrice(key, inherited !== null && Math.abs(value - inherited) < 1e-9 ? null : value);
 }
 
 /** A price as a multiple of the base, one step at a time between 1× and 2.5× */
@@ -79,17 +106,24 @@ function PriceStepper({
 
 /** A special price for one player: who, how much, and the stepper */
 function SpecialPrice({ price }: { price: PriceDto }) {
-  const pending = pendingText(price, price.value);
+  // Removed, it still counts until its hour is up
+  const special = resolve(price, { value: price.value, now: price.value, at: null });
+  const pending =
+    price.back && price.pendingAt != null ? `ends at ${clock(price.pendingAt)}` : waiting(special);
   return (
     <li className="partner">
       <span className="partner-name">
         <strong>{price.forName ?? "A player"}</strong>
-        {pending !== null && <span className="muted small">{pending}</span>}
+        {pending !== null && (
+          <span className="muted small" title={RISE_WAITS}>
+            {pending}
+          </span>
+        )}
       </span>
       <PriceStepper
-        value={price.value}
+        value={special.value}
         label={`Your price for ${price.forName ?? "them"}`}
-        onChange={(v) => void gameClient.setPrice(price.key, v)}
+        onChange={(v) => setPrice(price.key, v, null)}
       />
       <button
         type="button"
@@ -175,12 +209,11 @@ export function TradeSettings() {
   const residents = neighbours.filter((t) => t.id !== company.id);
   const specials = prices.filter((t) => t.key.startsWith("for:"));
   const general = (kind: "public" | "crew") => {
-    const setting = find(prices, kind);
-    const fallback = kind === "public" ? DEFAULT_PUBLIC : DEFAULT_CREW;
+    const price = priceOf(prices, kind);
     return {
-      value: setting?.value ?? fallback,
-      pending: pendingText(setting, fallback),
-      own: setting !== undefined,
+      value: price.value,
+      pending: waiting(price),
+      own: Math.abs(price.value - (kind === "public" ? DEFAULT_PUBLIC : DEFAULT_CREW)) > 1e-9,
     };
   };
   const pub = general("public");
@@ -205,12 +238,14 @@ export function TradeSettings() {
           <li className="partner">
             <span className="partner-name">
               <strong>Public price</strong>
-              <span className="muted small">{pub.pending ?? "for everyone"}</span>
+              <span className="muted small" title={pub.pending !== null ? RISE_WAITS : undefined}>
+                {pub.pending ?? "for everyone"}
+              </span>
             </span>
             <PriceStepper
               value={pub.value}
               label="Your public price"
-              onChange={(v) => void gameClient.setPrice("public", v)}
+              onChange={(v) => setPrice("public", v, DEFAULT_PUBLIC)}
             />
             {pub.own ? (
               <button
@@ -227,12 +262,14 @@ export function TradeSettings() {
           <li className="partner">
             <span className="partner-name">
               <strong>Crew price</strong>
-              <span className="muted small">{crew.pending ?? "for your Yard"}</span>
+              <span className="muted small" title={crew.pending !== null ? RISE_WAITS : undefined}>
+                {crew.pending ?? "for your Yard"}
+              </span>
             </span>
             <PriceStepper
               value={crew.value}
               label="Your crew price"
-              onChange={(v) => void gameClient.setPrice("crew", v)}
+              onChange={(v) => setPrice("crew", v, DEFAULT_CREW)}
             />
             {crew.own ? (
               <button
@@ -329,28 +366,34 @@ export function TradeSettings() {
                 {rows.map((row) => {
                   const own = priceOf(prices, "public", row.resource);
                   const ownCrew = priceOf(prices, "crew", row.resource);
+                  const cell = (kind: "public" | "crew", price: Price, label: string) => {
+                    const pending = waiting(price);
+                    return (
+                      <td>
+                        <PriceStepper
+                          value={price.value}
+                          label={`${label} for ${content.resourceName(row.resource)}`}
+                          onChange={(v) =>
+                            setPrice(`${kind}:${row.resource}`, v, priceOf(prices, kind).value)
+                          }
+                        />
+                        <span className="muted small"> {formatAmount(row.basePrice * price.value)} g</span>
+                        {pending !== null && (
+                          <span className="price-waiting muted small" title={RISE_WAITS}>
+                            {pending}
+                          </span>
+                        )}
+                      </td>
+                    );
+                  };
                   return (
                     <tr key={row.resource}>
                       <td>
                         <ResourceIcon resource={row.resource} /> {content.resourceName(row.resource)}
                       </td>
                       <td>{row.buyPrice.toFixed(2)} g</td>
-                      <td>
-                        <PriceStepper
-                          value={own}
-                          label={`Public price for ${content.resourceName(row.resource)}`}
-                          onChange={(v) => void gameClient.setPrice(`public:${row.resource}`, v)}
-                        />
-                        <span className="muted small"> {formatAmount(row.basePrice * own)} g</span>
-                      </td>
-                      <td>
-                        <PriceStepper
-                          value={ownCrew}
-                          label={`Crew price for ${content.resourceName(row.resource)}`}
-                          onChange={(v) => void gameClient.setPrice(`crew:${row.resource}`, v)}
-                        />
-                        <span className="muted small"> {formatAmount(row.basePrice * ownCrew)} g</span>
-                      </td>
+                      {cell("public", own, "Public price")}
+                      {cell("crew", ownCrew, "Crew price")}
                       <td>
                         <label className="switch">
                           <input

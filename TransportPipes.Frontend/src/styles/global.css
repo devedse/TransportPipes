@@ -1132,6 +1132,11 @@ kbd {
   font-variant-numeric: tabular-nums;
 }
 
+/* What a price is while its rise waits, under its stepper */
+.price-waiting {
+  display: block;
+}
+
 .add-special {
   display: flex;
   flex-wrap: wrap;

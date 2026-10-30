@@ -111,6 +111,11 @@ public sealed partial class GameWorld
                 company.Prices[key] = new PriceSetting { Value = Math.Round(value.Value, 2) };
             }
         }
+        else if (before is { PendingAt: not null } && before.Back == (value == null) && before.Pending == (next is { } same ? Math.Round(same, 2) : null))
+        {
+            // That rise already waits: its hour goes on and the buyers heard of it
+            return CommandResult.Ok;
+        }
         else
         {
             // A rise waits an hour: the buyers hear of it now
