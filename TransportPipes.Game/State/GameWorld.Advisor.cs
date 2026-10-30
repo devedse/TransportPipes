@@ -278,6 +278,14 @@ public sealed partial class GameWorld
         return nodes.Count < 2 ? 0 : FlowSolver.Solve(nodes, links, MarketFor(network)).GoldPerMinute.GetValueOrDefault(company);
     }
 
+    /// <summary>A network solved again with some of its buildings changed (Grow's plan: all its levels at once)</summary>
+    private FlowSolution WhatIfSolution(Network network, Func<FlowNode, FlowNode> change)
+    {
+        _whatIfs++;
+        var nodes = WithPumps(network, network.Buildings.Select(t => ToFlowNode(_buildings[t])).OfType<FlowNode>().ToList()).Select(change).ToList();
+        return FlowSolver.Solve(nodes, LinksBetween(network, nodes), MarketFor(network));
+    }
+
     /// <summary>
     /// Networks this big take too long to solve again for every what-if (a district-sized network took 100 ms a solve):
     /// their gains are estimated from the last solution, with what one more unit of each resource is worth there
@@ -350,6 +358,9 @@ public sealed partial class GameWorld
         }
         var gain = 0.0;
         var share = 1.0;
+        // What the company sells at the hub: one unit more or less of it moves the price of all of it, once its market has
+        // settled (playtest: Grow promised +504 g/min and brought about +300)
+        var selling = SellingNow(company);
         foreach (var (resource, amount) in changed.In)
         {
             var more = amount - (old?.In.GetValueOrDefault(resource) ?? 0);
@@ -360,19 +371,30 @@ public sealed partial class GameWorld
                     return 0;
                 }
                 share = Math.Min(share, SpareHere(network, company, resource) / more);
-                gain -= more * HubBuyPrice(Company(network.Owner), network.District, resource);
             }
         }
+        // What it takes and makes more as far as its extra inputs are there, at what that adds or costs (once, not
+        // capped by what is sold and then scaled again)
+        share = Math.Clamp(share, 0, 1);
+        foreach (var (resource, amount) in changed.In)
+        {
+            var more = (amount - (old?.In.GetValueOrDefault(resource) ?? 0)) * share;
+            if (more > 1e-9)
+            {
+                gain += selling.TryGetValue(resource, out var sold)
+                    ? SettledSaleGain(company, resource, sold, -Math.Min(more, sold)) - Math.Max(0, more - sold) * HubBuyPrice(company, resource)
+                    : -more * HubBuyPrice(Company(network.Owner), network.District, resource);
+            }
+        }
+        var post = network.Buildings.Any(t => _buildings[t].Owner == company.Id && Content.Building(_buildings[t].Type).Kind == BuildingKind.TradingPost);
         foreach (var (resource, amount) in changed.Out)
         {
-            // A good the network doesn't make yet sells at the company's trading post, at what its Hub Order still takes
-            var worth = values.Value.TryGetValue(resource, out var known) ? known
-                : network.Buildings.Any(t => _buildings[t].Owner == company.Id && Content.Building(_buildings[t].Type).Kind == BuildingKind.TradingPost)
-                    ? HubOrderValue(company, resource, amount - (old?.Out.GetValueOrDefault(resource) ?? 0))
-                    : 0;
-            gain += (amount - (old?.Out.GetValueOrDefault(resource) ?? 0)) * worth;
+            var more = (amount - (old?.Out.GetValueOrDefault(resource) ?? 0)) * share;
+            // A good its buildings wait for is worth what they make of it; one the company sells, what selling more adds
+            gain += values.Short.Contains(resource) && values.Value.TryGetValue(resource, out var known) ? more * known
+                : post || selling.ContainsKey(resource) ? SettledSaleGain(company, resource, selling.GetValueOrDefault(resource), more)
+                : 0;
         }
-        gain *= Math.Max(0, share);
         if (old != null && values.OnFullLinks.Contains(old.Id))
         {
             gain *= 0.3;

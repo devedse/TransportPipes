@@ -191,6 +191,13 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
+    /// What a trading post bought up to some more levels adds a minute: the Hub Orders follow the company's highest post,
+    /// so only the levels above it count
+    /// </summary>
+    public double PostLevelsGain(Company company, Building post, int levels) =>
+        PostLevelGain(company, Math.Max(0, BoughtLevel(post) + levels - PostLevel(company)));
+
+    /// <summary>
     /// About what more trading post levels add a minute: every good the company sold at its hub lately, paid against Hub
     /// Orders 10% bigger a level
     /// </summary>
@@ -231,6 +238,49 @@ public sealed partial class GameWorld
 
     /// <summary>A company's Hub Order of a good at its home town's market</summary>
     public double HubOrder(Company company, string resource) => HubOrder(company, company.District, resource);
+
+    /// <summary>
+    /// The price multiplier a company's market settles on for selling this much of a good a minute (the rule of
+    /// HubMarket.Update): the full price up to its Hub Order (times a factor: more trading post levels), √(order ÷ sold)
+    /// beyond it, a quarter at least
+    /// </summary>
+    public double SettledMultiplier(Company company, string resource, double perMinute, double orderFactor = 1)
+    {
+        var market = HubMarketOf(company, company.District);
+        return perMinute <= 1e-9 ? market.MaxMultiplier
+            : Math.Clamp(Math.Sqrt(HubOrder(company, resource) * orderFactor / perMinute), market.MinMultiplier, market.MaxMultiplier);
+    }
+
+    /// <summary>
+    /// What a company's hub sales pay a minute once its market has settled on them (playtest: Grow promised +504 g/min
+    /// and brought about +300: what it would sell more was valued at today's price, though beyond a Hub Order each unit
+    /// more lowers the price of all of them)
+    /// </summary>
+    public double SettledSales(Company company, IEnumerable<Flow> sales, double orderFactor = 1)
+    {
+        var market = HubMarketOf(company, company.District);
+        var gold = 0.0;
+        foreach (var good in sales.GroupBy(t => t.Resource))
+        {
+            var now = good.Sum(t => t.Delivered * t.PricePerUnit);
+            // A good the market doesn't buy at its price yet (a later Era's) stays as it is
+            gold += HubOrder(company, good.Key) <= 0 ? now
+                : now / Math.Max(0.01, market.Multiplier(good.Key)) * SettledMultiplier(company, good.Key, good.Sum(t => t.Delivered), orderFactor);
+        }
+        return gold;
+    }
+
+    /// <summary>What selling more (or less) of a good a minute adds once the market has settled on it</summary>
+    public double SettledSaleGain(Company company, string resource, double now, double more)
+    {
+        if (HubOrder(company, resource) <= 0)
+        {
+            return more * HubBuyPrice(company, resource);
+        }
+        var price = BasePrice(resource) * EventPriceFactor(company.District, resource);
+        var then = Math.Max(0, now + more);
+        return price * (then * SettledMultiplier(company, resource, then) - now * SettledMultiplier(company, resource, now));
+    }
 
     /// <summary>The goods a town's market buys and sells: those of its Era and older</summary>
     public IEnumerable<ResourceDefinition> MarketGoods(DistrictCoord town) => Content.ResourceList.Where(t => t.Era <= TownEra(town));

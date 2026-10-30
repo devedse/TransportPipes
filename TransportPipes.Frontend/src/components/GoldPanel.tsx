@@ -84,8 +84,11 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
           <span>
             💡 <strong>Grow everything that pays</strong>: about +{formatAmount(uses.grow.gain)} g/min for{" "}
             {formatAmount(uses.grow.cost)} g (
-            {Math.max(1, Math.round((100 * uses.grow.cost) / Math.max(1, gold)))}% of your gold): your next
-            parcel first, then each level back within five days
+            {Math.max(1, Math.round((100 * uses.grow.cost) / Math.max(1, gold)))}% of your gold)
+            {(uses.grow.goods ?? 0) >= 1 &&
+              // Levels from 11 wait for goods (playtest: Grow said +504 g/min, and the income first dipped)
+              `, and about ${formatAmount(uses.grow.goods ?? 0)} g of goods its levels from 11 wait for: your own go in first, so your income dips until they're in`}
+            : your next parcel first, then each level back within five days
           </span>
           <details>
             <summary className="small">

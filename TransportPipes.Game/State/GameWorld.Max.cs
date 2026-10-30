@@ -51,10 +51,10 @@ public sealed partial class GameWorld
         }
         else if (affordable > 0 && Content.Building(building.Type) is { Kind: BuildingKind.TradingPost })
         {
-            // A trading post: the levels that still raise what the market pays (all its sales within the Hub Orders: none)
-            var pending = from - building.Level;
+            // A trading post: the levels that still raise what the market pays (all its sales within the Hub Orders: none),
+            // above the highest post's level
             useful = 0;
-            while (useful < affordable && PostLevelGain(company, pending + useful + 1) - PostLevelGain(company, pending + useful) > 0.01)
+            while (useful < affordable && PostLevelsGain(company, building, useful + 1) - PostLevelsGain(company, building, useful) > 0.01)
             {
                 useful++;
             }

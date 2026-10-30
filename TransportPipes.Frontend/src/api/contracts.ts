@@ -784,6 +784,8 @@ export interface GrowPlanDto {
   undoUntil: string | null;
   /** What Grow keeps the gold for instead (the next parcel, soon): "Saving for your next parcel (…)" */
   saving: string | null;
+  /** What its levels' goods (from level 11) cost on top: they come in after the click */
+  goods?: number;
 }
 
 export interface GrowPartDto {

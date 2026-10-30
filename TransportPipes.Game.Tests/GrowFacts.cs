@@ -102,4 +102,33 @@ public class GrowFacts
         StringAssert.StartsWith(step.Title, "Give to The Great Dynamo: its stage 1 wants 5,000 g of goods");
         StringAssert.StartsWith(step.Reason, "Buy and give: a day of your income buys 12.5k g of its goods");
     }
+
+    [TestMethod]
+    public void GrowSaysWhatItBringsTogether()
+    {
+        // Playtest: Grow promised +504 g/min and brought about +300. Forty moilies sell energy beyond their Hub Order:
+        // ten of them levelled together sell more, and the market pays less for all of it; the two trading posts both
+        // counted the Hub Orders only the higher one raises.
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany(gold: 60_000, level: 6);
+        var row = new string('W', 20);
+        var map = game.Map(company, game.Local(company, 1, 1), row + "\n" + new string('+', 20) + "T\n" + row + "\nMMMM\n++++\nFFFF");
+        foreach (var moily in map.Values.Where(t => t.Type == "windMoily").Take(10))
+        {
+            game.SetLevel(moily, 6);
+        }
+        game.Pass(300);
+        var before = game.World.GoldPerMinute()[company.Id];
+        var plan = game.World.PlanGrowth(company);
+        Assert.IsTrue(plan.Parts.Count(t => game.World.Building(t.Building) is { Type: "tradingPost" }) <= 1, "one trading post's levels: the Hub Orders follow the highest");
+
+        Assert.IsTrue(game.World.GrowEverything(company.Id).Success);
+        company.Gold = 1e9;
+        game.World.OrderAll(company.Id);
+        game.Pass(300);
+
+        var gained = game.World.GoldPerMinute()[company.Id] - before;
+        Assert.AreEqual(gained, plan.Gain, gained * 0.15, $"it said +{plan.Gain:0} g/min and brought +{gained:0}");
+        Assert.IsGreaterThan(0, plan.Goods, "and says what its levels' goods cost on top");
+    }
 }

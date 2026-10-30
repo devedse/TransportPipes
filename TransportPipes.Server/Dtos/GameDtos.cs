@@ -161,7 +161,8 @@ public record GoldUsesDto(GoldLineDto? Shared, GoldLineDto? Want, GrowPlanDto? G
 public record GoldLineDto(string Text, string Action, double? Cost = null, string? Resource = null, long? Target = null, string? ForName = null, double? AllCost = null);
 
 /// <summary>"Grow everything that pays": its parts ("Iron Mine to level 30 · 165k · +94 g/min"), its price and gain</summary>
-public record GrowPlanDto(IReadOnlyList<GrowPartDto> Parts, double Cost, double Gain, DateTime? UndoUntil, string? Saving = null);
+/// <summary>Grow's plan: its parts, its gold, what it adds a minute once in, and what its levels' goods cost on top (they come after)</summary>
+public record GrowPlanDto(IReadOnlyList<GrowPartDto> Parts, double Cost, double Gain, DateTime? UndoUntil, string? Saving = null, double Goods = 0);
 
 public record GrowPartDto(long Building, string Text, double Cost, double Gain);
 

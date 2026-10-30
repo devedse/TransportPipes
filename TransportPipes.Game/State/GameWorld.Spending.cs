@@ -46,10 +46,11 @@ public sealed partial class GameWorld
         {
             return new SpendPreview(0, "");
         }
-        // A trading post: every level raises every Hub Order by 10% (1.4 §8)
+        // A trading post: every level raises every Hub Order by 10% (1.4 §8), above the highest post's level only (the
+        // playtest's Grow counted two posts' levels twice)
         if (Content.Building(building.Type).Kind == BuildingKind.TradingPost)
         {
-            var more = PostLevelGain(company, BoughtLevel(building) + levels - building.Level) - PostLevelGain(company, BoughtLevel(building) - building.Level);
+            var more = PostLevelsGain(company, building, levels) - PostLevelsGain(company, building, 0);
             return more > 0.05
                 ? new SpendPreview(more, $"+{Gold(more)}/min")
                 : new SpendPreview(0, "adds nothing: the market pays the full price for all you sell already");
