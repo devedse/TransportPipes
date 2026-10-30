@@ -96,6 +96,26 @@ public class TutorialFacts
     }
 
     [TestMethod]
+    public void LoadySaysHowFarTodaysOrderIs()
+    {
+        // Playtest: "I have no idea how much I'm contributing to this 2200 order now"
+        var game = new TestGame(content: TestGame.PlainContent, tutorial: true);
+        var company = game.NewCompany(gold: 100_000, level: 3);
+        company.TutorialStep = game.World.Content.Tutorial.ToList().FindIndex(t => t.Id == "firstOrder");
+        var step = game.World.CurrentTutorialStep(company)!;
+        game.Map(company, game.Local(company, 1, 1), " SSSSS\nT+++++T");
+        game.World.EnsureOrders(company);
+        var order = company.DailyOrders.Single();
+        order.Delivered = 3;
+
+        StringAssert.StartsWith(game.World.TutorialTip(company, step), $"Your energy order: 3 of {order.Amount:N0} delivered, full in about");
+
+        var storage = game.Build(company, "storage");
+        storage.Contents["energy"] = 100;
+        StringAssert.EndsWith(game.World.TutorialTip(company, step), "Your Storages have some: Deliver in the Hub's orders fills it now.");
+    }
+
+    [TestMethod]
     public void ChapterOneRetiresAtLevelTen()
     {
         var game = new TestGame(content: TestGame.PlainContent, tutorial: true);

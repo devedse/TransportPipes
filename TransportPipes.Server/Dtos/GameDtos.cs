@@ -224,7 +224,7 @@ public record GameEventDto(long Id, string Kind, string Name, string Effect, Dat
 
 /// <param name="Selling">What the company's trading posts sell of the good a minute now (an order fills from it, after run 3, step 7)</param>
 /// <param name="Premium">What it paid over the hub's price so far</param>
-public record DailyOrderDto(int Id, string Resource, double Amount, double Delivered, double RewardGold, DateTime ExpiresAt, bool Urgent, double Selling = 0, double Premium = 0);
+public record DailyOrderDto(int Id, string Resource, double Amount, double Delivered, double RewardGold, DateTime ExpiresAt, bool Urgent, double Selling = 0, double Premium = 0, double Stored = 0, double HubPrice = 0);
 
 /// <summary>
 /// One good at the market of the player's town (1.4 §8): what it pays the player now (its own Hub Order), what it

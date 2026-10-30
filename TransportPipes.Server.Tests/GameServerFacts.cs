@@ -258,8 +258,9 @@ public class GameServerFacts
                 Assert.AreEqual(stopped.BuildingCounts["windMoily"], hello.Company.BuildingCounts["windMoily"], "the kit's moilies and the new one");
                 Assert.IsGreaterThan(0, hello.Company.GoldPerMinute);
                 // About an hour of the estate's income while the server was down (the hub's price moves with its market
-                // updates, and the Yard's trade with the Houses comes on top)
-                var earned = hello.Company.Gold - stopped.Gold;
+                // updates, and the Yard's trade with the Houses comes on top), and what today's orders paid over the hub
+                var premium = hello.Company.DailyOrders.Sum(t => t.Premium) - stopped.DailyOrders.Sum(t => t.Premium);
+                var earned = hello.Company.Gold - stopped.Gold - premium;
                 Assert.IsGreaterThan(hello.Company.GoldPerMinute * 60 / 1.3, earned);
                 Assert.IsLessThanOrEqualTo(hello.Company.GoldPerMinute * 60 * 1.3, earned);
                 Assert.IsNotNull(hello.Card, "a return card after an hour away");

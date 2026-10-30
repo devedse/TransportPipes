@@ -792,6 +792,11 @@ export class GameClient {
     return this.command(this.connection.setPrice(key, value));
   }
 
+  /** Fills a hub order from what your Storages hold of its good */
+  async deliverOrder(orderId: number) {
+    return this.command(this.connection.deliverOrder(orderId));
+  }
+
   /** Who you trade with and at what prices: the Neighbours panel's trade settings */
   async openTradeSettings() {
     setState({ ...MODALS, neighboursOpen: true, neighboursTab: "trade" });

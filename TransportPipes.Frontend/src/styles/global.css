@@ -830,6 +830,21 @@ kbd {
   margin-top: 2px;
 }
 
+/* A hub order's bar on the light panel: its empty part shows too */
+.order-bar {
+  height: 8px;
+  margin: 4px 0 2px;
+  background: rgba(60, 40, 20, 0.14);
+}
+
+.order-progress {
+  font-variant-numeric: tabular-nums;
+}
+
+.order-deliver {
+  margin-top: 6px;
+}
+
 .meter-fill {
   height: 100%;
   transition: width 0.4s;

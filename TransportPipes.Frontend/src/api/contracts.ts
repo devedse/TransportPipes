@@ -283,6 +283,10 @@ export interface DailyOrderDto {
   selling: number;
   /** What it paid over the hub's price so far */
   premium: number;
+  /** What your Storages hold of the good: Deliver fills the order from it at once */
+  stored: number;
+  /** What the hub pays you for a unit now: the order pays the rest of its price on top */
+  hubPrice: number;
 }
 
 /**
@@ -865,7 +869,8 @@ export type ToastKind =
   | "neighbour"
   | "calendar"
   | "wonder"
-  | "achievement";
+  | "achievement"
+  | "orderPosted";
 
 export interface ToastDto {
   kind: ToastKind;

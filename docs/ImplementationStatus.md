@@ -41,7 +41,7 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 - ✅ Player prices in the fair band (wider with Haggling), buyer maximum price, no-trade, one hour notice for partners; gate policies (open, contract, corporation, closed), public corridor pipes, toll meters
 - ✅ Contracts (offers to a company or on the contract board, served before open trade, penalties) and contract reputation (stars)
 - ✅ Exchange (order book per hub, reserved goods and gold, cargo with travel time, Cargo Depot halves it, fee as gold sink)
-- ✅ Daily orders (three a day), hub reputation (+1% hub price per level)
+- ✅ Daily orders (one a good the trading posts sell, up to three, a good that starts selling during the day gets its own; they fill from the sales or from the Storages), hub reputation (+1% hub price per level)
 - ✅ NPC tenants (producers and works on free estates, they answer contract offers, move out for new players), Neighbourhood panel with spare capacity, needs and one-click Connect
 
 ### M4 · Society

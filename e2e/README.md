@@ -67,7 +67,7 @@ plots: a second server on its own database (`--ConnectionStrings:TransportPipes=
 | `land.mjs` | The seat picker tells the truth; friends find each other late; dealt land: a Yard's plots hold all five land goods |
 | `spending.mjs`, `refusal.mjs`, `wants.mjs` | A panel says what the next level and Max will do; a refusal points at a tile that works; scaffolds want materials |
 | `card-fold.mjs` | The return card leads with what matters; the crew's news in one place |
-| `orders.mjs`, `era-wonder.mjs` | Hub orders as buyers; the town's Era Wonder from the tracker's Era row: Town & Wonder, its give switches, buy and give |
+| `orders.mjs`, `era-wonder.mjs` | Hub orders as buyers: one a good sold, a good that starts selling today gets its own, how far each is, Deliver from the Storages; the town's Era Wonder from the tracker's Era row: Town & Wonder, its give switches, buy and give |
 | `pipe-door.mjs`, `gold.mjs` | After run 4: the pipe ladder's door; "Your gold can" and Grow everything; the Landmark's storeys |
 | `numbers.mjs`, `loady-upgrade.mjs`, `map-clicks.mjs` | After run 4: one income everywhere; Loady's upgrade lands where a level pays; refusals, ghosts and clicks |
 | `exchange.mjs`, `phone-reading.mjs`, `post-max.mjs` | After run 4: the Exchange at your own price, and its expiry; phone panels, reading and a top bar that fits; a Trading Post selling past its Hub Orders: its Max and Grow |

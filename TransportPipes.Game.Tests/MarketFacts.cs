@@ -92,6 +92,8 @@ public class MarketFacts
         Assert.IsLessThanOrEqualTo(selling * 8 * 60 + 10, order.Amount, "it fills within eight hours of its own selling");
         var price = SalePrice(game, post);
         game.World.TakeChanges();
+        var gold = company.Gold;
+        var market = company.EarnedLog.GetValueOrDefault("market")?.GetValueOrDefault("energy") ?? 0;
 
         var minutes = 0;
         while (!order.Done && minutes < 9 * 60)
@@ -103,6 +105,7 @@ public class MarketFacts
         Assert.IsTrue(order.Done, "it filled by itself, from the sales");
         Assert.AreEqual(order.Amount * (order.RewardGold / order.Amount - price), order.Premium, 1, "it paid twice the base price: the difference to the hub's on top");
         Assert.AreEqual(order.Premium, company.EarnedLog["orders"]["energy"], 1, "counted as gold earned");
+        Assert.AreEqual(company.EarnedLog["market"]["energy"] - market + order.Premium, company.Gold - gold, 1, "and paid (playtest: it was counted, never paid)");
         var events = game.World.TakeChanges().Events;
         Assert.IsTrue(events.Any(t => t.Company == company.Id && t.Text.StartsWith("Your energy filled a hub order")), string.Join(" | ", events.Select(t => t.Text)));
         Assert.AreEqual(1, company.Report.OrdersCompleted);
@@ -118,8 +121,56 @@ public class MarketFacts
 
         var value = company.DailyOrders.Sum(t => t.Amount * game.World.BasePrice(t.Resource));
 
-        Assert.IsGreaterThan(GameWorld.OrderIncomeMinutes * 6_000 * 0.75 - 30, value);
-        Assert.IsLessThan(GameWorld.OrderIncomeMinutes * 6_000 * 1.25 + 30, value, "about half an hour of income in all");
+        Assert.IsGreaterThan(GameWorld.OrderIncomeMinutes / GameWorld.OrdersPerDay * 6_000 * 0.75 - 30, value);
+        Assert.IsLessThan(GameWorld.OrderIncomeMinutes / GameWorld.OrdersPerDay * 6_000 * 1.25 + 30, value, "a third of half an hour of income: three together about half an hour");
+    }
+
+    [TestMethod]
+    public void AGoodThatStartsSellingDuringTheDayGetsItsOrder()
+    {
+        // Playtest: a new company got one energy order the moment it picked its plot, and no other that day
+        var game = new TestGame(content: TestGame.PlainContent);
+        var company = game.NewCompany();
+        game.World.EnsureOrders(company);
+        Assert.AreEqual("energy", company.DailyOrders.Single().Resource, "nothing sells yet: energy");
+
+        game.Map(company, game.Local(company, 2, 2), "W+M\n + \n +T");
+        game.World.TakeChanges();
+        game.Pass(1);
+
+        Assert.IsGreaterThan(0, game.World.SellingPerMinute(company).GetValueOrDefault("ironOre"));
+        CollectionAssert.AreEquivalent(new[] { "energy", "ironOre" }, company.DailyOrders.Select(t => t.Resource).ToList(), "its ore got an order once it sold");
+        Assert.HasCount(2, company.DailyOrders.Select(t => t.Id).Distinct());
+        var events = game.World.TakeChanges().Events;
+        Assert.IsTrue(events.Any(t => t.Company == company.Id && t.Kind == WorldEventKind.OrderPosted && t.Text.Contains("iron ore")), string.Join(" | ", events.Select(t => t.Text)));
+        game.Pass(5);
+        Assert.HasCount(2, company.DailyOrders, "one a good");
+    }
+
+    [TestMethod]
+    public void AnOrderFillsFromTheStoragesAtOnce()
+    {
+        var (game, company, post) = SolarSeller(5);
+        game.World.EnsureOrders(company);
+        var order = company.DailyOrders.Single();
+        var storage = game.Build(company, "storage");
+        storage.Contents["energy"] = order.Amount / 2;
+        var gold = company.Gold;
+
+        Assert.IsTrue(game.World.DeliverOrder(company.Id, order.Id).Success);
+
+        Assert.AreEqual(order.Amount / 2, order.Delivered, 1e-6);
+        Assert.IsFalse(storage.Contents.ContainsKey("energy"), "it took what the Storage held");
+        Assert.AreEqual(order.RewardGold / 2, company.Gold - gold, 1, "at the order's price, at once");
+        Assert.AreEqual(order.RewardGold / 2, company.EarnedLog["orders"]["energy"], 1);
+        StringAssert.Contains(game.World.DeliverOrder(company.Id, order.Id).Error, "hold no energy");
+
+        storage.Contents["energy"] = order.Amount;
+        Assert.IsTrue(game.World.DeliverOrder(company.Id, order.Id).Success);
+        Assert.IsTrue(order.Done);
+        Assert.AreEqual(order.Amount / 2, storage.Contents["energy"], 1e-6, "only what the order still needed");
+        Assert.AreEqual(1, company.Report.OrdersCompleted);
+        StringAssert.Contains(game.World.DeliverOrder(company.Id, order.Id).Error, "filled");
     }
 
     [TestMethod]

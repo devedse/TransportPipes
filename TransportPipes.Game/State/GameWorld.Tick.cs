@@ -403,9 +403,16 @@ public sealed partial class GameWorld
                         break;
                     }
                     CountEarned(seller, income, "market", flow.Resource);
+                    // A good that starts selling during the day gets its order (playtest: one order on a first day)
+                    if (flow.Delivered > 1e-6 && WantsOrder(seller, flow.Resource, LastTick) && IsActive(seller))
+                    {
+                        TopUpOrders(seller);
+                    }
                     // Today's hub orders buy at their own price as the goods pass (after run 3, step 7)
                     if (seller.DailyOrders.Count > 0 && FillOrders(seller, flow.Resource, flow.Delivered * minutes, flow.PricePerUnit) is > 0 and var premium)
                     {
+                        // Paid on top of the hub's price (playtest: it was counted, never paid)
+                        seller.Gold += premium;
                         earnings[from.Owner] += premium;
                         CountEarned(seller, premium, "orders", flow.Resource);
                     }

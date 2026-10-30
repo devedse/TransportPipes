@@ -236,12 +236,13 @@ public static partial class GameViews
         return new LandDto(mine.Goods, mine.Lacks, mine.Strength, seats);
     }
 
-    /// <summary>Today's hub orders, each with what the trading posts sell of its good now (they fill from it)</summary>
+    /// <summary>Today's hub orders, each with what the trading posts sell of its good now (they fill from it), what the Storages hold of it and the hub's price</summary>
     private static List<DailyOrderDto> Orders(GameWorld world, Company company)
     {
         var selling = world.SellingPerMinute(company);
         return company.DailyOrders.Select(t => new DailyOrderDto(t.Id, t.Resource, t.Amount, Math.Floor(t.Delivered), t.RewardGold, t.ExpiresAt, t.Urgent,
-            Math.Round(selling.GetValueOrDefault(t.Resource), 2), Math.Round(t.Premium))).ToList();
+            Math.Round(selling.GetValueOrDefault(t.Resource), 2), Math.Round(t.Premium), Math.Floor(world.StoredOf(company.Id, t.Resource)),
+            Math.Round(world.HubBuyPrice(company, t.Resource), 4))).ToList();
     }
 
     /// <summary>Who can make a good, as a line says it: the others first, then "you"</summary>

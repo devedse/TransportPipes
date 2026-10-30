@@ -243,6 +243,10 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> SetPrice(string key, double? value) =>
         Command((world, company) => world.SetPrice(company, key, value));
 
+    /// <summary>Fills one of today's hub orders from what your Storages hold of its good, paid at once</summary>
+    public Task<CommandResultDto> DeliverOrder(int orderId) =>
+        Command((world, company) => world.DeliverOrder(company, orderId));
+
     /// <summary>Your "Play next to me" link (1.4 §6): its code, valid for seven days</summary>
     public Task<string?> GetNextToMeLink() =>
         _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameWorld.ShowCode(world.NextToMeLink(company.Id)) : null);

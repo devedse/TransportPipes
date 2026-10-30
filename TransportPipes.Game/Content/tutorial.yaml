@@ -20,7 +20,7 @@
 - { id: firstStorage, stat: "built:storage", amount: 1, gold: 300, hint: { tool: build, building: storage },
     text: "Build a Storage on your pipes. It keeps what your buildings make for your next buildings and pipes: a building short of materials takes them from it." }
 - { id: firstOrder, stat: orders, amount: 1, gold: 500, hint: { panel: hub },
-    text: "The hub posts three orders a day and buys them at twice the price from what your trading post sells. Keep selling: one fills by itself." }
+    text: "The hub posts up to three orders a day, one for each good your trading post sells, and pays twice the price for them. Keep selling: they fill by themselves (Hub › Daily orders shows how far)." }
 - { id: firstResearch, stat: researched, amount: 1, gold: 800, hint: { tool: build, building: lab },
     text: "Build a Lab and pick your first research: a track makes one chain's buildings better, the Era tree opens new pipes and buildings. Research costs gold, then time, and runs on while you're away." }
 - { id: firstParcel, stat: parcels, amount: 5, gold: 1000, hint: { panel: parcel },

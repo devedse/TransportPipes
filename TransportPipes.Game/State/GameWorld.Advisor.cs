@@ -178,7 +178,7 @@ public sealed partial class GameWorld
                 && MaterialsLine(company, definition) is { Short.Count: > 0 } waits)
             {
                 var once = $" once its {Join(waits.Short.Keys.Select(GoodsWord).ToList())} {(waits.Short.Count == 1 && !GoodsWord(waits.Short.Keys.First()).EndsWith('s') ? "is" : "are")} in";
-                var reason = System.Text.RegularExpressions.Regex.Replace(step.Reason, @", back in [^.:]+", once);
+                var reason = System.Text.RegularExpressions.Regex.Replace(step.Reason, @", pays for itself in [^.:;]+", once);
                 step = step with { Reason = reason == step.Reason ? $"{step.Reason.TrimEnd('.')}{once}." : reason };
                 // 1.4 §9: the market brings them within minutes at 2.5× (unless the player turned that off): part of its price
                 if (company.WantsFromMarket)
@@ -1035,7 +1035,7 @@ public sealed partial class GameWorld
             var payback = best.Cost / best.Gain;
             var why = definition.Kind == BuildingKind.TradingPost ? "Every level raises all your Hub Orders by 10%" : "Every level makes 10% more";
             add(new AdvisorStep(AdvisorKind.Upgrade, $"Upgrade {name} to level {target}",
-                $"{why}: {Plus(network, best.Gain)} for {Gold(best.Cost)}, back in {Minutes(payback)}.",
+                $"{why}: {Plus(network, best.Gain)} for {Gold(best.Cost)}, pays for itself in {Minutes(payback)}.",
                 AdvisorAction.Upgrade, best.Cost, best.Gain, Building: building.Id, BuildingType: building.Type, Levels: best.Levels, At: building.Position), 1);
         }
     }
@@ -1121,7 +1121,7 @@ public sealed partial class GameWorld
                 : $"{(owned == 0 ? $"Build {Article(definition.Name)}" : $"Another {definition.Name}")}: {string.Join(" and ", definition.In.Keys.Where(r => spare[network].ContainsKey(r)).Select(ResourceWord))} into {ResourceWord(output)}";
             var payback = cost / gain;
             add(new AdvisorStep(AdvisorKind.Chain, title,
-                $"{Plus(network, gain)} for {Gold(cost)}, back in {Minutes(payback)}" + (extractor ? "." : ": the hub pays more for it than for what goes in."),
+                $"{Plus(network, gain)} for {Gold(cost)}, pays for itself in {Minutes(payback)}" + (extractor ? "." : ": the hub pays more for it than for what goes in."),
                 AdvisorAction.Build, cost, gain, BuildingType: definition.Id, At: spot), 1);
         }
     }
@@ -1171,7 +1171,7 @@ public sealed partial class GameWorld
                     $"About +{Gold(best.Value)}/min at the hub, on the best spot near it.",
                     AdvisorAction.Build, BuildCost(company, best.Definition), best.Value, BuildingType: best.Definition.Id, At: best.Spot)
                 : new AdvisorStep(AdvisorKind.Chain, $"Build another {best.Definition.Name}",
-                    $"About +{Gold(best.Value)}/min at the hub on a good spot, back in {Minutes(BuildCost(company, best.Definition) / best.Value)}; its first levels are cheap.",
+                    $"About +{Gold(best.Value)}/min at the hub on a good spot, pays for itself in {Minutes(BuildCost(company, best.Definition) / best.Value)}; its first levels are cheap.",
                     AdvisorAction.Build, BuildCost(company, best.Definition), best.Value, BuildingType: best.Definition.Id, At: best.Spot),
                 first ? AdvisorFixFactor : 1);
         }

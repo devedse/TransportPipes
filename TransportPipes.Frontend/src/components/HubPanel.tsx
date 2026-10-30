@@ -177,8 +177,14 @@ export function HubPanel() {
         ) : tab === "orders" ? (
           <div className="orders">
             <p className="muted small">
-              The hub buys these today at twice the price, from what your trading posts sell: nothing to
-              deliver, they fill as your goods pass. New orders at midnight.
+              The hub buys these today at twice the price: one for each good your trading posts sell, up to
+              three, and a good that starts selling today gets its own. They fill by themselves as your goods
+              pass, or deliver what your Storages hold. New orders at{" "}
+              {new Date(new Date(company.serverTime).setUTCHours(24, 0, 0, 0)).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              .
             </p>
             {company.dailyOrders.map((order) => {
               const done = order.delivered >= order.amount - 1e-9;
@@ -196,6 +202,10 @@ export function HubPanel() {
                   (t.urgent !== order.urgent ? t.urgent : t.id < order.id),
               );
               const before = ahead.reduce((sum, t) => sum + t.amount - t.delivered, 0);
+              // Twice the base for every unit, the hub's price as the goods pass and the rest from the order
+              const unit = order.rewardGold / order.amount;
+              const bonus = order.rewardGold - order.amount * order.hubPrice;
+              const deliver = done || left <= 0 ? 0 : Math.min(order.stored, order.amount - order.delivered);
               const eta =
                 order.selling > 1e-6
                   ? ((before + order.amount - order.delivered) / order.selling) * 60
@@ -210,7 +220,7 @@ export function HubPanel() {
                       {order.urgent && <span className="urgent-tag">📢 Shortage</span>}
                       {formatAmount(order.amount)} {good}
                     </div>
-                    <div className="meter-bar">
+                    <div className="meter-bar order-bar">
                       <div
                         className="meter-fill"
                         style={{
@@ -219,8 +229,21 @@ export function HubPanel() {
                         }}
                       />
                     </div>
+                    <div className="small order-progress">
+                      <strong>
+                        {formatAmount(order.delivered)} / {formatAmount(order.amount)}
+                      </strong>{" "}
+                      delivered
+                      {order.delivered > 0 && (
+                        <>
+                          {" "}
+                          · <span className="gold-text">{formatAmount(order.delivered * unit)} g</span> paid
+                        </>
+                      )}
+                    </div>
                     <div className="small muted">
                       Pays <span className="gold-text">{formatAmount(order.rewardGold)} g</span> in all
+                      {bonus > 0.5 && `, ${formatAmount(bonus)} g more than the hub would`}
                       {!done && ` · ${formatDuration(Math.max(0, left))} left`}
                     </div>
                     <div className="small order-stock">
@@ -230,6 +253,18 @@ export function HubPanel() {
                           ? `Your trading posts sell ${formatAmount(order.selling)} a minute${ahead.length > 0 ? `, which fill ${ahead.some((t) => t.urgent) ? "the shortage order" : "the order above"} first` : ""}: full in about ${formatDuration(eta)}${eta > left ? `, after it closes: only ${formatAmount(Math.max(0, order.selling * (left / 60) - before))} of it at this rate` : ""}`
                           : `Your trading posts sell no ${good} now: pipe a building that makes it to one`}
                     </div>
+                    {deliver >= 1 && (
+                      <div className="order-deliver">
+                        <button
+                          className="small"
+                          title="Your Storages kept these for your next buildings and pipes: they go to the hub now"
+                          onClick={() => void gameClient.deliverOrder(order.id)}
+                        >
+                          Deliver {formatAmount(deliver)} from your Storages · +{formatAmount(deliver * unit)}{" "}
+                          g
+                        </button>
+                      </div>
+                    )}
                   </div>
                   {done && <span className="order-check">✔</span>}
                 </div>

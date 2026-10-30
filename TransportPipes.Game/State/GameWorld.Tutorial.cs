@@ -178,6 +178,25 @@ public sealed partial class GameWorld
                 return $"Your {name} stands but makes nothing yet: not enough {GoodsWord(missing)} reaches it. {IdleStatusOf(built, plan: false).Reach}".TrimEnd();
             }
         }
+        // How far today's orders are (playtest: "I have no idea how much I'm contributing to this 2200 order")
+        if (step.Stat == "orders" && TutorialProgress(company, step) < step.Amount)
+        {
+            var selling = SellingPerMinute(company);
+            var open = company.DailyOrders.Where(t => !t.Done && t.ExpiresAt > LastTick)
+                .OrderBy(t => selling.GetValueOrDefault(t.Resource) > 1e-6 ? (t.Amount - t.Delivered) / selling[t.Resource] : double.MaxValue)
+                .FirstOrDefault();
+            if (open == null)
+            {
+                return null;
+            }
+            var good = GoodsWord(open.Resource);
+            var line = $"Your {good} order: {Amount(Math.Floor(open.Delivered))} of {Amount(open.Amount)} delivered";
+            var rate = selling.GetValueOrDefault(open.Resource);
+            line += rate > 1e-6
+                ? $", full in about {Minutes((open.Amount - open.Delivered) / rate)} at {Amount(rate)} a minute."
+                : $". Your trading posts sell no {good} now.";
+            return StoredOf(company.Id, open.Resource) >= 1 ? $"{line} Your Storages have some: Deliver in the Hub's orders fills it now." : line;
+        }
         if (step.Stat != "partners" || TutorialProgress(company, step) >= step.Amount || EstateOf(company) is not { } estate)
         {
             return null;

@@ -275,6 +275,7 @@ export class GameConnection {
   findPlayer = (text: string) => this.invoke<FoundPlayerDto[]>("FindPlayer", text);
   /** One of your prices ("public", "crew", "public:good", "crew:good", "for:companyId"; null: back to its default) */
   setPrice = (key: string, value: number | null) => this.invoke<CommandResult>("SetPrice", key, value);
+  deliverOrder = (orderId: number) => this.invoke<CommandResult>("DeliverOrder", orderId);
   /** Any resident opens or closes the Yard */
   setYardOpen = (open: boolean) => this.invoke<CommandResult>("SetYardOpen", open);
   /** Asks to settle on a free plot of a closed Yard (the request waits three days) */

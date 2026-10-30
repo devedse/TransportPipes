@@ -316,7 +316,7 @@ Statistics panel (J) shows a card per graph over 24 hours, 7 days, 30 days or al
 shaded, and compares with your crew and town; others see what the leaderboards show and their big moments.
 
 Managers (Planner Sam keeps both research lines busy, Trader Lin buys stale wants and adds 5% to Hub Orders, and
-others), achievements and collections that pay hours of income, three daily orders, calendar events (storms, heat
+others), achievements and collections that pay hours of income, daily orders (one for each good your trading posts sell, up to three, at twice the price: they fill as the goods sell, or from your Storages at once), calendar events (storms, heat
 waves, shortages, expos, festivals), blueprints, the Yard's Plan board, crew, town and world chat with blocking and
 reporting, guestbooks and likes, leaderboards, decorations, photo mode.
 
