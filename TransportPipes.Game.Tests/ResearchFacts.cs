@@ -36,6 +36,21 @@ public class ResearchFacts
     }
 
     [TestMethod]
+    public void EveryLabLevelMakesResearchAPercentFaster()
+    {
+        // The owner, 2026-10-31: its levels did nothing; "maybe 1% per level"
+        var game = new TestGame();
+        var company = game.NewCompany(level: 10);
+        var lab = game.Build(company, "lab");
+        game.SetLevel(lab, 11);
+
+        Assert.IsTrue(game.World.StartResearch(company.Id, "iron").Success);
+
+        Assert.AreEqual(1.1, game.World.LabSpeed(company), 1e-9);
+        Assert.AreEqual(10 / 1.1, (company.TrackEndsAt!.Value - game.Time).TotalMinutes, 1e-6, "a tenth faster at level 11");
+    }
+
+    [TestMethod]
     public void ResearchNeedsALab()
     {
         var game = new TestGame();

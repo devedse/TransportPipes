@@ -45,9 +45,20 @@ public sealed partial class GameWorld
     /// <summary>Whether a company has a finished Lab (research needs one, from Level 4)</summary>
     public bool HasLab(Company company) => HasBuilding(company.Id, BuildingKind.Lab);
 
-    /// <summary>How long research takes for a company: the Observatory, the Thinking Machine, Planner Sam</summary>
+    /// <summary>How long research takes for a company: the Observatory, the Thinking Machine, Planner Sam, its Lab's level</summary>
     public double ResearchMinutes(Company company, double minutes) =>
-        minutes * ManagerResearchFactor(company) * MonumentResearchFactor(company) * WonderResearchFactor(company);
+        minutes * ManagerResearchFactor(company) * MonumentResearchFactor(company) * WonderResearchFactor(company) / LabSpeed(company);
+
+    /// <summary>Research is this much faster for every Lab level above the first</summary>
+    public const double LabSpeedPerLevel = 0.01;
+
+    /// <summary>
+    /// How fast a company researches for its Lab's level (the owner, 2026-10-31: its levels did nothing; "can we make the
+    /// lab upgrade make the research slightly faster? Not too much, maybe 1% per level"): its best finished Lab's
+    /// </summary>
+    public double LabSpeed(Company company) =>
+        1 + LabSpeedPerLevel * (BuildingsOf(company.Id).Where(t => !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Lab)
+            .Select(t => t.Level).DefaultIfEmpty(1).Max() - 1);
 
     // ---------------------------------------------------------------- The Era tree
 

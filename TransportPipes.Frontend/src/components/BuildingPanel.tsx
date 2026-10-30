@@ -491,11 +491,18 @@ export function BuildingPanel() {
         </section>
       )}
       {definition.kind === "lab" && mine && company !== null && (
-        <button className="primary wide" onClick={() => void gameClient.openResearch()}>
-          {researchName(company, content) !== null
-            ? `Researching ${researchName(company, content) ?? ""} · open research`
-            : "🔬 Pick a research"}
-        </button>
+        <>
+          <button className="primary wide" onClick={() => void gameClient.openResearch()}>
+            {researchName(company, content) !== null
+              ? `Researching ${researchName(company, content) ?? ""} · open research`
+              : "🔬 Pick a research"}
+          </button>
+          <p className="muted small lab-speed">
+            {building.level > 1
+              ? `Level ${building.level}: research ${building.level - 1}% faster`
+              : "Every level makes research 1% faster"}
+          </p>
+        </>
       )}
       {details.contents !== null && details.capacity !== null && (
         <section>
@@ -1033,6 +1040,8 @@ function levelEffect(kind: string): string {
     case "deepLift":
     case "cargoDepot":
       return "carries more with every level";
+    case "lab":
+      return "research 1% faster per level, from the next one";
     default:
       return "output +10% per level";
   }
