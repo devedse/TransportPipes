@@ -88,12 +88,16 @@ export function ChatPanel() {
   }
   const send = async (event: FormEvent) => {
     event.preventDefault();
-    if (await gameClient.sendChat(text)) {
-      setText("");
-      // The keys belong to the map again (P picks the pipe, not a letter in the box); T or a click comes back here
-      if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-      }
+    const sending = text;
+    if (sending.trim() === "") {
+      return;
+    }
+    // Cleared at once, and the box keeps the focus: one types on (playtest: "if you type in the chat and press enter
+    // and then continue typing the focus on the chat box is gone"); Esc or a click on the map gives the keys back
+    setText("");
+    if (!(await gameClient.sendChat(sending))) {
+      // Not sent: it comes back, unless something new is typed there already
+      setText((now) => (now === "" ? sending : now));
     }
   };
   const current = chat?.channels.find((t) => t.id === channel);

@@ -54,6 +54,7 @@ and piped to the post (`kit(page, types, 2)` in Copper Pipe, its ingots stocked)
 | `panel-tops.mjs` | What a building does at the top of its panel, above Upgrade: a producer's Needs and Makes, a Storage's Stored, the Trading Post's sales against your Hub Orders with Buy from the hub |
 | `pipe-sign.mjs` | A pipe on its way to a better one glows in the new pipe's colour with an arrow, the hover says what it waits for; the corner's Waits line offers Buy all the rest |
 | `storage-drain.mjs` | A Storage's line lowered below what it holds: what's above goes on to the Trading Post and is sold, as fast as its pipe carries it; the panel says so |
+| `chat-focus.mjs` | Typing on in the chat after Enter: the box keeps the focus and the next message goes in it (no map key fires), what is typed meanwhile stays |
 | `finish-all.mjs` | The Yard's What you're waiting for: levels bought together are one line per good that costs what it says, no "has what it needs"; Buy all the rest at the top buys every want's rest |
 | `yard-how.mjs` | The Yard panel's "How your Yard works: what happens when": open until you are piped to the gate, then folded, the pipe step ticked; Monument and workshops at their Company Level |
 | `block.mjs` | Blocking a neighbour in the trade settings: the switch goes off at once and says when the block counts (an hour's notice); on again calls it off |
