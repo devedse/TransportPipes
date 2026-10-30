@@ -5,7 +5,7 @@ WORKDIR /app
 EXPOSE 8080
 
 # The frontend is platform independent, so build it once on the build machine for every target platform.
-FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend
+FROM --platform=$BUILDPLATFORM node:25-alpine AS frontend
 WORKDIR /src/TransportPipes.Frontend
 COPY ["TransportPipes.Frontend/package.json", "TransportPipes.Frontend/package-lock.json", "./"]
 RUN npm ci
