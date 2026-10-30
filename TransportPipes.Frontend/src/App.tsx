@@ -40,6 +40,7 @@ import { Toasts } from "./components/Toasts";
 import { Toolbar } from "./components/Toolbar";
 import { TopBar } from "./components/TopBar";
 import { VersionBadge } from "./components/VersionBadge";
+import { WhatsNew } from "./components/WhatsNew";
 import { UpdateOverlay } from "./components/UpdateOverlay";
 import { appStore, setState, useAppStore } from "./state/store";
 
@@ -355,6 +356,7 @@ export function App() {
       )}
       <Toasts />
       <VersionBadge />
+      <WhatsNew />
       <UpdateOverlay />
     </div>
   );

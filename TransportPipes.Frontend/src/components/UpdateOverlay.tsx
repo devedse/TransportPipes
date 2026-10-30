@@ -32,7 +32,7 @@ export function UpdateOverlay() {
       <div className="panel update-card">
         <img src="/art/ui/loady-cheer.webp" alt="" className="update-loady" />
         <h2>New update!</h2>
-        <p>The game has been updated. Reloading in {left} s…</p>
+        <p>The game has been updated. Reloading in {left} s… then you see what&apos;s new.</p>
         <button className="primary" onClick={() => window.location.reload()} autoFocus>
           Reload now
         </button>

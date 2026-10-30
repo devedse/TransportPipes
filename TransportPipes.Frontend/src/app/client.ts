@@ -1440,6 +1440,8 @@ export class GameClient {
     const state = appStore.getState();
     if (state.picker?.mode === "move") {
       this.closePicker();
+    } else if (state.whatsNewOpen !== false) {
+      setState({ whatsNewOpen: false });
     } else if (state.keysOpen) {
       setState({ keysOpen: false });
     } else if (

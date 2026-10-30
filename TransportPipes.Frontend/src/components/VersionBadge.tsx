@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { VersionInfo } from "../api/contracts";
 import { fetchServerVersion } from "../api/version";
 import { formatVersion } from "../app/format";
-import { useAppStore } from "../state/store";
+import { setState, useAppStore } from "../state/store";
 
 /** The version of the server in the bottom corner. Fetched again after a reconnect (e.g. after an update). */
 export function VersionBadge() {
@@ -22,8 +22,13 @@ export function VersionBadge() {
   }
 
   return (
-    <div className="version-badge" title={version.commit ? `Commit ${version.commit}` : undefined}>
+    <button
+      type="button"
+      className="version-badge"
+      title={`What's new${version.commit ? ` · commit ${version.commit}` : ""}`}
+      onClick={() => setState({ whatsNewOpen: "latest" })}
+    >
       {formatVersion(version)}
-    </div>
+    </button>
   );
 }

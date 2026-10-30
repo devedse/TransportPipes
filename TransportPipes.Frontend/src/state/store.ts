@@ -90,6 +90,8 @@ export interface AppState {
   nextSteps: NextStepDto[];
   /** The list of mouse actions and keys */
   keysOpen: boolean;
+  /** What's new: the changes since the player last looked (after an update), or the latest (version badge) */
+  whatsNewOpen: false | "new" | "latest";
   buildingDetails: BuildingDetailsDto | null;
   selectedParcel: number | null;
   /** Which of the company's estates the selected parcel belongs to (0 is the first, then the branches) */
@@ -228,6 +230,7 @@ export const initialState: AppState = {
   selection: [],
   nextSteps: [],
   keysOpen: false,
+  whatsNewOpen: false,
   buildingDetails: null,
   selectedParcel: null,
   selectedParcelEstate: 0,

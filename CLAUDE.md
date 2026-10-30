@@ -8,6 +8,9 @@ the Docker image that the test server runs).
 
 - `dotnet test --project TransportPipes.Game.Tests` and `TransportPipes.Server.Tests` (needs Docker); in
   `TransportPipes.Frontend`: `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm test`
+- Give every commit that changes the game a `Player: <one plain line for players>` line in its message (several for
+  several changes, `Player: -` for one players don't notice): the game's "What's new" shows it after an update
+  (`scripts/changes.mjs`; without one it shows the subject)
 - Reproduce a reported bug yourself before fixing it (the `e2e/` scripts drive the game in a browser; see
   `e2e/README.md`), and check the fix the same way
 

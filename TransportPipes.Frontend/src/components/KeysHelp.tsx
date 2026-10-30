@@ -54,6 +54,9 @@ export function KeysHelp() {
           </div>
         ))}
       </dl>
+      <button className="link small" onClick={() => setState({ keysOpen: false, whatsNewOpen: "latest" })}>
+        What&apos;s new in the game ▸
+      </button>
     </div>
   );
 }
