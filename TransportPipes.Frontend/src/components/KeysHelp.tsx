@@ -21,11 +21,12 @@ const TOUCH: Array<[string, string]> = [
 const KEYS: Array<[string, string]> = [
   ["V · B · P · X", "select · build · pipe · remove"],
   ["U · Shift + U", "upgrade the selection (or the building) by one · by ten"],
+  ["E", "move the selected building (E again: put it back)"],
   ["Delete", "demolish the selection (asks first)"],
   ["Ctrl + A", "select all your buildings on screen"],
   ["Esc", "back"],
   ["H · G", "home · the Deep Level"],
-  ["N · M · R · C · I · L", "neighbours · hub · research · corporation · company · leaderboard"],
+  ["N · K · M · R · I · L", "neighbours · crew · hub · research · company · leaderboard"],
   ["J", "statistics: your company over time"],
   ["O · F · T · Y", "overlays · photo mode · chat · plans"],
   ["?", "this list"],

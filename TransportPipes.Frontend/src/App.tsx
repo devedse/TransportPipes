@@ -127,6 +127,25 @@ function useShortcuts() {
         case "v":
           gameClient.setTool({ kind: "select" });
           break;
+        case "e": {
+          // Move: the selected building of yours, as its panel's Move does; E again puts it back
+          if (state.tool.kind === "move") {
+            gameClient.setTool({ kind: "select" });
+            break;
+          }
+          const id = state.selectedBuilding;
+          const building = id === null ? undefined : gameClient.world?.buildings.get(id);
+          if (
+            building === undefined ||
+            building.owner !== state.company?.id ||
+            building.type === "hq" ||
+            (state.buildingDetails?.complexMembers ?? 1) > 1
+          ) {
+            return;
+          }
+          gameClient.setTool({ kind: "move", building: building.id });
+          break;
+        }
         case "i":
           if (state.companyOpen) {
             setState({ companyOpen: false });
