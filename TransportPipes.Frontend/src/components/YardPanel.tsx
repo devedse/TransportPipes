@@ -4,7 +4,6 @@ import { formatAmount, possessive } from "../app/format";
 import type { CompanyDto, ResourceRateDto, YardDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import { setState, useAppStore } from "../state/store";
-import { LinksTab } from "./LinksTab";
 import { PlanBoard } from "./PlanBoard";
 import { ResourceIcon } from "./ResourceIcon";
 import { DepotSection } from "./DepotSection";
@@ -122,8 +121,6 @@ function YardHow({ yard, company }: { yard: YardDto; company: CompanyDto }) {
 export function YardPanel() {
   const open = useAppStore((state) => state.yardOpen);
   const yard = useAppStore((state) => state.yard);
-  const tab = useAppStore((state) => state.yardTab);
-  const links = useAppStore((state) => state.links);
   const content = useAppStore((state) => state.content);
   const company = useAppStore((state) => state.company);
   const serverOffset = useAppStore((state) => state.serverOffsetMs);
@@ -131,7 +128,6 @@ export function YardPanel() {
   if (!open || content === null || company === null) {
     return null;
   }
-  const waiting = links?.links.filter((t) => t.state === "offered" && !t.youOffered).length ?? 0;
   // Buy all the rest (playtest: "there should be a button to finish all at the top"): when more than one line can be bought
   const buyable = (company.wants ?? []).filter((t) => t.orderCost !== null);
   const waitingCost = buyable.length > 1 ? buyable.reduce((sum, t) => sum + (t.orderCost ?? 0), 0) : null;
@@ -154,30 +150,9 @@ export function YardPanel() {
           ×
         </button>
       </div>
-      <div className="tabs" role="tablist">
-        <button
-          role="tab"
-          aria-selected={tab === "yard"}
-          className={tab === "yard" ? "tab active" : "tab"}
-          onClick={() => {
-            setState({ yardTab: "yard", focusLink: null });
-            void gameClient.refreshYard();
-          }}
-        >
-          Yard
-        </button>
-        <button
-          role="tab"
-          aria-selected={tab === "links"}
-          className={tab === "links" ? "tab active" : "tab"}
-          onClick={() => void gameClient.openLinks()}
-        >
-          Links{waiting > 0 && <span className="badge">{waiting}</span>}
-        </button>
-      </div>
-      {tab === "links" ? (
-        <LinksTab />
-      ) : yard === null ? (
+      {/* One goal: who lives around you, and what you do together; every trade has its own panel (the owner,
+          2026-10-31: "a separate button where we can clearly see these trades happening") */}
+      {yard === null ? (
         <p className="muted">Loading…</p>
       ) : (
         <>
@@ -450,8 +425,9 @@ export function YardPanel() {
             </section>
           )}
           <span className="button-row">
+            <button onClick={() => void gameClient.openTrades("now")}>⚖ All your trades</button>
             <button onClick={() => void gameClient.openTradeSettings()}>⚙ Trade settings</button>
-            <button onClick={() => void gameClient.openLinks()}>🔗 Links to other Yards</button>
+            <button onClick={() => void gameClient.openLinks()}>🔗 Links</button>
             <button onClick={() => void gameClient.openCrew()}>👥 Crew</button>
           </span>
         </>

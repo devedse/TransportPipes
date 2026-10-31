@@ -103,7 +103,7 @@ export interface AppState {
   yardOpen: boolean;
   yard: YardDto | null;
   /** The Yard panel's tab: your station, or your links to other stations */
-  yardTab: "yard" | "links";
+  yardTab: "yard";
   /** The return card (F5): what happened since the last session, until the player continues */
   returnCard: ReturnCardDto | null;
   /** When the player last left (the chat marks what came since) */
@@ -141,8 +141,9 @@ export interface AppState {
   /** What your gold can do (after run 4), loaded when the top bar's gold is opened */
   goldUses: GoldUsesDto | null;
   exchange: ExchangeDto | null;
-  neighboursOpen: boolean;
-  neighboursTab: "neighbours" | "trade";
+  /** The Trades panel (the owner, 2026-10-31: one place to see and manage every trade) and its tab */
+  tradesOpen: boolean;
+  tradesTab: TradesTab;
   neighbours: NeighbourDto[];
   /** A pipe route the player is looking at (Connect), drawn on the map until it is built or dropped */
   plannedRoute: TilePosition[] | null;
@@ -267,8 +268,8 @@ export const initialState: AppState = {
   lines: null,
   goldUses: null,
   exchange: null,
-  neighboursOpen: false,
-  neighboursTab: "neighbours",
+  tradesOpen: false,
+  tradesTab: "now",
   neighbours: [],
   plannedRoute: null,
   plannedPartner: null,
@@ -320,10 +321,12 @@ export const initialState: AppState = {
 };
 
 /** The big panels in the middle of the screen; one at a time */
+/** The Trades panel's tabs */
+export type TradesTab = "now" | "links" | "settings" | "town";
+
 export const MODALS = {
   researchOpen: false,
   hubOpen: false,
-  neighboursOpen: false,
   crewOpen: false,
   leaderboardOpen: false,
   statsOpen: false,
@@ -348,6 +351,7 @@ const SIDE_PANELS = {
   selection: { selection: [] },
   selectedNetwork: { selectedNetwork: null, networkDetails: null },
   yardOpen: { yardOpen: false },
+  tradesOpen: { tradesOpen: false },
   selectedParcel: { selectedParcel: null },
   selectedOutskirts: { selectedOutskirts: null },
   selectedDeepParcel: { selectedDeepParcel: null },

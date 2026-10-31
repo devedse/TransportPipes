@@ -26,7 +26,7 @@ function signed(gold: number): string {
  * we keep seeing it change all the time and I don't understand why"): every line the top bar adds up, what isn't in it,
  * and why it moves
  */
-function IncomeBreakdown({ income, content }: { income: IncomeDto; content: Content }) {
+export function IncomeBreakdown({ income, content }: { income: IncomeDto; content: Content }) {
   return (
     <details className="income" open>
       <summary>
@@ -107,7 +107,10 @@ function IncomeBreakdown({ income, content }: { income: IncomeDto; content: Cont
           The hub pays by what you sell now, and looks again every minute. It pays the full price for your Hub
           Order of each good; sell more than that, and it pays less for all of it.
         </li>
-        <li>Every minute the Yard matches what your neighbours take from you and bring you.</li>
+        <li>
+          At every Yard round (about once a minute) your spare goes to neighbours who need it, and theirs
+          comes to you.
+        </li>
         <li>
           Levels coming in, buildings starting or waiting for goods, Storages filling or selling, and events
           such as a Festival or a storm change what your buildings make.

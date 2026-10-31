@@ -14,6 +14,8 @@ const SEEN_KEY = "tp.seenTools";
 
 /** The generated icon of a tool (public/art/ui/tool-*.webp) */
 const TOOL_ART: Record<string, string> = { bulldoze: "remove", corporation: "corp", blueprints: "plans" };
+/** A tool drawn with another picture of the interface (public/art/ui/*.webp): Trades with the gold coin */
+const UI_ART: Record<string, string> = { trades: "ui-gold" };
 
 function seenTools(): Set<string> {
   try {
@@ -63,6 +65,13 @@ export function Toolbar() {
   const researchOpen = useAppStore((state) => state.researchOpen);
   const hubOpen = useAppStore((state) => state.hubOpen);
   const yardOpen = useAppStore((state) => state.yardOpen);
+  const tradesOpen = useAppStore((state) => state.tradesOpen);
+  const tradeAsks = useAppStore(
+    (state) =>
+      state.links?.links.filter(
+        (t) => (t.state === "offered" && !t.youOffered) || (t.askedGuaranteed != null && !t.askedByYou),
+      ).length ?? 0,
+  );
   const crewOpen = useAppStore((state) => state.crewOpen);
   const requests = useAppStore((state) => state.company?.crew?.requests ?? 0);
   const blueprintsOpen = useAppStore((state) => state.blueprintsOpen);
@@ -97,12 +106,24 @@ export function Toolbar() {
       run: () => gameClient.setTool({ kind: "pipe", tier: 1 }),
     },
     {
+      // Who lives around you, and what you do together (the owner, 2026-10-31: each menu one clear goal)
       key: "neighbours",
-      label: "Neighbours",
+      label: "Yard",
       icon: "🤝",
       hotkey: "N",
       active: yardOpen,
       run: () => (yardOpen ? setState({ yardOpen: false }) : void gameClient.openYard()),
+    },
+    {
+      // Every trade in one place: what runs now, links, prices and settings, the town
+      key: "trades",
+      label: "Trades",
+      badge: tradeAsks,
+      badgeTitle: "link offers and asks waiting for your answer",
+      icon: "⚖",
+      hotkey: "C",
+      active: tradesOpen,
+      run: () => (tradesOpen ? setState({ tradesOpen: false }) : void gameClient.openTrades()),
     },
     {
       key: "crew",
@@ -175,7 +196,14 @@ export function Toolbar() {
           }}
         >
           <span className="tool-icon">
-            <img src={`/art/ui/tool-${TOOL_ART[t.key] ?? t.key}.webp`} alt="" />
+            <img
+              src={
+                UI_ART[t.key] !== undefined
+                  ? `/art/ui/${UI_ART[t.key]}.webp`
+                  : `/art/ui/tool-${TOOL_ART[t.key] ?? t.key}.webp`
+              }
+              alt=""
+            />
           </span>
           <span className="tool-label">
             {t.label}

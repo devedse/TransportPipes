@@ -21,7 +21,8 @@ import { CrewPanel } from "./components/CrewPanel";
 import { InviteInGame, KeepEstate } from "./components/KeepEstate";
 import { HoverTip } from "./components/HoverTip";
 import { HubPanel } from "./components/HubPanel";
-import { NeighboursPanel, PlannedRouteBanner } from "./components/NeighboursPanel";
+import { PlannedRouteBanner } from "./components/NeighboursPanel";
+import { TradesPanel } from "./components/TradesPanel";
 import { NetworkPanel } from "./components/NetworkPanel";
 import { OverlayBar } from "./components/OverlayBar";
 import { OutskirtsPanel, ParcelPanel } from "./components/ParcelPanel";
@@ -195,6 +196,13 @@ function useShortcuts() {
         case "t":
           void gameClient.toggleChat();
           break;
+        case "c":
+          if (state.tradesOpen) {
+            setState({ tradesOpen: false });
+          } else {
+            void gameClient.openTrades();
+          }
+          break;
         case "h":
           gameClient.goHome();
           break;
@@ -291,8 +299,8 @@ export function App() {
           <ErrorBoundary name="Toolbar">
             <Toolbar />
           </ErrorBoundary>
-          <ErrorBoundary name="NeighboursPanel">
-            <NeighboursPanel />
+          <ErrorBoundary name="TradesPanel">
+            <TradesPanel />
             <PlannedRouteBanner />
           </ErrorBoundary>
           <ErrorBoundary name="HubPanel">

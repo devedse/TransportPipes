@@ -26,7 +26,7 @@ const KEYS: Array<[string, string]> = [
   ["Ctrl + A", "select all your buildings on screen"],
   ["Esc", "back"],
   ["H · G", "home · the Deep Level"],
-  ["N · K · M · R · I · L", "neighbours · crew · hub · research · company · leaderboard"],
+  ["N · C · K · M · R · I · L", "Yard · trades · crew · hub · research · company · leaderboard"],
   ["J", "statistics: your company over time"],
   ["O · F · T · Y", "overlays · photo mode · chat · plans"],
   ["?", "this list"],

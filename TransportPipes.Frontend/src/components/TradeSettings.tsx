@@ -309,9 +309,15 @@ export function TradeSettings() {
       </section>
 
       <section>
-        <h4>Your Yard</h4>
+        {/* Everyone in your town (the menu map, 2026-10-31: it said "Your Yard" over the whole town): a switch stops
+            all trade with them, at the Yard, over links and over pipes */}
+        <h4>Who you trade with</h4>
+        <p className="muted small">
+          Everyone in your town. Switch someone off and you stop trading with them: at the Yard, over links
+          and over pipes. It counts from the Yard&apos;s next round.
+        </p>
         {residents.length === 0 ? (
-          <p className="muted small">Nobody else lives around your Yard yet.</p>
+          <p className="muted small">Nobody else lives in your town yet.</p>
         ) : (
           <ul className="partner-list">
             {residents.map((n) => {

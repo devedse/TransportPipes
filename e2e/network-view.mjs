@@ -38,6 +38,6 @@ await shot("1-network");
 await page.locator(".network-panel").screenshot({ path: `${out}/2-network-panel.png` });
 await page.evaluate(() => tp.gameClient.openTradeSettings());
 await page.waitForTimeout(2000);
-await page.locator(".neighbours-panel").screenshot({ path: `${out}/3-trade-settings.png` });
+await page.locator(".trades-panel").screenshot({ path: `${out}/3-trade-settings.png` });
 console.log(errors.length ? errors.join("\n") : "no errors");
 await browser.close();

@@ -51,7 +51,16 @@ import { formatAmount } from "./format";
 import { notify } from "./notifications";
 import { sounds } from "./sound";
 import { yardRoundText } from "./yardRound";
-import { appStore, dismissToast, initialState, MODALS, setState, toast, type HubTab } from "../state/store";
+import {
+  appStore,
+  dismissToast,
+  initialState,
+  MODALS,
+  setState,
+  toast,
+  type HubTab,
+  type TradesTab,
+} from "../state/store";
 
 const DETAILS_REFRESH_MS = 2000;
 const INVITE_KEY = "tp.invite";
@@ -284,7 +293,7 @@ export class GameClient {
       }
     });
     c.on("linksChanged", () => {
-      if (appStore.getState().yardOpen && appStore.getState().yardTab === "links") {
+      if (appStore.getState().tradesOpen) {
         void this.refreshLinks();
       }
     });
@@ -415,7 +424,11 @@ export class GameClient {
     ) {
       this.engine?.invalidate();
     }
-    if (appStore.getState().neighboursOpen && this.neighboursTimer === null) {
+    if (
+      appStore.getState().tradesOpen &&
+      appStore.getState().tradesTab === "town" &&
+      this.neighboursTimer === null
+    ) {
       // At most one refresh per few seconds while the panel is open
       this.neighboursTimer = window.setTimeout(() => {
         this.neighboursTimer = null;
@@ -435,8 +448,23 @@ export class GameClient {
   }
 
   async openNeighbours() {
-    setState({ ...MODALS, neighboursOpen: true, neighboursTab: "neighbours" });
-    await this.refreshNeighbours();
+    await this.openTrades("town");
+  }
+
+  /** The Trades panel at a tab: every trade in one place (the owner, 2026-10-31) */
+  async openTrades(tab: TradesTab = "now", partner: number | null = null) {
+    this.selectNetwork(null);
+    setState({
+      ...MODALS,
+      ...(partner !== null ? { linkPartner: partner } : {}),
+      tradesOpen: true,
+      tradesTab: tab,
+    });
+    await Promise.all([
+      tab === "links" || tab === "now" ? this.refreshLinks() : Promise.resolve(),
+      tab === "settings" || tab === "town" ? this.refreshNeighbours() : Promise.resolve(),
+      tab === "settings" ? this.refreshMarket() : Promise.resolve(),
+    ]);
   }
 
   async refreshNeighbours() {
@@ -457,7 +485,7 @@ export class GameClient {
       return;
     }
     const gate = yardGate(company.estateX, company.estateY, company.slot);
-    setState({ neighboursOpen: false, yardOpen: false, tool: { kind: "select" } });
+    setState({ tradesOpen: false, yardOpen: false, tool: { kind: "select" } });
     this.engine?.lookAt(gate.x, gate.y, 0.6);
     for (let attempt = 0; attempt < 10; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 250));
@@ -821,8 +849,7 @@ export class GameClient {
 
   /** Who you trade with and at what prices: the Neighbours panel's trade settings */
   async openTradeSettings() {
-    setState({ ...MODALS, neighboursOpen: true, neighboursTab: "trade" });
-    await Promise.all([this.refreshNeighbours(), this.refreshMarket()]);
+    await this.openTrades("settings");
   }
 
   async setNoTrade(resource: string, noTrade: boolean) {
@@ -1478,7 +1505,6 @@ export class GameClient {
     } else if (
       state.researchOpen ||
       state.hubOpen ||
-      state.neighboursOpen ||
       state.leaderboardOpen ||
       state.statsOpen ||
       state.companyOpen ||
@@ -1501,6 +1527,8 @@ export class GameClient {
       setState({ chatOpen: false });
     } else if (state.yardOpen) {
       setState({ yardOpen: false });
+    } else if (state.tradesOpen) {
+      setState({ tradesOpen: false });
     } else if (state.visiting !== null) {
       this.closeVisit();
     } else if (state.wildTile !== null) {
@@ -1611,13 +1639,7 @@ export class GameClient {
 
   /** The Yard panel on its Links tab: your links to other stations, offers, and who a link would suit */
   async openLinks(partner: number | null = null) {
-    this.selectNetwork(null);
-    setState({
-      ...(partner !== null ? { ...MODALS, linkPartner: partner } : {}),
-      yardOpen: true,
-      yardTab: "links",
-    });
-    await this.refreshLinks();
+    await this.openTrades("links", partner);
   }
 
   /** Looks at a friend's estate and opens its visit card (a friend in another station: after run 3, row 12) */

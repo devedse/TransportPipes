@@ -4,7 +4,6 @@ import type { NeighbourDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import { setState, useAppStore } from "../state/store";
 import { ResourceIcon } from "./ResourceIcon";
-import { TradeSettings } from "./TradeSettings";
 
 function Chips({
   rates,
@@ -34,109 +33,63 @@ function Chips({
   );
 }
 
-/** The companies around your Yard and town, and your trade settings */
-export function NeighboursPanel() {
-  const open = useAppStore((s) => s.neighboursOpen);
+/**
+ * Everyone in your town (the Trades panel's Town tab): what each has spare and needs, what you earn from them and pay
+ * them, how far your best pipe to them is; visit them or write to them
+ */
+export function TownList() {
   const neighbours = useAppStore((s) => s.neighbours);
   const content = useAppStore((s) => s.content);
-  const company = useAppStore((s) => s.company);
-  const tab = useAppStore((s) => s.neighboursTab);
-  const setTab = (neighboursTab: typeof tab) => {
-    setState({ neighboursTab });
-    if (neighboursTab === "trade") {
-      void gameClient.refreshMarket();
-    }
-  };
-  if (!open || content === null || company === null) {
+  if (content === null) {
     return null;
   }
-  const close = () => setState({ neighboursOpen: false });
-
   return (
-    <div className="modal-backdrop" onClick={close}>
-      <div
-        className="panel neighbours-panel"
-        role="dialog"
-        aria-label="Neighbours"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="panel-header">
-          <h2>Neighbourhood</h2>
-          <span className="muted small">
-            Trade with the companies around you: pipe to your Yard gate, or link to them.
-          </span>
-          <button className="icon-button" title="Close (Esc)" onClick={close}>
-            ×
-          </button>
-        </div>
-        <div className="tabs">
-          <button
-            className={tab === "neighbours" ? "tab active" : "tab"}
-            onClick={() => setTab("neighbours")}
-          >
-            Neighbours ({neighbours.length})
-          </button>
-          <button className={tab === "trade" ? "tab active" : "tab"} onClick={() => setTab("trade")}>
-            ⚙ Trade settings
-          </button>
-        </div>
-
-        {tab === "neighbours" && (
-          <div className="neighbour-list">
-            {neighbours.length === 0 && <p className="muted">Nobody else in your town yet.</p>}
-            {neighbours.map((n) => (
-              <div key={n.id} className="neighbour">
-                <span className="company-dot" style={{ background: n.color }} />
-                <div className="neighbour-body">
-                  <div>
-                    <strong>{n.name}</strong> <span className="muted small">Lv {n.level}</span>{" "}
-                    {n.connected && <span className="badge connected">connected</span>}
-                  </div>
-                  <div className="small">
-                    <span className="muted">Spare:</span>{" "}
-                    <Chips rates={n.surplus} content={content} kind="surplus" />
-                  </div>
-                  <div className="small">
-                    <span className="muted">Needs:</span>{" "}
-                    <Chips rates={n.needs} content={content} kind="needs" />
-                  </div>
-                  {(n.youEarn > 0 || n.youPay > 0) && (
-                    <div className="small">
-                      {n.youEarn > 0 && (
-                        <span className="gold-text">you earn +{formatAmount(n.youEarn)} g/min </span>
-                      )}
-                      {n.youPay > 0 && <span className="muted">you pay {formatAmount(n.youPay)} g/min</span>}
-                    </div>
-                  )}
-                  {n.linkEfficiency !== null && n.pipeTiles !== null && (
-                    // How far they are by pipe, and what that loses (the audit, 2026-10-31: sent, never shown)
-                    <div className="muted small">
-                      your best pipe to them: {n.pipeTiles} tiles, {Math.round(n.linkEfficiency * 100)}% of
-                      what is sent arrives
-                    </div>
-                  )}
-                </div>
-                <div className="neighbour-actions">
-                  {!n.connected && <span className="muted small">not piped to the Yard yet</span>}
-                  <span className="button-row">
-                    <button title="Visit their plot" onClick={() => void gameClient.visitEstate(n.id, true)}>
-                      Visit
-                    </button>
-                    <button
-                      title="Send a message"
-                      onClick={() => void gameClient.messageCompany(n.id, n.name)}
-                    >
-                      ✉
-                    </button>
-                  </span>
-                </div>
+    <div className="neighbour-list">
+      {neighbours.length === 0 && <p className="muted">Nobody else in your town yet.</p>}
+      {neighbours.map((n) => (
+        <div key={n.id} className="neighbour">
+          <span className="company-dot" style={{ background: n.color }} />
+          <div className="neighbour-body">
+            <div>
+              <strong>{n.name}</strong> <span className="muted small">Lv {n.level}</span>{" "}
+              {n.connected && <span className="badge connected">connected</span>}
+            </div>
+            <div className="small">
+              <span className="muted">Spare:</span>{" "}
+              <Chips rates={n.surplus} content={content} kind="surplus" />
+            </div>
+            <div className="small">
+              <span className="muted">Needs:</span> <Chips rates={n.needs} content={content} kind="needs" />
+            </div>
+            {(n.youEarn > 0 || n.youPay > 0) && (
+              <div className="small">
+                {n.youEarn > 0 && (
+                  <span className="gold-text">you earn +{formatAmount(n.youEarn)} g/min </span>
+                )}
+                {n.youPay > 0 && <span className="muted">you pay {formatAmount(n.youPay)} g/min</span>}
               </div>
-            ))}
+            )}
+            {n.linkEfficiency !== null && n.pipeTiles !== null && (
+              // How far they are by pipe, and what that loses (the audit, 2026-10-31: sent, never shown)
+              <div className="muted small">
+                your best pipe to them: {n.pipeTiles} tiles, {Math.round(n.linkEfficiency * 100)}% of what is
+                sent arrives
+              </div>
+            )}
           </div>
-        )}
-
-        {tab === "trade" && <TradeSettings />}
-      </div>
+          <div className="neighbour-actions">
+            {!n.connected && <span className="muted small">not piped to the Yard yet</span>}
+            <span className="button-row">
+              <button title="Visit their plot" onClick={() => void gameClient.visitEstate(n.id, true)}>
+                Visit
+              </button>
+              <button title="Send a message" onClick={() => void gameClient.messageCompany(n.id, n.name)}>
+                ✉
+              </button>
+            </span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
