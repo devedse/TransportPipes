@@ -947,7 +947,7 @@ public sealed partial class GameWorld
             && ResearchCost(company, tech) <= company.Gold)
         {
             add(new AdvisorStep(AdvisorKind.Research, $"Research {tech.Name} on your Lab's second line",
-                $"{tech.Description.TrimEnd('.')} · {Minutes(tech.Minutes)}, {Gold(ResearchCost(company, tech))}.",
+                $"{tech.Description.TrimEnd('.')} · {Minutes(ResearchMinutes(company, tech.Minutes))}, {Gold(ResearchCost(company, tech))}.",
                 AdvisorAction.Research, ResearchCost(company, tech), Math.Max(1, income * 0.02), Research: tech.Id), 1);
         }
         // The first line: the track tier that adds the most gold a minute
@@ -973,33 +973,47 @@ public sealed partial class GameWorld
             _ => "mega complexes: nine in a square make as much as twelve",
         };
         add(new AdvisorStep(AdvisorKind.Research, $"Research {best.Track.Name} tier {best.Tier}",
-            $"{char.ToUpperInvariant(what[0])}{what[1..]}{(best.Gain > 0.05 ? $" (about +{Gold(best.Gain)}/min)" : "")} · {Minutes(effect.Minutes)}, {Gold(cost.Total)}.",
+            $"{char.ToUpperInvariant(what[0])}{what[1..]}{(best.Gain > 0.05 ? $" (+{Gold(best.Gain)}/min)" : "")} · {Minutes(ResearchMinutes(company, effect.Minutes))}, {Gold(cost.Total)}.",
             AdvisorAction.Research, cost.Total, best.Gain, Research: best.Track.Id), 1);
     }
 
     /// <summary>About what a track's next tier adds a minute: its buildings' net output at hub prices, by how much more they'd make</summary>
+    private readonly Dictionary<(long Company, string Track), (long Stamp, double Gain)> _tierGains = new();
+
     public double TierGain(Company company, TrackDefinition track)
     {
         if (NextTier(company, track) is not { } tier)
         {
             return 0;
         }
-        var gain = 0.0;
-        foreach (var building in BuildingsOf(company.Id))
+        SolveNetworks();
+        // Once for as long as its networks stay as they are
+        var stamp = _networks.Values.Where(t => t.Owner == company.Id).Sum(t => t.Solves * 7919 + t.Id) + _couplings * 104729 + tier;
+        if (_tierGains.TryGetValue((company.Id, track.Id), out var known) && known.Stamp == stamp)
         {
-            if (TrackOf(building).Track?.Id != track.Id || NetworkOf(building.Id) is not { } network || ToFlowNode(building) is not { } node)
-            {
-                continue;
-            }
-            var rate = network.Solution.Rate(building.Id);
-            var made = node.Out.Sum(t => t.Value * HubBuyPrice(company, t.Key)) * rate;
-            var used = node.In.Sum(t => t.Value * HubBuyPrice(company, t.Key)) * rate;
-            var now = TrackFactors(building);
-            var next = TrackFactors(building, tier);
-            gain += (made - used) * (next.Faster * next.PowerFree * next.Big / (now.Faster * now.PowerFree * now.Big) - 1)
-                + used * next.Faster / now.Faster * (1 - next.Leaner / now.Leaner);
+            return known.Gain;
         }
-        return Math.Max(0, gain);
+        var gain = SolvedTierGain(company, track, tier);
+        _tierGains[(company.Id, track.Id)] = (stamp, gain);
+        return gain;
+    }
+
+    private double SolvedTierGain(Company company, TrackDefinition track, int tier)
+    {
+        // Its buildings at the next tier, every network they are in solved (GameWorld.WhatIf), and from tier 5 its goods'
+        // Hub Orders bigger (it summed each building's goods at today's prices, as if all of it sold: "about +917")
+        var whatIfs = new Dictionary<int, FlowSolution>();
+        foreach (var network in _networks.Values.Where(t => t.Owner == company.Id))
+        {
+            var changed = network.Buildings.Where(t => TrackOf(_buildings[t]).Track?.Id == track.Id).ToHashSet();
+            if (changed.Count > 0)
+            {
+                whatIfs[network.Id] = SolveWhatIf(network, t => changed.Contains(t.Id) && ToFlowNode(_buildings[t.Id], atTrackTiers: tier) is { } up ? WithPumps(network, [up])[0] : t);
+            }
+        }
+        var rules = Content.TrackRules;
+        var orders = tier >= rules.HubOrderFrom ? rules.HubOrderPerTier : 1;
+        return Math.Max(0, SettledGain(company, whatIfs, goodFactor: good => track.Goods.Contains(good) ? orders : 1));
     }
 
     private void UpgradeSteps(Company company, List<Network> networks, Func<Network, double> baseGold, Action<AdvisorStep, double> add)

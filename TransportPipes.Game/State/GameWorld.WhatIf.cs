@@ -207,10 +207,10 @@ public sealed partial class GameWorld
     }
 
     /// <summary>What a change of networks brings a minute: the settled income with their what-ifs, less with their bases</summary>
-    public double SettledGain(Company company, IReadOnlyDictionary<int, FlowSolution> whatIfs, double orderFactor = 1)
+    public double SettledGain(Company company, IReadOnlyDictionary<int, FlowSolution> whatIfs, double orderFactor = 1, Func<string, double>? goodFactor = null)
     {
         var changed = _networks.Values.Where(t => whatIfs.ContainsKey(t.Id)).ToDictionary(t => t.Id, BaseWhatIf);
-        return SettledIncome(company, t => whatIfs.GetValueOrDefault(t.Id), orderFactor) - SettledIncome(company, t => changed.GetValueOrDefault(t.Id));
+        return SettledIncome(company, t => whatIfs.GetValueOrDefault(t.Id), orderFactor, goodFactor) - SettledIncome(company, t => changed.GetValueOrDefault(t.Id));
     }
 
     /// <summary>
@@ -219,7 +219,7 @@ public sealed partial class GameWorld
     /// Hub Order orderFactor times bigger: trading post levels), and the Yard's pay. This is the top bar's number once
     /// the market has looked again (it does every minute): every promise is a difference of two of these
     /// </summary>
-    public double SettledIncome(Company company, Func<Network, FlowSolution?>? whatIf = null, double orderFactor = 1)
+    public double SettledIncome(Company company, Func<Network, FlowSolution?>? whatIf = null, double orderFactor = 1, Func<string, double>? goodFactor = null)
     {
         SolveNetworks();
         var gold = 0.0;
@@ -261,7 +261,7 @@ public sealed partial class GameWorld
         foreach (var ((district, resource), (units, value)) in sales)
         {
             gold += HubOrder(company, district, resource) <= 0 ? value
-                : value / Math.Max(0.01, HubMarketOf(company, district).Multiplier(resource)) * SettledMultiplier(company, district, resource, units, orderFactor);
+                : value / Math.Max(0.01, HubMarketOf(company, district).Multiplier(resource)) * SettledMultiplier(company, district, resource, units, orderFactor * (goodFactor?.Invoke(resource) ?? 1));
         }
         return gold;
     }

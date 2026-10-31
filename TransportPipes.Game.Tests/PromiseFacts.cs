@@ -144,6 +144,25 @@ public class PromiseFacts
     }
 
     [TestMethod]
+    public void AResearchTierBringsWhatItSays()
+    {
+        // The Iron track's first tier: its mines and factories work 25% faster
+        var (game, company, map) = Estate(4, factory: true);
+        game.Build(company, "lab");
+        game.Pass(2);
+        var track = game.World.Content.TrackList.Single(t => t.Id == "iron");
+        var said = game.World.TierGain(company, track);
+        Assert.IsGreaterThan(0.5, said);
+        var before = Income(game, company);
+
+        Assert.IsTrue(game.World.StartResearch(company.Id, "iron").Success);
+        game.Pass(15);
+
+        Assert.AreEqual(1, game.World.TrackTier(company, "iron"));
+        Kept(said, Income(game, company) - before, "the Iron track's first tier");
+    }
+
+    [TestMethod]
     public void AYardBuildingsLevelBringsWhatItSays()
     {
         // Ana's Smelter runs on Ben's coal through the Yard: a level takes more of it, and the Yard's next round brings it

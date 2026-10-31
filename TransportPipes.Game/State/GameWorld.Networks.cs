@@ -845,7 +845,7 @@ public sealed partial class GameWorld
     /// The building as the flow solver sees it, or null when it takes no part in flows; atLevel: as if it had that level
     /// (the advisor's what-ifs)
     /// </summary>
-    public FlowNode? ToFlowNode(Building building, int? atLevel = null)
+    public FlowNode? ToFlowNode(Building building, int? atLevel = null, int? atTrackTiers = null)
     {
         if (building.UnderConstruction)
         {
@@ -889,7 +889,7 @@ public sealed partial class GameWorld
             return null;
         }
         // Its track (1.4 §12): faster (all it takes and makes), leaner (its inputs), more from wind, sun and water instead
-        var (faster, leaner, powerFree, big) = TrackFactors(building);
+        var (faster, leaner, powerFree, big) = TrackFactors(building, atTrackTiers);
         var location = LocationMultiplier(building, definition) * EventOutputFactor(building, definition);
         // A complex works like five (twelve) buildings; a big building of a track with complexes gets its bonus instead
         var complex = ComplexFactor(ComplexMembers(building)) * big;

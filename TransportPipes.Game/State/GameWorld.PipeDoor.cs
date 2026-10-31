@@ -27,7 +27,7 @@ public enum PipeDoorKind
 /// <param name="OrderTarget">A waiting pipe want's target for Buy the rest (minus its number)</param>
 /// <param name="OrderCost">What buying the rest of the goods costs now</param>
 public sealed record PipeDoor(PipeDoorKind Kind, string Text, List<TilePos> Tiles, int Tier, double Gold, Dictionary<string, double> Materials, Dictionary<string, double> Short,
-    int ToLevel, double LevelCost, double Gain, string? Source, long? OrderTarget = null, double? OrderCost = null);
+    int ToLevel, double LevelCost, double Gain, string? Source, long? OrderTarget = null, double? OrderCost = null, double Goods = 0);
 
 /// <summary>
 /// The pipe door (after run 4: the pipe tier is the game's real level cap. The hub pays at least a quarter of the base for
@@ -101,7 +101,8 @@ public sealed partial class GameWorld
             : DoorEstimate(building, network, full, tierFactor, shortOf.Count == 0 ? to : building.Level);
         var text = $"{next.Name} on {Links(full.Count)} ({Tiles(upgrade.Count)}){(to > building.Level ? $", then Level {to}" : "")}";
         return new PipeDoor(PipeDoorKind.Tier, text, upgrade.Select(t => t.Pos).ToList(), next.Tier, pipeGold, materials, shortOf,
-            to > building.Level ? to : 0, toCost, tierGain, shortOf.Count == 0 ? null : MaterialSource(company, shortOf.Keys));
+            to > building.Level ? to : 0, toCost, tierGain, shortOf.Count == 0 ? null : MaterialSource(company, shortOf.Keys),
+            Goods: to > BoughtLevel(building) ? StepGoodsCost(building, to - BoughtLevel(building)) : 0);
     }
 
     /// <summary>
@@ -133,7 +134,26 @@ public sealed partial class GameWorld
     /// network solved with the new pipe laid (its throughput and its loss) at the price the market settles on
     /// (GameWorld.WhatIf; it scaled the full links' capacity, estimated on big networks)
     /// </summary>
+    private readonly Dictionary<(long Building, int Tier, int Level), ((int, long, long) Stamp, double Gain)> _doorGains = new();
+
     private double DoorGain(Company company, Building building, Network network, IEnumerable<TilePos> tiles, int tier, int level)
+    {
+        // Once for as long as its network stays as it is (a building's panel asks for it at every refresh)
+        var stamp = StampOf(network);
+        if (_doorGains.TryGetValue((building.Id, tier, level), out var known) && known.Stamp == stamp)
+        {
+            return known.Gain;
+        }
+        var gain = SolvedDoorGain(company, building, network, tiles, tier, level);
+        if (_doorGains.Count > 5_000)
+        {
+            _doorGains.Clear();
+        }
+        _doorGains[(building.Id, tier, level)] = (stamp, gain);
+        return gain;
+    }
+
+    private double SolvedDoorGain(Company company, Building building, Network network, IEnumerable<TilePos> tiles, int tier, int level)
     {
         var up = level > building.Level ? ToFlowNode(building, level) : null;
         var tiers = tiles.Distinct().ToDictionary(t => t, _ => tier);

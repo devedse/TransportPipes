@@ -126,9 +126,7 @@ function TrackCard({ state, content }: { state: TrackStateDto; content: Content 
                 </span>
               )}
               <span className="muted"> · {formatDuration(nextMinutes * 60)}</span>
-              {state.gain > 0.05 && (
-                <span className="gold-text"> · about +{formatAmount(state.gain)} g/min</span>
-              )}
+              {state.gain > 0.05 && <span className="gold-text"> · +{formatAmount(state.gain)} g/min</span>}
             </div>
           )}
           {state.hubOrderFactor > 1.001 && (
@@ -164,7 +162,9 @@ function TreeCard({ tech, state }: { tech: ResearchDefinition; state: ResearchSt
   const company = useAppStore((s) => s.company)!;
   const lines = company.research;
   const status = state?.state ?? "locked";
-  const progress = useProgress(status === "researching" ? lines.researchEndsAt : null, tech.minutes);
+  // How long it takes you, as the server works it out (a Lab level makes it faster: the content's time was shown)
+  const minutes = state?.minutes ?? tech.minutes;
+  const progress = useProgress(status === "researching" ? lines.researchEndsAt : null, minutes);
   const cost = state?.cost ?? tech.gold;
   return (
     <div className={`tech ${status}`} title={tech.description} role="group" aria-label={tech.name}>
@@ -178,7 +178,7 @@ function TreeCard({ tech, state }: { tech: ResearchDefinition; state: ResearchSt
       ) : (
         <div className="tech-cost">
           <span>{formatAmount(cost)} g</span>
-          <span className="muted"> · {formatDuration(tech.minutes * 60)}</span>
+          <span className="muted"> · {formatDuration(minutes * 60)}</span>
           {tech.grant > 0 && <span className="muted"> · everyone gets it at Level {tech.grant}</span>}
         </div>
       )}

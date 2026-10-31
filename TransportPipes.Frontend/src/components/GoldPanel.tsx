@@ -199,7 +199,7 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
       {uses?.grow != null && uses.grow.parts.length > 0 && (
         <div className="gold-use grow">
           <span>
-            💡 <strong>Grow everything that pays</strong>: about +{formatAmount(uses.grow.gain)} g/min for{" "}
+            💡 <strong>Grow everything that pays</strong>: +{formatAmount(uses.grow.gain)} g/min for{" "}
             {formatAmount(uses.grow.cost)} g (
             {Math.max(1, Math.round((100 * uses.grow.cost) / Math.max(1, gold)))}% of your gold)
             {(uses.grow.goods ?? 0) >= 1 &&

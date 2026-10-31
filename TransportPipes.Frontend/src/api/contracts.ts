@@ -326,6 +326,8 @@ export interface ResearchStateDto {
   state: "done" | "researching" | "available" | "locked";
   cost: number;
   reason: string | null;
+  /** How long it takes you (your Lab's level, managers, the Monument, the Wonder) */
+  minutes?: number;
 }
 
 export interface HelloDto {
@@ -858,6 +860,8 @@ export interface PipeDoorDto {
   /** Where the goods it lacks come from: "Cleo makes copper ingots: the Yard brings them" */
   source: string | null;
   orderCost: number | null;
+  /** What the goods of its levels from 11 cost on top: they come in after the click */
+  goods?: number;
 }
 
 /** The one fix button: lay a planned pipe (tiles as x, y pairs), open another building, repair, upgrade, build, or its pipe door */

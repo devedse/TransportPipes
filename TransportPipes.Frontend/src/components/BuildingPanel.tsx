@@ -935,6 +935,10 @@ function PipeDoor({
       </button>
       <p className="small spend-preview">
         {door.gain > 0.5 ? `+${formatAmount(door.gain)} g/min` : "Its gain shows once its goods are in"}
+        {door.gain > 0.5 &&
+          (door.goods ?? 0) >= 1 &&
+          // Its levels from 11 wait for goods: the gain comes once they're in (the owner: what it says, happens)
+          ` once its levels' goods are in (about ${formatAmount(door.goods ?? 0)} g of goods: your own go in first)`}
         {payback !== null && income > 0 && ` · pays back in ${formatDuration(payback * 60)}`}
       </p>
       {door.short.length > 0 && (

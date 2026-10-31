@@ -55,6 +55,7 @@ and piped to the post (`kit(page, types, 2)` in Copper Pipe, its ingots stocked)
 | `far-zoom.mjs` | Zoomed out each chunk is drawn as its far picture only (no hidden ground or objects); zoomed in again in full |
 | `forest-regrow.mjs` | A building on a forest leaves it standing, and moved away the trees are there again |
 | `network-numbers.mjs` | The network panel's numbers: each good's hub sales as units × price = gold, adding up to the hub's money line |
+| `grow-promise.mjs` | Grow brings what it says: its "+X g/min", then Grow and its goods, and two market minutes later the top bar is up by that within 1% (about 5 minutes) |
 | `income.mjs` | Where your gold a minute comes from: the gold panel's lines add up to the top bar's number, with what isn't in it and why it keeps changing |
 | `one-lab.mjs` | One Lab: with one, the Build menu's Lab says "You have one", and a second is refused with why |
 | `yard-short.mjs` | A building short of a good says why the Yard doesn't bring it, and the hub as the other way (the Yard's own cases are in WantFacts) |

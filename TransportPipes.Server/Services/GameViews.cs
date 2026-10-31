@@ -296,7 +296,8 @@ public static partial class GameViews
                 : company.CurrentResearch == tech.Id ? "researching"
                 : world.ResearchBlocker(company, tech) is null ? "available"
                 : "locked";
-            return new ResearchStateDto(tech.Id, state, world.ResearchCost(company, tech), state == "locked" ? world.ResearchBlocker(company, tech) : null);
+            return new ResearchStateDto(tech.Id, state, world.ResearchCost(company, tech), state == "locked" ? world.ResearchBlocker(company, tech) : null,
+                Math.Round(world.ResearchMinutes(company, tech.Minutes), 1));
         }).ToList();
 
     /// <summary>Every track as the research panel shows it (1.4 §12)</summary>
@@ -943,7 +944,8 @@ public static partial class GameViews
         door.Materials.Select(t => new ResourceAmountDto(t.Key, t.Value, t.Value)).ToList(),
         door.Short.Select(t => new ResourceAmountDto(t.Key, t.Value, t.Value)).ToList(),
         door.Source,
-        door.OrderCost);
+        door.OrderCost,
+        Math.Round(door.Goods));
 
     private static string? NullIfEmpty(string text) => text.Length == 0 ? null : text;
 

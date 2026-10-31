@@ -266,7 +266,8 @@ public record MarketResourceDto(
 public record MarketDto(int DistrictX, int DistrictY, string District, IReadOnlyList<MarketResourceDto> Resources, DateTime NextUpdate);
 
 /// <summary>A tech as one company sees it</summary>
-public record ResearchStateDto(string Id, string State, double Cost, string? Reason);
+/// <param name="Minutes">How long it takes this company: its Lab's level, managers, the Monument and the Wonder</param>
+public record ResearchStateDto(string Id, string State, double Cost, string? Reason, double Minutes = 0);
 
 /// <param name="SiteShare">A scaffold that wants materials: how much of them is in (0–1); null for any other building</param>
 public record BuildingDto(long Id, string Type, long Owner, int X, int Y, int Size, int Level, DateTime? ConstructionEndsAt, int? Network, bool Damaged, long? Link = null, double? SiteShare = null);
@@ -431,7 +432,7 @@ public record LevelWaitDto(int BoughtLevel, IReadOnlyList<SiteWantDto> Wants, do
 /// <param name="Label">Its button: the text with the price</param>
 /// <param name="Short">Of what the pipe takes, what your Storages lack, and where it comes from</param>
 public record PipeDoorDto(string Kind, string Text, string Label, double Gold, double LevelCost, int ToLevel, double Gain,
-    IReadOnlyList<ResourceAmountDto> Materials, IReadOnlyList<ResourceAmountDto> Short, string? Source, double? OrderCost);
+    IReadOnlyList<ResourceAmountDto> Materials, IReadOnlyList<ResourceAmountDto> Short, string? Source, double? OrderCost, double Goods = 0);
 
 /// <summary>
 /// A building's trade with its neighbours, for its owner (step 4): who takes its goods and who sends it its inputs (both

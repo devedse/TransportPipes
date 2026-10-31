@@ -55,7 +55,7 @@ const list = await page.locator(".gold-uses").innerText().catch(() => "");
 console.log(list.replace(/\n+/g, " | "));
 const wonderAt = list.search(/🏛 The .+.s stage \d wants goods: buy and give them/);
 expect("it lists the town's Era Wonder first", wonderAt >= 0 && wonderAt < list.indexOf("Grow everything that pays"), "");
-expect("and Grow everything that pays, with its price and gain", /Grow everything that pays: about \+[\d.,k]+ g\/min for [\d.,kM]+ g/.test(list));
+expect("and Grow everything that pays, with its price and gain", /Grow everything that pays: \+[\d.,k]+ g\/min for [\d.,kM]+ g/.test(list));
 await shot("1-list");
 
 const grow = page.locator(".gold-uses button", { hasText: /^Grow · / });
