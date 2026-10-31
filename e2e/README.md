@@ -83,6 +83,7 @@ and piped to the post (`kit(page, types, 2)` in Copper Pipe, its ingots stocked)
 | `trades.mjs` | Every trade in one place: the toolbar's Trades button (and C) opens the Trades panel; its tabs Now (every line of your gold a minute, your links), Links, Settings and Town each say their goal and show theirs; the Yard panel has no Links tab, and its All your trades opens Trades |
 | `gate-flows.mjs` | What goes through the Yard gate shows: a Solar Panel piped to the Trading Post and the gate, the Yard's rounds run: the map's flows have the gate's with its pipe, and the building's Where it goes has its row to the Yard |
 | `panels-fit.mjs` | Nothing sticks out of a panel: every panel and tab (Yard, Trades, buildings, network, gold, Hub, research, company, crew) opened and checked for anything past its edge [width] |
+| `ui-profile.mjs` | A CPU profile (6 s) of the map on big-estate's estate as on a busy server: self and inclusive time by function |
 | `whats-new.mjs` | What's new after an update: the changes since the newest one seen on this browser, a day a list; seen once closed; none for a new company; the version badge shows the latest (needs `node scripts/changes.mjs` first) |
 | `whats-new-return.mjs` | What's new and the return card at once (after an update and days away): the return card first, What's new once it is closed, and its Got it takes the click (it stayed on top, unclickable) |
 | `juice.mjs` | A finished building, coin pops and the level-up |
