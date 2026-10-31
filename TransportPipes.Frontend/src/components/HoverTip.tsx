@@ -157,7 +157,8 @@ export function HoverTip() {
               .join(", ")} (Yard › What you're waiting for)`
           : lines.length === 0
             ? `${tier}: nothing runs through here now`
-            : `${tier}, inside: ${lines
+            : // Only what passes this tile (playtest: its numbers didn't match the network's totals, unexplained)
+              `${tier}, what runs through this tile: ${lines
                 .slice(0, 4)
                 .map(
                   (t) =>
@@ -165,7 +166,7 @@ export function HoverTip() {
                 )
                 .join(
                   " · ",
-                )}${lines.length > 4 ? ` · ${lines.length - 4} more` : ""} · hold Alt to see every pipe`;
+                )}${lines.length > 4 ? ` · ${lines.length - 4} more` : ""} · click it for the whole network's totals · hold Alt to see every pipe`;
     }
   }
 

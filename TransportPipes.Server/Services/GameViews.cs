@@ -1111,7 +1111,8 @@ public static partial class GameViews
 
         var resources = new Dictionary<string, double[]>();
         // Made, used, sold, hub imports, traded, stored, from storage, lost; then what the Yard brings and takes at the gate
-        double[] Row(string resource) => resources.TryGetValue(resource, out var row) ? row : resources[resource] = new double[10];
+        // and the gold its hub sales bring
+        double[] Row(string resource) => resources.TryGetValue(resource, out var row) ? row : resources[resource] = new double[11];
         // Per company: made, used, sold; and its money: hub sales, neighbour sales, neighbour purchases, hub imports
         var perOwner = new Dictionary<(long, string), double[]>();
         var money = new Dictionary<long, double[]>();
@@ -1159,7 +1160,10 @@ public static partial class GameViews
             }
             switch (flow.Kind)
             {
-                case FlowKind.Sale: row[2] += flow.Delivered; break;
+                case FlowKind.Sale:
+                    row[2] += flow.Delivered;
+                    row[10] += flow.Delivered * flow.PricePerUnit;
+                    break;
                 case FlowKind.Import: row[3] += flow.Sent; break;
                 case FlowKind.Trade: row[4] += flow.Delivered; break;
                 case FlowKind.ToStorage: row[5] += flow.Delivered; break;
@@ -1249,7 +1253,7 @@ public static partial class GameViews
                 .Select(t => (Resource: t.Key, Row: t.Value, Needed: needed.GetValueOrDefault(t.Key)))
                 .Concat(needed.Where(t => !resources.ContainsKey(t.Key)).Select(t => (Resource: t.Key, Row: new double[10], Needed: t.Value)))
                 .OrderBy(t => world.Content.Resources.TryGetValue(t.Resource, out var r) ? r.Tier : 99).ThenBy(t => t.Resource)
-                .Select(t => new NetworkResourceDto(t.Resource, t.Row[0], t.Row[1], t.Row[2], t.Row[3], t.Row[4], t.Row[5], t.Row[6], t.Row[7], t.Needed, t.Row[8], t.Row[9]))
+                .Select(t => new NetworkResourceDto(t.Resource, t.Row[0], t.Row[1], t.Row[2], t.Row[3], t.Row[4], t.Row[5], t.Row[6], t.Row[7], t.Needed, t.Row[8], t.Row[9], Math.Round(t.Row[10], 1)))
                 .ToList(),
             bottlenecks,
             network.Buildings.Select(world.Building).OfType<Building>()

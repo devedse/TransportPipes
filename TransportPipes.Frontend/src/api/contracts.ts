@@ -1157,6 +1157,8 @@ export interface NetworkResourceDto {
   fromYard: number;
   /** What its buildings sell to neighbours through the Yard gate */
   toYard: number;
+  /** The gold a minute its sales to the hub bring */
+  soldGold?: number;
 }
 
 export interface NetworkDetailsDto {

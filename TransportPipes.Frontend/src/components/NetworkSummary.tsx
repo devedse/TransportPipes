@@ -79,6 +79,22 @@ function ResourceRow({ r, content }: { r: NetworkResourceDto; content: Content }
           )}
         </div>
       )}
+      {got > 0 && (
+        // The numbers behind the bar, and the gold the hub pays (playtest: "I want you to make the numbers clearly
+        // traceable"): its hub sales add up to the hub's line under Money per minute
+        <div className="net-where small muted">
+          {[
+            r.used > 0.05 && `used by buildings ${formatAmount(r.used)}`,
+            r.sold > 0.05 &&
+              `sold to the hub ${formatAmount(r.sold)} × ${((r.soldGold ?? 0) / r.sold).toFixed(2)} g = +${formatAmount(r.soldGold ?? 0)} g`,
+            r.toYard > 0.05 && `sold through the Yard ${formatAmount(r.toYard)}`,
+            r.stored > 0.05 && `stored ${formatAmount(r.stored)}`,
+            r.lost > 0.05 && `lost in the pipes ${formatAmount(r.lost)}`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </div>
+      )}
       {isShort && (
         <div className="net-need">
           <div className="net-need-bar">
@@ -177,7 +193,11 @@ export function NetworkSummary({
               </div>
               {mine && (
                 <div className="net-breakdown small">
-                  {owner.hubSales > 0.05 && <span className="plus">hub +{formatAmount(owner.hubSales)}</span>}
+                  {owner.hubSales > 0.05 && (
+                    <span className="plus" title="Its goods' sales to the hub above, added up">
+                      hub +{formatAmount(owner.hubSales)}
+                    </span>
+                  )}
                   {owner.neighbourSales > 0.05 && (
                     <span className="plus">the Yard +{formatAmount(owner.neighbourSales)}</span>
                   )}

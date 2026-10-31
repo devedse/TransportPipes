@@ -533,7 +533,8 @@ public record ToastDto(string Kind, string Text, long? Building);
 /// <summary>A resource in a network per minute; Needed: what its buildings would use at full speed</summary>
 /// <param name="FromYard">What neighbours' goods bring to its buildings through the Yard gate</param>
 /// <param name="ToYard">What its buildings sell to neighbours through the Yard gate</param>
-public record NetworkResourceDto(string Resource, double Produced, double Used, double Sold, double Imported, double Traded, double Stored, double FromStorage, double Lost, double Needed, double FromYard, double ToYard);
+public record NetworkResourceDto(string Resource, double Produced, double Used, double Sold, double Imported, double Traded, double Stored, double FromStorage, double Lost, double Needed, double FromYard, double ToYard,
+    double SoldGold = 0);
 
 /// <summary>What one company's buildings in a network make, use and sell of a resource, per minute</summary>
 public record OwnerResourceDto(string Resource, double Made, double Used, double Sold);
