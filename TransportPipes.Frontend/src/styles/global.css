@@ -978,6 +978,15 @@ kbd {
   color: var(--text-muted);
 }
 
+/* Its buildings make less than they could: why */
+.net-slow {
+  margin: 4px 0 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(224, 160, 63, 0.14);
+  color: var(--text);
+}
+
 .net-need {
   display: grid;
   gap: 2px;

@@ -1235,6 +1235,12 @@ export interface NetworkResourceDto {
   toLinks?: number;
   /** Of what its buildings lack, what is for buildings that couldn't run on it anyway (another input missing) */
   shortWhy?: string | null;
+  /** What its buildings could make of it at full speed (with the network's pumps) */
+  couldMake?: number;
+  /** Why some of them make less: how many, and the first one's reason */
+  slowWhy?: string | null;
+  /** The first of them, to open */
+  slowFirst?: number | null;
 }
 
 export interface NetworkDetailsDto {

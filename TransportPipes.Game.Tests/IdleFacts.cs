@@ -118,6 +118,27 @@ public class IdleFacts
     }
 
     [TestMethod]
+    public void ANetworkSaysWhatItsBuildingsCouldMakeAndWhySomeMakeLess()
+    {
+        // The owner, 2026-10-31: "when I upgrade a Smelter, my copper ore production increases. I would only expect its
+        // need to increase": the mines made only what the Smelter took. The network says what they could make, and why.
+        var (game, _, map) = Setup("W+F+T", "  +", "W+M");
+        var moily = map[(0, 0)];
+        var network = game.World.NetworkOf(moily.Id)!;
+        var made = network.Solution.Flows.Where(t => t.Resource == "energy" && game.World.Building(t.From)?.Type == "windMoily").Sum(t => t.Sent);
+
+        var (could, slowed, first) = game.World.NetworkOutputs(network)["energy"];
+
+        // Both moilies: one only reaches the Small Factory, the other only the Iron Mine
+        Assert.IsTrue(could > made + 0.5, $"they could make {could}, make {made}");
+        Assert.AreEqual(2, slowed);
+        Assert.AreEqual(IdleCause.TakersFull, game.World.IdleReasonOf(first!).Cause);
+        Assert.AreEqual(
+            "2 buildings make less than they could. One, a Wind Moily: only the Small Factory takes its energy. It sells nothing: its pipe reaches no trading post or Storage, and goods never pass through a building.",
+            game.World.SlowedWhy(slowed, first));
+    }
+
+    [TestMethod]
     public void AFactoryWhoseMineStandsStillIsShortOfOre()
     {
         // Cleo's run 2 afternoon: a factory set into the line between her mine and her windmills; the mine's only pipe

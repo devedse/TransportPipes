@@ -585,7 +585,13 @@ public record ToastDto(string Kind, string Text, long? Building);
 public record NetworkResourceDto(string Resource, double Produced, double Used, double Sold, double Imported, double Traded, double Stored, double FromStorage, double Lost, double Needed, double FromYard, double ToYard,
     double SoldGold = 0, double ToLinks = 0,
     /// <summary>Of what its buildings lack, what is for buildings that couldn't run on it anyway (another input missing)</summary>
-    string? ShortWhy = null);
+    string? ShortWhy = null,
+    /// <summary>What its buildings could make of it at full speed (with the network's pumps)</summary>
+    double CouldMake = 0,
+    /// <summary>Why some of them make less: how many, and the first one's reason ("10× Copper Mine: Slowed: ...")</summary>
+    string? SlowWhy = null,
+    /// <summary>The first of them, to open</summary>
+    long? SlowFirst = null);
 
 /// <summary>What one company's buildings in a network make, use and sell of a resource, per minute</summary>
 public record OwnerResourceDto(string Resource, double Made, double Used, double Sold);

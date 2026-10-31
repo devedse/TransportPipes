@@ -835,6 +835,58 @@ public sealed partial class GameWorld
         return needs;
     }
 
+    /// <summary>The reasons a building runs slower because what it makes can't all leave</summary>
+    private static readonly HashSet<IdleCause> OutputCauses =
+        [IdleCause.Stuck, IdleCause.TakerStuck, IdleCause.TakerIdle, IdleCause.TakersFull, IdleCause.PipeFull, IdleCause.Full, IdleCause.GateOnly];
+
+    /// <summary>
+    /// What a network's buildings could make of each good at full speed (with its pumps), and how many of them are slowed
+    /// because what they make can't all leave, the first of them for its reason (the owner, 2026-10-31: "when I upgrade a
+    /// Smelter, my copper ore production increases. I would only expect its need to increase": his mines made only what
+    /// the Smelters took, as goods never pass through a building)
+    /// </summary>
+    public Dictionary<string, (double Could, int Slowed, Building? First)> NetworkOutputs(Network network, long? owner = null)
+    {
+        var outputs = new Dictionary<string, (double Could, int Slowed, Building? First)>();
+        foreach (var id in network.Buildings)
+        {
+            var building = _buildings[id];
+            if ((owner != null && building.Owner != owner) || Content.Building(building.Type).Kind is BuildingKind.Storage or BuildingKind.TradingPost
+                || ToFlowNode(building) is not { } node || node.Out.Count == 0)
+            {
+                continue;
+            }
+            var full = node.MaxRate * network.PumpFactorOf(building.Owner);
+            var slowed = network.Solution.Rate(id) < full * 0.98 && OutputCauses.Contains(IdleReasonOf(building).Cause);
+            foreach (var (resource, amount) in node.Out)
+            {
+                var row = outputs.GetValueOrDefault(resource);
+                outputs[resource] = (row.Could + amount * full, row.Slowed + (slowed ? 1 : 0), row.First ?? (slowed ? building : null));
+            }
+        }
+        return outputs;
+    }
+
+    /// <summary>
+    /// Why some of a network's buildings make less of a good than they could, in words: how many, and the first one's
+    /// reason as its own panel says it ("10 buildings make less than they could. One, a Copper Mine: only the Smelter
+    /// takes its copper ore. It sells nothing: its pipe reaches no trading post or Storage, and goods never pass through a
+    /// building.")
+    /// </summary>
+    public string? SlowedWhy(int slowed, Building? first)
+    {
+        if (slowed == 0 || first == null || IdleStatusOf(first, plan: false) is not { Pill: { } pill } status)
+        {
+            return null;
+        }
+        var why = pill.TrimStart('⛔', ' ');
+        why = why.StartsWith("Slowed: ", StringComparison.Ordinal) ? why["Slowed: ".Length..] : why;
+        var reach = status.Reach is { } line ? $" {line}" : "";
+        return slowed == 1
+            ? $"Your {BuildingName(first)} makes less than it could: {why}.{reach}"
+            : $"{slowed} buildings make less than they could. One, a {BuildingName(first)}: {why}.{reach}";
+    }
+
     /// <summary>
     /// A building whose goods can't leave (F2): the pipe to its trading post (or a Storage) that lets them out, ranked like
     /// a fix. What it brings: what it makes at the hub's prices, less what its inputs would have sold for.

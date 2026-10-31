@@ -24,6 +24,9 @@ function ResourceRow({ r, content }: { r: NetworkResourceDto; content: Content }
   const spare = Math.max(0, r.sold + r.stored + r.toYard);
   const isShort = r.needed > 0 && short > Math.max(0.05, r.needed * 0.01);
   const total = Math.max(got, r.used + r.sold + r.toYard + r.stored + r.lost, 1e-9);
+  // Its buildings make less than they could, because what they make can't all leave (the owner, 2026-10-31: upgrading a
+  // Smelter raised the copper ore made: the mines made only what it took)
+  const slowed = r.slowWhy != null && (r.couldMake ?? 0) > r.produced + Math.max(0.5, r.produced * 0.02);
   const values: Record<(typeof SEGMENTS)[number]["key"], number> = {
     used: r.used,
     sold: r.sold,
@@ -52,6 +55,12 @@ function ResourceRow({ r, content }: { r: NetworkResourceDto; content: Content }
         {(made > 0.05 || r.fromYard <= 0.05) && (
           <>
             makes <strong>{formatAmount(made)}</strong>
+            {slowed && (
+              <>
+                {" "}
+                of the <strong>{formatAmount((r.couldMake ?? 0) + made - r.produced)}</strong> it could
+              </>
+            )}
           </>
         )}
         {r.fromYard > 0.05 && (
@@ -108,6 +117,16 @@ function ResourceRow({ r, content }: { r: NetworkResourceDto; content: Content }
             </span>
           )}
         </div>
+      )}
+      {slowed && (
+        <p className="net-slow small">
+          {r.slowWhy}{" "}
+          {r.slowFirst != null && (
+            <button className="link small" onClick={() => void gameClient.showBuilding(r.slowFirst!)}>
+              Show it ›
+            </button>
+          )}
+        </p>
       )}
       {isShort && (
         <div className="net-need">

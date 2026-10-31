@@ -1362,6 +1362,9 @@ public static partial class GameViews
         // What the buildings need of each resource: of what holds them back their full need, of the rest what they get
         // (the advisor's shortages are the same numbers)
         var needed = world.NetworkNeeds(network).ToDictionary(t => t.Key, t => t.Value.Needed);
+        // What its buildings could make, and why some make less (the owner, 2026-10-31: the mines made more when a Smelter
+        // was upgraded, as they made only what it took)
+        var outputs = world.NetworkOutputs(network, viewer);
 
         var used = new Dictionary<FlowLink, double>(ReferenceEqualityComparer.Instance);
         foreach (var flow in solution.Flows)
@@ -1408,7 +1411,10 @@ public static partial class GameViews
                 .OrderBy(t => world.Content.Resources.TryGetValue(t.Resource, out var r) ? r.Tier : 99).ThenBy(t => t.Resource)
                 .Select(t => new NetworkResourceDto(t.Resource, t.Row[0], t.Row[1], t.Row[2], t.Row[3], t.Row[4], t.Row[5], t.Row[6], t.Row[7], t.Needed, t.Row[8], t.Row[9], Math.Round(t.Row[10], 1),
                     Math.Round(Math.Min(t.Row[9], LinkSends(world, network, t.Resource)), 1),
-                    t.Needed > t.Row[1] + 0.05 ? ShortWhy(world, network, t.Resource, r => resources.TryGetValue(r, out var row) && row[0] + row[3] + row[6] + row[8] - row[1] - row[7] > 0.05) : null))
+                    t.Needed > t.Row[1] + 0.05 ? ShortWhy(world, network, t.Resource, r => resources.TryGetValue(r, out var row) && row[0] + row[3] + row[6] + row[8] - row[1] - row[7] > 0.05) : null,
+                    Math.Round(outputs.GetValueOrDefault(t.Resource).Could, 1),
+                    world.SlowedWhy(outputs.GetValueOrDefault(t.Resource).Slowed, outputs.GetValueOrDefault(t.Resource).First),
+                    outputs.GetValueOrDefault(t.Resource).First?.Id))
                 .ToList(),
             bottlenecks,
             network.Buildings.Select(world.Building).OfType<Building>()
