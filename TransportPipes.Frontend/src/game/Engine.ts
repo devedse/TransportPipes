@@ -422,6 +422,8 @@ interface ObjectView {
   machines?: AnimatedSprite[];
   idle: Container | null;
   progress: Graphics | null;
+  /** Its level badge, on the badge layer over every building */
+  badge?: Sprite;
 }
 
 interface DistrictView {
@@ -497,6 +499,11 @@ export class Engine {
   private linkTime = 0;
   private readonly objectLayer = new Container({ sortableChildren: true });
   private readonly flowLayer = new Container();
+  /**
+   * The level badges, over every building and pipe (the owner, 2026-10-31: "draw the building levels always in front":
+   * a building in front hid the one behind it); a nearer one over a farther one
+   */
+  private readonly badgeLayer = new Container({ sortableChildren: true });
   private readonly ghostLayer = new Container();
   private readonly labelLayer = new Container();
   private readonly juice = new Juice();
@@ -610,6 +617,7 @@ export class Engine {
       this.pickMarks,
       this.insideLayer,
       this.flowLayer,
+      this.badgeLayer,
       this.ghostLayer,
       this.juice.layer,
       this.labelLayer,
@@ -1254,6 +1262,7 @@ export class Engine {
       this.groundLayer.visible = !far;
       this.objectLayer.visible = !far;
       this.flowLayer.visible = !far;
+      this.badgeLayer.visible = !far;
       this.miniLayer.visible = far;
       this.districtsDirty = true;
       // Near again: what was drawn zoomed out gets its ground and objects now
@@ -1490,6 +1499,7 @@ export class Engine {
       this.effects.delete(view);
       view.effects?.destroy();
       view.display.destroy({ children: true });
+      view.badge?.destroy();
     }
     chunk.objects = [];
   }
@@ -2522,8 +2532,10 @@ export class Engine {
         const badge = new Sprite(levelBadge(building.level));
         badge.anchor.set(0.5, 1);
         badge.scale.set(size === 1 ? 0.85 : size === 2 ? 1.15 : 1.4);
-        badge.position.set(TILE_WIDTH * size, -6);
-        container.addChild(badge);
+        badge.position.set(anchor.x + TILE_WIDTH * size, anchor.y - 6);
+        badge.zIndex = container.zIndex;
+        this.badgeLayer.addChild(badge);
+        view.badge = badge;
         // Into a new tier since it was drawn last: a ring in the new colour
         const before = this.shownTiers.get(building.id);
         if (before !== undefined && index > before && !this.far) {
