@@ -108,7 +108,7 @@ public sealed partial class GameWorld
     private double TakeFromStorages(long companyId, string resource, double amount)
     {
         var left = amount;
-        foreach (var storage in _buildings.Values.Where(t => t.Owner == companyId && t.Contents.ContainsKey(resource)).OrderBy(t => t.Id))
+        foreach (var storage in BuildingsOf(companyId).Where(t => t.Contents.ContainsKey(resource)).OrderBy(t => t.Id))
         {
             var take = Math.Min(left, storage.Contents[resource]);
             storage.Contents[resource] -= take;

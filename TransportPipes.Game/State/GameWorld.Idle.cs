@@ -285,7 +285,7 @@ public sealed partial class GameWorld
                     sink = true;
                     break;
                 }
-                if (ToFlowNode(other) is { Kind: FlowNodeKind.Building } taker && taker.In.ContainsKey(resource))
+                if ((network.Index.Nodes.GetValueOrDefault(other.Id) ?? ToFlowNode(other)) is { Kind: FlowNodeKind.Building } taker && taker.In.ContainsKey(resource))
                 {
                     takers.Add(other);
                 }
@@ -319,7 +319,7 @@ public sealed partial class GameWorld
             }
             var mine = other.Owner == building.Owner;
             var kind = Content.Building(other.Type).Kind;
-            if (ToFlowNode(other) is { } n && n.Out.ContainsKey(resource)
+            if ((network.Index.Nodes.GetValueOrDefault(other.Id) ?? ToFlowNode(other)) is { } n && n.Out.ContainsKey(resource)
                 || (mine && kind == BuildingKind.Storage && other.Contents.ContainsKey(resource))
                 || (mine && kind == BuildingKind.TradingPost && other.Imports.Contains(resource)))
             {
@@ -334,5 +334,5 @@ public sealed partial class GameWorld
         network.Index.GateLinksOf(building.Id).Count > 0
         && !LinkedBuildings(building, network).Any(other =>
             (other.Owner == building.Owner && Content.Building(other.Type).Kind is BuildingKind.Storage or BuildingKind.TradingPost)
-            || (ToFlowNode(other) is { Kind: FlowNodeKind.Building } taker && node.Out.Keys.Any(taker.In.ContainsKey)));
+            || ((network.Index.Nodes.GetValueOrDefault(other.Id) ?? ToFlowNode(other)) is { Kind: FlowNodeKind.Building } taker && node.Out.Keys.Any(taker.In.ContainsKey)));
 }

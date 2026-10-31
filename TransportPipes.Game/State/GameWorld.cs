@@ -199,9 +199,41 @@ public sealed partial class GameWorld
 
     public bool IsOccupied(TilePos pos) => _buildingAt.ContainsKey(pos) || _conductors.ContainsKey(pos);
 
-    public int CopiesOwned(long companyId, string type) => _buildings.Values.Count(t => t.Owner == companyId && t.Type == type);
+    public int CopiesOwned(long companyId, string type) => BuildingsOf(companyId).Count(t => t.Type == type);
 
-    public IEnumerable<Building> BuildingsOf(long companyId) => _buildings.Values.Where(t => t.Owner == companyId);
+    /// <summary>
+    /// A company's buildings (from the owner index: every call scanned all the world's buildings, and it is called
+    /// hundreds of times a tick on a busy server)
+    /// </summary>
+    public IEnumerable<Building> BuildingsOf(long companyId) => _byOwner.TryGetValue(companyId, out var own) ? own.Values : [];
+
+    /// <summary>The buildings by owner (kept with _buildings: added, removed, given to another owner)</summary>
+    private readonly Dictionary<long, Dictionary<long, Building>> _byOwner = new();
+
+    private void Index(Building building)
+    {
+        if (!_byOwner.TryGetValue(building.Owner, out var own))
+        {
+            _byOwner[building.Owner] = own = new Dictionary<long, Building>();
+        }
+        own[building.Id] = building;
+    }
+
+    private void Unindex(Building building)
+    {
+        if (_byOwner.TryGetValue(building.Owner, out var own) && own.Remove(building.Id) && own.Count == 0)
+        {
+            _byOwner.Remove(building.Owner);
+        }
+    }
+
+    /// <summary>A building goes to another owner</summary>
+    private void GiveBuilding(Building building, long owner)
+    {
+        Unindex(building);
+        building.Owner = owner;
+        Index(building);
+    }
 
     // ---------------------------------------------------------------- Loading (persistence)
 
@@ -222,6 +254,7 @@ public sealed partial class GameWorld
     public void LoadBuilding(Building building)
     {
         _buildings[building.Id] = building;
+        Index(building);
         foreach (var tile in building.Footprint())
         {
             _buildingAt[tile] = building.Id;
@@ -422,6 +455,7 @@ public sealed partial class GameWorld
             ConstructionEndsAt = finished || definition.BuildSeconds <= 0 ? null : Now.AddSeconds(definition.BuildSeconds),
         };
         _buildings[building.Id] = building;
+        Index(building);
         foreach (var tile in building.Footprint())
         {
             // A building stands on a forest without felling it: its trees are hidden under it and grow back when it
@@ -736,7 +770,7 @@ public sealed partial class GameWorld
     public Dictionary<string, double> Materials(long companyId)
     {
         var total = new Dictionary<string, double>();
-        foreach (var storage in _buildings.Values.Where(t => t.Owner == companyId && t.Contents.Count != 0))
+        foreach (var storage in BuildingsOf(companyId).Where(t => t.Contents.Count != 0))
         {
             foreach (var (resource, amount) in storage.Contents)
             {
@@ -765,7 +799,7 @@ public sealed partial class GameWorld
             foreach (var (resource, amount) in materials)
             {
                 var left = amount;
-                foreach (var storage in _buildings.Values.Where(t => t.Owner == company.Id && t.Contents.ContainsKey(resource)).OrderBy(t => t.Id))
+                foreach (var storage in BuildingsOf(company.Id).Where(t => t.Contents.ContainsKey(resource)).OrderBy(t => t.Id))
                 {
                     var take = Math.Min(left, storage.Contents[resource]);
                     storage.Contents[resource] -= take;
@@ -921,6 +955,7 @@ public sealed partial class GameWorld
             Changes.Tiles.Add(tile);
         }
         _buildings.Remove(building.Id);
+        Unindex(building);
         Deleted.Add(building);
     }
 

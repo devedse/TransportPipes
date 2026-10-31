@@ -61,7 +61,7 @@ public sealed partial class GameWorld
     }
 
     public bool HasBuilding(long companyId, BuildingKind kind) =>
-        _buildings.Values.Any(t => t.Owner == companyId && !t.UnderConstruction && Content.Building(t.Type).Kind == kind);
+        BuildingsOf(companyId).Any(t => !t.UnderConstruction && Content.Building(t.Type).Kind == kind);
 
     /// <summary>How long cargo takes from one estate to another: 10 minutes plus 1 per 10 tiles, halved by a Cargo Depot</summary>
     public TimeSpan CargoTime(Company from, Company to)
@@ -154,7 +154,7 @@ public sealed partial class GameWorld
 
     /// <summary>What a company's Storages hold of a good</summary>
     public double StoredOf(long companyId, string resource) =>
-        _buildings.Values.Where(t => t.Owner == companyId && !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Storage)
+        BuildingsOf(companyId).Where(t => !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Storage)
             .Sum(t => t.Contents.GetValueOrDefault(resource));
 
     /// <summary>Trades a new order against the waiting ones: best price first, then oldest</summary>
@@ -250,7 +250,7 @@ public sealed partial class GameWorld
         foreach (var shipment in _shipments.Where(t => t.ArrivesAt <= LastTick).ToList())
         {
             var left = shipment.Amount;
-            foreach (var storage in _buildings.Values.Where(t => t.Owner == shipment.To && !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Storage).OrderBy(t => t.Id))
+            foreach (var storage in BuildingsOf(shipment.To).Where(t => !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Storage).OrderBy(t => t.Id))
             {
                 var room = StorageCapacity(storage, Content.Building(storage.Type)) - storage.StoredTotal;
                 var put = Math.Min(room, left);

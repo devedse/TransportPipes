@@ -229,6 +229,7 @@ public sealed partial class GameWorld
         foreach (var building in _buildings.Values.Where(t => t.Footprint().Any(f => _buildingAt.TryGetValue(f, out var other) && other != t.Id)).ToList())
         {
             _buildings.Remove(building.Id);
+            Unindex(building);
             _networkOfBuilding.Remove(building.Id);
             _dirtyBuildings.Remove(building.Id);
             Deleted.Add(building);
@@ -793,7 +794,27 @@ public sealed partial class GameWorld
     /// What a company needs of a resource in its storages: enough to build the building it can build that needs the most of it, and the materials for a stretch of
     /// the pipes it can lay (copper ingots for Copper Pipes)
     /// </summary>
+    private (DateTime Tick, Dictionary<(long Company, int Level, int Researched, string Resource), double> Needs)? _storageNeeds;
+
     public double StorageNeed(Company company, string resource)
+    {
+        // Once a tick for a company's level and research (every Storage asks it for every good at every solve)
+        if (_storageNeeds is not { } cache || cache.Tick != LastTick)
+        {
+            cache = (LastTick, new());
+            _storageNeeds = cache;
+        }
+        var key = (company.Id, company.Level, company.Researched.Count, resource);
+        if (cache.Needs.TryGetValue(key, out var known))
+        {
+            return known;
+        }
+        var need = SolvedStorageNeed(company, resource);
+        cache.Needs[key] = need;
+        return need;
+    }
+
+    private double SolvedStorageNeed(Company company, string resource)
     {
         var need = 0.0;
         var materials = Content.BuildingList

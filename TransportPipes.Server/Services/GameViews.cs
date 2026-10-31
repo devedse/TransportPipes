@@ -812,7 +812,9 @@ public static partial class GameViews
         foreach (var flow in network.Solution.Flows)
         {
             var path = new List<int>();
-            var link = network.Links
+            // The links of its building, not all of the network's (every flow searched them all: a second a minute of
+            // a busy server went into it)
+            var link = network.Index.LinksOf(flow.From)
                 .Where(t => t.Connects(flow.From, flow.To) && t.Allows(flow.Resource))
                 .OrderByDescending(t => t.Priority).ThenByDescending(t => t.Efficiency)
                 .FirstOrDefault();
@@ -1217,7 +1219,9 @@ public static partial class GameViews
         var used = new Dictionary<FlowLink, double>(ReferenceEqualityComparer.Instance);
         foreach (var flow in solution.Flows)
         {
-            var link = network.Links
+            // The links of its building, not all of the network's (every flow searched them all: a second a minute of
+            // a busy server went into it)
+            var link = network.Index.LinksOf(flow.From)
                 .Where(t => t.Connects(flow.From, flow.To) && t.Allows(flow.Resource))
                 .OrderByDescending(t => t.Priority).ThenByDescending(t => t.Efficiency)
                 .FirstOrDefault();

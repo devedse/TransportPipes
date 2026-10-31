@@ -326,7 +326,7 @@ export function TradeSettings() {
                       {n.youEarn > 0.05 && ` · you earn ${formatAmount(n.youEarn)} g/min`}
                       {n.youPay > 0.05 && ` · you pay ${formatAmount(n.youPay)} g/min`}
                       {n.blockAt !== null &&
-                        ` · trading stops at ${clock(n.blockAt)} (an hour's notice): switch it on to call it off`}
+                        ` · trading stops at ${clock(n.blockAt)}: switch it on to call it off`}
                       {n.blocked && " · you don't trade with them"}
                     </span>
                   </span>

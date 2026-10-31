@@ -206,11 +206,17 @@ public sealed partial class GameWorld
     /// </summary>
     private void StartQueuedResearch(Company company)
     {
+        // Nothing to start: no queue on a free line, and Keep researching isn't on while away (most companies, every tick)
+        var away = company.KeepResearching && LastTick - company.LastSeenAt >= KeepResearchingAway;
+        if ((company.CurrentResearch != null || (company.ResearchQueue.Count == 0 && !away))
+            && (company.CurrentTrack != null || (company.TrackQueue.Count == 0 && !away)))
+        {
+            return;
+        }
         if (!HasLab(company))
         {
             return;
         }
-        var away = company.KeepResearching && LastTick - company.LastSeenAt >= KeepResearchingAway;
         if (company.CurrentResearch == null)
         {
             company.ResearchQueue.RemoveAll(company.Researched.Contains);

@@ -111,6 +111,7 @@ public sealed partial class GameWorld
         var price = members.Average(CopyPrice);
         var complex = new Building { Id = NextBuildingId++, Type = type, Owner = owner.Id, X = origin.X, Y = origin.Y, Size = size, Level = level, Price = price };
         _buildings[complex.Id] = complex;
+        Index(complex);
         foreach (var tile in complex.Footprint())
         {
             _buildingAt[tile] = complex.Id;

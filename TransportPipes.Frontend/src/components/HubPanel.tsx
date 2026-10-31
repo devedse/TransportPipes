@@ -12,7 +12,7 @@ function Trend({ row }: { row: MarketResourceDto }) {
   const ratio = row.buyPrice / row.basePrice;
   if (ratio < 0.98) {
     return (
-      <span className="trend down" title="You sold more than your Hub Order over the last hour">
+      <span className="trend down" title="You sell more than your Hub Order">
         ▼ {Math.round((1 - ratio) * 100)}%
       </span>
     );
@@ -277,10 +277,11 @@ export function HubPanel() {
           <div className="market">
             <p className="muted small">
               The market buys everything your trading post brings it. Up to your Hub Order a minute it pays
-              the full price; sell more and the price falls with the square root (over the last hour, nobody
-              else&apos;s sales count). Your trading post&apos;s levels, research from tier 5, your
-              town&apos;s Wonder and a Market Monument raise your Hub Orders. Goods of a later Era than your
-              town&apos;s pay a quarter. Players set their own prices, between the market&apos;s two.
+              the full price; sell more and the price falls with the square root (by what you sell now, looked
+              at every minute; nobody else&apos;s sales count). Your trading post&apos;s levels, research from
+              tier 5, your town&apos;s Wonder and a Market Monument raise your Hub Orders. Goods of a later
+              Era than your town&apos;s pay a quarter. Players set their own prices, between the market&apos;s
+              two.
             </p>
             <table className="market-table">
               <thead>

@@ -246,7 +246,7 @@ public sealed partial class GameWorld
         }
         if (DepotOf(crew.Yard) is { } built && built.Owner == company.Id && CrewMembers(crew).FirstOrDefault() is { } keeper)
         {
-            built.Owner = keeper.Id;
+            GiveBuilding(built, keeper.Id);
             built.Touch();
             foreach (var tile in built.Footprint())
             {

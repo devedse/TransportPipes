@@ -110,7 +110,7 @@ public sealed partial class GameWorld
         return new SpendPreview(0, $"adds nothing{why}");
     }
 
-    private static FlowNode? NetworkNode(Network network, Building building) => network.Nodes.FirstOrDefault(t => t.Id == building.Id);
+    private static FlowNode? NetworkNode(Network network, Building building) => network.Index.Nodes.GetValueOrDefault(building.Id);
 
     /// <summary>Remembers a purchase for an hour's Undo, one per building: levels bought one after another make one</summary>
     private void RecordPurchase(Company company, PurchaseKind kind, Building building, int levels, double cost)

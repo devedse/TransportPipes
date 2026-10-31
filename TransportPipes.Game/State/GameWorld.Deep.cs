@@ -210,7 +210,7 @@ public sealed partial class GameWorld
     private double StoreGoods(Company company, string resource, double amount)
     {
         var left = amount;
-        foreach (var storage in _buildings.Values.Where(t => t.Owner == company.Id && !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Storage).OrderBy(t => t.Id))
+        foreach (var storage in BuildingsOf(company.Id).Where(t => !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Storage).OrderBy(t => t.Id))
         {
             var put = Math.Min(StorageCapacity(storage, Content.Building(storage.Type)) - storage.StoredTotal, left);
             if (put <= 1e-9)

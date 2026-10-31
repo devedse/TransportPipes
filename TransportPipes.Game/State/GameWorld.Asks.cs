@@ -103,14 +103,14 @@ public sealed partial class GameWorld
 
     /// <summary>The free room in a company's storages</summary>
     public double StorageRoom(long companyId) =>
-        _buildings.Values.Where(t => t.Owner == companyId && !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Storage)
+        BuildingsOf(companyId).Where(t => !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Storage)
             .Sum(t => Math.Max(0, StorageCapacity(t, Content.Building(t.Type)) - t.StoredTotal));
 
     /// <summary>Puts goods into a company's storages; returns how much fitted</summary>
     private double PutInStorages(long companyId, string resource, double amount)
     {
         var left = amount;
-        foreach (var storage in _buildings.Values.Where(t => t.Owner == companyId && !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Storage).OrderBy(t => t.Id))
+        foreach (var storage in BuildingsOf(companyId).Where(t => !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.Storage).OrderBy(t => t.Id))
         {
             var put = Math.Min(StorageCapacity(storage, Content.Building(storage.Type)) - storage.StoredTotal, left);
             if (put <= 1e-9)

@@ -207,7 +207,7 @@ public sealed partial class GameWorld
     private void Release(Outpost outpost)
     {
         var company = Company(outpost.Owner);
-        foreach (var building in _buildings.Values.Where(t => t.Owner == outpost.Owner && outpost.Contains(t.Position)).ToList())
+        foreach (var building in BuildingsOf(outpost.Owner).Where(t => outpost.Contains(t.Position)).ToList())
         {
             RemoveBuilding(building);
             if (company != null)
