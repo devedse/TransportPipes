@@ -1397,7 +1397,8 @@ public sealed partial class GameWorld
                 _conductors.Remove(tile);
                 Deleted.Add(conductor);
                 Changes.Tiles.Add(tile);
-                refund += Content.PipeTier(conductor.Tier).Gold * 0.5;
+                // Half what it cost: a bridge over water three times a pipe's price
+                refund += Content.PipeTier(conductor.Tier).Gold * (Tile(tile).Terrain == TerrainType.Water ? 3 : 1) * 0.5;
                 removed++;
             }
         }

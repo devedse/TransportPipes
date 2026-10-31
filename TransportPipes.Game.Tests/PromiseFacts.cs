@@ -1,4 +1,5 @@
 using TransportPipes.Game.State;
+using TransportPipes.Game.World;
 
 namespace TransportPipes.Game.Tests;
 
@@ -160,6 +161,57 @@ public class PromiseFacts
 
         Assert.AreEqual(1, game.World.TrackTier(company, "iron"));
         Kept(said, Income(game, company) - before, "the Iron track's first tier");
+    }
+
+    /// <summary>What an action took (or, less than zero, gave back) is the price shown</summary>
+    private static void Priced(Company company, double shown, Func<CommandResult> act, string what, double within = 0.01)
+    {
+        var gold = company.Gold;
+        var result = act();
+        Assert.IsTrue(result.Success, $"{what}: {result.Error}");
+        Assert.AreEqual(shown, gold - company.Gold, within, $"{what}: shown {shown:0.00} g, took {gold - company.Gold:0.00} g");
+    }
+
+    [TestMethod]
+    public void EveryPriceShownIsTheGoldTaken()
+    {
+        // With the Workshop wonder's discount (buildings, levels and parcels 3% cheaper: the build menu showed the full price)
+        var (game, company, map) = Estate(4, factory: true);
+        var world = game.World;
+        company.Gold = 1e10;
+        Assert.IsTrue(world.ChooseMonument(company.Id, 1, "workshop").Success);
+        Assert.IsTrue(world.PayMonument(company.Id, 1, 100_000_000).Success);
+        Assert.AreEqual(0.97, world.CostFactor(company), 1e-9);
+        var (moily, other, spare) = (map[(0, 0)], map[(1, 0)], map[(3, 0)]);
+
+        Priced(company, world.BuildCost(company, world.Content.Building("windMoily")), () => world.PlaceBuilding(company.Id, "windMoily", game.Spot(company, "windMoily")), "a Wind Moily");
+        Priced(company, world.UpgradeCost(moily, 1), () => world.Upgrade(company.Id, moily.Id, 1), "+1 level");
+        Priced(company, world.UpgradeCost(moily, 10), () => world.Upgrade(company.Id, moily.Id, 10), "+10 levels");
+        Priced(company, world.OrderCost(company, moily.Id) ?? 0, () => world.OrderRest(company.Id, moily.Id), "its levels' goods, ordered", within: 1);
+        company.Gold = world.UpgradeCost(other, 3) + 1;
+        var affordable = world.AffordableLevels(company, other);
+        Assert.AreEqual(3, affordable);
+        Priced(company, world.UpgradeCost(other, affordable), () => world.Upgrade(company.Id, other.Id, affordable), "the levels the gold buys");
+        company.Gold = 1e10;
+        Priced(company, -world.DemolishRefund(spare), () => world.Demolish(company.Id, spare.Id), "a Wind Moily demolished");
+        spare = map[(2, 0)];
+        spare.Damaged = true;
+        Priced(company, world.RepairCost(spare), () => world.Repair(company.Id, spare.Id), "a repair");
+
+        var parcel = world.NextSteps(company, 8).Single(t => t.Kind == AdvisorKind.Parcel);
+        Priced(company, world.NextParcel(company).Cost, () => world.BuyParcel(company.Id, parcel.Parcel!.Value), "the next parcel");
+
+        game.Build(company, "lab");
+        var track = world.Content.TrackList.Single(t => t.Id == "iron");
+        Priced(company, world.TierCost(company, track, world.NextTier(company, track)!.Value).Total, () => world.StartResearch(company.Id, "iron"), "the Iron track's tier");
+
+        // A pipe over water: a bridge, three times the price, and half of that back
+        var water = Enumerable.Range(0, 30).SelectMany(x => Enumerable.Range(4, 20).Select(y => game.Local(company, x, y)))
+            .First(t => !world.IsOccupied(t) && world.Tile(t).Terrain is not (TerrainType.Mountain or TerrainType.Water));
+        world.LoadTerrainOverride(water, TerrainType.Water);
+        var pipe = world.Content.PipeTiers[0].Gold;
+        Priced(company, pipe * 3, () => world.PlacePipes(company.Id, [water]), "a bridge");
+        Priced(company, -pipe * 1.5, () => world.RemovePipes(company.Id, [water]), "the bridge taken away");
     }
 
     [TestMethod]

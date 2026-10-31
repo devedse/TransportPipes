@@ -1025,7 +1025,7 @@ export class Engine {
         spot.x,
         spot.y,
       );
-      const price = state.content.buildCost(definition, copies);
+      const price = state.content.buildCost(definition, copies, state.company.costFactor);
       if (!placement.ok || short || cost + price > state.company.gold) {
         short ||= placement.ok;
         blocked.push(spot);

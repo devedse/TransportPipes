@@ -74,9 +74,19 @@ export class Content {
     );
   }
 
-  /** Gold for another copy when you already own some (every copy 7% more than the last) */
-  buildCost(definition: BuildingDefinition, copiesOwned: number): number {
-    return Math.round(definition.cost.gold * Math.pow(this.progression.costPerCopy, copiesOwned));
+  /**
+   * Gold for another copy when you already own some (every copy 7% more than the last), less the town wonder's discount
+   * (costFactor): rounded as the server rounds it, so the price shown is the gold taken
+   */
+  buildCost(definition: BuildingDefinition, copiesOwned: number, costFactor = 1): number {
+    return roundHalfEven(
+      roundHalfEven(definition.cost.gold * Math.pow(this.progression.costPerCopy, copiesOwned)) * costFactor,
+    );
+  }
+
+  /** The n-th extra parcel's price, less the town wonder's discount (as the server takes it) */
+  parcelCost(index: number, costFactor = 1): number {
+    return roundHalfEven((this.progression.parcelCosts[index] ?? 0) * costFactor);
   }
 
   nextMilestone(level: number): number | null {
@@ -166,6 +176,13 @@ export class Content {
 }
 
 /** Deposits that are not resources themselves (magma heats a Magma Tap) */
+/** Rounds as the server does (a half to the even number): 22.5 is 22, 23.5 is 24 */
+export function roundHalfEven(value: number): number {
+  const down = Math.floor(value);
+  const rest = value - down;
+  return rest > 0.5 || (rest === 0.5 && down % 2 !== 0) ? down + 1 : down;
+}
+
 const SPECIAL_DEPOSITS: Record<string, { name: string; color: string }> = {
   magma: { name: "Magma", color: "#ff6a1a" },
   geothermal: { name: "Geothermal heat", color: "#e0603a" },

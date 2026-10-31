@@ -176,7 +176,7 @@ export function BuildMenu() {
           const lock = content.lockReason(definition, company, era);
           const missing = landLine(definition, company.land, content);
           const copies = company.buildingCounts[definition.id] ?? 0;
-          const cost = content.buildCost(definition, copies);
+          const cost = content.buildCost(definition, copies, company.costFactor);
           const affordable = gold >= cost;
           const active = tool.kind === "build" && tool.type === definition.id;
           const thumbnail = gameClient.textures?.thumbnail(definition.id, definition.size);

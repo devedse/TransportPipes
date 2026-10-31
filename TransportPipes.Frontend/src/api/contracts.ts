@@ -117,6 +117,8 @@ export interface CompanyDto {
   explored: string[] | null;
   /** What your own goods going into your wants now would sell for a minute (your income is that much lower until they're in) */
   ownGoodsIntoWants?: number;
+  /** What buildings and parcels cost of their price (the Workshop wonder's perk makes them cheaper) */
+  costFactor?: number;
 }
 
 export type GiveMode = "off" | "beyondHubOrder" | "all";

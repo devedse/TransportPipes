@@ -114,7 +114,7 @@ function unlocksAt(
   if (parcel >= 0) {
     items.push({
       name: "A parcel",
-      note: `${(content.progression.parcelCosts[parcel] ?? 0).toLocaleString()} g`,
+      note: `${content.parcelCost(parcel, company.costFactor).toLocaleString()} g`,
       ok: true,
     });
   }
