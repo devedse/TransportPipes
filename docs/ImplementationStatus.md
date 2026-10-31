@@ -629,6 +629,23 @@ crew and town. Someone else's statistics show only what the leaderboards show an
 draws your income while you were away. The admin's Pace puts every company's gold earned by days since founding next to
 the model's regular player: the check of the balance against real players that the bots couldn't give.
 
+**What the game says happens** (2026-10-31, the owner during the playtest: "whenever something says x will happen, it
+actually does, so for example the grow button should match exactly"; Grow had said +500 g/min and brought +300). Every
+gold-a-minute promise is now a difference of two settled incomes (`SettledIncome`: the networks' gold with what they
+sell at the hub at the price the market settles on for all of it, and the Yard's pay), and every what-if solves a
+network as its real solve does (`SolveWhatIf`: the nodes it was solved with, its pump stations, its Yard gate with the
+Yard's next round, a better pipe laid for real). Kept by `PromiseFacts`, within 1%: a level's preview, levels from 11
+once their goods are in, Trading Post levels, Grow, the next steps on small and big networks, a research tier, a
+Yard-fed building's level, the first pipe and Unstick (`PipeWhatIf`: the pipe laid on trial, the network it makes
+flooded and solved), and every price shown against the gold taken (a building, levels, ordered goods, demolish, repair,
+a parcel, a tier, a bridge). Found on the way: the Build menu left out the Workshop wonder's discount, a bridge gave back
+a sixth of its price, Next steps offered pipes that would sell nothing, and with two trading posts it asked to pipe
+buildings already selling at the other. Still estimates, and said with "about": the pipe to the Yard gate for a
+neighbour (what a neighbour lacks grows once you are at the gate, which one round of a what-if doesn't see), a building
+by the Yard gate, the hours of saving for the next parcel and when a Hub Order fills. For the playtest every hour's wait
+is off (`691247d`: the market looks every minute and its price follows at once; restore after it). The bots' week on
+this code: 150.8k g a minute on day 7, as before (149k; the model 240k).
+
 ### After v1
 
 Designed (GDD §11), not needed for a fun first version: the Bank (investing, insurance, Wonder bonds), District
