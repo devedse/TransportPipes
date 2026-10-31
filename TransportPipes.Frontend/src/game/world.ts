@@ -53,13 +53,27 @@ function decode(base64: string): Uint8Array {
   return bytes;
 }
 
-/** groundChunks: of the chunks, those whose ground changed (their terrain or deposits): the others' objects only */
+/**
+ * groundChunks: of the chunks, those whose ground changed (their terrain or deposits): the others' objects only;
+ * layoutChunks: those whose layout changed (a building or a pipe came, went or moved): in the others only what the
+ * objects show did (a level, a finished building)
+ */
 export type WorldListener = (change: {
   chunks: string[];
   flows: boolean;
   districts: boolean;
   groundChunks: string[];
+  layoutChunks: string[];
 }) => void;
+
+/** A word as a number (for the layout's sum) */
+function wordHash(word: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < word.length; i++) {
+    h = Math.imul(h ^ word.charCodeAt(i), 16777619);
+  }
+  return h;
+}
 
 /** Everything the client knows about the world: the chunks it has loaded, the districts and the flows */
 export class WorldModel {
@@ -137,8 +151,41 @@ export class WorldModel {
     return () => this.listeners.delete(listener);
   }
 
-  private emit(chunks: string[], flows = false, districts = false, groundChunks: string[] = chunks) {
-    this.listeners.forEach((listener) => listener({ chunks, flows, districts, groundChunks }));
+  private emit(
+    chunks: string[],
+    flows = false,
+    districts = false,
+    groundChunks: string[] = chunks,
+    layoutChunks: string[] = chunks,
+  ) {
+    this.listeners.forEach((listener) => listener({ chunks, flows, districts, groundChunks, layoutChunks }));
+  }
+
+  /**
+   * A chunk's layout as a number to compare: its buildings' places, sizes, types and owners, its pipes' places, kinds
+   * and owners (summed, so their order doesn't matter)
+   */
+  private layoutOf(key: string): number {
+    let sum = 0;
+    for (const id of this.buildingsByChunk.get(key) ?? []) {
+      const b = this.buildings.get(id);
+      if (b !== undefined) {
+        let h = Math.imul(b.id ^ wordHash(b.type), 16777619);
+        h = Math.imul(h ^ b.x, 16777619);
+        h = Math.imul(h ^ b.y, 16777619);
+        h = Math.imul(h ^ (b.size * 7919 + b.owner), 16777619);
+        sum = (sum + h) | 0;
+      }
+    }
+    for (const k of this.conductorsByChunk.get(key) ?? []) {
+      const c = this.conductors.get(k);
+      if (c !== undefined) {
+        let h = Math.imul(k ^ wordHash(c.kind), 16777619);
+        h = Math.imul(h ^ c.owner, 16777619);
+        sum = (sum + h) | 0;
+      }
+    }
+    return sum;
   }
 
   /** A chunk's terrain and deposit overrides, as a string to compare */
@@ -174,8 +221,15 @@ export class WorldModel {
     // Its ground is drawn again only when its terrain or deposits changed (the owner's profile, 2026-10-31: a
     // building's level redrew its whole chunk's ground)
     const ground = this.groundOf(key);
+    const layout = this.layoutOf(key);
     this.applyObjectsSilently(dto);
-    this.emit([key], false, false, this.groundOf(key) === ground ? [] : [key]);
+    this.emit(
+      [key],
+      false,
+      false,
+      this.groundOf(key) === ground ? [] : [key],
+      this.layoutOf(key) === layout ? [] : [key],
+    );
   }
 
   private applyObjectsSilently(dto: ChunkObjectsDto) {

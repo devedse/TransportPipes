@@ -2,9 +2,12 @@
 // bit slow in the UI"; his Firefox profile: 38% of the time PixiJS rebuilt its draw list, as smoke puffs came and went
 // every frame, and 12% rebuilding every flow dot when any network changed): the estate of big-estate.mjs, its flows
 // changing once a second as on a busy server, and for 8 s: how often PixiJS rebuilds its draw list and what that costs,
-// the time a frame's drawing takes, and a flow rebuild's time.   node ui-speed.mjs <outdir> [spacing]
+// the time a frame's drawing takes, and a flow rebuild's time. As on the live server (the owner's third profile: what
+// the test only flagged, the game got as real changes): every second some networks' flows come anew, and map areas
+// change as other players build. trace: also which draw lists PixiJS rebuilt, and what made it.
+//   node ui-speed.mjs <outdir> [spacing] [trace]
 import { start, newPlayer } from "./lib.mjs";
-const [out = "shots/ui-speed", spacing = "3"] = process.argv.slice(2);
+const [out = "shots/ui-speed", spacing = "3", trace = ""] = process.argv.slice(2);
 const p = await start(out);
 await newPlayer(p.page, "spd");
 for (let i = 0; i < 6; i++) await p.cheat("level");
@@ -54,8 +57,9 @@ await p.page.evaluate(() => {
 });
 await p.page.waitForTimeout(4000);
 await p.shot("1-estate");
-const result = await p.page.evaluate(async () => {
+const result = await p.page.evaluate(async (trace) => {
   const e = tp.gameClient.engine;
+  const w = tp.gameClient.world;
   const system = e.app.renderer.renderGroup;
   const stats = { rebuilds: 0, rebuildMs: 0, frames: 0, renderMs: 0, flows: 0, flowsMs: 0 };
   const build = system._buildInstructions.bind(system);
@@ -72,35 +76,126 @@ const result = await p.page.evaluate(async () => {
   e.app.ticker.add(function timed(ticker) { const t = performance.now(); update.call(e, ticker); frames.push(performance.now() - t); }, e);
   const draw = renderer.render.bind(renderer);
   renderer.render = (...args) => { const t = performance.now(); draw(...args); if (frames.length > 0) frames[frames.length - 1] += performance.now() - t; };
-  // A busy server: the flows change once a second, and three map areas on screen change twice a second (other players)
+  // What made PixiJS rebuild a draw list: the first lines of our code on the way there, by layer
+  const causes = new Map();
+  const layerOf = (group) => {
+    const root = group.root;
+    for (const name of ["groundLayer", "flowLayer", "badgeLayer", "labelLayer"]) if (root === e[name]) return name;
+    if (root === e.juice.layer) return "juice";
+    if (root === e.app.stage) return "stage";
+    return root.label || "band";
+  };
+  const watch = () => {
+    const groups = [];
+    const walk = (g) => { groups.push(g); for (const c of g.renderGroupChildren) walk(c); };
+    walk(e.app.stage.renderGroup);
+    for (const group of groups) {
+      if (group.__watched) continue;
+      group.__watched = true;
+      let value = group.structureDidChange;
+      Object.defineProperty(group, "structureDidChange", {
+        get: () => value,
+        set: (next) => {
+          if (next && !value) {
+            const where = (new Error().stack ?? "").split("\n").slice(2).filter((l) => /src\/(game|app)/.test(l)).slice(0, 2)
+              .map((l) => l.trim().replace(/^at /, "").replace(/\(?https?:\/\/[^/]+\/src\//, "").replace(/\?[^:]*/, "")).join(" < ");
+            const key = `${layerOf(group)}: ${where || "(PixiJS itself)"}`;
+            causes.set(key, (causes.get(key) ?? 0) + 1);
+          }
+          value = next;
+        },
+      });
+    }
+  };
+  // A busy server: some networks' flows come anew every second, and three map areas on screen change twice a second
+  // (other players), each as the world tells it: one gets a new pipe or building, two a level or a finished building
   const keys = [...e.chunks.keys()].filter((k) => e.chunks.get(k).loaded);
   let n = 0;
-  const busy = setInterval(() => { e.flowsDirty = true; }, 1000);
-  const others = setInterval(() => { for (let i = 0; i < 3; i++) e.dirtyChunks.add(keys[(n++) % keys.length]); }, 500);
+  let m = 0;
+  const busy = setInterval(() => {
+    const networks = [...w.flows.values()];
+    const fresh = [];
+    for (let i = 0; i < Math.min(3, networks.length); i++) {
+      const network = networks[(m++) % networks.length];
+      fresh.push({ ...network, flows: network.flows.map((f) => ({ ...f, delivered: f.delivered * (0.98 + 0.04 * Math.random()) })) });
+    }
+    w.setFlows(fresh);
+  }, 1000);
+  const others = setInterval(() => {
+    for (let i = 0; i < 3; i++) {
+      const key = keys[n++ % keys.length];
+      w.emit([key], false, false, [], i === 0 ? [key] : []);
+    }
+  }, 500);
+  const watcher = trace ? setInterval(watch, 200) : 0;
+  if (trace) watch();
+  // And inside a flow rebuild: the time of its parts
+  const parts = {};
+  if (trace) {
+    for (const name of ["waysOf", "flowPoints", "laneKinds", "pipeLook"]) {
+      const original = e[name];
+      if (typeof original !== "function") continue;
+      let depth = 0;
+      e[name] = function (...args) {
+        if (depth++ > 0) { try { return original.apply(this, args); } finally { depth--; } }
+        const t = performance.now();
+        try { return original.apply(this, args); } finally { depth--; const part = (parts[name] ??= { calls: 0, ms: 0 }); part.calls++; part.ms += performance.now() - t; }
+      };
+    }
+  }
   const t0 = performance.now();
   await new Promise((r) => setTimeout(r, 8000));
   clearInterval(busy);
   clearInterval(others);
-  frames.sort((a, b) => a - b);
-  stats.p95 = frames[Math.floor(frames.length * 0.95)] ?? 0;
-  stats.max = frames[frames.length - 1] ?? 0;
+  clearInterval(watcher);
   const seconds = (performance.now() - t0) / 1000;
+  const main = { ...stats };
+  frames.sort((a, b) => a - b);
+  main.p95 = frames[Math.floor(frames.length * 0.95)] ?? 0;
+  main.max = frames[frames.length - 1] ?? 0;
+  // The dots alone, the map still: the time a frame moves them, and draws them (with them and without), per thousand
+  // moving dots
+  const dots = e.flowDots.filter((t) => t.length > 0).length;
+  let animateMs = 0;
+  let animateFrames = 0;
+  const animate = e.animate;
+  e.animate = function (...args) { const t = performance.now(); animate.apply(this, args); animateMs += performance.now() - t; animateFrames++; };
+  const drawFor = async (visible) => {
+    e.flowLayer.visible = visible;
+    const before = { frames: stats.frames, ms: stats.renderMs };
+    await new Promise((r) => setTimeout(r, 3000));
+    return (stats.renderMs - before.ms) / Math.max(1, stats.frames - before.frames);
+  };
+  const withDots = await drawFor(true);
+  const animatePerFrame = animateMs / Math.max(1, animateFrames);
+  const withoutDots = await drawFor(false);
+  e.flowLayer.visible = true;
+  main.dotsDrawMsPer1000 = ((withDots - withoutDots) * 1000) / Math.max(1, dots);
+  main.dotsMoveMsPer1000 = (animatePerFrame * 1000) / Math.max(1, dots);
   let sprites = 0;
   const count = (c) => { sprites++; for (const k of c.children ?? []) count(k); };
   count(e.app.stage);
   return {
     seconds: +seconds.toFixed(1),
     objects: sprites,
-    fps: +(stats.frames / seconds).toFixed(1),
-    renderMsPerFrame: +(stats.renderMs / Math.max(1, stats.frames)).toFixed(2),
-    rebuildsPerSecond: +(stats.rebuilds / seconds).toFixed(1),
-    rebuildMsPerSecond: +(stats.rebuildMs / seconds).toFixed(1),
-    flowRebuilds: stats.flows,
-    flowRebuildMs: +(stats.flowsMs / Math.max(1, stats.flows)).toFixed(2),
-    dots: e.flowDots.length,
-    frameMsP95: +stats.p95.toFixed(1),
-    frameMsMax: +stats.max.toFixed(1),
+    fps: +(main.frames / seconds).toFixed(1),
+    renderMsPerFrame: +(main.renderMs / Math.max(1, main.frames)).toFixed(2),
+    rebuildsPerSecond: +(main.rebuilds / seconds).toFixed(1),
+    rebuildMsPerSecond: +(main.rebuildMs / seconds).toFixed(1),
+    flowRebuilds: main.flows,
+    flowRebuildMs: +(main.flowsMs / Math.max(1, main.flows)).toFixed(2),
+    dots,
+    dotsDrawMsPer1000: +main.dotsDrawMsPer1000.toFixed(2),
+    dotsMoveMsPer1000: +main.dotsMoveMsPer1000.toFixed(2),
+    frameMsP95: +main.p95.toFixed(1),
+    frameMsMax: +main.max.toFixed(1),
+    ...(trace
+      ? {
+          inFlowRebuilds: Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, `${v.calls} calls, ${v.ms.toFixed(0)} ms`])),
+          rebuiltBy: [...causes].sort((a, b) => b[1] - a[1]).slice(0, 12),
+        }
+      : {}),
   };
-});
+}, trace);
 console.log(JSON.stringify(result));
 await p.browser.close();

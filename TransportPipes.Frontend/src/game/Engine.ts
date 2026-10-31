@@ -4,6 +4,8 @@ import {
   ColorMatrixFilter,
   Container,
   Graphics,
+  Particle,
+  ParticleContainer,
   Rectangle,
   Sprite,
   Text,
@@ -18,6 +20,7 @@ import type {
   DistrictDto,
   FlowDto,
   MapLinkDto,
+  NetworkFlowsDto,
   OutpostDto,
   OwnWantDto,
   SeatState,
@@ -425,8 +428,17 @@ interface ObjectView {
   machines?: AnimatedSprite[];
   idle: Container | null;
   progress: Graphics | null;
+  /** The progress bar's filled pixels as last drawn (negative: a scaffold's share) */
+  progressDrawn?: number;
   /** Its level badge, on the badge layer over every building */
   badge?: Sprite;
+}
+
+/** A flow's way on the screen: its points, and their segments' lengths summed up from the start */
+interface FlowWay {
+  points: Array<{ x: number; y: number }>;
+  along: number[];
+  length: number;
 }
 
 interface DistrictView {
@@ -553,16 +565,25 @@ export class Engine {
   private insideKey = "";
   private flowsVersion = 0;
   private flowDots: Array<{
-    sprite: Sprite;
+    particle: Particle;
     points: Array<{ x: number; y: number }>;
     /** Its way's segments' lengths, summed up from the start (worked out once, not every frame) */
     along: number[];
     length: number;
     offset: number;
     speed: number;
+    /** The segment it was on last frame: it moves on from there (not searched from the start every frame) */
+    at: number;
   }> = [];
-  /** A way's segments' lengths summed up, by the way (its points come from the flow points cache) */
-  private readonly alongOf = new WeakMap<Array<{ x: number; y: number }>, number[]>();
+  /**
+   * The dots, all in one buffer (the owner's third profile, 2026-10-31: a sprite each made PixiJS work out every dot's
+   * place and pack it again every frame); dots not needed now wait here for the next rebuild
+   */
+  private readonly flowParticles = new ParticleContainer({
+    texture: pelletTexture(),
+    dynamicProperties: { position: true, vertex: false, color: false, rotation: false, uvs: false },
+  });
+  private spareParticles: Particle[] = [];
   private far = false;
   private time = 0;
 
@@ -648,15 +669,25 @@ export class Engine {
     // A draw list of their own (PixiJS render groups; the owner's profile, 2026-10-31: 38% of the time rebuilding one
     // list of all 10,000 things on the map): what comes and goes in one (a dot, a coin, a badge, a building) rebuilds
     // only its own
+    // The big layers that change seldom too (the owner's third profile, 2026-10-31: 15% of a frame rebuilding the top
+    // list, as the highlights and the pipes waiting for a better pipe are drawn again every frame and the fog, the
+    // overlays and the estates were in it): what stays in the top list is a few small drawings
     for (const layer of [
       this.groundLayer,
+      this.miniLayer,
+      this.overlayLayer,
+      this.estateLayer,
+      this.fogLayer,
+      this.lineLayer,
       this.flowLayer,
       this.badgeLayer,
+      this.ghostLayer,
       this.juice.layer,
       this.labelLayer,
     ]) {
       layer.isRenderGroup = true;
     }
+    this.flowLayer.addChild(this.flowParticles);
     // The far view starts hidden (it is switched when the zoom crosses FAR_ZOOM)
     this.miniLayer.visible = false;
     this.registerInput(app.canvas);
@@ -670,9 +701,9 @@ export class Engine {
       world.onChange((change) => {
         change.chunks.forEach((key) => this.dirtyChunks.add(key));
         change.groundChunks.forEach((key) => this.dirtyGround.add(key));
-        if (change.chunks.length > 0) {
-          // Pipes or buildings changed: the flows' ways on the screen may too
-          this.flowPointsCache.clear();
+        if (change.layoutChunks.length > 0) {
+          // Pipes or buildings came, went or moved: the ways of the flows through those areas may have changed
+          this.forgetWays(change.layoutChunks);
         }
         if (change.flows) {
           this.flowsDirty = true;
@@ -2292,12 +2323,21 @@ export class Engine {
     return building !== undefined && takesPipes(this.callbacks.getState().content.building(building.type));
   }
 
+  /** While a flow rebuild works out ways: each tile's look once (many flows share a pipe) */
+  private lookMemo: Map<number, PipeLook> | null = null;
+
   private pipeLook(x: number, y: number, extra?: (x: number, y: number) => boolean): PipeLook {
+    const memo = extra === undefined ? this.lookMemo : null;
+    const key = memo !== null ? tileKey(x, y) : 0;
+    const known = memo?.get(key);
+    if (known !== undefined) {
+      return known;
+    }
     // Only its owner's pipes and buildings: another player's pipe beside it stays apart, as on the server (playtest:
     // "I also visually see them connecting to each other")
     const owner = this.world.conductorAt(x, y)?.owner ?? null;
     const same = (other: number | null | undefined) => owner === null || other === owner;
-    return pipeLookOf(
+    const look = pipeLookOf(
       x,
       y,
       (tx, ty) => {
@@ -2306,6 +2346,8 @@ export class Engine {
       },
       (tx, ty) => this.pipeBuildingAt(tx, ty) && same(this.world.buildingAt(tx, ty)?.owner),
     );
+    memo?.set(key, look);
+    return look;
   }
 
   /** A pipe tile at its anchor: the generated piece with its sockets, or the procedural pipe without generated art */
@@ -2863,9 +2905,17 @@ export class Engine {
         const total = (content.building(view.building.type)?.buildSeconds ?? 60) * 1000;
         const left = new Date(view.building.constructionEndsAt).getTime() - now;
         const done = site != null ? site : Math.max(0, Math.min(1, 1 - left / total));
-        view.progress.clear();
-        view.progress.roundRect(0, 0, 120, 16, 8).fill({ color: 0x17181c, alpha: 0.85 });
-        view.progress.roundRect(3, 3, 114 * done, 10, 5).fill({ color: site != null ? 0xf2c14e : 0x2ec4a6 });
+        // Drawn again only when it grows a pixel: a drawing changed makes PixiJS rebuild its whole band (the owner's
+        // third profile, 2026-10-31)
+        const drawn = Math.round(114 * done) * (site != null ? -1 : 1);
+        if (view.progressDrawn !== drawn) {
+          view.progressDrawn = drawn;
+          view.progress.clear();
+          view.progress.roundRect(0, 0, 120, 16, 8).fill({ color: 0x17181c, alpha: 0.85 });
+          view.progress
+            .roundRect(3, 3, 114 * done, 10, 5)
+            .fill({ color: site != null ? 0xf2c14e : 0x2ec4a6 });
+        }
       }
     }
     for (const dot of this.flowDots) {
@@ -2875,15 +2925,18 @@ export class Engine {
       // Where along its way, by the lengths worked out once (the owner's profile, 2026-10-31: 4% of the time went into
       // measuring every segment of every dot's way again each frame)
       const distance = (dot.offset + this.time * dot.speed) % dot.length;
-      let i = 0;
+      // On from the segment it was on (back to the start when it went round)
+      let i = distance < dot.along[dot.at]! ? 0 : dot.at;
       while (i < dot.points.length - 2 && distance > dot.along[i + 1]!) {
         i++;
       }
+      dot.at = i;
       const a = dot.points[i]!;
       const b = dot.points[i + 1] ?? a;
       const segment = (dot.along[i + 1] ?? dot.along[i]!) - dot.along[i]! || 1;
       const t = Math.min(1, (distance - dot.along[i]!) / segment);
-      dot.sprite.position.set(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+      dot.particle.x = a.x + (b.x - a.x) * t;
+      dot.particle.y = a.y + (b.y - a.y) * t;
     }
   }
 
@@ -3011,8 +3064,117 @@ export class Engine {
 
   /** The goods moving through each building now (from the last flow rebuild) */
   private movingThrough = new Map<number, Set<string>>();
-  /** A flow's way on the screen, by its tiles, its ends and its good (until the map changes) */
-  private readonly flowPointsCache = new Map<string, Array<{ x: number; y: number }>>();
+  /**
+   * Each network's flows' ways on the screen from the last rebuild, while nothing on its tiles changed (the owner's
+   * third profile, 2026-10-31: frames of 150–590 ms, every flow's way worked out again whenever any area on the map
+   * changed, which on a busy server is all the time): kept whole while the network's flows are the same (the server
+   * sends only the networks that changed), and way by way while a flow's tiles and ends are
+   */
+  private readonly networkWays = new Map<
+    number,
+    {
+      flows: NetworkFlowsDto;
+      /** The areas its ways go through and next to (chunks, from x0,y0 to x1,y1) */
+      chunks: { x0: number; y0: number; x1: number; y1: number };
+      byKey: Map<string, FlowWay>;
+      ways: Array<{ flow: FlowDto; way: FlowWay }>;
+    }
+  >();
+
+  /** Forgets the ways of the networks through areas that changed */
+  private forgetWays(chunks: string[]) {
+    if (this.networkWays.size === 0) {
+      return;
+    }
+    for (const key of chunks) {
+      const [cx, cy] = key.split(",").map(Number) as [number, number];
+      for (const [id, record] of this.networkWays) {
+        const c = record.chunks;
+        if (cx >= c.x0 && cx <= c.x1 && cy >= c.y0 && cy <= c.y1) {
+          this.networkWays.delete(id);
+        }
+      }
+    }
+  }
+
+  /** A network's flows' ways on the screen: again only for what changed */
+  private waysOf(id: number, network: NetworkFlowsDto, lanes: (building: BuildingDto | undefined) => string) {
+    const old = this.networkWays.get(id);
+    if (old !== undefined && old.flows === network) {
+      return old.ways;
+    }
+    const byKey = new Map<string, FlowWay>();
+    const ways: Array<{ flow: FlowDto; way: FlowWay }> = [];
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const flow of network.flows) {
+      const path = flow.path;
+      if (path.length < 2 || flow.delivered <= 0) {
+        continue;
+      }
+      // The path in pieces: a Cargo Depot route jumps far (trucks, no dots on the way)
+      const cuts = [0];
+      for (let i = 0; i < path.length; i += 2) {
+        const x = path[i]!;
+        const y = path[i + 1]!;
+        x0 = Math.min(x0, x);
+        y0 = Math.min(y0, y);
+        x1 = Math.max(x1, x);
+        y1 = Math.max(y1, y);
+        if (i >= 2 && Math.max(Math.abs(x - path[i - 2]!), Math.abs(y - path[i - 1]!)) > 9) {
+          cuts.push(i);
+        }
+      }
+      cuts.push(path.length);
+      const from = this.world.buildings.get(flow.from);
+      const to = this.world.buildings.get(flow.to);
+      for (let piece = 0; piece + 1 < cuts.length; piece++) {
+        const a = cuts[piece]!;
+        const b = cuts[piece + 1]!;
+        const start = piece === 0 ? from : undefined;
+        const end = piece === cuts.length - 2 ? to : undefined;
+        // Its tiles by two hashes of their numbers, not a text of them all (the profile: building those texts and
+        // throwing them away was a third of a long frame)
+        let h1 = 2166136261;
+        let h2 = 5381;
+        for (let i = a; i < b; i++) {
+          const v = path[i]! | 0;
+          h1 = Math.imul(h1 ^ v, 16777619);
+          h2 = Math.imul(h2, 33) ^ v;
+        }
+        const key = `${flow.resource}|${start?.id ?? 0}:${lanes(start)}|${end?.id ?? 0}:${lanes(end)}|${b - a}|${h1}|${h2}`;
+        let way = byKey.get(key) ?? old?.byKey.get(key);
+        if (way === undefined) {
+          const run: Array<{ x: number; y: number }> = [];
+          for (let i = a; i < b; i += 2) {
+            run.push({ x: path[i]!, y: path[i + 1]! });
+          }
+          const points = this.flowPoints(run, start, end, flow.resource);
+          const along = [0];
+          for (let i = 1; i < points.length; i++) {
+            along.push(
+              along[i - 1]! + Math.hypot(points[i]!.x - points[i - 1]!.x, points[i]!.y - points[i - 1]!.y),
+            );
+          }
+          way = { points, along, length: along[along.length - 1]! };
+        }
+        byKey.set(key, way);
+        ways.push({ flow, way });
+      }
+    }
+    // The areas of its tiles and their neighbours (a building at an end, a pipe beside it)
+    const corner0 = chunkOf(x0 - 2, y0 - 2);
+    const corner1 = chunkOf(x1 + 2, y1 + 2);
+    this.networkWays.set(id, {
+      flows: network,
+      chunks: { x0: corner0.x, y0: corner0.y, x1: corner1.x, y1: corner1.y },
+      byKey,
+      ways,
+    });
+    return ways;
+  }
 
   private buildFlows() {
     // Once for all: what moves through each building (laneKinds asks it for every Storage and trading post end)
@@ -3031,9 +3193,8 @@ export class Engine {
         }
       }
     }
-    // The dots' sprites again: a sprite added or taken away makes the map rebuild its draw list (the owner's profile,
-    // 2026-10-31: every dot made anew whenever a network changed); those not needed now wait unseen
-    const pool = this.flowDots.map((t) => t.sprite);
+    // The dots again, from those there were (and the spare ones); far more than now are let go
+    const pool = this.flowDots.map((t) => t.particle).concat(this.spareParticles);
     let used = 0;
     this.flowDots = [];
     this.flowPaths = [];
@@ -3045,10 +3206,23 @@ export class Engine {
     for (const connector of this.connectorViews) {
       if (!connector.container.destroyed) connector.setFlows(this.connectorFlows.get(connector.key) ?? []);
     }
+    // A building's lanes once a rebuild (laneKinds at both ends of every flow was a seventh of a long frame)
+    const lanesOf = new Map<number, string>();
+    const lanes = (building: BuildingDto | undefined) => {
+      if (building === undefined) {
+        return "";
+      }
+      let kinds = lanesOf.get(building.id);
+      if (kinds === undefined) {
+        kinds = this.laneKinds(building.x, building.y).join(",");
+        lanesOf.set(building.id, kinds);
+      }
+      return kinds;
+    };
     // Storage and Trading Post ports reflect their actual traffic, including its first arrival and last departure.
     for (const building of this.world.buildings.values()) {
       if (building.type !== "storage" && building.type !== "tradingPost") continue;
-      const kinds = this.laneKinds(building.x, building.y).join(",");
+      const kinds = lanes(building);
       if (this.dynamicLanes.get(building.id) === kinds) continue;
       this.dynamicLanes.set(building.id, kinds);
       for (let i = 0; i < building.size; i++)
@@ -3062,83 +3236,55 @@ export class Engine {
           this.dirtyChunks.add(chunkKey(chunk.x, chunk.y));
         }
     }
-    for (const network of this.world.flows.values()) {
-      const sharing = Math.max(1, network.flows.filter((t) => t.path.length >= 2 && t.delivered > 0).length);
-      for (const flow of network.flows) {
-        if (flow.path.length < 2 || flow.delivered <= 0) {
-          continue;
-        }
-        // The path in pieces: a Cargo Depot route jumps far (trucks, no dots on the way)
-        const tiles: Array<Array<{ x: number; y: number }>> = [[]];
-        for (let i = 0; i < flow.path.length; i += 2) {
-          const x = flow.path[i]!;
-          const y = flow.path[i + 1]!;
-          if (i >= 2 && Math.max(Math.abs(x - flow.path[i - 2]!), Math.abs(y - flow.path[i - 1]!)) > 9) {
-            tiles.push([]);
-          }
-          tiles[tiles.length - 1]!.push({ x, y });
-        }
-        const from = this.world.buildings.get(flow.from);
-        const to = this.world.buildings.get(flow.to);
-        const pieces = tiles.map((run, index) => {
-          const start = index === 0 ? from : undefined;
-          const end = index === tiles.length - 1 ? to : undefined;
-          // Worked out again only when its tiles, its ends' lanes or the map change (the owner's profile, 2026-10-31:
-          // microstutters, every flow's way worked out anew whenever any network changed)
-          const key = `${flow.resource}|${start?.id ?? 0}:${start !== undefined ? this.laneKinds(start.x, start.y).join() : ""}|${end?.id ?? 0}:${end !== undefined ? this.laneKinds(end.x, end.y).join() : ""}|${run.map((t) => `${t.x},${t.y}`).join(";")}`;
-          let points = this.flowPointsCache.get(key);
-          if (points === undefined) {
-            points = this.flowPoints(run, start, end, flow.resource);
-            this.flowPointsCache.set(key, points);
-          }
-          return points;
-        });
-        const color = content.resourceColor(flow.resource);
-        for (const points of pieces) {
-          this.flowPaths.push({ flow, network: network.id, points });
-          let along = this.alongOf.get(points);
-          if (along === undefined) {
-            along = [0];
-            for (let i = 1; i < points.length; i++) {
-              along.push(
-                along[i - 1]! + Math.hypot(points[i]!.x - points[i - 1]!.x, points[i]!.y - points[i - 1]!.y),
-              );
-            }
-            this.alongOf.set(points, along);
-          }
-          const length = along[along.length - 1]!;
-          if (length <= 0) {
+    for (const id of this.networkWays.keys()) {
+      if (!this.world.flows.has(id)) this.networkWays.delete(id);
+    }
+    this.lookMemo = new Map();
+    try {
+      for (const [id, network] of this.world.flows) {
+        const ways = this.waysOf(id, network, lanes);
+        const sharing = Math.max(
+          1,
+          network.flows.filter((t) => t.path.length >= 2 && t.delivered > 0).length,
+        );
+        for (const { flow, way } of ways) {
+          this.flowPaths.push({ flow, network: network.id, points: way.points });
+          if (way.length <= 0) {
             continue;
           }
           // Glowing pellets riding in the pipe: more for bigger flows, fewer where many flows share the pipes, spaced so
           // the pipe stays visible
+          const color = content.resourceColor(flow.resource);
+          const scale = flow.kind === "sale" || flow.kind === "trade" ? 0.66 : 0.56;
           const spacing = Math.max(150, 420 / Math.log2(2 + flow.delivered)) * Math.sqrt(sharing);
-          const count = Math.max(1, Math.min(20, Math.floor(length / spacing)));
+          const count = Math.max(1, Math.min(20, Math.floor(way.length / spacing)));
           for (let i = 0; i < count; i++) {
-            let sprite = pool[used++];
-            if (sprite === undefined) {
-              sprite = new Sprite(pelletTexture());
-              sprite.anchor.set(0.5);
-              this.flowLayer.addChild(sprite);
+            let particle = pool[used++];
+            if (particle === undefined) {
+              particle = new Particle({ texture: pelletTexture(), anchorX: 0.5, anchorY: 0.5 });
             }
-            sprite.alpha = 1;
-            sprite.scale.set(flow.kind === "sale" || flow.kind === "trade" ? 0.66 : 0.56);
-            sprite.tint = color;
-            this.flowDots.push({ sprite, points, along, length, offset: (length / count) * i, speed: 190 });
+            particle.scaleX = scale;
+            particle.scaleY = scale;
+            particle.tint = color;
+            this.flowDots.push({
+              particle,
+              points: way.points,
+              along: way.along,
+              length: way.length,
+              offset: (way.length / count) * i,
+              speed: 190,
+              at: 0,
+            });
           }
         }
       }
+    } finally {
+      this.lookMemo = null;
     }
-    // What is left waits unseen (a dot of no length doesn't move); far more than now are let go
-    for (let i = used; i < pool.length; i++) {
-      const sprite = pool[i]!;
-      if (i - used >= 400) {
-        sprite.destroy();
-        continue;
-      }
-      sprite.alpha = 0;
-      this.flowDots.push({ sprite, points: [], along: [0], length: 0, offset: 0, speed: 0 });
-    }
+    this.spareParticles = pool.slice(used, used + 400);
+    this.flowParticles.particleChildren = this.flowDots.map((t) => t.particle);
+    // Their size and colour are set once a rebuild: up to the screen again (their places go up every frame)
+    this.flowParticles.update();
   }
 
   /** Every few seconds your trading posts on screen pop what they earned meanwhile */

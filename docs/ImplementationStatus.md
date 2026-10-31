@@ -659,6 +659,10 @@ A link has a promise and a cap (`Link.Guaranteed`, served before the seller's ow
 Settings, Town); the Yard panel keeps who lives around you. A Storage keeps a set amount a good (`Building.Keeps`,
 migration `StorageKeeps`). Buildings whose levels do nothing stay at level 1 (`LevelsMatter`). The map draws a big
 estate without rebuilding its draw list every frame (render groups, pooled puffs and flow dots: a frame 10.2 → 3.0 ms).
+The owner's third profile (frames of 150–590 ms on a busy server): a network's flows' ways on the screen are kept while
+its flows are the same and no building or pipe came or went near them (`WorldListener.layoutChunks`; any change in any
+area used to throw all of them away), the dots are particles in one buffer, and the big still layers (fog, overlays,
+estates, trunk lines) have draw lists of their own, so the highlights drawn every frame rebuild only a short list.
 
 The research queue (2026-10-31; the owner: "stop existing research without removing spend research on it"): each of
 the Lab's lines shows what it does now with Stop, its queue with up, down and out, and what waits on hold, paid, with
