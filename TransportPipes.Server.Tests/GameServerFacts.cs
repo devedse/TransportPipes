@@ -187,6 +187,33 @@ public class GameServerFacts
         }, changesWorld: false);
 
     [TestMethod]
+    public async Task TheNetworkPanelOpensWithAnInputNobodyMakes()
+    {
+        // The network panel's rows grew a column (each good's hub gold) and the row of a good its buildings need but
+        // nobody makes kept the old size: GetNetwork threw for every network short of an input
+        using var server = new GameServer();
+        await using var client = await server.ConnectAsync(await server.RegisterAsync("Shorty"));
+        var hello = await client.Invoke<HelloDto>("Hello");
+        await client.Command("CreateCompany", "Short Works", "#cc6633", null, null, null, null);
+        var (pipe, spot) = await SpotNextToTradingPost(server, hello.User.Id);
+        var network = await server.World.RunAsync(w =>
+        {
+            var company = w.CompanyOfUser(hello.User.Id)!;
+            company.Level = 10;
+            company.Gold = 1_000_000;
+            Assert.IsTrue(w.PlaceBuilding(company.Id, "smallFactory", spot).Success);
+            w.FinishConstruction(w.BuildingAt(spot)!.Id);
+            Assert.IsTrue(w.PlacePipes(company.Id, [pipe]).Success);
+            w.SolveNetworks();
+            return w.NetworkOf(w.BuildingAt(spot)!.Id)!.Id;
+        });
+
+        var details = await client.Invoke<NetworkDetailsDto>("GetNetwork", network);
+
+        Assert.IsTrue(details.Resources.Any(t => t.Resource == "ironOre" && t.Needed > 0 && t.Produced == 0), "the iron ore it needs and nobody makes");
+    }
+
+    [TestMethod]
     public async Task AWindMoilyEarnsGoldOnceItIsBuilt()
     {
         using var server = new GameServer();
