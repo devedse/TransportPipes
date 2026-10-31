@@ -54,5 +54,10 @@
   ],
   "8f3cad0": ["When a building lacks a good because trading with a neighbour is switched off, its panel now says who switched it off, and where to switch it back on."],
   "9af955a": ["Your pipes, and the buildings joined to them, form your network. A network now belongs to one player: when your pipes touch a neighbour's pipes, they stay two networks. To trade with other players, lay a pipe from your network to your Yard gate (the entrance to the shared square your plot borders). The Yard then sends your spare goods to neighbours who need them, and theirs to you."],
-  "3d75a36": ["When you zoom far out, the game now draws a simple picture of the map, which makes it much faster."]
+  "3d75a36": ["When you zoom far out, the game now draws a simple picture of the map, which makes it much faster."],
+  "60e0702": [
+    "Your pipes are now also drawn apart from a neighbour's pipes that lie right next to them: they don't join, and goods don't pass between them. To trade with a neighbour, pipe your network to your Yard gate (the entrance to the shared square your plot borders).",
+    "Click a pipe to see its network: every gold amount there now has the gold coin next to it."
+  ],
+  "1f4f643": ["Your Yard's banner (its two colours, shown at the top of the Crew panel) now looks like a flag with a sash, so it no longer looks like a half-full bar."]
 }
