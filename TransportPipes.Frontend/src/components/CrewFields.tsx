@@ -1,4 +1,5 @@
 import { CREW_COLORS, EMBLEM_ICONS, emblemIcon } from "../app/crews";
+import { bannerBackground } from "../app/banner";
 
 export function Swatches({
   value,
@@ -78,21 +79,18 @@ export function CrewFields({
             value={colors[0]}
             onChange={(c) => onChange(name, emblem, [c, colors[1]])}
             colors={CREW_COLORS}
-            label="The banner's left half"
+            label="The banner's colour"
           />
           <span className="muted small">and its right half</span>
           <Swatches
             value={colors[1]}
             onChange={(c) => onChange(name, emblem, [colors[0], c])}
             colors={CREW_COLORS}
-            label="The banner's right half"
+            label="Its sash"
           />
         </div>
       </details>
-      <div
-        className="crew-banner"
-        style={{ background: `linear-gradient(90deg, ${colors[0]} 50%, ${colors[1]} 50%)` }}
-      >
+      <div className="crew-banner" style={{ background: bannerBackground(colors[0]!, colors[1]) }}>
         <span>{emblemIcon(emblem)}</span> <strong>{name || "Your crew"}</strong>
       </div>
     </fieldset>

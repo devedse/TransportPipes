@@ -2,6 +2,7 @@ import { useState } from "react";
 import { gameClient } from "../app/client";
 import { emblemIcon } from "../app/crews";
 import { useAppStore } from "../state/store";
+import { bannerBackground } from "../app/banner";
 
 /** Browsers inside chat apps forget guests: there the account is asked for right away */
 function inAppBrowser(): boolean {
@@ -37,7 +38,7 @@ export function InviteScreen({ onLogin }: { onLogin: () => void }) {
             style={
               yard.emblem !== null
                 ? {
-                    background: `linear-gradient(90deg, ${yard.color} 50%, ${yard.color2 ?? yard.color} 50%)`,
+                    background: bannerBackground(yard.color ?? "#c9963a", yard.color2),
                   }
                 : undefined
             }

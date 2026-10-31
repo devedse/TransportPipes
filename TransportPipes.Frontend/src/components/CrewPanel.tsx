@@ -6,6 +6,7 @@ import { formatDuration } from "../app/format";
 import type { CrewDto } from "../api/contracts";
 import { setState, toast, useAppStore } from "../state/store";
 import { CrewFields } from "./CrewFields";
+import { bannerBackground } from "../app/banner";
 
 /** Copies a link, or shows it to copy by hand when the browser won't */
 async function copy(text: string) {
@@ -142,10 +143,7 @@ export function CrewPanel() {
           <p className="muted">You live at a Yard once your plot has landed.</p>
         ) : (
           <>
-            <div
-              className="crew-banner"
-              style={{ background: `linear-gradient(90deg, ${crew.color} 50%, ${crew.color2} 50%)` }}
-            >
+            <div className="crew-banner" style={{ background: bannerBackground(crew.color, crew.color2) }}>
               <span>{emblemIcon(crew.emblem)}</span> <strong>{crew.name}</strong>
               <span className="small"> · {crew.members.length} of 4 plots</span>
             </div>

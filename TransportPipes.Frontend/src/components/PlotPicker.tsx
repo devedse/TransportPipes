@@ -16,6 +16,7 @@ import { sideOf } from "../game/layout";
 import { appStore, seatKey, setState, useAppStore } from "../state/store";
 import { Swatches } from "./CrewFields";
 import { ResourceIcon } from "./ResourceIcon";
+import { bannerBackground } from "../app/banner";
 
 /** A different colour suggestion for every player */
 const SUGGESTED_COLOR = COLORS[Math.floor(Math.random() * COLORS.length)]!;
@@ -41,7 +42,7 @@ function Banner({ station }: { station: StationDto }) {
       style={
         lived
           ? {
-              background: `linear-gradient(90deg, ${station.color} 50%, ${station.color2 ?? station.color} 50%)`,
+              background: bannerBackground(station.color ?? "#c9963a", station.color2),
             }
           : undefined
       }
