@@ -31,7 +31,8 @@ const setup = await page.evaluate(async () => {
   await c.cheat("finish");
   // To one tile, or to whichever side of the post a route reaches
   const lay = async (b, to) => {
-    const goals = to ? [to] : [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([dx, dy]) => ({ x: post.x + dx, y: post.y + dy }));
+    // To the post itself: any free tile touching it ends the route (the four tiles beside it may be taken)
+    const goals = to ? [to] : [{ x: post.x, y: post.y }, ...[[-1, 0], [1, 0], [0, -1], [0, 1]].map(([dx, dy]) => ({ x: post.x + dx, y: post.y + dy }))];
     for (const goal of goals)
       for (const [fx, fy] of [[b.x - 1, b.y], [b.x + 1, b.y], [b.x, b.y - 1], [b.x, b.y + 1]]) {
         const route = tp.rules.routePipe(w, co(), { x: fx, y: fy }, goal, s().content);

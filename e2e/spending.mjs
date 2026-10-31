@@ -19,7 +19,8 @@ for (let i = 0; i < 3 && (await page.locator("[role=dialog]:visible").count()) >
 // A kit building that sells: its panel
 const id = await page.evaluate(() => {
   const co = tp.appStore.getState().company;
-  const b = [...tp.gameClient.world.buildings.values()].find((t) => t.owner === co.id && t.type !== "hq" && t.type !== "tradingPost" && t.type !== "yardGate" && t.constructionEndsAt === null);
+  // A producer: a Storage's level has no gold preview
+  const b = [...tp.gameClient.world.buildings.values()].find((t) => t.owner === co.id && t.type === "windMoily" && t.constructionEndsAt === null);
   tp.gameClient.showBuilding(b.id);
   return b.id;
 });

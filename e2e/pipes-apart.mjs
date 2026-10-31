@@ -9,7 +9,9 @@ const check = (ok, text, detail = "") => { console.log(`${ok ? "ok  " : "FAIL"} 
 
 await newPlayer(page, "pa");
 await cheat("gold");
-const other = await browser.newPage({ viewport: { width: 1200, height: 800 } });
+// Its own browser: two map pages in one software-rendered browser starved the second one (it never got past the login)
+const second = await start(`${out}/b`, { width: 1200, height: 800 });
+const other = second.page;
 await newPlayer(other, "pb");
 await other.evaluate(() => tp.gameClient.connection.cheat("gold"));
 for (const p of [page, other]) for (let i = 0; i < 3 && (await p.locator("[role=dialog]:visible").count()) > 0; i++) { await p.keyboard.press("Escape"); await p.waitForTimeout(400); }
@@ -48,5 +50,6 @@ if (spot !== null) {
 }
 check(errors.length === 0, "browser errors: none", errors.join("\n"));
 await browser.close();
+await second.browser.close();
 console.log(failures === 0 ? "PASS" : `${failures} FAILED`);
 process.exit(failures === 0 ? 0 : 1);

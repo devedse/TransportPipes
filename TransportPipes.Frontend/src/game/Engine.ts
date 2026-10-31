@@ -1431,8 +1431,10 @@ export class Engine {
         }
       }
     }
-    if (unwatch.length > 0) {
-      this.callbacks.unwatchChunks(unwatch);
+    // At most 64 chunks a call, what the server takes (zoomed in from far out it dropped 49 and more at once, and the server
+    // refuses more than 64: it went on sending their updates)
+    for (let i = 0; i < unwatch.length; i += 64) {
+      this.callbacks.unwatchChunks(unwatch.slice(i, i + 64));
     }
 
     for (const key of districts) {
