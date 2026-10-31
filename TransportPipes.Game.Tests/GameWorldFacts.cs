@@ -206,6 +206,25 @@ public class GameWorldFacts
     }
 
     [TestMethod]
+    public void PipesOfTwoPlayersThatMeetStayTwoNetworks()
+    {
+        // Playtest: pipes joined across the wilderness made one network of four players, and everything got slow
+        var game = new TestGame(content: TestGame.PlainContent);
+        var ana = game.NewCompany("Ana");
+        var ben = game.NewCompany("Ben");
+        var anas = game.Map(ana, game.Local(ana, 1, 1), "W++");
+        // Ben's pipe touching Ana's, and his Wind Moily on it (no placement rules here)
+        var bens = game.Map(ben, game.Local(ana, 4, 1), "+W");
+        game.Pass(1);
+
+        var anaNetwork = game.World.NetworkOf(anas[(0, 0)].Id)!;
+        var benNetwork = game.World.NetworkOf(bens[(1, 0)].Id)!;
+        Assert.AreNotEqual(anaNetwork.Id, benNetwork.Id, "two networks");
+        Assert.IsTrue(anaNetwork.Buildings.All(t => game.World.Building(t)!.Owner == ana.Id), "Ana's has only hers");
+        Assert.IsFalse(anaNetwork.Solution.Flows.Any(t => t.Kind == FlowKind.Trade), "nothing trades over the pipes: what goes to others passes the Yard gate");
+    }
+
+    [TestMethod]
     public void ABuildingOnAForestLeavesItAndItShowsAgainWhenTheBuildingGoes()
     {
         // Playtest: a Lumber Camp placed on the forest felled it, and moved or demolished the land stayed bare

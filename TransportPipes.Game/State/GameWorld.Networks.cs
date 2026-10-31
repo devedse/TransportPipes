@@ -325,6 +325,12 @@ public sealed partial class GameWorld
         var buildings = new Queue<long>();
         // Networks the flood runs into (a new pipe tile next to an existing network): this one takes their place
         var absorbed = new HashSet<int>();
+        // One owner's: another's pipes and buildings it touches stay theirs (v1.2 §7: what goes to others passes the
+        // Yard gate; playtest: pipes joined across the wilderness made one network of four players, and every change of
+        // any of them solved all of it again: "we connected our pipes to each other and all got very slow")
+        var owner = startTile is { } first && _conductors.TryGetValue(first, out var start) ? start.Owner
+            : startBuilding is { } b0 && _buildings.TryGetValue(b0, out var building0) ? building0.Owner : 0;
+        bool Mine(long who) => who == owner;
 
         void VisitTile(TilePos tile)
         {
@@ -396,12 +402,12 @@ public sealed partial class GameWorld
                 foreach (var (dx, dy) in Directions)
                 {
                     var next = tile.Offset(dx, dy);
-                    if (_buildingAt.TryGetValue(next, out var buildingId))
+                    if (_buildingAt.TryGetValue(next, out var buildingId) && Mine(_buildings[buildingId].Owner))
                     {
                         VisitBuilding(buildingId);
                     }
                     // A pipe runs on under a building that stands on it (goods still never pass through the building)
-                    if (_conductors.TryGetValue(next, out var conductor) && Conducts(conductor))
+                    if (_conductors.TryGetValue(next, out var conductor) && Conducts(conductor) && Mine(conductor.Owner))
                     {
                         VisitTile(next);
                     }
@@ -411,11 +417,11 @@ public sealed partial class GameWorld
             {
                 foreach (var border in ConnectionTiles(_buildings[id]))
                 {
-                    if (_buildingAt.TryGetValue(border, out var other) && IsConductorBuilding(_buildings[other]))
+                    if (_buildingAt.TryGetValue(border, out var other) && IsConductorBuilding(_buildings[other]) && Mine(_buildings[other].Owner))
                     {
                         VisitBuilding(other);
                     }
-                    else if (_conductors.TryGetValue(border, out var conductor) && Conducts(conductor))
+                    else if (_conductors.TryGetValue(border, out var conductor) && Conducts(conductor) && Mine(conductor.Owner))
                     {
                         VisitTile(border);
                     }

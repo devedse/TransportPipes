@@ -257,15 +257,17 @@ public class OriginalScenarioFacts
     }
 
     [TestMethod]
-    public void DeterminedGoldCorrectlyWithTradingToMarketAndOtherPlayers()
+    public void TouchingPipesOfTwoPlayersDontTrade()
     {
+        // The original game traded over pipes that touched; since v1.2 what goes to others passes the Yard gate, and a
+        // network is one owner's (playtest: four players' pipes made one network, and everything got slow). The
+        // solver's price for a trade is in FlowSolverFacts
         var s = new Scenario();
         s.Map(" W+      ");
         s.Map("   M+T   ", s.B);
 
-        var gold = s.Solution(s.One("windMoily")).GoldPerMinute;
-        Assert.AreEqual(10 * 1.3, gold[s.A.Id], Tolerance);
-        Assert.AreEqual(-10 * 1.3 + 12 * 3, gold[s.B.Id], Tolerance);
+        Assert.AreNotEqual(s.Network(s.At(1, 0))!.Id, s.Network(s.At(3, 0))!.Id, "two networks");
+        Assert.IsFalse(s.Solution(s.One("windMoily")).Flows.Any(t => t.Kind == FlowKind.Trade), "nothing trades over the pipes");
     }
 
     // ---------------------------------------------------------------- ConnectionFinderFacts
