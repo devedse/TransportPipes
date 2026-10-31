@@ -110,6 +110,44 @@ public class WantFacts
         Assert.AreEqual(want.Incoming[ana.Id] * game.World.HubBuyPrice(ana, "energy"), game.World.OwnGoodsIntoWants(ana), 1e-6, "what it would have sold for");
     }
 
+    /// <summary>Ana's Smelter with its energy and copper ore, piped to her post and her Yard gate; Ben's Coal Pit with its energy, piped to nothing else yet</summary>
+    private static (TestGame Game, Company Ana, Company Ben, Building Smelter, Building Pit) SmelterAndCoal()
+    {
+        var (game, ana, ben) = Station();
+        var pit = game.Build(ben, "coalPit", game.Seed(ben, "coal"));
+        game.Connect(ben, game.Build(ben, "windMoily"), pit);
+        var smelter = game.Build(ana, "smelter");
+        game.Connect(ana, game.Build(ana, "windMoily"), smelter);
+        game.Connect(ana, game.Build(ana, "copperMine", game.Seed(ana, "copperOre")), smelter);
+        game.Connect(ana, smelter, game.TradingPost(ana));
+        game.ConnectToGate(ana, smelter);
+        return (game, ana, ben, smelter, pit);
+    }
+
+    [TestMethod]
+    public void AShortBuildingSaysWhyTheYardDoesntBringIt()
+    {
+        // Playtest: "why are my buildings paused while my friends are producing coal?"
+        var (game, ana, ben, smelter, pit) = SmelterAndCoal();
+        game.Pass(5);
+        StringAssert.Contains(game.World.IdleStatusOf(smelter, plan: false).Reach,
+            "In your Yard, Ben's pipes don't reach their Yard gate. Or buy it from the hub: tick Coal under Buy from the hub on your Trading Post");
+
+        // Piped to his post (next to his Yard gate): his spare coal comes
+        game.Connect(ben, pit, game.TradingPost(ben));
+        game.Pass(5);
+        Assert.IsGreaterThan(0.9, game.World.NetworkOf(smelter.Id)!.Solution.Rate(smelter.Id), game.World.IdleLine(smelter));
+    }
+
+    [TestMethod]
+    public void WithNobodyMakingItTheYardLineSaysWhereElseItComesFrom()
+    {
+        var (game, ana, ben, smelter, pit) = SmelterAndCoal();
+        game.World.Demolish(ben.Id, pit.Id);
+        game.Pass(2);
+        StringAssert.Contains(game.World.IdleStatusOf(smelter, plan: false).Reach, "Nobody in your Yard makes coal: build it yourself, a crew mate elsewhere can send it over a link, or buy it from the hub");
+    }
+
     /// <summary>Ana's grey pipe from a moily to her trading post, Copper Pipe researched</summary>
     private static (TestGame Game, Company Ana, Company Ben, List<TilePos> Pipe) GreyPipe()
     {

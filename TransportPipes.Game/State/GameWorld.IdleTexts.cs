@@ -56,6 +56,50 @@ public sealed partial class GameWorld
     /// <summary>The short line for a building that doesn't run (the map bubble, the goal tracker, the return card): "Stuck: iron ingots can't leave"</summary>
     public string? IdleLine(Building building) => IdleStatusOf(building, plan: false).Pill?.TrimStart('⛔', ' ');
 
+    /// <summary>
+    /// Why the Yard doesn't bring a building a good it is short of (playtest: "why are my buildings paused while my
+    /// friends are producing coal?"): its pipes to the gate, who in the Yard makes it, whether they trade with you, reach
+    /// their gate and have any to spare; and the hub, when nobody can
+    /// </summary>
+    private string YardLine(Building building, string resource)
+    {
+        if (Company(building.Owner) is not { } company || EstateOf(company) is not { } estate || NetworkOf(building.Id) is not { } network)
+        {
+            return "";
+        }
+        var good = GoodsWord(resource);
+        var hub = $"buy it from the hub: tick {Content.Resources[resource].Name} under Buy from the hub on your Trading Post ({HubSellPrice(company.District, resource):0.##} g each)";
+        if (new GateReach(network, estate.YardGate).Efficiency(building.Id, resource) <= 0)
+        {
+            return $"Its pipes don't reach your Yard gate, where your neighbours' spare {good} comes in; or {hub}.";
+        }
+        var residents = YardResidents(estate.Station);
+        var makers = residents.Where(t => t.Company.Id != company.Id
+            && BuildingsOf(t.Company.Id).Any(b => !b.UnderConstruction && Content.Building(b.Type).Out.ContainsKey(resource))).ToList();
+        if (makers.Count == 0)
+        {
+            return $"Nobody in your Yard makes {good}: build it yourself, a crew mate elsewhere can send it over a link, or {hub}.";
+        }
+        string Why(YardResident maker)
+        {
+            var name = NameFor(maker.Company, company);
+            return !TradesWith(company, maker.Company) || !TradesWith(maker.Company, company) ? $"you and {name} don't trade"
+                : !maker.Connected ? $"{name}'s pipes don't reach their Yard gate"
+                : maker.Spare.GetValueOrDefault(resource) >= 0.5 ? $"{name} has {Amount(maker.Spare[resource])} a minute spare: the Yard brings it within a minute or two"
+                // What they sell at their post but can't reach their gate isn't spare to the Yard
+                : SellingNow(maker.Company).GetValueOrDefault(resource) >= 0.5 ? $"{name} sells their {good} at their Trading Post, but those pipes don't reach their Yard gate"
+                : UsedBy(maker.Company, resource) >= 0.5 ? $"{name}'s own buildings use all the {good} they make"
+                : $"{name}'s {good} isn't piped to their Trading Post or Yard gate";
+        }
+        var whys = makers.Take(2).Select(Why).ToList();
+        return $"In your Yard, {string.Join("; ", whys)}. Or {hub}.";
+    }
+
+    /// <summary>What a company's own buildings take of a good a minute</summary>
+    private double UsedBy(Company company, string resource) =>
+        _networks.Values.Where(t => t.Owner == company.Id)
+            .Sum(n => n.Solution.Flows.Where(f => f.Resource == resource && f.Kind == FlowKind.Internal).Sum(f => f.Delivered));
+
     /// <summary>A building's status pill, reach line and fix (plan: false skips planning the fix's pipe)</summary>
     public IdleStatus IdleStatusOf(Building building, bool plan = true)
     {
@@ -121,11 +165,13 @@ public sealed partial class GameWorld
             case IdleCause.Full:
                 return new IdleStatus(reason, "Slowed: its Storage is full", $"Nothing else on its pipes takes its {GoodsWord(definition.Out.Keys.FirstOrDefault() ?? "")}.", FixPipe());
             case IdleCause.InputMissing:
-                return new IdleStatus(reason, $"Idle: no {good} here", Reach("Its pipes reach:"), plan ? SupplyFix(building, reason.Resource!) : null);
+                return new IdleStatus(reason, $"Idle: no {good} here", $"{Reach("Its pipes reach:")} {YardLine(building, reason.Resource!)}".TrimEnd(),
+                    plan ? SupplyFix(building, reason.Resource!) : null);
             case IdleCause.InputShort:
                 var (have, need) = InputHaveNeed(building, reason.Resource!);
                 var rate = NetworkOf(building.Id)?.Solution.Rate(building.Id) ?? 0;
-                return new IdleStatus(reason, $"Running at {rate:P0}: {good} short", $"Its pipes bring {Amount(have)} of the {Amount(need)} {good} it needs.", null);
+                return new IdleStatus(reason, $"Running at {rate:P0}: {good} short",
+                    $"Its pipes bring {Amount(have)} of the {Amount(need)} {good} it needs. {YardLine(building, reason.Resource!)}".TrimEnd(), null);
             case IdleCause.Sleeping:
                 return new IdleStatus(reason, $"Sleeps until your town reaches Era {definition.Unlock.Era}",
                     $"A building of Era {definition.Unlock.Era} in an Era {EraAt(building)} town makes and uses nothing, and costs nothing. It wakes when the town gets there.", null);
