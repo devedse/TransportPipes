@@ -21,6 +21,18 @@ await page.waitForTimeout(1500);
 const room = await page.evaluate(() => tp.appStore.getState().buildingDetails?.capacity ?? 0);
 console.log("room", room);
 
+// First a line a good, how full it is (the owner: "there's no bars anymore that show how full the resource is per
+// resource ... as compact as possible")
+const lines = page.locator(".storage-view li");
+const height = await page.locator(".storage-view").evaluate((t) => t.getBoundingClientRect().height);
+const count = await lines.count();
+console.log("view", count, "goods,", Math.round(height), "px:", (await page.locator(".storage-view").innerText()).replace(/\s+/g, " ").slice(0, 160));
+check(count >= 1 && (await page.locator(".storage-view .storage-fill").count()) === count, "a bar a good");
+check(height / Math.max(1, count) <= 30, "a line a good (no more than 30 px each)", `${height / Math.max(1, count)} px`);
+await shot("0-view");
+await page.locator(".storage-sliders button", { hasText: "Set what it keeps" }).click();
+await page.waitForTimeout(400);
+
 // A good added, and two sliders set to more than the room together
 await page.selectOption(".storage-add", "ironOre");
 await page.waitForTimeout(300);
@@ -50,6 +62,9 @@ const saved = await page.evaluate(() => tp.appStore.getState().buildingDetails?.
 console.log("wanted", JSON.stringify(wanted), "saved", JSON.stringify(saved?.set), "manual", saved?.manual);
 check(saved?.manual === true && Math.abs((saved?.set?.energy ?? -1) - wanted.energy) <= 1 && Math.abs((saved?.set?.ironOre ?? -1) - wanted.ironOre) <= 1, "Save keeps what the sliders say", JSON.stringify(saved));
 check((await page.locator(".storage-sliders button.primary", { hasText: "Save" }).count()) === 0, "saved: nothing left to save");
+check((await page.locator(".storage-view").count()) === 1, "saved: back to a line a good");
+const ironLine = (await page.locator('.storage-view li:has-text("Iron ore")').innerText()).replace(/\s+/g, " ");
+check(new RegExp(`/ ${wanted.ironOre.toLocaleString("en-US")}`).test(ironLine) || ironLine.includes(String(wanted.ironOre)), "the line says what it keeps now", ironLine);
 check(wanted.energy + wanted.ironOre <= room + 1, "together no more than its room", `${wanted.energy + wanted.ironOre} of ${room}`);
 await shot("2-saved");
 check(errors.length === 0, "browser errors: none", errors.join("\n"));

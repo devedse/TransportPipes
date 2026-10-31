@@ -3,6 +3,7 @@ import { gameClient } from "../app/client";
 import { formatAmount } from "../app/format";
 import type { BuildingFlowDto } from "../api/contracts";
 import { useAppStore } from "../state/store";
+import { HoverPopup } from "./HoverPopup";
 import { ResourceIcon } from "./ResourceIcon";
 
 /** What a Storage keeps of each good: in effect, as its owner set it, what the company needs of it */
@@ -26,6 +27,10 @@ function step(room: number): number {
  * holds, takes in or has a slider for, how much it keeps; it always keeps at least what your next buildings, levels and
  * orders need (the light mark), so a slider at 0 means "only what's needed". What it holds above that goes on to your
  * Trading Post. Nothing changes until Save; the sliders together can't be more than its room.
+ *
+ * Shown first as a line a good, how full it is (the owner, 2026-10-31: "since the new storage update there's no bars
+ * anymore that show how full the resource is per resource ... as compact as possible. It would be nice to not need a
+ * whole screen"): a bar of what it holds against what it keeps; Set what it keeps opens the sliders.
  */
 export function StorageSliders({
   building,
@@ -47,6 +52,7 @@ export function StorageSliders({
   const [draft, setDraft] = useState<Record<string, number> | null>(null);
   const [added, setAdded] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
   const shown = draft ?? saved;
   const coming: Record<string, number> = {};
   for (const flow of flows.filter((t) => t.direction === "in")) {
@@ -77,12 +83,94 @@ export function StorageSliders({
   const all = (value: (resource: string) => number) =>
     setDraft(Object.fromEntries(listed.map((t) => [t, Math.max(0, Math.floor(value(t)))])));
 
+  if (!editing && draft === null) {
+    return (
+      <div className="storage-sliders">
+        <p className="muted small">
+          A bar a good: what it holds of what it keeps. Amber: more than it keeps, on its way to your Trading
+          Post to be sold.
+        </p>
+        <ul className="storage-view">
+          {listed.map((resource) => {
+            const holds = contents[resource] ?? 0;
+            const need = needs[resource] ?? 0;
+            const kept = Math.max(saved[resource] ?? 0, need);
+            const top = Math.max(kept, holds, 1);
+            const inComing = coming[resource] ?? 0;
+            const sold = selling[resource] ?? 0;
+            return (
+              <li key={resource}>
+                <HoverPopup
+                  width={280}
+                  popup={
+                    <>
+                      <strong className="tip-title">{content.resourceName(resource)}</strong>
+                      <span className="tip-section">
+                        <span>
+                          Holds {formatAmount(holds)} · keeps {formatAmount(kept)}
+                        </span>
+                        {need > (saved[resource] ?? 0) + 0.5 && (
+                          <span>
+                            You set {formatAmount(saved[resource] ?? 0)}; it keeps {formatAmount(need)} for
+                            what your next buildings, levels and orders need.
+                          </span>
+                        )}
+                        {holds > kept + 0.5 && (
+                          <span>{formatAmount(holds - kept)} more than it keeps: on its way to be sold.</span>
+                        )}
+                      </span>
+                      {(inComing > 0.05 || sold > 0.05) && (
+                        <span className="tip-section">
+                          {inComing > 0.05 && <span>Coming in: {formatAmount(inComing)}/min</span>}
+                          {sold > 0.05 && <span>To your Trading Post: {formatAmount(sold)}/min</span>}
+                        </span>
+                      )}
+                    </>
+                  }
+                >
+                  <span className="storage-view-row">
+                    <ResourceIcon resource={resource} />
+                    <span className="storage-view-name">{content.resourceName(resource)}</span>
+                    <span className="storage-fill" aria-hidden="true">
+                      <span className="kept" style={{ width: `${(100 * Math.min(holds, kept)) / top}%` }} />
+                      <span
+                        className="over"
+                        style={{ width: `${(100 * Math.max(0, holds - kept)) / top}%` }}
+                      />
+                    </span>
+                    <span className="storage-view-amount">
+                      {formatAmount(holds)} / {formatAmount(kept)}
+                    </span>
+                    <span
+                      className={sold > 0.05 ? "storage-view-flow out" : "storage-view-flow"}
+                      aria-label={
+                        sold > 0.05 ? "being sold" : inComing > 0.05 ? "coming in" : "nothing moving"
+                      }
+                    >
+                      {sold > 0.05 ? "↑" : inComing > 0.05 ? "↓" : ""}
+                    </span>
+                  </span>
+                </HoverPopup>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="storage-view-actions">
+          <button className="small" onClick={() => setEditing(true)}>
+            Set what it keeps
+          </button>
+          <span className="muted small">↓ coming in · ↑ being sold · hover a good for its numbers</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="storage-sliders">
       <p className="muted small">
-        Set how much of each good this Storage keeps. What it holds above that goes on to your Trading Post
-        and is sold (about a tenth of it a minute). It always keeps at least what your next buildings, levels
-        and daily orders need (the light mark), even with a slider at 0.
+        How much of each good it keeps: above that goes on to your Trading Post and is sold (about a tenth of
+        it a minute). The light mark is what your next buildings, levels and daily orders need: it keeps that
+        even at 0.
         {legacy && " Now: the same share of its room for every good (the old buttons)."}
       </p>
       <ul className="storage-rows">
@@ -92,26 +180,13 @@ export function StorageSliders({
           const holds = contents[resource] ?? 0;
           const kept = Math.max(value, need);
           return (
-            <li key={resource}>
-              <div className="storage-row-head">
-                <ResourceIcon resource={resource} />
-                <strong>{content.resourceName(resource)}</strong>
-                <span className="muted small grow">
-                  holds {formatAmount(holds)}
-                  {(coming[resource] ?? 0) > 0.05 &&
-                    ` · +${formatAmount(coming[resource] ?? 0)}/min coming in`}
-                </span>
-                <input
-                  className="storage-number"
-                  type="number"
-                  min={0}
-                  max={Math.floor(room)}
-                  step={sliderStep}
-                  aria-label={`${content.resourceName(resource)}: how much it keeps`}
-                  value={value}
-                  onChange={(event) => set(resource, Number(event.target.value) || 0)}
-                />
-              </div>
+            <li
+              key={resource}
+              className="storage-edit-row"
+              title={`Holds ${formatAmount(holds)}${need > value + 0.5 ? ` · keeps ${formatAmount(kept)}: what your next buildings, levels and orders need` : ""}${(coming[resource] ?? 0) > 0.05 ? ` · +${formatAmount(coming[resource] ?? 0)}/min coming in` : ""}`}
+            >
+              <ResourceIcon resource={resource} />
+              <strong className="storage-view-name">{content.resourceName(resource)}</strong>
               <div className="storage-track">
                 <span
                   className="storage-holds"
@@ -134,13 +209,16 @@ export function StorageSliders({
                   onChange={(event) => set(resource, Number(event.target.value))}
                 />
               </div>
-              <div className="muted small">
-                {kept > 0.5
-                  ? `keeps ${formatAmount(kept)}${need > value + 0.5 ? " (what's needed)" : ""}; above it is sold`
-                  : "keeps none: all of it goes on to be sold"}
-                {(selling[resource] ?? 0) > 0.05 &&
-                  ` · now ${formatAmount(selling[resource] ?? 0)}/min to your Trading Post`}
-              </div>
+              <input
+                className="storage-number"
+                type="number"
+                min={0}
+                max={Math.floor(room)}
+                step={sliderStep}
+                aria-label={`${content.resourceName(resource)}: how much it keeps`}
+                value={value}
+                onChange={(event) => set(resource, Number(event.target.value) || 0)}
+              />
             </li>
           );
         })}
@@ -216,13 +294,27 @@ export function StorageSliders({
                 if (ok) {
                   setDraft(null);
                   setAdded([]);
+                  setEditing(false);
                 }
               });
             }}
           >
             Save
           </button>
-          <button onClick={() => setDraft(null)}>Cancel</button>
+          <button
+            onClick={() => {
+              setDraft(null);
+              setEditing(false);
+              setAdded([]);
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+      {draft === null && (
+        <div className="button-row">
+          <button onClick={() => setEditing(false)}>Done</button>
         </div>
       )}
     </div>

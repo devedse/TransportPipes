@@ -7598,7 +7598,20 @@ button.top-waits {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 8px;
+  gap: 4px;
+}
+
+/* Setting what it keeps: a line a good, its slider and its number */
+.storage-edit-row {
+  display: grid;
+  grid-template-columns: 18px 84px minmax(0, 1fr) 70px;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+}
+
+.storage-edit-row .storage-number {
+  width: 100%;
 }
 
 .storage-row-head {
@@ -7655,6 +7668,78 @@ button.top-waits {
   width: 100%;
   margin: 0;
   background: transparent;
+}
+
+/* A Storage at a glance: a line a good, a bar of what it holds against what it keeps */
+.storage-view {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.storage-view > li > span {
+  display: block;
+}
+
+.storage-view-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 96px 96px 12px;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+}
+
+.storage-view-row:hover {
+  background: var(--accent-soft);
+}
+
+.storage-view-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.storage-fill {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.storage-fill .kept {
+  background: var(--accent);
+}
+
+.storage-fill .over {
+  background: #e0a03f;
+}
+
+.storage-view-amount {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.storage-view-flow {
+  color: var(--text-muted);
+  font-weight: 700;
+  text-align: center;
+}
+
+.storage-view-flow.out {
+  color: #c07a14;
+}
+
+.storage-view-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .storage-add {
