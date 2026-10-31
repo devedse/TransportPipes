@@ -142,8 +142,10 @@ public record DepotGoodDto(string Resource, double Amount, long Owner, string Ow
 /// being researched and the queue (a track once for every tier); whether research starts by itself while you're away,
 /// and whether something can be researched now
 /// </summary>
+/// <param name="Held">Research stopped on its way: its id and the minutes of work it still needs (paid already)</param>
 public record ResearchLinesDto(bool HasLab, IReadOnlyList<string> Researched, string? CurrentResearch, DateTime? ResearchEndsAt, IReadOnlyList<string> ResearchQueue,
-    IReadOnlyDictionary<string, int> Tiers, string? CurrentTrack, DateTime? TrackEndsAt, IReadOnlyList<string> TrackQueue, bool KeepResearching, bool Open);
+    IReadOnlyDictionary<string, int> Tiers, string? CurrentTrack, DateTime? TrackEndsAt, IReadOnlyList<string> TrackQueue, bool KeepResearching, bool Open,
+    IReadOnlyDictionary<string, double>? Held = null);
 
 /// <summary>
 /// A track as the research panel shows it: its tiers, the next tier's price (gold, and from tier 3 its good: from your

@@ -2291,6 +2291,67 @@ export class GameClient {
     );
   }
 
+  /** The name of a line's research: an Era tree item, or a track with the tier it is at ("Iron 4") */
+  private researchName(id: string): string {
+    const state = appStore.getState();
+    const track = state.content?.track(id);
+    if (track === undefined) {
+      return state.content?.research(id)?.name ?? id;
+    }
+    const lines = state.company?.research;
+    return `${track.name} ${(lines?.tiers[id] ?? 0) + 1}`;
+  }
+
+  /** Stops what a line researches: it waits on hold, paid, its work so far kept, until you go on with it */
+  async stopResearch(track: boolean) {
+    const lines = appStore.getState().company?.research;
+    const id = track ? lines?.currentTrack : lines?.currentResearch;
+    if (lines === undefined || id == null) {
+      return;
+    }
+    const name = this.researchName(id);
+    const later = track ? lines.trackQueue.filter((t) => t === id).length : 0;
+    const next = (track ? lines.trackQueue : lines.researchQueue).some((t) => t !== id);
+    const text =
+      `${name} is on hold: paid, its work so far kept. Continue it any time: it costs nothing more.` +
+      (later > 0 ? ` Its later tiers left the queue: they come after it.` : "") +
+      (next ? " The next in the queue starts." : "");
+    if (await this.command(this.connection.stopResearch(track), text)) {
+      await this.refreshCompany();
+      await this.refreshResearch();
+    }
+  }
+
+  /** Researches something now on a busy line: what the line was at waits on hold, paid, and goes on right after */
+  async researchFirst(tech: string) {
+    const lines = appStore.getState().company?.research;
+    const track = appStore.getState().content?.track(tech) !== undefined;
+    const current = track ? lines?.currentTrack : lines?.currentResearch;
+    const name = this.researchName(tech);
+    const text =
+      current == null
+        ? `Researching ${name}`
+        : `Researching ${name}. ${this.researchName(current)} waits on hold, paid, and goes on where it stopped right after.`;
+    if (await this.command(this.connection.researchFirst(tech), text)) {
+      await this.refreshCompany();
+      await this.refreshResearch();
+    }
+  }
+
+  /** Moves something in a line's queue up (−1) or down (+1) */
+  async moveQueuedResearch(track: boolean, index: number, by: number) {
+    if (await this.command(this.connection.moveQueuedResearch(track, index, by))) {
+      await this.refreshCompany();
+    }
+  }
+
+  /** Takes the item at a place in a line's queue out */
+  async takeOutOfQueue(track: boolean, index: number) {
+    if (await this.command(this.connection.takeOutOfQueue(track, index))) {
+      await this.refreshCompany();
+    }
+  }
+
   /** With nothing queued, the cheapest tech starts by itself (on by default) */
   async setKeepResearching(keep: boolean) {
     if (await this.command(this.connection.setKeepResearching(keep))) {

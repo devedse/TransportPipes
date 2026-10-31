@@ -2282,6 +2282,73 @@ button.link {
   font-size: 0.8rem;
 }
 
+.info-text {
+  color: var(--info);
+  font-weight: 600;
+}
+
+/* A research line now, next and on hold: Stop, up, down and out, Continue */
+.research-line {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 0.82rem;
+}
+
+.research-line .line-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 6px;
+  align-items: baseline;
+}
+
+.research-line .line-label {
+  font-weight: 700;
+  color: var(--gold);
+  font-family: var(--font-title);
+}
+
+.research-line .line-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.research-line .line-queue {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.research-line .line-queue li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.research-line .line-buttons {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.research-line .icon-button {
+  width: 24px;
+  height: 24px;
+  font-size: 0.85rem;
+}
+
+.research-line button.small {
+  padding: 2px 10px;
+  font-size: 0.78rem;
+}
+
 .top-research {
   display: flex;
   align-items: center;
@@ -4630,6 +4697,7 @@ kbd {
 .contract,
 .order,
 .tech,
+.research-line,
 .corp-row,
 .corp-found,
 .corp-member,

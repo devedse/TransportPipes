@@ -35,6 +35,107 @@ public class ResearchFacts
         return (game, company);
     }
 
+    /// <summary>
+    /// The owner, 2026-10-31: "stop existing research without removing spend research on it": a stopped tier waits on
+    /// hold, the line is free for another, and the tier goes on where it stopped, for nothing
+    /// </summary>
+    [TestMethod]
+    public void StoppedResearchGoesOnWhereItStoppedForNothing()
+    {
+        var (game, company) = WithLab();
+        Assert.IsTrue(game.World.StartResearch(company.Id, "iron").Success);
+        var minutes = (company.TrackEndsAt!.Value - game.Time).TotalMinutes;
+        game.Pass(minutes * 0.4);
+        Assert.IsTrue(game.World.StopResearch(company.Id, track: true).Success);
+        Assert.IsNull(company.CurrentTrack, "the line is free");
+        Assert.AreEqual(minutes * 0.6, company.ResearchHeld["iron"], 0.01, "the work it still needs, kept");
+
+        // Another track in the meantime, then Iron again: it goes on, and costs nothing
+        Assert.IsTrue(game.World.StartResearch(company.Id, "power").Success);
+        Assert.IsTrue(game.World.StopResearch(company.Id, track: true).Success);
+        var gold = company.Gold;
+        Assert.IsTrue(game.World.StartResearch(company.Id, "iron").Success);
+        Assert.AreEqual(gold, company.Gold, 1e-6, "paid already");
+        Assert.AreEqual(minutes * 0.6, (company.TrackEndsAt!.Value - game.Time).TotalMinutes, 0.01, "where it stopped");
+        Assert.IsFalse(company.ResearchHeld.ContainsKey("iron"));
+        game.Pass(minutes * 0.6 + 0.1);
+        Assert.AreEqual(1, game.World.TrackTier(company, "iron"), "done");
+        Assert.IsTrue(company.ResearchHeld.ContainsKey("power"), "the other waits on hold");
+
+        // From the queue it goes on for nothing too, and the queue can be put in another order
+        Assert.IsTrue(game.World.StartResearch(company.Id, "sand").Success, "the line busy");
+        Assert.IsTrue(game.World.QueueResearch(company.Id, "copper", true).Success);
+        Assert.IsTrue(game.World.QueueResearch(company.Id, "power", true).Success);
+        Assert.IsTrue(game.World.MoveQueuedResearch(company.Id, track: true, index: 1, by: -1).Success);
+        CollectionAssert.AreEqual(new[] { "power", "copper" }, company.TrackQueue);
+        Assert.IsFalse(game.World.MoveQueuedResearch(company.Id, track: true, index: 0, by: -1).Success, "the first can't move up");
+        gold = company.Gold;
+        Assert.IsTrue(game.World.StopResearch(company.Id, track: true).Success, "Sand on hold: the queue goes on");
+        Assert.AreEqual("power", company.CurrentTrack, "moved first, it started first");
+        Assert.AreEqual(gold, company.Gold, 1e-6, "paid already");
+    }
+
+    [TestMethod]
+    public void ResearchFirstPutsWhatTheLineWasAtOnHoldFirstInTheQueue()
+    {
+        var (game, company) = WithLab();
+        Assert.IsTrue(game.World.StartResearch(company.Id, "iron").Success);
+        var minutes = (company.TrackEndsAt!.Value - game.Time).TotalMinutes;
+        game.Pass(minutes * 0.5);
+        Assert.IsTrue(game.World.QueueResearch(company.Id, "copper", true).Success);
+        Assert.IsTrue(game.World.QueueResearch(company.Id, "power", true).Success);
+
+        // Power now: Iron waits, paid, first in the queue; Power leaves the queue
+        Assert.IsTrue(game.World.ResearchFirst(company.Id, "power").Success);
+        Assert.AreEqual("power", company.CurrentTrack);
+        CollectionAssert.AreEqual(new[] { "iron", "copper" }, company.TrackQueue);
+        Assert.AreEqual(minutes * 0.5, company.ResearchHeld["iron"], 0.01);
+
+        // Power done: Iron goes on by itself where it stopped, for nothing
+        var gold = company.Gold;
+        game.Pass((company.TrackEndsAt!.Value - game.Time).TotalMinutes + 0.1);
+        Assert.AreEqual("iron", company.CurrentTrack);
+        Assert.AreEqual(minutes * 0.5, (company.TrackEndsAt!.Value - game.Time).TotalMinutes, 0.2);
+        Assert.IsTrue(company.Gold >= gold - 1e-6, "paid already");
+
+        // Without the gold nothing moves
+        company.Gold = 0;
+        Assert.IsFalse(game.World.ResearchFirst(company.Id, "copper").Success);
+        Assert.AreEqual("iron", company.CurrentTrack);
+        CollectionAssert.AreEqual(new[] { "copper" }, company.TrackQueue);
+        Assert.IsFalse(company.ResearchHeld.ContainsKey("iron"));
+    }
+
+    [TestMethod]
+    public void StoppingATrackTakesItsLaterTiersOutOfTheQueue()
+    {
+        // They come after the tier on hold: left in, they would start it again at once
+        var (game, company) = WithLab();
+        Assert.IsTrue(game.World.StartResearch(company.Id, "iron").Success);
+        Assert.IsTrue(game.World.QueueResearch(company.Id, "iron", true).Success);
+        Assert.IsTrue(game.World.QueueResearch(company.Id, "copper", true).Success);
+
+        Assert.IsTrue(game.World.StopResearch(company.Id, track: true).Success);
+
+        Assert.AreEqual("copper", company.CurrentTrack, "the next in the queue");
+        Assert.AreEqual(0, company.TrackQueue.Count);
+        Assert.IsTrue(company.ResearchHeld.ContainsKey("iron"));
+    }
+
+    [TestMethod]
+    public void TakingOutOfTheQueueTakesThePlaceClickedOn()
+    {
+        var (game, company) = WithLab();
+        Assert.IsTrue(game.World.StartResearch(company.Id, "sand").Success);
+        foreach (var track in new[] { "iron", "copper", "iron" })
+        {
+            Assert.IsTrue(game.World.QueueResearch(company.Id, track, true).Success);
+        }
+        Assert.IsTrue(game.World.TakeOutOfQueue(company.Id, track: true, index: 0).Success);
+        CollectionAssert.AreEqual(new[] { "copper", "iron" }, company.TrackQueue);
+        Assert.IsFalse(game.World.TakeOutOfQueue(company.Id, track: true, index: 2).Success);
+    }
+
     [TestMethod]
     public void EveryLabLevelMakesResearchAPercentFaster()
     {

@@ -32,6 +32,7 @@ and piped to the post (`kit(page, types, 2)` in Copper Pipe, its ingots stocked)
 | `chores.mjs` | The middle game's chores explain themselves: a factory under Processing says what it uses and who makes it, the Hub's orders say how fast the trading posts fill them |
 | `pipeunder.mjs` | A Small Factory set onto a tile of the kit's line: allowed, and the pipe runs on under it |
 | `research-keep.mjs` | The Research panel's Keep researching switch, on by default, turned off |
+| `research-queue.mjs` | A research line now, next and on hold: Stop keeps what was paid and the work done, Continue costs nothing, Do it first on a busy line, the queue's up, down and out, cards queueable on a busy line |
 | `advisor.mjs` | The Next steps card on a real estate: its three steps, Show me on the first, an upgrade done from the card |
 | `chapter2.mjs` | Loady's second chapter above the advisor, the level roadmap in the XP panel, the level-up card with what the level brings |
 | `paint.mjs` | The build tool paints: a drag builds a row, Shift-drag an area, a click one; the ? key lists the mouse and keys |

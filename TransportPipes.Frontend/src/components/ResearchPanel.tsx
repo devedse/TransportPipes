@@ -70,6 +70,10 @@ function QueueButton({ id, name, queue }: { id: string; name: string; queue: str
   );
 }
 
+/** What Do it first does on a busy line */
+const firstTitle = (now: string) =>
+  `Starts this now. ${now} waits on hold: paid, its work so far kept, first in the queue, and goes on where it stopped right after.`;
+
 /** A track (the first line): its tiers, the next tier's price and what it does, Research and Queue */
 function TrackCard({ state, content }: { state: TrackStateDto; content: Content }) {
   const company = useAppStore((s) => s.company)!;
@@ -79,8 +83,11 @@ function TrackCard({ state, content }: { state: TrackStateDto; content: Content 
   const nextMinutes = state.minutes;
   const progress = useProgress(current ? lines.trackEndsAt : null, nextMinutes);
   const tiers = content.dto.trackTiers.length;
+  const researching = content.dto.trackTiers[state.tiers];
   const name = track?.name ?? state.id;
-  const affordable = company.gold >= state.total;
+  const held = current ? undefined : (lines.held?.[state.id] ?? undefined);
+  const affordable = held !== undefined || company.gold >= state.total;
+  const busy = lines.currentTrack !== null;
   return (
     <div
       className={`tech track ${state.next === null ? "done" : current ? "researching" : state.reason === null ? "available" : "locked"}`}
@@ -100,17 +107,30 @@ function TrackCard({ state, content }: { state: TrackStateDto; content: Content 
         </span>
       </div>
       {track !== undefined && <div className="tech-effect muted">{track.description}</div>}
-      {state.next === null ? (
+      {state.tiers >= tiers ? (
         <div className="tech-effect">✔ Mastered</div>
       ) : (
         <>
-          <div className="tech-effect">
-            Tier {state.next}:{" "}
-            {state.effect !== null && effectText(state.effect, state.amount, state.id === "power")}
-            {state.next >= content.dto.hubOrderFrom && " · Hub Orders ×" + content.dto.hubOrderPerTier}
-          </div>
+          {/* Being researched, the tier it is at (the server's next is the one after it) */}
+          {current && researching !== undefined ? (
+            <div className="tech-effect">
+              Tier {researching.tier} now:{" "}
+              {effectText(researching.effect, researching.amount, state.id === "power")}
+              {researching.tier >= content.dto.hubOrderFrom &&
+                " · Hub Orders ×" + content.dto.hubOrderPerTier}
+            </div>
+          ) : (
+            <div className="tech-effect">
+              Tier {state.next}:{" "}
+              {state.effect !== null && effectText(state.effect, state.amount, state.id === "power")}
+              {(state.next ?? 0) >= content.dto.hubOrderFrom &&
+                " · Hub Orders ×" + content.dto.hubOrderPerTier}
+            </div>
+          )}
           {progress !== null ? (
             <Progress progress={progress} />
+          ) : held !== undefined ? (
+            <div className="tech-cost info-text">On hold: paid, {minutesText(held)} of work left</div>
           ) : (
             <div className="tech-cost">
               <span>{formatAmount(state.gold)} g</span>
@@ -136,15 +156,20 @@ function TrackCard({ state, content }: { state: TrackStateDto; content: Content 
           )}
           {!current && state.reason === null && (
             <button
-              className="primary"
-              disabled={!affordable || lines.currentTrack !== null}
-              onClick={() => void gameClient.startResearch(state.id)}
+              className={busy ? "" : "primary"}
+              disabled={!affordable}
+              title={busy ? firstTitle(content.track(lines.currentTrack!)?.name ?? "") : undefined}
+              onClick={() => void gameClient.researchFirst(state.id)}
             >
-              {lines.currentTrack !== null
-                ? "The line is busy: queue it"
-                : affordable
-                  ? `Research tier ${state.next}`
-                  : `Need ${formatAmount(state.total - company.gold)} g more`}
+              {!affordable
+                ? `Need ${formatAmount(state.total - company.gold)} g more`
+                : held !== undefined
+                  ? busy
+                    ? `Continue tier ${state.next} first`
+                    : `Continue tier ${state.next}`
+                  : busy
+                    ? `Do tier ${state.next} first`
+                    : `Research tier ${state.next}`}
             </button>
           )}
           {state.reason !== null && <div className="lock small">🔒 {state.reason}</div>}
@@ -160,12 +185,16 @@ function TrackCard({ state, content }: { state: TrackStateDto; content: Content 
 /** An Era tree item (the second line): what it opens, its price, Research and Queue */
 function TreeCard({ tech, state }: { tech: ResearchDefinition; state: ResearchStateDto | undefined }) {
   const company = useAppStore((s) => s.company)!;
+  const content = useAppStore((s) => s.content)!;
   const lines = company.research;
   const status = state?.state ?? "locked";
   // How long it takes you, as the server works it out (a Lab level makes it faster: the content's time was shown)
   const minutes = state?.minutes ?? tech.minutes;
   const progress = useProgress(status === "researching" ? lines.researchEndsAt : null, minutes);
   const cost = state?.cost ?? tech.gold;
+  const held = status === "researching" ? undefined : (lines.held?.[tech.id] ?? undefined);
+  const affordable = held !== undefined || company.gold >= cost;
+  const busy = lines.currentResearch !== null;
   return (
     <div className={`tech ${status}`} title={tech.description} role="group" aria-label={tech.name}>
       <div className="tech-name">
@@ -175,6 +204,8 @@ function TreeCard({ tech, state }: { tech: ResearchDefinition; state: ResearchSt
       <div className="tech-effect">{tech.description}</div>
       {status === "done" ? null : progress !== null ? (
         <Progress progress={progress} />
+      ) : held !== undefined ? (
+        <div className="tech-cost info-text">On hold: paid, {minutesText(held)} of work left</div>
       ) : (
         <div className="tech-cost">
           <span>{formatAmount(cost)} g</span>
@@ -184,15 +215,20 @@ function TreeCard({ tech, state }: { tech: ResearchDefinition; state: ResearchSt
       )}
       {status === "available" && (
         <button
-          className="primary"
-          disabled={company.gold < cost || lines.currentResearch !== null}
-          onClick={() => void gameClient.startResearch(tech.id)}
+          className={busy ? "" : "primary"}
+          disabled={!affordable}
+          title={busy ? firstTitle(content.research(lines.currentResearch!)?.name ?? "") : undefined}
+          onClick={() => void gameClient.researchFirst(tech.id)}
         >
-          {lines.currentResearch !== null
-            ? "The line is busy: queue it"
-            : company.gold < cost
-              ? `Need ${formatAmount(cost - company.gold)} g more`
-              : "Research"}
+          {!affordable
+            ? `Need ${formatAmount(cost - company.gold)} g more`
+            : held !== undefined
+              ? busy
+                ? "Continue first"
+                : "Continue"
+              : busy
+                ? "Do it first"
+                : "Research"}
         </button>
       )}
       {status === "locked" && state?.reason && <div className="lock small">🔒 {state.reason}</div>}
@@ -203,21 +239,132 @@ function TreeCard({ tech, state }: { tech: ResearchDefinition; state: ResearchSt
   );
 }
 
-/** The queue of a line, in words */
-function QueueLine({ queue, name }: { queue: string[]; name: (id: string, index: number) => string }) {
-  if (queue.length === 0) {
-    return null;
-  }
+/** Minutes as a time ("2h 10m") */
+const minutesText = (minutes: number) => formatDuration(minutes * 60);
+
+/**
+ * A line now and next (the owner, 2026-10-31: "change your research queue in a way that makes sense ... stop existing
+ * research without removing spend research on it"): what it researches, with Stop; its queue, with up, down and out;
+ * and what waits on hold, paid, with Continue
+ */
+function LineBox({
+  track,
+  name,
+  content,
+}: {
+  track: boolean;
+  name: (id: string, index: number) => string;
+  content: Content;
+}) {
+  const lines = useAppStore((s) => s.company)!.research;
+  const current = track ? lines.currentTrack : lines.currentResearch;
+  const queue = track ? lines.trackQueue : lines.researchQueue;
+  const progress = useProgress(track ? lines.trackEndsAt : lines.researchEndsAt, 1);
+  const held = Object.entries(lines.held ?? {}).filter(
+    ([id]) => (content.track(id) !== undefined) === track && id !== current && !queue.includes(id),
+  );
+  // In the queue, the first place of something on hold goes on with it (a track's later places are its next tiers)
+  const heldAt = (id: string, index: number) =>
+    queue.indexOf(id) === index ? (lines.held?.[id] ?? undefined) : undefined;
+  const label = track ? "Tracks line" : "Era tree line";
   return (
-    <p className="small research-queue">
-      Next, by themselves:{" "}
-      {queue.map((t, i) => (
-        <span key={`${t}-${i}`}>
-          {i > 0 && " → "}
-          {name(t, i)}
-        </span>
-      ))}
-    </p>
+    <div className="research-line" role="group" aria-label={label}>
+      <div className="line-row">
+        <span className="line-label">Now</span>
+        {current === null ? (
+          <span className="muted">
+            {queue.length > 0
+              ? "Free: the first in the queue starts when its gold is there"
+              : "Free: pick something below"}
+          </span>
+        ) : (
+          <span className="line-item">
+            <b>{name(current, -1)}</b>
+            {progress !== null && <span className="muted"> · {formatDuration(progress.left)} left</span>}
+            <button
+              className="small"
+              title="It waits on hold: paid, its work so far kept. Continue it any time, it costs nothing more."
+              onClick={() => void gameClient.stopResearch(track)}
+            >
+              Stop
+            </button>
+          </span>
+        )}
+      </div>
+      {queue.length > 0 && (
+        <div className="line-row">
+          <span className="line-label">Next</span>
+          <ol className="line-queue">
+            {queue.map((id, i) => (
+              <li key={`${id}-${i}`}>
+                <span>
+                  {i + 1}. {name(id, i)}
+                  {heldAt(id, i) !== undefined && (
+                    <span className="info-text"> · on hold, paid: {minutesText(heldAt(id, i)!)} left</span>
+                  )}
+                </span>
+                <span className="line-buttons">
+                  <button
+                    className="icon-button"
+                    aria-label={`Move ${name(id, i)} up`}
+                    title="Earlier"
+                    disabled={i === 0}
+                    onClick={() => void gameClient.moveQueuedResearch(track, i, -1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label={`Move ${name(id, i)} down`}
+                    title="Later"
+                    disabled={i === queue.length - 1}
+                    onClick={() => void gameClient.moveQueuedResearch(track, i, 1)}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label={`Take ${name(id, i)} out of the queue`}
+                    title="Out of the queue"
+                    onClick={() => void gameClient.takeOutOfQueue(track, i)}
+                  >
+                    ×
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+      {held.length > 0 && (
+        <div className="line-row">
+          <span className="line-label">On hold</span>
+          <ul className="line-queue">
+            {held.map(([id, minutes]) => (
+              <li key={id}>
+                <span>
+                  {name(id, -2)}{" "}
+                  <span className="info-text">· paid, {minutesText(minutes)} of work left</span>
+                </span>
+                <span className="line-buttons">
+                  <button
+                    className="small"
+                    title={
+                      current === null
+                        ? "It goes on where it stopped, for nothing"
+                        : `It goes on now, for nothing; ${name(current, -1)} waits on hold, paid, and goes on right after`
+                    }
+                    onClick={() => void gameClient.researchFirst(id)}
+                  >
+                    {current === null ? "Continue" : "Continue first"}
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -235,9 +382,10 @@ export function ResearchPanel() {
   const byId = new Map(states.map((t) => [t.id, t]));
   const close = () => setState({ researchOpen: false });
   // A track appears in its queue once for every tier: count them to name each "Iron 4", "Iron 5"
+  // Now (index −1) and on hold (−2) it is the tier after the last done
   const trackName = (id: string, index: number) => {
-    const before = lines.trackQueue.slice(0, index).filter((t) => t === id).length;
-    const tier = (lines.tiers[id] ?? 0) + (lines.currentTrack === id ? 1 : 0) + before + 1;
+    const before = index < 0 ? 0 : lines.trackQueue.slice(0, index).filter((t) => t === id).length;
+    const tier = (lines.tiers[id] ?? 0) + (index >= 0 && lines.currentTrack === id ? 1 : 0) + before + 1;
     return `${content.track(id)?.name ?? id} ${tier}`;
   };
   const eras = [...new Set(content.tracks.map((t) => t.era))].sort((a, b) => a - b);
@@ -268,6 +416,12 @@ export function ResearchPanel() {
           by itself
         </label>
 
+        <p className="muted small">
+          Stop what a line researches when you want something else first: it waits on hold, paid, and goes on
+          where it stopped, for nothing. <b>Do it first</b> on a card does both at once: what the line was at
+          waits, first in the queue.
+        </p>
+
         <h3>Tracks · deep research for one chain</h3>
         <p className="muted small">
           Nine tiers over about ten days: faster, leaner, complexes, and from tier {content.dto.hubOrderFrom}{" "}
@@ -275,7 +429,7 @@ export function ResearchPanel() {
           (from your Storages; what they lack is bought at 2.5×). Each Era&apos;s tracks cost four times the
           gold of the Era before.
         </p>
-        <QueueLine queue={lines.trackQueue} name={trackName} />
+        <LineBox track name={trackName} content={content} />
         {eras.map((era) => (
           <div key={era} className="research-era">
             <div className="era-head">Era {era}</div>
@@ -291,7 +445,7 @@ export function ResearchPanel() {
 
         <h3>Era tree · the pipes and buildings of each Era</h3>
         <p className="muted small">Short research: pipes, buildings and systems.</p>
-        <QueueLine queue={lines.researchQueue} name={(id) => content.research(id)?.name ?? id} />
+        <LineBox track={false} name={(id) => content.research(id)?.name ?? id} content={content} />
         {[1, 2, 3, 4, 5].map((era) => (
           <div key={era} className="research-era">
             <div className="era-head">Era {era}</div>

@@ -23,6 +23,7 @@ public sealed partial class GameWorld
         {
             company.Researched.Add(tech.Id);
             company.ResearchQueue.Remove(tech.Id);
+            company.ResearchHeld.Remove(tech.Id);
             if (company.CurrentResearch == tech.Id)
             {
                 // The Lab was at it: the line moves on
@@ -69,8 +70,11 @@ public sealed partial class GameWorld
     /// <summary>The gold an Era tree item costs</summary>
     public double ResearchCost(Company company, ResearchDefinition tech) => Math.Round(tech.Gold);
 
-    /// <summary>Why a company can't start an Era tree item now, or null when it can</summary>
-    public string? ResearchBlocker(Company company, ResearchDefinition tech)
+    /// <summary>
+    /// Why a company can't start an Era tree item now, or null when it can; <paramref name="evenBusy"/>: as if its line
+    /// were free (the cards: it can be queued or done first)
+    /// </summary>
+    public string? ResearchBlocker(Company company, ResearchDefinition tech, bool evenBusy = false)
     {
         if (company.Researched.Contains(tech.Id))
         {
@@ -88,7 +92,7 @@ public sealed partial class GameWorld
         {
             return "Research needs a Lab.";
         }
-        if (company.CurrentResearch != null)
+        if (company.CurrentResearch != null && !evenBusy)
         {
             return "Your Lab's second line is busy.";
         }
@@ -118,6 +122,16 @@ public sealed partial class GameWorld
         if (ResearchBlocker(company, tech) is { } reason)
         {
             return CommandResult.Fail(reason);
+        }
+        // Stopped before: it goes on where it stopped, paid already
+        if (company.ResearchHeld.Remove(tech.Id, out var left))
+        {
+            company.CurrentResearch = tech.Id;
+            company.ResearchEndsAt = LastTick.AddMinutes(left);
+            company.ResearchQueue.Remove(tech.Id);
+            company.Touch();
+            Changes.Companies.Add(company.Id);
+            return CommandResult.Ok;
         }
         var payment = Pay(company, ResearchCost(company, tech), new Dictionary<string, double>());
         if (!payment.Success)
@@ -224,7 +238,7 @@ public sealed partial class GameWorld
             {
                 // The first that could start waits for its gold: the order is the player's
                 if (company.ResearchQueue.Select(t => Content.Research.GetValueOrDefault(t)).OfType<ResearchDefinition>().FirstOrDefault(t => t.Era <= YourEra(company)) is { } first
-                    && company.Gold >= ResearchCost(company, first))
+                    && (company.ResearchHeld.ContainsKey(first.Id) || company.Gold >= ResearchCost(company, first)))
                 {
                     StartResearch(company.Id, first.Id);
                 }
@@ -240,7 +254,7 @@ public sealed partial class GameWorld
             if (company.TrackQueue.Count > 0)
             {
                 if (Content.Tracks.GetValueOrDefault(company.TrackQueue[0]) is { } track && NextTier(company, track) is { } tier
-                    && company.Gold >= TierCost(company, track, tier).Total)
+                    && (company.ResearchHeld.ContainsKey(track.Id) || company.Gold >= TierCost(company, track, tier).Total))
                 {
                     StartTier(company, track, fromQueue: true);
                 }
@@ -250,6 +264,140 @@ public sealed partial class GameWorld
                 StartTier(company, next);
             }
         }
+    }
+
+    /// <summary>
+    /// Stops what a line researches (the owner, 2026-10-31: "stop existing research without removing spend research on
+    /// it"): it waits on hold with what it was paid and the work it still needs, and starts again where it stopped, for
+    /// nothing; the line is free for the next in its queue
+    /// </summary>
+    public CommandResult StopResearch(long companyId, bool track)
+    {
+        if (Company(companyId) is not { } company)
+        {
+            return CommandResult.Fail("Unknown company.");
+        }
+        var (id, endsAt) = track ? (company.CurrentTrack, company.TrackEndsAt) : (company.CurrentResearch, company.ResearchEndsAt);
+        if (id == null)
+        {
+            return CommandResult.Fail("Nothing is being researched on that line.");
+        }
+        company.ResearchHeld[id] = Math.Max(0, ((endsAt ?? LastTick) - LastTick).TotalMinutes);
+        if (track)
+        {
+            company.CurrentTrack = null;
+            company.TrackEndsAt = null;
+            // Its later tiers in the queue come after it: they would only start it again
+            company.TrackQueue.RemoveAll(t => t == id);
+        }
+        else
+        {
+            company.CurrentResearch = null;
+            company.ResearchEndsAt = null;
+        }
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        StartQueuedResearch(company);
+        return CommandResult.Ok;
+    }
+
+    /// <summary>
+    /// Researches something now although its line is busy: what the line was at goes on hold, paid, first in the queue,
+    /// and goes on by itself where it stopped once this is done. Nothing changes when this can't start.
+    /// </summary>
+    public CommandResult ResearchFirst(long companyId, string id)
+    {
+        if (Company(companyId) is not { } company)
+        {
+            return CommandResult.Fail("Unknown company.");
+        }
+        var track = Content.Tracks.ContainsKey(id);
+        var (current, endsAt) = track ? (company.CurrentTrack, company.TrackEndsAt) : (company.CurrentResearch, company.ResearchEndsAt);
+        if (current == null)
+        {
+            return StartResearch(companyId, id);
+        }
+        if (current == id)
+        {
+            return CommandResult.Fail("It is being researched now.");
+        }
+        var queue = track ? company.TrackQueue : company.ResearchQueue;
+        var before = queue.ToList();
+        if (track)
+        {
+            company.CurrentTrack = null;
+            company.TrackEndsAt = null;
+            // Brought forward from the queue: its first tier there is the one that starts now
+            if (queue.IndexOf(id) is var at and >= 0)
+            {
+                queue.RemoveAt(at);
+            }
+        }
+        else
+        {
+            company.CurrentResearch = null;
+            company.ResearchEndsAt = null;
+        }
+        var result = StartResearch(companyId, id);
+        if (!result.Success)
+        {
+            if (track)
+            {
+                company.CurrentTrack = current;
+                company.TrackEndsAt = endsAt;
+                company.TrackQueue = before;
+            }
+            else
+            {
+                company.CurrentResearch = current;
+                company.ResearchEndsAt = endsAt;
+            }
+            return result;
+        }
+        company.ResearchHeld[current] = Math.Max(0, ((endsAt ?? LastTick) - LastTick).TotalMinutes);
+        // It was started already: it goes first even when the queue is full
+        (track ? company.TrackQueue : company.ResearchQueue).Insert(0, current);
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        return result;
+    }
+
+    /// <summary>Moves something in a line's queue up (by −1) or down (by +1)</summary>
+    public CommandResult MoveQueuedResearch(long companyId, bool track, int index, int by)
+    {
+        if (Company(companyId) is not { } company)
+        {
+            return CommandResult.Fail("Unknown company.");
+        }
+        var queue = track ? company.TrackQueue : company.ResearchQueue;
+        var to = index + Math.Sign(by);
+        if (index < 0 || index >= queue.Count || to < 0 || to >= queue.Count)
+        {
+            return CommandResult.Fail("It can't move further.");
+        }
+        (queue[index], queue[to]) = (queue[to], queue[index]);
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        return CommandResult.Ok;
+    }
+
+    /// <summary>Takes the item at a place in a line's queue out (a track's later tiers in it move one tier up)</summary>
+    public CommandResult TakeOutOfQueue(long companyId, bool track, int index)
+    {
+        if (Company(companyId) is not { } company)
+        {
+            return CommandResult.Fail("Unknown company.");
+        }
+        var queue = track ? company.TrackQueue : company.ResearchQueue;
+        if (index < 0 || index >= queue.Count)
+        {
+            return CommandResult.Fail("It isn't in the queue.");
+        }
+        queue.RemoveAt(index);
+        company.Touch();
+        Changes.Companies.Add(company.Id);
+        StartQueuedResearch(company);
+        return CommandResult.Ok;
     }
 
     /// <summary>Keep researching starts the cheapest research only when the player has been away this long</summary>
@@ -376,8 +524,11 @@ public sealed partial class GameWorld
         return (gold, good, units, have, bought, gold + bought);
     }
 
-    /// <summary>Why a company can't start a track's next tier now, or null when it can</summary>
-    public string? TierBlocker(Company company, TrackDefinition track)
+    /// <summary>
+    /// Why a company can't start a track's next tier now, or null when it can; <paramref name="evenBusy"/>: as if its
+    /// line were free
+    /// </summary>
+    public string? TierBlocker(Company company, TrackDefinition track, bool evenBusy = false)
     {
         if (NextTier(company, track) == null)
         {
@@ -391,7 +542,7 @@ public sealed partial class GameWorld
         {
             return "Research needs a Lab.";
         }
-        if (company.CurrentTrack != null)
+        if (company.CurrentTrack != null && !evenBusy)
         {
             return "Your Lab's first line is busy.";
         }
@@ -406,6 +557,20 @@ public sealed partial class GameWorld
             return CommandResult.Fail(reason);
         }
         var tier = NextTier(company, track)!.Value;
+        // Stopped before: its tier goes on where it stopped, paid already
+        if (company.ResearchHeld.Remove(track.Id, out var held))
+        {
+            company.CurrentTrack = track.Id;
+            company.TrackEndsAt = LastTick.AddMinutes(held);
+            if (fromQueue && company.TrackQueue.Count > 0 && company.TrackQueue[0] == track.Id)
+            {
+                company.TrackQueue.RemoveAt(0);
+            }
+            PruneTrackQueue(company);
+            company.Touch();
+            Changes.Companies.Add(company.Id);
+            return CommandResult.Ok;
+        }
         var cost = TierCost(company, track, tier);
         if (company.Gold < cost.Total - 1e-9)
         {

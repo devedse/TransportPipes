@@ -38,7 +38,8 @@ public static partial class GameViews
             parcelLevel == int.MaxValue ? null : parcelLevel,
             world.BuildingsOf(company.Id).GroupBy(t => t.Type).ToDictionary(t => t.Key, t => t.Count()),
             new ResearchLinesDto(world.HasLab(company), company.Researched.OrderBy(t => t).ToList(), company.CurrentResearch, company.ResearchEndsAt, company.ResearchQueue.ToList(),
-                new Dictionary<string, int>(company.TrackTiers), company.CurrentTrack, company.TrackEndsAt, company.TrackQueue.ToList(), company.KeepResearching, world.ResearchOpen(company)),
+                new Dictionary<string, int>(company.TrackTiers), company.CurrentTrack, company.TrackEndsAt, company.TrackQueue.ToList(), company.KeepResearching, world.ResearchOpen(company),
+                company.ResearchHeld.ToDictionary(t => t.Key, t => Math.Round(t.Value, 1))),
             Orders(world, company),
             company.NoTrade.OrderBy(t => t).ToList(),
             company.MentorId,
@@ -298,9 +299,9 @@ public static partial class GameViews
         {
             var state = company.Researched.Contains(tech.Id) ? "done"
                 : company.CurrentResearch == tech.Id ? "researching"
-                : world.ResearchBlocker(company, tech) is null ? "available"
+                : world.ResearchBlocker(company, tech, evenBusy: true) is null ? "available"
                 : "locked";
-            return new ResearchStateDto(tech.Id, state, world.ResearchCost(company, tech), state == "locked" ? world.ResearchBlocker(company, tech) : null,
+            return new ResearchStateDto(tech.Id, state, world.ResearchCost(company, tech), state == "locked" ? world.ResearchBlocker(company, tech, evenBusy: true) : null,
                 Math.Round(world.ResearchMinutes(company, tech.Minutes), 1));
         }).ToList();
 
@@ -314,7 +315,7 @@ public static partial class GameViews
             return new TrackStateDto(track.Id, world.TrackTier(company, track.Id), next, cost.Gold, cost.Good, cost.Units, cost.FromStorages, cost.Bought, cost.Total,
                 effect == null ? 0 : Math.Round(world.ResearchMinutes(company, effect.Minutes)), effect == null ? null : Camel(effect.Effect), effect?.Amount ?? 0,
                 Math.Round(world.TierGain(company, track), 1), track.Goods.Select(g => world.TrackHubOrderFactor(company, g)).DefaultIfEmpty(1).Max(),
-                world.TierBlocker(company, track));
+                world.TierBlocker(company, track, evenBusy: true));
         }).ToList();
 
     public static BuildingDto Building(GameWorld world, Building building) => new(

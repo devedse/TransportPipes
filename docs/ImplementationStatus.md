@@ -660,6 +660,13 @@ Settings, Town); the Yard panel keeps who lives around you. A Storage keeps a se
 migration `StorageKeeps`). Buildings whose levels do nothing stay at level 1 (`LevelsMatter`). The map draws a big
 estate without rebuilding its draw list every frame (render groups, pooled puffs and flow dots: a frame 10.2 → 3.0 ms).
 
+The research queue (2026-10-31; the owner: "stop existing research without removing spend research on it"): each of
+the Lab's lines shows what it does now with Stop, its queue with up, down and out, and what waits on hold, paid, with
+Continue (`Company.ResearchHeld`: the minutes of work left; `StopResearch`, `ResearchFirst`, `MoveQueuedResearch`,
+`TakeOutOfQueue`). On a busy line a card says Do it first: what the line was at waits on hold, first in the queue, and
+goes on where it stopped right after. Stopping a track takes its later tiers out of the queue (they would start it
+again). A busy line no longer locks its cards: they can still be queued.
+
 ### After v1
 
 Designed (GDD §11), not needed for a fun first version: the Bank (investing, insurance, Wonder bonds), District

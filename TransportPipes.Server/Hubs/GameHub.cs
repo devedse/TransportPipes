@@ -420,6 +420,22 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> QueueResearch(string tech, bool queued) =>
         Command((world, company) => world.QueueResearch(company, tech, queued));
 
+    /// <summary>Stops what a line researches: on hold, paid, its progress kept</summary>
+    public Task<CommandResultDto> StopResearch(bool track) =>
+        Command((world, company) => world.StopResearch(company, track));
+
+    /// <summary>Researches something now on a busy line: what it was at waits on hold, paid, first in the queue</summary>
+    public Task<CommandResultDto> ResearchFirst(string tech) =>
+        Command((world, company) => world.ResearchFirst(company, tech));
+
+    /// <summary>Moves something in a line's queue up (−1) or down (+1)</summary>
+    public Task<CommandResultDto> MoveQueuedResearch(bool track, int index, int by) =>
+        Command((world, company) => world.MoveQueuedResearch(company, track, index, by));
+
+    /// <summary>Takes the item at a place in a line's queue out</summary>
+    public Task<CommandResultDto> TakeOutOfQueue(bool track, int index) =>
+        Command((world, company) => world.TakeOutOfQueue(company, track, index));
+
     public Task<CommandResultDto> SetKeepResearching(bool keep) =>
         Command((world, company) => world.SetKeepResearching(company, keep));
 

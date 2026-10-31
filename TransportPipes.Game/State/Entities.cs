@@ -97,6 +97,12 @@ public sealed class Company : Entity
     public DateTime? TrackEndsAt { get; set; }
     public List<string> TrackQueue { get; set; } = new();
 
+    /// <summary>
+    /// Research stopped on its way (the owner, 2026-10-31: "stop existing research without removing spend research on
+    /// it"): an Era tree item's or a track's id, and the minutes of the Lab's work it still needs; paid already
+    /// </summary>
+    public Dictionary<string, double> ResearchHeld { get; set; } = new();
+
     /// <summary>Its prices for other players (1.4 §8), by key: "public", "crew", "public:good", "crew:good", "for:companyId"</summary>
     public Dictionary<string, PriceSetting> Prices { get; set; } = new();
 

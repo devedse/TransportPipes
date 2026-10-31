@@ -169,6 +169,8 @@ export interface ResearchLinesDto {
   trackQueue: string[];
   keepResearching: boolean;
   open: boolean;
+  /** Research stopped on its way: its id and the minutes of work it still needs (paid already) */
+  held?: Record<string, number> | null;
 }
 
 /**

@@ -140,6 +140,7 @@ public sealed class WorldStore
                 CurrentTrack = settings.CurrentTrack,
                 TrackEndsAt = settings.TrackEndsAt,
                 TrackQueue = settings.TrackQueue ?? new List<string>(),
+                ResearchHeld = settings.ResearchHeld ?? new Dictionary<string, double>(),
                 MentorId = settings.MentorId,
                 MentorRewards = settings.MentorRewards,
                 WeekStartEarnings = settings.WeekStartEarnings,
@@ -374,6 +375,7 @@ public sealed class WorldStore
                     CurrentTrack = company.CurrentTrack,
                     TrackEndsAt = company.TrackEndsAt,
                     TrackQueue = company.TrackQueue,
+                    ResearchHeld = company.ResearchHeld,
                     MentorId = company.MentorId,
                     MentorRewards = company.MentorRewards,
                     WeekStartEarnings = company.WeekStartEarnings,
@@ -708,6 +710,7 @@ public sealed class WorldStore
         public string? CurrentTrack { get; init; }
         public DateTime? TrackEndsAt { get; init; }
         public List<string>? TrackQueue { get; init; }
+        public Dictionary<string, double>? ResearchHeld { get; init; }
         public long? MentorId { get; init; }
         public HashSet<int> MentorRewards { get; init; } = new();
         public double WeekStartEarnings { get; init; }
