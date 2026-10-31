@@ -9,12 +9,15 @@ import { GoodsTip, LevelPrice } from "./LevelPrice";
 /** The income's sections, in order: what each kind of line is */
 const INCOME_SECTIONS: Array<{ kinds: IncomeLineDto["kind"][]; title: string }> = [
   { kinds: ["hub"], title: "Sold at the hub (your Trading Post)" },
-  { kinds: ["storage"], title: "Storages selling what they hold above their line" },
+  { kinds: ["storage"], title: "Storages selling what they hold above what you set them to keep" },
   { kinds: ["yardSold", "yardOnItsWay", "yardFloor"], title: "Sold through the Yard" },
   { kinds: ["player"], title: "Sold to players over your pipes" },
   { kinds: ["yardBought"], title: "Bought through the Yard" },
   { kinds: ["fromPlayer"], title: "Bought from players over your pipes" },
-  { kinds: ["import"], title: "Bought from the hub (Buy from the hub)" },
+  {
+    kinds: ["import"],
+    title: "Bought from the hub (the goods ticked under Buy from the hub at your Trading Post)",
+  },
 ];
 
 function signed(gold: number): string {
@@ -55,8 +58,9 @@ export function IncomeBreakdown({ income, content }: { income: IncomeDto; conten
                         ? ` from ${line.who}`
                         : ` to ${line.who}`)}
                     {line.kind === "yardOnItsWay" &&
-                      " · on its way: matched at this Yard round, it arrives and is paid at the next (the clock in the top bar)"}
-                    {line.kind === "yardFloor" && " · not taken: paid at your hub price"}
+                      " · on its way: agreed at this Yard round, it arrives and is paid at the next, in about a minute"}
+                    {line.kind === "yardFloor" &&
+                      " · no neighbour took it, so it was paid at the hub's price"}
                     {line.hubOrder !== null && line.units > line.hubOrder + 0.5 && (
                       <span className="muted">
                         {" "}

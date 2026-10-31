@@ -339,7 +339,7 @@ public class AdvisorFacts
         step = game.World.NextSteps(company, 8).Single(t => t.Kind == AdvisorKind.Pipes);
         Assert.AreEqual(AdvisorAction.Climb, step.Action);
         Assert.AreEqual(map[(0, 0)].Id, step.Building);
-        StringAssert.StartsWith(step.Reason, "Copper Pipe on its link (3 tiles)");
+        StringAssert.StartsWith(step.Reason, "Copper Pipe on its full pipe (3 tiles)");
         var before = game.World.GoldPerMinute()[company.Id];
         Assert.IsTrue(game.World.ClimbPipe(company.Id, step.Building!.Value).Success);
         // The levels' goods come in (1.4 §9)

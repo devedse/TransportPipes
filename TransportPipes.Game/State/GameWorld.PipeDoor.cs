@@ -58,7 +58,8 @@ public sealed partial class GameWorld
             return null;
         }
         var tiles = pipes.Select(t => t.Pos).ToHashSet();
-        string Links(int count) => count == 1 ? "its link" : $"its {count} links";
+        // Its full pipe connections ("link" is the name of a pipe to another company's Yard: not used for these)
+        string Links(int count) => count == 1 ? "its full pipe" : $"its {count} full pipe stretches";
 
         // A pipe of it already waits for its goods: order the rest, or say who brings them
         if (company.Asks.FirstOrDefault(t => t.PipeTiles != null && t.PipeTiles.Any(tiles.Contains) && t.Left > 1e-6) is { } waiting)

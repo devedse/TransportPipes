@@ -23,7 +23,7 @@ const GIVE_MODES: Array<{ mode: GiveMode; name: string; title: string }> = [
   { mode: "off", name: "Off", title: "You give it only by hand" },
   {
     mode: "beyondHubOrder",
-    name: "Beyond my Hub Order",
+    name: "Only what the hub pays less for",
     title:
       "What you make of it beyond your Hub Order goes to the Wonder through your Yard gate, at its base price",
   },

@@ -137,7 +137,7 @@ function LinkCard({ link, content }: { link: LinkDto; content: Content }) {
               )
             }
           >
-            {link.state === "paused" ? "Resume" : "Take back the notice"}
+            {link.state === "paused" ? "Resume" : "Keep the link (cancel the end)"}
           </button>
         )}
         {link.state === "active" && link.noticeAt === null && (
@@ -225,8 +225,8 @@ function LinkSplit({ link, good }: { link: LinkDto; good: string }) {
         </li>
         {fill > 0.05 && (
           <li>
-            {formatAmount(fill)} fill the tank at {link.youSell ? `${link.partnerName}'s` : "your"} gate (it
-            keeps two hours of the need: paid when it is used)
+            {formatAmount(fill)} fill the reserve tank at {link.youSell ? `${link.partnerName}'s` : "your"}{" "}
+            gate (it holds two hours of supply; paid as it is used)
             {tankLeft > 0.5 && `, full in ${formatDuration((tankLeft / fill) * 60)}`}
           </li>
         )}
@@ -492,7 +492,7 @@ function NewLink({
       {plan !== null && (
         <p className={plan.error !== null ? "form-error" : "small"}>
           {plan.error ??
-            `${plan.length} tiles through the corridors · ${arrives(plan.efficiency)} · carries ${formatAmount(plan.throughput)}/min · the pipe costs ${formatAmount(plan.gold)} g${plan.materials
+            `${plan.length} tiles long. ${arrives(plan.efficiency)}: pipes lose goods on the way. Carries up to ${formatAmount(plan.throughput)}/min. The pipe costs ${formatAmount(plan.gold)} g${plan.materials
               .filter((m) => m.perMinute > 0)
               .map((m) => ` + ${formatAmount(m.perMinute)} ${content.resourceName(m.resource).toLowerCase()}`)
               .join("")}`}
@@ -539,8 +539,8 @@ function NewLink({
         Offer the link
       </button>
       <p className="muted small">
-        They accept with one tap; you pay the pipe (refunded if they don&apos;t). Both sides pay and earn the
-        one player price, and either side pauses or ends it at once.
+        They accept with one tap. You pay for the pipe (refunded if they don&apos;t accept). The buyer pays
+        the seller&apos;s price, and either side can pause or end it at any time.
       </p>
     </div>
   );
@@ -606,11 +606,12 @@ export function LinksTab() {
       <div className="link-picture" aria-hidden="true">
         <span className="link-end">🏠 your Yard gate</span>
         <span className="link-pipe">one good ▶</span>
-        <span className="link-end">🏠 a friend at another Yard</span>
+        <span className="link-end">🏠 another company</span>
       </div>
       <p className="small">
-        <strong>A link pipes one good to one company at another Yard</strong>, every minute, at the
-        seller&apos;s price for you. Inside your own Yard you need none: the Yard shares by itself.
+        <strong>A link is a pipe that sends one good to one company</strong>, at the seller&apos;s price, at
+        every Yard round. It can come with a promise (Guaranteed) and a cap (Up to). Your Yard neighbours need
+        none to share spare goods: the Yard does that by itself.
       </p>
       {links.links.length > 0 ? (
         <ul className="link-list">
@@ -622,7 +623,7 @@ export function LinksTab() {
         <p className="muted small">No links yet.</p>
       )}
       <div className="muted small">
-        {laid} of {links.max} links
+        {laid} {laid === 1 ? "link" : "links"} (you can have {links.max})
       </div>
       {/* Friends who live in other stations (after run 3, row 12: Ben was offered as a link with no word he was Ana's friend) */}
       {links.suggestions.length > 0 && (

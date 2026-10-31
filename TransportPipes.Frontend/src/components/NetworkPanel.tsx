@@ -69,13 +69,15 @@ export function NetworkPanel() {
       {details.bottlenecks.length > 0 && (
         <div className="status idle">
           <p>
-            {details.bottlenecks.length} connection{details.bottlenecks.length === 1 ? " is" : "s are"} full
-            (red on the map): a better pipe carries more.
+            {details.bottlenecks.length} pipe stretch
+            {details.bottlenecks.length === 1 ? " carries" : "es carry"} all{" "}
+            {details.bottlenecks.length === 1 ? "it" : "they"} can (red on the map): a better pipe carries
+            more.
           </p>
           {waits > 0 && (
             <p className="small">
-              {waits} of their tiles wait for a better pipe already: it is laid once its goods are in (Yard ›
-              What you&apos;re waiting for).
+              A better pipe is ordered for {waits} of their tiles: it is laid when its materials arrive
+              (Waiting for goods, in the top bar).
             </p>
           )}
           {weakest.length > 0 && next !== undefined && (

@@ -153,7 +153,7 @@ public class IdleFacts
         var status = game.World.IdleStatusOf(mine);
         Assert.AreEqual("Slowed: its pipes carry 100 iron ore a minute", status.Pill);
         Assert.AreEqual(IdleFixKind.Climb, status.Fix?.Kind, "its pipe door: Copper Pipes from Company Level 8");
-        StringAssert.StartsWith(status.Fix!.Label, "Copper Pipe on its link");
+        StringAssert.StartsWith(status.Fix!.Label, "Copper Pipe on its full pipe");
     }
 
     [TestMethod]

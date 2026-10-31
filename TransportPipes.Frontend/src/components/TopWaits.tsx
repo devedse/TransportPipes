@@ -111,21 +111,27 @@ export function WaitingGoods() {
       <button className="panel top-waits" aria-expanded={open} onClick={() => setOpen((t) => !t)}>
         <span className="small muted">Waiting for goods</span>
         <strong>
-          🏗 {waiting.length} · {formatAmount(all)} g
+          🏗 {waiting.length} · buy all: {formatAmount(all)} g
         </strong>
       </button>
       {open && (
         <div className="panel top-waits-panel" role="dialog" aria-label="What waits for goods">
           <strong>What waits for its goods</strong>
-          <p className="muted small">
-            From level 11 a level takes goods as well as gold, and some buildings take materials. They come in
-            by themselves: your Storages and what you make first, then your Yard neighbours&apos; spare at the
-            Yard&apos;s rounds,{" "}
-            {company.wantsFromMarket
-              ? "and what nobody has the market brings within about ten minutes at 2.5× its price (paid as it comes)."
-              : "and the market brings nothing for them (your trade settings)."}{" "}
-            Buy the rest brings it all at once at 2.5×.
-          </p>
+          <span className="tip-section small">
+            <span>
+              From level 11 an upgrade needs goods as well as gold. Some buildings need materials too.
+            </span>
+            <span>
+              They come by themselves: your Storages first, then what you make, then your neighbours&apos;
+              spare.
+            </span>
+            <span>
+              {company.wantsFromMarket
+                ? "What nobody has, the market brings within about ten minutes, at 2.5× its price."
+                : "The market brings nothing for them (your trade settings)."}
+            </span>
+            <span>Buy the rest gets it all now, at 2.5× its price.</span>
+          </span>
           <ul className="top-waits-list">
             {waiting.map((w) => (
               <li key={w.target}>

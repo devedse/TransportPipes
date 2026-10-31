@@ -131,7 +131,7 @@ public class WantFacts
         var (game, ana, ben, smelter, pit) = SmelterAndCoal();
         game.Pass(5);
         StringAssert.Contains(game.World.IdleStatusOf(smelter, plan: false).Reach,
-            "In your Yard, Ben's pipes don't reach their Yard gate. Or buy it from the hub: tick Coal under Buy from the hub on your Trading Post");
+            "In your Yard, Ben's pipes don't reach their Yard gate. Or buy it from the hub: open your Trading Post, open Buy from the hub and tick Coal");
 
         // Piped to his post (next to his Yard gate): his spare coal comes
         game.Connect(ben, pit, game.TradingPost(ben));
@@ -185,7 +185,7 @@ public class WantFacts
         Assert.IsTrue(game.World.SetTradeBlocked(ben.Id, ana.Id, false).Success);
         Assert.IsTrue(game.World.SetTradeBlocked(ana.Id, ben.Id, true).Success);
         game.Pass(3);
-        StringAssert.Contains(game.World.IdleStatusOf(smelter, plan: false).Reach, "you stopped trading with Ben: switch them on again in your Trade settings");
+        StringAssert.Contains(game.World.IdleStatusOf(smelter, plan: false).Reach, "you stopped trading with Ben: switch them on again in Trades › Settings › Who you trade with");
     }
 
     [TestMethod]
@@ -321,7 +321,7 @@ public class WantFacts
         var fix = game.World.IdleStatusOf(map[(0, 0)]).Fix;
 
         Assert.AreEqual(IdleFixKind.Climb, fix?.Kind);
-        StringAssert.StartsWith(fix!.Label, "Copper Pipe on its link (1 tile)");
+        StringAssert.StartsWith(fix!.Label, "Copper Pipe on its full pipe (1 tile)");
         Assert.AreEqual(2, game.World.PipeDoorFor(company, map[(0, 0)])!.Tier);
     }
 

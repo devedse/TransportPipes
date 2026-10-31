@@ -53,7 +53,7 @@ public class PipeDoorFacts
         Assert.AreEqual(2, door.Tier);
         Assert.IsEmpty(door.Short, "the Storage holds the ingots");
         Assert.IsGreaterThan(moily.Level, door.ToLevel, "levels the copper carries");
-        StringAssert.StartsWith(door.Text, $"Copper Pipe on its link (3 tiles), then Level {door.ToLevel}");
+        StringAssert.StartsWith(door.Text, $"Copper Pipe on its full pipe (3 tiles), then Level {door.ToLevel}");
         Assert.IsGreaterThan(10, door.Gain);
         var gold = company.Gold;
         var before = game.World.GoldPerMinute()[company.Id];

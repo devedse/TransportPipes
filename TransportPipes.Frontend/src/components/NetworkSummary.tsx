@@ -92,7 +92,7 @@ function ResourceRow({ r, content }: { r: NetworkResourceDto; content: Content }
             r.used > 0.05 && `used by buildings ${formatAmount(r.used)}`,
             // What goes into links said apart (the owner, 2026-10-31: "sold through the Yard 100", the buyer got 25)
             (r.toLinks ?? 0) > 0.05 &&
-              `into your links ${formatAmount(r.toLinks ?? 0)} (what arrives, fills your buyers' tanks, and what the links' pipes lose: Neighbours › Links)`,
+              `into your links ${formatAmount(r.toLinks ?? 0)} (what arrives, what fills your buyers' tanks, and what the links' pipes lose: Trades › Links)`,
             r.toYard - (r.toLinks ?? 0) > 0.05 &&
               `sold through the Yard ${formatAmount(r.toYard - (r.toLinks ?? 0))}`,
             r.stored > 0.05 && `stored ${formatAmount(r.stored)}`,

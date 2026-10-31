@@ -289,7 +289,7 @@ export function ResearchPanel() {
           </div>
         ))}
 
-        <h3>Era tree · what opens an Era</h3>
+        <h3>Era tree · the pipes and buildings of each Era</h3>
         <p className="muted small">Short research: pipes, buildings and systems.</p>
         <QueueLine queue={lines.researchQueue} name={(id) => content.research(id)?.name ?? id} />
         {[1, 2, 3, 4, 5].map((era) => (

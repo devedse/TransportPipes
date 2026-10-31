@@ -6,7 +6,7 @@ import { ResourceIcon } from "./ResourceIcon";
 
 /**
  * Building in the Yard (1.4 §7): your workshops at its ends, and the crew's Depot. Put goods in for the crew: a
- * neighbour's levels and new buildings take them at your crew price, and the Wonder takes them as gifts.
+ * neighbour's levels and new buildings take them at your Yard price, and the Wonder takes them as gifts.
  */
 export function DepotSection() {
   const company = useAppStore((s) => s.company);
@@ -53,7 +53,7 @@ export function DepotSection() {
           </div>
           <p className="small">
             The Depot holds {formatAmount(depot.holds)} of {formatAmount(depot.capacity)}. Your
-            neighbours&apos; levels and buildings take what you put in at your crew price; the Wonder takes it
+            neighbours&apos; levels and buildings take what you put in at your Yard price; the Wonder takes it
             as your gift.
           </p>
           {depot.goods.length > 0 && (

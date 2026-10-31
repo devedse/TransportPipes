@@ -68,7 +68,7 @@ public sealed partial class GameWorld
             return "";
         }
         var good = GoodsWord(resource);
-        var hub = $"buy it from the hub: tick {Content.Resources[resource].Name} under Buy from the hub on your Trading Post ({HubSellPrice(company.District, resource):0.##} g each)";
+        var hub = $"buy it from the hub: open your Trading Post, open Buy from the hub and tick {Content.Resources[resource].Name} ({HubSellPrice(company.District, resource):0.##} g each)";
         if (new GateReach(network, estate.YardGate).Efficiency(building.Id, resource) <= 0)
         {
             return $"Its pipes don't reach your Yard gate, where your neighbours' spare {good} comes in; or {hub}.";
@@ -84,7 +84,7 @@ public sealed partial class GameWorld
         {
             var name = NameFor(maker.Company, company);
             // Who stopped it (playtest: "you and Gkoow Pipes don't trade" left open whose switch it was)
-            return !TradesWith(company, maker.Company) ? $"you stopped trading with {name}: switch them on again in your Trade settings (Neighbours › Trade settings › Your Yard)"
+            return !TradesWith(company, maker.Company) ? $"you stopped trading with {name}: switch them on again in Trades › Settings › Who you trade with"
                 : !TradesWith(maker.Company, company) ? $"{name} stopped trading with you: only they can switch it back on"
                 : PendingBlockOf(company, maker.Company) ? $"you are stopping trading with {name}: switch them on again in your Trade settings"
                 : !maker.Connected ? $"{name}'s pipes don't reach their Yard gate"
@@ -197,7 +197,7 @@ public sealed partial class GameWorld
                     ? new IdleFix(IdleFixKind.Climb, DoorLabel(door), Building: building.Id, Cost: door.Kind == PipeDoorKind.Waits ? door.OrderCost ?? 0 : door.Gold + door.LevelCost)
                     : second == null ? null : new IdleFix(IdleFixKind.Build, $"Build a second {second.Name} on its pipe · {Gold(second.Cost.Gold)}", BuildingType: second.Id, Cost: second.Cost.Gold);
                 return new IdleStatus(reason, $"Slowed: its pipes carry {Amount(carried)} {good} a minute",
-                    $"It could make {Amount(could)} a minute, but a pipe connection carries only so much (Grey Pipe: 100 a minute). A better or wider pipe, or a second taker on a pipe of its own, takes more.",
+                    $"It could make {Amount(could)} a minute, but its pipe carries only so much (Grey Pipe: 100 a minute). A better pipe carries more, or pipe it to a second buyer.",
                     fix);
             case IdleCause.GateOnly:
                 return new IdleStatus(reason, $"Waiting: nobody here takes its {good}", "Its only way out is your Yard gate (G), and nobody at your Yard needs it now.", FixPipe());

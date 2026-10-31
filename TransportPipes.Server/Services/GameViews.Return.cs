@@ -198,7 +198,7 @@ public static partial class GameViews
         if (report.OrdersCompleted > 0)
         {
             var goods = report.OrdersFilled.Select(world.GoodsWord).ToList();
-            Add(4, "orders", "📋", $"Your {And(goods)} filled {Plural(report.OrdersCompleted, "hub order")} at twice the price: +{report.OrderGold:N0} g over the hub's");
+            Add(4, "orders", "📋", $"Your {And(goods)} filled {Plural(report.OrdersCompleted, "daily order")} at twice the price: {report.OrderGold:N0} g extra");
         }
 
         // The social line: who of your crew came to look, else who liked your plot

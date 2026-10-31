@@ -53,17 +53,17 @@ function YardHow({ yard, company }: { yard: YardDto; company: CompanyDto }) {
     {
       mark: yard.connected ? "✓" : "→",
       when: "First",
-      text: "Lay a pipe from your network to your Yard gate (the yellow posts, G). Nothing goes through the Yard before.",
+      text: "Lay a pipe from your buildings to your Yard gate (the yellow posts, G). Until then nothing goes through the Yard.",
     },
     {
       mark: "↻",
       when: "At every Yard round, also while you're away",
-      text: `What your buildings don't use goes to a neighbour here whose buildings lack it, at your crew price (${times(crew)} the base price); what a neighbour has spare comes to your buildings that lack it, at their price. What nobody here needs goes on to your Trading Post, which sells it to the town's market (the hub). The rounds come about once a minute while trades change, and up to 16 minutes apart when nothing does (the clock in the top bar); a new trade is set up at one round and its goods come at the next.`,
+      text: `Your spare goods go to neighbours who need them. They pay your Yard price (${times(crew)} the base price). Their spare comes to you, at their price. What nobody here needs is sold at your Trading Post. A round comes about once a minute (the clock in the top bar). A new trade starts one round after it is set up.`,
     },
     {
       mark: "🏗",
       when: "When you build or level up",
-      text: `Its planks, bricks and other goods come from your Storages first, then from your own spare and your neighbours' through the Yard. ${
+      text: `Its planks, bricks and other goods come from your Storages first, then from your own spare, then from your neighbours through the Yard. ${
         company.wantsFromMarket
           ? "What nobody has, the market brings within about ten minutes at 2.5× its price."
           : "The market brings nothing (your trade settings): Buy the rest brings it at 2.5× its price."
@@ -72,7 +72,7 @@ function YardHow({ yard, company }: { yard: YardDto; company: CompanyDto }) {
     {
       mark: "🏛",
       when: "A give switch in Town & Wonder",
-      text: "From the Yard's next round, within a minute or two, your spare of that good goes through your gate to the town's Wonder: a gift, so it no longer sells.",
+      text: "Turn on giving for a good (Hub › Town & Wonder). From the next Yard round your spare of it goes to the town's Wonder. It is a gift: you aren't paid for it.",
     },
     {
       mark: level(yard.monumentLevel),
@@ -139,7 +139,7 @@ export function YardPanel() {
             {yard?.station ?? "Your Yard"} · <Term word="yard">Yard</Term>
           </h3>
           <div className="muted small">
-            Four plots around one Yard: every seller sets its price for the crew
+            You share this Yard with the plots around it. You trade your spare goods with them.
           </div>
         </div>
         <button
@@ -197,17 +197,24 @@ export function YardPanel() {
               </div>
               {(company.ownGoodsIntoWants ?? 0) >= 1 && (
                 <p className="muted small">
-                  Your own goods go in first: they sell for {formatAmount(company.ownGoodsIntoWants ?? 0)}{" "}
-                  g/min less until they&apos;re in, and then the levels pay.
+                  Your own goods are used first. Until the levels are done you earn{" "}
+                  {formatAmount(company.ownGoodsIntoWants ?? 0)} g less a minute (those goods aren&apos;t
+                  sold).
                 </p>
               )}
               <ul className="yard-trades">
                 {(company.wants ?? []).map((w) => (
                   <li key={`${w.target}-${w.resource}`}>
                     <span>
-                      <ResourceIcon resource={w.resource} /> Your <strong>{w.name}</strong>
-                      {w.tiles !== null && ` on ${w.tiles} tiles`} wants {formatAmount(w.amount)}{" "}
-                      {content.resourceName(w.resource).toLowerCase()}
+                      <ResourceIcon resource={w.resource} />{" "}
+                      {w.tiles !== null ? (
+                        <>Your better pipe ({w.tiles} tiles) needs</>
+                      ) : (
+                        <>
+                          Your <strong>{w.name}</strong> needs
+                        </>
+                      )}{" "}
+                      {formatAmount(w.amount)} {content.resourceName(w.resource).toLowerCase()}
                       {w.toLevel != null && ` for level ${w.toLevel}`} ·{" "}
                       <strong>{formatAmount(w.got)} in</strong>
                       {w.perMinute > 0.005 && (
@@ -223,8 +230,12 @@ export function YardPanel() {
                         Buy the rest · {formatAmount(w.orderCost)} g
                       </button>
                     )}
-                    <button className="link small" onClick={() => void gameClient.cancelSite(w.target)}>
-                      give it up
+                    <button
+                      className="link small"
+                      title="Cancel it: what it was bought for comes back"
+                      onClick={() => void gameClient.cancelSite(w.target)}
+                    >
+                      cancel (gold back)
                     </button>
                   </li>
                 ))}
@@ -309,9 +320,9 @@ export function YardPanel() {
           <section>
             <h4>Who lives here</h4>
             <p className="muted small">
-              Spare: what each has left over and sells at its Trading Post to the town&apos;s market (the
-              hub); a neighbour here who lacks it gets it first, at the seller&apos;s price. Lacks: what
-              nobody here brings them yet.
+              Spare: what they make and don&apos;t use. A neighbour here who needs it gets it first, at the
+              seller&apos;s price; the rest is sold at their Trading Post. Needs: what their buildings are
+              missing.
             </p>
             <ul className="yard-residents">
               {yard.residents.map((r) => (
@@ -339,8 +350,8 @@ export function YardPanel() {
                   )}
                   {r.id !== company.id && Object.keys(r.prices).length > 0 && (
                     // Their price for you (1.4 §8): what you pay them for each good they have spare
-                    <div className="resident-pins small">
-                      🏷{" "}
+                    <div className="resident-pins small" title="× the base price: 1.15× is 15% above it">
+                      🏷 their price for you:{" "}
                       {Object.entries(r.prices)
                         .map(([good, price]) => `${content.resourceName(good).toLowerCase()} ${times(price)}`)
                         .join(" · ")}
@@ -372,7 +383,7 @@ export function YardPanel() {
                           />
                         </>
                       )}
-                      <span className="muted">Lacks</span>{" "}
+                      <span className="muted">Needs</span>{" "}
                       <Rates rates={r.lacks} content={content} kind="needs" />
                     </div>
                   )}

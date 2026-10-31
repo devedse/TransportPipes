@@ -7,6 +7,7 @@ import { setState, useAppStore, type HubTab } from "../state/store";
 import { TownTab } from "./TownTab";
 import { EVENT_ICONS, eventTime } from "../app/events";
 import { ResourceIcon } from "./ResourceIcon";
+import { Term } from "./Term";
 
 function Trend({ row }: { row: MarketResourceDto }) {
   const ratio = row.buyPrice / row.basePrice;
@@ -177,9 +178,9 @@ export function HubPanel() {
         ) : tab === "orders" ? (
           <div className="orders">
             <p className="muted small">
-              The hub buys these today at twice the price: one for each good your trading posts sell, up to
-              three, and a good that starts selling today gets its own. They fill by themselves as your goods
-              pass, or deliver what your Storages hold. New orders at{" "}
+              Today the hub pays double for these goods: up to three, one for each good you sell, and a good
+              you start selling today gets one too. They fill by themselves as you sell, or deliver what your
+              Storages hold. New orders at{" "}
               {new Date(new Date(company.serverTime).setUTCHours(24, 0, 0, 0)).toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -250,7 +251,8 @@ export function HubPanel() {
                       {done
                         ? `Filled: +${formatAmount(order.premium)} g over the hub's price`
                         : eta !== null
-                          ? `Your trading posts sell ${formatAmount(order.selling)} a minute${ahead.length > 0 ? `, which fill ${ahead.some((t) => t.urgent) ? "the shortage order" : "the order above"} first` : ""}: full in about ${formatDuration(eta)}${eta > left ? `, after it closes: only ${formatAmount(Math.max(0, order.selling * (left / 60) - before))} of it at this rate` : ""}`
+                          ? // At the rate you sell now: a fact, no "about" (the owner, 2026-10-31: "everything you find make it exact")
+                            `You sell ${formatAmount(order.selling)} a minute${ahead.length > 0 ? ` (${ahead.some((t) => t.urgent) ? "the shortage order" : "the order above"} fills first)` : ""}. At that rate it is full in ${formatDuration(eta)}${eta > left ? `, after it closes: ${formatAmount(Math.max(0, order.selling * (left / 60) - before))} of it fills by then` : ""}.`
                           : `Your trading posts sell no ${good} now: pipe a building that makes it to one`}
                     </div>
                     {deliver >= 1 && (
@@ -276,22 +278,22 @@ export function HubPanel() {
         ) : (
           <div className="market">
             <p className="muted small">
-              The market buys everything your trading post brings it. Up to your Hub Order a minute it pays
-              the full price; sell more and the price falls with the square root (by what you sell now, looked
-              at every minute; nobody else&apos;s sales count). Your trading post&apos;s levels, research from
-              tier 5, your town&apos;s Wonder and a Market Monument raise your Hub Orders. Goods of a later
-              Era than your town&apos;s pay a quarter. Players set their own prices, between the market&apos;s
-              two.
+              The market buys everything your Trading Post brings it. Up to your <Term word="hubOrder" /> a
+              minute it pays the full price. Sell more and every unit pays less: 4× as much earns 2× the gold.
+              It looks again every minute, and only your own sales count. What raises your Hub Orders: your
+              Trading Post&apos;s levels, research from tier 5, your town&apos;s Wonder and a Market Monument.
+              Goods of a later Era than your town&apos;s earn a quarter. Players set their own prices, between
+              what the market pays and what it charges.
             </p>
             <table className="market-table">
               <thead>
                 <tr>
                   <th>Good</th>
                   <th>Pays you</th>
-                  <th>Sells</th>
-                  <th>You sell / Hub Order a minute</th>
-                  <th>Between players</th>
-                  <th>Trade</th>
+                  <th>Hub sells at</th>
+                  <th>You sell a minute / full price up to</th>
+                  <th>Players&apos; usual price</th>
+                  <th>Sell to players</th>
                 </tr>
               </thead>
               <tbody>

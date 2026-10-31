@@ -12,7 +12,7 @@ function actionLabel(line: ReturnLineDto): string | null {
     case "repairAll":
       return `Repair all · ${formatAmount(line.cost ?? 0)} g`;
     case "links":
-      return "Look";
+      return "See the offer";
     case "fillWant":
       return "Send them ▸";
     case "grow":

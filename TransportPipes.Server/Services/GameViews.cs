@@ -1622,8 +1622,8 @@ public static partial class GameViews
             // it said "You buy 0 coal/min")
             var first = selling ? $"{name} your first {good}" : $"your first {good}";
             return ("info", link.StartRounds > 1
-                ? $"Starting: the Yard moves links' goods once a minute. Its next round sets this link up, and the one after brings {first}."
-                : $"Starting: the Yard's next round brings {first} (it moves links' goods once a minute).");
+                ? $"Starting: {first} comes in about two minutes (the Yard sets a new link up at one round and brings its goods at the next)."
+                : $"Starting: the Yard's next round brings {first}, within a minute.");
         }
         var notice = link.NoticeAt is { } at
             ? $" · {(link.NoticeEnds ? "ends" : "pauses")} in {Span(at - world.Now)} ({(link.NoticeBy == me.Id ? "your notice" : $"{name}'s notice")})"
@@ -1659,10 +1659,36 @@ public static partial class GameViews
                 : !selling && tankTime != null
                     ? $"{name}'s Yard gate isn't piped: your tank gives {tankTime} more"
                     : $"{name} hasn't piped their Yard gate yet (or is on the way)"),
-            LinkFlow.NotAllowed => ("warn", "Nothing flows: a Block, a trade setting, or a buyer out of gold"),
+            LinkFlow.NotAllowed => ("warn", NotAllowedWhy(world, link, name, good)),
             _ => ("info", ""),
         };
         return (tone, line + "." + resting + notice);
+    }
+
+    /// <summary>Why nothing flows on a link that isn't allowed, by its real cause (it said "a Block, a trade setting, or a buyer out of gold")</summary>
+    private static string NotAllowedWhy(GameWorld world, Link link, string partnerName, string good)
+    {
+        if (world.Company(link.Seller) is not { } seller || world.Company(link.Buyer) is not { } buyer)
+        {
+            return $"Nothing flows: {partnerName} is gone";
+        }
+        if (!world.TradesWith(seller, buyer))
+        {
+            return $"Nothing flows: {seller.Name} stopped trading with {buyer.Name} (Trades › Settings › Who you trade with)";
+        }
+        if (!world.TradesWith(buyer, seller))
+        {
+            return $"Nothing flows: {buyer.Name} stopped trading with {seller.Name} (Trades › Settings › Who you trade with)";
+        }
+        if (seller.NoTrade.Contains(link.Resource))
+        {
+            return $"Nothing flows: {seller.Name} doesn't sell {good} to players (Trades › Settings, per good)";
+        }
+        if (buyer.NoBuy.Contains(link.Resource))
+        {
+            return $"Nothing flows: {buyer.Name} doesn't buy {good} from players (Trades › Settings, per good)";
+        }
+        return buyer.Gold <= 0 ? $"Nothing flows: {buyer.Name} is out of gold" : "Nothing flows: a trade setting stops it (Trades › Settings)";
     }
 
     /// <summary>What a link's buyer pays for a unit: the seller's special or public price for them (1.4 §8)</summary>
@@ -1829,10 +1855,10 @@ public static partial class GameViews
         }
         var income = world.GoldPerMinute().GetValueOrDefault(me.Id);
         var parts = new List<string>();
-        parts.Add(neighbours >= 0 ? $"the Yard pays you {Amount(neighbours)} g/min for what you send" : $"you pay neighbours {Amount(-neighbours)} g/min");
+        parts.Add(neighbours >= 0 ? $"Neighbours pay you {Amount(neighbours)} g a minute" : $"You pay neighbours {Amount(-neighbours)} g a minute");
         var rest = income - neighbours;
-        var line = $"Here {string.Join(" ", parts)}, of your {(income >= 0 ? "+" : "−")}{Amount(Math.Abs(income))}/min";
-        return rest >= 0.5 ? $"{line}: the hub pays the rest, for what nobody here takes." : $"{line}.";
+        var line = $"{string.Join(" ", parts)}, out of your {(income >= 0 ? "+" : "−")}{Amount(Math.Abs(income))}";
+        return rest >= 0.5 ? $"{line}. The hub pays the rest, for what nobody here takes." : $"{line}.";
     }
 
     /// <summary>The Discoveries of the last week: where they are, their markers</summary>

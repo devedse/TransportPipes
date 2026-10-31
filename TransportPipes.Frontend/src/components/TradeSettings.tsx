@@ -11,7 +11,7 @@ const MAX_PRICE = 2.5;
 const DEFAULT_PUBLIC = 1.3;
 const DEFAULT_CREW = 1.15;
 const STEP = 0.05;
-const RISE_WAITS = "A rise waits an hour, and your buyers are told";
+const RISE_WAITS = "A higher price starts in one hour; your buyers are told first";
 
 function find(prices: PriceDto[], key: string): PriceDto | undefined {
   return prices.find((t) => t.key === key);
@@ -128,7 +128,7 @@ function SpecialPrice({ price }: { price: PriceDto }) {
       <button
         type="button"
         className="link small"
-        title="They pay your public or crew price again"
+        title="They pay your price for other Yards or your Yard price again"
         onClick={() => void gameClient.setPrice(price.key, null)}
       >
         remove
@@ -222,31 +222,30 @@ export function TradeSettings() {
   return (
     <div className="trade-settings">
       <p className="trade-intro">
-        Lay a pipe from your network to your Yard gate: what your buildings don&apos;t use goes to the
-        neighbours who need it, at your price for them, and your factories buy what they lack at theirs. A
-        buyer pays the lowest of the prices that apply to them.
+        Pipe your buildings to your Yard gate. Then your spare goes to neighbours who need it, at your price,
+        and your buildings buy what they lack from neighbours, at theirs. If several of your prices fit a
+        buyer, they pay the lowest.
       </p>
 
       <section>
         <h4>Your prices</h4>
         <p className="muted small">
-          What another player pays you for a unit of your goods, as a multiple of its base price: from{" "}
-          {times(MIN_PRICE)}, what the hub pays you for it anyway, to {times(MAX_PRICE)}, what the market
-          would charge them. So trading with a player is never worse than the market for either side; higher
-          earns you more a unit, lower keeps your neighbours buying from you. A change counts from the
-          Yard&apos;s next round (the clock in the top bar), at once for what you sell over your own pipes.
+          What players pay you for your goods, as × the base price. {times(MIN_PRICE)} is what the hub pays
+          you anyway; {times(MAX_PRICE)} is what the market would charge them. Higher earns you more; lower
+          keeps neighbours buying from you. A change counts from the Yard&apos;s next round (the clock in the
+          top bar), and at once for what you sell over your own pipes.
         </p>
         <ul className="partner-list price-list">
           <li className="partner">
             <span className="partner-name">
-              <strong>Public price</strong>
+              <strong>Price for other Yards</strong>
               <span className="muted small" title={pub.pending !== null ? RISE_WAITS : undefined}>
-                {pub.pending ?? "for players outside your Yard (on links)"}
+                {pub.pending ?? "what players on your links pay"}
               </span>
             </span>
             <PriceStepper
               value={pub.value}
-              label="Your public price"
+              label="Your price for other Yards"
               onChange={(v) => setPrice("public", v, DEFAULT_PUBLIC)}
             />
             {pub.own ? (
@@ -263,14 +262,14 @@ export function TradeSettings() {
           </li>
           <li className="partner">
             <span className="partner-name">
-              <strong>Crew price</strong>
+              <strong>Yard price</strong>
               <span className="muted small" title={crew.pending !== null ? RISE_WAITS : undefined}>
-                {crew.pending ?? "for your Yard's neighbours"}
+                {crew.pending ?? "what your Yard's neighbours pay"}
               </span>
             </span>
             <PriceStepper
               value={crew.value}
-              label="Your crew price"
+              label="Your Yard price"
               onChange={(v) => setPrice("crew", v, DEFAULT_CREW)}
             />
             {crew.own ? (
@@ -300,7 +299,7 @@ export function TradeSettings() {
             checked={company.wantsFromMarket}
             onChange={(e) => void gameClient.setWantsFromMarket(e.target.checked)}
           />
-          The market brings what your levels and new buildings still lack
+          Buy missing upgrade goods from the hub by themselves (2.5× their price, within about ten minutes)
         </label>
         <p className="muted small">
           First come your Storages, your own spare, your Yard and its Depot. What none of them has, the market
@@ -333,7 +332,7 @@ export function TradeSettings() {
                       {n.youEarn > 0.05 && ` · you earn ${formatAmount(n.youEarn)} g/min`}
                       {n.youPay > 0.05 && ` · you pay ${formatAmount(n.youPay)} g/min`}
                       {n.blockAt !== null &&
-                        ` · trading stops at ${clock(n.blockAt)}: switch it on to call it off`}
+                        ` · trading stops at ${clock(n.blockAt)}: switch it back on to cancel`}
                       {n.blocked && " · you don't trade with them"}
                     </span>
                   </span>
@@ -358,8 +357,8 @@ export function TradeSettings() {
           </ul>
         )}
         <p className="muted small">
-          Blocking is private: they only read that you trade your spare with others. It counts from the
-          Yard&apos;s next round, and so does trading again.
+          They aren&apos;t told: they just see your goods go to others. It counts from the Yard&apos;s next
+          round, and so does switching them back on.
         </p>
       </section>
 
@@ -376,8 +375,8 @@ export function TradeSettings() {
                 <tr>
                   <th />
                   <th title="What the market pays you for it, within your Hub Order">Market pays</th>
-                  <th title="Your price for players outside your Yard (on links)">Public</th>
-                  <th title="Your price for your Yard's neighbours">Crew</th>
+                  <th title="What players on your links pay">Other Yards</th>
+                  <th title="What your Yard's neighbours pay">Yard</th>
                   <th>Sell to players</th>
                   <th>Buy from players</th>
                 </tr>
@@ -412,8 +411,8 @@ export function TradeSettings() {
                         <ResourceIcon resource={row.resource} /> {content.resourceName(row.resource)}
                       </td>
                       <td>{row.buyPrice.toFixed(2)} g</td>
-                      {cell("public", own, "Public price")}
-                      {cell("crew", ownCrew, "Crew price")}
+                      {cell("public", own, "Price for other Yards")}
+                      {cell("crew", ownCrew, "Yard price")}
                       <td>
                         <label className="switch">
                           <input
