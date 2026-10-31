@@ -11,6 +11,8 @@ interface Changes {
 /** The date of the newest change the player has seen */
 const SEEN = "tp.whatsNewSeen";
 const MAX = 20;
+/** Earlier changes come this many at a time */
+const PAGE = 30;
 
 function readSeen(): string | null {
   try {
@@ -60,6 +62,8 @@ export function WhatsNew() {
   const phase = useAppStore((s) => s.phase);
   const [changes, setChanges] = useState<Changes | null>(null);
   const [since, setSince] = useState<string | null>(null);
+  // Looking further back (playtest: "can we also show historical updates?"): how many of all the changes show
+  const [back, setBack] = useState<number | null>(null);
 
   useEffect(() => {
     if (phase !== "playing") {
@@ -102,6 +106,7 @@ export function WhatsNew() {
   useEffect(() => {
     if (was.current !== false && open === false && changes !== null) {
       writeSeen(changes.date);
+      setBack(null);
     }
     was.current = open;
   }, [open, changes]);
@@ -110,15 +115,12 @@ export function WhatsNew() {
     return null;
   }
   const close = () => setState({ whatsNewOpen: false });
-  const shown = (
+  const fresh =
     open === "new" && since !== null
       ? changes.changes.filter((t) => new Date(t.date) > new Date(since))
-      : changes.changes
-  ).slice(0, MAX);
-  const more =
-    open === "new" && since !== null
-      ? changes.changes.filter((t) => new Date(t.date) > new Date(since)).length - shown.length
-      : 0;
+      : null;
+  const shown = back !== null ? changes.changes.slice(0, back) : (fresh ?? changes.changes).slice(0, MAX);
+  const earlier = changes.changes.length - shown.length;
   // One list a day, newest first
   const days: Array<{ day: string; items: string[] }> = [];
   for (const change of shown) {
@@ -140,7 +142,11 @@ export function WhatsNew() {
           <div>
             <h3>What&apos;s new</h3>
             <div className="muted small">
-              {open === "new" ? "Since you last looked" : "The latest changes to the game"}
+              {back !== null
+                ? "Every change to the game, newest first"
+                : open === "new"
+                  ? "Since you last looked"
+                  : "The latest changes to the game"}
             </div>
           </div>
           <button className="icon-button" title="Close (Esc)" onClick={close}>
@@ -157,7 +163,11 @@ export function WhatsNew() {
             </ul>
           </section>
         ))}
-        {more > 0 && <p className="muted small">…and {more} more before that.</p>}
+        {earlier > 0 && (
+          <button className="wide whats-new-earlier" onClick={() => setBack(shown.length + PAGE)}>
+            Earlier changes ▸
+          </button>
+        )}
         <button className="primary wide" onClick={close}>
           Got it
         </button>

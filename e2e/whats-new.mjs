@@ -1,6 +1,7 @@
 // What's new (playtest: an update came with "New update!" and no word of what changed): after an update the changes
 // since the newest one seen on this browser, a day a list; seen once closed; a new company gets none; the version badge
-// shows the latest. Needs TransportPipes.Frontend/public/changes.json (node scripts/changes.mjs). node whats-new.mjs <outdir>
+// shows the latest; Earlier changes goes further back (playtest: "can we also show historical updates?"). Needs
+// TransportPipes.Frontend/public/changes.json (node scripts/changes.mjs). node whats-new.mjs <outdir>
 import { start, newPlayer } from "./lib.mjs";
 const [out = "shots/whats-new"] = process.argv.slice(2);
 const BASE = process.env.BASE_URL ?? "http://localhost:5173";
@@ -20,9 +21,22 @@ await game();
 check((await card.count()) === 1, "after an update: what's new");
 const items = await card.locator(".whats-new-list li").allInnerTexts();
 console.log(items);
-check(items.length === 3 && items[0] === changes.changes[0].text[0], "the three changes since, newest first", JSON.stringify(items));
+// (newer than the one seen: one pushed in the same second was there with it)
+const since = changes.changes.filter((t) => new Date(t.date) > new Date(changes.changes[3].date)).flatMap((t) => t.text);
+check(items.length === since.length && items[0] === since[0], "the changes since, newest first", JSON.stringify(items));
 check((await card.locator("h4").first().innerText()).length > 0, "under their day");
 await shot("1-new");
+// Further back: the earlier changes too, a page at a time
+await card.locator("button", { hasText: "Earlier changes" }).click();
+await page.waitForTimeout(400);
+const page1 = await card.locator(".whats-new-list li").count();
+check(page1 > items.length && /Every change to the game/.test(await card.innerText()), "Earlier changes shows what came before", `${items.length} → ${page1}`);
+if ((await card.locator("button", { hasText: "Earlier changes" }).count()) > 0) {
+  await card.locator("button", { hasText: "Earlier changes" }).click();
+  await page.waitForTimeout(400);
+  check((await card.locator(".whats-new-list li").count()) > page1, "and again further back");
+}
+await shot("1b-earlier");
 await page.keyboard.press("Escape");
 await page.waitForTimeout(500);
 check((await card.count()) === 0, "Esc closes it");

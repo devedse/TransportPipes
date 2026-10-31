@@ -1559,6 +1559,10 @@ kbd {
   padding: 14px 18px;
 }
 
+.whats-new-earlier {
+  margin-bottom: 8px;
+}
+
 .whats-new-list {
   margin: 0 0 10px;
   padding-left: 1.2em;
