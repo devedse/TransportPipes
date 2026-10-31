@@ -173,6 +173,22 @@ public class WantFacts
     }
 
     [TestMethod]
+    public void TheYardLineSaysWhoStoppedTheTrade()
+    {
+        // Playtest: "you and Gkoow Pipes don't trade" left open whose switch it was
+        var (game, ana, ben, smelter, pit) = SmelterAndCoal();
+        game.Connect(ben, pit, game.TradingPost(ben));
+        Assert.IsTrue(game.World.SetTradeBlocked(ben.Id, ana.Id, true).Success);
+        game.Pass(3);
+        StringAssert.Contains(game.World.IdleStatusOf(smelter, plan: false).Reach, "Ben stopped trading with you: only they can switch it back on");
+
+        Assert.IsTrue(game.World.SetTradeBlocked(ben.Id, ana.Id, false).Success);
+        Assert.IsTrue(game.World.SetTradeBlocked(ana.Id, ben.Id, true).Success);
+        game.Pass(3);
+        StringAssert.Contains(game.World.IdleStatusOf(smelter, plan: false).Reach, "you stopped trading with Ben: switch them on again in your Trade settings");
+    }
+
+    [TestMethod]
     public void WithNobodyMakingItTheYardLineSaysWhereElseItComesFrom()
     {
         var (game, ana, ben, smelter, pit) = SmelterAndCoal();

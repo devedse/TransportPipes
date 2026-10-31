@@ -83,7 +83,10 @@ public sealed partial class GameWorld
         string Why(YardResident maker)
         {
             var name = NameFor(maker.Company, company);
-            return !TradesWith(company, maker.Company) || !TradesWith(maker.Company, company) ? $"you and {name} don't trade"
+            // Who stopped it (playtest: "you and Gkoow Pipes don't trade" left open whose switch it was)
+            return !TradesWith(company, maker.Company) ? $"you stopped trading with {name}: switch them on again in your Trade settings (Neighbours › Trade settings › Your Yard)"
+                : !TradesWith(maker.Company, company) ? $"{name} stopped trading with you: only they can switch it back on"
+                : PendingBlockOf(company, maker.Company) ? $"you are stopping trading with {name}: switch them on again in your Trade settings"
                 : !maker.Connected ? $"{name}'s pipes don't reach their Yard gate"
                 : maker.Spare.GetValueOrDefault(resource) >= 0.5 ? $"{name} has {Amount(maker.Spare[resource])} a minute spare: the Yard brings it within a minute or two"
                 // What they sell at their post but can't reach their gate isn't spare to the Yard
@@ -94,6 +97,9 @@ public sealed partial class GameWorld
         var whys = makers.Take(2).Select(Why).ToList();
         return $"In your Yard, {string.Join("; ", whys)}. Or {hub}.";
     }
+
+    /// <summary>Whether a company's block of another one still waits its notice</summary>
+    private static bool PendingBlockOf(Company company, Company other) => company.PendingBlocks.ContainsKey(other.Id);
 
     /// <summary>What a company's own buildings take of a good a minute</summary>
     private double UsedBy(Company company, string resource) =>
