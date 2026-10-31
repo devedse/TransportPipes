@@ -10,7 +10,46 @@ import { WaitingGoods, YardClock } from "./TopWaits";
 import { levelEta } from "../app/experience";
 import { ExperiencePanel } from "./ExperiencePanel";
 import { emblemIcon } from "../app/crews";
-import { researchName } from "../app/research";
+import { researchName, runningResearch } from "../app/research";
+
+/**
+ * A line of the Lab at work, in the top bar (the owner, 2026-10-31: "power should show a progress bar in the top"):
+ * its name, the time left and how far along it is; in words for the popup
+ */
+function ResearchLine({
+  name,
+  endsAt,
+  minutes,
+  words = false,
+}: {
+  name: string;
+  endsAt: string | null;
+  minutes: number | null;
+  words?: boolean;
+}) {
+  const now = useNow(1000);
+  const serverOffset = useAppStore((state) => state.serverOffsetMs);
+  const left = endsAt === null ? 0 : Math.max(0, (new Date(endsAt).getTime() - (now + serverOffset)) / 1000);
+  const share = minutes !== null && minutes > 0 ? Math.max(0, Math.min(1, 1 - left / (minutes * 60))) : null;
+  if (words) {
+    return (
+      <span>
+        {name}: {formatDuration(left)} left{share !== null && ` · ${Math.floor(share * 100)}% done`}
+      </span>
+    );
+  }
+  return (
+    <span className="top-research-line">
+      <span className="small current-research">{name}</span>
+      <span className="muted small">{formatDuration(left)}</span>
+      {share !== null && (
+        <span className="top-research-bar" aria-label={`${Math.floor(share * 100)}% done`}>
+          <span style={{ width: `${share * 100}%` }} />
+        </span>
+      )}
+    </span>
+  );
+}
 
 /** Gold that counts up smoothly between server updates */
 function useLiveGold(): number {
@@ -338,7 +377,7 @@ export function TopBar() {
               <strong className="tip-title">Research{researching !== null ? `: ${researching}` : ""}</strong>
               <span className="tip-section">
                 <strong>What it does</strong>
-                <span>Your Lab researches one thing at a time.</span>
+                <span>Your Lab works on two lines at once: a track and an Era tree item.</span>
                 <span>A track makes one chain of buildings faster and cheaper to run.</span>
                 <span>The Era tree opens the next Era&apos;s pipes and systems.</span>
               </span>
@@ -346,6 +385,14 @@ export function TopBar() {
                 <span className="tip-section">
                   <strong>Now</strong>
                   <span>Nothing is being researched: pick one.</span>
+                </span>
+              )}
+              {content !== null && researching !== null && (
+                <span className="tip-section">
+                  <strong>Now</strong>
+                  {runningResearch(company, content).map((line) => (
+                    <ResearchLine key={line.name} {...line} words />
+                  ))}
                 </span>
               )}
               <span className="tip-section muted">
@@ -356,8 +403,12 @@ export function TopBar() {
         >
           <button className="panel top-research" onClick={() => void gameClient.openResearch()}>
             <span>🔬</span>
-            {researching !== null ? (
-              <span className="small current-research">{researching}</span>
+            {researching !== null && content !== null ? (
+              <span className="top-research-lines">
+                {runningResearch(company, content).map((line) => (
+                  <ResearchLine key={line.name} {...line} />
+                ))}
+              </span>
             ) : company.research.open ? (
               <span className="small current-research pick">pick one!</span>
             ) : (

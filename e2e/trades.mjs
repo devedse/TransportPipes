@@ -49,6 +49,15 @@ await page.keyboard.press("c");
 await page.waitForTimeout(800);
 check((await page.locator(".trades-panel").count()) === 1, "and opens it");
 
+// A window in the middle of the screen (the owner: "having it in the middle screen makes more sense like it was
+// before"): Esc closes it
+const box = await page.locator(".trades-panel").boundingBox();
+const view = page.viewportSize();
+check(Math.abs(box.x + box.width / 2 - view.width / 2) < 40, "Trades sits in the middle of the screen", JSON.stringify(box));
+await page.keyboard.press("Escape");
+await page.waitForTimeout(400);
+check((await page.locator(".trades-panel").count()) === 0, "Esc closes it");
+
 // The Yard: who lives around you, no Links tab; All your trades opens Trades
 await page.locator(".toolbar button", { hasText: "Yard" }).click();
 await page.waitForSelector(".yard-panel:not(.trades-panel)", { timeout: 10000 });
@@ -56,7 +65,7 @@ await page.waitForTimeout(1500);
 check((await page.locator(".yard-panel:not(.trades-panel) .tab", { hasText: "Links" }).count()) === 0, "the Yard panel has no Links tab");
 await page.locator(".yard-panel button", { hasText: "All your trades" }).click();
 await page.waitForTimeout(800);
-check((await page.locator(".trades-panel").count()) === 1 && (await page.locator(".yard-panel:not(.trades-panel)").count()) === 0, "All your trades opens Trades (one side panel at a time)");
+check((await page.locator(".trades-panel").count()) === 1 && (await page.locator(".yard-panel:not(.trades-panel)").count()) === 0, "All your trades opens Trades (and the Yard panel closes)");
 check(errors.length === 0, "browser errors: none", errors.join("\n"));
 await browser.close();
 console.log(failures === 0 ? "PASS" : `${failures} FAILED`);

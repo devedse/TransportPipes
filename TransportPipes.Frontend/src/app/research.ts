@@ -18,3 +18,27 @@ export function researchName(company: CompanyDto, content: Content): string | nu
   }
   return names.length > 0 ? names.join(" · ") : null;
 }
+
+/** What each of the Lab's lines researches now: its name, when it ends and how long it takes in all */
+export function runningResearch(
+  company: CompanyDto,
+  content: Content,
+): Array<{ name: string; endsAt: string | null; minutes: number | null }> {
+  const lines = company.research;
+  const running: Array<{ name: string; endsAt: string | null; minutes: number | null }> = [];
+  if (lines.currentTrack !== null) {
+    running.push({
+      name: tierName(lines.currentTrack, (lines.tiers[lines.currentTrack] ?? 0) + 1, content),
+      endsAt: lines.trackEndsAt,
+      minutes: lines.trackMinutes ?? null,
+    });
+  }
+  if (lines.currentResearch !== null) {
+    running.push({
+      name: content.research(lines.currentResearch)?.name ?? lines.currentResearch,
+      endsAt: lines.researchEndsAt,
+      minutes: lines.researchMinutes ?? null,
+    });
+  }
+  return running;
+}

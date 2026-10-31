@@ -44,37 +44,47 @@ export function TradesPanel() {
       (t) => (t.state === "offered" && !t.youOffered) || (t.askedGuaranteed != null && !t.askedByYou),
     ).length ?? 0;
   const goal = TABS.find((t) => t.id === tab)?.goal ?? "";
+  const close = () => setState({ tradesOpen: false });
+  // In the middle of the screen, as the trading window was (the owner, 2026-10-31: "having it in the middle screen
+  // makes more sense like it was before")
   return (
-    <aside className="panel yard-panel trades-panel" aria-label="Trades">
-      <div className="panel-header">
-        <div>
-          <h3>Trades</h3>
-          <div className="muted small">Who you sell to and buy from, and at what price</div>
-        </div>
-        <button className="icon-button" title="Close (Esc)" onClick={() => setState({ tradesOpen: false })}>
-          ×
-        </button>
-      </div>
-      <div className="tabs" role="tablist">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={tab === t.id}
-            className={tab === t.id ? "tab active" : "tab"}
-            onClick={() => void gameClient.openTrades(t.id)}
-          >
-            {t.label}
-            {t.id === "links" && asks > 0 && <span className="tab-badge">{asks}</span>}
+    <div className="modal-backdrop" onClick={close}>
+      <div
+        className="panel yard-panel trades-panel"
+        role="dialog"
+        aria-label="Trades"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="panel-header">
+          <div>
+            <h3>Trades</h3>
+            <div className="muted small">Who you sell to and buy from, and at what price</div>
+          </div>
+          <button className="icon-button" title="Close (Esc)" onClick={close}>
+            ×
           </button>
-        ))}
+        </div>
+        <div className="tabs" role="tablist">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={tab === t.id}
+              className={tab === t.id ? "tab active" : "tab"}
+              onClick={() => void gameClient.openTrades(t.id)}
+            >
+              {t.label}
+              {t.id === "links" && asks > 0 && <span className="tab-badge">{asks}</span>}
+            </button>
+          ))}
+        </div>
+        <p className="muted small trades-goal">{goal}</p>
+        {tab === "now" && <TradesNow />}
+        {tab === "links" && <LinksTab />}
+        {tab === "settings" && <TradeSettings />}
+        {tab === "town" && <TownList />}
       </div>
-      <p className="muted small trades-goal">{goal}</p>
-      {tab === "now" && <TradesNow />}
-      {tab === "links" && <LinksTab />}
-      {tab === "settings" && <TradeSettings />}
-      {tab === "town" && <TownList />}
-    </aside>
+    </div>
   );
 }
 

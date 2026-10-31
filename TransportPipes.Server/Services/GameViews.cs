@@ -39,7 +39,10 @@ public static partial class GameViews
             world.BuildingsOf(company.Id).GroupBy(t => t.Type).ToDictionary(t => t.Key, t => t.Count()),
             new ResearchLinesDto(world.HasLab(company), company.Researched.OrderBy(t => t).ToList(), company.CurrentResearch, company.ResearchEndsAt, company.ResearchQueue.ToList(),
                 new Dictionary<string, int>(company.TrackTiers), company.CurrentTrack, company.TrackEndsAt, company.TrackQueue.ToList(), company.KeepResearching, world.ResearchOpen(company),
-                company.ResearchHeld.ToDictionary(t => t.Key, t => Math.Round(t.Value, 1))),
+                company.ResearchHeld.ToDictionary(t => t.Key, t => Math.Round(t.Value, 1)),
+                company.CurrentResearch is { } tech && world.Content.Research.GetValueOrDefault(tech) is { } item ? world.ResearchMinutes(company, item.Minutes) : null,
+                company.CurrentTrack is { } track && world.TrackTier(company, track) < world.Content.TrackRules.Tiers.Count
+                    ? world.ResearchMinutes(company, world.Content.TrackRules.Tiers[world.TrackTier(company, track)].Minutes) : null),
             Orders(world, company),
             company.NoTrade.OrderBy(t => t).ToList(),
             company.MentorId,

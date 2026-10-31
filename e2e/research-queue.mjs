@@ -52,6 +52,15 @@ const track = (name) => page.locator(".tech.track", { hasText: name }).first();
 await track("Power").locator("button", { hasText: "Research tier 1" }).click();
 await wait();
 check((await lines()).currentTrack === "power", "Power researches");
+// The top bar shows it with its time left and a bar (the owner: "power should show a progress bar in the top")
+await page.keyboard.press("Escape");
+await wait(1500);
+const top = (await page.locator(".top-research").innerText()).replace(/\s+/g, " ");
+check(/Power 1 \d+ min/.test(top) && (await page.locator(".top-research .top-research-bar").count()) === 1, "the top bar: Power 1, its time left and a bar", top);
+await page.locator(".top-research").screenshot({ path: `${out}/0-top-bar.png` });
+await page.evaluate(() => tp.gameClient.openResearch());
+await page.waitForSelector(".research-panel");
+await wait(800);
 check(await track("Iron").locator("button", { hasText: "Do tier 1 first" }).isVisible(), "a busy line: the card says Do it first");
 await track("Iron").locator("button", { hasText: "Queue it" }).click();
 await wait(600);

@@ -81,7 +81,8 @@ function TrackCard({ state, content }: { state: TrackStateDto; content: Content 
   const lines = company.research;
   const current = lines.currentTrack === state.id;
   const nextMinutes = state.minutes;
-  const progress = useProgress(current ? lines.trackEndsAt : null, nextMinutes);
+  // Its bar by the tier being researched (the next tier's time made it run ahead or behind)
+  const progress = useProgress(current ? lines.trackEndsAt : null, lines.trackMinutes ?? nextMinutes);
   const tiers = content.dto.trackTiers.length;
   const researching = content.dto.trackTiers[state.tiers];
   const name = track?.name ?? state.id;
@@ -190,7 +191,10 @@ function TreeCard({ tech, state }: { tech: ResearchDefinition; state: ResearchSt
   const status = state?.state ?? "locked";
   // How long it takes you, as the server works it out (a Lab level makes it faster: the content's time was shown)
   const minutes = state?.minutes ?? tech.minutes;
-  const progress = useProgress(status === "researching" ? lines.researchEndsAt : null, minutes);
+  const progress = useProgress(
+    status === "researching" ? lines.researchEndsAt : null,
+    lines.researchMinutes ?? minutes,
+  );
   const cost = state?.cost ?? tech.gold;
   const held = status === "researching" ? undefined : (lines.held?.[tech.id] ?? undefined);
   const affordable = held !== undefined || company.gold >= cost;

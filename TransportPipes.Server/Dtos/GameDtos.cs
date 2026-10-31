@@ -143,9 +143,11 @@ public record DepotGoodDto(string Resource, double Amount, long Owner, string Ow
 /// and whether something can be researched now
 /// </summary>
 /// <param name="Held">Research stopped on its way: its id and the minutes of work it still needs (paid already)</param>
+/// <param name="ResearchMinutes">How long the Era tree item being researched takes in all, at the Lab's speed (its progress)</param>
+/// <param name="TrackMinutes">How long the track's tier being researched takes in all</param>
 public record ResearchLinesDto(bool HasLab, IReadOnlyList<string> Researched, string? CurrentResearch, DateTime? ResearchEndsAt, IReadOnlyList<string> ResearchQueue,
     IReadOnlyDictionary<string, int> Tiers, string? CurrentTrack, DateTime? TrackEndsAt, IReadOnlyList<string> TrackQueue, bool KeepResearching, bool Open,
-    IReadOnlyDictionary<string, double>? Held = null);
+    IReadOnlyDictionary<string, double>? Held = null, double? ResearchMinutes = null, double? TrackMinutes = null);
 
 /// <summary>
 /// A track as the research panel shows it: its tiers, the next tier's price (gold, and from tier 3 its good: from your

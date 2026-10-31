@@ -2362,6 +2362,40 @@ button.link {
   color: var(--info);
 }
 
+/* The Lab's lines at work: a name, the time left and a thin bar each */
+.top-research-lines {
+  display: grid;
+  gap: 3px;
+  min-width: 96px;
+}
+
+.top-research-line {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: space-between;
+  column-gap: 8px;
+  row-gap: 2px;
+  align-items: baseline;
+}
+
+.top-research-line > span {
+  white-space: nowrap;
+}
+
+.top-research-bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+}
+
+.top-research-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--info);
+}
+
 /* ---------- Society: corporations, chat, inbox, visits, leaderboards ---------- */
 
 textarea {
@@ -7742,8 +7776,13 @@ button.top-waits {
 
 /* The Trades panel: a little wider than the Yard's, nothing wider than itself (the owner, 2026-10-31: "some things
    don't fit in the trade menu now") */
-.trades-panel {
-  width: min(460px, calc(100vw - 24px));
+/* In the middle of the screen, as the trading window was (not at the side like the Yard) */
+.yard-panel.trades-panel {
+  position: relative;
+  top: auto;
+  right: auto;
+  width: min(760px, calc(100vw - 24px));
+  max-height: calc(100vh - 40px);
   overflow-x: hidden;
 }
 
