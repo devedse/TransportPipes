@@ -69,9 +69,11 @@ public sealed class WorldChanges
     public bool Wonders { get; set; }
     public bool Outposts { get; set; }
     public bool Blueprints { get; set; }
+    /// <summary>The Yards' next round moved (a round ran, or something brought it sooner): every top bar's clock</summary>
+    public bool YardRound { get; set; }
     public List<WorldEvent> Events { get; } = new();
 
-    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Crews.Count == 0 && Legacy.Count == 0 && Links.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && !Outposts && !Blueprints && Events.Count == 0;
+    public bool IsEmpty => Tiles.Count == 0 && Companies.Count == 0 && Networks.Count == 0 && Storages.Count == 0 && Estates.Count == 0 && Markets.Count == 0 && Crews.Count == 0 && Legacy.Count == 0 && Links.Count == 0 && Districts.Count == 0 && !Exchange && !Wonders && !Outposts && !Blueprints && !YardRound && Events.Count == 0;
 }
 
 /// <summary>
@@ -1023,9 +1025,11 @@ public sealed partial class GameWorld
     }
 
     /// <summary>The gold of a building's next levels (from the level it was bought up to, its goods still coming or not)</summary>
-    public double UpgradeCost(Building building, int levels)
+    public double UpgradeCost(Building building, int levels) => UpgradeCostFrom(building, BoughtLevel(building), levels);
+
+    /// <summary>What some levels of a building cost from a level it was bought up to</summary>
+    private double UpgradeCostFrom(Building building, int from, int levels)
     {
-        var from = BoughtLevel(building);
         double total = 0;
         for (var level = from; level < from + levels; level++)
         {
@@ -1153,6 +1157,36 @@ public sealed partial class GameWorld
             }
         }
         return levels == 0 ? (0, 0, "Not enough gold for any of them.") : (levels, Math.Round(gold - company.Gold, 2), null);
+    }
+
+    /// <summary>
+    /// What UpgradeMany with a budget would buy, without buying it: level by level the cheapest next one, as far as the
+    /// budget goes; the levels, their gold and their goods (from level 11)
+    /// </summary>
+    public (int Levels, double Gold, Dictionary<string, double> Goods) PlanCheapest(Company company, IReadOnlyCollection<long> ids, double budget)
+    {
+        var buildings = ids.Distinct().Select(Building).OfType<Building>().Where(t => t.Owner == company.Id && CanUpgrade(t)).ToList();
+        var bought = buildings.ToDictionary(t => t.Id, BoughtLevel);
+        var left = Math.Min(budget, company.Gold);
+        var (levels, gold, goods) = (0, 0.0, new Dictionary<string, double>());
+        for (var i = 0; i < 5000; i++)
+        {
+            var next = buildings.Where(t => bought[t.Id] < Content.Progression.MaxBuildingLevel)
+                .Select(t => (Building: t, Cost: UpgradeCostFrom(t, bought[t.Id], 1))).OrderBy(t => t.Cost).FirstOrDefault();
+            if (next.Building == null || next.Cost > left + 1e-9)
+            {
+                break;
+            }
+            left -= next.Cost;
+            gold += next.Cost;
+            levels++;
+            var to = ++bought[next.Building.Id];
+            foreach (var (resource, amount) in LevelGoods(next.Building, to))
+            {
+                goods[resource] = goods.GetValueOrDefault(resource) + amount;
+            }
+        }
+        return (levels, Math.Round(gold, 2), goods);
     }
 
     /// <summary>Buys a parcel of one of the company's estates (0 is the first estate, then the branches)</summary>

@@ -1,5 +1,7 @@
 import { HubConnectionBuilder, LogLevel, type HubConnection } from "@microsoft/signalr";
 import type {
+  LevelGoodsDto,
+  SelectionCostsDto,
   PaceDto,
   StatisticsDto,
   StatsRange,
@@ -145,6 +147,7 @@ export interface ServerEvents {
   crewChanged(): void;
   linksChanged(): void;
   mapLinksChanged(): void;
+  yardRound(next: string): void;
 }
 
 const EVENT_NAMES: Record<keyof ServerEvents, string> = {
@@ -161,6 +164,7 @@ const EVENT_NAMES: Record<keyof ServerEvents, string> = {
   crewChanged: "CrewChanged",
   linksChanged: "LinksChanged",
   mapLinksChanged: "MapLinksChanged",
+  yardRound: "YardRound",
 };
 
 const START_RETRY_DELAYS_MS = [0, 2000, 5000, 10000];
@@ -357,14 +361,14 @@ export class GameConnection {
       levelsEach,
       budget,
     );
-  getSelectionCosts = (buildings: number[]) =>
-    this.invoke<{
-      plusOne: number;
-      plusTen: number;
-      cheapest: number;
-      upgradable: number;
-      makes: Record<string, number>;
-    }>("GetSelectionCosts", buildings);
+  getSelectionCosts = (buildings: number[]) => this.invoke<SelectionCostsDto>("GetSelectionCosts", buildings);
+  /** What "Spend …, cheapest first" buys for a budget */
+  getSpendPlan = (buildings: number[], budget: number) =>
+    this.invoke<{ levels: number; gold: number; goods: LevelGoodsDto | null } | null>(
+      "GetSpendPlan",
+      buildings,
+      budget,
+    );
   getNextSteps = () => this.invoke<NextStepDto[]>("GetNextSteps");
   placeBuildings = (type: string, spots: number[]) =>
     this.invoke<{ placed: number; gold: number; error: string | null }>("PlaceBuildings", type, spots);

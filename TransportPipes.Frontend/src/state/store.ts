@@ -183,6 +183,8 @@ export interface AppState {
   photoMode: boolean;
   /** The map has been drawn where the camera looks (a loading picture covers it until then) */
   mapShown: boolean;
+  /** When the Yards' next round comes (the top bar's clock; the server says it after every round) */
+  nextYardRound: string | null;
   timeOfDay: "day" | "golden" | "dusk" | "night";
   /** A Company Level just reached: the celebration shows */
   levelUp: number | null;
@@ -292,6 +294,7 @@ export const initialState: AppState = {
   levelUp: null,
   photoMode: false,
   mapShown: false,
+  nextYardRound: null,
   timeOfDay: "day",
   outpostCheck: null,
   moderationOpen: false,

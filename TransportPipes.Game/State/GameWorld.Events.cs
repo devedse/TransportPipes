@@ -120,7 +120,7 @@ public sealed partial class GameWorld
     }
 
     /// <summary>Hub prices during a Drought (water ×3) and an Expo (×3 for its product)</summary>
-    private double EventPriceFactor(DistrictCoord district, string resource)
+    public double EventPriceFactor(DistrictCoord district, string resource)
     {
         if (_events.Count == 0)
         {

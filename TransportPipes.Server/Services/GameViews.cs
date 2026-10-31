@@ -104,7 +104,8 @@ public static partial class GameViews
             Workshops(world, company),
             company.Explored.ToList(),
             Math.Round(world.OwnGoodsIntoWants(company)),
-            world.CostFactor(company));
+            world.CostFactor(company),
+            world.NextYardRound);
     }
 
     /// <summary>Building in the Yard (1.4 §7): your workshop tiles, and the crew's Depot</summary>
@@ -161,7 +162,8 @@ public static partial class GameViews
         var plan = world.PlanGrowth(me);
         var grow = plan.Parts.Count == 0 && plan.Saving == null ? null
             : new GrowPlanDto(plan.Parts.Select(t => new GrowPartDto(t.Building, t.Text, Math.Round(t.Cost), Math.Round(t.Gain, 1))).ToList(), plan.Cost, plan.Gain,
-                me.LastGrowth is { } last && world.Now - last.At <= GameWorld.UndoFor ? last.At + GameWorld.UndoFor : null, plan.Saving, plan.Goods);
+                me.LastGrowth is { } last && world.Now - last.At <= GameWorld.UndoFor ? last.At + GameWorld.UndoFor : null, plan.Saving, plan.Goods,
+                LevelGoods(world, me, GrowGoods(world, plan)));
         if (grow == null && me.LastGrowth is { } recent && world.Now - recent.At <= GameWorld.UndoFor)
         {
             grow = new GrowPlanDto([], 0, 0, recent.At + GameWorld.UndoFor);
@@ -365,8 +367,18 @@ public static partial class GameViews
                 t.Kind == "hub" ? Math.Round(world.HubOrder(company, t.Resource), 1) : null)).ToList(),
             Math.Round(lines.Sum(t => t.Gold), 1),
             Math.Round(company.DailyOrders.Sum(t => t.Premium)),
-            Math.Round(world.OwnGoodsIntoWants(company)));
+            Math.Round(world.OwnGoodsIntoWants(company)),
+            world.MarketForWants(company).Select(t => new WantImportDto(t.Resource, Math.Round(t.PerMinute, 1), Math.Round(t.Price, 2), Math.Round(t.Left, 1))).ToList());
     }
+
+    /// <summary>
+    /// Some levels' goods as the buttons show them (the owner, 2026-10-31: "it should show 1100g, 100 wood, 3838 iron
+    /// ingot"), the dearest first, with what the market would charge for all of them; null: none
+    /// </summary>
+    public static LevelGoodsDto? LevelGoods(GameWorld world, Company owner, IReadOnlyDictionary<string, double> goods) =>
+        goods.Count == 0 ? null : new LevelGoodsDto(
+            goods.OrderByDescending(t => t.Value * world.BasePrice(t.Key)).Select(t => new ResourceAmountDto(t.Key, Math.Round(t.Value, 1), Math.Round(t.Value, 1))).ToList(),
+            Math.Ceiling(goods.Sum(t => t.Value * world.WantMarketPrice(owner, t.Key))));
 
     /// <summary>A level's goods still coming (1.4 §9): the wants, and what buying the rest costs</summary>
     private static LevelWaitDto? LevelWait(GameWorld world, Building building, Company? viewer)
@@ -933,7 +945,10 @@ public static partial class GameViews
             track?.Name,
             tiers,
             world.Sleeps(building),
-            PostSales(world, building, owner));
+            PostSales(world, building, owner),
+            upgradable && owner != null ? LevelGoods(world, owner, world.StepGoods(building, 1)) : null,
+            upgradable && owner != null ? LevelGoods(world, owner, world.StepGoods(building, Math.Min(10, maxLevels))) : null,
+            upgradable && owner != null && affordable > 0 ? LevelGoods(world, owner, world.StepGoods(building, affordable)) : null);
     }
 
     private static PipeDoorDto Door(GameWorld world, PipeDoor door) => new(
@@ -952,6 +967,25 @@ public static partial class GameViews
 
     private static string? NullIfEmpty(string text) => text.Length == 0 ? null : text;
 
+    /// <summary>What Grow's levels take in goods, by good: a door's levels up to the level it reaches, a Max's levels</summary>
+    private static Dictionary<string, double> GrowGoods(GameWorld world, GrowPlan plan)
+    {
+        var goods = new Dictionary<string, double>();
+        foreach (var part in plan.Parts.Where(t => t.Building > 0))
+        {
+            if (world.Building(part.Building) is not { } building)
+            {
+                continue;
+            }
+            var levels = part.Door ? Math.Max(0, part.Levels - world.BoughtLevel(building)) : part.Levels;
+            foreach (var (resource, amount) in world.StepGoods(building, levels))
+            {
+                goods[resource] = goods.GetValueOrDefault(resource) + amount;
+            }
+        }
+        return goods;
+    }
+
     /// <summary>
     /// A trading post's sales by good (playtest: "wouldn't it make sense to show in a bar how much the trading building is
     /// being used?"): what your posts sell a minute against your Hub Order, and what this one gets for it
@@ -965,8 +999,12 @@ public static partial class GameViews
         var flows = world.NetworkOf(post.Id)?.Solution.Flows.Where(t => t.To == post.Id && t.Kind == FlowKind.Sale).ToList() ?? [];
         var selling = world.SellingNow(owner);
         return flows.Select(t => t.Resource).Distinct()
-            .Select(t => new PostSaleDto(t, Math.Round(selling.GetValueOrDefault(t), 1), Math.Round(world.HubOrder(owner, t), 1),
-                Math.Round(flows.Where(f => f.Resource == t).Sum(f => f.Delivered * f.PricePerUnit), 1)))
+            .Select(t => (Resource: t, Units: flows.Where(f => f.Resource == t).Sum(f => f.Delivered), Gold: flows.Where(f => f.Resource == t).Sum(f => f.Delivered * f.PricePerUnit)))
+            .Select(t => new PostSaleDto(t.Resource, Math.Round(selling.GetValueOrDefault(t.Resource), 1), Math.Round(world.HubOrder(owner, t.Resource), 1),
+                Math.Round(t.Gold, 1),
+                // What a unit is paid now, and the full price (the price up to the Hub Order)
+                t.Units > 1e-9 ? Math.Round(t.Gold / t.Units, 2) : 0,
+                Math.Round(world.BasePrice(t.Resource) * world.EventPriceFactor(owner.District, t.Resource), 2)))
             .OrderByDescending(t => t.Gold)
             .ToList();
     }
@@ -1105,7 +1143,71 @@ public static partial class GameViews
         step.Count,
         step.Network,
         step.Tiles?.SelectMany(t => new[] { t.X, t.Y }).ToArray() ?? [],
-        step.Tier);
+        step.Tier,
+        world != null && me != null && step.Action == AdvisorAction.Upgrade && step.Building is { } id && world.Building(id) is { } upgraded && step.Levels > 0
+            ? LevelGoods(world, me, world.StepGoods(upgraded, step.Levels))
+            : null);
+
+    /// <summary>
+    /// What a network sends into its owner's links of a good from the Yard gate it is piped to (the owner, 2026-10-31: the
+    /// seller's panel said "sold through the Yard 100", the buyer bought 25: the rest filled the buyer's tank and was lost
+    /// on the link's 109 tiles)
+    /// </summary>
+    private static double LinkSends(GameWorld world, Network network, string resource) =>
+        network.Owner is { } owner && world.Company(owner) is { } company && world.EstateOf(company) is { } estate && world.GateNetwork(estate)?.Id == network.Id
+            ? world.LinksOf(owner).Where(t => t.Seller == owner && t.Flows && t.Resource == resource).Sum(t => t.Send)
+            : 0;
+
+    /// <summary>
+    /// Of a good its buildings get less of than they need, what is for buildings that couldn't run on it anyway: another
+    /// input missing (the owner, 2026-10-31: coal 5 short while the coal link brought 25: the 5 were a Brickworks' that
+    /// had no stone, and the Yard and links bring a building only what it can use). Null: none
+    /// </summary>
+    private static string? ShortWhy(GameWorld world, Network network, string resource, Func<string, bool> spare)
+    {
+        var received = new Dictionary<(long, string), double>();
+        foreach (var flow in network.Solution.Flows)
+        {
+            received[(flow.To, flow.Resource)] = received.GetValueOrDefault((flow.To, flow.Resource)) + flow.Delivered;
+        }
+        foreach (var flow in network.GateFlows.Where(t => t.Import))
+        {
+            received[(flow.Building, flow.Resource)] = received.GetValueOrDefault((flow.Building, flow.Resource)) + flow.Delivered;
+        }
+        var blocked = new Dictionary<(string Type, string Missing), (int Count, double Short, bool Any)>();
+        // Every other input it lacks, said together: "no energy and no stone"
+        foreach (var node in network.Nodes.Where(t => t.Kind == FlowNodeKind.Building && t.Id > 0 && t.MaxRate > 1e-9 && t.In.ContainsKey(resource)))
+        {
+            var need = node.In[resource] * node.MaxRate;
+            var got = received.GetValueOrDefault((node.Id, resource));
+            if (got >= need * 0.99 || world.Building(node.Id) is not { } building)
+            {
+                continue;
+            }
+            var others = node.In.Where(t => t.Key != resource)
+                .Select(t => (t.Key, Share: received.GetValueOrDefault((node.Id, t.Key)) / (t.Value * node.MaxRate)))
+                // Only what the network has no more of than it uses: a building that doesn't run takes none of what is there
+                .Where(t => t.Share < 0.99 && !spare(t.Key)).OrderBy(t => t.Key, StringComparer.Ordinal).ToList();
+            if (others.Count == 0)
+            {
+                continue;
+            }
+            var missing = string.Join(" and ", others.Select(t => $"{(t.Share < 0.01 ? "no" : "too little")} {world.GoodsWord(t.Key)}"));
+            var key = (building.Type, missing);
+            var known = blocked.GetValueOrDefault(key);
+            blocked[key] = (known.Count + 1, known.Short + need - got, true);
+        }
+        if (blocked.Count == 0)
+        {
+            return null;
+        }
+        var parts = blocked.OrderByDescending(t => t.Value.Short).Take(3).Select(t =>
+        {
+            var name = world.Content.Building(t.Key.Type).Name;
+            return $"{PerMinute(t.Value.Short)} of it for {(t.Value.Count == 1 ? $"your {name}, which also gets" : $"{t.Value.Count} {name}s, which also get")} {t.Key.Missing}";
+        });
+        return $"{string.Join("; ", parts)}: the Yard and your links bring a building only what it can use";
+    }
 
     public static NetworkDetailsDto NetworkDetails(GameWorld world, Network network, long? viewer = null)
     {
@@ -1260,7 +1362,9 @@ public static partial class GameViews
                 .Select(t => (Resource: t.Key, Row: t.Value, Needed: needed.GetValueOrDefault(t.Key)))
                 .Concat(needed.Where(t => !resources.ContainsKey(t.Key)).Select(t => (Resource: t.Key, Row: new double[11], Needed: t.Value)))
                 .OrderBy(t => world.Content.Resources.TryGetValue(t.Resource, out var r) ? r.Tier : 99).ThenBy(t => t.Resource)
-                .Select(t => new NetworkResourceDto(t.Resource, t.Row[0], t.Row[1], t.Row[2], t.Row[3], t.Row[4], t.Row[5], t.Row[6], t.Row[7], t.Needed, t.Row[8], t.Row[9], Math.Round(t.Row[10], 1)))
+                .Select(t => new NetworkResourceDto(t.Resource, t.Row[0], t.Row[1], t.Row[2], t.Row[3], t.Row[4], t.Row[5], t.Row[6], t.Row[7], t.Needed, t.Row[8], t.Row[9], Math.Round(t.Row[10], 1),
+                    Math.Round(Math.Min(t.Row[9], LinkSends(world, network, t.Resource)), 1),
+                    t.Needed > t.Row[1] + 0.05 ? ShortWhy(world, network, t.Resource, r => resources.TryGetValue(r, out var row) && row[0] + row[3] + row[6] + row[8] - row[1] > 0.05) : null))
                 .ToList(),
             bottlenecks,
             network.Buildings.Select(world.Building).OfType<Building>()
@@ -1565,7 +1669,8 @@ public static partial class GameViews
             tone,
             line,
             Flat(link.Route),
-            world.LinkStartsAt(link));
+            world.LinkStartsAt(link),
+            Math.Round(link.Flows ? link.Send : 0, 2));
     }
 
     /// <summary>Your links, who a link would suit, and whom you could link with</summary>

@@ -7338,3 +7338,145 @@ button.return-graph .sparkline {
     display: none;
   }
 }
+
+.level-gold {
+  white-space: nowrap;
+}
+
+/* An upgrade's level goods (from level 11), under its gold on the button */
+.level-goods {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 6px;
+  font-size: 0.8em;
+  font-weight: 600;
+}
+
+.level-good {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.level-good .resource-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.goods-tip-anchor {
+  display: contents;
+}
+
+/* What an upgrade's price is made of, on hover */
+.goods-tip {
+  position: fixed;
+  z-index: 1100;
+  width: min(320px, calc(100vw - 16px));
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  text-align: left;
+  pointer-events: none;
+}
+
+.goods-tip.above {
+  transform: translateY(-100%);
+}
+
+.goods-tip-goods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-weight: 700;
+}
+
+.goods-tip-goods > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.goods-tip-goods .resource-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Where what goes into a link goes */
+.link-split ul {
+  margin: 2px 0 0;
+  padding-left: 18px;
+}
+
+/* The Yard's next round, and what waits for its goods, beside the gold */
+.top-yard,
+.top-waits {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0;
+  white-space: nowrap;
+  padding: 6px 12px;
+}
+
+button.top-waits {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.top-waits-wrap {
+  position: relative;
+  display: flex;
+}
+
+.top-waits-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: min(420px, calc(100vw - 24px));
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.top-waits-panel p {
+  margin: 0;
+}
+
+.top-waits-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.top-waits-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.top-waits-goods {
+  display: grid;
+  gap: 2px;
+}
+
+.top-waits-goods > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.top-waits-goods .resource-icon {
+  width: 16px;
+  height: 16px;
+}

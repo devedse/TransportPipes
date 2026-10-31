@@ -74,6 +74,16 @@ check(came !== null, "the energy comes");
 check(came !== null && promised !== null && Math.abs(came - promised) <= 8000, "when the card said, within a few seconds", `promised ${promised} came ${came}`);
 check(came !== null && shown !== null && shown - came <= 6000, "and the card shows it flowing by itself", `came ${came} shown ${shown}`);
 await b.shot("2-flowing");
+// The seller's side (the owner, 2026-10-31: "sold through the Yard 100" while the buyer bought 25): where what A sends
+// goes, on its card and in its network
+await a.page.evaluate(() => tp.gameClient.openLinks());
+await a.page.waitForSelector(".link-card", { timeout: 15000 });
+await a.page.evaluate(() => tp.gameClient.refreshLinks());
+await a.page.waitForTimeout(1500);
+const split = (await a.page.locator(".link-split").first().innerText().catch(() => "")).replace(/\s+/g, " ");
+console.log("A's split:", split);
+check(/You send [\d.,]+ energy\/min into it/.test(split) && /arrive for/.test(split) && /lost on the \d+ tiles/.test(split), "A's card: what it sends, what arrives, what the pipe loses", split);
+await a.shot("3-seller");
 for (const [name, player] of [["A", a], ["B", b]]) {
   check(player.errors.length === 0, `${name}: browser errors: none`, player.errors.join(" | "));
   await player.browser.close();

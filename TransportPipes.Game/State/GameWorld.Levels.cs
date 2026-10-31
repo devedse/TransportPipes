@@ -31,6 +31,39 @@ public sealed partial class GameWorld
         return Content.Progression.LevelGoodsFor(definition.Unlock.Era, toLevel, gold, BasePrice);
     }
 
+    /// <summary>The goods a building's next steps take, by good (none below level 11)</summary>
+    public Dictionary<string, double> StepGoods(Building building, int levels)
+    {
+        var from = BoughtLevel(building);
+        var goods = new Dictionary<string, double>();
+        for (var to = from + 1; to <= Math.Min(from + levels, Content.Progression.MaxBuildingLevel); to++)
+        {
+            foreach (var (resource, amount) in LevelGoods(building, to))
+            {
+                goods[resource] = goods.GetValueOrDefault(resource) + amount;
+            }
+        }
+        return goods;
+    }
+
+    /// <summary>
+    /// What the market brings a minute now for a company's wants (its levels', buildings' and pipes'), by good, as
+    /// ImportForWant does: a want's whole lack in about ten minutes, less what the Yard brings it, while the company has
+    /// gold; and what of its goods is still to come
+    /// </summary>
+    public List<(string Resource, double PerMinute, double Price, double Left)> MarketForWants(Company company)
+    {
+        var lines = new Dictionary<string, (double PerMinute, double Left)>();
+        foreach (var ask in company.Asks.Where(t => t.Left > 1e-6 && AllowsImports(company, t.Resource)))
+        {
+            var rate = company.Gold > 0 ? Math.Max(0, ask.Amount / ImportMinutes - ask.Incoming.Values.Sum()) : 0;
+            var line = lines.GetValueOrDefault(ask.Resource);
+            lines[ask.Resource] = (line.PerMinute + Math.Min(rate, ask.Left), line.Left + ask.Left);
+        }
+        return lines.OrderBy(t => t.Key, StringComparer.Ordinal)
+            .Select(t => (t.Key, t.Value.PerMinute, HubSellPrice(company.District, t.Key), t.Value.Left)).ToList();
+    }
+
     /// <summary>What the goods of a building's next steps are worth at base prices (none below level 11)</summary>
     public double StepGoodsWorth(Building building, int levels)
     {

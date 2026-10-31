@@ -3,6 +3,7 @@ import { gameClient } from "../app/client";
 import { formatAmount } from "../app/format";
 import type { NextStepDto } from "../api/contracts";
 import { currentGold, useAppStore } from "../state/store";
+import { GoodsTip, LevelPrice } from "./LevelPrice";
 
 const ICONS: Record<NextStepDto["kind"], string> = {
   shortage: "⚠",
@@ -139,16 +140,26 @@ export function NextSteps() {
                           : `Lay the pipe · ${formatAmount(step.cost)} g`}
                       </button>
                     ) : step.action === "upgrade" && step.building !== null ? (
-                      <button
-                        className="primary"
-                        disabled={short}
-                        title={short ? `You have ${formatAmount(gold)} g` : undefined}
-                        onClick={() => run(step, gameClient.upgrade(step.building!, step.levels))}
+                      <GoodsTip
+                        what={step.levels > 1 ? `${step.levels} levels` : "The level"}
+                        gold={step.cost}
+                        goods={step.goods}
                       >
-                        {short && step.waitMinutes !== null
-                          ? `In ${minutes(step.waitMinutes)}`
-                          : `Upgrade · ${formatAmount(step.cost)} g`}
-                      </button>
+                        <button
+                          className="primary"
+                          disabled={short}
+                          title={short ? `You have ${formatAmount(gold)} g` : undefined}
+                          onClick={() => run(step, gameClient.upgrade(step.building!, step.levels))}
+                        >
+                          {short && step.waitMinutes !== null ? (
+                            `In ${minutes(step.waitMinutes)}`
+                          ) : (
+                            <>
+                              Upgrade · <LevelPrice gold={step.cost} goods={step.goods} />
+                            </>
+                          )}
+                        </button>
+                      </GoodsTip>
                     ) : (
                       short &&
                       step.waitMinutes !== null && (

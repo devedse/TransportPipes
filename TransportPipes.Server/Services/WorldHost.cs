@@ -297,6 +297,12 @@ public sealed class WorldHost : BackgroundService
             pushes.Add(() => _hub.Clients.All.WondersChanged());
         }
 
+        if (changes.YardRound)
+        {
+            var next = world.NextYardRound;
+            pushes.Add(() => _hub.Clients.All.YardRound(next));
+        }
+
         foreach (var district in changes.Markets)
         {
             pushes.Add(() => _hub.Clients.All.MarketChanged(district.X, district.Y));

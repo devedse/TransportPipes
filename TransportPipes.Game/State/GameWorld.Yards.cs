@@ -1117,8 +1117,12 @@ public sealed partial class GameWorld
         if (_nextCoupling > LastTick + CouplingInterval)
         {
             _nextCoupling = LastTick + CouplingInterval;
+            Changes.YardRound = true;
         }
     }
+
+    /// <summary>When the Yards' next round comes (the top bar's clock: links, Yard trades and neighbours' goods move then)</summary>
+    public DateTime NextYardRound => NextCoupling();
 
     /// <summary>The moments the Yards are coupled between two times (once a minute while terms move, less often when they don't)</summary>
     private DateTime NextCoupling()
@@ -1135,6 +1139,7 @@ public sealed partial class GameWorld
             CoupleYards();
         }
         _nextCoupling = LastTick + _couplingInterval;
+        Changes.YardRound = true;
     }
 
     private void RunCoupling()
@@ -1143,6 +1148,7 @@ public sealed partial class GameWorld
         _solves++;
         _couplings++;
         _nextCoupling = LastTick + _couplingInterval;
+        Changes.YardRound = true;
     }
 
     // ---------------------------------------------------------------- Queries for the Yard panel

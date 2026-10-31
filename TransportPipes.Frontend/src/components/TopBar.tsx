@@ -5,6 +5,7 @@ import { formatAmount, formatDuration, formatRate } from "../app/format";
 import { useNow } from "../app/useNow";
 import { currentGold, setState, useAppStore } from "../state/store";
 import { GoldPanel } from "./GoldPanel";
+import { WaitingGoods, YardClock } from "./TopWaits";
 import { levelEta } from "../app/experience";
 import { ExperiencePanel } from "./ExperiencePanel";
 import { emblemIcon } from "../app/crews";
@@ -160,6 +161,8 @@ export function TopBar() {
         </button>
         {goldOpen && <GoldPanel days={bankDays} onClose={() => setGoldOpen(false)} />}
       </div>
+      <WaitingGoods />
+      <YardClock />
 
       <div className="top-level-wrap">
         <button

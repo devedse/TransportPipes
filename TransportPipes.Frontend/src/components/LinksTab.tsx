@@ -82,13 +82,21 @@ function LinkCard({ link, content }: { link: LinkDto; content: Content }) {
           delivered so far
         </div>
       )}
+      {(link.sent ?? 0) > 0.05 && (
+        // Where what goes into it goes (the owner, 2026-10-31: the seller's network said 100 sold through the Yard, the
+        // buyer bought 25: the rest filled the buyer's tank, and the pipe lost 28% over its 109 tiles)
+        <LinkSplit link={link} good={good} />
+      )}
       <span className="button-row">
         {waitingForYou && (
           <>
             <button
               className="primary"
               onClick={() =>
-                void gameClient.linkCommand(gameClient.connection.acceptLink(link.id), "The link is laid")
+                void gameClient.linkCommand(
+                  gameClient.connection.acceptLink(link.id),
+                  "The link is laid: its first goods come at the Yard's second round from now, within two minutes (its card counts down)",
+                )
               }
             >
               Accept
@@ -119,7 +127,9 @@ function LinkCard({ link, content }: { link: LinkDto; content: Content }) {
             onClick={() =>
               void gameClient.linkCommand(
                 gameClient.connection.resumeLink(link.id),
-                link.state === "paused" ? "The link flows again" : "Notice taken back",
+                link.state === "paused"
+                  ? "The link flows again from the Yard's second round from now, within two minutes"
+                  : "Notice taken back",
               )
             }
           >
@@ -169,6 +179,45 @@ function LinkCard({ link, content }: { link: LinkDto; content: Content }) {
         )}
       </span>
     </li>
+  );
+}
+
+/**
+ * What a link's pipe carries a minute and where it goes: what arrives for the buyer's buildings (paid), what fills the
+ * buyer's tank (paid when it is used), what the pipe loses on its length (nobody pays for it)
+ */
+function LinkSplit({ link, good }: { link: LinkDto; good: string }) {
+  const sent = link.sent ?? 0;
+  const arrives = sent * link.efficiency;
+  const lost = sent - arrives;
+  const fill = Math.max(0, arrives - link.rate);
+  const tankLeft = Math.max(0, link.tankSize - link.tank);
+  return (
+    <div className="link-split small">
+      <div>
+        {link.youSell ? "You send" : `${link.partnerName} sends`} {formatAmount(sent)} {good}/min into it:
+      </div>
+      <ul>
+        <li>
+          {formatAmount(link.rate)} arrive for {link.youSell ? `${link.partnerName}'s` : "your"} buildings,
+          paid {link.price.toFixed(2)} g each
+        </li>
+        {fill > 0.05 && (
+          <li>
+            {formatAmount(fill)} fill the tank at {link.youSell ? `${link.partnerName}'s` : "your"} gate (it
+            keeps two hours of the need: paid when it is used)
+            {tankLeft > 0.5 && `, full in ${formatDuration((tankLeft / fill) * 60)}`}
+          </li>
+        )}
+        {lost > 0.05 && (
+          <li>
+            {formatAmount(lost)} are lost on the {link.length} tiles of the pipe (
+            {Math.round((1 - link.efficiency) * 100)}%: the longer the pipe, the more it loses; a better pipe
+            loses less) — nobody pays for it
+          </li>
+        )}
+      </ul>
+    </div>
   );
 }
 

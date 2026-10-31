@@ -85,7 +85,11 @@ function ResourceRow({ r, content }: { r: NetworkResourceDto; content: Content }
         <div className="net-where small muted">
           {[
             r.used > 0.05 && `used by buildings ${formatAmount(r.used)}`,
-            r.toYard > 0.05 && `sold through the Yard ${formatAmount(r.toYard)}`,
+            // What goes into links said apart (the owner, 2026-10-31: "sold through the Yard 100", the buyer got 25)
+            (r.toLinks ?? 0) > 0.05 &&
+              `into your links ${formatAmount(r.toLinks ?? 0)} (what arrives, fills your buyers' tanks, and what the links' pipes lose: Neighbours › Links)`,
+            r.toYard - (r.toLinks ?? 0) > 0.05 &&
+              `sold through the Yard ${formatAmount(r.toYard - (r.toLinks ?? 0))}`,
             r.stored > 0.05 && `stored ${formatAmount(r.stored)}`,
             r.lost > 0.05 && `lost in the pipes ${formatAmount(r.lost)}`,
           ]
@@ -109,6 +113,7 @@ function ResourceRow({ r, content }: { r: NetworkResourceDto; content: Content }
             the buildings get {formatAmount(r.used)} of the {formatAmount(r.needed)} they need
             {/* Both spare and short: the spare can't reach them (run 2: Cleo's "two numbers that disagree") */}
             {spare > 0.05 && ": the spare can't reach them, since goods never pass through a building"}
+            {r.shortWhy != null && ` · ${r.shortWhy}`}
           </span>
         </div>
       )}

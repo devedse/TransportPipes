@@ -119,6 +119,8 @@ export interface CompanyDto {
   ownGoodsIntoWants?: number;
   /** What buildings and parcels cost of their price (the Workshop wonder's perk makes them cheaper) */
   costFactor?: number;
+  /** When the Yards' next round comes (links, Yard trades and neighbours' goods move then) */
+  nextYardRound?: string | null;
 }
 
 export type GiveMode = "off" | "beyondHubOrder" | "all";
@@ -648,6 +650,9 @@ export interface PostSaleDto {
   perMinute: number;
   hubOrder: number;
   gold: number;
+  /** What a unit is paid now, and the full price (the price up to the Hub Order) */
+  price?: number;
+  fullPrice?: number;
 }
 
 export interface BuildingDetailsDto {
@@ -710,6 +715,30 @@ export interface BuildingDetailsDto {
   sleeping: boolean;
   /** A trading post: what it sells by good against your Hub Orders (null: not a trading post) */
   sales?: PostSaleDto[] | null;
+  /** The level goods of the Level, +10 and Max buttons (from level 11; null: none) */
+  goods1?: LevelGoodsDto | null;
+  goods10?: LevelGoodsDto | null;
+  goodsMax?: LevelGoodsDto | null;
+}
+
+/** What upgrading a selection costs: +1 and +10 each, the cheapest single level, how many can, what they make */
+export interface SelectionCostsDto {
+  plusOne: number;
+  plusTen: number;
+  cheapest: number;
+  upgradable: number;
+  makes: Record<string, number>;
+  goodsPlusOne?: LevelGoodsDto | null;
+  goodsPlusTen?: LevelGoodsDto | null;
+}
+
+/**
+ * The goods some levels take on top of their gold (from level 11), and what they would cost if the market brought all
+ * of them (your own and your neighbours' cost less)
+ */
+export interface LevelGoodsDto {
+  goods: ResourceAmountDto[];
+  marketCost: number;
 }
 
 /** A building that works at its old level until the goods of the levels bought are in (1.4 §9) */
@@ -782,6 +811,16 @@ export interface IncomeDto {
   total: number;
   ordersToday: number;
   ownGoodsIntoWants: number;
+  /** What the market brings for your levels, buildings and pipes now (paid as it comes, not in the gold a minute) */
+  wantImports?: WantImportDto[] | null;
+}
+
+/** A good the market brings for your wants: how many a minute now, at what price (2.5× base), how many still to come */
+export interface WantImportDto {
+  resource: string;
+  perMinute: number;
+  price: number;
+  left: number;
 }
 
 /** A line of your gold a minute: what, the good, with whom, how many a minute, the gold a minute (a hub sale: your Hub Order) */
@@ -824,6 +863,8 @@ export interface GrowPlanDto {
   saving: string | null;
   /** What its levels' goods (from level 11) cost on top: they come in after the click */
   goods?: number;
+  /** Its levels' goods, by good */
+  levelGoods?: LevelGoodsDto | null;
 }
 
 export interface GrowPartDto {
@@ -1165,6 +1206,10 @@ export interface NetworkResourceDto {
   toYard: number;
   /** The gold a minute its sales to the hub bring */
   soldGold?: number;
+  /** Of toYard, what goes into its owner's links (what arrives, what fills the buyers' tanks, what the links' pipes lose) */
+  toLinks?: number;
+  /** Of what its buildings lack, what is for buildings that couldn't run on it anyway (another input missing) */
+  shortWhy?: string | null;
 }
 
 export interface NetworkDetailsDto {
@@ -1650,6 +1695,8 @@ export interface NextStepDto {
   network: number | null;
   tiles: number[];
   tier: number;
+  /** An upgrade step's level goods (from level 11) */
+  goods?: LevelGoodsDto | null;
 }
 
 // ---------------------------------------------------------------- The Yard (v1.2 §7)
@@ -1935,6 +1982,8 @@ export interface LinkDto {
   route: number[];
   /** A starting link: when its first goods come (the Yards' rounds) */
   startsAt?: string | null;
+  /** What the seller's gate sends into it a minute: what arrives, what fills the tank, what the pipe loses */
+  sent?: number;
 }
 
 export interface LinkSuggestionDto {

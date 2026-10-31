@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import type { LevelGoodsDto, SelectionCostsDto } from "../api/contracts";
 import { gameClient } from "../app/client";
 import { formatAmount } from "../app/format";
 import { levelTier } from "../game/levels";
 import { currentGold, setState, useAppStore } from "../state/store";
+import { GoodsLine, GoodsTip, LevelPrice } from "./LevelPrice";
 
 /** Several buildings selected together: what they are, upgrading them at once, demolishing them */
 export function SelectionPanel() {
@@ -10,14 +12,16 @@ export function SelectionPanel() {
   const content = useAppStore((s) => s.content);
   const company = useAppStore((s) => s.company);
   const companyAt = useAppStore((s) => s.companyAt);
-  const [costs, setCosts] = useState<{
-    plusOne: number;
-    plusTen: number;
-    cheapest: number;
-    upgradable: number;
-    makes: Record<string, number>;
-  } | null>(null);
+  const [costs, setCosts] = useState<SelectionCostsDto | null>(null);
   const [budget, setBudget] = useState<number | null>(null);
+  // What Spend buys for the slider's gold: its levels and their goods (the owner, 2026-10-31: the goods in every menu
+  // that buys levels)
+  const [plan, setPlan] = useState<{
+    budget: number;
+    levels: number;
+    gold: number;
+    goods: LevelGoodsDto | null;
+  } | null>(null);
   const [confirm, setConfirm] = useState(false);
   const levels = selection.map((id) => gameClient.world?.buildings.get(id)?.level ?? 0).join(",");
 
@@ -36,10 +40,30 @@ export function SelectionPanel() {
     };
   }, [selection, levels]);
 
+  const goldNow = company === null ? 0 : currentGold({ company, companyAt });
+  const spendNow = Math.floor(Math.min(budget ?? niceAmount(goldNow / 4), goldNow));
+  // The slider at rest for a moment: what that gold buys
+  useEffect(() => {
+    if (selection.length < 2 || spendNow <= 0) {
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void gameClient.connection.getSpendPlan(selection, spendNow).then(
+        (result) => !cancelled && result !== null && setPlan({ budget: spendNow, ...result }),
+        () => undefined,
+      );
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [selection, levels, spendNow]);
+
   if (selection.length < 2 || content === null || company === null) {
     return null;
   }
-  const gold = currentGold({ company, companyAt });
+  const gold = goldNow;
   const buildings = selection.map((id) => gameClient.world?.buildings.get(id)).filter((t) => t !== undefined);
   const types = new Map<string, { count: number; min: number; max: number; ids: number[] }>();
   for (const b of buildings) {
@@ -80,17 +104,25 @@ export function SelectionPanel() {
         ) : (
           <>
             <div className="button-row">
-              <button
-                className="primary"
-                disabled={gold < costs.cheapest}
-                title="Each one level up, the cheapest first when the gold doesn't reach for all"
-                onClick={() => void gameClient.upgradeSelection(1)}
-              >
-                All +1 · {formatAmount(costs.plusOne)} g
-              </button>
-              <button disabled={gold < costs.cheapest} onClick={() => void gameClient.upgradeSelection(10)}>
-                +10 each · {formatAmount(costs.plusTen)} g
-              </button>
+              <GoodsTip what="All +1" gold={costs.plusOne} goods={costs.goodsPlusOne}>
+                <button
+                  className="primary"
+                  disabled={gold < costs.cheapest}
+                  title={
+                    costs.goodsPlusOne == null
+                      ? "Each one level up, the cheapest first when the gold doesn't reach for all"
+                      : undefined
+                  }
+                  onClick={() => void gameClient.upgradeSelection(1)}
+                >
+                  All +1 · <LevelPrice gold={costs.plusOne} goods={costs.goodsPlusOne} />
+                </button>
+              </GoodsTip>
+              <GoodsTip what="+10 each" gold={costs.plusTen} goods={costs.goodsPlusTen}>
+                <button disabled={gold < costs.cheapest} onClick={() => void gameClient.upgradeSelection(10)}>
+                  +10 each · <LevelPrice gold={costs.plusTen} goods={costs.goodsPlusTen} />
+                </button>
+              </GoodsTip>
             </div>
             <div className="budget">
               <label className="small">
@@ -104,13 +136,34 @@ export function SelectionPanel() {
                 />{" "}
                 <strong>{gold > 0 ? Math.round((spend / gold) * 100) : 0}%</strong>
               </label>
-              <button
-                disabled={spend < costs.cheapest}
-                title="Level by level, always the cheapest next one: they level out"
-                onClick={() => void gameClient.upgradeSelection(1, spend)}
-              >
-                Spend {formatAmount(spend)} g, cheapest first
-              </button>
+              {(() => {
+                const known = plan !== null && plan.budget === Math.floor(spend) ? plan : null;
+                return (
+                  <GoodsTip
+                    what={known !== null ? `${known.levels} levels, cheapest first` : "Spend"}
+                    gold={known?.gold ?? spend}
+                    goods={known?.goods}
+                  >
+                    <button
+                      disabled={spend < costs.cheapest}
+                      title={
+                        known?.goods == null
+                          ? "Level by level, always the cheapest next one: they level out"
+                          : undefined
+                      }
+                      onClick={() => void gameClient.upgradeSelection(1, spend)}
+                    >
+                      Spend {formatAmount(spend)} g, cheapest first
+                      {known !== null && known.levels > 0 && (
+                        <span className="level-goods">
+                          {known.levels} levels for {formatAmount(known.gold)} g
+                        </span>
+                      )}
+                      <GoodsLine goods={known?.goods} />
+                    </button>
+                  </GoodsTip>
+                );
+              })()}
             </div>
           </>
         )}

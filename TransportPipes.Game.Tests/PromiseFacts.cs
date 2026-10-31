@@ -267,6 +267,82 @@ public class PromiseFacts
         Priced(company, -pipe * 1.5, () => world.RemovePipes(company.Id, [water]), "the bridge taken away");
     }
 
+    /// <summary>
+    /// The goods the upgrade buttons show (the owner, 2026-10-31: "it should show 1100g, 100 wood, 3838 iron ingot") are
+    /// the goods the levels then ask for, and "Spend …, cheapest first" buys the levels, the gold and the goods its button
+    /// says
+    /// </summary>
+    [TestMethod]
+    public void TheLevelGoodsShownAreTheGoodsAskedFor()
+    {
+        var (game, company, map) = Estate(4, factory: true);
+        var world = game.World;
+        company.Gold = 1e10;
+        var moily = map[(0, 0)];
+        game.UpgradeNow(company, [moily.Id], 9);
+        Assert.AreEqual(10, moily.Level);
+
+        Dictionary<string, double> Asked() => company.Asks.GroupBy(t => t.Resource).ToDictionary(t => t.Key, t => t.Sum(a => a.Amount));
+        void Same(IReadOnlyDictionary<string, double> shown, Dictionary<string, double> before, string what)
+        {
+            var asked = Asked();
+            var added = asked.Keys.Union(before.Keys).ToDictionary(t => t, t => asked.GetValueOrDefault(t) - before.GetValueOrDefault(t));
+            Assert.IsNotEmpty(shown, $"{what}: from level 11 a level takes goods");
+            foreach (var resource in added.Keys.Union(shown.Keys))
+            {
+                Assert.AreEqual(added.GetValueOrDefault(resource), shown.GetValueOrDefault(resource), 1e-6, $"{what}: {resource}");
+            }
+        }
+
+        var shown = world.StepGoods(moily, 5);
+        var before = Asked();
+        Assert.IsTrue(world.Upgrade(company.Id, moily.Id, 5).Success);
+        Same(shown, before, "five levels of a Wind Moily");
+
+        // Spend, cheapest first: the other moilies and the factory, from level 10
+        var others = map.Values.Where(t => t.Id != moily.Id && world.CanUpgrade(t)).Select(t => t.Id).ToList();
+        game.UpgradeNow(company, others, 9);
+        var budget = world.UpgradeCost(world.Building(others[0])!, 1) * 7.5;
+        var plan = world.PlanCheapest(company, others, budget);
+        before = Asked();
+        var gold = company.Gold;
+        var (levels, spent, error) = world.UpgradeMany(company.Id, others, 1, budget);
+        Assert.IsNull(error);
+        Assert.AreEqual(plan.Levels, levels, "the levels Spend said");
+        Assert.AreEqual(plan.Gold, spent, 0.01, "the gold Spend said");
+        Assert.AreEqual(gold - spent, company.Gold, 0.01);
+        Same(plan.Goods, before, "Spend's levels");
+    }
+
+    /// <summary>
+    /// What the gold panel says the market brings a minute for a level's goods (the owner, 2026-10-31: "what we are paying
+    /// currently for buying resources from the hub for building upgrades?") is what comes, and the gold it takes
+    /// </summary>
+    [TestMethod]
+    public void TheMarketBringsTheLevelGoodsItSays()
+    {
+        var (game, company, map) = Estate(2);
+        var world = game.World;
+        Assert.IsTrue(world.SetWantsFromMarket(company.Id, true).Success);
+        company.Gold = 1e10;
+        var moily = map[(0, 0)];
+        game.UpgradeNow(company, [moily.Id], 9);
+        Assert.IsTrue(world.Upgrade(company.Id, moily.Id, 3).Success);
+
+        var lines = world.MarketForWants(company);
+        Assert.IsNotEmpty(lines, "the market brings the levels' goods");
+        var got = company.Asks.GroupBy(t => t.Resource).ToDictionary(t => t.Key, t => t.Sum(a => a.Got));
+        var gold = company.Gold;
+        var income = world.GoldPerMinute().GetValueOrDefault(company.Id);
+        game.Pass(1);
+        foreach (var (resource, perMinute, _, _) in lines)
+        {
+            var now = company.Asks.Where(t => t.Resource == resource).Sum(t => t.Got);
+            Assert.AreEqual(perMinute, now - got.GetValueOrDefault(resource), Math.Max(1e-6, perMinute * 0.001), $"{resource}: what came in a minute");
+        }
+        Assert.AreEqual(lines.Sum(t => t.PerMinute * t.Price), gold + income - company.Gold, Math.Max(0.5, income * 0.01), "the gold it took, beside the income");
+    }
+
     [TestMethod]
     public void AYardBuildingsLevelBringsWhatItSays()
     {

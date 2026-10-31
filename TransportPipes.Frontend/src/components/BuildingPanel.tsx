@@ -20,6 +20,7 @@ import { DepotSection } from "./DepotSection";
 
 /** A phone-sized screen when the panel opens: long blocks start folded */
 const PHONE = typeof window !== "undefined" && window.matchMedia?.("(max-width: 720px)").matches === true;
+import { GoodsTip, LevelPrice } from "./LevelPrice";
 import { ResourceIcon } from "./ResourceIcon";
 
 const KIND_LABELS: Record<string, string> = {
@@ -565,7 +566,8 @@ export function BuildingPanel() {
 
       {details.sales != null && (
         // What it sells against your Hub Orders (playtest: "wouldn't it make sense to show in a bar how much the trading
-        // building is being used?"): full price up to the line, less for each unit beyond it
+        // building is being used?"): the full price up to the line; beyond it less for all of it (the owner, 2026-10-31,
+        // "I don't understand what upgrading does": it said "less for each unit beyond it", and showed 8,161 / 8,161)
         <section className="post-sales">
           <h4>Sells to the hub · {formatAmount(details.sales.reduce((sum, t) => sum + t.gold, 0))} g/min</h4>
           {details.sales.length === 0 ? (
@@ -577,19 +579,25 @@ export function BuildingPanel() {
               {details.sales.map((sale) => (
                 <Meter
                   key={sale.resource}
-                  label={`${content.resourceName(sale.resource)} · ${formatAmount(sale.gold)} g/min`}
+                  label={`${content.resourceName(sale.resource)} · ${formatAmount(sale.gold)} g/min${
+                    sale.price != null && sale.fullPrice != null && sale.fullPrice > 0
+                      ? ` · ${sale.price.toFixed(2)} g each${sale.price < sale.fullPrice - 0.005 ? ` of ${sale.fullPrice.toFixed(2)}` : ""}`
+                      : ""
+                  }`}
                   color={sale.perMinute > sale.hubOrder ? "#e07a3f" : content.resourceColor(sale.resource)}
                   amount={sale.perMinute}
                   max={Math.max(sale.perMinute, sale.hubOrder)}
+                  value={`${formatAmount(sale.perMinute)}/min · Hub Order ${formatAmount(sale.hubOrder)}`}
                   mark={sale.hubOrder}
                   markTitle={`Your Hub Order: the market pays the full price for ${formatAmount(sale.hubOrder)} a minute`}
                 />
               ))}
               <p className="muted small">
-                The line is your Hub Order: the market pays the full price up to it, and less for each unit
-                beyond it.
+                The line is your Hub Order: the hub pays the full price for up to that much a minute. Sell
+                more, and it pays less for all of it: the full price × √(Hub Order ÷ what you sell), so
+                selling 4× the Hub Order brings 2× the gold, not 4×.
                 {details.sales.some((t) => t.perMinute > t.hubOrder) &&
-                  " Orange: you sell more than it; every level of your Trading Post raises every Hub Order by 10%."}
+                  " Orange: you sell more than the Hub Order."}
               </p>
             </>
           )}
@@ -656,28 +664,52 @@ export function BuildingPanel() {
               </span>
             )}
           </h4>
+          {definition.kind === "tradingPost" && (
+            <p className="muted small">
+              A level makes every Hub Order 10% bigger. A good you sell more of than its Hub Order (orange
+              above) is then paid more for all of it: about 5% more a level. A good under its Hub Order gets
+              the full price already: a level adds nothing to it until you sell more.
+            </p>
+          )}
+          {/* From level 11 each button shows its goods too, and its popup what they are and how they come (the owner,
+              2026-10-31) */}
           <div className="button-row">
-            <button
-              className="primary"
-              disabled={gold < details.upgradeCost}
-              onClick={() => void gameClient.upgrade(building.id, 1)}
-            >
-              Level {bought + 1} · {formatAmount(details.upgradeCost)} g
-            </button>
+            <GoodsTip what={`Level ${bought + 1}`} gold={details.upgradeCost} goods={details.goods1}>
+              <button
+                className="primary"
+                disabled={gold < details.upgradeCost}
+                onClick={() => void gameClient.upgrade(building.id, 1)}
+              >
+                Level {bought + 1} · <LevelPrice gold={details.upgradeCost} goods={details.goods1} />
+              </button>
+            </GoodsTip>
             {details.upgradeCost10 !== null && content.progression.maxBuildingLevel - bought > 1 && (
               // Near level 25 it buys what is left, and says so
-              <button
-                disabled={gold < details.upgradeCost10}
-                onClick={() => void gameClient.upgrade(building.id, 10)}
+              <GoodsTip
+                what={`${Math.min(10, content.progression.maxBuildingLevel - bought)} levels`}
+                gold={details.upgradeCost10}
+                goods={details.goods10}
               >
-                +{Math.min(10, content.progression.maxBuildingLevel - bought)} ·{" "}
-                {formatAmount(details.upgradeCost10)} g
-              </button>
+                <button
+                  disabled={gold < details.upgradeCost10}
+                  onClick={() => void gameClient.upgrade(building.id, 10)}
+                >
+                  +{Math.min(10, content.progression.maxBuildingLevel - bought)} ·{" "}
+                  <LevelPrice gold={details.upgradeCost10} goods={details.goods10} />
+                </button>
+              </GoodsTip>
             )}
             {details.maxAffordableLevels > 1 && details.upgradeCostMax !== null && (
-              <button onClick={() => void gameClient.upgrade(building.id, details.maxAffordableLevels)}>
-                Max +{details.maxAffordableLevels} · {formatAmount(details.upgradeCostMax)} g
-              </button>
+              <GoodsTip
+                what={`Max: ${details.maxAffordableLevels} levels`}
+                gold={details.upgradeCostMax}
+                goods={details.goodsMax}
+              >
+                <button onClick={() => void gameClient.upgrade(building.id, details.maxAffordableLevels)}>
+                  Max +{details.maxAffordableLevels} ·{" "}
+                  <LevelPrice gold={details.upgradeCostMax} goods={details.goodsMax} />
+                </button>
+              </GoodsTip>
             )}
           </div>
           {/* 1.4 §9: every copy costs 7% more than the last, and its levels cost from what it cost */}
@@ -690,7 +722,7 @@ export function BuildingPanel() {
                 {details.nextLevelGoods
                   .map((t) => `${formatAmount(t.amount)} ${content.resourceName(t.resource).toLowerCase()}`)
                   .join(" and ")}{" "}
-                as well
+                as well (hold the pointer on a button: where they come from)
               </>
             )}
           </p>
@@ -1059,6 +1091,7 @@ function Meter({
   amount,
   max,
   unit = "/min",
+  value,
   mark,
   markTitle,
 }: {
@@ -1067,6 +1100,8 @@ function Meter({
   amount: number;
   max: number;
   unit?: string;
+  /** What the right side says, instead of "amount / max" */
+  value?: string;
   /** A line on the bar (what a storage keeps) */
   mark?: number;
   markTitle?: string;
@@ -1077,8 +1112,12 @@ function Meter({
       <div className="meter-label">
         <span>{label}</span>
         <span>
-          {formatAmount(amount)} / {formatAmount(max)}
-          {unit}
+          {value ?? (
+            <>
+              {formatAmount(amount)} / {formatAmount(max)}
+              {unit}
+            </>
+          )}
         </span>
       </div>
       <div className="meter-bar">

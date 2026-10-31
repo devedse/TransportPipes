@@ -32,6 +32,9 @@ public interface IGameClient
 
     /// <summary>A link somewhere was laid, rerouted or removed: the map draws them again</summary>
     Task MapLinksChanged();
+
+    /// <summary>When the Yards' next round comes (a round ran, or something brought it sooner)</summary>
+    Task YardRound(DateTime next);
 }
 
 /// <summary>The game protocol. Every call needs a logged in user (the login cookie).</summary>
@@ -349,12 +352,33 @@ public sealed class GameHub : Hub<IGameClient>
                 .Where(t => ids.Contains(t.From) && world.Building(t.From) is { } b && company != null && b.Owner == company.Id && world.Content.Building(b.Type).Kind == TransportPipes.Game.Content.BuildingKind.Producer)
                 .GroupBy(t => t.Resource)
                 .ToDictionary(t => t.Key, t => Math.Round(t.Sum(f => f.Sent), 2));
+            // +10 counts from the level bought, as UpgradeMany does (it counted from the level reached: a building whose
+            // goods were still coming showed more levels than it bought)
+            Dictionary<string, double> Goods(Func<TransportPipes.Game.State.Building, int> levels) => own
+                .SelectMany(t => world.StepGoods(t, levels(t))).GroupBy(t => t.Key).ToDictionary(t => t.Key, t => t.Sum(g => g.Value));
             return new SelectionCostsDto(
                 Math.Round(own.Sum(t => world.UpgradeCost(t, 1)), 2),
-                Math.Round(own.Sum(t => world.UpgradeCost(t, Math.Min(10, max - t.Level))), 2),
+                Math.Round(own.Sum(t => world.UpgradeCost(t, Math.Min(10, max - world.BoughtLevel(t)))), 2),
                 own.Count == 0 ? 0 : Math.Round(own.Min(t => world.UpgradeCost(t, 1)), 2),
                 own.Count,
-                makes);
+                makes,
+                company == null ? null : GameViews.LevelGoods(world, company, Goods(_ => 1)),
+                company == null ? null : GameViews.LevelGoods(world, company, Goods(t => Math.Min(10, max - world.BoughtLevel(t)))));
+        }, changesWorld: false);
+    }
+
+    /// <summary>What "Spend …, cheapest first" buys for a budget: its levels, their gold and their goods</summary>
+    public Task<SpendPlanDto?> GetSpendPlan(long[] buildings, double budget)
+    {
+        var userId = UserId;
+        return _world.RunAsync(world =>
+        {
+            if (world.CompanyOfUser(userId) is not { } company)
+            {
+                return null;
+            }
+            var (levels, gold, goods) = world.PlanCheapest(company, buildings.Take(500).ToList(), budget);
+            return new SpendPlanDto(levels, gold, GameViews.LevelGoods(world, company, goods));
         }, changesWorld: false);
     }
 

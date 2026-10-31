@@ -50,6 +50,7 @@ import { WorldModel } from "../game/world";
 import { formatAmount } from "./format";
 import { notify } from "./notifications";
 import { sounds } from "./sound";
+import { yardRoundText } from "./yardRound";
 import { appStore, dismissToast, initialState, MODALS, setState, toast, type HubTab } from "../state/store";
 
 const DETAILS_REFRESH_MS = 2000;
@@ -288,6 +289,7 @@ export class GameClient {
       }
     });
     c.on("mapLinksChanged", () => void this.loadMapLinks());
+    c.on("yardRound", (next: string) => setState({ nextYardRound: next }));
     c.on("toast", (t: ToastDto) => {
       notify(t);
       if (t.kind === "constructionFinished" && t.building !== null) {
@@ -375,7 +377,12 @@ export class GameClient {
 
   private setCompany(company: CompanyDto) {
     const previous = appStore.getState().company;
-    setState({ company, companyAt: Date.now(), era: company.era });
+    setState({
+      company,
+      companyAt: Date.now(),
+      era: company.era,
+      ...(company.nextYardRound != null ? { nextYardRound: company.nextYardRound } : {}),
+    });
     this.releaseWaiting();
     if (this.hintOverlay !== null && company.tutorial?.id !== this.hintOverlay.step) {
       if (appStore.getState().overlay === this.hintOverlay.overlay) {
@@ -505,7 +512,10 @@ export class GameClient {
           tiles.flatMap((t) => [t.x, t.y]),
           1,
         ),
-        state.plannedDone ?? "Connected! Trade starts right away.",
+        // The Yard gate trades at the Yard's rounds: say when
+        state.plannedTarget === "your Yard gate"
+          ? `${state.plannedDone ?? "Connected to your Yard gate"}: the Yard trades it from ${yardRoundText()}`
+          : (state.plannedDone ?? "Connected! Trade starts right away."),
       )
     ) {
       setState({
@@ -658,7 +668,12 @@ export class GameClient {
 
   /** Your give switch for a good (1.4 §13): what the Yard round sends the Wonder by itself */
   async setGive(resource: string, mode: GiveMode) {
-    if (await this.command(this.connection.setGive(resource, mode))) {
+    if (
+      await this.command(
+        this.connection.setGive(resource, mode),
+        `Set: the Wonder gets it from ${yardRoundText()}`,
+      )
+    ) {
       await this.refreshTown();
     }
   }
@@ -773,13 +788,20 @@ export class GameClient {
   }
 
   async setNoBuy(resource: string, noBuy: boolean) {
-    if (await this.command(this.connection.setNoBuy(resource, noBuy))) {
+    if (
+      await this.command(this.connection.setNoBuy(resource, noBuy), `Set: it counts from ${yardRoundText()}`)
+    ) {
       await this.refreshMarket();
     }
   }
 
   async setTradeBlocked(other: number, blocked: boolean) {
-    if (await this.command(this.connection.setTradeBlocked(other, blocked))) {
+    if (
+      await this.command(
+        this.connection.setTradeBlocked(other, blocked),
+        `Set: it counts from ${yardRoundText()}`,
+      )
+    ) {
       await this.refreshNeighbours();
     }
   }
@@ -801,7 +823,12 @@ export class GameClient {
   }
 
   async setNoTrade(resource: string, noTrade: boolean) {
-    if (await this.command(this.connection.setNoTrade(resource, noTrade))) {
+    if (
+      await this.command(
+        this.connection.setNoTrade(resource, noTrade),
+        `Set: it counts from ${yardRoundText()}`,
+      )
+    ) {
       await this.refreshMarket();
     }
   }

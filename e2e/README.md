@@ -24,7 +24,7 @@ and piped to the post (`kit(page, types, 2)` in Copper Pipe, its ingots stocked)
 | `onboarding.mjs` | A new player following Loady's first steps |
 | `yard.mjs` | Two neighbours in one Yard, each piped to their Yard gate with the Yard panel's button: one's energy goes to the other's mine at the seller's crew price (two browsers, moved into a Yard nobody else lives at; the `yard` cheat runs the Yards' rounds now) |
 | `links.mjs` | A link between two stations: A's Links tab suggests B (who needs A's energy), A offers it, B accepts, and both see it flow at the player price, drawn along the corridors (two browsers) |
-| `link-start.mjs` | A new link says when its first goods come (the Yard's next round sets it up, the one after brings them) and counts down on the card; they come then, and the card shows them flowing by itself (it said "You buy 0 coal/min") |
+| `link-start.mjs` | A new link says when its first goods come (the Yard's next round sets it up, the one after brings them) and counts down on the card; they come then, and the card shows them flowing by itself (it said "You buy 0 coal/min") · the seller's card says where what it sends goes: what arrives, fills the tank, is lost on the pipe |
 | `return.mjs` | The way back: A is "gone" ten days (dev cheat) and comes back to one card |
 | `right-click.mjs` | A right-click on the map steps back (deselects, puts a tool away); a right-drag still pans |
 | `onetap.mjs` | One tap lays the pipe: a lone Wind Moily is stuck, its panel's fix names where the pipe goes and its price, and a single tap lays it (no preview to confirm) |
@@ -72,6 +72,9 @@ and piped to the post (`kit(page, types, 2)` in Copper Pipe, its ingots stocked)
 | `block.mjs` | Blocking a neighbour in the trade settings: the switch goes off at once and says when the block counts (an hour's notice); on again calls it off |
 | `move-key.mjs` | The Move key: E with one of your buildings selected picks it up, E again puts it back; nothing selected or someone else's: nothing |
 | `pipe-wants.mjs` | A better pipe asked for twice: the second ask is refused and says why, one want waits, paid once |
+| `level-goods.mjs` | Levels from 11 everywhere they are bought: the Level, +10 and Max buttons and the selection's show their goods with icons and a popup that says how they come; Spend says the levels it buys; the top bar's waiting goods with Buy all the rest; the gold panel's market lines; the Yard's clock; the Trading Post's bars with sold and Hub Order |
+| `badges-front.mjs` | Level badges over every building: a block of Wind Moilys side by side, every badge on the badge layer, none left behind when a building is drawn again |
+| `short-why.mjs` | A network short of a good it can't use: a Brickworks with no stone and no coal; the coal and stone lines say they are for the Brickworks, which also lacks the other |
 | `whats-new.mjs` | What's new after an update: the changes since the newest one seen on this browser, a day a list; seen once closed; none for a new company; the version badge shows the latest (needs `node scripts/changes.mjs` first) |
 | `whats-new-return.mjs` | What's new and the return card at once (after an update and days away): the return card first, What's new once it is closed, and its Got it takes the click (it stayed on top, unclickable) |
 | `juice.mjs` | A finished building, coin pops and the level-up |

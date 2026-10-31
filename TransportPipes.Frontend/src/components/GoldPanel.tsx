@@ -4,6 +4,7 @@ import { gameClient } from "../app/client";
 import { formatAmount } from "../app/format";
 import type { Content } from "../game/content";
 import { setState, useAppStore } from "../state/store";
+import { GoodsTip, LevelPrice } from "./LevelPrice";
 
 /** The income's sections, in order: what each kind of line is */
 const INCOME_SECTIONS: Array<{ kinds: IncomeLineDto["kind"][]; title: string }> = [
@@ -92,9 +93,11 @@ function IncomeBreakdown({ income, content }: { income: IncomeDto; content: Cont
           </li>
         )}
         <li>
-          What the market brings for your levels and buildings, and Buy the rest, is paid when it comes.
+          What the market brings for your levels and buildings is paid as it comes (below), and Buy the rest
+          when you press it.
         </li>
       </ul>
+      <WantImports income={income} content={content} />
       <p className="small">
         <strong>Why it keeps changing</strong>
       </p>
@@ -110,6 +113,57 @@ function IncomeBreakdown({ income, content }: { income: IncomeDto; content: Cont
         </li>
       </ul>
     </details>
+  );
+}
+
+/**
+ * What the market brings now for your levels, buildings and pipes, and what it costs a minute (the owner, 2026-10-31:
+ * "what we are paying currently for buying resources from the hub for building upgrades?"): paid as it comes, so it is
+ * not in the gold a minute; and what is still to come
+ */
+function WantImports({ income, content }: { income: IncomeDto; content: Content }) {
+  const wantsFromMarket = useAppStore((s) => s.company?.wantsFromMarket ?? true);
+  const lines = income.wantImports ?? [];
+  if (lines.length === 0) {
+    return null;
+  }
+  const now = lines.reduce((sum, t) => sum + t.perMinute * t.price, 0);
+  const rest = lines.reduce((sum, t) => sum + t.left * t.price, 0);
+  return (
+    <>
+      <p className="small">
+        <strong>Goods the market brings for your levels and buildings</strong>
+      </p>
+      <table className="income-table">
+        <tbody>
+          {lines
+            .filter((t) => t.perMinute > 0.05)
+            .map((t) => (
+              <tr key={t.resource}>
+                <td>
+                  {content.resourceName(t.resource)} · {formatAmount(t.perMinute)}/min × {t.price.toFixed(2)}{" "}
+                  g
+                </td>
+                <td>{signed(-t.perMinute * t.price)}</td>
+              </tr>
+            ))}
+          <tr className="income-total">
+            <th>Paid a minute now, as it comes (not in the top bar)</th>
+            <td>{signed(-now)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p className="muted small">
+        {wantsFromMarket
+          ? "What nobody near has, the market brings within about ten minutes at 2.5× its price, less what your Storages and the Yard bring."
+          : "Only the goods your Trading Post buys from the hub come this way (your trade settings)."}{" "}
+        Still to come:{" "}
+        {lines
+          .map((t) => `${formatAmount(t.left)} ${content.resourceName(t.resource).toLowerCase()}`)
+          .join(", ")}{" "}
+        — at most {formatAmount(rest)} g if the market brings all of it.
+      </p>
+    </>
   );
 }
 
@@ -220,13 +274,15 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
               ))}
             </ul>
           </details>
-          <button
-            className="primary"
-            disabled={gold < uses.grow.cost}
-            onClick={() => void gameClient.growEverything()}
-          >
-            Grow · {formatAmount(uses.grow.cost)} g
-          </button>
+          <GoodsTip what="Grow" gold={uses.grow.cost} goods={uses.grow.levelGoods}>
+            <button
+              className="primary"
+              disabled={gold < uses.grow.cost}
+              onClick={() => void gameClient.growEverything()}
+            >
+              Grow · <LevelPrice gold={uses.grow.cost} goods={uses.grow.levelGoods} />
+            </button>
+          </GoodsTip>
         </div>
       )}
       {uses?.grow?.saving != null && (

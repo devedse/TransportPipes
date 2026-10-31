@@ -118,7 +118,9 @@ public record CompanyDto(
     /// <summary>What your own goods going into your wants now would sell for a minute (your income is that much lower until they're in)</summary>
     double OwnGoodsIntoWants = 0,
     /// <summary>What buildings and parcels cost of their price (the Workshop wonder's perk makes them cheaper): the build menu's prices are the gold taken</summary>
-    double CostFactor = 1);
+    double CostFactor = 1,
+    /// <summary>When the Yards' next round comes (links, Yard trades and neighbours' goods move then)</summary>
+    DateTime? NextYardRound = null);
 
 /// <summary>Your plot's outskirts (1.4 §5): the parcels you bought (bits 0..8), what the next costs, and why you can't buy one yet</summary>
 public record OutskirtsDto(int Parcels, double NextCost, string? Blocker);
@@ -163,7 +165,20 @@ public record GoldUsesDto(GoldLineDto? Shared, GoldLineDto? Want, GrowPlanDto? G
 /// its lines, which add up to Total, the top bar's; and beside it, what isn't in it: today's hub orders' pay on top, and
 /// what your own goods going into your levels would have sold for
 /// </summary>
-public record IncomeDto(IReadOnlyList<IncomeLineDto> Lines, double Total, double OrdersToday, double OwnGoodsIntoWants);
+public record IncomeDto(IReadOnlyList<IncomeLineDto> Lines, double Total, double OrdersToday, double OwnGoodsIntoWants,
+    IReadOnlyList<WantImportDto>? WantImports = null);
+
+/// <summary>
+/// A good the market brings for your levels, buildings and pipes (paid as it comes, not in the gold a minute): how many a
+/// minute now, at what price (2.5× base), and how many are still to come
+/// </summary>
+public record WantImportDto(string Resource, double PerMinute, double Price, double Left);
+
+/// <summary>
+/// The goods some levels take on top of their gold (from level 11), and what they would cost if the market brought all
+/// of them (your own and your neighbours' cost less)
+/// </summary>
+public record LevelGoodsDto(IReadOnlyList<ResourceAmountDto> Goods, double MarketCost);
 
 /// <summary>
 /// A line of your gold a minute: what (hub, storage, player, fromPlayer, import, yardSold, yardOnItsWay, yardBought,
@@ -180,7 +195,8 @@ public record GoldLineDto(string Text, string Action, double? Cost = null, strin
 
 /// <summary>"Grow everything that pays": its parts ("Iron Mine to level 30 · 165k · +94 g/min"), its price and gain</summary>
 /// <summary>Grow's plan: its parts, its gold, what it adds a minute once in, and what its levels' goods cost on top (they come after)</summary>
-public record GrowPlanDto(IReadOnlyList<GrowPartDto> Parts, double Cost, double Gain, DateTime? UndoUntil, string? Saving = null, double Goods = 0);
+public record GrowPlanDto(IReadOnlyList<GrowPartDto> Parts, double Cost, double Gain, DateTime? UndoUntil, string? Saving = null, double Goods = 0,
+    LevelGoodsDto? LevelGoods = null);
 
 public record GrowPartDto(long Building, string Text, double Cost, double Gain);
 
@@ -414,13 +430,17 @@ public record BuildingDetailsDto(
     /// <summary>A building of a later Era than its town's: it sleeps until the town gets there</summary>
     bool Sleeping = false,
     /// <summary>A trading post: what it sells by good against your Hub Orders (null: not a trading post)</summary>
-    IReadOnlyList<PostSaleDto>? Sales = null);
+    IReadOnlyList<PostSaleDto>? Sales = null,
+    /// <summary>The level goods of the Level, +10 and Max buttons (from level 11; null: none)</summary>
+    LevelGoodsDto? Goods1 = null,
+    LevelGoodsDto? Goods10 = null,
+    LevelGoodsDto? GoodsMax = null);
 
 /// <summary>
 /// A good a trading post sells: what all your posts sell of it a minute, your Hub Order for it (what the market pays the
 /// full price for: beyond it each unit pays less), and the gold a minute this post gets for it
 /// </summary>
-public record PostSaleDto(string Resource, double PerMinute, double HubOrder, double Gold);
+public record PostSaleDto(string Resource, double PerMinute, double HubOrder, double Gold, double Price = 0, double FullPrice = 0);
 
 /// <summary>A building that works at its old level until the goods of the levels bought are in (1.4 §9)</summary>
 public record LevelWaitDto(int BoughtLevel, IReadOnlyList<SiteWantDto> Wants, double? BuyRest);
@@ -488,7 +508,11 @@ public record BulkPlaceDto(int Placed, double Gold, string? Error);
 
 /// <summary>What upgrading several buildings costs: all by one level, all by ten, and the cheapest next level</summary>
 /// <summary>Upgrading a selection: +1 each, +10 each, the cheapest next level; Makes: what the buildings make together now, per minute</summary>
-public record SelectionCostsDto(double PlusOne, double PlusTen, double Cheapest, int Upgradable, Dictionary<string, double> Makes);
+public record SelectionCostsDto(double PlusOne, double PlusTen, double Cheapest, int Upgradable, Dictionary<string, double> Makes,
+    LevelGoodsDto? GoodsPlusOne = null, LevelGoodsDto? GoodsPlusTen = null);
+
+/// <summary>What "Spend …, cheapest first" buys for a budget: its levels, their gold and their goods</summary>
+public record SpendPlanDto(int Levels, double Gold, LevelGoodsDto? Goods);
 
 /// <summary>One of the advisor's next steps (GameWorld.NextSteps): x, y is where Show me looks</summary>
 public record NextStepDto(
@@ -511,7 +535,9 @@ public record NextStepDto(
     int Count,
     int? Network,
     int[] Tiles,
-    int Tier);
+    int Tier,
+    /// <summary>An upgrade step's level goods (from level 11)</summary>
+    LevelGoodsDto? Goods = null);
 
 /// <summary>What a building can evolve into where it stands, what it costs and what is in the way</summary>
 public record EvolveDto(string Into, double Cost, string? Problem);
@@ -536,8 +562,11 @@ public record ToastDto(string Kind, string Text, long? Building);
 /// <summary>A resource in a network per minute; Needed: what its buildings would use at full speed</summary>
 /// <param name="FromYard">What neighbours' goods bring to its buildings through the Yard gate</param>
 /// <param name="ToYard">What its buildings sell to neighbours through the Yard gate</param>
+/// <param name="ToLinks">Of ToYard, what goes into its owner's links (what arrives, what fills the buyers' tanks, what the links' pipes lose)</param>
 public record NetworkResourceDto(string Resource, double Produced, double Used, double Sold, double Imported, double Traded, double Stored, double FromStorage, double Lost, double Needed, double FromYard, double ToYard,
-    double SoldGold = 0);
+    double SoldGold = 0, double ToLinks = 0,
+    /// <summary>Of what its buildings lack, what is for buildings that couldn't run on it anyway (another input missing)</summary>
+    string? ShortWhy = null);
 
 /// <summary>What one company's buildings in a network make, use and sell of a resource, per minute</summary>
 public record OwnerResourceDto(string Resource, double Made, double Used, double Sold);
@@ -876,7 +905,9 @@ public record LinkDto(
     string Line,
     IReadOnlyList<int> Route,
     /// <summary>A starting link: when its first goods come (the Yards' rounds)</summary>
-    DateTime? StartsAt = null);
+    DateTime? StartsAt = null,
+    /// <summary>What the seller's gate sends into it a minute: what arrives, what fills the tank, what the pipe loses</summary>
+    double Sent = 0);
 
 public record LinkSuggestionDto(long PartnerId, string PartnerName, string PartnerColor, string Station, string Resource, bool YouSell, double PerMinute, int Length, double Efficiency);
 
