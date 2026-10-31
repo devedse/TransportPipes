@@ -113,6 +113,90 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
+    /// A company's networks with a new pipe laid (its tiles, of a tier): the network it would make, flooded from the pipe
+    /// over the map as the real one will be (the pipe laid while it is worked out, then taken up again) and solved as the
+    /// real solve does, with the Yard's next round; and the networks it takes the place of. Null: no new tile.
+    /// </summary>
+    internal (Network Network, FlowSolution Solution, List<Network> Replaced)? PipeWhatIf(Company company, IReadOnlyList<TilePos> tiles, int tier = 1)
+    {
+        SolveNetworks();
+        var laid = new List<TilePos>();
+        try
+        {
+            foreach (var tile in tiles.Distinct())
+            {
+                if (!_conductors.ContainsKey(tile) && !_buildingAt.ContainsKey(tile))
+                {
+                    _conductors[tile] = new Conductor { Pos = tile, Owner = company.Id, Tier = tier };
+                    laid.Add(tile);
+                }
+            }
+            if (laid.Count == 0)
+            {
+                return null;
+            }
+            var network = new Network { Id = -1 };
+            Spread(network, laid[0], null);
+            Finish(network);
+            network.Nodes = PumpedNodes(network);
+            network.NeedsSolve = false;
+            var replaced = network.Conductors.Select(t => _networkOfTile.GetValueOrDefault(t))
+                .Concat(network.Buildings.Select(t => _networkOfBuilding.GetValueOrDefault(t)))
+                .Where(_networks.ContainsKey).Distinct().Select(t => _networks[t]).ToList();
+            return (network, SolveWhatIf(network), replaced);
+        }
+        finally
+        {
+            foreach (var tile in laid)
+            {
+                _conductors.Remove(tile);
+            }
+        }
+    }
+
+    private readonly Dictionary<(long Company, int Tiles, int Tier), ((long, long) Stamp, double Gain)> _pipeGains = new();
+
+    /// <summary>
+    /// What a new pipe brings a minute, as it will be: the settled income with the network it makes, less without (once
+    /// until the world is solved again: the next steps ask for it after every command, and on a big network it is a
+    /// tenth of a second)
+    /// </summary>
+    public double PipeGain(Company company, IReadOnlyList<TilePos> tiles, int tier = 1)
+    {
+        var hash = new HashCode();
+        foreach (var tile in tiles)
+        {
+            hash.Add(tile);
+        }
+        var key = (company.Id, hash.ToHashCode(), tier);
+        SolveNetworks();
+        var stamp = (_solves, _couplings);
+        if (_pipeGains.TryGetValue(key, out var known) && known.Stamp == stamp)
+        {
+            return known.Gain;
+        }
+        var gain = SolvedPipeGain(company, tiles, tier);
+        if (_pipeGains.Count > 5_000)
+        {
+            _pipeGains.Clear();
+        }
+        _pipeGains[key] = (stamp, gain);
+        return gain;
+    }
+
+    private double SolvedPipeGain(Company company, IReadOnlyList<TilePos> tiles, int tier)
+    {
+        if (PipeWhatIf(company, tiles, tier) is not { } whatIf)
+        {
+            return 0;
+        }
+        var replaced = whatIf.Replaced.Select(t => t.Id).ToHashSet();
+        var bases = whatIf.Replaced.ToDictionary(t => t.Id, BaseWhatIf);
+        return SettledIncome(company, t => replaced.Contains(t.Id) ? FlowSolution.Empty : null, added: (whatIf.Network, whatIf.Solution))
+            - SettledIncome(company, t => bases.GetValueOrDefault(t.Id));
+    }
+
+    /// <summary>
     /// The Yard's next round for a network's what-if (it comes within a minute): its neighbours' spare it could take, at
     /// their price for its owner, and what they lack that it could sell them (sells: those buyers' nodes)
     /// </summary>
@@ -217,9 +301,11 @@ public sealed partial class GameWorld
     /// What a company earns a minute once the market has settled: each of its networks' gold (as solved, or as a what-if
     /// gives it), what it sells at the hub at the price the market settles on for all of it (each town's market apart; a
     /// Hub Order orderFactor times bigger: trading post levels), and the Yard's pay. This is the top bar's number once
-    /// the market has looked again (it does every minute): every promise is a difference of two of these
+    /// the market has looked again (it does every minute): every promise is a difference of two of these. added: a
+    /// network there would be besides (a new pipe's)
     /// </summary>
-    public double SettledIncome(Company company, Func<Network, FlowSolution?>? whatIf = null, double orderFactor = 1, Func<string, double>? goodFactor = null)
+    public double SettledIncome(Company company, Func<Network, FlowSolution?>? whatIf = null, double orderFactor = 1, Func<string, double>? goodFactor = null,
+        (Network Network, FlowSolution Solution)? added = null)
     {
         SolveNetworks();
         var gold = 0.0;
@@ -229,13 +315,9 @@ public sealed partial class GameWorld
             var (u, v) = sales.GetValueOrDefault((district, resource));
             sales[(district, resource)] = (u + units, v + value);
         }
-        foreach (var network in _networks.Values)
+        var own = _networks.Values.Where(t => t.Owner == company.Id).Select(t => (Network: t, Solution: whatIf?.Invoke(t) ?? t.Solution));
+        foreach (var (network, solution) in added is { } more ? own.Append(more) : own)
         {
-            if (network.Owner != company.Id)
-            {
-                continue;
-            }
-            var solution = whatIf?.Invoke(network) ?? network.Solution;
             gold += solution.GoldPerMinute.GetValueOrDefault(company.Id);
             foreach (var flow in solution.Flows)
             {

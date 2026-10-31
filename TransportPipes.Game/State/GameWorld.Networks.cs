@@ -325,10 +325,79 @@ public sealed partial class GameWorld
     private void Flood(TilePos? startTile, long? startBuilding)
     {
         var network = new Network { Id = _nextNetworkId++ };
-        var tiles = new Queue<TilePos>();
-        var buildings = new Queue<long>();
         // Networks the flood runs into (a new pipe tile next to an existing network): this one takes their place
         var absorbed = new HashSet<int>();
+        Spread(network, startTile, startBuilding,
+            tile =>
+            {
+                if (_networkOfTile.TryGetValue(tile, out var old) && old != network.Id)
+                {
+                    absorbed.Add(old);
+                }
+                _networkOfTile[tile] = network.Id;
+            },
+            id =>
+            {
+                if (_networkOfBuilding.TryGetValue(id, out var old) && old != network.Id)
+                {
+                    absorbed.Add(old);
+                }
+                _networkOfBuilding[id] = network.Id;
+            });
+
+        foreach (var id in absorbed)
+        {
+            if (!_networks.Remove(id, out var stale))
+            {
+                continue;
+            }
+            Changes.Networks.Add(id);
+            // Whatever of it the flood didn't reach is no longer connected to it: rebuilt on its own
+            foreach (var tile in stale.Conductors.Where(t => !network.Conductors.Contains(t) && _networkOfTile.GetValueOrDefault(t, -1) == id))
+            {
+                _networkOfTile.Remove(tile);
+                _dirtyTiles.Add(tile);
+            }
+            foreach (var building in stale.Buildings.Where(t => !network.Buildings.Contains(t) && _networkOfBuilding.GetValueOrDefault(t, -1) == id))
+            {
+                _networkOfBuilding.Remove(building);
+                _dirtyBuildings.Add(building);
+            }
+        }
+
+        // A building without any pipe is not a network
+        if (network.Conductors.Count == 0)
+        {
+            foreach (var id in network.Buildings)
+            {
+                _networkOfBuilding.Remove(id);
+            }
+            return;
+        }
+
+        Finish(network);
+        _networks[network.Id] = network;
+        Changes.Networks.Add(network.Id);
+    }
+
+    /// <summary>A flooded network's district, owner, Yard gates and links</summary>
+    private void Finish(Network network)
+    {
+        var anchor = network.Conductors.First();
+        network.District = WorldLayout.DistrictOf(anchor.X, anchor.Y);
+        network.Owner = network.Buildings.Select(t => _buildings[t].Owner).DefaultIfEmpty(_conductors.TryGetValue(anchor, out var c) ? c.Owner : 0).First();
+        network.Gates.AddRange(network.Conductors.Where(t => _conductors.TryGetValue(t, out var conductor) && conductor.Kind == ConductorKind.Gate).OrderBy(t => t.X).ThenBy(t => t.Y));
+        network.Links = BuildLinks(network);
+    }
+
+    /// <summary>
+    /// Fills a network with what its start tile or building reaches over the map: its owner's pipes and buildings
+    /// (tileSeen, buildingSeen: each the first time); nothing else in the world changes
+    /// </summary>
+    private void Spread(Network network, TilePos? startTile, long? startBuilding, Action<TilePos>? tileSeen = null, Action<long>? buildingSeen = null)
+    {
+        var tiles = new Queue<TilePos>();
+        var buildings = new Queue<long>();
         // One owner's: another's pipes and buildings it touches stay theirs (v1.2 §7: what goes to others passes the
         // Yard gate; playtest: pipes joined across the wilderness made one network of four players, and every change of
         // any of them solved all of it again: "we connected our pipes to each other and all got very slow")
@@ -340,11 +409,7 @@ public sealed partial class GameWorld
         {
             if (network.Conductors.Add(tile))
             {
-                if (_networkOfTile.TryGetValue(tile, out var old) && old != network.Id)
-                {
-                    absorbed.Add(old);
-                }
-                _networkOfTile[tile] = network.Id;
+                tileSeen?.Invoke(tile);
                 tiles.Enqueue(tile);
             }
         }
@@ -353,11 +418,7 @@ public sealed partial class GameWorld
         {
             if (network.Buildings.Add(id))
             {
-                if (_networkOfBuilding.TryGetValue(id, out var old) && old != network.Id)
-                {
-                    absorbed.Add(old);
-                }
-                _networkOfBuilding[id] = network.Id;
+                buildingSeen?.Invoke(id);
                 var building = _buildings[id];
                 if (IsConductorBuilding(building))
                 {
@@ -432,44 +493,6 @@ public sealed partial class GameWorld
                 }
             }
         }
-
-        foreach (var id in absorbed)
-        {
-            if (!_networks.Remove(id, out var stale))
-            {
-                continue;
-            }
-            Changes.Networks.Add(id);
-            // Whatever of it the flood didn't reach is no longer connected to it: rebuilt on its own
-            foreach (var tile in stale.Conductors.Where(t => !network.Conductors.Contains(t) && _networkOfTile.GetValueOrDefault(t, -1) == id))
-            {
-                _networkOfTile.Remove(tile);
-                _dirtyTiles.Add(tile);
-            }
-            foreach (var building in stale.Buildings.Where(t => !network.Buildings.Contains(t) && _networkOfBuilding.GetValueOrDefault(t, -1) == id))
-            {
-                _networkOfBuilding.Remove(building);
-                _dirtyBuildings.Add(building);
-            }
-        }
-
-        // A building without any pipe is not a network
-        if (network.Conductors.Count == 0)
-        {
-            foreach (var id in network.Buildings)
-            {
-                _networkOfBuilding.Remove(id);
-            }
-            return;
-        }
-
-        var anchor = network.Conductors.First();
-        network.District = WorldLayout.DistrictOf(anchor.X, anchor.Y);
-        network.Owner = network.Buildings.Select(t => _buildings[t].Owner).DefaultIfEmpty(_conductors.TryGetValue(anchor, out var c) ? c.Owner : 0).First();
-        network.Gates.AddRange(network.Conductors.Where(t => _conductors.TryGetValue(t, out var conductor) && conductor.Kind == ConductorKind.Gate).OrderBy(t => t.X).ThenBy(t => t.Y));
-        network.Links = BuildLinks(network);
-        _networks[network.Id] = network;
-        Changes.Networks.Add(network.Id);
     }
 
     private (double Loss, double Throughput) ConductorStats(Conductor conductor)
@@ -951,6 +974,31 @@ public sealed partial class GameWorld
 
     private void Solve(Network network)
     {
+        var nodes = PumpedNodes(network);
+        network.Nodes = nodes;
+
+        var links = LinksBetween(network, nodes);
+        var gateNodes = GateNodes(network, links);
+        var all = gateNodes.Count == 0 ? nodes : [.. nodes, .. gateNodes.Select(t => t.Node)];
+        network.Solution = all.Count < 2 ? FlowSolution.Empty : SplitGateFlows(network, FlowSolver.Solve(all, links, MarketFor(network)), gateNodes);
+        if (all.Count < 2)
+        {
+            network.GateFlows = [];
+        }
+        if (network.Gates.Count > 0)
+        {
+            WakeCoupling();
+        }
+        network.NeedsSolve = false;
+        network.Solves++;
+        _solves++;
+        PassTeleported(network);
+        Changes.Networks.Add(network.Id);
+    }
+
+    /// <summary>A network's buildings as its solve sees them: slower for too few pump stations (which it sets)</summary>
+    private List<FlowNode> PumpedNodes(Network network)
+    {
         var nodes = network.Buildings.Select(t => ToFlowNode(_buildings[t])).OfType<FlowNode>().ToList();
 
         // Every 50 buildings need a pump station; without enough of them everything runs slower
@@ -972,26 +1020,7 @@ public sealed partial class GameWorld
             .Where(t => t.Factor < 1)
             .ToDictionary(t => t.Owner, t => t.Factor);
         network.PumpFactor = network.PumpFactors.Values.DefaultIfEmpty(1).Min();
-        nodes = WithPumps(network, nodes);
-        network.Nodes = nodes;
-
-        var links = LinksBetween(network, nodes);
-        var gateNodes = GateNodes(network, links);
-        var all = gateNodes.Count == 0 ? nodes : [.. nodes, .. gateNodes.Select(t => t.Node)];
-        network.Solution = all.Count < 2 ? FlowSolution.Empty : SplitGateFlows(network, FlowSolver.Solve(all, links, MarketFor(network)), gateNodes);
-        if (all.Count < 2)
-        {
-            network.GateFlows = [];
-        }
-        if (network.Gates.Count > 0)
-        {
-            WakeCoupling();
-        }
-        network.NeedsSolve = false;
-        network.Solves++;
-        _solves++;
-        PassTeleported(network);
-        Changes.Networks.Add(network.Id);
+        return WithPumps(network, nodes);
     }
 
     /// <summary>Buildings slowed down by too few pump stations (their company's factor in the network)</summary>

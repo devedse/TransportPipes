@@ -163,6 +163,59 @@ public class PromiseFacts
         Kept(said, Income(game, company) - before, "the Iron track's first tier");
     }
 
+    [TestMethod]
+    public void APipeStepBringsWhatItSays()
+    {
+        // An Iron Mine on a Wind Moily's pipe, its ore with nowhere to go ("Unstick your Iron Mine: one pipe"), and a Wind
+        // Moily without a pipe ("Pipe your Wind Moily to your Trading Post"): both said "about", from what their goods
+        // sell for at the hub
+        foreach (var kind in new[] { AdvisorKind.Stuck, AdvisorKind.Start })
+        {
+            var (game, company, map) = Estate(4);
+            var post = map.Values.First(t => t.Type == "tradingPost");
+            bool Far(TilePos t) => Math.Abs(t.X - post.Position.X) + Math.Abs(t.Y - post.Position.Y) > 8;
+            if (kind == AdvisorKind.Stuck)
+            {
+                var mine = game.Build(company, "ironMine", game.Seed(company, "ironOre"));
+                game.Connect(company, game.Build(company, "windMoily", game.Spot(company, "windMoily", t => Far(t) && Math.Abs(t.X - mine.Position.X) + Math.Abs(t.Y - mine.Position.Y) < 6)), mine);
+            }
+            else
+            {
+                game.Build(company, "windMoily", game.Spot(company, "windMoily", Far));
+            }
+            game.Pass(2);
+            var step = game.World.NextSteps(company, 8).FirstOrDefault(t => t.Kind == kind);
+            Assert.IsNotNull(step, $"a {kind} step: {string.Join(" | ", game.World.NextSteps(company, 8).Select(t => t.Title))}");
+            Assert.DoesNotContain("about", step.Reason, $"{step.Title}: {step.Reason}");
+            Assert.IsGreaterThan(1, step.GainPerMinute, step.Reason);
+            var pipe = game.World.StepPipe(company, step);
+            Assert.IsNotNull(pipe);
+            var before = Income(game, company);
+
+            Assert.IsTrue(game.World.PlacePipes(company.Id, pipe.Tiles).Success);
+            game.Pass(5);
+
+            Kept(step.GainPerMinute, Income(game, company) - before, step.Title);
+        }
+    }
+
+    [TestMethod]
+    public void APipeThatWouldSellNothingIsNoStep()
+    {
+        // An Iron Mine on a pipe that ends nowhere, beside moilies whose energy sells for more than its ore: piped to
+        // them it would still stand ("a pipe sells them", and it didn't)
+        var (game, company, _) = Estate(4);
+        var mine = game.Build(company, "ironMine", game.Seed(company, "ironOre"));
+        var end = mine.Border().First(t => !game.World.IsOccupied(t) && game.World.Tile(t).Terrain is not (TerrainType.Mountain or TerrainType.Water));
+        Assert.IsTrue(game.World.PlacePipes(company.Id, [end]).Success);
+        game.Pass(2);
+        Assert.AreEqual(IdleCause.Stuck, game.World.IdleReasonOf(mine)?.Cause);
+
+        var steps = game.World.NextSteps(company, 8);
+
+        Assert.IsFalse(steps.Any(t => t.Kind == AdvisorKind.Stuck && t.Building == mine.Id), string.Join(" | ", steps.Select(t => $"{t.Title}: {t.Reason}")));
+    }
+
     /// <summary>What an action took (or, less than zero, gave back) is the price shown</summary>
     private static void Priced(Company company, double shown, Func<CommandResult> act, string what, double within = 0.01)
     {

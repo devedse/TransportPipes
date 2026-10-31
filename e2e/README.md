@@ -59,6 +59,7 @@ and piped to the post (`kit(page, types, 2)` in Copper Pipe, its ingots stocked)
 | `income.mjs` | Where your gold a minute comes from: the gold panel's lines add up to the top bar's number, with what isn't in it and why it keeps changing |
 | `one-lab.mjs` | One Lab: with one, the Build menu's Lab says "You have one", and a second is refused with why |
 | `discount-prices.mjs` | The prices shown are the gold taken with the Workshop wonder's discount: pays a Workshop stage, reads the Wind Moily's price in the Build menu, builds one and compares |
+| `pipe-tip.mjs` | The Next steps' first pipe says what it brings: a Wind Moily away from the Trading Post, its step without "about", the pipe dragged, and two market minutes later the top bar is up by that within 2% (about 3 minutes) |
 | `yard-short.mjs` | A building short of a good says why the Yard doesn't bring it, and the hub as the other way (the Yard's own cases are in WantFacts) |
 | `own-goods-note.mjs` | Your own goods going into your levels: the Waits line and the Yard's What you're waiting for say what they would have sold for (the number is the server's, set here) |
 | `panel-tops.mjs` | What a building does at the top of its panel, above Upgrade: a producer's Needs and Makes, a Storage's Stored, the Trading Post's sales against your Hub Orders with Buy from the hub |

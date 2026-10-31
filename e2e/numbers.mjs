@@ -42,12 +42,12 @@ await page.evaluate(() => tp.gameClient.openYard());
 await page.waitForSelector(".yard-residents", { timeout: 15000 });
 await page.waitForTimeout(1500);
 const yard = await page.locator("aside").filter({ has: page.locator(".yard-residents") }).innerText();
-check(/Spare: what each still sells to the hub/.test(yard), "the Yard says what Spare means");
-check(/Spare \(to the hub\)/.test(yard), "your own row says your spare goes to the hub");
+check(/Spare: what each has left over and sells at its Trading Post/.test(yard), "the Yard says what Spare means");
+check(/Spare \(sold at your Trading Post\)/.test(yard), "your own row says your spare goes to your Trading Post");
 const income = (yard.match(/Here [^\n]*/) ?? [""])[0];
-// (only when the Yard pays you something: a Yard nobody else piped to has no line)
-const quiet = /Nobody else here has piped to the Yard yet/.test(yard);
-check(quiet ? income === "" : /of your [+−][\d,.]+\/min/.test(income), "the Yard says what it pays of your income, and whom for", income || (quiet ? "a quiet Yard: no line" : ""));
+// (only when the Yard pays you something: in a Yard nobody else piped to, or where nobody buys from you, no line)
+const trades = /buys your|You buy/.test(yard) && !/Nobody else here has piped to the Yard yet/.test(yard);
+check(trades ? /of your [+−][\d,.]+\/min/.test(income) : income === "", "the Yard says what it pays of your income, and whom for", income || (trades ? "no line beside trades" : "no trades: no line"));
 // What the Yard pays here is what the network's "the Yard and neighbours" said, give or take the project's round
 const paid = [...income.matchAll(/([\d,.]+) g\/min/g)].reduce((a, m) => a + Number(m[1].replace(/,/g, "")), 0);
 // The network's parts past the hub's: neighbours, the project (and what is bought, below zero)

@@ -233,16 +233,48 @@ public sealed partial class GameWorld
         // The best of each kind first, then the next best of any kind; never two steps with the same title
         var ranked = candidates.OrderByDescending(t => t.Score).DistinctBy(t => t.Step.Title).ToList();
         var steps = ranked.GroupBy(t => t.Step.Kind).Select(t => t.First()).OrderByDescending(t => t.Score).Take(count).ToList();
-        steps.AddRange(ranked.Except(steps).Take(count - steps.Count));
-        return steps.OrderByDescending(t => t.Score).Select(t => Exact(company, t.Step)).ToList();
+        // Said as solved; a pipe that would sell nothing is no step (the next best takes its place)
+        var said = new List<(AdvisorStep Step, double Score)>();
+        foreach (var (step, score) in steps.OrderByDescending(t => t.Score).Concat(ranked.Except(steps)))
+        {
+            if (said.Count == count)
+            {
+                break;
+            }
+            if (Exact(company, step) is { } exact)
+            {
+                said.Add((exact, score));
+            }
+        }
+        return said.OrderByDescending(t => t.Score).Select(t => t.Step).ToList();
     }
 
     /// <summary>
     /// A step on a big network, ranked by an estimate, says what it will bring once it is one of the few shown (the
     /// owner, 2026-10-31: "whenever something says x will happen, it actually does"): an upgrade's levels solved
     /// </summary>
-    private AdvisorStep Exact(Company company, AdvisorStep step)
+    private AdvisorStep? Exact(Company company, AdvisorStep step)
     {
+        // A pipe that lets a building's goods out, or its first to the Trading Post: the network it makes, solved (ranked
+        // by what its goods sell for at the hub: "about +37 g/min"). One to a trading post that would sell nothing is
+        // left out (an Iron Mine piped to the moilies whose energy sells for more than its ore: "a pipe sells them",
+        // and they didn't); one to a Storage keeps the goods for levels and pipes. (A pipe to the Yard gate isn't solved
+        // so: what neighbours lack grows once you are there, which the next round alone doesn't see.)
+        if (StepPipe(company, step) is { } pipe)
+        {
+            var brings = Math.Max(0, PipeGain(company, pipe.Tiles));
+            if (brings <= 0.05 && (step.Kind == AdvisorKind.Start
+                || step.Building is { } stuck && Building(stuck) is { } from && PlanFixPipe(from)?.Target is { } target && Content.Building(target.Type).Kind == BuildingKind.TradingPost))
+            {
+                return null;
+            }
+            var about = $"about +{Gold(step.GainPerMinute)}/min";
+            return step with
+            {
+                Reason = brings > 0.05 ? step.Reason.Replace(about, $"+{Gold(brings)}/min") : step.Reason.Replace($": {about}.", "."),
+                GainPerMinute = brings,
+            };
+        }
         // A Pump Station on a big network: its buildings at full speed, solved
         if (step.Kind == AdvisorKind.Pump && step.At is { } at && BuildingAt(at) is { } inside && NetworkOf(inside.Id) is { } pumped && Estimated(pumped))
         {
@@ -267,6 +299,15 @@ public sealed partial class GameWorld
             : System.Text.RegularExpressions.Regex.Replace(text, @", pays for itself in [^.:;]+", "");
         return step with { Reason = text, GainPerMinute = gain };
     }
+
+    /// <summary>
+    /// The pipe a step lays (Unstick), or the shortest from its building to the Trading Post (its first pipe, which the
+    /// player drags): what its gain is solved with
+    /// </summary>
+    internal PipePlan? StepPipe(Company company, AdvisorStep step) =>
+        step.Kind is not (AdvisorKind.Stuck or AdvisorKind.Start) || step.Building is not { } id || Building(id) is not { } from ? null
+        : step.Tiles is { Count: > 0 } tiles ? new PipePlan(tiles, tiles.Count, step.Cost, null)
+        : PlanPipe(company, from, BuildingsOf(company.Id).Where(t => Content.Building(t.Type).Kind == BuildingKind.TradingPost).SelectMany(t => t.Border()).ToHashSet().Contains);
 
     // ---------------------------------------------------------------- What-ifs
 
@@ -1177,15 +1218,17 @@ public sealed partial class GameWorld
     /// </summary>
     private void StartSteps(Company company, Action<AdvisorStep, double> add)
     {
-        var post = BuildingsOf(company.Id).FirstOrDefault(t => Content.Building(t.Type).Kind == BuildingKind.TradingPost);
-        if (post == null)
+        var posts = BuildingsOf(company.Id).Where(t => Content.Building(t.Type).Kind == BuildingKind.TradingPost).ToList();
+        if (posts.Count == 0)
         {
             return;
         }
-        var postNetwork = NetworkOf(post.Id);
+        var post = posts[0];
+        // Piped to any of its trading posts (with two, the first one's network alone said the other's moilies sold nothing)
+        var postNetworks = posts.Select(t => NetworkOf(t.Id)).OfType<Network>().ToList();
         foreach (var building in BuildingsOf(company.Id).Where(t => !t.UnderConstruction && Content.Building(t.Type) is { Kind: BuildingKind.Producer, Out.Count: > 0 }))
         {
-            if (postNetwork != null && postNetwork.Buildings.Contains(building.Id))
+            if (postNetworks.Any(t => t.Buildings.Contains(building.Id)))
             {
                 continue;
             }
@@ -1195,7 +1238,7 @@ public sealed partial class GameWorld
             {
                 add(new AdvisorStep(AdvisorKind.Start, $"Pipe your {definition.Name} to your Trading Post",
                     $"It sells nothing yet: what it makes would bring about +{Gold(value)}/min at the hub. Drag a pipe from it to the Trading Post.",
-                    AdvisorAction.Connect, Distance(building.Position, post.Position) * Content.PipeTier(1).Gold, value, Building: building.Id, At: building.Position), AdvisorFixFactor);
+                    AdvisorAction.Connect, posts.Min(t => Distance(building.Position, t.Position)) * Content.PipeTier(1).Gold, value, Building: building.Id, At: building.Position), AdvisorFixFactor);
                 return;
             }
         }
