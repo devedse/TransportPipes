@@ -212,6 +212,9 @@ export function canPlace(
   ignoreLock = false,
 ): Placement {
   const fail = (reason: string): Placement => ({ ok: false, reason, multiplier: 0 });
+  if (!ignoreLock && definition.kind === "lab" && content.hasLab(company)) {
+    return fail("You have a Lab: one is enough, and its levels make research faster");
+  }
   const lock = ignoreLock ? null : content.lockReason(definition, company, era);
   if (lock !== null) {
     return fail(`Needs ${lock}`);

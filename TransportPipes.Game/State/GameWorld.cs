@@ -466,6 +466,12 @@ public sealed partial class GameWorld
             reason = $"{definition.Name} needs research in your Lab.";
             return false;
         }
+        // One Lab (the owner, 2026-10-31: a second one added nothing; its levels make research faster)
+        if (definition.Kind == BuildingKind.Lab && BuildingsOf(company.Id).Any(t => Content.Building(t.Type).Kind == BuildingKind.Lab))
+        {
+            reason = "You have a Lab: one is enough, and its levels make research faster.";
+            return false;
+        }
         if (definition.Unlock.Collection is { } collection && !company.Achievements.Contains(CollectionKey(collection)))
         {
             reason = $"{definition.Name} is the reward of a collection.";

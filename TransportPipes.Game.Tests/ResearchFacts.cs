@@ -75,6 +75,20 @@ public class ResearchFacts
     }
 
     [TestMethod]
+    public void OneLabIsAllYouCanBuild()
+    {
+        // The owner, 2026-10-31: "Can we just disable people building more than 1 lab please?"
+        var (game, company) = WithLab();
+        var lab = game.World.BuildingsOf(company.Id).Single(t => t.Type == "lab");
+
+        var second = game.World.PlaceBuilding(company.Id, "lab", game.Spot(company, "lab"));
+
+        Assert.IsFalse(second.Success);
+        Assert.AreEqual("You have a Lab: one is enough, and its levels make research faster.", second.Error);
+        Assert.IsTrue(game.World.Move(company.Id, lab.Id, game.Spot(company, "lab", t => t != lab.Position)).Success, "it can still be moved");
+    }
+
+    [TestMethod]
     public void ResearchNeedsALab()
     {
         var game = new TestGame();

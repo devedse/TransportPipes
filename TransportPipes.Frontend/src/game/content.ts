@@ -88,6 +88,13 @@ export class Content {
     return this.progression.earnedForLevel[level] ?? Infinity;
   }
 
+  /** Whether a company has a Lab already (one is enough) */
+  hasLab(company: Partial<Pick<CompanyDto, "buildingCounts">>): boolean {
+    return Object.entries(company.buildingCounts ?? {}).some(
+      ([type, n]) => n > 0 && this.building(type)?.kind === "lab",
+    );
+  }
+
   research(id: string): ResearchDefinition | undefined {
     return this.researchById.get(id);
   }
@@ -114,11 +121,16 @@ export class Content {
   /** Why a building can't be built yet, or null */
   lockReason(
     definition: BuildingDefinition,
-    company: Pick<CompanyDto, "level" | "research"> & Partial<Pick<CompanyDto, "collections">>,
+    company: Pick<CompanyDto, "level" | "research"> &
+      Partial<Pick<CompanyDto, "collections" | "buildingCounts">>,
     era: number,
   ): string | null {
     if (!definition.buildable) {
       return "Can't be built";
+    }
+    // One Lab: its levels make research faster
+    if (definition.kind === "lab" && this.hasLab(company)) {
+      return "You have one";
     }
     if (definition.unlock.era > era) {
       return `Era ${definition.unlock.era}`;
