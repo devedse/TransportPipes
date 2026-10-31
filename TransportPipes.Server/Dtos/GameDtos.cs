@@ -154,7 +154,21 @@ public record PriceDto(string Key, double Value, double? Pending, bool Back, Dat
 /// What your gold can do (after run 4, "your gold can"): at most three lines, shared first: the shared goal, a want
 /// nobody near can fill, and "Grow everything that pays"
 /// </summary>
-public record GoldUsesDto(GoldLineDto? Shared, GoldLineDto? Want, GrowPlanDto? Grow, double Hour);
+public record GoldUsesDto(GoldLineDto? Shared, GoldLineDto? Want, GrowPlanDto? Grow, double Hour, IncomeDto? Income = null);
+
+/// <summary>
+/// Where your gold a minute comes from (playtest: "a very detailed explanation what makes this total gold come to be"):
+/// its lines, which add up to Total, the top bar's; and beside it, what isn't in it: today's hub orders' pay on top, and
+/// what your own goods going into your levels would have sold for
+/// </summary>
+public record IncomeDto(IReadOnlyList<IncomeLineDto> Lines, double Total, double OrdersToday, double OwnGoodsIntoWants);
+
+/// <summary>
+/// A line of your gold a minute: what (hub, storage, player, fromPlayer, import, yardSold, yardOnItsWay, yardBought,
+/// yardFloor), the good, with whom, how many a minute, the gold a minute; a hub sale with your Hub Order for the good
+/// (the market pays the full price up to it)
+/// </summary>
+public record IncomeLineDto(string Kind, string Resource, string? Who, double Units, double Gold, double? HubOrder = null);
 
 /// <summary>
 /// One line: its words, and what its button does ("wonder": order Resource for Cost, or all; "want": order the rest of

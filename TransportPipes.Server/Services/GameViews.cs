@@ -165,7 +165,7 @@ public static partial class GameViews
         {
             grow = new GrowPlanDto([], 0, 0, recent.At + GameWorld.UndoFor);
         }
-        return new GoldUsesDto(shared, want, grow, hour);
+        return new GoldUsesDto(shared, want, grow, hour, Income(world, me));
     }
 
     /// <summary>
@@ -353,6 +353,18 @@ public static partial class GameViews
             .Select(g => new WantNearDto(g.Key.Target, world.NameFor(g.First().Owner, viewer), g.First().Name, g.Key.Resource, Math.Round(g.Sum(t => t.Want.Left)),
                 Math.Floor(g.First().Holds), g.First().Makes, world.OrderCost(viewer, g.Key.Target, g.Key.Resource)))
             .ToList();
+
+    /// <summary>Where a company's gold a minute comes from, line by line, and what isn't in it</summary>
+    private static IncomeDto Income(GameWorld world, Company company)
+    {
+        var lines = world.IncomeBreakdown(company);
+        return new IncomeDto(
+            lines.Select(t => new IncomeLineDto(t.Kind, t.Resource, t.Who, Math.Round(t.Units, 1), Math.Round(t.Gold, 1),
+                t.Kind == "hub" ? Math.Round(world.HubOrder(company, t.Resource), 1) : null)).ToList(),
+            Math.Round(lines.Sum(t => t.Gold), 1),
+            Math.Round(company.DailyOrders.Sum(t => t.Premium)),
+            Math.Round(world.OwnGoodsIntoWants(company)));
+    }
 
     /// <summary>A level's goods still coming (1.4 §9): the wants, and what buying the rest costs</summary>
     private static LevelWaitDto? LevelWait(GameWorld world, Building building, Company? viewer)

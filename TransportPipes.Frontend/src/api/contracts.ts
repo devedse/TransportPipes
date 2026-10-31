@@ -765,6 +765,38 @@ export interface GoldUsesDto {
   want: GoldLineDto | null;
   grow: GrowPlanDto | null;
   hour: number;
+  /** Where your gold a minute comes from */
+  income?: IncomeDto | null;
+}
+
+/**
+ * Where your gold a minute comes from: its lines (they add up to total, the top bar's), today's hub orders' pay on top,
+ * and what your own goods going into your levels would have sold for
+ */
+export interface IncomeDto {
+  lines: IncomeLineDto[];
+  total: number;
+  ordersToday: number;
+  ownGoodsIntoWants: number;
+}
+
+/** A line of your gold a minute: what, the good, with whom, how many a minute, the gold a minute (a hub sale: your Hub Order) */
+export interface IncomeLineDto {
+  kind:
+    | "hub"
+    | "storage"
+    | "player"
+    | "fromPlayer"
+    | "import"
+    | "yardSold"
+    | "yardOnItsWay"
+    | "yardBought"
+    | "yardFloor";
+  resource: string;
+  who: string | null;
+  units: number;
+  gold: number;
+  hubOrder: number | null;
 }
 
 /** One line: "wonder" orders resource for cost (a day of your income) or allCost; "want" orders the rest of target */

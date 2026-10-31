@@ -140,6 +140,39 @@ public class WantFacts
     }
 
     [TestMethod]
+    public void TheIncomeLinesAddUpToTheTopBarsGoldAMinute()
+    {
+        // Playtest: "add a very detailed explanation what makes this total gold come to be"; Ben sells coal through the
+        // Yard, Ana buys it and sells copper ingots and energy at her hub
+        var (game, ana, ben, smelter, pit) = SmelterAndCoal();
+        game.Connect(ben, pit, game.TradingPost(ben));
+        game.Pass(5);
+        var gold = game.World.GoldPerMinute();
+
+        foreach (var company in new[] { ana, ben })
+        {
+            var lines = game.World.IncomeBreakdown(company);
+            Assert.AreEqual(gold.GetValueOrDefault(company.Id), lines.Sum(t => t.Gold), 1e-6, string.Join(" | ", lines.Select(t => $"{t.Kind} {t.Resource} {t.Who} {t.Gold:0.00}")));
+        }
+        var anas = game.World.IncomeBreakdown(ana);
+        Assert.IsTrue(anas.Any(t => t.Kind == "yardBought" && t.Resource == "coal" && t.Gold < 0), "Ana pays for Ben's coal");
+        Assert.IsTrue(anas.Any(t => t.Kind == "hub" && t.Resource == "copperIngot" && t.Gold > 0), "and sells her ingots at the hub");
+        Assert.IsTrue(game.World.IncomeBreakdown(ben).Any(t => t.Kind is "yardSold" or "yardOnItsWay" && t.Resource == "coal" && t.Who == "Ana"), "Ben is paid by Ana");
+    }
+
+    [TestMethod]
+    public void AnImportIsALineOfItsOwn()
+    {
+        var (game, ana, _, smelter, _) = SmelterAndCoal();
+        Assert.IsTrue(game.World.SetImport(ana.Id, game.TradingPost(ana).Id, "coal", true).Success);
+        game.Pass(3);
+
+        var lines = game.World.IncomeBreakdown(ana);
+        Assert.IsTrue(lines.Any(t => t.Kind == "import" && t.Resource == "coal" && t.Gold < 0), string.Join(" | ", lines.Select(t => $"{t.Kind} {t.Resource} {t.Gold:0.00}")));
+        Assert.AreEqual(game.World.GoldPerMinute().GetValueOrDefault(ana.Id), lines.Sum(t => t.Gold), 1e-6);
+    }
+
+    [TestMethod]
     public void WithNobodyMakingItTheYardLineSaysWhereElseItComesFrom()
     {
         var (game, ana, ben, smelter, pit) = SmelterAndCoal();

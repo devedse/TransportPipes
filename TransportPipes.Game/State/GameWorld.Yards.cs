@@ -335,12 +335,26 @@ public sealed partial class GameWorld
 
     private void ForEachTradeIncome(Action<long, double> add)
     {
-        void Add(long company, double gold) => add(company, gold);
+        foreach (var entry in TradeIncomeEntries())
+        {
+            add(entry.Seller.Id, entry.Gold);
+        }
+    }
+
+    /// <summary>
+    /// A seller's pay a minute from the Yard: for what a buyer took (Floor: what it didn't take, at the seller's hub price),
+    /// or (OnItsWay) for what was matched this round and arrives the next
+    /// </summary>
+    public sealed record TradeIncomeEntry(Company Seller, Company Buyer, string Resource, double Units, double Gold, bool Floor, bool OnItsWay);
+
+    /// <summary>Every seller's pay from the Yard, entry by entry (the top bar's sum and its breakdown read the same)</summary>
+    private IEnumerable<TradeIncomeEntry> TradeIncomeEntries()
+    {
         foreach (var network in _networks.Values)
         {
             foreach (var payment in GatePayments(network))
             {
-                Add(payment.Seller.Id, payment.Gold);
+                yield return new TradeIncomeEntry(payment.Seller, payment.Buyer, payment.Resource, payment.Units, payment.Gold, payment.Floor, false);
             }
         }
         // A trade the Yard just matched: the seller's goods are on their way (they leave its network now and arrive at
@@ -361,7 +375,7 @@ public sealed partial class GameWorld
                 var arriving = _gateTerms.GetValueOrDefault(buyerKey)?.Import.Where(t => t.Key.Resource == resource).Sum(t => t.Value.GetValueOrDefault(sellerId)) ?? 0;
                 if (matched - arriving > 1e-9)
                 {
-                    Add(sellerId, (matched - arriving) * SettlementPrice(seller, buyer, resource));
+                    yield return new TradeIncomeEntry(seller, buyer, resource, matched - arriving, (matched - arriving) * SettlementPrice(seller, buyer, resource), false, true);
                 }
             }
         }

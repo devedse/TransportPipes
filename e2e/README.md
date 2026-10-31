@@ -51,6 +51,7 @@ and piped to the post (`kit(page, types, 2)` in Copper Pipe, its ingots stocked)
 | `lumber.mjs` | Lumber Camps next to a plot's forest: the client allows them and the server builds one (playtest: the client still asked for the old forest's marked trees) |
 | `buy-rest.mjs` | A level's goods bought one good at a time: each good's Buy the rest buys that good at its price, the level waits for the rest |
 | `level-flicker.mjs` | A level's goods coming in: the building steps up in its own network (same id), and the running buildings on its pipes never show ZZ meanwhile |
+| `income.mjs` | Where your gold a minute comes from: the gold panel's lines add up to the top bar's number, with what isn't in it and why it keeps changing |
 | `one-lab.mjs` | One Lab: with one, the Build menu's Lab says "You have one", and a second is refused with why |
 | `yard-short.mjs` | A building short of a good says why the Yard doesn't bring it, and the hub as the other way (the Yard's own cases are in WantFacts) |
 | `own-goods-note.mjs` | Your own goods going into your levels: the Waits line and the Yard's What you're waiting for say what they would have sold for (the number is the server's, set here) |
