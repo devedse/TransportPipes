@@ -1,4 +1,5 @@
 using TransportPipes.Game.Content;
+using TransportPipes.Game.Simulation;
 using TransportPipes.Game.World;
 
 namespace TransportPipes.Game.State;
@@ -87,6 +88,30 @@ public sealed class Link : Entity
 
     /// <summary>What the buyer got through the link since it started</summary>
     public double Delivered { get; set; }
+
+    /// <summary>
+    /// What the seller promises a minute at the buyer's gate, before its own buildings get any (the owner, 2026-10-31: "a
+    /// real promise"); as far as the buyer's buildings use it. 0: nothing promised, the seller's spare only
+    /// </summary>
+    public double Guaranteed { get; set; }
+
+    /// <summary>The most a minute it brings in all, the tank's filling too (the seller's cap); 0: as much as the pipe carries</summary>
+    public double UpTo { get; set; }
+
+    /// <summary>A change one side asked for that the other side accepts (raising what binds the other)</summary>
+    public double? AskedGuaranteed { get; set; }
+    public double? AskedUpTo { get; set; }
+    public long? AskedBy { get; set; }
+
+    /// <summary>Last round, per minute: what the seller sends for the guarantee (before its own buildings)</summary>
+    public double SendFirst { get; set; }
+
+    /// <summary>The seller sent less than it promised last round (it makes less now)</summary>
+    public bool GuaranteeShort { get; set; }
+
+    /// <summary>Last round, per minute: what the seller had spare of the good, and what it made of it (the card's numbers)</summary>
+    public double SellerSpare { get; set; }
+    public double SellerMakes { get; set; }
 
     /// <summary>
     /// The Yards' rounds until an accepted or resumed link brings its first goods: the first matches it, the next
@@ -291,10 +316,7 @@ public sealed partial class GameWorld
         {
             return Fail("One of you is on the way: link when you've landed.");
         }
-        if (mine.Station == theirs.Station)
-        {
-            return Fail($"{partner.Name} lives at your Yard: you trade through the Yard already.");
-        }
+        // A neighbour at your own Yard too (the owner, 2026-10-31): the Yard shares by itself, a link is for a promise
         var (seller, buyer) = selling ? (mine, theirs) : (theirs, mine);
         // To another town only over a trunk line between the two (1.4 §20): the link pays its pipe up to the town gates
         var line = mine.District == theirs.District ? null : LineBetween(mine.District, theirs.District);
@@ -317,7 +339,7 @@ public sealed partial class GameWorld
     /// Offers a link (v1.2 §7): you sell a good to a company outside your station, or buy one from it. The offerer pays the
     /// pipe; the other side accepts with one tap (an offer waits three days, then the pipe is refunded).
     /// </summary>
-    public (CommandResult Result, Link? Link) OfferLink(long companyId, long partnerId, string resource, bool selling, int tier = 1)
+    public (CommandResult Result, Link? Link) OfferLink(long companyId, long partnerId, string resource, bool selling, int tier = 1, double guaranteed = 0, double upTo = 0)
     {
         var plan = PlanLink(companyId, partnerId, resource, selling, tier);
         if (plan.Error != null)
@@ -327,6 +349,10 @@ public sealed partial class GameWorld
         var company = Company(companyId)!;
         var partner = Company(partnerId)!;
         var (seller, buyer) = selling ? (company, partner) : (partner, company);
+        if (TermsProblem(seller, resource, guaranteed, upTo, plan.Throughput * plan.Efficiency) is { } problem)
+        {
+            return (CommandResult.Fail(problem), null);
+        }
         if (_links.Values.Any(t => t.Seller == seller.Id && t.Buyer == buyer.Id && t.Resource == resource))
         {
             return (CommandResult.Fail("There is a link for that already."), null);
@@ -366,6 +392,8 @@ public sealed partial class GameWorld
             PaidMaterials = plan.Materials.ToDictionary(),
             Route = plan.Route,
             Length = plan.Length,
+            Guaranteed = Math.Round(guaranteed, 1),
+            UpTo = Math.Round(upTo, 1),
         };
         _links[link.Id] = link;
         company.Report.GoldSpent += plan.Gold;
@@ -401,6 +429,122 @@ public sealed partial class GameWorld
             $"{accepter.Name} accepted your link: the {Content.Resources[link.Resource].Name.ToLowerInvariant()} flows within two minutes (the Yard's next two rounds)"));
         return CommandResult.Ok;
     }
+
+    /// <summary>What a company makes of a good a minute in the network at its Yard gate (what it can promise at most)</summary>
+    public double MakesAtGate(Company company, string resource)
+    {
+        if (EstateOf(company) is not { } estate || GateNetwork(estate) is not { } network)
+        {
+            return 0;
+        }
+        return network.Nodes.Where(t => t.Owner == company.Id && t.Kind == FlowNodeKind.Building && t.Id > 0 && t.Out.ContainsKey(resource))
+            .Sum(t => t.Out[resource] * network.Solution.Rate(t.Id));
+    }
+
+    /// <summary>
+    /// What is wrong with a link's numbers (null: nothing): a guarantee no more than Up to, than its pipe brings, than what
+    /// the seller makes (the owner: the game shows what its own buildings would lose)
+    /// </summary>
+    private string? TermsProblem(Company seller, string resource, double guaranteed, double upTo, double pipeMax)
+    {
+        if (double.IsNaN(guaranteed) || double.IsNaN(upTo) || guaranteed < 0 || upTo < 0)
+        {
+            return "Unknown amount.";
+        }
+        if (upTo > 1e-9 && guaranteed > upTo + 1e-6)
+        {
+            return "What is guaranteed can't be more than Up to.";
+        }
+        if (guaranteed > pipeMax + 1e-6)
+        {
+            return $"Its pipe brings at most {pipeMax:N0} a minute: a better pipe brings more.";
+        }
+        var makes = MakesAtGate(seller, resource);
+        if (guaranteed > makes + 1e-6)
+        {
+            return $"{seller.Name} makes {makes:N1} {Content.Resources[resource].Name.ToLowerInvariant()} a minute where the link starts: no more can be promised.";
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// New numbers for a link (the owner, 2026-10-31): what binds yourself or helps the other counts from the next round
+    /// (the seller: either number; the buyer: lowering them); what binds the other (the buyer raising them) is asked of
+    /// the seller, who accepts or declines
+    /// </summary>
+    public CommandResult SetLinkTerms(long companyId, long linkId, double guaranteed, double upTo)
+    {
+        if (Link(linkId) is not { } link || (link.Seller != companyId && link.Buyer != companyId))
+        {
+            return CommandResult.Fail("Unknown link.");
+        }
+        var seller = Company(link.Seller)!;
+        if (TermsProblem(seller, link.Resource, guaranteed, upTo, LinkThroughput(link) * LinkEfficiency(link)) is { } problem)
+        {
+            return CommandResult.Fail(problem);
+        }
+        static double Cap(double upTo) => upTo > 1e-9 ? upTo : double.MaxValue;
+        var buyerAsksMore = companyId == link.Buyer && (guaranteed > link.Guaranteed + 1e-6 || Cap(upTo) > Cap(link.UpTo) + 1e-6);
+        if (buyerAsksMore && link.State != LinkState.Offered)
+        {
+            link.AskedGuaranteed = Math.Round(guaranteed, 1);
+            link.AskedUpTo = Math.Round(upTo, 1);
+            link.AskedBy = companyId;
+            LinkChanged(link);
+            Changes.Events.Add(new WorldEvent(link.Seller, WorldEventKind.Link,
+                $"{Company(link.Buyer)!.Name} asks more of your {LinkName(link)}: {Promise(guaranteed, upTo)}. Accept or decline it in your Links"));
+            return CommandResult.Done($"Asked: {seller.Name} accepts or declines it");
+        }
+        var promisedLess = companyId == link.Seller && guaranteed < link.Guaranteed - 1e-6;
+        ApplyTerms(link, guaranteed, upTo);
+        if (promisedLess)
+        {
+            Changes.Events.Add(new WorldEvent(link.Buyer, WorldEventKind.Link, $"{seller.Name} promises you less on your {LinkName(link)} now: {Promise(guaranteed, upTo)}"));
+        }
+        return CommandResult.Ok;
+    }
+
+    /// <summary>The other side accepts or declines what was asked of a link</summary>
+    public CommandResult AnswerLinkTerms(long companyId, long linkId, bool accept)
+    {
+        if (Link(linkId) is not { AskedBy: { } by } link || (link.Seller != companyId && link.Buyer != companyId) || by == companyId)
+        {
+            return CommandResult.Fail("Nothing was asked of you.");
+        }
+        var (guaranteed, upTo) = (link.AskedGuaranteed ?? link.Guaranteed, link.AskedUpTo ?? link.UpTo);
+        link.AskedGuaranteed = null;
+        link.AskedUpTo = null;
+        link.AskedBy = null;
+        if (!accept)
+        {
+            LinkChanged(link);
+            Changes.Events.Add(new WorldEvent(by, WorldEventKind.Link, $"{Company(companyId)!.Name} declined what you asked of your {LinkName(link)}"));
+            return CommandResult.Ok;
+        }
+        if (TermsProblem(Company(link.Seller)!, link.Resource, guaranteed, upTo, LinkThroughput(link) * LinkEfficiency(link)) is { } problem)
+        {
+            LinkChanged(link);
+            return CommandResult.Fail(problem);
+        }
+        ApplyTerms(link, guaranteed, upTo);
+        Changes.Events.Add(new WorldEvent(by, WorldEventKind.Link, $"{Company(companyId)!.Name} accepted: your {LinkName(link)} is {Promise(guaranteed, upTo)} from the next Yard round"));
+        return CommandResult.Ok;
+    }
+
+    private void ApplyTerms(Link link, double guaranteed, double upTo)
+    {
+        link.Guaranteed = Math.Round(guaranteed, 1);
+        link.UpTo = Math.Round(upTo, 1);
+        link.AskedGuaranteed = null;
+        link.AskedUpTo = null;
+        link.AskedBy = null;
+        LinkChanged(link);
+        WakeCoupling();
+    }
+
+    /// <summary>"30 a minute guaranteed, up to 60"</summary>
+    private static string Promise(double guaranteed, double upTo) =>
+        (guaranteed > 1e-9 ? $"{guaranteed:0.#} a minute guaranteed" : "nothing guaranteed") + (upTo > 1e-9 ? $", up to {upTo:0.#}" : ", as much as the pipe carries");
 
     /// <summary>Declines an offer (or takes back your own): the pipe is refunded to whoever paid it</summary>
     public CommandResult DeclineLink(long companyId, long linkId)
@@ -618,12 +762,30 @@ public sealed partial class GameWorld
                 continue;
             }
             var arrived = 0.0;
+            var guaranteeShort = false;
             if (link.Flows && EstateOf(seller) is { } sellerEstate && members.TryGetValue(KeyOf(sellerEstate), out var from)
                 && _gateTerms.TryGetValue(KeyOf(sellerEstate), out var old))
             {
+                // What left of what was asked of the seller's gate: its spare, and its guarantees (taken first) apart
                 var exported = old.Export.GetValueOrDefault(link.Resource);
                 var ratio = exported <= 1e-12 ? 0 : Math.Min(1, from.Sent.GetValueOrDefault(link.Resource) / exported);
-                arrived = link.Send * ratio * LinkEfficiency(link);
+                var exportedFirst = old.ExportFirst.GetValueOrDefault(link.Resource);
+                var ratioFirst = exportedFirst <= 1e-12 ? 0 : Math.Min(1, from.SentFirst.GetValueOrDefault(link.Resource) / exportedFirst);
+                arrived = (link.Send * ratio + link.SendFirst * ratioFirst) * LinkEfficiency(link);
+                guaranteeShort = link.SendFirst > 1e-9 && ratioFirst < 0.98;
+            }
+            if (guaranteeShort && !link.GuaranteeShort)
+            {
+                // No penalty (the owner: "just show a warning"): both sides hear it once, and the card says it while it lasts
+                var good = Content.Resources[link.Resource].Name.ToLowerInvariant();
+                Changes.Events.Add(new WorldEvent(seller.Id, WorldEventKind.Link, $"You make less {good} than you promised {buyer.Name}: their link gets less until you make more (or lower what you promise)"));
+                Changes.Events.Add(new WorldEvent(buyer.Id, WorldEventKind.Link, $"{seller.Name} makes less {good} than they promised you: your tank makes up for it while it lasts"));
+                LinkChanged(link);
+            }
+            if (guaranteeShort != link.GuaranteeShort)
+            {
+                link.GuaranteeShort = guaranteeShort;
+                LinkChanged(link);
             }
             var need = link.Flows ? link.Need : 0;
             var taken = Math.Min(arrived, need);
@@ -673,6 +835,7 @@ public sealed partial class GameWorld
         {
             link.Need = 0;
             link.Send = 0;
+            link.SendFirst = 0;
             if (!link.Flows)
             {
                 continue;
@@ -701,31 +864,57 @@ public sealed partial class GameWorld
             var throughput = LinkThroughput(link);
             var lacks = to.Lacks.GetValueOrDefault(link.Resource);
             var spare = from?.Spare.GetValueOrDefault(link.Resource) ?? 0;
-            var need = Math.Min(lacks, throughput * efficiency);
-            var send = Math.Min(need / efficiency, spare);
+            link.SellerSpare = spare;
+            link.SellerMakes = from?.Makes.GetValueOrDefault(link.Resource) ?? 0;
+            // The most it brings: what its pipe carries, and the seller's cap
+            var cap = throughput * efficiency;
+            if (link.UpTo > 1e-9)
+            {
+                cap = Math.Min(cap, link.UpTo);
+            }
+            var need = Math.Min(lacks, cap);
+            // The guarantee first, before the seller's own buildings, as far as the buyer uses it; the rest from its spare
+            var promised = from == null ? 0 : Math.Min(link.Guaranteed, need);
+            var sendFirst = promised / efficiency;
+            var send = Math.Min((need - promised) / efficiency, spare);
             link.Flow = from == null ? LinkFlow.NotConnected
                 : need <= 1e-9 ? LinkFlow.NotNeeded
-                : send * efficiency < need - 1e-6 ? LinkFlow.SellerShort
-                : lacks > throughput * efficiency + 1e-6 && spare > send + 1e-6 ? LinkFlow.Capped
+                : promised + send * efficiency < need - 1e-6 ? LinkFlow.SellerShort
+                : lacks > cap + 1e-6 && spare > send + 1e-6 ? LinkFlow.Capped
                 : LinkFlow.Live;
-            if (need > 1e-9)
+            // The tank keeps two hours of the guarantee (it backs the promise), of the need while nothing is promised
+            if (link.Guaranteed > 1e-9)
+            {
+                link.TankSize = link.Guaranteed * TankMinutes;
+            }
+            else if (need > 1e-9)
             {
                 link.TankSize = need * TankMinutes;
             }
             // What the seller can't send now the tank covers while it has some; the rest is for the Yard and the hub
-            var covered = link.Tank > 1e-9 ? need : send * efficiency;
+            var covered = link.Tank > 1e-9 ? need : promised + send * efficiency;
+            // The tank fills from the seller's spare, within its cap and its pipe
+            var room = link.UpTo > 1e-9 ? Math.Max(0, link.UpTo - need) / efficiency : double.MaxValue;
             var fill = from != null && link.Tank < link.TankSize - 1e-9
-                ? Math.Min(Math.Min(spare - send, throughput - send), link.TankSize / TankFillMinutes / efficiency)
+                ? Math.Min(Math.Min(Math.Min(spare - send, throughput - send - sendFirst), link.TankSize / TankFillMinutes / efficiency), room)
                 : 0;
             fill = Math.Max(0, fill);
             link.Need = need;
             link.Send = send + fill;
+            link.SendFirst = sendFirst;
             Add(to.Lacks, link.Resource, -covered);
-            if (from != null && link.Send > 1e-9)
+            if (from != null && (link.Send > 1e-9 || sendFirst > 1e-9))
             {
                 Add(from.Spare, link.Resource, -link.Send);
                 var terms = termsOf(from.Key);
-                terms.Export[link.Resource] = terms.Export.GetValueOrDefault(link.Resource) + link.Send;
+                if (link.Send > 1e-9)
+                {
+                    terms.Export[link.Resource] = terms.Export.GetValueOrDefault(link.Resource) + link.Send;
+                }
+                if (sendFirst > 1e-9)
+                {
+                    terms.ExportFirst[link.Resource] = terms.ExportFirst.GetValueOrDefault(link.Resource) + sendFirst;
+                }
             }
         }
     }

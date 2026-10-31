@@ -920,7 +920,20 @@ public record LinkDto(
     /// <summary>A starting link: when its first goods come (the Yards' rounds)</summary>
     DateTime? StartsAt = null,
     /// <summary>What the seller's gate sends into it a minute: what arrives, what fills the tank, what the pipe loses</summary>
-    double Sent = 0);
+    double Sent = 0,
+    /// <summary>What the seller promises a minute (before its own buildings), and its cap (0: what the pipe carries)</summary>
+    double Guaranteed = 0,
+    double UpTo = 0,
+    /// <summary>A change one side asked for: its numbers, and whether you asked it</summary>
+    double? AskedGuaranteed = null,
+    double? AskedUpTo = null,
+    bool AskedByYou = false,
+    /// <summary>The most its pipe brings a minute, and what the seller made and had spare of the good last round</summary>
+    double PipeMax = 0,
+    double SellerMakes = 0,
+    double SellerSpare = 0,
+    /// <summary>The seller sends less than it promised (it makes less now)</summary>
+    bool GuaranteeShort = false);
 
 public record LinkSuggestionDto(long PartnerId, string PartnerName, string PartnerColor, string Station, string Resource, bool YouSell, double PerMinute, int Length, double Efficiency);
 
@@ -929,7 +942,9 @@ public record LinksDto(IReadOnlyList<LinkDto> Links, IReadOnlyList<LinkSuggestio
 /// <summary>Someone a link could go to (players outside your station)</summary>
 public record LinkPartnerDto(long Id, string Name, string Color, int Level, string Station, bool Crew = false);
 
-public record LinkPlanDto(int Length, double Efficiency, double Throughput, double Gold, IReadOnlyList<ResourceRateDto> Materials, string? Error, IReadOnlyList<int> Route);
+/// <param name="SellerMakes">What the seller makes of the good a minute where the link starts: the most it can promise</param>
+public record LinkPlanDto(int Length, double Efficiency, double Throughput, double Gold, IReadOnlyList<ResourceRateDto> Materials, string? Error, IReadOnlyList<int> Route,
+    double SellerMakes = 0);
 
 /// <summary>A link on the map: its route (x, y pairs) along the corridors</summary>
 public record MapLinkDto(long Id, string Resource, int Tier, bool Flowing, long Seller, long Buyer, IReadOnlyList<int> Route);

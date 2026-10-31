@@ -151,7 +151,7 @@ public class GameServerFacts
         var plan = await ana.Invoke<LinkPlanDto>("PlanLink", benId, "coal", true, 1);
         Assert.IsNull(plan.Error);
         Assert.IsGreaterThan(0, plan.Length);
-        await ana.Command("OfferLink", benId, "coal", true, 1);
+        await ana.Command("OfferLink", benId, "coal", true, 1, 0.0, 0.0);
 
         var offers = await ben.Invoke<LinksDto>("GetLinks");
         var offer = offers.Links.Single();

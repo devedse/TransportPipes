@@ -438,10 +438,23 @@ public sealed class GameHub : Hub<IGameClient>
         _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.Links(world, company) : null, changesWorld: false);
 
     public Task<LinkPlanDto?> PlanLink(long partnerId, string resource, bool selling, int tier) =>
-        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company ? GameViews.LinkPlan(world, world.PlanLink(company.Id, partnerId, resource, selling, tier)) : null, changesWorld: false);
+        _world.RunAsync(world => world.CompanyOfUser(UserId) is { } company
+            ? GameViews.LinkPlan(world, world.PlanLink(company.Id, partnerId, resource, selling, tier)) with
+            {
+                SellerMakes = Math.Round(world.MakesAtGate(selling ? company : world.Company(partnerId) ?? company, resource), 1),
+            }
+            : null, changesWorld: false);
 
-    public Task<CommandResultDto> OfferLink(long partnerId, string resource, bool selling, int tier) =>
-        Command((world, company) => world.OfferLink(company, partnerId, resource, selling, tier).Result);
+    public Task<CommandResultDto> OfferLink(long partnerId, string resource, bool selling, int tier, double guaranteed, double upTo) =>
+        Command((world, company) => world.OfferLink(company, partnerId, resource, selling, tier, guaranteed, upTo).Result);
+
+    /// <summary>A link's numbers: what is guaranteed, and its cap (what binds the other side is asked of them)</summary>
+    public Task<CommandResultDto> SetLinkTerms(long linkId, double guaranteed, double upTo) =>
+        Command((world, company) => world.SetLinkTerms(company, linkId, guaranteed, upTo));
+
+    /// <summary>Accepts or declines what the other side asked of a link</summary>
+    public Task<CommandResultDto> AnswerLinkTerms(long linkId, bool accept) =>
+        Command((world, company) => world.AnswerLinkTerms(company, linkId, accept));
 
     public Task<CommandResultDto> AcceptLink(long linkId) =>
         Command((world, company) => world.AcceptLink(company, linkId));

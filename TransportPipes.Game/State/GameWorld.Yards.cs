@@ -14,7 +14,8 @@ public readonly record struct EstateKey(DistrictCoord District, int Slot)
 /// A flow through an estate's Yard gate (v1.2 §7): what a building sends to the gate for the Yard's buyers, or gets
 /// from it, and at what price class
 /// </summary>
-public sealed record GateFlow(long Building, EstateKey Estate, string Resource, double Sent, double Delivered, bool Import, int PriceClass, double Price);
+/// <summary>A flow through a Yard gate; First: a link's guarantee, taken before the estate's own buildings</summary>
+public sealed record GateFlow(long Building, EstateKey Estate, string Resource, double Sent, double Delivered, bool Import, int PriceClass, double Price, bool First = false);
 
 /// <summary>
 /// The Yard (v1.2 §7): every estate trades with its station through its Yard gate. Networks never cross a gate; the
@@ -45,6 +46,9 @@ public sealed partial class GameWorld
         /// <summary>What the gate takes from the estate's network per minute, for its buyers</summary>
         public Dictionary<string, double> Export { get; set; } = new();
 
+        /// <summary>What it takes for its links' guarantees: before the estate's own buildings (the owner, 2026-10-31)</summary>
+        public Dictionary<string, double> ExportFirst { get; set; } = new();
+
         /// <summary>What the gate brings per minute, by resource and price class, from which companies</summary>
         public Dictionary<(string Resource, int PriceClass), Dictionary<long, double>> Import { get; set; } = new();
 
@@ -60,7 +64,7 @@ public sealed partial class GameWorld
         /// </summary>
         public Dictionary<(string Resource, int PriceClass), Dictionary<long, double>> HubBound { get; set; } = new();
 
-        public bool IsEmpty => Export.Count == 0 && Import.Count == 0 && Matched.Count == 0;
+        public bool IsEmpty => Export.Count == 0 && ExportFirst.Count == 0 && Import.Count == 0 && Matched.Count == 0;
     }
 
     private readonly Dictionary<EstateKey, GateTerms> _gateTerms = new();
@@ -77,7 +81,7 @@ public sealed partial class GameWorld
 
     // ---------------------------------------------------------------- Gate nodes in a solve
 
-    private sealed record GateNode(FlowNode Node, EstateKey Estate, string Resource, bool Import, int PriceClass);
+    private sealed record GateNode(FlowNode Node, EstateKey Estate, string Resource, bool Import, int PriceClass, bool First = false);
 
     /// <summary>The gate nodes of a network for the solver, with their links to the buildings that reach the gate</summary>
     private List<GateNode> GateNodes(Network network, List<FlowLink> links)
@@ -91,12 +95,21 @@ public sealed partial class GameWorld
                 continue;
             }
             var key = KeyOf(estate);
-            void Add(FlowNode node, string resource, bool import, int priceClass)
+            void Add(FlowNode node, string resource, bool import, int priceClass, bool first = false)
             {
-                nodes.Add(new GateNode(node, key, resource, import, priceClass));
+                nodes.Add(new GateNode(node, key, resource, import, priceClass, first));
                 foreach (var link in network.GateLinks.Where(t => t.Gate == gate && (t.Resources == null || t.Resources.Contains(resource))))
                 {
-                    links.Add(new FlowLink(link.Building, node.Id, link.Efficiency, link.Capacity, link.Path, new HashSet<string> { resource }));
+                    links.Add(new FlowLink(link.Building, node.Id, link.Efficiency, link.Capacity, link.Path, new HashSet<string> { resource }, Priority: first));
+                }
+            }
+            // A link's guarantee: the estate's own consumer, behind a priority valve as it were: served before its other
+            // buildings (the owner: "a real promise")
+            foreach (var (resource, amount) in terms.ExportFirst.Where(t => t.Value > 1e-9).OrderBy(t => t.Key, StringComparer.Ordinal))
+            {
+                if (estate.OwnerId is { } owner)
+                {
+                    Add(new FlowNode { Id = nextId--, Owner = owner, Kind = FlowNodeKind.Building, In = new Dictionary<string, double> { [resource] = amount } }, resource, false, 0, first: true);
                 }
             }
             foreach (var (resource, amount) in terms.Export.Where(t => t.Value > 1e-9).OrderBy(t => t.Key, StringComparer.Ordinal))
@@ -142,7 +155,7 @@ public sealed partial class GameWorld
         {
             if (byId.TryGetValue(flow.To, out var buyer))
             {
-                gateFlows.Add(new GateFlow(flow.From, buyer.Estate, flow.Resource, flow.Sent, flow.Delivered, false, 0, flow.PricePerUnit));
+                gateFlows.Add(new GateFlow(flow.From, buyer.Estate, flow.Resource, flow.Sent, flow.Delivered, false, 0, flow.PricePerUnit, buyer.First));
                 // Paid by the buyers when they take it, not by the gate
                 if (_buildings.TryGetValue(flow.From, out var from))
                 {
@@ -423,8 +436,9 @@ public sealed partial class GameWorld
         public Dictionary<string, double> Makes { get; } = new();
         public Dictionary<string, double> Uses { get; } = new();
 
-        /// <summary>What it sent through its gate last round, per resource</summary>
+        /// <summary>What it sent through its gate last round, per resource (its links' guarantees apart)</summary>
         public Dictionary<string, double> Sent { get; } = new();
+        public Dictionary<string, double> SentFirst { get; } = new();
 
         /// <summary>Of its spare as measured (before anything is matched): the part that goes (or went) to its hub</summary>
         public Dictionary<string, double> HubSpare { get; } = new();
@@ -534,6 +548,11 @@ public sealed partial class GameWorld
             if (flow.Import)
             {
                 received[(flow.Building, flow.Resource)] = received.GetValueOrDefault((flow.Building, flow.Resource)) + flow.Delivered;
+            }
+            else if (flow.First)
+            {
+                // A guarantee is no spare: it was taken before the estate's own buildings
+                Add(member.SentFirst, flow.Resource, flow.Delivered);
             }
             else
             {
@@ -1078,6 +1097,13 @@ public sealed partial class GameWorld
         foreach (var resource in before.Export.Keys.Union(after.Export.Keys))
         {
             if (Differs(before.Export.GetValueOrDefault(resource), after.Export.GetValueOrDefault(resource)))
+            {
+                return true;
+            }
+        }
+        foreach (var resource in before.ExportFirst.Keys.Union(after.ExportFirst.Keys))
+        {
+            if (Differs(before.ExportFirst.GetValueOrDefault(resource), after.ExportFirst.GetValueOrDefault(resource)))
             {
                 return true;
             }

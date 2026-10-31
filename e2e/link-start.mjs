@@ -40,7 +40,7 @@ const offered = await a.page.evaluate(async (bName) => {
   const c = tp.gameClient.connection;
   const links = await c.getLinks();
   const partner = links.partners.find((t) => t.name === bName);
-  return partner ? await c.offerLink(partner.id, "energy", true, 1) : "B isn't a partner";
+  return partner ? await c.offerLink(partner.id, "energy", true, 1, 0, 0) : "B isn't a partner";
 }, bName);
 console.log("offered", JSON.stringify(offered));
 await b.page.evaluate(() => tp.gameClient.openLinks());

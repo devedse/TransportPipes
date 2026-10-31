@@ -25,6 +25,7 @@ and piped to the post (`kit(page, types, 2)` in Copper Pipe, its ingots stocked)
 | `yard.mjs` | Two neighbours in one Yard, each piped to their Yard gate with the Yard panel's button: one's energy goes to the other's mine at the seller's crew price (two browsers, moved into a Yard nobody else lives at; the `yard` cheat runs the Yards' rounds now) |
 | `links.mjs` | A link between two stations: A's Links tab suggests B (who needs A's energy), A offers it, B accepts, and both see it flow at the player price, drawn along the corridors (two browsers) |
 | `link-start.mjs` | A new link says when its first goods come (the Yard's next round sets it up, the one after brings them) and counts down on the card; they come then, and the card shows them flowing by itself (it said "You buy 0 coal/min") · the seller's card says where what it sends goes: what arrives, fills the tank, is lost on the pipe |
+| `link-promise.mjs` | A link's promise and cap: A offers B energy, B accepts; A promises 5 a minute up to 8 on its card; B asks for 6 up to 10, A's card asks A, A accepts, both see the new numbers (two browsers) |
 | `return.mjs` | The way back: A is "gone" ten days (dev cheat) and comes back to one card |
 | `right-click.mjs` | A right-click on the map steps back (deselects, puts a tool away); a right-drag still pans |
 | `onetap.mjs` | One tap lays the pipe: a lone Wind Moily is stuck, its panel's fix names where the pipe goes and its price, and a single tap lays it (no preview to confirm) |

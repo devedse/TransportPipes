@@ -320,8 +320,19 @@ export class GameConnection {
   getLinks = () => this.invoke<LinksDto | null>("GetLinks");
   planLink = (partnerId: number, resource: string, selling: boolean, tier: number) =>
     this.invoke<LinkPlanDto | null>("PlanLink", partnerId, resource, selling, tier);
-  offerLink = (partnerId: number, resource: string, selling: boolean, tier: number) =>
-    this.invoke<CommandResult>("OfferLink", partnerId, resource, selling, tier);
+  offerLink = (
+    partnerId: number,
+    resource: string,
+    selling: boolean,
+    tier: number,
+    guaranteed: number,
+    upTo: number,
+  ) => this.invoke<CommandResult>("OfferLink", partnerId, resource, selling, tier, guaranteed, upTo);
+  /** A link's numbers: what is guaranteed, and its cap (what binds the other side is asked of them) */
+  setLinkTerms = (id: number, guaranteed: number, upTo: number) =>
+    this.invoke<CommandResult>("SetLinkTerms", id, guaranteed, upTo);
+  answerLinkTerms = (id: number, accept: boolean) =>
+    this.invoke<CommandResult>("AnswerLinkTerms", id, accept);
   acceptLink = (id: number) => this.invoke<CommandResult>("AcceptLink", id);
   declineLink = (id: number) => this.invoke<CommandResult>("DeclineLink", id);
   endLink = (id: number, end: boolean) => this.invoke<CommandResult>("EndLink", id, end);

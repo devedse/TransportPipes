@@ -58,6 +58,7 @@ function LinkCard({ link, content }: { link: LinkDto; content: Content }) {
         {pipe?.name ?? "Pipe"}, {link.length} tiles, {arrives(link.efficiency)}
       </div>
       <p className={`link-line ${link.tone}`}>{link.line}</p>
+      {link.state !== "offered" && <LinkTerms link={link} good={good} />}
       {startsAt !== null && (
         <div className="link-starts small">
           {startsAt > now
@@ -241,11 +242,165 @@ function LinkSplit({ link, good }: { link: LinkDto; good: string }) {
   );
 }
 
+/**
+ * A link's promise and cap, and changing them (the owner, 2026-10-31): what binds yourself or helps the other counts
+ * from the next Yard round, what binds the other is asked of them, who accepts or declines
+ */
+function LinkTerms({ link, good }: { link: LinkDto; good: string }) {
+  const [editing, setEditing] = useState<{ guaranteed: number; upTo: number } | null>(null);
+  const guaranteed = link.guaranteed ?? 0;
+  const upTo = link.upTo ?? 0;
+  const seller = link.youSell ? "You" : link.partnerName;
+  const asked = link.askedGuaranteed != null || link.askedUpTo != null;
+  return (
+    <div className="link-terms small">
+      <div>
+        <Term word="guaranteed">Guaranteed</Term>{" "}
+        <strong>{guaranteed > 0 ? `${formatAmount(guaranteed)}/min` : "nothing"}</strong> ·{" "}
+        <Term word="upTo">Up to</Term>{" "}
+        <strong>{upTo > 0 ? `${formatAmount(upTo)}/min` : "all the pipe brings"}</strong>
+        {editing === null && !asked && (
+          <button className="link small" onClick={() => setEditing({ guaranteed, upTo })}>
+            change
+          </button>
+        )}
+      </div>
+      <div className="muted">
+        The pipe brings at most {formatAmount(link.pipeMax ?? 0)} {good}/min. {seller}{" "}
+        {link.youSell ? "make" : "makes"} {formatAmount(link.sellerMakes ?? 0)}/min of it,{" "}
+        {formatAmount(link.sellerSpare ?? 0)} spare (what {link.youSell ? "your" : "their"} own buildings
+        don&apos;t use).
+      </div>
+      {asked &&
+        (link.askedByYou ? (
+          <div className="muted">
+            You asked for {formatAmount(link.askedGuaranteed ?? 0)}/min guaranteed, up to{" "}
+            {(link.askedUpTo ?? 0) > 0 ? `${formatAmount(link.askedUpTo ?? 0)}/min` : "all the pipe brings"}:
+            waiting for {link.partnerName}.
+          </div>
+        ) : (
+          <div className="link-ask">
+            <span>
+              {link.partnerName} asks for {formatAmount(link.askedGuaranteed ?? 0)}/min guaranteed, up to{" "}
+              {(link.askedUpTo ?? 0) > 0 ? `${formatAmount(link.askedUpTo ?? 0)}/min` : "all the pipe brings"}
+              .
+            </span>
+            <span className="button-row">
+              <button
+                className="primary small"
+                onClick={() =>
+                  void gameClient.linkCommand(
+                    gameClient.connection.answerLinkTerms(link.id, true),
+                    "Accepted: it counts from the Yard's next round",
+                  )
+                }
+              >
+                Accept
+              </button>
+              <button
+                className="small"
+                onClick={() =>
+                  void gameClient.linkCommand(gameClient.connection.answerLinkTerms(link.id, false))
+                }
+              >
+                Decline
+              </button>
+            </span>
+          </div>
+        ))}
+      {editing !== null && (
+        <>
+          <TermsInputs
+            guaranteed={editing.guaranteed}
+            upTo={editing.upTo}
+            most={Math.min(link.sellerMakes ?? 0, link.pipeMax ?? 0)}
+            onChange={(g, u) => setEditing({ guaranteed: g, upTo: u })}
+          />
+          <p className="muted">
+            {link.youSell
+              ? "Your changes count from the Yard's next round."
+              : "Lowering counts from the Yard's next round; asking for more is asked of " +
+                link.partnerName +
+                ", who accepts or declines."}
+          </p>
+          <span className="button-row">
+            <button
+              className="primary small"
+              onClick={() =>
+                void gameClient
+                  .linkCommand(
+                    gameClient.connection.setLinkTerms(link.id, editing.guaranteed, editing.upTo),
+                    "Saved: it counts from the Yard's next round",
+                  )
+                  .then((ok) => ok && setEditing(null))
+              }
+            >
+              Save
+            </button>
+            <button className="small" onClick={() => setEditing(null)}>
+              Cancel
+            </button>
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
 interface Draft {
   partnerId: number | null;
   resource: string;
   selling: boolean;
   tier: number;
+  /** What the seller promises a minute, and the most in all (0: what the pipe carries) */
+  guaranteed: number;
+  upTo: number;
+}
+
+/**
+ * A link's two numbers (the owner, 2026-10-31: "25 guaranteed, but 100 on reserve ... 0 guaranteed and 100 reserved
+ * would be possible too, then it would just only do your spare"): Guaranteed comes before the seller's own buildings,
+ * Up to is the seller's cap
+ */
+function TermsInputs({
+  guaranteed,
+  upTo,
+  most,
+  onChange,
+}: {
+  guaranteed: number;
+  upTo: number;
+  /** The most that can be promised: what the seller makes, what the pipe brings */
+  most: number;
+  onChange: (guaranteed: number, upTo: number) => void;
+}) {
+  return (
+    <div className="link-terms-inputs">
+      <label className="small">
+        <Term word="guaranteed">Guaranteed</Term>
+        <input
+          type="number"
+          min={0}
+          max={Math.floor(most)}
+          step={1}
+          value={guaranteed}
+          onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0), upTo)}
+        />
+        <span className="muted">a minute</span>
+      </label>
+      <label className="small">
+        <Term word="upTo">Up to</Term>
+        <input
+          type="number"
+          min={0}
+          step={1}
+          value={upTo}
+          onChange={(e) => onChange(guaranteed, Math.max(0, Number(e.target.value) || 0))}
+        />
+        <span className="muted">a minute{upTo === 0 ? " (0: all the pipe brings)" : ""}</span>
+      </label>
+    </div>
+  );
 }
 
 /** A new link: to whom, which good, which way, which pipe; the plan shows the route, the loss and the cost */
@@ -343,6 +498,24 @@ function NewLink({
               .join("")}`}
         </p>
       )}
+      {plan !== null && plan.error === null && (
+        <>
+          <TermsInputs
+            guaranteed={draft.guaranteed}
+            upTo={draft.upTo}
+            most={Math.min(plan.sellerMakes ?? 0, plan.throughput * plan.efficiency)}
+            onChange={(guaranteed, upTo) => onChange({ ...draft, guaranteed, upTo })}
+          />
+          <p className="muted small">
+            {draft.selling ? "You make" : `${partner?.name ?? "They"} make`}{" "}
+            {formatAmount(plan.sellerMakes ?? 0)} {content.resourceName(draft.resource).toLowerCase()} a
+            minute where the link starts: the most that can be guaranteed.{" "}
+            {draft.guaranteed > 0
+              ? `${formatAmount(draft.guaranteed)} a minute comes before ${draft.selling ? "your" : "their"} own buildings, as far as the buyer's buildings use it.`
+              : "Nothing guaranteed: only what the seller has spare."}
+          </p>
+        </>
+      )}
       <button
         className="primary"
         disabled={plan === null || plan.error !== null || partner === undefined}
@@ -350,7 +523,14 @@ function NewLink({
           draft.partnerId !== null &&
           void gameClient
             .linkCommand(
-              gameClient.connection.offerLink(draft.partnerId, draft.resource, draft.selling, draft.tier),
+              gameClient.connection.offerLink(
+                draft.partnerId,
+                draft.resource,
+                draft.selling,
+                draft.tier,
+                draft.guaranteed,
+                draft.upTo,
+              ),
               `Offered to ${partner?.name ?? "them"}: it starts when they accept`,
             )
             .then((ok) => ok && onChange({ ...draft, partnerId: null, resource: "" }))
@@ -403,6 +583,8 @@ export function LinksTab() {
     resource: "",
     selling: true,
     tier: 1,
+    guaranteed: 0,
+    upTo: 0,
   }));
   useEffect(() => {
     if (linkPartner !== null) {

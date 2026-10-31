@@ -1629,11 +1629,22 @@ public static partial class GameViews
             ? $" · {(link.NoticeEnds ? "ends" : "pauses")} in {Span(at - world.Now)} ({(link.NoticeBy == me.Id ? "your notice" : $"{name}'s notice")})"
             : "";
         var resting = partner != null && world.ActivityOf(partner) != Activity.Active ? $" {name} is resting; this link keeps delivering." : "";
+        if (link.GuaranteeShort)
+        {
+            // No penalty, a warning (the owner, 2026-10-31)
+            return ("warn", selling
+                ? $"You make less {good} than the {link.Guaranteed:0.#} a minute you promised {name}: {PerMinute(link.Rate)} arrive now. Make more, or promise less."
+                : $"{name} makes less {good} than the {link.Guaranteed:0.#} a minute they promised: {PerMinute(link.Rate)} arrive now{(tankTime != null ? $"; your tank makes up for it for {tankTime}" : "")}.");
+        }
+        // What of it is promised, and the rest from the seller's spare
+        var promise = link.Guaranteed > 1e-9 && link.Rate > 1e-9
+            ? $": {PerMinute(Math.Min(link.Guaranteed, link.Rate))} guaranteed{(link.Rate > link.Guaranteed + 0.05 ? $", {PerMinute(link.Rate - link.Guaranteed)} from {(selling ? "your" : "their")} spare" : "")}"
+            : "";
         var (tone, line) = link.Flow switch
         {
             LinkFlow.Live => ("good", selling
-                ? $"{name} buys {PerMinute(link.Rate)} {good}/min at {price:0.##} g"
-                : $"You buy {PerMinute(link.Rate)} {good}/min from {name} at {price:0.##} g"),
+                ? $"{name} buys {PerMinute(link.Rate)} {good}/min at {price:0.##} g{promise}"
+                : $"You buy {PerMinute(link.Rate)} {good}/min from {name} at {price:0.##} g{promise}"),
             LinkFlow.Capped => ("info", $"The pipe is full at {PerMinute(link.Rate)}/min: the rest goes to the Yard and the hub. A better pipe carries more"),
             LinkFlow.NotNeeded => ("info", selling
                 ? $"{name} needs no {good} right now: yours goes to the Yard and the hub"
@@ -1690,7 +1701,17 @@ public static partial class GameViews
             line,
             Flat(link.Route),
             world.LinkStartsAt(link),
-            Math.Round(link.Flows ? link.Send : 0, 2));
+            Math.Round(link.Flows ? link.Send + link.SendFirst : 0, 2),
+            link.Guaranteed,
+            link.UpTo,
+            link.AskedGuaranteed,
+            link.AskedUpTo,
+            link.AskedBy == me.Id,
+            Math.Round(world.LinkThroughput(link) * world.LinkEfficiency(link), 1),
+            // What it makes now (a new link has had no round yet), and its spare as the last round measured it
+            Math.Round(world.Company(link.Seller) is { } seller ? world.MakesAtGate(seller, link.Resource) : 0, 1),
+            Math.Round(link.SellerSpare, 1),
+            link.GuaranteeShort);
     }
 
     /// <summary>Your links, who a link would suit, and whom you could link with</summary>

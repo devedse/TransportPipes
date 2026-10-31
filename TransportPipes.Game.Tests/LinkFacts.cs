@@ -93,6 +93,70 @@ public class LinkFacts
         Assert.IsNull(game.World.LinkStartsAt(link), "flowing: no longer starting");
     }
 
+    private static double OwnEnergy(TestGame game, IEnumerable<Building> buildings) =>
+        buildings.Sum(b => game.World.NetworkOf(b.Id)!.Solution.Flows.Where(f => f.To == b.Id && f.Resource == "energy").Sum(f => f.Delivered));
+
+    /// <summary>
+    /// A link's guarantee is a real promise (the owner, 2026-10-31): it comes before the seller's own buildings, which
+    /// then get less; what is promised can't be more than the seller makes; without one the link takes spare only
+    /// </summary>
+    [TestMethod]
+    public void AGuaranteeComesBeforeTheSellersOwnBuildings()
+    {
+        var (game, ana, ben, moily, mine) = Apart();
+        ana.Level = 2;
+        // Ana's own three Iron Mines use all the 30 energy her Wind Moily makes: she has none spare
+        var anas = Enumerable.Range(0, 3).Select(_ => game.Build(ana, "ironMine", game.Spot(ana, "ironMine", t => game.World.Tile(t).Deposit == "ironOre"))).ToList();
+        foreach (var own in anas)
+        {
+            game.Connect(ana, moily, own);
+        }
+        game.Pass(3);
+        var link = Linked(game, ana, ben);
+        game.Pass(5);
+        Assert.IsLessThan(0.5, ImportedBy(game, mine, "energy"), "nothing spare, nothing promised: nothing comes");
+        var before = OwnEnergy(game, anas);
+        Assert.IsGreaterThan(25, before, "her own mines get her energy");
+
+        Assert.IsFalse(game.World.SetLinkTerms(ana.Id, link.Id, 40, 0).Success, "she makes 30: she can't promise 40");
+        Assert.IsTrue(game.World.SetLinkTerms(ana.Id, link.Id, 8, 0).Success);
+        game.Pass(5);
+        Assert.AreEqual(8, ImportedBy(game, mine, "energy"), 0.5, "the promised 8 reach Ben's mine (less his own pipe's loss)");
+        Assert.AreEqual(8, link.Rate, 0.2, "8 arrive at his gate");
+        Assert.IsLessThan(before - 7, OwnEnergy(game, anas), "her own mines get less: the promise came first");
+        Assert.IsFalse(link.GuaranteeShort);
+    }
+
+    /// <summary>
+    /// Up to is the seller's cap, the tank's filling too; the buyer raising a number asks the seller, who accepts it;
+    /// lowering it counts at once
+    /// </summary>
+    [TestMethod]
+    public void UpToCapsALinkAndRaisingItIsAskedOfTheSeller()
+    {
+        var (game, ana, ben, _, mine) = Apart();
+        game.Pass(3);
+        var link = Linked(game, ana, ben);
+        Assert.IsTrue(game.World.SetLinkTerms(ana.Id, link.Id, 0, 4).Success);
+        game.Pass(10);
+        Assert.AreEqual(4, link.Rate + Math.Max(0, link.TankChange), 0.2, "4 a minute in all, the tank's filling too");
+        Assert.AreEqual(4, link.Rate, 0.2, "the mine gets 4 of its 10");
+
+        var asked = game.World.SetLinkTerms(ben.Id, link.Id, 6, 10);
+        Assert.IsTrue(asked.Success);
+        Assert.AreEqual(4, link.UpTo, "asked, not yet");
+        Assert.AreEqual(ben.Id, link.AskedBy);
+        Assert.IsFalse(game.World.AnswerLinkTerms(ben.Id, link.Id, true).Success, "the one who asked doesn't answer");
+        Assert.IsTrue(game.World.AnswerLinkTerms(ana.Id, link.Id, true).Success);
+        Assert.AreEqual((6.0, 10.0), (link.Guaranteed, link.UpTo));
+        game.Pass(5);
+        Assert.AreEqual(10, link.Rate, 0.3, "all 10 the mine needs");
+
+        Assert.IsTrue(game.World.SetLinkTerms(ben.Id, link.Id, 0, 10).Success, "lowering: at once");
+        Assert.AreEqual(0, link.Guaranteed);
+        Assert.IsNull(link.AskedBy);
+    }
+
     [TestMethod]
     public void TheRouteRunsAlongTheRoadsAndAcrossTheWilderness()
     {
@@ -253,8 +317,9 @@ public class LinkFacts
         var ben = game.NewCompany("Ben", slot: 1);
         var dee = game.NewCompany("Dee", slot: 8);
 
-        StringAssert.Contains(game.World.OfferLink(ana.Id, ben.Id, "coal", true).Result.Error, "at your Yard", "neighbours trade through the Yard");
-        foreach (var resource in new[] { "coal", "wood", "stone", "sand", "water" })
+        // A neighbour at your own Yard too (the owner, 2026-10-31): the Yard shares by itself, a link is for a promise
+        Assert.IsTrue(game.World.OfferLink(ana.Id, ben.Id, "coal", true).Result.Success, "a link to a neighbour at your Yard");
+        foreach (var resource in new[] { "coal", "wood", "stone", "sand" })
         {
             Assert.IsTrue(game.World.OfferLink(ana.Id, dee.Id, resource, true).Result.Success);
         }

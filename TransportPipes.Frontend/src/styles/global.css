@@ -7634,3 +7634,40 @@ button.top-waits {
   letter-spacing: 0.04em;
   color: var(--accent);
 }
+
+/* A link's promise and cap */
+.link-terms {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(35, 107, 105, 0.06);
+}
+
+.link-terms button.link {
+  margin-left: 6px;
+}
+
+.link-ask {
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 6px;
+  background: #fff1cc;
+}
+
+.link-terms-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.link-terms-inputs label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.link-terms-inputs input {
+  width: 72px;
+}

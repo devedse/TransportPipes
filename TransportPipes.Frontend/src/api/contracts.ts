@@ -1999,6 +1999,19 @@ export interface LinkDto {
   startsAt?: string | null;
   /** What the seller's gate sends into it a minute: what arrives, what fills the tank, what the pipe loses */
   sent?: number;
+  /** What the seller promises a minute (before its own buildings), and its cap (0: what the pipe carries) */
+  guaranteed?: number;
+  upTo?: number;
+  /** A change one side asked for: its numbers, and whether you asked it */
+  askedGuaranteed?: number | null;
+  askedUpTo?: number | null;
+  askedByYou?: boolean;
+  /** The most its pipe brings a minute, and what the seller made and had spare of the good last round */
+  pipeMax?: number;
+  sellerMakes?: number;
+  sellerSpare?: number;
+  /** The seller sends less than it promised (it makes less now) */
+  guaranteeShort?: boolean;
 }
 
 export interface LinkSuggestionDto {
@@ -2038,6 +2051,8 @@ export interface LinkPlanDto {
   materials: ResourceRateDto[];
   error: string | null;
   route: number[];
+  /** What the seller makes of the good a minute where the link starts: the most it can promise */
+  sellerMakes?: number;
 }
 
 /** A link on the map: its route (x, y pairs) along the corridors */

@@ -38,7 +38,7 @@ export const GLOSSARY = {
   },
   tier: {
     title: "Level tiers",
-    text: "Every level makes a building 10% more, up to level 25. Every fifth level earns a tier: Upgraded, Fine (10), Superior, Epic, Legendary and Mythic (25), with its colour on the badge.",
+    text: "Every level makes a building 10% more, up to level 25. The badge's colour shows its tier: Upgraded (from level 2), Fine (5), Superior (10), Epic (15), Legendary (20) and Mythic (25).",
   },
   levelGoods: {
     title: "Levels from 11",
@@ -46,7 +46,15 @@ export const GLOSSARY = {
   },
   pump: {
     title: "Pump Station",
-    text: "Pushes a network's goods further: a long network loses less with pumps on it. The network's panel says how much they lift it.",
+    text: "Every 50 buildings in one network need a Pump Station. Without enough of them the whole network runs slower: its panel says how fast. Build one anywhere on its pipes.",
+  },
+  guaranteed: {
+    title: "Guaranteed",
+    text: "What the seller promises a minute on a link. It is sent before the seller's own buildings get any, as far as the buyer's buildings use it. If the seller makes less, both see a warning, and the buyer's tank makes up for it while it lasts.",
+  },
+  upTo: {
+    title: "Up to",
+    text: "The most a link brings a minute in all: what is guaranteed, plus what the seller has spare. The seller's cap. 0: as much as the pipe carries.",
   },
   hub: {
     title: "The hub",
