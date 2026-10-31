@@ -61,6 +61,38 @@ public class LinkFacts
         Assert.AreEqual(goldAna + 10 * (energySales + link.Rate * 1.3), ana.Gold, 1e-3, "Ana is paid the player price for what arrives at Ben's gate");
     }
 
+    /// <summary>
+    /// The owner, 2026-10-31 ("my smelters are not doing anything still"; the card said "You buy 0 coal/min"): a new
+    /// link says when its first goods come (the Yard's next round sets it up, the one after brings them), and they come then
+    /// </summary>
+    [TestMethod]
+    public void ANewLinkSaysWhenItsFirstGoodsComeAndTheyComeThen()
+    {
+        var (game, ana, ben, _, _) = Apart();
+        game.Pass(3);
+        var link = Linked(game, ana, ben);
+        var said = game.World.LinkStartsAt(link);
+        Assert.IsNotNull(said, "starting: when the first energy comes");
+        Assert.IsLessThanOrEqualTo(TimeSpan.FromMinutes(2), said.Value - game.World.Now, "within the Yard's next two rounds");
+
+        var came = (DateTime?)null;
+        for (var i = 0; i < 40 && came == null; i++)
+        {
+            game.Pass(0.1);
+            if (link.Rate > 0)
+            {
+                came = game.World.Now;
+            }
+            else
+            {
+                Assert.AreEqual(said, game.World.LinkStartsAt(link), "the same moment all along");
+            }
+        }
+        Assert.IsNotNull(came, "the energy comes");
+        Assert.AreEqual(0, (came.Value - said.Value).TotalSeconds, 6, "when it said");
+        Assert.IsNull(game.World.LinkStartsAt(link), "flowing: no longer starting");
+    }
+
     [TestMethod]
     public void TheRouteRunsAlongTheRoadsAndAcrossTheWilderness()
     {

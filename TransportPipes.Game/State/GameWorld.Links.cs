@@ -88,6 +88,12 @@ public sealed class Link : Entity
     /// <summary>What the buyer got through the link since it started</summary>
     public double Delivered { get; set; }
 
+    /// <summary>
+    /// The Yards' rounds until an accepted or resumed link brings its first goods: the first matches it, the next
+    /// delivers (2, 1, then 0)
+    /// </summary>
+    public int StartRounds { get; set; }
+
     public bool Flows => State == LinkState.Active;
 
     public long Partner(long company) => company == Seller ? Buyer : Seller;
@@ -386,12 +392,13 @@ public sealed partial class GameWorld
         }
         link.State = LinkState.Active;
         link.AcceptedAt = LastTick;
+        link.StartRounds = 2;
         RouteLink(link);
         LinkChanged(link);
         WakeCoupling();
         var accepter = Company(companyId)!;
         Changes.Events.Add(new WorldEvent(link.OfferedBy, WorldEventKind.Link,
-            $"{accepter.Name} accepted your link: {Content.Resources[link.Resource].Name.ToLowerInvariant()} flows from the next round"));
+            $"{accepter.Name} accepted your link: the {Content.Resources[link.Resource].Name.ToLowerInvariant()} flows within two minutes (the Yard's next two rounds)"));
         return CommandResult.Ok;
     }
 
@@ -461,6 +468,10 @@ public sealed partial class GameWorld
         {
             // The other side paused it: resuming is theirs
             return CommandResult.Fail($"{Company(link.PausedBy.Value)?.Name ?? "Your partner"} paused it: only they resume it.");
+        }
+        if (link.State == LinkState.Paused)
+        {
+            link.StartRounds = 2;
         }
         link.State = LinkState.Active;
         link.NoticeAt = null;
@@ -666,6 +677,12 @@ public sealed partial class GameWorld
             {
                 continue;
             }
+            if (link.StartRounds > 0)
+            {
+                link.StartRounds--;
+                // Both sides' cards: starting, then flowing
+                LinkChanged(link);
+            }
             var seller = Company(link.Seller);
             var buyer = Company(link.Buyer);
             YardMember? from = seller != null && EstateOf(seller) is { } s ? members.GetValueOrDefault(KeyOf(s)) : null;
@@ -711,6 +728,26 @@ public sealed partial class GameWorld
                 terms.Export[link.Resource] = terms.Export.GetValueOrDefault(link.Resource) + link.Send;
             }
         }
+    }
+
+    /// <summary>
+    /// When a starting link brings its first goods: at the next round when it is matched already, else the round after
+    /// (a round whose terms moved comes a minute after it). Null when it flows, or nothing will come: the seller has
+    /// none spare, the buyer needs none, a gate isn't piped
+    /// </summary>
+    public DateTime? LinkStartsAt(Link link)
+    {
+        if (!link.Flows || link.StartRounds <= 0 || link.Rate > 1e-9)
+        {
+            return null;
+        }
+        if (link.StartRounds > 1)
+        {
+            // Not matched yet: what is known now, both gates piped
+            var piped = new[] { link.Seller, link.Buyer }.All(t => Company(t) is { } side && EstateOf(side) is { } estate && GateNetwork(estate) != null);
+            return piped ? NextCoupling() + CouplingInterval : null;
+        }
+        return link.Send > 1e-9 && link.Flow is LinkFlow.Live or LinkFlow.Capped or LinkFlow.SellerShort ? NextCoupling() : null;
     }
 
     /// <summary>Counts what a link brought its buyer (for the panel's "since it started")</summary>

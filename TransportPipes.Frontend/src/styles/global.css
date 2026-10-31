@@ -5890,6 +5890,12 @@ button.link.danger {
   background: rgba(35, 107, 105, 0.08);
 }
 
+/* A starting link: when its first goods come */
+.link-starts {
+  font-weight: 700;
+  color: var(--accent);
+}
+
 .link-tank {
   display: grid;
   grid-template-columns: auto 1fr auto;

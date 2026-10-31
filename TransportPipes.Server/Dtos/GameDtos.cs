@@ -874,7 +874,9 @@ public record LinkDto(
     /// <summary>good, info, warn</summary>
     string Tone,
     string Line,
-    IReadOnlyList<int> Route);
+    IReadOnlyList<int> Route,
+    /// <summary>A starting link: when its first goods come (the Yards' rounds)</summary>
+    DateTime? StartsAt = null);
 
 public record LinkSuggestionDto(long PartnerId, string PartnerName, string PartnerColor, string Station, string Resource, bool YouSell, double PerMinute, int Length, double Efficiency);
 

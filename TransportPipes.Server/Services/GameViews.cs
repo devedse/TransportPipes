@@ -1492,6 +1492,15 @@ public static partial class GameViews
                 ? $"Paused by {by}: nothing flows; your tank keeps {tankTime} of it"
                 : $"Paused by {by}: nothing flows. {(link.PausedBy == me.Id ? "Resume it when you like" : "They resume it")}");
         }
+        if (world.LinkStartsAt(link) != null)
+        {
+            // A new link waits for the Yard's rounds (the owner, 2026-10-31: "my smelters are not doing anything still";
+            // it said "You buy 0 coal/min")
+            var first = selling ? $"{name} your first {good}" : $"your first {good}";
+            return ("info", link.StartRounds > 1
+                ? $"Starting: the Yard moves links' goods once a minute. Its next round sets this link up, and the one after brings {first}."
+                : $"Starting: the Yard's next round brings {first} (it moves links' goods once a minute).");
+        }
         var notice = link.NoticeAt is { } at
             ? $" · {(link.NoticeEnds ? "ends" : "pauses")} in {Span(at - world.Now)} ({(link.NoticeBy == me.Id ? "your notice" : $"{name}'s notice")})"
             : "";
@@ -1555,7 +1564,8 @@ public static partial class GameViews
             link.State == LinkState.Offered ? world.OfferLapsesAt(link) : null,
             tone,
             line,
-            Flat(link.Route));
+            Flat(link.Route),
+            world.LinkStartsAt(link));
     }
 
     /// <summary>Your links, who a link would suit, and whom you could link with</summary>

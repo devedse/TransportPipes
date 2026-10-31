@@ -1933,6 +1933,8 @@ export interface LinkDto {
   line: string;
   /** The route's corners as x, y pairs */
   route: number[];
+  /** A starting link: when its first goods come (the Yards' rounds) */
+  startsAt?: string | null;
 }
 
 export interface LinkSuggestionDto {

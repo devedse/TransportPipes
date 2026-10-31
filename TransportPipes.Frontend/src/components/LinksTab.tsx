@@ -19,7 +19,9 @@ function LinkCard({ link, content }: { link: LinkDto; content: Content }) {
   const focus = useAppStore((s) => s.focusLink);
   const company = useAppStore((s) => s.company)!;
   const era = useAppStore((s) => s.era);
-  const now = useNow(30000) + serverOffset;
+  const startsAt = link.startsAt != null ? new Date(link.startsAt).getTime() : null;
+  // A starting link counts down by the second
+  const now = useNow(startsAt !== null ? 1000 : 30000) + serverOffset;
   const pipe = content.pipeTiers.find((t) => t.tier === link.tier);
   const better = content.pipeTiers.find(
     (t) =>
@@ -28,7 +30,13 @@ function LinkCard({ link, content }: { link: LinkDto; content: Content }) {
       (t.research === null || company.research.researched.includes(t.research)),
   );
   const good = content.resourceName(link.resource).toLowerCase();
-  const tankMinutes = link.need > 1e-6 ? link.tank / link.need : 0;
+  // How long the tank lasts at the need; when nothing is needed now, what is in it (it said "instant", full or empty)
+  const tankLasts =
+    link.tank <= 1e-6
+      ? "empty"
+      : link.need > 1e-6
+        ? formatDuration((link.tank / link.need) * 60)
+        : `${formatAmount(link.tank)} ${good}`;
   const waitingForYou = link.state === "offered" && !link.youOffered;
   return (
     <li className={`link-card ${link.tone}${focus === link.id ? " focus" : ""}`}>
@@ -37,18 +45,25 @@ function LinkCard({ link, content }: { link: LinkDto; content: Content }) {
         <strong>{content.resourceName(link.resource)}</strong>
         <span className="link-arrow">{link.youSell ? "→" : "←"}</span>
         <span className="dot" style={{ background: link.partnerColor }} />
-        <strong>{link.partnerName}</strong>
-        <span className="muted small grow">
-          {" "}
-          · {pipe?.name ?? "Pipe"}, {link.length} tiles, {arrives(link.efficiency)}
-        </span>
+        <strong className="grow">{link.partnerName}</strong>
         {link.route.length >= 4 && (
           <button className="link small" onClick={() => gameClient.showLink(link.route, link.id)}>
             show
           </button>
         )}
       </div>
+      {/* On a line of its own (playtest: beside a long name it was squeezed to a word a line) */}
+      <div className="muted small">
+        {pipe?.name ?? "Pipe"}, {link.length} tiles, {arrives(link.efficiency)}
+      </div>
       <p className={`link-line ${link.tone}`}>{link.line}</p>
+      {startsAt !== null && (
+        <div className="link-starts small">
+          {startsAt > now
+            ? `First ${good} in ${formatDuration((startsAt - now) / 1000)}`
+            : `First ${good} any moment now`}
+        </div>
+      )}
       {link.state !== "offered" && link.tankSize > 1e-6 && (
         <div
           className="link-tank"
@@ -58,7 +73,7 @@ function LinkCard({ link, content }: { link: LinkDto; content: Content }) {
           <span className="tank-bar">
             <span style={{ width: `${Math.min(100, (100 * link.tank) / link.tankSize)}%` }} />
           </span>
-          <span className="small">{formatDuration(tankMinutes * 60)}</span>
+          <span className="small">{tankLasts}</span>
         </div>
       )}
       {link.rate > 0 && (
