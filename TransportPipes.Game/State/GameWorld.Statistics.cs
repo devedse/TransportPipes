@@ -24,7 +24,10 @@ public sealed record Moment(long Company, DateTime At, string Kind, string Text,
 public sealed partial class GameWorld
 {
     /// <summary>A sample of every company and town this often, with the market update</summary>
-    public static readonly TimeSpan SampleEvery = MarketInterval;
+    public static readonly TimeSpan SampleEvery = TimeSpan.FromMinutes(15);
+
+    /// <summary>The next sample's moment after a time (every 15 minutes, on the quarter, however often the markets look)</summary>
+    public static DateTime NextSample(DateTime after) => new((after.Ticks / SampleEvery.Ticks + 1) * SampleEvery.Ticks, DateTimeKind.Utc);
 
     /// <summary>At most this many samples (and moments) wait for the database; a world without one (the bots') keeps the newest</summary>
     private const int MaxPending = 20_000;

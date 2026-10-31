@@ -128,7 +128,7 @@ function SpecialPrice({ price }: { price: PriceDto }) {
       <button
         type="button"
         className="link small"
-        title="They pay your public or crew price again (after an hour, when that is more)"
+        title="They pay your public or crew price again"
         onClick={() => void gameClient.setPrice(price.key, null)}
       >
         remove
@@ -233,8 +233,7 @@ export function TradeSettings() {
           What another player pays you for a unit of your goods, as a multiple of its base price: from{" "}
           {times(MIN_PRICE)}, what the hub pays you for it anyway, to {times(MAX_PRICE)}, what the market
           would charge them. So trading with a player is never worse than the market for either side; higher
-          earns you more a unit, lower keeps your neighbours buying from you. A cut counts at once; a rise
-          waits an hour, and your buyers are told.
+          earns you more a unit, lower keeps your neighbours buying from you. A change counts at once.
         </p>
         <ul className="partner-list price-list">
           <li className="partner">
@@ -333,9 +332,7 @@ export function TradeSettings() {
                   </span>
                   <label
                     className="switch"
-                    title={
-                      off ? "Trade with them again" : "Block: don't trade with them (after an hour's notice)"
-                    }
+                    title={off ? "Trade with them again" : "Block: don't trade with them (at once)"}
                   >
                     <input
                       type="checkbox"
@@ -350,8 +347,8 @@ export function TradeSettings() {
           </ul>
         )}
         <p className="muted small">
-          Blocking is private: they only read that you trade your spare with others. It counts after an
-          hour&apos;s notice; trading again counts at once.
+          Blocking is private: they only read that you trade your spare with others. It counts at once, and so
+          does trading again.
         </p>
       </section>
 

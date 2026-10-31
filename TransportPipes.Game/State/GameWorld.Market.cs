@@ -15,10 +15,20 @@ namespace TransportPipes.Game.State;
 /// </summary>
 public sealed partial class GameWorld
 {
-    public static readonly TimeSpan MarketInterval = TimeSpan.FromMinutes(15);
+    /// <summary>
+    /// The markets look again this often (the owner, 2026-10-31, for the playtest: "remove all the hour timeouts. For
+    /// everything including the price drops ... it all should happen instantly"; it was 15 minutes, over an hour's sales)
+    /// </summary>
+    public static readonly TimeSpan MarketInterval = TimeSpan.FromMinutes(1);
 
-    /// <summary>Changes that affect a partner wait this long (a pause, a Block)</summary>
-    public static readonly TimeSpan NoticePeriod = TimeSpan.FromHours(1);
+    /// <summary>The managers work this often</summary>
+    public static readonly TimeSpan ManagersEvery = TimeSpan.FromMinutes(15);
+
+    /// <summary>The hub's price follows what was sold over about this many minutes (0: since the last look; it was an hour)</summary>
+    public const double MarketAverageMinutes = 0;
+
+    /// <summary>Changes that affect a partner wait this long (a pause, a Block; for the playtest none: it was an hour)</summary>
+    public static readonly TimeSpan NoticePeriod = TimeSpan.Zero;
 
     public double BasePrice(string resource) => Content.Resources.TryGetValue(resource, out var definition) ? definition.Price : 0;
 
@@ -75,6 +85,10 @@ public sealed partial class GameWorld
             if (!company.TradeBlocked.Contains(otherId))
             {
                 company.PendingBlocks[otherId] = LastTick + NoticePeriod;
+                if (NoticePeriod <= TimeSpan.Zero)
+                {
+                    ApplyBlock(company, otherId);
+                }
             }
         }
         else
@@ -86,6 +100,38 @@ public sealed partial class GameWorld
         company.Touch();
         Changes.Companies.Add(company.Id);
         return CommandResult.Ok;
+    }
+
+    /// <summary>
+    /// Once after a load: what waited out a notice that is gone now (price rises, blocks, links: an hour each before the
+    /// playtest made them count at once) counts on this tick
+    /// </summary>
+    private void DueNoticesNow()
+    {
+        foreach (var company in _companies.Values)
+        {
+            if (PriceRiseNotice <= TimeSpan.Zero)
+            {
+                foreach (var setting in company.Prices.Values.Where(t => t.PendingAt > LastTick))
+                {
+                    setting.PendingAt = LastTick;
+                }
+            }
+            if (NoticePeriod <= TimeSpan.Zero)
+            {
+                foreach (var other in company.PendingBlocks.Keys.ToList())
+                {
+                    company.PendingBlocks[other] = LastTick;
+                }
+            }
+        }
+        if (LinkNotice <= TimeSpan.Zero)
+        {
+            foreach (var link in _links.Values.Where(t => t.NoticeAt > LastTick))
+            {
+                link.NoticeAt = LastTick;
+            }
+        }
     }
 
     /// <summary>A block's notice is over: no more trade between the two</summary>
@@ -294,7 +340,7 @@ public sealed partial class GameWorld
                 var parts = key.Split(',');
                 var district = new DistrictCoord(int.Parse(parts[0]), int.Parse(parts[1]));
                 // LastTick: during a catch-up this runs at the moment of the update, not at the end
-                if (market.Update(LastTick, resource => HubOrder(company, district, resource), MarketGoods(district).Select(t => t.Id)))
+                if (market.Update(LastTick, resource => HubOrder(company, district, resource), MarketGoods(district).Select(t => t.Id), MarketAverageMinutes))
                 {
                     MarkCompanyNetworksDirty(company.Id);
                     Changes.Companies.Add(company.Id);

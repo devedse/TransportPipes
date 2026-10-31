@@ -116,7 +116,8 @@ public sealed partial class GameWorld
         var longest = link.CreatedAt + LinkOfferLongest;
         return link.PartnerSeenAt is { } seen && seen + LinkOfferAfterSeen < longest ? seen + LinkOfferAfterSeen : longest;
     }
-    public static readonly TimeSpan LinkNotice = TimeSpan.FromHours(1);
+    /// <summary>A link's pause or end waits this long (for the playtest none: it was an hour)</summary>
+    public static readonly TimeSpan LinkNotice = TimeSpan.Zero;
 
     /// <summary>The tank at the buyer's gate holds this many minutes of the link's flow</summary>
     public const double TankMinutes = 120;
@@ -437,7 +438,7 @@ public sealed partial class GameWorld
         link.NoticeBy = companyId;
         LinkChanged(link);
         Changes.Events.Add(new WorldEvent(link.Partner(companyId), WorldEventKind.Link,
-            $"{Company(companyId)!.Name} {(end ? "ends" : "pauses")} your {LinkName(link)} in an hour: the Yard and the hub fill in after that"));
+            $"{Company(companyId)!.Name} {(end ? "ends" : "pauses")} your {LinkName(link)}{(LinkNotice > TimeSpan.Zero ? " in an hour" : "")}: the Yard and the hub fill in"));
         return CommandResult.Ok;
     }
 

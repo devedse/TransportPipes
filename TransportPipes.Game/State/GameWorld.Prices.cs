@@ -24,7 +24,8 @@ public sealed partial class GameWorld
     public const double MaxPriceFactor = 2.5;
     public const double DefaultPublicPrice = 1.3;
     public const double DefaultCrewPrice = 1.15;
-    public static readonly TimeSpan PriceRiseNotice = TimeSpan.FromHours(1);
+    /// <summary>A rise waits this long (the owner, 2026-10-31, for the playtest: "remove all the hour timeouts ... it all should happen instantly"; it was an hour)</summary>
+    public static readonly TimeSpan PriceRiseNotice = TimeSpan.Zero;
 
     public static string PublicKey(string? good = null) => good == null ? "public" : $"public:{good}";
 
@@ -99,9 +100,9 @@ public sealed partial class GameWorld
         };
         var current = before?.Value ?? inherited;
         var next = value ?? inherited;
-        if (current == null || (next != null && next <= current + 1e-9))
+        if (current == null || (next != null && next <= current + 1e-9) || PriceRiseNotice <= TimeSpan.Zero)
         {
-            // A cut counts at once (and a rise that waited is off)
+            // A cut counts at once (and a rise that waited is off); a rise too while it needs no notice
             if (value == null)
             {
                 company.Prices.Remove(key);

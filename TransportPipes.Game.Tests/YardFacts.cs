@@ -385,10 +385,9 @@ public class YardFacts
         game.Pass(3);
         Assert.IsTrue(ImportedBy(game, mine, "energy") > 1);
 
+        // At once (the owner, for the playtest: it waited an hour's notice)
         Assert.IsTrue(game.World.SetTradeBlocked(b.Id, a.Id, true).Success);
         game.Pass(5);
-        Assert.IsTrue(ImportedBy(game, mine, "energy") > 1, "a block waits an hour: what is on its way still arrives");
-        game.Pass(60);
 
         Assert.AreEqual(0, ImportedBy(game, mine, "energy"), 1e-9);
         Assert.AreEqual(0, ExportedBy(game, moily, "energy"), 1e-9);

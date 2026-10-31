@@ -126,18 +126,15 @@ public class LinkFacts
     }
 
     [TestMethod]
-    public void APauseComesWithAnHoursNotice()
+    public void APauseCountsAtOnce()
     {
+        // The owner, for the playtest: no hour's notice any more
         var (game, ana, ben, _, mine) = Apart();
         var link = Linked(game, ana, ben);
         game.Pass(5);
 
         Assert.IsTrue(game.World.EndLink(ben.Id, link.Id, end: false).Success);
-        game.Pass(50);
-        Assert.AreEqual(LinkState.Active, link.State, "it keeps flowing during the notice");
-        Assert.AreEqual(10, ImportedBy(game, mine, "energy"), 1e-6);
-
-        game.Pass(15);
+        game.Pass(1);
         Assert.AreEqual(LinkState.Paused, link.State);
         Assert.AreEqual(0, link.Send, "Ana sends nothing over a paused link");
         Assert.IsFalse(game.World.ResumeLink(ana.Id, link.Id).Success, "Ben paused it: resuming is his");
@@ -146,8 +143,8 @@ public class LinkFacts
         Assert.AreEqual(LinkFlow.Live, link.Flow);
 
         Assert.IsTrue(game.World.EndLink(ana.Id, link.Id, end: true).Success);
-        game.Pass(61);
-        Assert.IsNull(game.World.Link(link.Id), "ended after the notice");
+        game.Pass(1);
+        Assert.IsNull(game.World.Link(link.Id), "ended at once");
     }
 
     [TestMethod]

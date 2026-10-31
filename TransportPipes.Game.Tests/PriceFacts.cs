@@ -52,12 +52,14 @@ public class PriceFacts
         StringAssert.Contains(game.World.SetPrice(ana.Id, GameWorld.PublicKey(), 2.6).Error, "between 1× and 2.5×");
         StringAssert.Contains(game.World.SetPrice(ana.Id, GameWorld.ForKey(ana.Id), 1.0).Error, "another player");
         Assert.IsTrue(game.World.SetPrice(ana.Id, GameWorld.PublicKey("energy"), 2.5).Success);
-        Assert.AreEqual(1.3, game.World.PriceFactor(ana, cleo, "energy"), "a rise waits an hour");
+        Assert.AreEqual(2.5, game.World.PriceFactor(ana, cleo, "energy"), "a rise counts at once (the playtest's rule)");
     }
 
     [TestMethod]
-    public void ARiseWaitsAnHourAndItsBuyersAreToldACutCountsAtOnce()
+    public void ARiseAndACutCountAtOnce()
     {
+        // The owner, 2026-10-31, for the playtest: "remove all the hour timeouts ... it all should happen instantly" (a
+        // rise waited an hour, its buyers told)
         var game = new TestGame(content: TestGame.PlainContent);
         var ana = game.NewCompany("Ana");
         var ben = game.NewCompany("Ben", level: 2);
@@ -67,20 +69,10 @@ public class PriceFacts
         game.Connect(ben, mine, game.TradingPost(ben));
         game.Pass(30);
         Assert.IsGreaterThan(0, game.World.UsualRate(ana, ben, "energy"), "Ben buys Ana's energy");
-        game.World.TakeChanges();
 
         Assert.IsTrue(game.World.SetPrice(ana.Id, GameWorld.CrewKey(), 1.25).Success);
-
-        var events = game.World.TakeChanges().Events;
-        Assert.IsTrue(events.Any(t => t.Company == ben.Id && t.Text == "Ana's price for goods rises to 1.25× in an hour"), string.Join(" | ", events.Select(t => t.Text)));
-        Assert.AreEqual(1.15, game.World.PriceFactor(ana, ben, "energy"));
-        game.Pass(30);
-        Assert.IsTrue(game.World.SetPrice(ana.Id, GameWorld.CrewKey(), 1.25).Success);
-        Assert.IsEmpty(game.World.TakeChanges().Events.Where(t => t.Company == ben.Id), "the same rise asked again: Ben heard of it");
-        game.Pass(31);
-        Assert.AreEqual(1.25, game.World.PriceFactor(ana, ben, "energy"), "an hour after it was first asked");
+        Assert.AreEqual(1.25, game.World.PriceFactor(ana, ben, "energy"), "a rise at once");
         Assert.IsTrue(game.World.SetPrice(ana.Id, GameWorld.CrewKey(), 1.6).Success);
-        game.Pass(61);
         Assert.AreEqual(1.3, game.World.PriceFactor(ana, ben, "energy"), "the public price is lower: a buyer pays the lowest that applies");
 
         Assert.IsTrue(game.World.SetPrice(ana.Id, GameWorld.CrewKey(), 1.2).Success);

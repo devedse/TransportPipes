@@ -31,13 +31,13 @@ public sealed class HubMarket
         SoldSinceUpdate[resource] = (SoldSinceUpdate.TryGetValue(resource, out var v) ? v : 0) + amount;
 
     /// <summary>Updates the averages and prices. Returns true when a price changed noticeably.</summary>
-    public bool Update(DateTime now, Func<string, double> demand, IEnumerable<string> resources)
+    public bool Update(DateTime now, Func<string, double> demand, IEnumerable<string> resources, double averageMinutes = 60)
     {
         var minutes = Math.Max(1, (now - LastUpdate).TotalMinutes);
         LastUpdate = now;
         var changed = false;
-        // Exponential average with a time constant of an hour
-        var weight = 1 - Math.Exp(-minutes / 60);
+        // Exponential average with a time constant of averageMinutes (0: what was sold since the last update)
+        var weight = averageMinutes <= 0 ? 1 : 1 - Math.Exp(-minutes / averageMinutes);
         foreach (var resource in resources)
         {
             var sold = (SoldSinceUpdate.TryGetValue(resource, out var s) ? s : 0) / minutes;

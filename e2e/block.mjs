@@ -1,6 +1,6 @@
 // Blocking a neighbour in the trade settings (playtest: "i cant click the buttons on other players traders to disable
-// trading with them": a block waits an hour's notice and the switch snapped back): the switch goes off at once and says
-// when the block counts; on again calls it off. node block.mjs <outdir>
+// trading with them": the switch snapped back): it goes off and the block counts at once (the owner, for the playtest:
+// it waited an hour's notice); on again trades again. node block.mjs <outdir>
 import { start, newPlayer } from "./lib.mjs";
 const [out = "shots/block"] = process.argv.slice(2);
 const { browser, page, errors, shot } = await start(out);
@@ -23,11 +23,12 @@ if (count > 0) {
   await page.waitForTimeout(1500);
   check(!(await input.isChecked()), "the switch is off once clicked");
   const text = (await row.innerText()).replace(/\s+/g, " ");
-  check(/trading stops at \d\d:\d\d/.test(text), "and says when the block counts", text);
+  check(!/trading stops at/.test(text), "nothing to wait for", text);
+  check(await page.evaluate(() => tp.appStore.getState().neighbours.some((t) => t.blocked)), "the block counts at once");
   await shot("1-blocking");
   await row.locator(".switch").click();
   await page.waitForTimeout(1500);
-  check(await input.isChecked(), "on again calls it off");
+  check(await input.isChecked(), "on again trades again");
   const pending = await page.evaluate(() => tp.appStore.getState().neighbours.some((t) => t.blockAt != null || t.blocked));
   check(!pending, "no block waits any more");
   await shot("2-off-again");

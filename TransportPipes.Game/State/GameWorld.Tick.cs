@@ -27,6 +27,7 @@ public sealed partial class GameWorld
             _grantsChecked = true;
             TidyAllPipeWants();
             TidyAllWants();
+            DueNoticesNow();
             foreach (var company in _companies.Values.ToList())
             {
                 GrantResearch(company);
@@ -88,12 +89,18 @@ public sealed partial class GameWorld
         }
         for (var at = NextMarketUpdate(LastTick); at <= now; at = NextMarketUpdate(at))
         {
+            // Its own moment (a for loop's variable is one for all the closures)
+            var moment = at;
             events.Add((at, long.MinValue, () =>
             {
                 // What went over trunk lines to other towns' markets since the last update pays its carriers
                 PayExportFees(MarketInterval.TotalMinutes);
                 UpdateMarkets();
-                RunManagers();
+                // The managers keep their quarter hour (their texts say so), however often the markets look
+                if (moment.Ticks % ManagersEvery.Ticks == 0)
+                {
+                    RunManagers();
+                }
                 // A free line whose player went away starts what the gold covers (KeepResearching)
                 foreach (var company in _companies.Values.Where(t => (t.CurrentResearch == null || t.CurrentTrack == null) && t.Level >= 4))
                 {
@@ -104,7 +111,7 @@ public sealed partial class GameWorld
             }));
         }
         // The statistics' samples, the last thing at their moment (docs/design-notes/statistics.md)
-        for (var at = NextMarketUpdate(LastTick); at <= now; at = NextMarketUpdate(at))
+        for (var at = NextSample(LastTick); at <= now; at = NextSample(at))
         {
             events.Add((at, long.MaxValue, TakeSamples));
         }

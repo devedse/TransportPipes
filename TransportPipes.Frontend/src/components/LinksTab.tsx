@@ -115,10 +115,7 @@ function LinkCard({ link, content }: { link: LinkDto; content: Content }) {
           <>
             <button
               onClick={() =>
-                void gameClient.linkCommand(
-                  gameClient.connection.endLink(link.id, false),
-                  "It pauses in an hour",
-                )
+                void gameClient.linkCommand(gameClient.connection.endLink(link.id, false), "Paused")
               }
             >
               Pause
@@ -126,10 +123,7 @@ function LinkCard({ link, content }: { link: LinkDto; content: Content }) {
             <button
               className="link small danger"
               onClick={() =>
-                void gameClient.linkCommand(
-                  gameClient.connection.endLink(link.id, true),
-                  "It ends in an hour",
-                )
+                void gameClient.linkCommand(gameClient.connection.endLink(link.id, true), "Ended")
               }
             >
               end
@@ -282,7 +276,7 @@ function NewLink({
       </button>
       <p className="muted small">
         They accept with one tap; you pay the pipe (refunded if they don&apos;t). Both sides pay and earn the
-        one player price, and either side pauses or ends it with an hour&apos;s notice.
+        one player price, and either side pauses or ends it at once.
       </p>
     </div>
   );

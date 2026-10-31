@@ -100,8 +100,8 @@ function IncomeBreakdown({ income, content }: { income: IncomeDto; content: Cont
       </p>
       <ul className="muted small income-notes">
         <li>
-          The hub pays by what you sold in the last hour, and looks again every 15 minutes. It pays the full
-          price for your Hub Order of each good; sell more than that, and it pays less for all of it.
+          The hub pays by what you sell now, and looks again every minute. It pays the full price for your Hub
+          Order of each good; sell more than that, and it pays less for all of it.
         </li>
         <li>Every minute the Yard matches what your neighbours take from you and bring you.</li>
         <li>
