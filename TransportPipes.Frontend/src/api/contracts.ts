@@ -115,6 +115,8 @@ export interface CompanyDto {
   workshops: WorkshopsDto | null;
   /** The wilderness chunks your expeditions mapped ("x,y"): the rest of it is fog on your map (1.4 §20) */
   explored: string[] | null;
+  /** What your own goods going into your wants now would sell for a minute (your income is that much lower until they're in) */
+  ownGoodsIntoWants?: number;
 }
 
 export type GiveMode = "off" | "beyondHubOrder" | "all";

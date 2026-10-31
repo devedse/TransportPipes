@@ -102,7 +102,8 @@ public static partial class GameViews
             company.WantsFromMarket,
             estate == null ? null : new OutskirtsDto(estate.OutskirtsParcels, world.NextOutskirtsCost(company), world.OutskirtsBlocker(company)),
             Workshops(world, company),
-            company.Explored.ToList());
+            company.Explored.ToList(),
+            Math.Round(world.OwnGoodsIntoWants(company)));
     }
 
     /// <summary>Building in the Yard (1.4 §7): your workshop tiles, and the crew's Depot</summary>

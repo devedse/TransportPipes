@@ -92,6 +92,24 @@ public class WantFacts
         Assert.IsGreaterThan(benGold, ben.Gold, "Ben's energy was paid for");
     }
 
+    [TestMethod]
+    public void AWantFilledFromYourOwnGoodsSaysWhatTheyWouldHaveSold()
+    {
+        // Playtest: after Grow, "I went from 3900 to 3400, why the hell did that happen?": the levels took her own goods
+        var (game, ana, _) = Station();
+        game.World.PlaceBuilding(ana.Id, "marketHall", game.Spot(ana, "marketHall"));
+        var site = MarketHall(game, ana);
+        ana.Asks.RemoveAll(t => t.Site == site.Id);
+        ana.Asks.Add(new CompanyAsk { Resource = "energy", Amount = 100_000, Site = site.Id });
+        game.ConnectToGate(ana, game.Build(ana, "windMoily"));
+
+        game.Pass(3);
+
+        var want = ana.Asks.Single(t => t.Site == site.Id);
+        Assert.IsGreaterThan(0, want.Incoming.GetValueOrDefault(ana.Id), "her own energy goes in");
+        Assert.AreEqual(want.Incoming[ana.Id] * game.World.HubBuyPrice(ana, "energy"), game.World.OwnGoodsIntoWants(ana), 1e-6, "what it would have sold for");
+    }
+
     /// <summary>Ana's grey pipe from a moily to her trading post, Copper Pipe researched</summary>
     private static (TestGame Game, Company Ana, Company Ben, List<TilePos> Pipe) GreyPipe()
     {

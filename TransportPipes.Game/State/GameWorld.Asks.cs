@@ -156,6 +156,13 @@ public sealed partial class GameWorld
         }
     }
 
+    /// <summary>
+    /// What a company's own goods going into its wants now would sell for a minute: its income is about that much lower
+    /// until they're in (playtest: after Grow, "I went from 3900 to 3400, why the hell did that happen?")
+    /// </summary>
+    public double OwnGoodsIntoWants(Company company) =>
+        company.Asks.Where(t => t.IsWant).Sum(t => t.Incoming.GetValueOrDefault(company.Id) * HubBuyPrice(company, t.Resource));
+
     /// <summary>The players of a Yard with wants: its members, and a want's owner whose gate has no pipe yet</summary>
     private List<Company> Askers(StationRef station, List<YardMember> members) =>
         members.Select(t => t.Company)

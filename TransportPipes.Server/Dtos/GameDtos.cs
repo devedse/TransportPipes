@@ -114,7 +114,9 @@ public record CompanyDto(
     OutskirtsDto? Outskirts = null,
     WorkshopsDto? Workshops = null,
     /// <summary>The wilderness chunks your expeditions mapped ("x,y"): the rest of it is fog on your map (1.4 §20)</summary>
-    IReadOnlyList<string>? Explored = null);
+    IReadOnlyList<string>? Explored = null,
+    /// <summary>What your own goods going into your wants now would sell for a minute (your income is that much lower until they're in)</summary>
+    double OwnGoodsIntoWants = 0);
 
 /// <summary>Your plot's outskirts (1.4 §5): the parcels you bought (bits 0..8), what the next costs, and why you can't buy one yet</summary>
 public record OutskirtsDto(int Parcels, double NextCost, string? Blocker);

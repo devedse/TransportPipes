@@ -245,6 +245,14 @@ export function GoalTracker() {
                       ? ` · ${formatAmount(want.perMinute)}/min coming`
                       : ""}
                   {wants.length > 1 && ` · and ${wants.length - 1} more`}
+                  {(company.ownGoodsIntoWants ?? 0) >= 1 && (
+                    // Playtest: after Grow, "I went from 3900 to 3400, why the hell did that happen?"
+                    <span className="muted">
+                      {" "}
+                      · your own goods go in: −{formatAmount(company.ownGoodsIntoWants ?? 0)} g/min of sales
+                      until they&apos;re in
+                    </span>
+                  )}
                 </span>
                 {buyable.length > 1 ? (
                   <button

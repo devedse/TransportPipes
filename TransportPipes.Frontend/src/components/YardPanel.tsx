@@ -217,6 +217,12 @@ export function YardPanel() {
                   </button>
                 )}
               </div>
+              {(company.ownGoodsIntoWants ?? 0) >= 1 && (
+                <p className="muted small">
+                  Your own goods go in first: they sell for {formatAmount(company.ownGoodsIntoWants ?? 0)}{" "}
+                  g/min less until they&apos;re in, and then the levels pay.
+                </p>
+              )}
               <ul className="yard-trades">
                 {(company.wants ?? []).map((w) => (
                   <li key={`${w.target}-${w.resource}`}>
