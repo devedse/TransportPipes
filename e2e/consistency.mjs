@@ -21,10 +21,12 @@ const setup = await page.evaluate(async () => {
   const roomy = (x, y) => [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dy]) => !taken.has(`${x + dx},${y + dy}`));
   const near = (type, cx, cy) => { for (let r = 1; r < 9; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (ok(type, cx + dx, cy + dy) && roomy(cx + dx, cy + dy)) { taken.add(`${cx + dx},${cy + dy}`); return { x: cx + dx, y: cy + dy }; } return null; };
   const built = {};
+  const placed = [];
   for (const [name, type, dx, dy] of [["moilyA", "windMoily", 4, -3], ["moilyB", "windMoily", 6, 2], ["solar", "solarPanel", -3, 4], ["storage", "storage", 3, 4]]) {
     const at = near(type, post.x + dx, post.y + dy);
     await c.placeBuilding(type, at.x, at.y);
     built[name] = at;
+    placed.push([name, type, dx, dy]);
   }
   await c.cheat("finish");
   // To one tile, or to whichever side of the post a route reaches
@@ -39,6 +41,19 @@ const setup = await page.evaluate(async () => {
   };
   const routes = {};
   for (const name of Object.keys(built)) routes[name] = await lay(built[name], null);
+  // A plot whose land leaves a building no way to the post (water, the plot's edge): it goes elsewhere, a few times
+  for (const [name, type, dx, dy] of placed) {
+    for (let tries = 0; routes[name] === null && tries < 4; tries++) {
+      const old = [...w.buildings.values()].find((t) => t.owner === co().id && t.x === built[name].x && t.y === built[name].y);
+      if (old) await c.demolish(old.id);
+      const at = near(type, post.x + dx + (tries + 1) * 2, post.y + dy - (tries + 1) * 2);
+      if (!at) break;
+      await c.placeBuilding(type, at.x, at.y);
+      await c.cheat("finish");
+      built[name] = at;
+      routes[name] = await lay(at, null);
+    }
+  }
   const gate = [...w.conductors.values()].filter((t) => t.kind === "gate" && t.owner === co().id)
     .sort((a, b) => Math.abs(a.x - post.x) + Math.abs(a.y - post.y) - (Math.abs(b.x - post.x) + Math.abs(b.y - post.y)))[0];
   const inEstate = (x, y) => x >= co().estateX && y >= co().estateY && x < co().estateX + 32 && y < co().estateY + 32;

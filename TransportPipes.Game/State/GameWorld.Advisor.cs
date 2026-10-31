@@ -243,6 +243,17 @@ public sealed partial class GameWorld
     /// </summary>
     private AdvisorStep Exact(Company company, AdvisorStep step)
     {
+        // A Pump Station on a big network: its buildings at full speed, solved
+        if (step.Kind == AdvisorKind.Pump && step.At is { } at && BuildingAt(at) is { } inside && NetworkOf(inside.Id) is { } pumped && Estimated(pumped))
+        {
+            var more = Math.Max(0, WhatIfGold(pumped, company.Id, pumps: false) - WhatIfGold(pumped, company.Id));
+            var old = Plus(pumped, step.GainPerMinute);
+            return step with
+            {
+                Reason = more > 0.05 ? step.Reason.Replace(old, $"+{Gold(more)}/min") : step.Reason.Replace($": {old}.", "."),
+                GainPerMinute = more,
+            };
+        }
         if (step.Action != AdvisorAction.Upgrade || step.Building is not { } id || Building(id) is not { } building || NetworkOf(id) is not { } network
             || !Estimated(network) || Content.Building(building.Type).Kind == BuildingKind.TradingPost || step.Levels <= 0)
         {

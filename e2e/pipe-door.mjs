@@ -110,7 +110,7 @@ const button = page.locator(".building-panel .pipe-door button.primary");
 const label = await button.innerText().catch(() => "");
 expect("a full grey pipe's door: Copper Pipe, then the levels it carries", door?.kind === "tier" && /^Copper Pipe on its link \(\d+ tiles?\), then Level \d+ · [\d.,kM]+ g \+ \d+ copper ingots$/.test(label), label);
 const preview = await page.locator(".building-panel .pipe-door .spend-preview").innerText().catch(() => "");
-expect("its preview in gold a minute, and when it pays back", /^\+[\d.,k]+ g\/min · pays back in /.test(preview), preview);
+expect("its preview in gold a minute, and when it pays back", /^\+[\d.,k]+ g\/min( once its levels. goods are in \(about [\d.,k]+ g of goods: your own go in first\))? · pays back in /.test(preview), preview);
 expect("no second button in the status", (await page.locator(".building-panel button.fix").count()) === 0);
 const words = await page.locator(".building-panel .spend-preview").first().innerText().catch(() => "");
 expect("the next level says it adds nothing, in words", !/\+0 g\/min/.test(words), words);

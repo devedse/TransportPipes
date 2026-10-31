@@ -664,12 +664,14 @@ export function BuildingPanel() {
             >
               Level {bought + 1} · {formatAmount(details.upgradeCost)} g
             </button>
-            {details.upgradeCost10 !== null && (
+            {details.upgradeCost10 !== null && content.progression.maxBuildingLevel - bought > 1 && (
+              // Near level 25 it buys what is left, and says so
               <button
                 disabled={gold < details.upgradeCost10}
                 onClick={() => void gameClient.upgrade(building.id, 10)}
               >
-                +10 · {formatAmount(details.upgradeCost10)} g
+                +{Math.min(10, content.progression.maxBuildingLevel - bought)} ·{" "}
+                {formatAmount(details.upgradeCost10)} g
               </button>
             )}
             {details.maxAffordableLevels > 1 && details.upgradeCostMax !== null && (
