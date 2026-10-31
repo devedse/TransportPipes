@@ -42,12 +42,14 @@ const setup = await page.evaluate(async () => {
   };
   const routes = {};
   for (const name of Object.keys(built)) routes[name] = await lay(built[name], null);
-  // A plot whose land leaves a building no way to the post (water, the plot's edge): it goes elsewhere, a few times
+  // A plot whose land leaves a building no way to the post (water, a mountain, the plot's edge): it goes to the other
+  // sides of the post, and further out
   for (const [name, type, dx, dy] of placed) {
-    for (let tries = 0; routes[name] === null && tries < 4; tries++) {
+    const elsewhere = [[-dx, dy], [dx, -dy], [-dx, -dy], [dy, dx], [-dy, -dx], [2 * dx, 2 * dy], [-2 * dx, -2 * dy]];
+    for (let tries = 0; routes[name] === null && tries < elsewhere.length; tries++) {
       const old = [...w.buildings.values()].find((t) => t.owner === co().id && t.x === built[name].x && t.y === built[name].y);
       if (old) await c.demolish(old.id);
-      const at = near(type, post.x + dx + (tries + 1) * 2, post.y + dy - (tries + 1) * 2);
+      const at = near(type, post.x + elsewhere[tries][0], post.y + elsewhere[tries][1]);
       if (!at) break;
       await c.placeBuilding(type, at.x, at.y);
       await c.cheat("finish");
@@ -59,7 +61,8 @@ const setup = await page.evaluate(async () => {
     .sort((a, b) => Math.abs(a.x - post.x) + Math.abs(a.y - post.y) - (Math.abs(b.x - post.x) + Math.abs(b.y - post.y)))[0];
   const inEstate = (x, y) => x >= co().estateX && y >= co().estateY && x < co().estateX + 32 && y < co().estateY + 32;
   const inside = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({ x: gate.x + dx, y: gate.y + dy })).find((t) => inEstate(t.x, t.y));
-  routes.gate = await lay(built.moilyA, inside);
+  routes.gate = null;
+  for (const name of ["moilyA", "moilyB", "solar"]) if (routes.gate === null && routes[name] !== null) routes.gate = await lay(built[name], inside);
   tp.gameClient.engine.lookAt(post.x + 2, post.y, 0.4);
   window.__c = { post: { x: post.x, y: post.y }, built, routes, gateSide: gate.side };
   return { built, routes: Object.fromEntries(Object.entries(routes).map(([k, v]) => [k, v?.length ?? null])), gate: gate.side };
