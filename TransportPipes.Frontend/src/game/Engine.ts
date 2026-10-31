@@ -302,6 +302,9 @@ function depositArt(deposit: string): string {
   return `deposit${deposit[0]!.toUpperCase()}${deposit.slice(1)}`;
 }
 
+/** A band of map objects: 16 diagonals of tiles deep (their zIndex is (x + y) × 4 and a little) */
+const OBJECT_BAND = 64;
+
 const badgeTextures = new Map<number, Texture>();
 
 /** A building's level badge: a shield in its tier's colour with the level on it (one texture per level) */
@@ -498,6 +501,13 @@ export class Engine {
   }> = [];
   private linkTime = 0;
   private readonly objectLayer = new Container({ sortableChildren: true });
+  /**
+   * The map's objects in bands of depth, each its own draw list (a render group; the owner's profile, 2026-10-31:
+   * microstutters while other players built, the whole map's draw list rebuilt for one area drawn again): an area drawn
+   * again rebuilds only the bands it touches. An object's band follows its depth (zIndex), and the bands are drawn in the
+   * order of their depths, so the draw order stays as it was
+   */
+  private readonly objectBands = new Map<number, Container>();
   private readonly flowLayer = new Container();
   /**
    * The level badges, over every building and pipe (the owner, 2026-10-31: "draw the building levels always in front":
@@ -513,6 +523,10 @@ export class Engine {
   private readonly districtViews = new Map<string, DistrictView>();
   private readonly effects = new Set<ObjectView>();
   private readonly dirtyChunks = new Set<string>();
+  /** Of them, those whose ground changed too (the others: their objects only) */
+  private readonly dirtyGround = new Set<string>();
+  /** When areas that changed were last drawn again (engine time, seconds) */
+  private lastChunkDraw = 0;
   private flowsDirty = true;
   private districtsDirty = true;
   /** Whether the camera was sent somewhere, and the map there has been drawn */
@@ -541,10 +555,14 @@ export class Engine {
   private flowDots: Array<{
     sprite: Sprite;
     points: Array<{ x: number; y: number }>;
+    /** Its way's segments' lengths, summed up from the start (worked out once, not every frame) */
+    along: number[];
     length: number;
     offset: number;
     speed: number;
   }> = [];
+  /** A way's segments' lengths summed up, by the way (its points come from the flow points cache) */
+  private readonly alongOf = new WeakMap<Array<{ x: number; y: number }>, number[]>();
   private far = false;
   private time = 0;
 
@@ -623,12 +641,15 @@ export class Engine {
       this.labelLayer,
     );
     app.stage.addChild(this.worldLayer, this.boxLayer);
+    // The map takes the pointer itself (registerInput): PixiJS needn't look under it at every move (the owner's profile,
+    // 2026-10-31: 5% of the time in its hit tests)
+    app.stage.eventMode = "none";
+    app.stage.interactiveChildren = false;
     // A draw list of their own (PixiJS render groups; the owner's profile, 2026-10-31: 38% of the time rebuilding one
     // list of all 10,000 things on the map): what comes and goes in one (a dot, a coin, a badge, a building) rebuilds
     // only its own
     for (const layer of [
       this.groundLayer,
-      this.objectLayer,
       this.flowLayer,
       this.badgeLayer,
       this.juice.layer,
@@ -648,6 +669,11 @@ export class Engine {
     this.removeListeners.push(
       world.onChange((change) => {
         change.chunks.forEach((key) => this.dirtyChunks.add(key));
+        change.groundChunks.forEach((key) => this.dirtyGround.add(key));
+        if (change.chunks.length > 0) {
+          // Pipes or buildings changed: the flows' ways on the screen may too
+          this.flowPointsCache.clear();
+        }
         if (change.flows) {
           this.flowsDirty = true;
         }
@@ -1297,13 +1323,35 @@ export class Engine {
         this.drawOverlay(chunk);
       }
     }
-    for (const key of this.dirtyChunks) {
-      const chunk = this.chunks.get(key);
-      if (chunk !== undefined) {
-        this.drawChunk(chunk);
+    // Areas that changed are drawn again a few times a second at most (the owner's profile, 2026-10-31: microstutters
+    // while other players built): changes that come close together are drawn once
+    if (this.dirtyChunks.size > 0 && (this.time - this.lastChunkDraw >= 0.15 || !this.shown)) {
+      this.lastChunkDraw = this.time;
+      for (const key of this.dirtyChunks) {
+        const chunk = this.chunks.get(key);
+        if (chunk === undefined) {
+          continue;
+        }
+        if (this.dirtyGround.has(key) || !chunk.loaded || chunk.farOnly || this.far) {
+          this.drawChunk(chunk);
+        } else {
+          // Only its objects changed: its ground stays (the far picture and an overlay show the objects too)
+          this.clearObjects(chunk);
+          this.drawObjects(chunk);
+          if (chunk.mini !== null) {
+            chunk.mini.texture.destroy(true);
+            chunk.mini.destroy();
+            chunk.mini = null;
+          }
+          this.drawMini(chunk);
+          if (this.overlay !== "none") {
+            this.drawOverlay(chunk);
+          }
+        }
       }
+      this.dirtyChunks.clear();
+      this.dirtyGround.clear();
     }
-    this.dirtyChunks.clear();
     if (this.lookedAt && !this.shown) {
       const tile = this.camera.screenToTile(this.app.screen.width / 2, this.app.screen.height / 2);
       const chunk = chunkOf(tile.x, tile.y);
@@ -2065,7 +2113,7 @@ export class Engine {
         if ((terrain === "forest" || terrain === "mountain") && this.hidesSomething(x, y)) {
           sprite.alpha = 0.42;
         }
-        this.objectLayer.addChild(sprite);
+        this.addObject(sprite);
         chunk.objects.push({
           display: sprite,
           effects: null,
@@ -2146,7 +2194,7 @@ export class Engine {
     label.position.set(front.x, front.y + 30);
     container.addChild(label);
     container.zIndex = (outpost.x + outpost.y) * 4 - 6;
-    this.objectLayer.addChild(container);
+    this.addObject(container);
     return container;
   }
 
@@ -2172,7 +2220,7 @@ export class Engine {
     }
     g.fill({ color: quantum ? 0x9ad8ff : 0xd8a24a, alpha: 0.75 });
     g.zIndex = (Math.max(sender.x + sender.y, receiver.x + receiver.y) + 2) * 4 + 3;
-    this.objectLayer.addChild(g);
+    this.addObject(g);
     return g;
   }
 
@@ -2213,7 +2261,7 @@ export class Engine {
     }
     g.stroke({ color: 0x2a2d33, width: 3, alpha: 0.85 });
     g.zIndex = z + 1;
-    this.objectLayer.addChild(g);
+    this.addObject(g);
     return g;
   }
 
@@ -2230,10 +2278,9 @@ export class Engine {
     }
     let goods = [...Object.keys(definition.in), ...Object.keys(definition.out)];
     if (goods.length === 0 && building !== undefined && building.network !== null) {
-      // A Storage or a trading post: the kinds of goods moving through it right now (none: the inlet box)
-      goods = (this.world.flows.get(building.network)?.flows ?? [])
-        .filter((t) => (t.from === building.id || t.to === building.id) && t.delivered > 1e-6)
-        .map((t) => t.resource);
+      // A Storage or a trading post: the kinds of goods moving through it right now (none: the inlet box), as the last
+      // flow rebuild found them (it searched all of its network's flows for each of them, and for each flow to them)
+      goods = [...(this.movingThrough.get(building.id) ?? [])];
     }
     const kinds = new Set(goods.map((t) => content.resource(t)?.kind ?? "solid"));
     return LANE_KINDS.filter((t) => kinds.has(t));
@@ -2384,7 +2431,7 @@ export class Engine {
       const effects = new BuildingEffects(art.attachments, "#ffffff");
       container.addChild(effects.container);
       container.zIndex = (conductor.x + conductor.y) * 4 + 2;
-      this.objectLayer.addChild(container);
+      this.addObject(container);
       const view: ObjectView = {
         display: container,
         effects,
@@ -2425,8 +2472,21 @@ export class Engine {
       }
     }
     pipe.zIndex = (conductor.x + conductor.y) * 4 + 2;
-    this.objectLayer.addChild(pipe);
+    this.addObject(pipe);
     return { display: pipe, effects: null, building: null, machine: null, idle: null, progress: null };
+  }
+
+  /** Puts a map object in the band of its depth (its zIndex is set before) */
+  private addObject(display: Container) {
+    const index = Math.floor(display.zIndex / OBJECT_BAND);
+    let band = this.objectBands.get(index);
+    if (band === undefined) {
+      band = new Container({ sortableChildren: true, isRenderGroup: true });
+      band.zIndex = index;
+      this.objectBands.set(index, band);
+      this.objectLayer.addChild(band);
+    }
+    band.addChild(display);
   }
 
   private buildingView(building: BuildingDto, state: EngineState): ObjectView {
@@ -2659,7 +2719,7 @@ export class Engine {
         }
       }
     }
-    this.objectLayer.addChild(container);
+    this.addObject(container);
     this.applyRunning(view);
     return view;
   }
@@ -2812,22 +2872,17 @@ export class Engine {
       if (dot.length <= 0) {
         continue;
       }
-      let distance = (dot.offset + this.time * dot.speed) % dot.length;
+      // Where along its way, by the lengths worked out once (the owner's profile, 2026-10-31: 4% of the time went into
+      // measuring every segment of every dot's way again each frame)
+      const distance = (dot.offset + this.time * dot.speed) % dot.length;
       let i = 0;
-      while (i < dot.points.length - 2) {
-        const a = dot.points[i]!;
-        const b = dot.points[i + 1]!;
-        const segment = Math.hypot(b.x - a.x, b.y - a.y);
-        if (distance <= segment) {
-          break;
-        }
-        distance -= segment;
+      while (i < dot.points.length - 2 && distance > dot.along[i + 1]!) {
         i++;
       }
       const a = dot.points[i]!;
       const b = dot.points[i + 1] ?? a;
-      const segment = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-      const t = Math.min(1, distance / segment);
+      const segment = (dot.along[i + 1] ?? dot.along[i]!) - dot.along[i]! || 1;
+      const t = Math.min(1, (distance - dot.along[i]!) / segment);
       dot.sprite.position.set(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
     }
   }
@@ -2954,7 +3009,28 @@ export class Engine {
 
   // ---------------------------------------------------------------- Flows
 
+  /** The goods moving through each building now (from the last flow rebuild) */
+  private movingThrough = new Map<number, Set<string>>();
+  /** A flow's way on the screen, by its tiles, its ends and its good (until the map changes) */
+  private readonly flowPointsCache = new Map<string, Array<{ x: number; y: number }>>();
+
   private buildFlows() {
+    // Once for all: what moves through each building (laneKinds asks it for every Storage and trading post end)
+    this.movingThrough = new Map();
+    for (const network of this.world.flows.values()) {
+      for (const flow of network.flows) {
+        if (flow.delivered <= 1e-6) {
+          continue;
+        }
+        for (const id of [flow.from, flow.to]) {
+          let goods = this.movingThrough.get(id);
+          if (goods === undefined) {
+            this.movingThrough.set(id, (goods = new Set()));
+          }
+          goods.add(flow.resource);
+        }
+      }
+    }
     // The dots' sprites again: a sprite added or taken away makes the map rebuild its draw list (the owner's profile,
     // 2026-10-31: every dot made anew whenever a network changed); those not needed now wait unseen
     const pool = this.flowDots.map((t) => t.sprite);
@@ -3004,21 +3080,33 @@ export class Engine {
         }
         const from = this.world.buildings.get(flow.from);
         const to = this.world.buildings.get(flow.to);
-        const pieces = tiles.map((run, index) =>
-          this.flowPoints(
-            run,
-            index === 0 ? from : undefined,
-            index === tiles.length - 1 ? to : undefined,
-            flow.resource,
-          ),
-        );
+        const pieces = tiles.map((run, index) => {
+          const start = index === 0 ? from : undefined;
+          const end = index === tiles.length - 1 ? to : undefined;
+          // Worked out again only when its tiles, its ends' lanes or the map change (the owner's profile, 2026-10-31:
+          // microstutters, every flow's way worked out anew whenever any network changed)
+          const key = `${flow.resource}|${start?.id ?? 0}:${start !== undefined ? this.laneKinds(start.x, start.y).join() : ""}|${end?.id ?? 0}:${end !== undefined ? this.laneKinds(end.x, end.y).join() : ""}|${run.map((t) => `${t.x},${t.y}`).join(";")}`;
+          let points = this.flowPointsCache.get(key);
+          if (points === undefined) {
+            points = this.flowPoints(run, start, end, flow.resource);
+            this.flowPointsCache.set(key, points);
+          }
+          return points;
+        });
         const color = content.resourceColor(flow.resource);
         for (const points of pieces) {
           this.flowPaths.push({ flow, network: network.id, points });
-          let length = 0;
-          for (let i = 1; i < points.length; i++) {
-            length += Math.hypot(points[i]!.x - points[i - 1]!.x, points[i]!.y - points[i - 1]!.y);
+          let along = this.alongOf.get(points);
+          if (along === undefined) {
+            along = [0];
+            for (let i = 1; i < points.length; i++) {
+              along.push(
+                along[i - 1]! + Math.hypot(points[i]!.x - points[i - 1]!.x, points[i]!.y - points[i - 1]!.y),
+              );
+            }
+            this.alongOf.set(points, along);
           }
+          const length = along[along.length - 1]!;
           if (length <= 0) {
             continue;
           }
@@ -3036,7 +3124,7 @@ export class Engine {
             sprite.alpha = 1;
             sprite.scale.set(flow.kind === "sale" || flow.kind === "trade" ? 0.66 : 0.56);
             sprite.tint = color;
-            this.flowDots.push({ sprite, points, length, offset: (length / count) * i, speed: 190 });
+            this.flowDots.push({ sprite, points, along, length, offset: (length / count) * i, speed: 190 });
           }
         }
       }
@@ -3049,7 +3137,7 @@ export class Engine {
         continue;
       }
       sprite.alpha = 0;
-      this.flowDots.push({ sprite, points: [], length: 0, offset: 0, speed: 0 });
+      this.flowDots.push({ sprite, points: [], along: [0], length: 0, offset: 0, speed: 0 });
     }
   }
 
@@ -3518,7 +3606,7 @@ export class Engine {
           this.effects.add(hub);
         }
         container.zIndex = (x + y + 2 * (structure.size - 1)) * 4 + 3;
-        this.objectLayer.addChild(container);
+        this.addObject(container);
         view.hub.push(hub);
       }
     }
@@ -3581,7 +3669,7 @@ export class Engine {
           const sprite = new Sprite(art.frames[0]);
           placeArt(sprite, art, footprintAnchor(rect.x0 + site.x, rect.y0 + site.y, 3), 3);
           sprite.zIndex = (rect.x0 + site.x + rect.y0 + site.y + 3) * 4 + 3;
-          this.objectLayer.addChild(sprite);
+          this.addObject(sprite);
           view.hub.push({
             display: sprite,
             effects: null,
@@ -3634,7 +3722,7 @@ export class Engine {
         const sprite = new Sprite(tower.frames[0]);
         placeArt(sprite, tower, footprintAnchor(ox + x!, oy + y!, 2), 2);
         sprite.zIndex = (ox + x! + oy + y! + 2) * 4 + 3;
-        this.objectLayer.addChild(sprite);
+        this.addObject(sprite);
         view.hub.push({
           display: sprite,
           effects: null,
@@ -3677,7 +3765,7 @@ export class Engine {
       const sprite = new Sprite(art.frames[0]);
       placeArt(sprite, art, footprintAnchor(x, y, 1), 1);
       sprite.zIndex = (x + y) * 4 + 3;
-      this.objectLayer.addChild(sprite);
+      this.addObject(sprite);
       view.hub.push({
         display: sprite,
         effects: null,

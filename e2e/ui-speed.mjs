@@ -65,10 +65,25 @@ const result = await p.page.evaluate(async () => {
   renderer.render = (...args) => { const t = performance.now(); render(...args); stats.frames++; stats.renderMs += performance.now() - t; };
   const flows = e.buildFlows.bind(e);
   e.buildFlows = () => { const t = performance.now(); flows(); stats.flows++; stats.flowsMs += performance.now() - t; };
+  // A frame's own time (the engine's update and the drawing): the stutters are the long ones
+  const frames = [];
+  const update = e.update;
+  e.app.ticker.remove(update, e);
+  e.app.ticker.add(function timed(ticker) { const t = performance.now(); update.call(e, ticker); frames.push(performance.now() - t); }, e);
+  const draw = renderer.render.bind(renderer);
+  renderer.render = (...args) => { const t = performance.now(); draw(...args); if (frames.length > 0) frames[frames.length - 1] += performance.now() - t; };
+  // A busy server: the flows change once a second, and three map areas on screen change twice a second (other players)
+  const keys = [...e.chunks.keys()].filter((k) => e.chunks.get(k).loaded);
+  let n = 0;
   const busy = setInterval(() => { e.flowsDirty = true; }, 1000);
+  const others = setInterval(() => { for (let i = 0; i < 3; i++) e.dirtyChunks.add(keys[(n++) % keys.length]); }, 500);
   const t0 = performance.now();
   await new Promise((r) => setTimeout(r, 8000));
   clearInterval(busy);
+  clearInterval(others);
+  frames.sort((a, b) => a - b);
+  stats.p95 = frames[Math.floor(frames.length * 0.95)] ?? 0;
+  stats.max = frames[frames.length - 1] ?? 0;
   const seconds = (performance.now() - t0) / 1000;
   let sprites = 0;
   const count = (c) => { sprites++; for (const k of c.children ?? []) count(k); };
@@ -83,6 +98,8 @@ const result = await p.page.evaluate(async () => {
     flowRebuilds: stats.flows,
     flowRebuildMs: +(stats.flowsMs / Math.max(1, stats.flows)).toFixed(2),
     dots: e.flowDots.length,
+    frameMsP95: +stats.p95.toFixed(1),
+    frameMsMax: +stats.max.toFixed(1),
   };
 });
 console.log(JSON.stringify(result));

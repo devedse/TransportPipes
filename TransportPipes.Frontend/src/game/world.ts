@@ -53,7 +53,13 @@ function decode(base64: string): Uint8Array {
   return bytes;
 }
 
-export type WorldListener = (change: { chunks: string[]; flows: boolean; districts: boolean }) => void;
+/** groundChunks: of the chunks, those whose ground changed (their terrain or deposits): the others' objects only */
+export type WorldListener = (change: {
+  chunks: string[];
+  flows: boolean;
+  districts: boolean;
+  groundChunks: string[];
+}) => void;
 
 /** Everything the client knows about the world: the chunks it has loaded, the districts and the flows */
 export class WorldModel {
@@ -131,8 +137,17 @@ export class WorldModel {
     return () => this.listeners.delete(listener);
   }
 
-  private emit(chunks: string[], flows = false, districts = false) {
-    this.listeners.forEach((listener) => listener({ chunks, flows, districts }));
+  private emit(chunks: string[], flows = false, districts = false, groundChunks: string[] = chunks) {
+    this.listeners.forEach((listener) => listener({ chunks, flows, districts, groundChunks }));
+  }
+
+  /** A chunk's terrain and deposit overrides, as a string to compare */
+  private groundOf(key: string): string {
+    const terrain = [...(this.overridesByChunk.get(key) ?? [])].map((k) => `${k}:${this.overrides.get(k)}`);
+    const deposits = [...(this.depositsByChunk.get(key) ?? [])].map(
+      (k) => `${k}:${this.deposits.get(k)?.deposit}:${this.deposits.get(k)?.richness}`,
+    );
+    return `${terrain.sort().join(",")}|${deposits.sort().join(",")}`;
   }
 
   setChunk(dto: ChunkDto) {
@@ -156,8 +171,11 @@ export class WorldModel {
     if (!this.chunks.has(key)) {
       return;
     }
+    // Its ground is drawn again only when its terrain or deposits changed (the owner's profile, 2026-10-31: a
+    // building's level redrew its whole chunk's ground)
+    const ground = this.groundOf(key);
     this.applyObjectsSilently(dto);
-    this.emit([key]);
+    this.emit([key], false, false, this.groundOf(key) === ground ? [] : [key]);
   }
 
   private applyObjectsSilently(dto: ChunkObjectsDto) {
