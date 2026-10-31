@@ -59,5 +59,18 @@
     "Your pipes are now also drawn apart from a neighbour's pipes that lie right next to them: they don't join, and goods don't pass between them. To trade with a neighbour, pipe your network to your Yard gate (the entrance to the shared square your plot borders).",
     "Click a pipe to see its network: every gold amount there now has the gold coin next to it."
   ],
-  "1f4f643": ["Your Yard's banner (its two colours, shown at the top of the Crew panel) now looks like a flag with a sash, so it no longer looks like a half-full bar."]
+  "1f4f643": ["Your Yard's banner (its two colours, shown at the top of the Crew panel) now looks like a flag with a sash, so it no longer looks like a half-full bar."],
+  "85c9574": [
+    "When the game says how much more gold a minute something brings (an upgrade, Max, Grow, a step in Next steps), that is now what you get, also when your buildings get goods from neighbours through the Yard (the shared square your plot borders).",
+    "Grow (click your gold at the top) lists what each part costs; what all of them bring together is at the top."
+  ],
+  "9bd1dd8": ["In Next steps (the list of suggestions on the left), an upgrade now says exactly how much gold a minute it brings, also when your network (everything joined by your pipes) is big."],
+  "593ac63": [
+    "In your Lab, each research now says exactly how much gold a minute it brings.",
+    "Research times now include what makes research faster for you, such as your Lab's level.",
+    "When a pipe is full, the button to lay a better pipe says what the goods for its building's next levels cost: from level 11 a level needs goods, and the extra gold comes once they are in."
+  ],
+  "96b2ed9": ["Clicking a building now opens its network panel again when one of its buildings lacks a good (the panel failed to open then)."],
+  "ee99354": ["The game server does much less work every second, so the game stays quick with many players."],
+  "9b0b331": ["The upgrade buttons say how many levels they buy, also close to level 25 (the highest)."]
 }
