@@ -164,17 +164,34 @@ function LinkCard({ link, content }: { link: LinkDto; content: Content }) {
           </button>
         )}
         {link.state !== "offered" && better !== undefined && (
+          // Its whole price, the materials too, and what it changes (the audit, 2026-10-31: it showed the gold alone,
+          // and failed after the click with "You need 109 copper ingot")
           <button
             className="small"
-            title={`${better.name}: loses ${(better.lossPerTile * 100).toFixed(2)}% a tile, carries ${formatAmount(better.throughput)}/min`}
+            title={`${better.name}: ${Math.round((1 - better.lossPerTile) ** link.length * 100)}% of what is sent arrives (now ${Math.round(link.efficiency * 100)}%), carries ${formatAmount(better.throughput)}/min; it takes ${Object.entries(
+              better.materials,
+            )
+              .map(([r, a]) => `${formatAmount(a * link.length)} ${content.resourceName(r).toLowerCase()}`)
+              .join(", ")} from your Storages too; it counts from the Yard's next round`}
             onClick={() =>
               void gameClient.linkCommand(
                 gameClient.connection.upgradeLink(link.id, better.tier),
-                `${better.name} laid`,
+                `${better.name} laid: it counts from the Yard's next round`,
               )
             }
           >
             {better.name} · {formatAmount(better.gold * link.length)} g
+            {Object.entries(better.materials).map(([resource, amount]) => (
+              <span key={resource} className="level-good">
+                {" "}
+                + {formatAmount(amount * link.length)}
+                <ResourceIcon resource={resource} />
+              </span>
+            ))}
+            <span className="level-goods">
+              {Math.round((1 - better.lossPerTile) ** link.length * 100)}% arrives instead of{" "}
+              {Math.round(link.efficiency * 100)}%
+            </span>
           </button>
         )}
       </span>

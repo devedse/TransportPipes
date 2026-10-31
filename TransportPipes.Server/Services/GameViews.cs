@@ -888,7 +888,15 @@ public static partial class GameViews
         {
             var partner = world.Building(partnerId);
             var partnerOwner = partner != null ? world.Company(partner.Owner)?.Name ?? "" : "";
-            return new BuildingFlowDto(direction, flow.Resource, amount, partnerId, partner?.Type ?? "", partnerOwner, Camel(flow.Kind), flow.PricePerUnit);
+            // Paid as the solver pays it (the audit, 2026-10-31: the panel priced what left, the seller is paid for what arrives)
+            var gold = flow.Kind switch
+            {
+                FlowKind.Sale or FlowKind.Trade => flow.Delivered * flow.PricePerUnit,
+                FlowKind.Import => flow.Sent * flow.PricePerUnit,
+                _ => 0,
+            };
+            return new BuildingFlowDto(direction, flow.Resource, amount, partnerId, partner?.Type ?? "", partnerOwner, Camel(flow.Kind), flow.PricePerUnit,
+                Math.Round(flow.Sent, 2), Math.Round(flow.Delivered, 2), Math.Round(gold, 2));
         }
 
         var inputs = node?.In.Select(t => new ResourceAmountDto(t.Key, received.TryGetValue(t.Key, out var v) ? v : 0, t.Value)).ToList() ?? [];
@@ -1302,8 +1310,11 @@ public static partial class GameViews
             var row = Row(gate.Resource);
             if (gate.Import)
             {
+                // What leaves the Yard for it, what its own pipes lose of it on the way (the audit, 2026-10-31: paid
+                // for, never shown as lost), what arrives
                 row[1] += gate.Delivered;
-                row[8] += gate.Delivered;
+                row[8] += gate.Sent;
+                row[7] += gate.Sent - gate.Delivered;
                 // The buyer pays for all that leaves the Yard: what its pipes lose on the way too
                 Money(building.Owner)[2] += gate.Sent * gate.Price;
             }
@@ -1373,7 +1384,7 @@ public static partial class GameViews
                 .OrderBy(t => world.Content.Resources.TryGetValue(t.Resource, out var r) ? r.Tier : 99).ThenBy(t => t.Resource)
                 .Select(t => new NetworkResourceDto(t.Resource, t.Row[0], t.Row[1], t.Row[2], t.Row[3], t.Row[4], t.Row[5], t.Row[6], t.Row[7], t.Needed, t.Row[8], t.Row[9], Math.Round(t.Row[10], 1),
                     Math.Round(Math.Min(t.Row[9], LinkSends(world, network, t.Resource)), 1),
-                    t.Needed > t.Row[1] + 0.05 ? ShortWhy(world, network, t.Resource, r => resources.TryGetValue(r, out var row) && row[0] + row[3] + row[6] + row[8] - row[1] > 0.05) : null))
+                    t.Needed > t.Row[1] + 0.05 ? ShortWhy(world, network, t.Resource, r => resources.TryGetValue(r, out var row) && row[0] + row[3] + row[6] + row[8] - row[1] - row[7] > 0.05) : null))
                 .ToList(),
             bottlenecks,
             network.Buildings.Select(world.Building).OfType<Building>()

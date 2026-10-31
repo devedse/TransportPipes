@@ -536,7 +536,10 @@ export class GameClient {
         // "Laid the pipe to your Iron Mine", "Laid the pipe from your Wind Moily to your Trading Post"
         await this.layPipeNow(
           fix.tiles,
-          `Laid ${fix.label.split(" · ")[0]!.replace(/^Lay /, "")}: ${name} runs`,
+          // A pipe to the Yard gate trades at the Yard's next round, not at once (the audit, 2026-10-31)
+          /Yard gate/.test(fix.label)
+            ? `Laid ${fix.label.split(" · ")[0]!.replace(/^Lay /, "")}: the Yard trades it from ${yardRoundText()}`
+            : `Laid ${fix.label.split(" · ")[0]!.replace(/^Lay /, "")}: ${name} runs`,
         );
         break;
       case "open":

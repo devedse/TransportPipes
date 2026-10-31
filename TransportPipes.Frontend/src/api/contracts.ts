@@ -361,6 +361,8 @@ export interface ReturnCardDto {
   hint: string | null;
   /** What folds under "more" (after run 3, row 11: the card leads with what matters) */
   folded: ReturnLineDto[] | null;
+  /** What was spent while away: the market's goods for levels, research, managers' buys */
+  spent?: number;
 }
 
 /** A line of the return card: its section, and its one button with what it costs */
@@ -639,6 +641,10 @@ export interface BuildingFlowDto {
   partnerOwner: string;
   kind: FlowKind;
   price: number;
+  /** What leaves and what arrives (the pipe loses the difference), and the gold it moves a minute */
+  sent?: number;
+  delivered?: number;
+  gold?: number;
 }
 
 /**

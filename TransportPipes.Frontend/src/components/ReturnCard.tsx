@@ -155,6 +155,15 @@ export function ReturnCard() {
               <span className="gold-coin" />+{formatAmount(card.earned)} gold
             </div>
           )}
+          {(card.spent ?? 0) >= 1 && (
+            // What went out meanwhile too (the audit, 2026-10-31: the card said what came in, never what went)
+            <span className="muted small">
+              {formatAmount(card.spent ?? 0)} gold spent meanwhile (goods the market brought for your levels,
+              research, what your managers bought): your gold is{" "}
+              {card.earned >= (card.spent ?? 0) ? "+" : "−"}
+              {formatAmount(Math.abs(card.earned - (card.spent ?? 0)))}
+            </span>
+          )}
           <span className="muted small">
             {card.away} away
             {card.level > card.levelFrom && (

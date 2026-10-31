@@ -81,7 +81,15 @@ export function HoverTip() {
         tiles.length > 0 ? `${tiles.length} pipe tiles` : null,
         upgrades.length > 0 ? `${upgrades.length} upgraded to ${tier?.name ?? "this pipe"}` : null,
       ].filter((t) => t !== null);
-      text = `${parts.join(" · ") || "Nothing new"} · ${formatAmount(gold)} g · release to build`;
+      // What it loses over its length, before it is laid (the owner, 2026-10-31: "if things are lost due to pipe
+      // length always display this"), and the next pipe's when there is one
+      const loss = (lossPerTile: number) => Math.round((1 - (1 - lossPerTile) ** route.length) * 100);
+      const better = content.pipeTiers.find((t) => t.tier === tool.tier + 1);
+      const lost =
+        tier !== undefined && tier.lossPerTile > 0
+          ? ` · loses ${loss(tier.lossPerTile)}% over its ${route.length} tiles${better !== undefined ? ` (${better.name}: ${loss(better.lossPerTile)}%)` : ""}`
+          : "";
+      text = `${parts.join(" · ") || "Nothing new"} · ${formatAmount(gold)} g${lost} · release to build`;
       tone = "good";
     } else {
       text = "Drag from a building to another to lay a pipe · right-click to stop";
@@ -122,16 +130,21 @@ export function HoverTip() {
     const conductor = world.conductorAt(tile.x, tile.y);
     if (conductor?.kind === "pipe") {
       // One line a good in each lane: what all its flows here carry, and the fullest pipe pair among them
-      const lanes = new Map<string, { lane: string; resource: string; perMinute: number; full: number }>();
+      const lanes = new Map<
+        string,
+        { lane: string; resource: string; perMinute: number; sent: number; full: number }
+      >();
       for (const t of insidePipe(world, content, tile.x, tile.y)) {
         const key = `${t.kind}:${t.flow.resource}`;
         const line = lanes.get(key) ?? {
           lane: LANE_NAMES[t.kind],
           resource: t.flow.resource,
           perMinute: 0,
+          sent: 0,
           full: 0,
         };
         line.perMinute += t.flow.delivered;
+        line.sent += t.flow.sent;
         line.full = Math.max(line.full, t.full);
         lanes.set(key, line);
       }
@@ -162,7 +175,11 @@ export function HoverTip() {
                 .slice(0, 4)
                 .map(
                   (t) =>
-                    `${t.lane}: ${content.resourceName(t.resource).toLowerCase()} ${formatAmount(t.perMinute)}/min (${Math.round(t.full * 100)}% full)`,
+                    `${t.lane}: ${content.resourceName(t.resource).toLowerCase()} ${
+                      t.sent - t.perMinute > Math.max(0.05, t.sent * 0.005)
+                        ? `${t.sent < 100 ? t.sent.toFixed(1) : formatAmount(t.sent)}/min sent, ${t.perMinute < 100 ? t.perMinute.toFixed(1) : formatAmount(t.perMinute)} arrive (${Math.round((100 * (t.sent - t.perMinute)) / t.sent)}% lost)`
+                        : `${formatAmount(t.perMinute)}/min`
+                    } (${Math.round(t.full * 100)}% full)`,
                 )
                 .join(
                   " · ",

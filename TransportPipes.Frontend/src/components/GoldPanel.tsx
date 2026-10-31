@@ -54,7 +54,8 @@ function IncomeBreakdown({ income, content }: { income: IncomeDto; content: Cont
                       (line.kind === "yardBought" || line.kind === "fromPlayer"
                         ? ` from ${line.who}`
                         : ` to ${line.who}`)}
-                    {line.kind === "yardOnItsWay" && " · on its way"}
+                    {line.kind === "yardOnItsWay" &&
+                      " · on its way: matched at this Yard round, it arrives and is paid at the next (the clock in the top bar)"}
                     {line.kind === "yardFloor" && " · not taken: paid at your hub price"}
                     {line.hubOrder !== null && line.units > line.hubOrder + 0.5 && (
                       <span className="muted">

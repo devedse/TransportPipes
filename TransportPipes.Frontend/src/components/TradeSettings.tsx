@@ -233,7 +233,8 @@ export function TradeSettings() {
           What another player pays you for a unit of your goods, as a multiple of its base price: from{" "}
           {times(MIN_PRICE)}, what the hub pays you for it anyway, to {times(MAX_PRICE)}, what the market
           would charge them. So trading with a player is never worse than the market for either side; higher
-          earns you more a unit, lower keeps your neighbours buying from you. A change counts at once.
+          earns you more a unit, lower keeps your neighbours buying from you. A change counts from the
+          Yard&apos;s next round (the clock in the top bar), at once for what you sell over your own pipes.
         </p>
         <ul className="partner-list price-list">
           <li className="partner">
@@ -332,7 +333,11 @@ export function TradeSettings() {
                   </span>
                   <label
                     className="switch"
-                    title={off ? "Trade with them again" : "Block: don't trade with them (at once)"}
+                    title={
+                      off
+                        ? "Trade with them again"
+                        : "Block: don't trade with them (from the Yard's next round)"
+                    }
                   >
                     <input
                       type="checkbox"
@@ -347,8 +352,8 @@ export function TradeSettings() {
           </ul>
         )}
         <p className="muted small">
-          Blocking is private: they only read that you trade your spare with others. It counts at once, and so
-          does trading again.
+          Blocking is private: they only read that you trade your spare with others. It counts from the
+          Yard&apos;s next round, and so does trading again.
         </p>
       </section>
 

@@ -298,7 +298,8 @@ public static partial class GameViews
             report.GoldEarned < 1 && away.Away >= GameWorld.RestingAfter
                 ? "Your plot waited for you. Pipe your buildings to your Trading Post (or your Yard gate) and they earn while you're away."
                 : null,
-            folded);
+            folded,
+            Math.Round(report.GoldSpent));
     }
 
     /// <summary>

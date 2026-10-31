@@ -108,6 +108,13 @@ export function NeighboursPanel() {
                       {n.youPay > 0 && <span className="muted">you pay {formatAmount(n.youPay)} g/min</span>}
                     </div>
                   )}
+                  {n.linkEfficiency !== null && n.pipeTiles !== null && (
+                    // How far they are by pipe, and what that loses (the audit, 2026-10-31: sent, never shown)
+                    <div className="muted small">
+                      your best pipe to them: {n.pipeTiles} tiles, {Math.round(n.linkEfficiency * 100)}% of
+                      what is sent arrives
+                    </div>
+                  )}
                 </div>
                 <div className="neighbour-actions">
                   {!n.connected && <span className="muted small">not piped to the Yard yet</span>}

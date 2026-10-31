@@ -57,8 +57,8 @@ function YardHow({ yard, company }: { yard: YardDto; company: CompanyDto }) {
     },
     {
       mark: "↻",
-      when: "Every minute, also while you're away",
-      text: `What your buildings don't use goes to a neighbour here whose buildings lack it, at your crew price (${times(crew)} the base price); what a neighbour has spare comes to your buildings that lack it, at their price. What nobody here needs goes on to your Trading Post, which sells it to the town's market (the hub).`,
+      when: "At every Yard round, also while you're away",
+      text: `What your buildings don't use goes to a neighbour here whose buildings lack it, at your crew price (${times(crew)} the base price); what a neighbour has spare comes to your buildings that lack it, at their price. What nobody here needs goes on to your Trading Post, which sells it to the town's market (the hub). The rounds come about once a minute while trades change, and up to 16 minutes apart when nothing does (the clock in the top bar); a new trade is set up at one round and its goods come at the next.`,
     },
     {
       mark: "🏗",

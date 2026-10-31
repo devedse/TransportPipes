@@ -44,7 +44,9 @@ public record ReturnCardDto(
     IReadOnlyList<ReturnLineDto> Lines,
     string? Hint,
     /// <summary>What folds under "more" (after run 3, row 11: the card leads with what matters)</summary>
-    IReadOnlyList<ReturnLineDto>? Folded = null);
+    IReadOnlyList<ReturnLineDto>? Folded = null,
+    /// <summary>What was spent while away: the market's goods for levels, research, managers' buys (the audit, 2026-10-31)</summary>
+    double Spent = 0);
 
 /// <summary>
 /// A line of the return card: its section, and its one button (repairAll, show, upgrade, links, fillWant, orderWant,
@@ -377,7 +379,12 @@ public record NetworkFlowsDto(int Id, IReadOnlyDictionary<long, double> Rates, I
 
 public record ResourceAmountDto(string Resource, double Amount, double Max);
 
-public record BuildingFlowDto(string Direction, string Resource, double Amount, long Partner, string PartnerType, string PartnerOwner, string Kind, double Price);
+/// <summary>
+/// A flow of a building: Amount (out: what it sends, in: what arrives), what leaves and what arrives (the pipe loses the
+/// difference), and the gold it moves a minute (a sale or trade is paid for what arrives, the hub's goods for what it sends)
+/// </summary>
+public record BuildingFlowDto(string Direction, string Resource, double Amount, long Partner, string PartnerType, string PartnerOwner, string Kind, double Price,
+    double Sent = 0, double Delivered = 0, double Gold = 0);
 
 public record BuildingDetailsDto(
     BuildingDto Building,
@@ -566,7 +573,7 @@ public record TeleporterCandidateDto(long Id, int X, int Y, double Distance, str
 public record ToastDto(string Kind, string Text, long? Building);
 
 /// <summary>A resource in a network per minute; Needed: what its buildings would use at full speed</summary>
-/// <param name="FromYard">What neighbours' goods bring to its buildings through the Yard gate</param>
+/// <param name="FromYard">What leaves the Yard gate for its buildings: neighbours' goods (what its own pipes lose of it on the way is in Lost)</param>
 /// <param name="ToYard">What its buildings sell to neighbours through the Yard gate</param>
 /// <param name="ToLinks">Of ToYard, what goes into its owner's links (what arrives, what fills the buyers' tanks, what the links' pipes lose)</param>
 public record NetworkResourceDto(string Resource, double Produced, double Used, double Sold, double Imported, double Traded, double Stored, double FromStorage, double Lost, double Needed, double FromYard, double ToYard,

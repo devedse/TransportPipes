@@ -129,21 +129,23 @@ function Flows({ details, content }: { details: BuildingDetailsDto; content: Con
     const key = `${flow.direction}:${flow.resource}:${flow.kind}`;
     groups.set(key, [...(groups.get(key) ?? []), flow]);
   }
+  // The gold a flow moves as it is paid: a sale or trade for what arrives, the hub's goods for what leaves it
+  const goldOf = (t: BuildingFlowDto) => t.gold ?? t.amount * t.price;
   const rows = [...groups.values()]
     .map((flows) => ({
       flows,
       first: flows[0]!,
       amount: flows.reduce((sum, t) => sum + t.amount, 0),
-      gold: flows.reduce((sum, t) => sum + t.amount * t.price, 0),
+      gold: flows.reduce((sum, t) => sum + goldOf(t), 0),
+      sent: flows.reduce((sum, t) => sum + (t.sent ?? t.amount), 0),
+      delivered: flows.reduce((sum, t) => sum + (t.delivered ?? t.amount), 0),
     }))
     .sort((a, b) => b.gold - a.gold || b.amount - a.amount);
   const throughput = details.throughput;
   const traded = details.flows
     .filter((t) => t.kind === "sale" || t.kind === "import")
     .reduce((sum, t) => sum + t.amount, 0);
-  const sales = details.flows
-    .filter((t) => t.kind === "sale")
-    .reduce((sum, t) => sum + t.amount * t.price, 0);
+  const sales = details.flows.filter((t) => t.kind === "sale").reduce((sum, t) => sum + goldOf(t), 0);
   return (
     <section>
       <h4>Where it goes</h4>
@@ -157,7 +159,7 @@ function Flows({ details, content }: { details: BuildingDetailsDto; content: Con
         </>
       )}
       <ul className="flow-list flow-groups">
-        {rows.map(({ flows, first, amount, gold }) => (
+        {rows.map(({ flows, first, amount, gold, sent, delivered }) => (
           <li key={`${first.direction}:${first.resource}:${first.kind}`}>
             <details>
               <summary>
@@ -171,6 +173,10 @@ function Flows({ details, content }: { details: BuildingDetailsDto; content: Con
                 <span className="muted flow-kind">
                   {KIND_LABELS[first.kind]}
                   {gold > 0 && ` · ${formatAmount(gold)} g/min`}
+                  {/* What the pipes lose on the way, always (the owner, 2026-10-31: "if things are lost due to pipe
+                      length always display this") */}
+                  {sent - delivered > Math.max(0.05, sent * 0.005) &&
+                    ` · ${formatAmount(sent)} sent, ${formatAmount(delivered)} arrive (${Math.round((100 * (sent - delivered)) / sent)}% lost on the way)`}
                 </span>
               </summary>
               <ul className="flow-list">
@@ -183,6 +189,10 @@ function Flows({ details, content }: { details: BuildingDetailsDto; content: Con
                     <span className="flow-amount">{formatAmount(flow.amount)}/min</span>
                     <span className="muted flow-kind">
                       {flow.price > 0 && `@ ${flow.price.toFixed(2)} g`}
+                      {flow.sent !== undefined &&
+                        flow.delivered !== undefined &&
+                        flow.sent - flow.delivered > Math.max(0.05, flow.sent * 0.005) &&
+                        ` · ${formatAmount(flow.delivered)} of ${formatAmount(flow.sent)} arrive`}
                     </span>
                   </li>
                 ))}
@@ -733,6 +743,12 @@ export function BuildingPanel() {
                   {details.upgradePreview !== null && " · "}Max: {details.maxPreview}
                 </>
               )}
+              {/* When the top bar shows it (the audit, 2026-10-31: an in-between number first, unexplained) */}
+              <span className="muted">
+                {" "}
+                · your top bar shows it once the market has looked again (every minute) and the Yard&apos;s
+                next round has run
+              </span>
             </p>
           )}
           {details.pipeDoor !== null ? (
