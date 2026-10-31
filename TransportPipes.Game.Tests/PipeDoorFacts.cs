@@ -72,23 +72,31 @@ public class PipeDoorFacts
     }
 
     [TestMethod]
-    public void InALargeNetworkTheDoorPromisesNoMoreThanTheBuildingCouldMake()
+    public void InALargeNetworkTheDoorBringsWhatItSays()
     {
         // B13's bot: a Small Factory at level 25 could make 111 ingots and its pipe carried 100, and the door of its large
-        // network (estimated, not solved again) said +1,697 g/min
+        // network (estimated, not solved again) said +1,697 g/min. Now it is solved with the new pipe laid (the owner,
+        // 2026-10-31: "whenever something says x will happen, it actually does")
         var game = new TestGame(content: TestGame.PlainContent);
         var company = game.NewCompany(gold: 10_000_000, level: 12);
         var map = game.Map(company, game.Local(company, 1, 1), new string('S', 32) + "\n" + new string('+', 32) + "T\nW+", pipeTier: 1);
         var moily = map[(0, 2)];
         game.UpgradeNow(company, [moily.Id], 14);
-        game.Pass(2);
+        var storage = game.Build(company, "storage");
+        storage.Contents["copperIngot"] = 500;
+        game.Pass(30);
         Assert.AreEqual(IdleCause.PipeFull, game.World.IdleReasonOf(moily).Cause);
-        var (could, carried) = game.World.PipeCarry(moily, "energy");
+        var before = game.World.GoldPerMinute()[company.Id];
 
         var door = game.World.PipeDoorFor(company, moily)!;
-
-        Assert.IsLessThanOrEqualTo((could - carried) * game.World.BasePrice("energy") + 1e-6, door.Gain, $"could {could:N1}, carried {carried:N1}");
         Assert.IsGreaterThan(0, door.Gain);
+        Assert.IsTrue(game.World.ClimbPipe(company.Id, moily.Id).Success);
+        // Its levels from 11 wait for their goods: in, as the door's gain counts them
+        game.World.OrderAll(company.Id);
+        game.Pass(5);
+
+        var gained = game.World.GoldPerMinute()[company.Id] - before;
+        Assert.AreEqual(gained, door.Gain, Math.Max(0.5, gained * 0.02), $"said +{door.Gain:0.0}, brought +{gained:0.0}, level {moily.Level} (door: {door.ToLevel})");
     }
 
     [TestMethod]

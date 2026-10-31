@@ -40,6 +40,34 @@ public sealed partial class GameWorld
     /// "+105 g/min", "adds nothing: its pipes carry 100 coal a minute", "−498 g/min: it eats more of the iron ingots you sell"
     /// (after run 4: "+0 g/min" beside "+41 would make nothing more" read as two incomes; Ben: "does it even earn?")
     /// </summary>
+    private readonly Dictionary<(long Building, int Levels), ((int, long, long) Stamp, double Gain)> _levelGains = new();
+
+    /// <summary>
+    /// What more levels of a building bring a minute, as it will be: its network solved at the level it was bought up to
+    /// and at that many more, at the price the market settles on (GameWorld.WhatIf); once per solve of the world
+    /// </summary>
+    public double LevelsGain(Company company, Building building, Network network, int levels)
+    {
+        SolveNetworks();
+        var stamp = StampOf(network);
+        if (_levelGains.TryGetValue((building.Id, levels), out var known) && known.Stamp == stamp)
+        {
+            return known.Gain;
+        }
+        FlowSolution At(int level) =>
+            level != building.Level && ToFlowNode(building, level) is { } up ? SolveWhatIf(network, t => t.Id == building.Id ? WithPumps(network, [up])[0] : t) : BaseWhatIf(network);
+        var from = BoughtLevel(building);
+        var bought = At(from);
+        var then = At(from + levels);
+        var gain = SettledIncome(company, t => t == network ? then : null) - SettledIncome(company, t => t == network ? bought : null);
+        if (_levelGains.Count > 20_000)
+        {
+            _levelGains.Clear();
+        }
+        _levelGains[(building.Id, levels)] = (stamp, gain);
+        return gain;
+    }
+
     public SpendPreview UpgradePreview(Company company, Building building, int levels)
     {
         if (levels <= 0 || building.UnderConstruction)
@@ -59,15 +87,12 @@ public sealed partial class GameWorld
         {
             return new SpendPreview(0, "");
         }
-        var up = ToFlowNode(building, BoughtLevel(building) + levels);
-        var gain = Estimated(network)
-            ? EstimateChange(network, company, node, up)
-            : WhatIfGold(network, company.Id, t => t.Id == building.Id && up != null ? WithPumps(network, [up])[0] : t) - WhatIfGold(network, company.Id);
+        var gain = LevelsGain(company, building, network, levels);
         // A small gain is still a gain (after run 4: a Solar Panel's level 2 sold half an energy more a minute, and the
         // panel said "adds nothing: nothing on its pipes takes more energy" under Loady's "upgrade it")
         if (gain > 0.05)
         {
-            return new SpendPreview(gain, $"{(Estimated(network) ? "about " : "")}+{Gold(gain)}/min");
+            return new SpendPreview(gain, $"+{Gold(gain)}/min");
         }
         if (gain < -0.5)
         {

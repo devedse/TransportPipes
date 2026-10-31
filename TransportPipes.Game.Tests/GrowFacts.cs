@@ -42,10 +42,11 @@ public class GrowFacts
         Assert.IsTrue(result.Success, result.Error);
         StringAssert.StartsWith(result.Note, $"Grown: a new parcel and {plan.Parts.Count - 1} buildings", result.Note);
         Assert.AreEqual(parcels + 1, game.EstateOf(company).UnlockedCount);
-        Assert.AreEqual(plan.Cost, gold - company.Gold, plan.Cost * 0.05, "what it said");
+        Assert.AreEqual(plan.Cost, gold - company.Gold, 1, "the gold it said");
         // The goods of the levels from 11 come in (the market brings what nobody near makes within about ten minutes)
         game.Pass(12);
-        Assert.AreEqual(before + plan.Gain, game.World.GoldPerMinute()[company.Id], plan.Gain * 0.25, "about what it said: the parts are solved one by one");
+        var gained = game.World.GoldPerMinute()[company.Id] - before;
+        Assert.AreEqual(gained, plan.Gain, Math.Max(0.5, gained * 0.01), $"what it said: +{plan.Gain:0.0}, brought +{gained:0.0}");
 
         // An hour's Undo: the levels back, less what they earned
         var levels = (moily.Level, panel.Level);
@@ -128,7 +129,7 @@ public class GrowFacts
         game.Pass(300);
 
         var gained = game.World.GoldPerMinute()[company.Id] - before;
-        Assert.AreEqual(gained, plan.Gain, gained * 0.15, $"it said +{plan.Gain:0} g/min and brought +{gained:0}");
+        Assert.AreEqual(gained, plan.Gain, Math.Max(0.5, gained * 0.01), $"it said +{plan.Gain:0.0} g/min and brought +{gained:0.0}");
         Assert.IsGreaterThan(0, plan.Goods, "and says what its levels' goods cost on top");
     }
 }

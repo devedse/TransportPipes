@@ -57,12 +57,13 @@ public class SpendingFacts
 
         var preview = game.World.UpgradePreview(company, factory, 20);
 
-        StringAssert.StartsWith(preview.Text, "about +", "a network this big is estimated");
+        // Solved, not estimated: what it says is what it brings (the owner, 2026-10-31)
+        StringAssert.StartsWith(preview.Text, "+");
         game.UpgradeNow(company, [factory.Id], 20);
-        game.Pass(1);
+        game.Pass(5);
         var got = Income() - before;
         Assert.IsGreaterThan(0, got);
-        Assert.AreEqual(got, preview.Gain, got * 0.2, $"promised {preview.Text}, brought +{got:0}");
+        Assert.AreEqual(got, preview.Gain, Math.Max(0.5, got * 0.02), $"promised {preview.Text}, brought +{got:0.0}");
     }
 
     [TestMethod]

@@ -32,6 +32,9 @@ public sealed class Network
     /// <summary>The buildings as the last solve saw them</summary>
     public List<FlowNode> Nodes { get; set; } = new();
 
+    /// <summary>How often it was solved (what was worked out from a solve is worked out again after the next)</summary>
+    public long Solves { get; set; }
+
     private NetworkIndex? _index;
 
     /// <summary>Its links, flows and gate flows by building (made again after each solve)</summary>
@@ -964,6 +967,8 @@ public sealed partial class GameWorld
             WakeCoupling();
         }
         network.NeedsSolve = false;
+        network.Solves++;
+        _solves++;
         PassTeleported(network);
         Changes.Networks.Add(network.Id);
     }

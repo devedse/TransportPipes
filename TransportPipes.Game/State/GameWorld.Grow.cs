@@ -9,7 +9,8 @@ namespace TransportPipes.Game.State;
 /// reaches), its Max (Levels more), the next parcel (Parcel set, Building -1) or the next outskirts parcel (Outskirts
 /// set, Building -1); Goods: what the goods of its levels from 11 cost as they would come
 /// </summary>
-public sealed record GrowPart(long Building, string Text, bool Door, int Levels, double Cost, double Gain, int? Parcel = null, int? Outskirts = null, double Goods = 0);
+public sealed record GrowPart(long Building, string Text, bool Door, int Levels, double Cost, double Gain, int? Parcel = null, int? Outskirts = null, double Goods = 0,
+    IReadOnlyList<TilePos>? PipeTiles = null, int PipeTier = 0);
 
 /// <summary>
 /// What "Grow everything that pays" would buy now, its price, what its levels' goods cost on top (they come after the
@@ -35,6 +36,8 @@ public sealed partial class GameWorld
     /// <summary>What "Grow everything that pays" buys now</summary>
     public GrowPlan PlanGrowth(Company company)
     {
+        // The estimates' values per network, fresh (the advisor's are from its last look)
+        _values.Clear();
         var left = company.Gold;
         var chosen = new List<GrowPart>();
         // Land first, as the model buys it: more room is what the levels can't give
@@ -76,17 +79,27 @@ public sealed partial class GameWorld
             {
                 continue;
             }
+            // Which parts pay is ranked by an estimate on a big network (solving each of 200 buildings took 4 s); what the plan
+            // brings is solved once for all of them (PlanGain)
+            var network = NetworkOf(building.Id);
+            var estimate = network != null && Estimated(network);
             // Its pipe door first: the levels come with it
-            if (PipeDoorFor(company, building) is { Kind: PipeDoorKind.Tier, Short.Count: 0 } door && door.Gain > 0.5)
+            if (PipeDoorFor(company, building, exact: !estimate) is { Kind: PipeDoorKind.Tier, Short.Count: 0 } door && door.Gain > 0.5)
             {
                 parts.Add(new GrowPart(building.Id, $"{definition.Name}: {char.ToLowerInvariant(door.Text[0])}{door.Text[1..]}", true, door.ToLevel, door.Gold + door.LevelCost, door.Gain,
-                    Goods: StepGoodsCost(building, Math.Max(0, door.ToLevel - BoughtLevel(building)))));
+                    Goods: StepGoodsCost(building, Math.Max(0, door.ToLevel - BoughtLevel(building))), PipeTiles: door.Tiles, PipeTier: door.Tier));
                 continue;
             }
-            if (SmartMax(company, building) is { Levels: > 0 } max && UpgradePreview(company, building, max.Levels) is { Gain: > 0.5 } preview)
+            if (SmartMax(company, building) is { Levels: > 0 } max)
             {
-                parts.Add(new GrowPart(building.Id, $"{definition.Name} to level {BoughtLevel(building) + max.Levels}", false, max.Levels, max.Cost, preview.Gain,
-                    Goods: StepGoodsCost(building, max.Levels)));
+                var gain = estimate && network != null
+                    ? EstimateChange(network, company, NetworkNode(network, building), ToFlowNode(building, BoughtLevel(building) + max.Levels))
+                    : UpgradePreview(company, building, max.Levels).Gain;
+                if (gain > 0.5)
+                {
+                    parts.Add(new GrowPart(building.Id, $"{definition.Name} to level {BoughtLevel(building) + max.Levels}", false, max.Levels, max.Cost, gain,
+                        Goods: StepGoodsCost(building, max.Levels)));
+                }
             }
         }
         // What pays back counts the goods of its levels from 11 too (playtest: Grow said 50.2k g, and its levels then
@@ -109,44 +122,49 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// What a plan's parts add a minute together, once their goods are in and the market has settled on what the company
-    /// sells (playtest: Grow promised +504 g/min and brought about +300: every part was valued alone at today's prices,
-    /// though together they sell more beyond the Hub Orders, and two trading posts both counted the Hub Orders only the
-    /// higher one raises). The Max parts: each network with its parts at their new levels solved again, its sales at the
-    /// price the market settles on for all of the company's, the Hub Orders at the highest post's new level; a pipe
-    /// door (new pipes as well) keeps its own estimate.
+    /// What a plan's parts add a minute together, as they will run once their goods are in (playtest: Grow promised +504
+    /// g/min and brought about +300; "the grow button should match exactly"): every network with all its parts at once,
+    /// their levels and their new pipes (GameWorld.WhatIf), at the price the market settles on for all the company sells,
+    /// its Hub Orders at the highest trading post's new level
     /// </summary>
     private double PlanGain(Company company, IReadOnlyList<GrowPart> parts)
     {
-        var to = parts.Where(t => !t.Door && t.Parcel == null && t.Outskirts == null && Building(t.Building) is not null)
-            .ToDictionary(t => t.Building, t => BoughtLevel(Building(t.Building)!) + t.Levels);
+        var to = new Dictionary<long, int>();
+        var tiers = new Dictionary<TilePos, int>();
+        foreach (var part in parts.Where(t => t.Parcel == null && t.Outskirts == null))
+        {
+            if (Building(part.Building) is not { } building)
+            {
+                continue;
+            }
+            var level = part.Door ? part.Levels : BoughtLevel(building) + part.Levels;
+            if (level > building.Level)
+            {
+                to[building.Id] = Math.Max(to.GetValueOrDefault(building.Id), level);
+            }
+            foreach (var tile in part.PipeTiles ?? [])
+            {
+                tiers[tile] = Math.Max(tiers.GetValueOrDefault(tile), part.PipeTier);
+            }
+        }
         var posts = BuildingsOf(company.Id).Where(t => !t.UnderConstruction && Content.Building(t.Type).Kind == BuildingKind.TradingPost).ToList();
-        var postThen = posts.Select(t => to.TryGetValue(t.Id, out var level) ? level : t.Level).DefaultIfEmpty(1).Max();
+        var postThen = posts.Select(t => to.TryGetValue(t.Id, out var level) ? level : BoughtLevel(t)).DefaultIfEmpty(1).Max();
         var factor = Math.Pow(Content.Progression.Market.PostLevel, Math.Max(0, postThen - PostLevel(company)));
-        IEnumerable<Flow> Sales(FlowSolution solution) =>
-            solution.Flows.Where(t => t.Kind == FlowKind.Sale && _buildings.TryGetValue(t.From, out var from) && from.Owner == company.Id);
-        var before = new List<Flow>();
-        var after = new List<Flow>();
-        var besides = 0.0;
+        var solutions = new Dictionary<int, FlowSolution>();
         foreach (var network in _networks.Values.Where(t => t.Owner == company.Id))
         {
             var changed = network.Buildings.Where(t => to.ContainsKey(t) && Content.Building(_buildings[t].Type).Kind != BuildingKind.TradingPost).ToHashSet();
-            if (changed.Count == 0)
+            var pipes = tiers.Where(t => network.Conductors.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value);
+            if (changed.Count == 0 && pipes.Count == 0)
             {
-                before.AddRange(Sales(network.Solution));
-                after.AddRange(Sales(network.Solution));
                 continue;
             }
-            var was = WhatIfSolution(network, t => t);
-            var then = WhatIfSolution(network, t => changed.Contains(t.Id) && ToFlowNode(_buildings[t.Id], to[t.Id]) is { } up ? WithPumps(network, [up])[0] : t);
-            before.AddRange(Sales(was));
-            after.AddRange(Sales(then));
-            // Beside the hub: what it trades with others and buys there
-            besides += then.GoldPerMinute.GetValueOrDefault(company.Id) - Sales(then).Sum(t => t.Delivered * t.PricePerUnit)
-                - (was.GoldPerMinute.GetValueOrDefault(company.Id) - Sales(was).Sum(t => t.Delivered * t.PricePerUnit));
+            solutions[network.Id] = SolveWhatIf(network,
+                t => changed.Contains(t.Id) && ToFlowNode(_buildings[t.Id], to[t.Id]) is { } up ? WithPumps(network, [up])[0] : t,
+                pipeTiers: pipes);
         }
-        var levels = SettledSales(company, after, factor) - SettledSales(company, before) + besides;
-        return Math.Max(0, levels) + parts.Where(t => t.Door).Sum(t => t.Gain);
+        // From the levels bought: those still waiting for their goods count as in
+        return Math.Max(0, SettledGain(company, solutions, factor));
     }
 
     /// <summary>Buys the plan: each pipe door, each Max, the best first, as far as the gold goes; remembered for an hour's Undo</summary>

@@ -44,7 +44,7 @@ public sealed partial class GameWorld
     /// The door of a building whose output its pipe holds back (null: its pipe isn't what stops it); preview: false skips
     /// solving its gain (a line that only names it)
     /// </summary>
-    public PipeDoor? PipeDoorFor(Company company, Building building, bool preview = true)
+    public PipeDoor? PipeDoorFor(Company company, Building building, bool preview = true, bool exact = true)
     {
         if (building.Owner != company.Id || building.UnderConstruction || IdleReasonOf(building) is not { Cause: IdleCause.PipeFull, Resource: { } good }
             || NetworkOf(building.Id) is not { } network || NetworkNode(network, building) is not { Kind: FlowNodeKind.Building } node)
@@ -96,7 +96,9 @@ public sealed partial class GameWorld
         var tierFactor = next.Throughput / Math.Max(1e-9, current.Throughput);
         // The levels come with the pipe: when its goods must come first, the door lays the want and the levels wait
         var (to, toCost) = shortOf.Count == 0 ? DoorLevels(company, building, network, node, full, tierFactor, company.Gold - pipeGold) : (building.Level, 0.0);
-        var tierGain = preview ? DoorGain(company, building, network, full, tierFactor, shortOf.Count == 0 ? to : building.Level) : 0;
+        var tierGain = !preview ? 0
+            : exact ? DoorGain(company, building, network, upgrade.Select(t => t.Pos), next.Tier, shortOf.Count == 0 ? to : building.Level)
+            : DoorEstimate(building, network, full, tierFactor, shortOf.Count == 0 ? to : building.Level);
         var text = $"{next.Name} on {Links(full.Count)} ({Tiles(upgrade.Count)}){(to > building.Level ? $", then Level {to}" : "")}";
         return new PipeDoor(PipeDoorKind.Tier, text, upgrade.Select(t => t.Pos).ToList(), next.Tier, pipeGold, materials, shortOf,
             to > building.Level ? to : 0, toCost, tierGain, shortOf.Count == 0 ? null : MaterialSource(company, shortOf.Keys));
@@ -126,32 +128,37 @@ public sealed partial class GameWorld
         return (building.Level + levels, Math.Round(cost));
     }
 
-    /// <summary>What the company would make a minute more with its full links carrying a factor more and the building at a level</summary>
-    private double DoorGain(Company company, Building building, Network network, List<FlowLink> full, double factor, int level)
+    /// <summary>
+    /// What the company would make a minute more with these pipe tiles a better tier and the building at a level: its
+    /// network solved with the new pipe laid (its throughput and its loss) at the price the market settles on
+    /// (GameWorld.WhatIf; it scaled the full links' capacity, estimated on big networks)
+    /// </summary>
+    private double DoorGain(Company company, Building building, Network network, IEnumerable<TilePos> tiles, int tier, int level)
     {
-        var set = full.ToHashSet(ReferenceEqualityComparer.Instance);
-        if (Estimated(network))
-        {
-            // A large network: what the full links carry now, times what they would carry more (half of it found a taker),
-            // but no more than the building could make beyond what its pipes carry now, at its new level (the solo bot's
-            // Small Factory at level 25 could make 111 ingots and its pipe carried 100: the door said +1,697 g/min)
-            var room = 0.0;
-            if (network.Index.Nodes.GetValueOrDefault(building.Id) is { } node)
-            {
-                var scale = Content.Progression.OutputMultiplier(level) / Content.Progression.OutputMultiplier(building.Level);
-                foreach (var (resource, perRun) in node.Out)
-                {
-                    var carried = network.Index.FlowsFrom(building.Id).Where(t => t.Resource == resource).Sum(t => t.Sent);
-                    room += Math.Max(0, perRun * node.MaxRate * scale - carried) * BasePrice(resource);
-                }
-            }
-            return Math.Min(FullLinkValue(network, full) * Math.Min(factor - 1, 3) * 0.5, room);
-        }
         var up = level > building.Level ? ToFlowNode(building, level) : null;
-        var after = WhatIfGold(network, company.Id,
-            change: t => up != null && t.Id == building.Id ? WithPumps(network, [up])[0] : t,
-            changeLink: t => set.Contains(t) ? t with { Capacity = t.Capacity * factor } : t);
-        return Math.Max(0, after - WhatIfGold(network, company.Id));
+        var tiers = tiles.Distinct().ToDictionary(t => t, _ => tier);
+        var solution = SolveWhatIf(network, change: t => up != null && t.Id == building.Id ? WithPumps(network, [up])[0] : t, pipeTiers: tiers);
+        return Math.Max(0, SettledGain(company, new Dictionary<int, FlowSolution> { [network.Id] = solution }));
+    }
+
+    /// <summary>
+    /// A quick estimate of a door on a big network, to rank it (Grow's candidates): what the full links carry now, times
+    /// what they would carry more (half of it found a taker), but no more than the building could make beyond what its
+    /// pipes carry now at its new level
+    /// </summary>
+    private double DoorEstimate(Building building, Network network, List<FlowLink> full, double factor, int level)
+    {
+        var room = 0.0;
+        if (network.Index.Nodes.GetValueOrDefault(building.Id) is { } node)
+        {
+            var scale = Content.Progression.OutputMultiplier(level) / Content.Progression.OutputMultiplier(building.Level);
+            foreach (var (resource, perRun) in node.Out)
+            {
+                var carried = network.Index.FlowsFrom(building.Id).Where(t => t.Resource == resource).Sum(t => t.Sent);
+                room += Math.Max(0, perRun * node.MaxRate * scale - carried) * BasePrice(resource);
+            }
+        }
+        return Math.Min(FullLinkValue(network, full) * Math.Min(factor - 1, 3) * 0.5, room);
     }
 
     /// <summary>The links a building's good leaves by that carry all they can</summary>

@@ -244,26 +244,11 @@ public sealed partial class GameWorld
         PostLevelGain(company, Math.Max(0, BoughtLevel(post) + levels - PostLevel(company)));
 
     /// <summary>
-    /// About what more trading post levels add a minute: every good the company sold at its hub lately, paid against Hub
-    /// Orders 10% bigger a level
+    /// What more trading post levels add a minute: every Hub Order 10% bigger a level, what the company sells now paid at
+    /// the price the market settles on then (GameWorld.WhatIf)
     /// </summary>
-    public double PostLevelGain(Company company, int levels)
-    {
-        var market = Content.Progression.Market;
-        var gain = 0.0;
-        // What the posts sell now, where the hour's average still lags behind (a plot just grown read "adds nothing")
-        var rates = new Dictionary<string, double>(HubMarketOf(company, company.District).SoldRate);
-        foreach (var (resource, now) in SellingNow(company))
-        {
-            rates[resource] = Math.Max(rates.GetValueOrDefault(resource), now);
-        }
-        foreach (var (resource, rate) in rates.Where(t => t.Value > 1e-9))
-        {
-            var order = HubOrder(company, resource);
-            gain += market.Pays(BasePrice(resource), order * Math.Pow(market.PostLevel, levels), rate) - market.Pays(BasePrice(resource), order, rate);
-        }
-        return gain;
-    }
+    public double PostLevelGain(Company company, int levels) =>
+        levels <= 0 ? 0 : SettledIncome(company, orderFactor: Math.Pow(Content.Progression.Market.PostLevel, levels)) - SettledIncome(company);
 
     /// <summary>What a company's trading posts sell to the hub a minute now, by good (its networks' last solve)</summary>
     public Dictionary<string, double> SellingNow(Company company)
@@ -286,35 +271,19 @@ public sealed partial class GameWorld
     public double HubOrder(Company company, string resource) => HubOrder(company, company.District, resource);
 
     /// <summary>
-    /// The price multiplier a company's market settles on for selling this much of a good a minute (the rule of
-    /// HubMarket.Update): the full price up to its Hub Order (times a factor: more trading post levels), √(order ÷ sold)
-    /// beyond it, a quarter at least
+    /// The price multiplier a company's market in a town settles on for selling this much of a good a minute (the rule
+    /// of HubMarket.Update): the full price up to its Hub Order (times a factor: more trading post levels), √(order ÷
+    /// sold) beyond it, a quarter at least
     /// </summary>
-    public double SettledMultiplier(Company company, string resource, double perMinute, double orderFactor = 1)
+    public double SettledMultiplier(Company company, DistrictCoord town, string resource, double perMinute, double orderFactor = 1)
     {
-        var market = HubMarketOf(company, company.District);
+        var market = HubMarketOf(company, town);
         return perMinute <= 1e-9 ? market.MaxMultiplier
-            : Math.Clamp(Math.Sqrt(HubOrder(company, resource) * orderFactor / perMinute), market.MinMultiplier, market.MaxMultiplier);
+            : Math.Round(Math.Clamp(Math.Sqrt(HubOrder(company, town, resource) * orderFactor / perMinute), market.MinMultiplier, market.MaxMultiplier), 3);
     }
 
-    /// <summary>
-    /// What a company's hub sales pay a minute once its market has settled on them (playtest: Grow promised +504 g/min
-    /// and brought about +300: what it would sell more was valued at today's price, though beyond a Hub Order each unit
-    /// more lowers the price of all of them)
-    /// </summary>
-    public double SettledSales(Company company, IEnumerable<Flow> sales, double orderFactor = 1)
-    {
-        var market = HubMarketOf(company, company.District);
-        var gold = 0.0;
-        foreach (var good in sales.GroupBy(t => t.Resource))
-        {
-            var now = good.Sum(t => t.Delivered * t.PricePerUnit);
-            // A good the market doesn't buy at its price yet (a later Era's) stays as it is
-            gold += HubOrder(company, good.Key) <= 0 ? now
-                : now / Math.Max(0.01, market.Multiplier(good.Key)) * SettledMultiplier(company, good.Key, good.Sum(t => t.Delivered), orderFactor);
-        }
-        return gold;
-    }
+    public double SettledMultiplier(Company company, string resource, double perMinute, double orderFactor = 1) =>
+        SettledMultiplier(company, company.District, resource, perMinute, orderFactor);
 
     /// <summary>What selling more (or less) of a good a minute adds once the market has settled on it</summary>
     public double SettledSaleGain(Company company, string resource, double now, double more)

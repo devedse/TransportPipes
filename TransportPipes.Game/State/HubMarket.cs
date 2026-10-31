@@ -47,7 +47,8 @@ public sealed class HubMarket
             var multiplier = rate <= 1e-9 ? MaxMultiplier : Math.Clamp(Math.Sqrt(wanted / rate), MinMultiplier, MaxMultiplier);
             multiplier = Math.Round(multiplier, 3);
             Multipliers[resource] = multiplier;
-            if (Math.Abs(multiplier - Multiplier(resource)) > 0.01)
+            // Every change of a tenth of a percent: what the previews promise is what the market pays (it waited for 1%)
+            if (Math.Abs(multiplier - Multiplier(resource)) > 0.001)
             {
                 Announced[resource] = multiplier;
                 changed = true;

@@ -121,13 +121,21 @@ public sealed partial class GameWorld
     /// </summary>
     private FlowSolution SplitGateFlows(Network network, FlowSolution solution, List<GateNode> gateNodes)
     {
+        var split = SplitGateFlows(solution, gateNodes, out var gateFlows);
+        network.GateFlows = gateFlows;
+        return split;
+    }
+
+    /// <summary>The same for a what-if: the network keeps its own gate flows</summary>
+    private FlowSolution SplitGateFlows(FlowSolution solution, List<GateNode> gateNodes, out List<GateFlow> gateFlows)
+    {
         if (gateNodes.Count == 0)
         {
-            network.GateFlows = [];
+            gateFlows = [];
             return solution;
         }
         var byId = gateNodes.ToDictionary(t => t.Node.Id);
-        var gateFlows = new List<GateFlow>();
+        gateFlows = new List<GateFlow>();
         var flows = new List<Flow>();
         var gold = solution.GoldPerMinute.Where(t => t.Key > 0).ToDictionary(t => t.Key, t => t.Value);
         foreach (var flow in solution.Flows)
@@ -155,7 +163,6 @@ public sealed partial class GameWorld
                 flows.Add(flow);
             }
         }
-        network.GateFlows = gateFlows;
         return new FlowSolution
         {
             Rates = solution.Rates.Where(t => t.Key > 0).ToDictionary(t => t.Key, t => t.Value),
@@ -1133,6 +1140,8 @@ public sealed partial class GameWorld
     private void RunCoupling()
     {
         CoupleYards();
+        _solves++;
+        _couplings++;
         _nextCoupling = LastTick + _couplingInterval;
     }
 

@@ -244,46 +244,23 @@ public sealed partial class GameWorld
     /// building): what an upgrade or a new building would bring. Without tolls, so compare it with the same call
     /// unchanged.
     /// </summary>
+    /// <summary>
+    /// What the company earns a minute, settled, with this network changed (no change: as it is); every step's gain is
+    /// a difference of two of these (GameWorld.WhatIf)
+    /// </summary>
     private double WhatIfGold(Network network, long company, Func<FlowNode, FlowNode>? change = null, IReadOnlyList<FlowNode>? extra = null, long? anchor = null, bool pumps = true, Func<FlowLink, FlowLink>? changeLink = null)
     {
-        _whatIfs++;
-        var nodes = network.Buildings.Select(t => ToFlowNode(_buildings[t])).OfType<FlowNode>().ToList();
-        if (pumps)
+        if (Company(company) is not { } owner)
         {
-            nodes = WithPumps(network, nodes);
+            return 0;
         }
-        if (change != null)
+        if (change == null && extra == null && changeLink == null && pumps)
         {
-            nodes = nodes.Select(change).ToList();
+            var base0 = BaseWhatIf(network);
+            return SettledIncome(owner, t => t == network ? base0 : null);
         }
-        var links = LinksBetween(network, nodes);
-        if (changeLink != null)
-        {
-            links = links.Select(changeLink).ToList();
-        }
-        if (extra is { Count: > 0 })
-        {
-            // A new building piped to the anchor: next to it, and reaching what it reaches
-            var near = anchor ?? nodes.FirstOrDefault(t => t.Owner == company)?.Id;
-            foreach (var node in extra)
-            {
-                if (near is { } a)
-                {
-                    links.Add(new FlowLink(node.Id, a, 0.99, double.PositiveInfinity, []));
-                    links.AddRange(network.Links.Where(t => t.A == a || t.B == a).Select(t => t with { A = node.Id, B = t.A == a ? t.B : t.A }));
-                }
-            }
-            nodes.AddRange(extra);
-        }
-        return nodes.Count < 2 ? 0 : FlowSolver.Solve(nodes, links, MarketFor(network)).GoldPerMinute.GetValueOrDefault(company);
-    }
-
-    /// <summary>A network solved again with some of its buildings changed (Grow's plan: all its levels at once)</summary>
-    private FlowSolution WhatIfSolution(Network network, Func<FlowNode, FlowNode> change)
-    {
-        _whatIfs++;
-        var nodes = WithPumps(network, network.Buildings.Select(t => ToFlowNode(_buildings[t])).OfType<FlowNode>().ToList()).Select(change).ToList();
-        return FlowSolver.Solve(nodes, LinksBetween(network, nodes), MarketFor(network));
+        var solution = SolveWhatIf(network, change, extra, anchor, changeLink, pumps: pumps);
+        return SettledIncome(owner, t => t == network ? solution : null);
     }
 
     /// <summary>

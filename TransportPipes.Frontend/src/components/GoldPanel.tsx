@@ -214,7 +214,8 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
             <ul className="small">
               {uses.grow.parts.map((part) => (
                 <li key={part.building}>
-                  {part.text} · {formatAmount(part.cost)} g · +{formatAmount(part.gain)} g/min
+                  {/* Each part's cost; what they bring is worked out for all of them together (the line above) */}
+                  {part.text} · {formatAmount(part.cost)} g
                 </li>
               ))}
             </ul>
