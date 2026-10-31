@@ -446,6 +446,8 @@ class ChunkView {
   objects: ObjectView[] = [];
   loaded = false;
   requested = false;
+  /** Drawn zoomed out: only its far picture, its ground and objects wait for the near view */
+  farOnly = false;
 
   constructor(cx: number, cy: number) {
     this.cx = cx;
@@ -1254,6 +1256,14 @@ export class Engine {
       this.flowLayer.visible = !far;
       this.miniLayer.visible = far;
       this.districtsDirty = true;
+      // Near again: what was drawn zoomed out gets its ground and objects now
+      if (!far) {
+        for (const [key, chunk] of this.chunks) {
+          if (chunk.farOnly) {
+            this.dirtyChunks.add(key);
+          }
+        }
+      }
     }
 
     this.streamChunks();
@@ -1289,7 +1299,7 @@ export class Engine {
       this.artArrived = false;
       this.lastArtRedraw = this.time;
       for (const chunk of this.chunks.values()) {
-        if (chunk.loaded) {
+        if (chunk.loaded && !chunk.farOnly) {
           this.clearObjects(chunk);
           this.drawObjects(chunk);
         }
@@ -1490,6 +1500,14 @@ export class Engine {
     const firstTime = !chunk.loaded;
     chunk.loaded = true;
     this.clearChunk(chunk);
+    // Zoomed out only the far picture shows: the ground and the objects (a thousand sprites a chunk and more) wait for
+    // the near view (playtest: "when I'm zoomed out like this the game is really slow": every chunk in sight was drawn
+    // in full, hidden, and again whenever anything in it changed)
+    chunk.farOnly = this.far;
+    if (this.far) {
+      this.drawMini(chunk);
+      return;
+    }
     this.drawGround(chunk);
     this.drawMini(chunk);
     this.drawOverlay(chunk);
