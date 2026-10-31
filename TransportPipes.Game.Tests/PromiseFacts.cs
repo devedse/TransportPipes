@@ -128,6 +128,22 @@ public class PromiseFacts
     }
 
     [TestMethod]
+    public void ANextStepOnABigNetworkSaysWhatItBrings()
+    {
+        // Ranked by an estimate (40 moilies and a factory: a big network), said as solved
+        var (game, company, map) = Estate(40, factory: true);
+        var step = game.World.NextSteps(company, 6).FirstOrDefault(t => t.Action == AdvisorAction.Upgrade && t.Building != null && t.Levels > 0);
+        Assert.IsNotNull(step, "an upgrade among the next steps");
+        StringAssert.DoesNotMatch(step.Reason, new System.Text.RegularExpressions.Regex("about"), step.Reason);
+        var before = Income(game, company);
+
+        game.UpgradeNow(company, [step.Building!.Value], step.Levels);
+        game.Pass(5);
+
+        Kept(step.GainPerMinute, Income(game, company) - before, step.Title);
+    }
+
+    [TestMethod]
     public void AYardBuildingsLevelBringsWhatItSays()
     {
         // Ana's Smelter runs on Ben's coal through the Yard: a level takes more of it, and the Yard's next round brings it

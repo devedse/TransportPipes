@@ -234,7 +234,27 @@ public sealed partial class GameWorld
         var ranked = candidates.OrderByDescending(t => t.Score).DistinctBy(t => t.Step.Title).ToList();
         var steps = ranked.GroupBy(t => t.Step.Kind).Select(t => t.First()).OrderByDescending(t => t.Score).Take(count).ToList();
         steps.AddRange(ranked.Except(steps).Take(count - steps.Count));
-        return steps.OrderByDescending(t => t.Score).Select(t => t.Step).ToList();
+        return steps.OrderByDescending(t => t.Score).Select(t => Exact(company, t.Step)).ToList();
+    }
+
+    /// <summary>
+    /// A step on a big network, ranked by an estimate, says what it will bring once it is one of the few shown (the
+    /// owner, 2026-10-31: "whenever something says x will happen, it actually does"): an upgrade's levels solved
+    /// </summary>
+    private AdvisorStep Exact(Company company, AdvisorStep step)
+    {
+        if (step.Action != AdvisorAction.Upgrade || step.Building is not { } id || Building(id) is not { } building || NetworkOf(id) is not { } network
+            || !Estimated(network) || Content.Building(building.Type).Kind == BuildingKind.TradingPost || step.Levels <= 0)
+        {
+            return step;
+        }
+        var gain = LevelsGain(company, building, network, step.Levels);
+        var said = Plus(network, step.GainPerMinute);
+        var text = step.Reason.Replace(said, $"+{Gold(gain)}/min");
+        text = gain > 0.01
+            ? System.Text.RegularExpressions.Regex.Replace(text, @"pays for itself in [^.:;]+", $"pays for itself in {Minutes(step.Cost / gain)}")
+            : System.Text.RegularExpressions.Regex.Replace(text, @", pays for itself in [^.:;]+", "");
+        return step with { Reason = text, GainPerMinute = gain };
     }
 
     // ---------------------------------------------------------------- What-ifs
@@ -1034,7 +1054,8 @@ public sealed partial class GameWorld
             var payback = best.Cost / best.Gain;
             var why = definition.Kind == BuildingKind.TradingPost ? "Every level raises all your Hub Orders by 10%" : "Every level makes 10% more";
             add(new AdvisorStep(AdvisorKind.Upgrade, $"Upgrade {name} to level {target}",
-                $"{why}: {Plus(network, best.Gain)} for {Gold(best.Cost)}, pays for itself in {Minutes(payback)}.",
+                // A trading post's levels are worked out at the settled price, never estimated
+                $"{why}: {(definition.Kind == BuildingKind.TradingPost ? $"+{Gold(best.Gain)}/min" : Plus(network, best.Gain))} for {Gold(best.Cost)}, pays for itself in {Minutes(payback)}.",
                 AdvisorAction.Upgrade, best.Cost, best.Gain, Building: building.Id, BuildingType: building.Type, Levels: best.Levels, At: building.Position), 1);
         }
     }
