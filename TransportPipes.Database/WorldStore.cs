@@ -263,6 +263,8 @@ public sealed class WorldStore
         {
             world.LoadLink(link);
         }
+        // Levels that do nothing are gone: what was bought of them goes back to level 1
+        world.ResetLevelsThatDoNothing();
 
 
         world.LastTick = dbWorld.LastTick;

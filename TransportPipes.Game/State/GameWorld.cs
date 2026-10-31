@@ -1079,6 +1079,10 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail("Upgrade the Deep Lift on the surface.");
         }
+        if (!LevelsMatter(definition.Kind))
+        {
+            return CommandResult.Fail($"A {definition.Name} does what it does at level 1: it has no levels.");
+        }
         if (building.UnderConstruction)
         {
             return CommandResult.Fail("Wait until it is built.");
@@ -1113,8 +1117,38 @@ public sealed partial class GameWorld
     public bool CanUpgrade(Building building)
     {
         var definition = Content.Building(building.Type);
-        return definition.Kind is not (BuildingKind.Hq or BuildingKind.Gate or BuildingKind.Decoration) && definition.Buildable
-            && !building.UnderConstruction && BoughtLevel(building) < Content.Progression.MaxBuildingLevel;
+        return definition.Kind is not (BuildingKind.Hq or BuildingKind.Gate or BuildingKind.Decoration) && LevelsMatter(definition.Kind)
+            && definition.Buildable && !building.UnderConstruction && BoughtLevel(building) < Content.Progression.MaxBuildingLevel;
+    }
+
+    /// <summary>
+    /// Whether a level of a kind does anything: a valve, a power line, an office, a Terraformer, a Weather Station, a
+    /// Recycler or the Engineer Workshop does what it does at level 1, and a Pump Station's level only makes it use more
+    /// energy (the owner, 2026-10-31: "buildings whose levels do nothing keep at level 1")
+    /// </summary>
+    public static bool LevelsMatter(BuildingKind kind) => kind is not (BuildingKind.Valve or BuildingKind.PriorityValve or BuildingKind.Pump
+        or BuildingKind.PowerLine or BuildingKind.Workshop or BuildingKind.WeatherStation or BuildingKind.Recycler
+        or BuildingKind.ExpeditionOffice or BuildingKind.BlueprintOffice or BuildingKind.Terraformer);
+
+    /// <summary>
+    /// The buildings of those kinds that were upgraded before back to level 1, with the goods their levels still waited
+    /// for given up; no gold back for the levels (the owner: "I don't really care about paying back gold"). How many
+    /// </summary>
+    public int ResetLevelsThatDoNothing()
+    {
+        var reset = 0;
+        foreach (var building in _buildings.Values.Where(t => !LevelsMatter(Content.Building(t.Type).Kind) && (t.Level > 1 || WaitsForLevel(t))).ToList())
+        {
+            if (Company(building.Owner) is { } owner)
+            {
+                DropWants(owner, building.Id, aboveLevel: 1);
+            }
+            building.Level = 1;
+            building.Touch();
+            MarkFlowsChanged(building);
+            reset++;
+        }
+        return reset;
     }
 
     /// <summary>

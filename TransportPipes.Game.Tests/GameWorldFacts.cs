@@ -251,6 +251,24 @@ public class GameWorldFacts
         Assert.AreEqual(0, game.World.StorageKeep(storage, definition, "ironOre"), 1e-6, "no sliders: what's needed");
     }
 
+    /// <summary>The owner, 2026-10-31: buildings whose levels do nothing stay at level 1; those upgraded before go back</summary>
+    [TestMethod]
+    public void BuildingsWhoseLevelsDoNothingStayAtLevelOne()
+    {
+        var game = new TestGame();
+        var company = game.NewCompany(level: 20);
+        var pump = game.Build(company, "weatherStation");
+        var moily = game.Build(company, "windMoily");
+        Assert.IsFalse(game.World.CanUpgrade(pump), "a Weather Station forecasts the same at every level");
+        Assert.IsFalse(game.World.Upgrade(company.Id, pump.Id, 1).Success);
+        Assert.IsTrue(game.World.CanUpgrade(moily));
+
+        pump.Level = 4;
+        Assert.AreEqual(1, game.World.ResetLevelsThatDoNothing());
+        Assert.AreEqual(1, pump.Level);
+        Assert.AreEqual(0, game.World.ResetLevelsThatDoNothing(), "once");
+    }
+
     [TestMethod]
     public void PipesOfTwoPlayersThatMeetStayTwoNetworks()
     {
