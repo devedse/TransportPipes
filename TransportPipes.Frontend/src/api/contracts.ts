@@ -683,7 +683,16 @@ export interface BuildingDetailsDto {
   /** What it can evolve into where it stands */
   evolve: { into: string; cost: number; problem: string | null } | null;
   /** A storage: what it keeps of each resource */
-  keep: { keeps: Record<string, number> } | null;
+  /**
+   * A Storage: what it keeps of each good (keeps: in effect, at least what the company needs), what its owner set (set:
+   * its sliders, or the old share of its room for every good), what the company needs of each, whether its sliders are set
+   */
+  keep: {
+    keeps: Record<string, number>;
+    set?: Record<string, number> | null;
+    needs?: Record<string, number> | null;
+    manual?: boolean;
+  } | null;
   /**
    * Smart Max: maxAffordableLevels are the levels its pipes can feed; these are the levels the gold could buy beyond
    * them, how fast it would run there, and what holds it back

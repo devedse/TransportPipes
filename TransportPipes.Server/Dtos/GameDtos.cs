@@ -498,7 +498,13 @@ public record MaxMoreDto(int Levels, double Cost, double Share, string? Resource
 /// A storage: how much of each resource it keeps (its setting, or what the company needs), and whether a full trading
 /// post of its network sends it the rest (then it holds more)
 /// </summary>
-public record StorageKeepDto(IReadOnlyDictionary<string, double> Keeps);
+/// <summary>
+/// What a Storage keeps of each good (Keeps: in effect, at least what the company needs), what its owner set (Set: its
+/// sliders, or the share of its room for every good), what the company needs of each (Needs), and whether its sliders
+/// are set (Manual)
+/// </summary>
+public record StorageKeepDto(IReadOnlyDictionary<string, double> Keeps, IReadOnlyDictionary<string, double>? Set = null,
+    IReadOnlyDictionary<string, double>? Needs = null, bool Manual = false);
 
 /// <summary>Upgrading several buildings: the levels bought and the gold spent (or why nothing happened)</summary>
 public record BulkUpgradeDto(bool Success, string? Error, int Levels, double Gold);

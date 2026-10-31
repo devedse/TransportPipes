@@ -214,6 +214,7 @@ public sealed class WorldStore
                 Contents = JsonSerializer.Deserialize<Dictionary<string, double>>(row.Contents, Json) ?? new(),
                 Imports = JsonSerializer.Deserialize<HashSet<string>>(row.Imports, Json) ?? new(),
                 Filter = JsonSerializer.Deserialize<HashSet<string>>(row.Filter, Json) ?? new(),
+                Keeps = JsonSerializer.Deserialize<Dictionary<string, double>>(row.Keeps, Json) ?? new(),
                 Setting = row.Setting,
                 Damaged = row.Damaged,
             });
@@ -430,6 +431,7 @@ public sealed class WorldStore
                 Contents = JsonSerializer.Serialize(building.Contents, Json),
                 Imports = JsonSerializer.Serialize(building.Imports, Json),
                 Filter = JsonSerializer.Serialize(building.Filter, Json),
+                Keeps = JsonSerializer.Serialize(building.Keeps, Json),
                 Setting = building.Setting,
                 Damaged = building.Damaged,
             }));

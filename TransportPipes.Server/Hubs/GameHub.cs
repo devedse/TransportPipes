@@ -1260,6 +1260,10 @@ public sealed class GameHub : Hub<IGameClient>
     public Task<CommandResultDto> SetBuildingSetting(long building, double value) =>
         Command((world, company) => world.SetBuildingSetting(company, building, value));
 
+    /// <summary>A Storage's sliders: how much of each good it keeps</summary>
+    public Task<CommandResultDto> SetStorageKeeps(long building, Dictionary<string, double> keeps) =>
+        Command((world, company) => world.SetStorageKeeps(company, building, keeps));
+
 
 
     public Task<CommandResultDto> SetValveFilter(long building, string resource, bool enabled) =>

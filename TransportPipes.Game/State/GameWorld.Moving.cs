@@ -94,6 +94,7 @@ public sealed partial class GameWorld
         Imports = new(building.Imports),
         Filter = new(building.Filter),
         Setting = building.Setting,
+        Keeps = new(building.Keeps),
     };
 
     /// <summary>
@@ -191,6 +192,10 @@ public sealed partial class GameWorld
         building.Imports.UnionWith(item.Imports);
         building.Filter.UnionWith(item.Filter);
         building.Setting = item.Setting;
+        foreach (var (resource, amount) in item.Keeps)
+        {
+            building.Keeps[resource] = amount;
+        }
         EnsureShaft(building);
         return building;
     }

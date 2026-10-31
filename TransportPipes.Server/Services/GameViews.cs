@@ -1079,10 +1079,19 @@ public static partial class GameViews
 
     private static StorageKeepDto Keep(GameWorld world, Building storage, BuildingDefinition definition, Network? network)
     {
+        // What it holds, what it has a slider for, and every good on its network (all of them can come in)
         var resources = storage.Contents.Keys
-            .Concat(network?.Solution.Flows.Where(t => t.To == storage.Id).Select(t => t.Resource) ?? [])
-            .Distinct();
-        return new StorageKeepDto(resources.ToDictionary(t => t, t => Math.Round(world.StorageKeep(storage, definition, t), 1)));
+            .Concat(network?.Solution.Flows.Select(t => t.Resource) ?? [])
+            .Concat(storage.Keeps.Keys)
+            .Distinct()
+            .ToList();
+        var owner = world.Company(storage.Owner);
+        var room = world.StorageCapacity(storage, definition);
+        return new StorageKeepDto(
+            resources.ToDictionary(t => t, t => Math.Round(world.StorageKeep(storage, definition, t), 1)),
+            resources.ToDictionary(t => t, t => Math.Round(storage.Keeps.Count > 0 ? storage.Keeps.GetValueOrDefault(t) : storage.Setting * room)),
+            owner == null ? null : resources.ToDictionary(t => t, t => Math.Round(world.StorageNeed(owner, t))),
+            storage.Keeps.Count > 0);
     }
 
     private static EvolveDto Evolve(GameWorld world, Company owner, Building building, string next)

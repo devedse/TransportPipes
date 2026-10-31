@@ -22,6 +22,7 @@ import { DepotSection } from "./DepotSection";
 const PHONE = typeof window !== "undefined" && window.matchMedia?.("(max-width: 720px)").matches === true;
 import { GoodsTip, LevelPrice } from "./LevelPrice";
 import { ResourceIcon } from "./ResourceIcon";
+import { StorageSliders } from "./StorageSliders";
 
 const KIND_LABELS: Record<string, string> = {
   internal: "own",
@@ -514,50 +515,41 @@ export function BuildingPanel() {
           {Object.keys(details.contents).length === 0 && (
             <p className="muted small">Empty. Surplus of your buildings on the same pipe goes in here.</p>
           )}
-          {Object.entries(details.contents).map(([resource, amount]) => (
-            <Meter
-              key={resource}
-              label={content.resourceName(resource)}
-              color={content.resourceColor(resource)}
-              amount={amount}
-              max={details.capacity!}
-              unit=""
-              mark={details.keep?.keeps[resource]}
-              markTitle={`It keeps ${formatAmount(details.keep?.keeps[resource] ?? 0)}`}
+          {definition.kind === "storage" && mine && details.keep !== null ? (
+            // Your own Storage: a slider a good (the owner, 2026-10-31)
+            <StorageSliders
+              building={building.id}
+              room={details.capacity}
+              contents={details.contents}
+              keep={details.keep}
+              flows={details.flows}
             />
-          ))}
-          {details.keep !== null &&
-            Object.entries(details.contents).some(([r, a]) => a > (details.keep!.keeps[r] ?? 0) + 1) && (
-              <p className="muted small">
-                It holds more than it keeps (the line): what&apos;s above it goes on to your Trading Post and
-                is sold, as fast as its pipe there carries it (about a tenth of it a minute at most).
-              </p>
-            )}
-          {definition.kind === "storage" && (
+          ) : (
             <>
-              <p className="muted small">
-                It keeps what your daily orders and your next buildings need; the rest goes on to be sold.
-                {mine && " Keep more of each resource:"}
-              </p>
-              {mine && (
-                <div className="chips">
-                  {(
-                    [
-                      [0, "What's needed"],
-                      [0.1, `${formatAmount(details.capacity * 0.1)} each`],
-                      [0.5, `${formatAmount(details.capacity * 0.5)} each`],
-                      [1, "Everything"],
-                    ] as const
-                  ).map(([share, label]) => (
-                    <button
-                      key={share}
-                      className={details.setting === share ? "chip active" : "chip"}
-                      onClick={() => void gameClient.setBuildingSetting(building.id, share)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
+              {Object.entries(details.contents).map(([resource, amount]) => (
+                <Meter
+                  key={resource}
+                  label={content.resourceName(resource)}
+                  color={content.resourceColor(resource)}
+                  amount={amount}
+                  max={details.capacity!}
+                  unit=""
+                  mark={details.keep?.keeps[resource]}
+                  markTitle={`It keeps ${formatAmount(details.keep?.keeps[resource] ?? 0)}`}
+                />
+              ))}
+              {details.keep !== null &&
+                Object.entries(details.contents).some(([r, a]) => a > (details.keep!.keeps[r] ?? 0) + 1) && (
+                  <p className="muted small">
+                    It holds more than it keeps (the line): what&apos;s above it goes on to your Trading Post
+                    and is sold, as fast as its pipe there carries it (about a tenth of it a minute at most).
+                  </p>
+                )}
+              {definition.kind === "storage" && (
+                <p className="muted small">
+                  It keeps what its owner set of each good, and at least what their next buildings need; the
+                  rest goes on to be sold.
+                </p>
               )}
             </>
           )}

@@ -792,7 +792,8 @@ public sealed partial class GameWorld
     /// </summary>
     public double StorageKeep(Building storage, BuildingDefinition definition, string resource)
     {
-        var keep = storage.Setting * StorageCapacity(storage, definition);
+        // Its sliders (the owner, 2026-10-31), else the share of its room for every good
+        var keep = storage.Keeps.Count > 0 ? storage.Keeps.GetValueOrDefault(resource) : storage.Setting * StorageCapacity(storage, definition);
         return Company(storage.Owner) is { } owner ? Math.Max(keep, StorageNeed(owner, resource)) : keep;
     }
 

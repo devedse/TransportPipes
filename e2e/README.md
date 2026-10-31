@@ -75,6 +75,7 @@ and piped to the post (`kit(page, types, 2)` in Copper Pipe, its ingots stocked)
 | `level-goods.mjs` | Levels from 11 everywhere they are bought: the Level, +10 and Max buttons and the selection's show their goods with icons and a popup that says how they come; Spend says the levels it buys; the top bar's waiting goods with Buy all the rest; the gold panel's market lines; the Yard's clock; the Trading Post's bars with sold and Hub Order |
 | `badges-front.mjs` | Level badges over every building: a block of Wind Moilys side by side, every badge on the badge layer, none left behind when a building is drawn again |
 | `short-why.mjs` | A network short of a good it can't use: a Brickworks with no stone and no coal; the coal and stone lines say they are for the Brickworks, which also lacks the other |
+| `storage-sliders.mjs` | A Storage's sliders: a row a good (one added), two set to more than its room together: the total goes red and Save waits; Fit to the room, Save, and the panel shows them saved |
 | `whats-new.mjs` | What's new after an update: the changes since the newest one seen on this browser, a day a list; seen once closed; none for a new company; the version badge shows the latest (needs `node scripts/changes.mjs` first) |
 | `whats-new-return.mjs` | What's new and the return card at once (after an update and days away): the return card first, What's new once it is closed, and its Got it takes the click (it stayed on top, unclickable) |
 | `juice.mjs` | A finished building, coin pops and the level-up |

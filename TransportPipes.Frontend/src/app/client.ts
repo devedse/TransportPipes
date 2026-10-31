@@ -1696,6 +1696,18 @@ export class GameClient {
     }
   }
 
+  /** A Storage's sliders: how much of each good it keeps (together at most its room) */
+  async setStorageKeeps(building: number, keeps: Record<string, number>) {
+    const ok = await this.command(
+      this.connection.setStorageKeeps(building, keeps),
+      "Saved: it keeps that much of each good from now on",
+    );
+    if (ok) {
+      await this.refreshDetails();
+    }
+    return ok;
+  }
+
   async startExpedition(hours: number) {
     await this.command(this.connection.startExpedition(hours), "The team sets off");
   }

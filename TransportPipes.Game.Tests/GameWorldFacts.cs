@@ -205,6 +205,52 @@ public class GameWorldFacts
         Assert.AreEqual(2500, game.World.StorageKeep(storage, definition, "ironOre"), 1e-6, "half its capacity, as its owner chose");
     }
 
+    /// <summary>
+    /// A Storage's sliders (the owner, 2026-10-31: "drag sliders per resource ... if you specify more than the total that
+    /// would fit ... you can't save it"): each good kept as set, at least what the company needs, never more than the
+    /// room together; it fills up to them, and the rest goes on to be sold
+    /// </summary>
+    [TestMethod]
+    public void AStorageKeepsWhatItsSlidersSayAndNoMoreThanItsRoom()
+    {
+        var game = new TestGame();
+        var company = game.NewCompany(level: 16);
+        var storage = game.Build(company, "storage");
+        var definition = game.World.Content.Building("storage");
+        var room = game.World.StorageCapacity(storage, definition);
+
+        var over = game.World.SetStorageKeeps(company.Id, storage.Id, new Dictionary<string, double> { ["energy"] = room, ["ironOre"] = 1 });
+        Assert.IsFalse(over.Success, "more than fits");
+        StringAssert.Contains(over.Error, "more than fits");
+        Assert.IsEmpty(storage.Keeps, "nothing saved");
+
+        Assert.IsTrue(game.World.SetStorageKeeps(company.Id, storage.Id, new Dictionary<string, double> { ["energy"] = 1200, ["ironOre"] = 300, ["bricks"] = 100 }).Success);
+        Assert.AreEqual(1200, game.World.StorageKeep(storage, definition, "energy"), 1e-6);
+        Assert.AreEqual(300, game.World.StorageKeep(storage, definition, "ironOre"), 1e-6);
+        Assert.AreEqual(500, game.World.StorageKeep(storage, definition, "bricks"), 1e-6, "at least what the company needs (a Market Hall's bricks)");
+        Assert.AreEqual(0, game.World.StorageKeep(storage, definition, "copperOre"), 1e-6, "no slider: only what's needed");
+
+        // It fills up to its slider, and what comes beyond goes on to be sold
+        var moilies = Enumerable.Range(0, 4).Select(_ => game.Build(company, "windMoily")).ToList();
+        foreach (var moily in moilies)
+        {
+            game.Connect(company, moily, storage);
+            game.Connect(company, moily, game.TradingPost(company));
+        }
+        game.Pass(1);
+        game.Pass(60 * 24);
+        Assert.AreEqual(1200, storage.Contents["energy"], 1, "it keeps what its slider says");
+        var gold = company.Gold;
+        game.Pass(60);
+        Assert.IsGreaterThan(gold, company.Gold, "the rest is sold");
+
+        // Its sliders replace the share buttons; the share buttons replace its sliders
+        Assert.AreEqual(0, storage.Setting);
+        Assert.IsTrue(game.World.SetBuildingSetting(company.Id, storage.Id, 0.5).Success);
+        Assert.IsTrue(game.World.SetStorageKeeps(company.Id, storage.Id, new Dictionary<string, double>()).Success);
+        Assert.AreEqual(0, game.World.StorageKeep(storage, definition, "ironOre"), 1e-6, "no sliders: what's needed");
+    }
+
     [TestMethod]
     public void PipesOfTwoPlayersThatMeetStayTwoNetworks()
     {

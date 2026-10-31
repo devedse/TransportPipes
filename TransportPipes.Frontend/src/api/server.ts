@@ -391,6 +391,9 @@ export class GameConnection {
     this.invoke<CommandResult>("SetImport", building, resource, enabled);
   setBuildingSetting = (building: number, value: number) =>
     this.invoke<CommandResult>("SetBuildingSetting", building, value);
+  /** A Storage's sliders: how much of each good it keeps */
+  setStorageKeeps = (building: number, keeps: Record<string, number>) =>
+    this.invoke<CommandResult>("SetStorageKeeps", building, keeps);
   setValveFilter = (building: number, resource: string, enabled: boolean) =>
     this.invoke<CommandResult>("SetValveFilter", building, resource, enabled);
   cheat = (what: string) => this.invoke<CommandResult>("Cheat", what);

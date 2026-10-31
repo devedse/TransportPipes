@@ -29,6 +29,9 @@ public class DbBuilding
     /// <summary>Valves: the resources that pass (jsonb)</summary>
     public string Filter { get; set; } = "[]";
 
+    /// <summary>Storages: how much of each good it keeps, as its owner set it (jsonb)</summary>
+    public string Keeps { get; set; } = "{}";
+
     /// <summary>Storm damage: half speed until repaired</summary>
     public bool Damaged { get; set; }
 }

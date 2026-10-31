@@ -7480,3 +7480,126 @@ button.top-waits {
   width: 16px;
   height: 16px;
 }
+
+/* A Storage's sliders: a row a good, and together against its room */
+.storage-sliders {
+  display: grid;
+  gap: 8px;
+}
+
+.storage-sliders p {
+  margin: 0;
+}
+
+.storage-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.storage-row-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.storage-row-head .grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.storage-number {
+  width: 76px;
+  padding: 2px 4px;
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+.storage-track {
+  position: relative;
+  height: 22px;
+  display: flex;
+  align-items: center;
+}
+
+/* What it holds, under the slider */
+.storage-holds {
+  position: absolute;
+  left: 0;
+  top: 7px;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(58, 161, 156, 0.45);
+  pointer-events: none;
+}
+
+/* At least what's needed */
+.storage-need {
+  position: absolute;
+  top: 3px;
+  width: 3px;
+  height: 16px;
+  margin-left: -1px;
+  border-radius: 2px;
+  background: rgba(35, 107, 105, 0.35);
+  pointer-events: none;
+}
+
+.storage-track input[type="range"] {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  background: transparent;
+}
+
+.storage-add {
+  justify-self: start;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.storage-total {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(35, 107, 105, 0.08);
+}
+
+.storage-total-line {
+  display: flex;
+  justify-content: space-between;
+}
+
+.storage-total-bar {
+  position: relative;
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.storage-total-bar span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(90deg, #3aa19c, #6cd1c6);
+}
+
+.storage-total-bar .storage-total-needs {
+  background: rgba(58, 161, 156, 0.35);
+}
+
+/* More than fits: red, and Save waits */
+.storage-total.over {
+  background: #ffe1dc;
+  color: #a3271b;
+}
+
+.storage-total.over .storage-total-bar span {
+  background: #d9442f;
+}

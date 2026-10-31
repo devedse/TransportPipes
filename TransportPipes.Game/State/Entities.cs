@@ -363,6 +363,12 @@ public sealed class Building : Entity
     /// <summary>A number the owner sets: the toll (0..0.05) of a Toll Meter</summary>
     public double Setting { get; set; }
 
+    /// <summary>
+    /// Storage: how much of each good it keeps, as its owner set it with its sliders (empty: the share in Setting for
+    /// every good); it always keeps at least what the company needs
+    /// </summary>
+    public Dictionary<string, double> Keeps { get; init; } = new();
+
     /// <summary>Valve: the only resources that pass (empty: everything passes)</summary>
     public HashSet<string> Filter { get; init; } = new();
 
@@ -437,6 +443,7 @@ public sealed class PackedBuilding
     public HashSet<string> Imports { get; init; } = new();
     public HashSet<string> Filter { get; init; } = new();
     public double Setting { get; init; }
+    public Dictionary<string, double> Keeps { get; init; } = new();
 }
 
 /// <summary>An estate packed up for a move or for the Quiet Isles: nothing is lost</summary>
