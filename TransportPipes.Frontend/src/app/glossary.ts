@@ -10,11 +10,11 @@ export const GLOSSARY = {
   },
   yard: {
     title: "The Yard",
-    text: "The square your plot shares with the plots around it. Pipe your buildings to its gate (the yellow posts at your plot's edge), and at every Yard round your spare goes to neighbours whose buildings lack it, and theirs comes to yours, each at the seller's price. What nobody here needs goes on to your Trading Post.",
+    text: "The square your plot shares with its neighbours. Your buildings trade there once a pipe joins them to your Yard gate (the yellow posts). At every Yard round your spare goes to neighbours who need it, and theirs comes to you. What nobody needs goes on to your Trading Post.",
   },
   yardRound: {
     title: "Yard round",
-    text: "The moment the Yard moves goods between neighbours and along links: about once a minute while trades change, up to 16 minutes apart when nothing does (the clock in the top bar). A new trade is set up at one round, and its goods come at the next.",
+    text: "The moment the Yard moves goods between neighbours and along links. It comes about once a minute (up to 16 minutes apart when nothing changes). A new trade is set up at one round. Its goods come at the next.",
   },
   link: {
     title: "Link",

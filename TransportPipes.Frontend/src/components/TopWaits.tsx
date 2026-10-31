@@ -27,31 +27,40 @@ export function YardClock() {
   );
 }
 
-/** What a Yard round is and does (the owner, 2026-10-31: "What is a yard round what happens every minute etc.") */
+/**
+ * What a Yard round is and does, in short parts (the owner, 2026-10-31: "What is a yard round what happens every minute
+ * etc."; then "I read the yard round and I have no idea what I read honestly. Can you split the text up a bit")
+ */
 export function YardRoundHelp({ when }: { when: string }) {
   return (
     <>
-      <strong>The Yard&apos;s next round: {when}</strong>
-      <span className="goods-tip-line">
-        Your plot shares a Yard with the plots around it: its gate is the yellow posts at the edge of your
-        plot, and your buildings piped to it trade there. The Yard moves those goods in rounds, also while
-        you&apos;re away. At every round:
+      <strong className="tip-title">Next Yard round: {when}</strong>
+      <span className="tip-section">
+        <strong>The Yard</strong>
+        <span>The square your plot shares with its neighbours.</span>
+        <span>Your buildings trade there once a pipe joins them to your Yard gate (the yellow posts).</span>
       </span>
-      <ul className="goods-tip-list">
-        <li>
-          what your buildings have spare goes to neighbours whose buildings lack it, and they pay your price;
-        </li>
-        <li>your neighbours&apos; spare comes to your buildings that lack it, at their price;</li>
-        <li>your links (pipes to companies at other Yards) bring and take their goods;</li>
-        <li>goods your neighbours have for your levels and new buildings arrive.</li>
-      </ul>
-      <span className="goods-tip-line">
-        A round comes about once a minute while trades change, and up to 16 minutes apart when nothing does.
-        Something you change at your gate, in your links or in your trade settings brings the next round
-        within a minute. A new trade is set up at one round, and its goods come at the next.
+      <span className="tip-section">
+        <strong>At every round</strong>
+        <ul className="goods-tip-list">
+          <li>Your spare goods go to neighbours who need them. They pay you.</li>
+          <li>Their spare goods come to you. You pay them.</li>
+          <li>Your links (pipes to other Yards) deliver.</li>
+          <li>Goods for your upgrades arrive.</li>
+        </ul>
       </span>
-      <span className="goods-tip-line muted">
-        Your own buildings, pipes and Trading Post don&apos;t wait for it: they work at once.
+      <span className="tip-section">
+        <strong>How often</strong>
+        <span>About once a minute.</span>
+        <span>When nothing changes, it waits longer: up to 16 minutes.</span>
+      </span>
+      <span className="tip-section">
+        <strong>Why you sometimes wait</strong>
+        <span>A new trade is set up at the next round.</span>
+        <span>Its goods come one round after that.</span>
+      </span>
+      <span className="tip-section muted">
+        <span>Your own pipes and your Trading Post don&apos;t wait: they work all the time.</span>
       </span>
     </>
   );

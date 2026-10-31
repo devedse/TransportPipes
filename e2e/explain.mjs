@@ -25,14 +25,14 @@ await page.waitForTimeout(2000);
 
 const yard = await popup(".top-yard");
 console.log("yard round:", yard.slice(0, 160));
-check(/Yard moves those goods in rounds/.test(yard) && /once a minute/.test(yard), "the Yard round says what it is", yard.slice(0, 120));
+check(/At every round/i.test(yard) && /once a minute/i.test(yard), "the Yard round says what it is", yard.slice(0, 120));
 await shot("1-yard-round");
 const gold = await popup(".top-gold");
-check(/what you earn a minute/.test(gold), "the gold says what its numbers are", gold.slice(0, 120));
+check(/What you earn a minute/.test(gold), "the gold says what its numbers are", gold.slice(0, 120));
 const level = await popup(".top-level");
-check(/all the gold your company ever earned/.test(level), "the Company Level says where it comes from", level.slice(0, 120));
+check(/All the gold your company ever earned/.test(level), "the Company Level says where it comes from", level.slice(0, 120));
 const era = await popup(".top-era");
-check(/An Era is a stage of the game/.test(era), "the Era says what it is", era.slice(0, 120));
+check(/A stage of the game/.test(era), "the Era says what it is", era.slice(0, 120));
 const deposits = await popup(".overlay-bar .chip:nth-child(2), .chip:has-text('Deposits')");
 check(/in the ground/.test(deposits), "the Deposits overlay says what it shows", deposits.slice(0, 120));
 

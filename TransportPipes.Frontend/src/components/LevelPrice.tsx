@@ -61,31 +61,40 @@ export function GoodsTip({
     <HoverPopup
       popup={
         <>
-          <strong>
+          <strong className="tip-title">
             {what}: {formatAmount(gold)} g and goods
           </strong>
-          <span className="goods-tip-line">From level 11 a level takes goods as well as gold:</span>
-          <span className="goods-tip-goods">
-            {goods.goods.map((t) => (
-              <span key={t.resource}>
-                <ResourceIcon resource={t.resource} /> {formatAmount(t.amount)}{" "}
-                {content.resourceName(t.resource).toLowerCase()}
-              </span>
-            ))}
+          <span className="tip-section">
+            <strong>The goods</strong>
+            <span className="goods-tip-goods">
+              {goods.goods.map((t) => (
+                <span key={t.resource}>
+                  <ResourceIcon resource={t.resource} /> {formatAmount(t.amount)}{" "}
+                  {content.resourceName(t.resource).toLowerCase()}
+                </span>
+              ))}
+            </span>
+            <span>From level 11 a level takes goods as well as gold.</span>
           </span>
-          <span className="goods-tip-line">
-            The gold goes at once. The goods come in by themselves: first from your Storages and what you
-            make, then your Yard neighbours&apos; spare at their price.{" "}
-            {fromMarket
-              ? "What nobody has, the market brings within about ten minutes at 2.5× its price."
-              : "The market brings nothing for them (your trade settings): Buy the rest brings it at once at 2.5× its price."}
+          <span className="tip-section">
+            <strong>How they come</strong>
+            <span>The gold goes at once. The goods come by themselves, in this order:</span>
+            <ul className="goods-tip-list">
+              <li>your Storages and what you make;</li>
+              <li>your Yard neighbours&apos; spare, at their price;</li>
+              <li>
+                {fromMarket
+                  ? "the market, within about ten minutes, at 2.5× its price."
+                  : "not the market (your trade settings): Buy the rest brings them at once, at 2.5× their price."}
+              </li>
+            </ul>
           </span>
-          <span className="goods-tip-line">
-            If the market brought all of it: {formatAmount(goods.marketCost)} g more (paid as it comes).
+          <span className="tip-section">
+            <strong>If the market brought all of it</strong>
+            <span>{formatAmount(goods.marketCost)} g more, paid as it comes.</span>
           </span>
-          <span className="goods-tip-line muted">
-            Until a level&apos;s goods are in, the building works at the level before, under a little
-            scaffolding.
+          <span className="tip-section muted">
+            <span>Until a level&apos;s goods are in, the building works at its old level.</span>
           </span>
         </>
       }

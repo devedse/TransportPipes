@@ -7617,3 +7617,20 @@ button.top-waits {
   text-underline-offset: 2px;
   cursor: help;
 }
+
+/* A popup in short parts: a heading a part, a line a sentence */
+.tip-title {
+  font-size: 0.95rem;
+}
+
+.tip-section {
+  display: grid;
+  gap: 1px;
+}
+
+.tip-section > strong {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}

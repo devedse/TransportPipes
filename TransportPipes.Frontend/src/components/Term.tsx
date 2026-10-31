@@ -10,8 +10,13 @@ export function Term({ word, children }: { word: GlossaryWord; children?: ReactN
       width={300}
       popup={
         <>
-          <strong>{entry.title}</strong>
-          <span className="goods-tip-line">{entry.text}</span>
+          <strong className="tip-title">{entry.title}</strong>
+          {/* A line a sentence: easier to take in than one block (the owner, 2026-10-31) */}
+          <span className="tip-section">
+            {entry.text.split(/(?<=[.:])\s+(?=[A-Z])/).map((sentence) => (
+              <span key={sentence}>{sentence}</span>
+            ))}
+          </span>
         </>
       }
     >

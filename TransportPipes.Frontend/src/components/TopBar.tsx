@@ -82,10 +82,10 @@ export function TopBar() {
       <HoverPopup
         popup={
           <>
-            <strong>{company.name}</strong>
-            <span className="goods-tip-line">
-              Your company. Click it (or press I) for your managers (people who run things for you while
-              you&apos;re away), your achievements and your statistics over time.
+            <strong className="tip-title">{company.name}</strong>
+            <span className="tip-section">
+              <span>Your company.</span>
+              <span>Click (or press I) for your managers, achievements and statistics.</span>
             </span>
           </>
         }
@@ -131,14 +131,22 @@ export function TopBar() {
         <HoverPopup
           popup={
             <>
-              <strong>
-                Your crew: {company.crew.name} · {company.crew.members}{" "}
-                {company.crew.members === 1 ? "member" : "members"}
-              </strong>
-              <span className="goods-tip-line">
-                The companies on the plots around your Yard. Together you build your Yard&apos;s Monuments
-                (each gives every member a lasting bonus) and share a Depot for goods. Click it (or press K)
-                for the crew.
+              <strong className="tip-title">Your crew: {company.crew.name}</strong>
+              <span className="tip-section">
+                <strong>
+                  {company.crew.members} {company.crew.members === 1 ? "member" : "members"}
+                </strong>
+                <span>The companies on the plots around your Yard.</span>
+              </span>
+              <span className="tip-section">
+                <strong>Together you</strong>
+                <ul className="goods-tip-list">
+                  <li>build your Yard&apos;s Monuments: each gives every member a lasting bonus;</li>
+                  <li>share a Depot for goods.</li>
+                </ul>
+              </span>
+              <span className="tip-section muted">
+                <span>Click (or press K) for the crew.</span>
               </span>
             </>
           }
@@ -163,23 +171,28 @@ export function TopBar() {
           off={goldOpen}
           popup={
             <>
-              <strong>
-                Your gold: {formatAmount(gold)} · {formatRate(company.goldPerMinute)}
-              </strong>
-              <span className="goods-tip-line">
-                The second number is what you earn a minute now: what your Trading Post sells to the
-                town&apos;s market (the hub), what your neighbours and links pay you, less what you buy from
-                them and the hub. It moves when the hub looks again (every minute) and at each Yard round.
+              <strong className="tip-title">Your gold: {formatAmount(gold)}</strong>
+              <span className="tip-section">
+                <strong>{formatRate(company.goldPerMinute)}</strong>
+                <span>What you earn a minute now.</span>
+                <span>
+                  It is what you sell (at your Trading Post, to neighbours, over links) minus what you buy.
+                </span>
               </span>
               {bankDays >= 1 && (
-                <span className="goods-tip-line">
-                  {bankDays < 10 ? bankDays.toFixed(1) : bankDays.toFixed(0)} days: your gold is that many
-                  days of this income.
+                <span className="tip-section">
+                  <strong>{bankDays < 10 ? bankDays.toFixed(1) : bankDays.toFixed(0)} days</strong>
+                  <span>Your gold is that many days of this income.</span>
                 </span>
               )}
-              <span className="goods-tip-line muted">
-                Not in it: goods the market brings for your levels (paid as they come). Click: every line it
-                is made of, and what your gold can do.
+              <span className="tip-section">
+                <strong>Why it moves</strong>
+                <span>
+                  The town&apos;s market looks again every minute, and the Yard trades at every round.
+                </span>
+              </span>
+              <span className="tip-section muted">
+                <span>Click: every line it is made of, and what your gold can do.</span>
               </span>
             </>
           }
@@ -215,19 +228,27 @@ export function TopBar() {
           off={xpOpen}
           popup={
             <>
-              <strong>Company Level {company.level}</strong>
-              <span className="goods-tip-line">
-                It comes from all the gold your company ever earned: at the market, from players, from orders
-                and rewards. Spending takes nothing away.{" "}
-                {formatAmount(company.lifetimeEarnings - company.levelEarned)} of the{" "}
-                {formatAmount(levelSpan)} g for level {company.level + 1} are earned
-                {levelEta(company) !== null &&
-                  `: at your income now, it comes in ${formatDuration(levelEta(company)!)}`}
-                .
+              <strong className="tip-title">Company Level {company.level}</strong>
+              <span className="tip-section">
+                <strong>Where it comes from</strong>
+                <span>All the gold your company ever earned. Spending takes nothing away.</span>
               </span>
-              <span className="goods-tip-line">
-                A new level opens new buildings, research and parcels of land to buy. Click: what each level
-                opens.
+              <span className="tip-section">
+                <strong>Level {company.level + 1}</strong>
+                <span>
+                  {formatAmount(company.lifetimeEarnings - company.levelEarned)} of {formatAmount(levelSpan)}{" "}
+                  g earned.
+                </span>
+                {levelEta(company) !== null && (
+                  <span>At your income now: in {formatDuration(levelEta(company)!)}.</span>
+                )}
+              </span>
+              <span className="tip-section">
+                <strong>What a level gives</strong>
+                <span>New buildings, research and land to buy.</span>
+              </span>
+              <span className="tip-section muted">
+                <span>Click: what each level opens.</span>
               </span>
             </>
           }
@@ -277,21 +298,27 @@ export function TopBar() {
       <HoverPopup
         popup={
           <>
-            <strong>Your town is in Era {company.era}</strong>
-            <span className="goods-tip-line">
-              An Era is a stage of the game: each opens new buildings, goods and pipes, and the town&apos;s
-              market (the hub) buys the goods of its Era and older. The town moves to the next Era when its
-              Era Wonder is built: everyone in the town gives its stages the goods they want (Hub › Town &amp;
-              Wonder).
+            <strong className="tip-title">Your town is in Era {company.era}</strong>
+            <span className="tip-section">
+              <strong>What an Era is</strong>
+              <span>A stage of the game.</span>
+              <span>Each Era brings new buildings, goods and pipes.</span>
+            </span>
+            <span className="tip-section">
+              <strong>The next Era</strong>
+              <span>It comes when the town&apos;s Era Wonder is built.</span>
+              <span>
+                Everyone in the town gives its stages the goods they want (Hub › Town &amp; Wonder).
+              </span>
             </span>
             {company.yourEra > company.era && (
-              <span className="goods-tip-line">
-                You are in Era {company.yourEra} already: your research opened it, so you can build its
-                buildings before your town gets there.
+              <span className="tip-section">
+                <strong>You: Era {company.yourEra}</strong>
+                <span>Your research opened it, so you can build its buildings already.</span>
               </span>
             )}
-            <span className="goods-tip-line muted">
-              Click: the town, its Wonder and your Yard&apos;s Monuments.
+            <span className="tip-section muted">
+              <span>Click: the town, its Wonder and your Yard&apos;s Monuments.</span>
             </span>
           </>
         }
@@ -308,15 +335,22 @@ export function TopBar() {
         <HoverPopup
           popup={
             <>
-              <strong>Research{researching !== null ? `: ${researching}` : ""}</strong>
-              <span className="goods-tip-line">
-                Your Lab researches one thing at a time. A track makes one chain of buildings faster and
-                leaner, tier by tier; the Era tree opens the next Era&apos;s pipes and systems.
-                {researching === null &&
-                  company.research.open &&
-                  " Nothing is being researched now: pick one."}
+              <strong className="tip-title">Research{researching !== null ? `: ${researching}` : ""}</strong>
+              <span className="tip-section">
+                <strong>What it does</strong>
+                <span>Your Lab researches one thing at a time.</span>
+                <span>A track makes one chain of buildings faster and cheaper to run.</span>
+                <span>The Era tree opens the next Era&apos;s pipes and systems.</span>
               </span>
-              <span className="goods-tip-line muted">Click (or press R) to see and pick.</span>
+              {researching === null && company.research.open && (
+                <span className="tip-section">
+                  <strong>Now</strong>
+                  <span>Nothing is being researched: pick one.</span>
+                </span>
+              )}
+              <span className="tip-section muted">
+                <span>Click (or press R) to see and pick.</span>
+              </span>
             </>
           }
         >
