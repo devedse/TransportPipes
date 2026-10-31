@@ -370,74 +370,77 @@ export function TradeSettings() {
           <p className="muted">Build something first: what your buildings make and use shows up here.</p>
         ) : (
           <div className="table-scroll">
-            <table className="trade-table">
-              <thead>
-                <tr>
-                  <th />
-                  <th title="What the market pays you for it, within your Hub Order">Market pays</th>
-                  <th title="What players on your links pay">Other Yards</th>
-                  <th title="What your Yard's neighbours pay">Yard</th>
-                  <th>Sell to players</th>
-                  <th>Buy from players</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => {
-                  const own = priceOf(prices, "public", row.resource);
-                  const ownCrew = priceOf(prices, "crew", row.resource);
-                  const cell = (kind: "public" | "crew", price: Price, label: string) => {
-                    const pending = waiting(price);
+            {/* Its own scroll when the panel is narrower than its columns */}
+            <div className="trade-table-wrap">
+              <table className="trade-table">
+                <thead>
+                  <tr>
+                    <th />
+                    <th title="What the market pays you for it, within your Hub Order">Market pays</th>
+                    <th title="What players on your links pay">Other Yards</th>
+                    <th title="What your Yard's neighbours pay">Yard</th>
+                    <th>Sell to players</th>
+                    <th>Buy from players</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => {
+                    const own = priceOf(prices, "public", row.resource);
+                    const ownCrew = priceOf(prices, "crew", row.resource);
+                    const cell = (kind: "public" | "crew", price: Price, label: string) => {
+                      const pending = waiting(price);
+                      return (
+                        <td>
+                          <PriceStepper
+                            value={price.value}
+                            label={`${label} for ${content.resourceName(row.resource)}`}
+                            onChange={(v) =>
+                              setPrice(`${kind}:${row.resource}`, v, priceOf(prices, kind).value)
+                            }
+                          />
+                          <span className="muted small"> {formatAmount(row.basePrice * price.value)} g</span>
+                          {pending !== null && (
+                            <span className="price-waiting muted small" title={RISE_WAITS}>
+                              {pending}
+                            </span>
+                          )}
+                        </td>
+                      );
+                    };
                     return (
-                      <td>
-                        <PriceStepper
-                          value={price.value}
-                          label={`${label} for ${content.resourceName(row.resource)}`}
-                          onChange={(v) =>
-                            setPrice(`${kind}:${row.resource}`, v, priceOf(prices, kind).value)
-                          }
-                        />
-                        <span className="muted small"> {formatAmount(row.basePrice * price.value)} g</span>
-                        {pending !== null && (
-                          <span className="price-waiting muted small" title={RISE_WAITS}>
-                            {pending}
-                          </span>
-                        )}
-                      </td>
+                      <tr key={row.resource}>
+                        <td>
+                          <ResourceIcon resource={row.resource} /> {content.resourceName(row.resource)}
+                        </td>
+                        <td>{row.buyPrice.toFixed(2)} g</td>
+                        {cell("public", own, "Price for other Yards")}
+                        {cell("crew", ownCrew, "Yard price")}
+                        <td>
+                          <label className="switch">
+                            <input
+                              type="checkbox"
+                              checked={!row.noTrade}
+                              onChange={() => void gameClient.setNoTrade(row.resource, !row.noTrade)}
+                            />
+                            <span className="switch-track" />
+                          </label>
+                        </td>
+                        <td>
+                          <label className="switch">
+                            <input
+                              type="checkbox"
+                              checked={!row.noBuy}
+                              onChange={() => void gameClient.setNoBuy(row.resource, !row.noBuy)}
+                            />
+                            <span className="switch-track" />
+                          </label>
+                        </td>
+                      </tr>
                     );
-                  };
-                  return (
-                    <tr key={row.resource}>
-                      <td>
-                        <ResourceIcon resource={row.resource} /> {content.resourceName(row.resource)}
-                      </td>
-                      <td>{row.buyPrice.toFixed(2)} g</td>
-                      {cell("public", own, "Price for other Yards")}
-                      {cell("crew", ownCrew, "Yard price")}
-                      <td>
-                        <label className="switch">
-                          <input
-                            type="checkbox"
-                            checked={!row.noTrade}
-                            onChange={() => void gameClient.setNoTrade(row.resource, !row.noTrade)}
-                          />
-                          <span className="switch-track" />
-                        </label>
-                      </td>
-                      <td>
-                        <label className="switch">
-                          <input
-                            type="checkbox"
-                            checked={!row.noBuy}
-                            onChange={() => void gameClient.setNoBuy(row.resource, !row.noBuy)}
-                          />
-                          <span className="switch-track" />
-                        </label>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </section>

@@ -22,11 +22,24 @@ const now = (await page.locator(".trades-panel").innerText()).replace(/\s+/g, " 
 console.log("Now:", now.slice(0, 240));
 check(/What you sell and buy this minute/.test(now) && /Where your/.test(now) && /Your links/.test(now), "Now: its goal, every line of your gold a minute, your links", now.slice(0, 160));
 await shot("1-now");
+// Nothing in a tab sticks out past the panel (the owner, 2026-10-31: "some things don't fit in the trade menu now")
+const fits = () => page.evaluate(() => {
+  const panel = document.querySelector(".trades-panel");
+  const right = panel.getBoundingClientRect().right;
+  const out = [...panel.querySelectorAll("*")].filter((t) => {
+    const r = t.getBoundingClientRect();
+    return r.width > 0 && r.right > right + 1 && !t.closest(".trade-table-wrap");
+  });
+  return out.slice(0, 3).map((t) => `${t.tagName.toLowerCase()}.${t.className} ${Math.round(t.getBoundingClientRect().right - right)}px`);
+});
+check((await fits()).length === 0, "Now: nothing sticks out of the panel", JSON.stringify(await fits()));
 for (const [tab, goal] of [["Links", /Pipes that send one good/], ["Settings", /Your prices/], ["Town", /Everyone in your town/]]) {
   await page.locator(".trades-panel .tab", { hasText: tab }).click();
   await page.waitForTimeout(1500);
   const text = (await page.locator(".trades-panel").innerText()).replace(/\s+/g, " ");
   check(goal.test(text), `${tab}: its goal and its contents`, text.slice(0, 160));
+  const out = await fits();
+  check(out.length === 0, `${tab}: nothing sticks out of the panel`, JSON.stringify(out));
   await shot(`2-${tab.toLowerCase()}`);
 }
 await page.keyboard.press("c");

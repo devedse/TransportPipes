@@ -7671,3 +7671,44 @@ button.top-waits {
 .link-terms-inputs input {
   width: 72px;
 }
+
+/* The Trades panel: a little wider than the Yard's, nothing wider than itself (the owner, 2026-10-31: "some things
+   don't fit in the trade menu now") */
+.trades-panel {
+  width: min(460px, calc(100vw - 24px));
+  overflow-x: hidden;
+}
+
+.trades-panel > *,
+.trades-panel .trade-settings,
+.trades-panel .trade-settings > *,
+.trades-panel .neighbour-list,
+.trades-panel .link-list {
+  min-width: 0;
+}
+
+.trades-panel .trade-settings {
+  grid-template-columns: minmax(0, 1fr);
+  overflow-y: visible;
+}
+
+.trade-table-wrap {
+  overflow-x: auto;
+}
+
+.trades-panel .price-list .partner {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.trades-panel .partner {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+.trades-panel .neighbour {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.trades-panel .neighbour-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}

@@ -640,11 +640,25 @@ Yard-fed building's level, the first pipe and Unstick (`PipeWhatIf`: the pipe la
 flooded and solved), and every price shown against the gold taken (a building, levels, ordered goods, demolish, repair,
 a parcel, a tier, a bridge). Found on the way: the Build menu left out the Workshop wonder's discount, a bridge gave back
 a sixth of its price, Next steps offered pipes that would sell nothing, and with two trading posts it asked to pipe
-buildings already selling at the other. Still estimates, and said with "about": the pipe to the Yard gate for a
-neighbour (what a neighbour lacks grows once you are at the gate, which one round of a what-if doesn't see), a building
-by the Yard gate, the hours of saving for the next parcel and when a Hub Order fills. For the playtest every hour's wait
-is off (`691247d`: the market looks every minute and its price follows at once; restore after it). The bots' week on
-this code: 150.8k g a minute on day 7, as before (149k; the model 240k).
+buildings already selling at the other. No "about" is left: the hours of saving for a parcel and when a daily order
+fills are said at the rate now, and the tips for the pipe to the Yard gate and a building by it say what is true now
+(what a neighbour lacks, what you have spare, the price difference; what a building makes) instead of a gold a minute:
+what a neighbour lacks grows once you are at the gate, which only a simulation of the Yard's rounds would see. Every
+hour's wait stays off (`691247d`; the owner, 2026-10-31: "keep one hour waits removed"). The bots' week on this code:
+150.8k g a minute on day 7, as before (149k; the model 240k).
+
+Showing the numbers (2026-10-31; the owner: "display as much data we know as we can ... if things are lost due to
+pipe length always display this ... a timer ... for that 1 minute yard update"). Pipe losses wherever goods go (a
+building's Where it goes, the pipe hover, the Pipe tool, after the Yard gate, links, neighbours); the Yard's round
+counts down in the top bar and every change that waits for it says so; level goods with icons and a popup on every
+upgrade button (`LevelGoodsDto`, `PlanCheapest`); what waits for goods in the top bar; what the market charges for
+them in the gold panel and the gold counter; the Trading Post's Hub Order rule said right (beyond it the price falls for
+all of it); what goes through the Yard gate on the map. Every game word has a popup (`HoverPopup`, `app/glossary.ts`).
+A link has a promise and a cap (`Link.Guaranteed`, served before the seller's own buildings through
+`GateTerms.ExportFirst`; `Link.UpTo`), and links within a Yard are allowed. Trades has its own panel (Now, Links,
+Settings, Town); the Yard panel keeps who lives around you. A Storage keeps a set amount a good (`Building.Keeps`,
+migration `StorageKeeps`). Buildings whose levels do nothing stay at level 1 (`LevelsMatter`). The map draws a big
+estate without rebuilding its draw list every frame (render groups, pooled puffs and flow dots: a frame 10.2 → 3.0 ms).
 
 ### After v1
 
