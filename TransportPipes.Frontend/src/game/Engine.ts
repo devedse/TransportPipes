@@ -623,6 +623,19 @@ export class Engine {
       this.labelLayer,
     );
     app.stage.addChild(this.worldLayer, this.boxLayer);
+    // A draw list of their own (PixiJS render groups; the owner's profile, 2026-10-31: 38% of the time rebuilding one
+    // list of all 10,000 things on the map): what comes and goes in one (a dot, a coin, a badge, a building) rebuilds
+    // only its own
+    for (const layer of [
+      this.groundLayer,
+      this.objectLayer,
+      this.flowLayer,
+      this.badgeLayer,
+      this.juice.layer,
+      this.labelLayer,
+    ]) {
+      layer.isRenderGroup = true;
+    }
     // The far view starts hidden (it is switched when the zoom crosses FAR_ZOOM)
     this.miniLayer.visible = false;
     this.registerInput(app.canvas);
@@ -2942,9 +2955,10 @@ export class Engine {
   // ---------------------------------------------------------------- Flows
 
   private buildFlows() {
-    for (const dot of this.flowDots) {
-      dot.sprite.destroy();
-    }
+    // The dots' sprites again: a sprite added or taken away makes the map rebuild its draw list (the owner's profile,
+    // 2026-10-31: every dot made anew whenever a network changed); those not needed now wait unseen
+    const pool = this.flowDots.map((t) => t.sprite);
+    let used = 0;
     this.flowDots = [];
     this.flowPaths = [];
     this.flowsVersion++;
@@ -3013,15 +3027,29 @@ export class Engine {
           const spacing = Math.max(150, 420 / Math.log2(2 + flow.delivered)) * Math.sqrt(sharing);
           const count = Math.max(1, Math.min(20, Math.floor(length / spacing)));
           for (let i = 0; i < count; i++) {
-            const sprite = new Sprite(pelletTexture());
-            sprite.anchor.set(0.5);
+            let sprite = pool[used++];
+            if (sprite === undefined) {
+              sprite = new Sprite(pelletTexture());
+              sprite.anchor.set(0.5);
+              this.flowLayer.addChild(sprite);
+            }
+            sprite.alpha = 1;
             sprite.scale.set(flow.kind === "sale" || flow.kind === "trade" ? 0.66 : 0.56);
             sprite.tint = color;
-            this.flowLayer.addChild(sprite);
             this.flowDots.push({ sprite, points, length, offset: (length / count) * i, speed: 190 });
           }
         }
       }
+    }
+    // What is left waits unseen (a dot of no length doesn't move); far more than now are let go
+    for (let i = used; i < pool.length; i++) {
+      const sprite = pool[i]!;
+      if (i - used >= 400) {
+        sprite.destroy();
+        continue;
+      }
+      sprite.alpha = 0;
+      this.flowDots.push({ sprite, points: [], length: 0, offset: 0, speed: 0 });
     }
   }
 

@@ -107,6 +107,8 @@ interface Puff {
   life: number;
   vx: number;
   spark: boolean;
+  /** Done: its sprite waits, unseen, for the next puff of its kind */
+  done: boolean;
 }
 
 /** The animated details of one building */
@@ -239,13 +241,17 @@ export class BuildingEffects {
         }
       }
     }
-    for (let i = this.puffs.length - 1; i >= 0; i--) {
-      const puff = this.puffs[i]!;
+    for (const puff of this.puffs) {
+      if (puff.done) {
+        continue;
+      }
       puff.age += deltaSeconds;
       const t = puff.age / puff.life;
       if (t >= 1) {
-        puff.sprite.destroy();
-        this.puffs.splice(i, 1);
+        // Kept for the next puff, out of sight: a sprite added or taken away makes the map rebuild its whole draw
+        // list, every frame on a big estate (the owner's profile, 2026-10-31: 38% of the time); its alpha doesn't
+        puff.done = true;
+        puff.sprite.alpha = 0;
         continue;
       }
       puff.sprite.y -= deltaSeconds * 26;
@@ -256,22 +262,29 @@ export class BuildingEffects {
   }
 
   private spawn(emitter: (typeof this.emitters)[number]) {
-    const sprite = new Sprite(emitter.kind === "smoke" ? puffTexture() : glowTexture());
-    sprite.anchor.set(0.5);
+    const spark = emitter.kind === "spark";
+    // A finished puff of its kind again, else a new sprite (a few an emitter, then none)
+    let puff = this.puffs.find((t) => t.done && t.spark === spark);
+    if (puff === undefined) {
+      const sprite = new Sprite(spark ? glowTexture() : puffTexture());
+      sprite.anchor.set(0.5);
+      this.container.addChild(sprite);
+      puff = { sprite, age: 0, life: 0, vx: 0, spark, done: true };
+      this.puffs.push(puff);
+    }
+    const sprite = puff.sprite;
     sprite.position.set(emitter.x + (Math.random() - 0.5) * 6, emitter.y);
-    if (emitter.kind === "spark") {
+    sprite.alpha = 0.85;
+    if (spark) {
       sprite.tint = emitter.color;
       sprite.scale.set(0.2);
+    } else {
+      sprite.scale.set(0.5);
     }
-    this.container.addChild(sprite);
-    const spark = emitter.kind === "spark";
-    this.puffs.push({
-      sprite,
-      age: 0,
-      life: spark ? 0.8 : 2.6,
-      vx: spark ? (Math.random() - 0.5) * 40 : 10 + Math.random() * 8,
-      spark,
-    });
+    puff.age = 0;
+    puff.life = spark ? 0.8 : 2.6;
+    puff.vx = spark ? (Math.random() - 0.5) * 40 : 10 + Math.random() * 8;
+    puff.done = false;
   }
 
   destroy() {
