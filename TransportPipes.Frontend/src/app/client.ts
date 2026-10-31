@@ -1440,7 +1440,8 @@ export class GameClient {
     const state = appStore.getState();
     if (state.picker?.mode === "move") {
       this.closePicker();
-    } else if (state.whatsNewOpen !== false) {
+    } else if (state.whatsNewOpen !== false && state.mapShown && state.returnCard === null) {
+      // (not while it waits for the return card: unseen)
       setState({ whatsNewOpen: false });
     } else if (state.keysOpen) {
       setState({ keysOpen: false });

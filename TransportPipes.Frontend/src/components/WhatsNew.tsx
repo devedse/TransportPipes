@@ -63,6 +63,10 @@ function dayName(date: Date): string {
 export function WhatsNew() {
   const open = useAppStore((s) => s.whatsNewOpen);
   const phase = useAppStore((s) => s.phase);
+  // One card at a time (the owner, 2026-10-31: "if you don't close the release notes quick enough it's not clickable
+  // anymore": the return card came once the map was drawn and made everything beside it unclickable, this card too,
+  // drawn on top of it): it waits for the map and until the return card is closed
+  const waiting = useAppStore((s) => !s.mapShown || s.returnCard !== null);
   const [changes, setChanges] = useState<Changes | null>(null);
   const [since, setSince] = useState<string | null>(null);
   // Looking further back (playtest: "can we also show historical updates?"): how many of all the changes show
@@ -114,7 +118,7 @@ export function WhatsNew() {
     was.current = open;
   }, [open, changes]);
 
-  if (open === false || changes === null) {
+  if (open === false || changes === null || waiting) {
     return null;
   }
   const close = () => setState({ whatsNewOpen: false });

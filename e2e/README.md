@@ -72,6 +72,7 @@ and piped to the post (`kit(page, types, 2)` in Copper Pipe, its ingots stocked)
 | `move-key.mjs` | The Move key: E with one of your buildings selected picks it up, E again puts it back; nothing selected or someone else's: nothing |
 | `pipe-wants.mjs` | A better pipe asked for twice: the second ask is refused and says why, one want waits, paid once |
 | `whats-new.mjs` | What's new after an update: the changes since the newest one seen on this browser, a day a list; seen once closed; none for a new company; the version badge shows the latest (needs `node scripts/changes.mjs` first) |
+| `whats-new-return.mjs` | What's new and the return card at once (after an update and days away): the return card first, What's new once it is closed, and its Got it takes the click (it stayed on top, unclickable) |
 | `juice.mjs` | A finished building, coin pops and the level-up |
 | `ui-check.mjs`, `title.mjs` | The panels, the title screen and the managers |
 | `mobile.mjs` | The phone layout (390×844) |
