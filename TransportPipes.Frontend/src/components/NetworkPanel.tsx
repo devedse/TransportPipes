@@ -2,6 +2,7 @@ import { gameClient } from "../app/client";
 import { formatAmount } from "../app/format";
 import { useAppStore } from "../state/store";
 import { NetworkSummary } from "./NetworkSummary";
+import { Term } from "./Term";
 
 /** What happens in one network: who is in it, what is made, used, sold and lost, and which pipes are full */
 export function NetworkPanel() {
@@ -43,7 +44,8 @@ export function NetworkPanel() {
         <div>
           <h3>Network</h3>
           <div className="muted small">
-            {details.buildings} buildings · {details.pipes} pipe tiles · {details.pumps} pump stations
+            {details.buildings} buildings · {details.pipes} pipe tiles · {details.pumps}{" "}
+            <Term word="pump">pump stations</Term>
           </div>
         </div>
         <button className="icon-button" title="Close (Esc)" onClick={() => gameClient.selectNetwork(null)}>

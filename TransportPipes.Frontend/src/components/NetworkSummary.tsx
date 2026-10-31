@@ -4,6 +4,7 @@ import type { NetworkDetailsDto, NetworkResourceDto } from "../api/contracts";
 import type { Content } from "../game/content";
 import { useAppStore } from "../state/store";
 import { ResourceIcon } from "./ResourceIcon";
+import { Term } from "./Term";
 
 /** Where a resource of a network goes: used by buildings, sold to the hub, stored, lost in the pipes */
 const SEGMENTS = [
@@ -36,9 +37,13 @@ function ResourceRow({ r, content }: { r: NetworkResourceDto; content: Content }
         <ResourceIcon resource={r.resource} />
         <strong>{content.resourceName(r.resource)}</strong>
         {isShort ? (
-          <span className="net-pill short">{formatAmount(short)} short</span>
+          <span className="net-pill short">
+            {formatAmount(short)} <Term word="short">short</Term>
+          </span>
         ) : spare > 0.05 ? (
-          <span className="net-pill spare">{formatAmount(spare)} spare</span>
+          <span className="net-pill spare">
+            {formatAmount(spare)} <Term word="spare">spare</Term>
+          </span>
         ) : (
           <span className="net-pill even">balanced</span>
         )}

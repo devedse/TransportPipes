@@ -177,6 +177,7 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
   const uses = useAppStore((s) => s.goldUses);
   const gold = useAppStore((s) => s.company?.gold ?? 0);
   const content = useAppStore((s) => s.content);
+  const wantsNear = useAppStore((s) => s.company?.wantsNear?.length ?? null);
   useEffect(() => {
     void gameClient.loadGoldUses();
     // The income moves: looked at again while the panel is open
@@ -249,6 +250,17 @@ export function GoldPanel({ days, onClose }: { days: number; onClose: () => void
             {uses.want.forName !== null ? `Buy it for ${uses.want.forName}` : "Buy the rest"} ·{" "}
             {formatAmount(uses.want.cost)} g
           </button>
+          {uses.want.forName !== null && (wantsNear ?? 0) > 1 && (
+            // One of them, the one gold buys soonest (the owner, 2026-10-31: "why under the gold menu there's a
+            // button to send Gkoow things, but on the yard there is buttons to send other players something?")
+            <span className="muted small">
+              The cheapest of the {wantsNear} things your neighbours wait for. All of them, with your own
+              goods to send as well as gold:{" "}
+              <button className="link small" onClick={() => void gameClient.openYard()}>
+                the Yard panel ›
+              </button>
+            </span>
+          )}
         </div>
       )}
       {uses?.grow != null && uses.grow.parts.length > 0 && (

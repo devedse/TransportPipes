@@ -639,9 +639,11 @@ public sealed partial class GameWorld
         {
             return CommandResult.Fail($"{definition.Name} has to stand next to water.");
         }
-        if (definition.Placement.Forest && ForestAround(pos, definition.Size) < 3)
+        if (definition.Placement.Forest && ForestAround(pos, definition.Size) is var forest && forest < MinForest)
         {
-            return CommandResult.Fail($"{definition.Name} needs a forest nearby.");
+            // How much there is, and how much it needs (the owner, 2026-10-31: "can't place a lumbercamp near a forest
+            // even though there is a forest": a clump of 2 tiles, and it said only "needs a forest nearby")
+            return CommandResult.Fail($"{definition.Name} needs {MinForest} forest tiles within 2 tiles of it: here {(forest == 0 ? "there are none" : forest == 1 ? "there is 1" : $"there are {forest}")}.");
         }
         return CommandResult.Ok;
     }
@@ -711,6 +713,9 @@ public sealed partial class GameWorld
             yield return pos.Offset(size, i);
         }
     }
+
+    /// <summary>A Lumber Camp stands where at least this many forest tiles are within 2 tiles of it (12: full speed)</summary>
+    public const int MinForest = 3;
 
     /// <summary>Forest tiles within 2 tiles of the footprint that are not built on</summary>
     public int ForestAround(TilePos pos, int size)

@@ -355,8 +355,12 @@ export function canPlace(
       return fail("Must stand next to water");
     }
   }
-  if (definition.placement.forest && forestAround(world, x, y, definition.size) < 3) {
-    return fail("Needs a forest nearby");
+  const forest = definition.placement.forest ? forestAround(world, x, y, definition.size) : 0;
+  if (definition.placement.forest && forest < 3) {
+    // How much there is, and how much it needs (the owner, 2026-10-31: it said "Needs a forest nearby" beside a forest)
+    return fail(
+      `Needs 3 forest tiles within 2 tiles of it: here ${forest === 0 ? "there are none" : forest === 1 ? "there is 1" : `there are ${forest}`} (12 make it work at full speed)`,
+    );
   }
   return { ok: true, reason: null, multiplier: locationMultiplier(content, world, definition, x, y) };
 }

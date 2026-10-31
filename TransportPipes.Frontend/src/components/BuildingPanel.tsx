@@ -23,6 +23,7 @@ const PHONE = typeof window !== "undefined" && window.matchMedia?.("(max-width: 
 import { GoodsTip, LevelPrice } from "./LevelPrice";
 import { ResourceIcon } from "./ResourceIcon";
 import { StorageSliders } from "./StorageSliders";
+import { Term } from "./Term";
 
 const KIND_LABELS: Record<string, string> = {
   internal: "own",
@@ -388,12 +389,15 @@ export function BuildingPanel() {
               {definition.kind !== "hq" && levelTier(building.level) !== null && (
                 <span className="tier-name" style={{ color: levelTier(building.level)!.css }}>
                   {" "}
-                  {levelTier(building.level)!.name}
+                  <Term word="tier">{levelTier(building.level)!.name}</Term>
                 </span>
               )}
-              {details.locationMultiplier !== 1 &&
-                definition.modifier !== "none" &&
-                ` · spot ×${details.locationMultiplier.toFixed(2)}`}
+              {details.locationMultiplier !== 1 && definition.modifier !== "none" && (
+                <>
+                  {" · "}
+                  <Term word="spot">spot ×{details.locationMultiplier.toFixed(2)}</Term>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -595,9 +599,9 @@ export function BuildingPanel() {
                 />
               ))}
               <p className="muted small">
-                The line is your Hub Order: the hub pays the full price for up to that much a minute. Sell
-                more, and it pays less for all of it: the full price × √(Hub Order ÷ what you sell), so
-                selling 4× the Hub Order brings 2× the gold, not 4×.
+                The line is your <Term word="hubOrder" />: the hub pays the full price for up to that much a
+                minute. Sell more, and it pays less for all of it: the full price × √(Hub Order ÷ what you
+                sell), so selling 4× the Hub Order brings 2× the gold, not 4×.
                 {details.sales.some((t) => t.perMinute > t.hubOrder) &&
                   " Orange: you sell more than the Hub Order."}
               </p>
@@ -655,6 +659,12 @@ export function BuildingPanel() {
         <section className="upgrade">
           <h4>
             Upgrade · {levelEffect(definition.kind)}, up to level {content.progression.maxBuildingLevel}
+            {bought >= 10 && (
+              <>
+                {" · "}
+                <Term word="levelGoods">goods from level 11</Term>
+              </>
+            )}
             {nextTier(building.level) !== null && (
               <span className="muted">
                 {" "}

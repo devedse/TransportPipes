@@ -7603,3 +7603,17 @@ button.top-waits {
 .storage-total.over .storage-total-bar span {
   background: #d9442f;
 }
+
+.goods-tip-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 2px;
+}
+
+/* A game word with its explanation on hover */
+.term {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: help;
+}

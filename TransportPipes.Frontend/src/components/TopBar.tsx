@@ -5,6 +5,7 @@ import { formatAmount, formatDuration, formatRate } from "../app/format";
 import { useNow } from "../app/useNow";
 import { currentGold, setState, useAppStore } from "../state/store";
 import { GoldPanel } from "./GoldPanel";
+import { HoverPopup } from "./HoverPopup";
 import { WaitingGoods, YardClock } from "./TopWaits";
 import { levelEta } from "../app/experience";
 import { ExperiencePanel } from "./ExperiencePanel";
@@ -78,118 +79,184 @@ export function TopBar() {
 
   return (
     <div className="top-bar" ref={bar}>
-      <div
-        className="panel top-company clickable"
-        title="Your company: managers, achievements and statistics (I)"
-        onClick={() => void gameClient.openCompany()}
+      <HoverPopup
+        popup={
+          <>
+            <strong>{company.name}</strong>
+            <span className="goods-tip-line">
+              Your company. Click it (or press I) for your managers (people who run things for you while
+              you&apos;re away), your achievements and your statistics over time.
+            </span>
+          </>
+        }
       >
-        <span className="company-dot" style={{ background: company.color }} />
-        <div>
-          <div className="company-name">{company.name}</div>
-          <div className="muted small">
-            {user?.isGuest === true ? (
-              <button
-                className={keepNudge ? "link small keep-link nudge" : "link small keep-link"}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setState({ keepOpen: true, keepNudge: false });
-                }}
-              >
-                Keep my plot
-              </button>
-            ) : (
-              user?.userName
-            )}
-            {company.crew !== null && (
-              <button
-                className="link small"
-                title="Your Yard's crew (K)"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  void gameClient.openCrew();
-                }}
-              >
-                {" "}
-                · {emblemIcon(company.crew.emblem)} {company.crew.name}
-              </button>
-            )}
+        <div className="panel top-company clickable" onClick={() => void gameClient.openCompany()}>
+          <span className="company-dot" style={{ background: company.color }} />
+          <div>
+            <div className="company-name">{company.name}</div>
+            <div className="muted small">
+              {user?.isGuest === true ? (
+                <button
+                  className={keepNudge ? "link small keep-link nudge" : "link small keep-link"}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setState({ keepOpen: true, keepNudge: false });
+                  }}
+                >
+                  Keep my plot
+                </button>
+              ) : (
+                user?.userName
+              )}
+              {company.crew !== null && (
+                <button
+                  className="link small"
+                  title="Your Yard's crew (K)"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void gameClient.openCrew();
+                  }}
+                >
+                  {" "}
+                  · {emblemIcon(company.crew.emblem)} {company.crew.name}
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      </HoverPopup>
 
       {/* F9: the crew where people look, its own spot (it was clipped inside the company's name) */}
       {company.crew !== null && (
-        <button
-          className="panel top-crew"
-          title={`Your crew: ${company.crew.name} · ${company.crew.members} ${company.crew.members === 1 ? "member" : "members"}`}
-          onClick={() => void gameClient.openCrew()}
+        <HoverPopup
+          popup={
+            <>
+              <strong>
+                Your crew: {company.crew.name} · {company.crew.members}{" "}
+                {company.crew.members === 1 ? "member" : "members"}
+              </strong>
+              <span className="goods-tip-line">
+                The companies on the plots around your Yard. Together you build your Yard&apos;s Monuments
+                (each gives every member a lasting bonus) and share a Depot for goods. Click it (or press K)
+                for the crew.
+              </span>
+            </>
+          }
         >
-          <span
-            className="crew-banner-dot"
-            style={{
-              background: `linear-gradient(90deg, ${company.crew.color} 50%, ${company.crew.color2} 50%)`,
-            }}
-          >
-            {emblemIcon(company.crew.emblem)}
-          </span>
-          <span className="top-crew-name">{company.crew.name}</span>
-        </button>
+          <button className="panel top-crew" onClick={() => void gameClient.openCrew()}>
+            <span
+              className="crew-banner-dot"
+              style={{
+                background: `linear-gradient(90deg, ${company.crew.color} 50%, ${company.crew.color2} 50%)`,
+              }}
+            >
+              {emblemIcon(company.crew.emblem)}
+            </span>
+            <span className="top-crew-name">{company.crew.name}</span>
+          </button>
+        </HoverPopup>
       )}
 
       {/* Your gold in days of income, and what it can do (after run 4: the players banked 24–29 days and spent 0.2%) */}
       <div className="top-gold-wrap">
-        <button
-          className="panel top-gold"
-          aria-expanded={goldOpen}
-          title="Gold: sales to the hub and to neighbours, minus what you buy. Tap: what your gold can do"
-          onClick={() => setGoldOpen((open) => !open)}
+        <HoverPopup
+          off={goldOpen}
+          popup={
+            <>
+              <strong>
+                Your gold: {formatAmount(gold)} · {formatRate(company.goldPerMinute)}
+              </strong>
+              <span className="goods-tip-line">
+                The second number is what you earn a minute now: what your Trading Post sells to the
+                town&apos;s market (the hub), what your neighbours and links pay you, less what you buy from
+                them and the hub. It moves when the hub looks again (every minute) and at each Yard round.
+              </span>
+              {bankDays >= 1 && (
+                <span className="goods-tip-line">
+                  {bankDays < 10 ? bankDays.toFixed(1) : bankDays.toFixed(0)} days: your gold is that many
+                  days of this income.
+                </span>
+              )}
+              <span className="goods-tip-line muted">
+                Not in it: goods the market brings for your levels (paid as they come). Click: every line it
+                is made of, and what your gold can do.
+              </span>
+            </>
+          }
         >
-          <span className="gold-coin" />
-          <span className="gold-amount">{formatAmount(gold)}</span>
-          <span className={company.goldPerMinute >= 0 ? "gold-rate" : "gold-rate negative"}>
-            {formatRate(company.goldPerMinute)}
-          </span>
-          {bankDays >= 1 && (
-            <span
-              className="gold-days"
-              aria-label={`${bankDays.toFixed(0)} days of your income: what it can do`}
-            >
-              · {bankDays < 10 ? bankDays.toFixed(1) : bankDays.toFixed(0)} days ▸
-              <span className="gold-dot" />
+          <button
+            className="panel top-gold"
+            aria-expanded={goldOpen}
+            onClick={() => setGoldOpen((open) => !open)}
+          >
+            <span className="gold-coin" />
+            <span className="gold-amount">{formatAmount(gold)}</span>
+            <span className={company.goldPerMinute >= 0 ? "gold-rate" : "gold-rate negative"}>
+              {formatRate(company.goldPerMinute)}
             </span>
-          )}
-        </button>
+            {bankDays >= 1 && (
+              <span
+                className="gold-days"
+                aria-label={`${bankDays.toFixed(0)} days of your income: what it can do`}
+              >
+                · {bankDays < 10 ? bankDays.toFixed(1) : bankDays.toFixed(0)} days ▸
+                <span className="gold-dot" />
+              </span>
+            )}
+          </button>
+        </HoverPopup>
         {goldOpen && <GoldPanel days={bankDays} onClose={() => setGoldOpen(false)} />}
       </div>
       <WaitingGoods />
       <YardClock />
 
       <div className="top-level-wrap">
-        <button
-          className="panel top-level"
-          aria-expanded={xpOpen}
-          title="Company Level: it comes from all the gold you earned. Tap: where it came from"
-          onClick={() => setXpOpen((open) => !open)}
-        >
-          <div className="level-badge">{company.level}</div>
-          <div className="level-info">
-            <div className="level-line">
-              <span className="small">Company Level</span>
-              <span className="xp-numbers">
-                {formatAmount(company.lifetimeEarnings - company.levelEarned)} / {formatAmount(levelSpan)} g
+        <HoverPopup
+          off={xpOpen}
+          popup={
+            <>
+              <strong>Company Level {company.level}</strong>
+              <span className="goods-tip-line">
+                It comes from all the gold your company ever earned: at the market, from players, from orders
+                and rewards. Spending takes nothing away.{" "}
+                {formatAmount(company.lifetimeEarnings - company.levelEarned)} of the{" "}
+                {formatAmount(levelSpan)} g for level {company.level + 1} are earned
+                {levelEta(company) !== null &&
+                  `: at your income now, it comes in ${formatDuration(levelEta(company)!)}`}
+                .
               </span>
+              <span className="goods-tip-line">
+                A new level opens new buildings, research and parcels of land to buy. Click: what each level
+                opens.
+              </span>
+            </>
+          }
+        >
+          <button
+            className="panel top-level"
+            aria-expanded={xpOpen}
+            onClick={() => setXpOpen((open) => !open)}
+          >
+            <div className="level-badge">{company.level}</div>
+            <div className="level-info">
+              <div className="level-line">
+                <span className="small">Company Level</span>
+                <span className="xp-numbers">
+                  {formatAmount(company.lifetimeEarnings - company.levelEarned)} / {formatAmount(levelSpan)} g
+                </span>
+              </div>
+              <div className="xp-bar">
+                <div className="xp-fill" style={{ width: `${levelProgress * 100}%` }} />
+              </div>
+              <div className="xp-pace small">
+                {levelEta(company) !== null
+                  ? `Level ${company.level + 1} in ${formatDuration(levelEta(company)!)}`
+                  : "earned in all"}
+                <span className="xp-help">?</span>
+              </div>
             </div>
-            <div className="xp-bar">
-              <div className="xp-fill" style={{ width: `${levelProgress * 100}%` }} />
-            </div>
-            <div className="xp-pace small">
-              {levelEta(company) !== null
-                ? `Level ${company.level + 1} in ${formatDuration(levelEta(company)!)}`
-                : "earned in all"}
-              <span className="xp-help">?</span>
-            </div>
-          </div>
-        </button>
+          </button>
+        </HoverPopup>
         {xpOpen && content !== null && (
           <>
             <div className="xp-backdrop" onClick={() => setXpOpen(false)} />
@@ -207,32 +274,63 @@ export function TopBar() {
           </span>
         </div>
       )}
-      <button
-        className="panel top-era"
-        title="Your town: its Era, its Wonder, your Yard's Monuments"
-        onClick={() => void gameClient.openHub("wonders")}
+      <HoverPopup
+        popup={
+          <>
+            <strong>Your town is in Era {company.era}</strong>
+            <span className="goods-tip-line">
+              An Era is a stage of the game: each opens new buildings, goods and pipes, and the town&apos;s
+              market (the hub) buys the goods of its Era and older. The town moves to the next Era when its
+              Era Wonder is built: everyone in the town gives its stages the goods they want (Hub › Town &amp;
+              Wonder).
+            </span>
+            {company.yourEra > company.era && (
+              <span className="goods-tip-line">
+                You are in Era {company.yourEra} already: your research opened it, so you can build its
+                buildings before your town gets there.
+              </span>
+            )}
+            <span className="goods-tip-line muted">
+              Click: the town, its Wonder and your Yard&apos;s Monuments.
+            </span>
+          </>
+        }
       >
-        <span className="era-number">Era {company.era}</span>
-        <span className="muted small">
-          {company.yourEra > company.era ? `you: Era ${company.yourEra}` : "your town"}
-        </span>
-      </button>
+        <button className="panel top-era" onClick={() => void gameClient.openHub("wonders")}>
+          <span className="era-number">Era {company.era}</span>
+          <span className="muted small">
+            {company.yourEra > company.era ? `you: Era ${company.yourEra}` : "your town"}
+          </span>
+        </button>
+      </HoverPopup>
 
       {company.research.hasLab && (
-        <button
-          className="panel top-research"
-          title="Research (R): the tracks on one line, the Era tree on the other"
-          onClick={() => void gameClient.openResearch()}
+        <HoverPopup
+          popup={
+            <>
+              <strong>Research{researching !== null ? `: ${researching}` : ""}</strong>
+              <span className="goods-tip-line">
+                Your Lab researches one thing at a time. A track makes one chain of buildings faster and
+                leaner, tier by tier; the Era tree opens the next Era&apos;s pipes and systems.
+                {researching === null &&
+                  company.research.open &&
+                  " Nothing is being researched now: pick one."}
+              </span>
+              <span className="goods-tip-line muted">Click (or press R) to see and pick.</span>
+            </>
+          }
         >
-          <span>🔬</span>
-          {researching !== null ? (
-            <span className="small current-research">{researching}</span>
-          ) : company.research.open ? (
-            <span className="small current-research pick">pick one!</span>
-          ) : (
-            <span className="small current-research muted">nothing to research</span>
-          )}
-        </button>
+          <button className="panel top-research" onClick={() => void gameClient.openResearch()}>
+            <span>🔬</span>
+            {researching !== null ? (
+              <span className="small current-research">{researching}</span>
+            ) : company.research.open ? (
+              <span className="small current-research pick">pick one!</span>
+            ) : (
+              <span className="small current-research muted">nothing to research</span>
+            )}
+          </button>
+        </HoverPopup>
       )}
 
       <div className="top-spacer" />

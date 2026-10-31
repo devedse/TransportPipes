@@ -8,6 +8,7 @@ import { LinksTab } from "./LinksTab";
 import { PlanBoard } from "./PlanBoard";
 import { ResourceIcon } from "./ResourceIcon";
 import { DepotSection } from "./DepotSection";
+import { Term } from "./Term";
 
 function Rates({ rates, content, kind }: { rates: ResourceRateDto[]; content: Content; kind: string }) {
   if (rates.length === 0) {
@@ -138,7 +139,9 @@ export function YardPanel() {
     <aside className="panel yard-panel" aria-label="Yard">
       <div className="panel-header">
         <div>
-          <h3>{yard?.station ?? "Your Yard"} · Yard</h3>
+          <h3>
+            {yard?.station ?? "Your Yard"} · <Term word="yard">Yard</Term>
+          </h3>
           <div className="muted small">
             Four plots around one Yard: every seller sets its price for the crew
           </div>

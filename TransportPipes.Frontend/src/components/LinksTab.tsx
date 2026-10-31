@@ -7,6 +7,7 @@ import type { Content } from "../game/content";
 import { setState, useAppStore } from "../state/store";
 import { ResourceIcon } from "./ResourceIcon";
 import { TrunkLines } from "./TrunkLines";
+import { Term } from "./Term";
 
 /** How much of what is sent arrives, as players read it */
 function arrives(efficiency: number): string {
@@ -69,7 +70,9 @@ function LinkCard({ link, content }: { link: LinkDto; content: Content }) {
           className="link-tank"
           title={`${formatAmount(link.tank)} of ${formatAmount(link.tankSize)} ${good}`}
         >
-          <span className="small muted">Tank at {link.youSell ? `${link.partnerName}'s` : "your"} gate</span>
+          <span className="small muted">
+            <Term word="tank">Tank</Term> at {link.youSell ? `${link.partnerName}'s` : "your"} gate
+          </span>
           <span className="tank-bar">
             <span style={{ width: `${Math.min(100, (100 * link.tank) / link.tankSize)}%` }} />
           </span>

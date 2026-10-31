@@ -1,12 +1,27 @@
 import type { Overlay } from "../game/Engine";
 import { setState, useAppStore } from "../state/store";
+import { HoverPopup } from "./HoverPopup";
 
 const OVERLAYS: Array<{ id: Overlay; label: string; title: string }> = [
-  { id: "none", label: "Map", title: "The normal map with the flows" },
-  { id: "deposits", label: "Deposits", title: "Ore, coal and stone in the ground; brighter is richer" },
-  { id: "wind", label: "Wind", title: "Wind strength: red is the best spot for wind moilies" },
-  { id: "sun", label: "Sun", title: "Sunshine: yellow is the best spot for solar panels" },
-  { id: "owners", label: "Owners", title: "Who owns which buildings and pipes" },
+  { id: "none", label: "Map", title: "The normal map: your buildings, pipes and the goods flowing in them" },
+  {
+    id: "deposits",
+    label: "Deposits",
+    title:
+      "Ore, coal and stone in the ground, where a mine or a quarry can dig them; the brighter, the richer (more stars: more a minute)",
+  },
+  {
+    id: "wind",
+    label: "Wind",
+    title: "How strong the wind is: red is the best spot for a Wind Moily, which makes more energy there",
+  },
+  {
+    id: "sun",
+    label: "Sun",
+    title:
+      "How much sun each spot gets: yellow is the best spot for a Solar Panel, which makes more energy there",
+  },
+  { id: "owners", label: "Owners", title: "Who owns which buildings and pipes, in each company's colour" },
 ];
 
 /** The Wind and Sun overlays' colour scales (the map's: 0.8 to 1.4 gets the whole range), as legends (F10) */
@@ -63,16 +78,25 @@ function OverlayChips({ overlay }: { overlay: Overlay }) {
   return (
     <>
       {OVERLAYS.map((o) => (
-        <button
+        <HoverPopup
           key={o.id}
-          role="radio"
-          aria-checked={overlay === o.id}
-          className={overlay === o.id ? "chip active" : "chip"}
-          title={o.title}
-          onClick={() => setState({ overlay: o.id })}
+          width={260}
+          popup={
+            <>
+              <strong>{o.label}</strong>
+              <span className="goods-tip-line">{o.title}</span>
+            </>
+          }
         >
-          {o.label}
-        </button>
+          <button
+            role="radio"
+            aria-checked={overlay === o.id}
+            className={overlay === o.id ? "chip active" : "chip"}
+            onClick={() => setState({ overlay: o.id })}
+          >
+            {o.label}
+          </button>
+        </HoverPopup>
       ))}
     </>
   );

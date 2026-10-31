@@ -4,6 +4,7 @@ import { formatAmount, formatDuration } from "../app/format";
 import { useYardRoundIn } from "../app/yardRound";
 import type { OwnWantDto } from "../api/contracts";
 import { currentGold, useAppStore } from "../state/store";
+import { HoverPopup } from "./HoverPopup";
 import { ResourceIcon } from "./ResourceIcon";
 
 /**
@@ -15,18 +16,44 @@ export function YardClock() {
   if (left === null) {
     return null;
   }
+  const when = left >= 1 ? formatDuration(left) : "now";
   return (
-    <div
-      className="panel top-yard"
-      title={
-        "The Yard's next round. At every round your links and the Yard's trades move and your neighbours' goods for " +
-        "your levels arrive: once a minute while trades change, less often (up to every 16 minutes) when nothing " +
-        "changes. What you change at your Yard gate, in your links or your trade settings comes in at the next round."
-      }
-    >
-      <span className="small muted">Yard round</span>
-      <strong>{left >= 1 ? formatDuration(left) : "now"}</strong>
-    </div>
+    <HoverPopup popup={<YardRoundHelp when={when} />} width={360}>
+      <div className="panel top-yard" tabIndex={0}>
+        <span className="small muted">Yard round</span>
+        <strong>{when}</strong>
+      </div>
+    </HoverPopup>
+  );
+}
+
+/** What a Yard round is and does (the owner, 2026-10-31: "What is a yard round what happens every minute etc.") */
+export function YardRoundHelp({ when }: { when: string }) {
+  return (
+    <>
+      <strong>The Yard&apos;s next round: {when}</strong>
+      <span className="goods-tip-line">
+        Your plot shares a Yard with the plots around it: its gate is the yellow posts at the edge of your
+        plot, and your buildings piped to it trade there. The Yard moves those goods in rounds, also while
+        you&apos;re away. At every round:
+      </span>
+      <ul className="goods-tip-list">
+        <li>
+          what your buildings have spare goes to neighbours whose buildings lack it, and they pay your price;
+        </li>
+        <li>your neighbours&apos; spare comes to your buildings that lack it, at their price;</li>
+        <li>your links (pipes to companies at other Yards) bring and take their goods;</li>
+        <li>goods your neighbours have for your levels and new buildings arrive.</li>
+      </ul>
+      <span className="goods-tip-line">
+        A round comes about once a minute while trades change, and up to 16 minutes apart when nothing does.
+        Something you change at your gate, in your links or in your trade settings brings the next round
+        within a minute. A new trade is set up at one round, and its goods come at the next.
+      </span>
+      <span className="goods-tip-line muted">
+        Your own buildings, pipes and Trading Post don&apos;t wait for it: they work at once.
+      </span>
+    </>
   );
 }
 

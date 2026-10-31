@@ -38,6 +38,12 @@ const laid = await page.evaluate(async () => {
 check(laid !== null, "a Wind Moily piped to the Trading Post from afar", JSON.stringify(laid?.route?.length));
 await page.waitForTimeout(3000);
 const id = await page.evaluate(({ x, y }) => tp.gameClient.world.buildingAt(x, y)?.id, laid);
+// Its sale solved first (the panel lists flows once there are some)
+for (let i = 0; i < 30; i++) {
+  const selling = await page.evaluate((id) => [...tp.gameClient.world.flows.values()].some((n) => n.flows.some((f) => f.from === id && f.kind === "sale")), id);
+  if (selling) break;
+  await page.waitForTimeout(1000);
+}
 await page.evaluate((id) => tp.gameClient.showBuilding(id), id);
 await page.waitForSelector(".flow-groups", { timeout: 15000 });
 await page.waitForTimeout(1500);

@@ -427,6 +427,6 @@ public sealed partial class GameWorld
         {
             return false;
         }
-        return !definition.Placement.Forest || ForestAround(pos, definition.Size) >= 3;
+        return !definition.Placement.Forest || ForestAround(pos, definition.Size) >= MinForest;
     }
 }
