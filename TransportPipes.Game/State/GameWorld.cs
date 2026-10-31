@@ -424,12 +424,9 @@ public sealed partial class GameWorld
         _buildings[building.Id] = building;
         foreach (var tile in building.Footprint())
         {
+            // A building stands on a forest without felling it: its trees are hidden under it and grow back when it
+            // goes (playtest: a Lumber Camp placed on the forest took it, and moved away the land stayed bare)
             _buildingAt[tile] = building.Id;
-            // Building on a forest clears it
-            if (Tile(tile).Terrain == TerrainType.Forest)
-            {
-                _terrainOverrides[tile] = TerrainType.Grass;
-            }
             Changes.Tiles.Add(tile);
         }
         MarkDirty(building);
@@ -920,10 +917,24 @@ public sealed partial class GameWorld
         foreach (var tile in building.Footprint())
         {
             _buildingAt.Remove(tile);
+            RegrowForest(tile);
             Changes.Tiles.Add(tile);
         }
         _buildings.Remove(building.Id);
         Deleted.Add(building);
+    }
+
+    /// <summary>
+    /// A forest a building felled before buildings stood on forests without felling them grows back once it goes: the
+    /// land's own forest, made grass (no terraforming makes a forest grass, only that)
+    /// </summary>
+    private void RegrowForest(TilePos tile)
+    {
+        if (_terrainOverrides.TryGetValue(tile, out var now) && now == TerrainType.Grass && Generator.Tile(tile).Terrain == TerrainType.Forest)
+        {
+            // Saved as a forest (the store keeps what changed, it doesn't forget a tile)
+            _terrainOverrides[tile] = TerrainType.Forest;
+        }
     }
 
     public CommandResult Move(long companyId, long buildingId, TilePos pos)
@@ -955,6 +966,7 @@ public sealed partial class GameWorld
         foreach (var tile in building.Footprint())
         {
             _buildingAt.Remove(tile);
+            RegrowForest(tile);
             Changes.Tiles.Add(tile);
         }
         building.X = pos.X;
@@ -962,10 +974,6 @@ public sealed partial class GameWorld
         foreach (var tile in building.Footprint())
         {
             _buildingAt[tile] = building.Id;
-            if (Tile(tile).Terrain == TerrainType.Forest)
-            {
-                _terrainOverrides[tile] = TerrainType.Grass;
-            }
             Changes.Tiles.Add(tile);
         }
         // A scaffold stays one: it still waits for its materials (playtest: moved, it came up without them, and its wants

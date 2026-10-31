@@ -206,6 +206,27 @@ public class GameWorldFacts
     }
 
     [TestMethod]
+    public void ABuildingOnAForestLeavesItAndItShowsAgainWhenTheBuildingGoes()
+    {
+        // Playtest: a Lumber Camp placed on the forest felled it, and moved or demolished the land stayed bare
+        var game = new TestGame();
+        var company = game.NewCompany(gold: 1_000_000, level: 10);
+        var forest = game.Spot(company, "windMoily", t => game.World.Tile(t).Terrain == TerrainType.Forest);
+        var moily = game.Build(company, "windMoily", forest);
+        Assert.AreEqual(TerrainType.Forest, game.World.Tile(forest).Terrain, "it stands on the forest");
+
+        var to = game.Spot(company, "windMoily", t => t != forest && game.World.Tile(t).Terrain != TerrainType.Forest);
+        Assert.IsTrue(game.World.Move(company.Id, moily.Id, to).Success);
+        Assert.AreEqual(TerrainType.Forest, game.World.Tile(forest).Terrain, "moved away: the forest is there");
+
+        // Felled by a building before the fix: it grows back once the building goes
+        Assert.IsTrue(game.World.Move(company.Id, moily.Id, forest).Success);
+        game.World.LoadTerrainOverride(forest, TerrainType.Grass);
+        Assert.IsTrue(game.World.Demolish(company.Id, moily.Id).Success);
+        Assert.AreEqual(TerrainType.Forest, game.World.Tile(forest).Terrain, "demolished: the forest grows back");
+    }
+
+    [TestMethod]
     public void WhatAStorageHoldsAboveItsLineIsSoldDownToTheLine()
     {
         // Playtest: its line lowered to 805 each, the 3,891 energy from before stayed, and nothing more fitted
