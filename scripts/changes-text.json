@@ -52,5 +52,7 @@
     "Changing your selling price, stopping trade with a neighbour, and pausing a link now all happen at once (they used to wait an hour).",
     "The market's price now follows what you sell right away (it used to change slowly over an hour)."
   ],
-  "8f3cad0": ["When a building lacks a good because trading with a neighbour is switched off, its panel now says who switched it off, and where to switch it back on."]
+  "8f3cad0": ["When a building lacks a good because trading with a neighbour is switched off, its panel now says who switched it off, and where to switch it back on."],
+  "9af955a": ["Your pipes, and the buildings joined to them, form your network. A network now belongs to one player: when your pipes touch a neighbour's pipes, they stay two networks. To trade with other players, lay a pipe from your network to your Yard gate (the entrance to the shared square your plot borders). The Yard then sends your spare goods to neighbours who need them, and theirs to you."],
+  "3d75a36": ["When you zoom far out, the game now draws a simple picture of the map, which makes it much faster."]
 }
