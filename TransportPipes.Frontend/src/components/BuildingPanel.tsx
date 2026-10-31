@@ -32,10 +32,12 @@ const KIND_LABELS: Record<string, string> = {
   fromStorage: "from your Storage",
   sale: "sold to hub",
   import: "bought from hub",
+  toYard: "to neighbours through the Yard",
+  fromYard: "from neighbours through the Yard",
 };
 
 function partnerName(content: Content, type: string): string {
-  return content.building(type)?.name ?? type;
+  return type === "yardGate" ? "your Yard gate" : (content.building(type)?.name ?? type);
 }
 
 /** A group's partners in a few words: "Wind Moily", or "9 Iron Mines, 2 Wind Moilies" */

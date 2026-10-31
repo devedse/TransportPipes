@@ -52,7 +52,7 @@ public sealed partial class GameWorld
             }
             else if (GoldPerMinute().GetValueOrDefault(company.Id) is var income && income > 0 && (parcelCost - left) / income <= SaveForParcelMinutes)
             {
-                return new GrowPlan([], 0, 0, $"Saving for your next parcel ({Gold(parcelCost)}): {Gold(parcelCost - left)} more, about {Minutes((parcelCost - left) / income)} of income");
+                return new GrowPlan([], 0, 0, $"Saving for your next parcel ({Gold(parcelCost)}): {Gold(parcelCost - left)} more, {Minutes((parcelCost - left) / income)} at your income now");
             }
         }
         // Then the outskirts from Era 2, in the same way (1.4 §5)
@@ -68,7 +68,7 @@ public sealed partial class GameWorld
             else if (GoldPerMinute().GetValueOrDefault(company.Id) is var income && income > 0 && (cost - left) / income <= SaveForParcelMinutes)
             {
                 return new GrowPlan(chosen, Math.Round(chosen.Sum(t => t.Cost)), 0,
-                    chosen.Count > 0 ? null : $"Saving for your next outskirts parcel ({Gold(cost)}): {Gold(cost - left)} more, about {Minutes((cost - left) / income)} of income");
+                    chosen.Count > 0 ? null : $"Saving for your next outskirts parcel ({Gold(cost)}): {Gold(cost - left)} more, {Minutes((cost - left) / income)} at your income now");
             }
         }
         var parts = new List<GrowPart>();
@@ -213,7 +213,7 @@ public sealed partial class GameWorld
         Changes.Companies.Add(company.Id);
         var what = string.Join(" and ", new[] { land > 0 ? "a new parcel" : null, done.Count > 0 ? $"{done.Count} {(done.Count == 1 ? "building" : "buildings")}" : null }.OfType<string>());
         return CommandResult.Done($"Grown: {what} for {Gold(gold - company.Gold)}, +{Gold(plan.Gain)}/min"
-            + (plan.Goods >= 1 ? $" once its levels' goods are in (about {Gold(plan.Goods)}: your own go in first)" : ""));
+            + (plan.Goods >= 1 ? " once its levels' goods are in (your own go in first; the Grow button says what the market would charge for the rest)" : ""));
     }
 
     /// <summary>The last "Grow everything" within the hour: its levels back, as each building's Undo gives them</summary>

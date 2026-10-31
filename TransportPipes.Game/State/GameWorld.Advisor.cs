@@ -1304,8 +1304,13 @@ public sealed partial class GameWorld
         var middle = mine.Origin.Offset(WorldLayout.EstateSize / 2, WorldLayout.EstateSize / 2);
         var cost = Distance(middle, mine.YardGate) * Content.PipeTier(1).Gold;
         var first = gains[0];
+        // What is true now, not a guess at what the Yard will settle on (the owner, 2026-10-31: "everything you find make it
+        // exact"; once you're connected the neighbours' needs change, so a gold a minute can't be promised from here)
+        var hub = HubBuyPrice(company, first.Resource);
+        var theirs = PlayerPrice(first.Resource);
         add(new AdvisorStep(AdvisorKind.Partner, $"Pipe to your Yard gate: {first.Who.Name} lacks {ResourceWord(first.Resource)}",
-            $"You sell it to the hub; your neighbours pay more: about +{Gold(gain)}/min for a pipe of about {Gold(cost)}.",
+            $"{first.Who.Name} lacks {Amount(lacks[first.Resource].Amount)} a minute now, and you have {Amount(spare[first.Resource])} spare. "
+            + $"The hub pays you {theirs - hub:0.##} g less a unit than a neighbour ({hub:0.##} g against {theirs:0.##} g). The pipe costs {Gold(cost)}.",
             AdvisorAction.Partner, cost, gain, Partner: first.Who.Id, At: mine.YardGate), 1);
     }
 
@@ -1359,8 +1364,9 @@ public sealed partial class GameWorld
         }
         var from = spare[chosen.Good];
         var title = $"{NameFor(from.Who, company)} has {Amount(from.Amount)} {ResourceWord(chosen.Good)} spare a minute: build {Article(chosen.Definition.Name)} by your Yard gate";
+        // What is true now (no guess at the gold a minute: the Yard settles it once the building is there)
         add(new AdvisorStep(AdvisorKind.Chain, title,
-            $"Piped to your gate it gets them by itself: about +{Gold(chosen.Gain)}/min.",
+            $"Piped to your gate it gets them by itself, at {NameFor(from.Who, company)}'s price. At full speed it makes {string.Join(" and ", chosen.Definition.Out.Select(t => $"{Amount(t.Value)} {ResourceWord(t.Key)}"))} a minute.",
             AdvisorAction.Build, BuildCost(company, chosen.Definition), chosen.Gain, BuildingType: chosen.Definition.Id, At: FindSpot(company, chosen.Definition, estate.YardGate)), 1);
     }
 

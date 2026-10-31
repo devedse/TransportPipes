@@ -121,6 +121,8 @@ export interface CompanyDto {
   costFactor?: number;
   /** When the Yards' next round comes (links, Yard trades and neighbours' goods move then) */
   nextYardRound?: string | null;
+  /** What the market charges a minute now for the goods it brings for your levels (paid as it comes) */
+  marketForWants?: number;
 }
 
 export type GiveMode = "off" | "beyondHubOrder" | "all";
@@ -606,7 +608,9 @@ export interface StallDto {
   wants: string[];
 }
 
-export type FlowKind = "internal" | "trade" | "toStorage" | "fromStorage" | "sale" | "import";
+/** toYard, fromYard: through your Yard gate (the gate's end has no building: 0) */
+export type FlowKind =
+  "internal" | "trade" | "toStorage" | "fromStorage" | "sale" | "import" | "toYard" | "fromYard";
 
 export interface FlowDto {
   from: number;

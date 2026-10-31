@@ -159,7 +159,8 @@ export function WaitingGoods() {
                     <span key={g.resource}>
                       <ResourceIcon resource={g.resource} /> {formatAmount(Math.max(0, g.amount - g.got))} of{" "}
                       {formatAmount(g.amount)} {content.resourceName(g.resource).toLowerCase()}
-                      {g.perMinute > 0.005 && ` · ${formatAmount(g.perMinute)}/min coming`}
+                      {g.perMinute > 0.005 &&
+                        ` · ${formatAmount(g.perMinute)}/min coming: in ${formatDuration((Math.max(0, g.amount - g.got) / g.perMinute) * 60)} at this rate`}
                     </span>
                   ))}
                 </div>

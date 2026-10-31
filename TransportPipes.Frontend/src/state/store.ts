@@ -408,5 +408,8 @@ export function currentGold(state: Pick<AppState, "company" | "companyAt">, now 
   if (state.company === null) {
     return 0;
   }
-  return Math.max(0, state.company.gold + (state.company.goldPerMinute * (now - state.companyAt)) / 60000);
+  // What the market charges for the goods it brings for your levels goes too (the audit, 2026-10-31: the counter ran
+  // ahead and jumped back when the server's figure came)
+  const perMinute = state.company.goldPerMinute - (state.company.marketForWants ?? 0);
+  return Math.max(0, state.company.gold + (perMinute * (now - state.companyAt)) / 60000);
 }

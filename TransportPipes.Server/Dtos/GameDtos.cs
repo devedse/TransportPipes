@@ -122,7 +122,9 @@ public record CompanyDto(
     /// <summary>What buildings and parcels cost of their price (the Workshop wonder's perk makes them cheaper): the build menu's prices are the gold taken</summary>
     double CostFactor = 1,
     /// <summary>When the Yards' next round comes (links, Yard trades and neighbours' goods move then)</summary>
-    DateTime? NextYardRound = null);
+    DateTime? NextYardRound = null,
+    /// <summary>What the market charges a minute now for the goods it brings for your levels (paid as it comes: the top bar's gold counts it)</summary>
+    double MarketForWants = 0);
 
 /// <summary>Your plot's outskirts (1.4 §5): the parcels you bought (bits 0..8), what the next costs, and why you can't buy one yet</summary>
 public record OutskirtsDto(int Parcels, double NextCost, string? Blocker);

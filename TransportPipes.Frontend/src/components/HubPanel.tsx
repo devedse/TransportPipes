@@ -285,6 +285,17 @@ export function HubPanel() {
               Goods of a later Era than your town&apos;s earn a quarter. Players set their own prices, between
               what the market pays and what it charges.
             </p>
+            {/* When it looks again (the audit, 2026-10-31: the server sent it, nothing showed it) */}
+            <p className="small">
+              The market looks again in{" "}
+              <strong>
+                {formatDuration(Math.max(0, (new Date(market.nextUpdate).getTime() - serverNow) / 1000)) ===
+                "instant"
+                  ? "a moment"
+                  : formatDuration(Math.max(0, (new Date(market.nextUpdate).getTime() - serverNow) / 1000))}
+              </strong>
+              : these prices count until then.
+            </p>
             <table className="market-table">
               <thead>
                 <tr>

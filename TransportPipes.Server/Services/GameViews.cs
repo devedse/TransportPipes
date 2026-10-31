@@ -105,7 +105,8 @@ public static partial class GameViews
             company.Explored.ToList(),
             Math.Round(world.OwnGoodsIntoWants(company)),
             world.CostFactor(company),
-            world.NextYardRound);
+            world.NextYardRound,
+            Math.Round(world.MarketForWants(company).Sum(t => t.PerMinute * t.Price), 1));
     }
 
     /// <summary>Building in the Yard (1.4 §7): your workshop tiles, and the crew's Depot</summary>
@@ -842,6 +843,20 @@ public static partial class GameViews
             }
             flows.Add(new FlowDto(flow.From, flow.To, flow.Resource, flow.Sent, flow.Delivered, Camel(flow.Kind), flow.PricePerUnit, path));
         }
+        // What goes through its Yard gates too, on the pipes to the gate (the audit, 2026-10-31: those pipes looked empty
+        // on the map and in the hover): the gate's end has no building (0)
+        foreach (var gate in network.GateFlows)
+        {
+            var link = network.GateLinks.Where(t => t.Building == gate.Building && (t.Resources == null || t.Resources.Contains(gate.Resource)))
+                .OrderByDescending(t => t.Efficiency).FirstOrDefault();
+            if (link == null)
+            {
+                continue;
+            }
+            var tiles = gate.Import ? link.Path.Reverse() : link.Path;
+            flows.Add(new FlowDto(gate.Import ? 0 : gate.Building, gate.Import ? gate.Building : 0, gate.Resource, gate.Sent, gate.Delivered,
+                gate.Import ? "fromYard" : "toYard", gate.Price, tiles.SelectMany(t => new[] { t.X, t.Y }).ToList()));
+        }
         return new NetworkFlowsDto(network.Id, network.Solution.Rates, flows);
     }
 
@@ -882,6 +897,11 @@ public static partial class GameViews
             {
                 sent[flow.Resource] = sent.GetValueOrDefault(flow.Resource) + flow.Sent;
             }
+            // A row of its own (the audit, 2026-10-31: counted in the bars, missing from Where it goes): a seller is paid
+            // for what its buyers take, a buyer pays for what leaves the Yard
+            flows.Add(new BuildingFlowDto(flow.Import ? "in" : "out", flow.Resource, flow.Import ? flow.Delivered : flow.Sent, 0, "yardGate", "",
+                flow.Import ? "fromYard" : "toYard", flow.Price, Math.Round(flow.Sent, 2), Math.Round(flow.Delivered, 2),
+                Math.Round((flow.Import ? flow.Sent : flow.Delivered) * flow.Price, 2)));
         }
 
         BuildingFlowDto Partner(string direction, Flow flow, long partnerId, double amount)

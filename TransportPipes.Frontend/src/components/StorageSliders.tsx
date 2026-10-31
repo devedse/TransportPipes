@@ -52,6 +52,11 @@ export function StorageSliders({
   for (const flow of flows.filter((t) => t.direction === "in")) {
     coming[flow.resource] = (coming[flow.resource] ?? 0) + flow.amount;
   }
+  // What it lets go to be sold now, a minute (the audit, 2026-10-31: "about a tenth of it a minute", never the number)
+  const selling: Record<string, number> = {};
+  for (const flow of flows.filter((t) => t.direction === "out" && t.kind === "sale")) {
+    selling[flow.resource] = (selling[flow.resource] ?? 0) + flow.amount;
+  }
   const listed = [
     ...new Set([
       ...Object.keys(contents),
@@ -133,6 +138,8 @@ export function StorageSliders({
                 {kept > 0.5
                   ? `keeps ${formatAmount(kept)}${need > value + 0.5 ? " (what's needed)" : ""}; above it is sold`
                   : "keeps none: all of it goes on to be sold"}
+                {(selling[resource] ?? 0) > 0.05 &&
+                  ` · now ${formatAmount(selling[resource] ?? 0)}/min to your Trading Post`}
               </div>
             </li>
           );
