@@ -112,12 +112,16 @@ jobs:
     steps:
     - uses: actions/checkout@v7
       with:
-        # The history, for the game's "What's new" (scripts/changes.mjs)
+        # The history and the release tags, for the game's "What's new" (scripts/changes.mjs)
         fetch-depth: 0
+        fetch-tags: true
     - uses: actions/setup-node@v7
       with:
         node-version-file: TransportPipes.Frontend/.nvmrc
     - name: Write the game's changes (What's new)
+      # This build's version for its own changes (the release tag comes after the build)
+      env:
+        VERSION: ${{ needs.generate_version_number.outputs.version }}
       run: node scripts/changes.mjs
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v4

@@ -7,9 +7,19 @@ test server runs).
 ## Every commit goes into the release notes
 
 The game's "What's new" shows players what changed after an update, made from the commits by `scripts/changes.mjs`
-(every commit that touches the game, newest first). So write every commit for them too: give it a
-`Player: <one plain line for players>` line in its message, several for several changes, `Player: -` for one players
+(every commit that touches the game, newest first, under the version it came in). So write every commit for them too:
+give it a `Player: <line for players>` line in its message, several for several changes, `Player: -` for one players
 don't notice (it is left out). Without one, its subject is shown.
+
+Write those lines for someone who plays for the first time today:
+
+- Plain words, short sentences. Say what the player now sees or does differently, and where (which panel, which button).
+- Explain every game word again, from scratch, each time it comes up, even if an earlier line explained it: what a Hub
+  Order, the Yard, a Storage's line, a want, a level's goods is, and where to find it. Never a word only the code uses.
+- No internal names, numbers of tests or playtest runs; one change a line.
+
+A line that is out already and unclear gets better words in `scripts/changes-text.json` (its commit → its lines, or
+`"-"` to leave it out): the card shows those instead.
 
 ## Before you push
 

@@ -1,6 +1,7 @@
 // What's new (playtest: an update came with "New update!" and no word of what changed): after an update the changes
 // since the newest one seen on this browser, a day a list; seen once closed; a new company gets none; the version badge
-// shows the latest; Earlier changes goes further back (playtest: "can we also show historical updates?"). Needs
+// shows the latest; Earlier changes goes further back (playtest: "can we also show historical updates?"), a version a
+// list ("show the historical changes per version, not per day"). Needs
 // TransportPipes.Frontend/public/changes.json (node scripts/changes.mjs). node whats-new.mjs <outdir>
 import { start, newPlayer } from "./lib.mjs";
 const [out = "shots/whats-new"] = process.argv.slice(2);
@@ -24,7 +25,7 @@ console.log(items);
 // (newer than the one seen: one pushed in the same second was there with it)
 const since = changes.changes.filter((t) => new Date(t.date) > new Date(changes.changes[3].date)).flatMap((t) => t.text);
 check(items.length === since.length && items[0] === since[0], "the changes since, newest first", JSON.stringify(items));
-check((await card.locator("h4").first().innerText()).length > 0, "under their day");
+check(/^Version 1\.0\.\d+ · /.test(await card.locator("h4").first().innerText()), "under their version", await card.locator("h4").first().innerText());
 await shot("1-new");
 // Further back: the earlier changes too, a page at a time
 await card.locator("button", { hasText: "Earlier changes" }).click();

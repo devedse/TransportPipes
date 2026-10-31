@@ -5,7 +5,10 @@ import { appStore, setState, useAppStore } from "../state/store";
 interface Changes {
   commit: string;
   date: string;
-  changes: Array<{ commit: string; date: string; text: string[] }>;
+  /** This build's version */
+  version?: string | null;
+  /** Each with the version it came in (null: before versions were kept, by day) */
+  changes: Array<{ commit: string; date: string; version?: string | null; text: string[] }>;
 }
 
 /** The date of the newest change the player has seen */
@@ -121,12 +124,18 @@ export function WhatsNew() {
       : null;
   const shown = back !== null ? changes.changes.slice(0, back) : (fresh ?? changes.changes).slice(0, MAX);
   const earlier = changes.changes.length - shown.length;
-  // One list a day, newest first
-  const days: Array<{ day: string; items: string[] }> = [];
+  // One list a version, newest first (playtest: "show the historical changes per version, not per day"); before
+  // versions were kept, one a day
+  const days: Array<{ key: string; day: string; items: string[] }> = [];
   for (const change of shown) {
-    const day = dayName(new Date(change.date));
-    if (days.at(-1)?.day !== day) {
-      days.push({ day, items: [] });
+    const when = new Date(change.date);
+    const day =
+      change.version != null
+        ? `Version ${change.version} · ${dayName(when)} ${when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+        : `Earlier · ${dayName(when)}`;
+    const key = change.version ?? day;
+    if (days.at(-1)?.key !== key) {
+      days.push({ key, day, items: [] });
     }
     days.at(-1)!.items.push(...change.text);
   }
@@ -154,7 +163,7 @@ export function WhatsNew() {
           </button>
         </div>
         {days.map((d) => (
-          <section key={d.day}>
+          <section key={d.key}>
             <h4>{d.day}</h4>
             <ul className="whats-new-list">
               {d.items.map((text, i) => (

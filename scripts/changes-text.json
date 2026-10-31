@@ -1,0 +1,56 @@
+{
+  "_": "What's new in plain words for a first-time player, by commit (a commit's message can't change; this can). A list of lines, or \"-\" to leave the commit out. scripts/changes.mjs reads it.",
+  "29d58cf": ["Pipes that go into the back of a building are now drawn behind it, so you can see where the goods go in."],
+  "07d6b77": ["The game has a new logo, also on your browser tab."],
+  "ddb9278": ["The price buttons in your trade settings now step on from the price you just set."],
+  "fa8882a": [
+    "Hub orders are extra requests from the town's market (the hub): it pays you twice the normal price for a set amount of one good. You now get an order for each good you sell, an order fills by itself as you sell that good, the extra gold is really paid, and you can also deliver an order from your Storages."
+  ],
+  "0facad4": ["Upgrade buttons show their price in gold only."],
+  "682b53d": [
+    "A Lumber Camp (it makes wood) can now stand next to any forest.",
+    "When a building waits for several goods, each good has its own \"Buy the rest\" button.",
+    "The texts about the Yard and the town's Wonder are clearer."
+  ],
+  "a55aa0e": ["Click the Yard (the shared square your plot borders, where neighbours trade) to see what it does for you, step by step."],
+  "64200d9": ["In your trade settings you now see who you stopped trading with, and which of your prices each kind of buyer pays."],
+  "097fd13": ["Press E to move the building you have selected."],
+  "621c306": ["Asking for a better pipe twice no longer orders it twice. Orders for pipes that are already better are cancelled, and their gold comes back."],
+  "76dca44": ["When the game updates, this card now tells you what changed since you last played. Click the version number in the bottom-left corner to see it again any time."],
+  "3b66c24": [
+    "Some buildings wait for goods, such as planks or bricks, before they are finished or reach their next level. You find them in the Yard panel under \"What you're waiting for\". Each building now has one line per good there, and its \"Buy the rest\" button costs exactly what it says.",
+    "New: \"Buy all the rest\" at the top of that list buys every missing good at once from the market.",
+    "A building that still waits for its goods keeps waiting when you move it, and gives you all its gold back when you demolish it."
+  ],
+  "35a4283": ["A Storage keeps each good up to its line (you choose the line in the Storage's panel). What it holds above the line is now sold at your Trading Post, a little every minute, so lowering the line makes room again."],
+  "c411a51": [
+    "When you upgrade a pipe to a better kind and it still waits for its goods (copper ingots, for example), the pipe now glows in the new pipe's colour with an arrow over it. Point at it to see what it still needs.",
+    "The \"Waits\" line in the bottom-left corner shows what your buildings wait for. When more than one thing waits, it now has a \"Buy all the rest\" button."
+  ],
+  "4c62e9c": ["The \"Undo\" button after buying a building or a level is gone."],
+  "892de75": ["Buildings no longer flash \"ZZ\" (the sign that a building is idle) for a moment while levels you bought come in."],
+  "d66359e": [
+    "Click any building: what it does right now (what it needs, makes, holds or sells) is at the top of its panel, above the Upgrade buttons.",
+    "Your Trading Post sells your goods to the town's market. The market pays full price for each good up to an amount a minute, your Hub Order, and less above it. The Trading Post's panel now shows, for each good, a bar of how much you sell against that amount.",
+    "The Trading Post's \"Buy from the hub\" list is back: tick a good there, and your Trading Post buys it from the market for the buildings on its pipes."
+  ],
+  "9ab52ee": [
+    "\"Grow\" (click your gold at the top) buys the upgrades that pay back fastest in one click. It now says how much more gold a minute you really get, and what the goods for levels from 11 cost on top.",
+    "On a big network, the \"+X g/min\" a level promises is now much closer to what the level really brings."
+  ],
+  "d320602": ["Upgrading your Lab now makes research faster: 1% faster for every level."],
+  "013844e": ["The Big Factory: research it in your Lab and you can build it before Company Level 12. At Company Level 12 everyone gets it anyway."],
+  "70fccf7": ["After you send a chat message, you can keep typing the next one straight away."],
+  "065c83a": ["\"Earlier changes\" at the bottom of this card shows older updates."],
+  "e115246": ["You can build one Lab. Upgrade it to make research faster."],
+  "833111e": ["Levels from 11 wait for goods. Your own goods go into them first, so for a while you sell less. The \"Waits\" line in the bottom-left corner now says how much less you sell each minute, until the goods are in."],
+  "df49ad2": ["When a building is short of a good, its panel now says why no neighbour sends it, and how else to get it (for example, buying it from the market at your Trading Post)."],
+  "771a3e7": ["Click your gold at the top of the screen: it now lists exactly where your gold a minute comes from (each good you sell, how many, at what price), and why the number keeps changing."],
+  "8d9ee6a": ["Click a building to see its network (everything joined to it by pipes). Each good now shows how much is sold and for how much gold, and these add up to the gold line at the bottom."],
+  "de6a3b2": ["Placing a building on a forest no longer cuts the forest down. When you move or remove the building, the trees are there again."],
+  "691247d": [
+    "Changing your selling price, stopping trade with a neighbour, and pausing a link now all happen at once (they used to wait an hour).",
+    "The market's price now follows what you sell right away (it used to change slowly over an hour)."
+  ],
+  "8f3cad0": ["When a building lacks a good because trading with a neighbour is switched off, its panel now says who switched it off, and where to switch it back on."]
+}
