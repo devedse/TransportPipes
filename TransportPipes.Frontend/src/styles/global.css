@@ -464,6 +464,17 @@ kbd {
   white-space: nowrap;
 }
 
+/* A small gold coin in a line of text: the amount next to it is gold */
+.coin {
+  display: inline-block;
+  width: 0.95em;
+  height: 0.95em;
+  border-radius: 50%;
+  vertical-align: -0.12em;
+  background: radial-gradient(circle at 35% 35%, #fff3b0, var(--gold) 55%, #b8860b);
+  box-shadow: 0 0 0 1px rgba(120, 80, 10, 0.45);
+}
+
 .gold-coin {
   display: inline-block;
   width: 18px;
@@ -5692,6 +5703,7 @@ button.big {
 .crew-banner {
   padding: 8px 12px;
   border-radius: 10px;
+  border: 2px solid rgba(43, 29, 14, 0.55);
   color: #fff;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   font-size: 1.05rem;

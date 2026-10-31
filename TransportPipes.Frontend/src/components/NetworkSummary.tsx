@@ -85,14 +85,19 @@ function ResourceRow({ r, content }: { r: NetworkResourceDto; content: Content }
         <div className="net-where small muted">
           {[
             r.used > 0.05 && `used by buildings ${formatAmount(r.used)}`,
-            r.sold > 0.05 &&
-              `sold to the hub ${formatAmount(r.sold)} × ${((r.soldGold ?? 0) / r.sold).toFixed(2)} g = +${formatAmount(r.soldGold ?? 0)} g`,
             r.toYard > 0.05 && `sold through the Yard ${formatAmount(r.toYard)}`,
             r.stored > 0.05 && `stored ${formatAmount(r.stored)}`,
             r.lost > 0.05 && `lost in the pipes ${formatAmount(r.lost)}`,
           ]
             .filter(Boolean)
             .join(" · ")}
+          {r.sold > 0.05 && (
+            <span className="net-where-gold">
+              {r.used > 0.05 || r.toYard > 0.05 || r.stored > 0.05 || r.lost > 0.05 ? " · " : ""}
+              sold to the hub {formatAmount(r.sold)} × {((r.soldGold ?? 0) / r.sold).toFixed(2)} g ={" "}
+              <span className="coin" /> +{formatAmount(r.soldGold ?? 0)} g
+            </span>
+          )}
         </div>
       )}
       {isShort && (
@@ -166,7 +171,10 @@ export function NetworkSummary({
         </p>
       )}
 
-      <h4 className="net-money-title">Money per minute</h4>
+      {/* Gold says so with its coin (playtest: "when I click a pipe I clearly want to see the gold icon if it's about gold") */}
+      <h4 className="net-money-title">
+        <span className="coin" /> Money per minute
+      </h4>
       <div className="net-money">
         {owners.map((owner) => {
           const mine = owner.id === ownCompany;
@@ -180,7 +188,7 @@ export function NetworkSummary({
                   {mine && <span className="muted"> (you)</span>}
                 </span>
                 <span className={owner.goldPerMinute >= 0 ? "net-gold plus" : "net-gold minus"}>
-                  {formatRate(owner.goldPerMinute)} g
+                  <span className="coin" /> {formatRate(owner.goldPerMinute)} g
                 </span>
               </div>
               <div className="net-diverge">

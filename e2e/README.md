@@ -51,6 +51,7 @@ and piped to the post (`kit(page, types, 2)` in Copper Pipe, its ingots stocked)
 | `lumber.mjs` | Lumber Camps next to a plot's forest: the client allows them and the server builds one (playtest: the client still asked for the old forest's marked trees) |
 | `buy-rest.mjs` | A level's goods bought one good at a time: each good's Buy the rest buys that good at its price, the level waits for the rest |
 | `level-flicker.mjs` | A level's goods coming in: the building steps up in its own network (same id), and the running buildings on its pipes never show ZZ meanwhile |
+| `pipes-apart.mjs` | Two players' pipes that touch in the wilderness: two networks on the server, and drawn apart |
 | `far-zoom.mjs` | Zoomed out each chunk is drawn as its far picture only (no hidden ground or objects); zoomed in again in full |
 | `forest-regrow.mjs` | A building on a forest leaves it standing, and moved away the trees are there again |
 | `network-numbers.mjs` | The network panel's numbers: each good's hub sales as units × price = gold, adding up to the hub's money line |

@@ -2221,11 +2221,18 @@ export class Engine {
   }
 
   private pipeLook(x: number, y: number, extra?: (x: number, y: number) => boolean): PipeLook {
+    // Only its owner's pipes and buildings: another player's pipe beside it stays apart, as on the server (playtest:
+    // "I also visually see them connecting to each other")
+    const owner = this.world.conductorAt(x, y)?.owner ?? null;
+    const same = (other: number | null | undefined) => owner === null || other === owner;
     return pipeLookOf(
       x,
       y,
-      (tx, ty) => this.world.conductorAt(tx, ty) !== undefined || (extra?.(tx, ty) ?? false),
-      (tx, ty) => this.pipeBuildingAt(tx, ty),
+      (tx, ty) => {
+        const next = this.world.conductorAt(tx, ty);
+        return (next !== undefined && same(next.owner)) || (extra?.(tx, ty) ?? false);
+      },
+      (tx, ty) => this.pipeBuildingAt(tx, ty) && same(this.world.buildingAt(tx, ty)?.owner),
     );
   }
 
